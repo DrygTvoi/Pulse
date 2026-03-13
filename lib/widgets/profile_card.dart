@@ -1,0 +1,351 @@
+import 'dart:convert';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../theme/app_theme.dart';
+import '../controllers/chat_controller.dart';
+import '../services/signal_service.dart';
+
+/// Self-contained profile editing card for use in Settings.
+/// Reads / writes from SharedPreferences key `user_profile`.
+class ProfileCard extends StatefulWidget {
+  final bool showAddressCard;
+  const ProfileCard({super.key, this.showAddressCard = true});
+
+  @override
+  State<ProfileCard> createState() => _ProfileCardState();
+}
+
+class _ProfileCardState extends State<ProfileCard> {
+  final _nameController = TextEditingController();
+  final _aboutController = TextEditingController();
+  bool _saving = false;
+  String _fingerprint = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _aboutController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _load() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString('user_profile');
+    if (raw != null) {
+      try {
+        final data = jsonDecode(raw);
+        _nameController.text = data['name'] ?? '';
+        _aboutController.text = data['about'] ?? '';
+      } catch (_) {}
+    }
+    final fp = SignalService().ownFingerprint;
+    if (mounted) setState(() => _fingerprint = fp);
+  }
+
+  Future<void> _save() async {
+    setState(() => _saving = true);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('user_profile', jsonEncode({
+      'name': _nameController.text.trim(),
+      'about': _aboutController.text.trim(),
+    }));
+    setState(() => _saving = false);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Profile saved!', style: GoogleFonts.inter()),
+        backgroundColor: AppTheme.primary,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        duration: const Duration(seconds: 2),
+      ));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final name = _nameController.text.trim();
+    final initial = name.isNotEmpty ? name[0].toUpperCase() : '?';
+    final hue = name.isNotEmpty
+        ? (name.codeUnitAt(0) * 17 + name.length * 31) % 360
+        : 150;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTheme.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppTheme.primary.withValues(alpha:0.12), width: 1),
+      ),
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        children: [
+          // ─── Avatar row ──────────────────────────────
+          Row(
+            children: [
+              // Identicon avatar
+              Container(
+                width: 72, height: 72,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      HSLColor.fromAHSL(1, hue.toDouble(), 0.6, 0.45).toColor(),
+                      HSLColor.fromAHSL(1, hue.toDouble(), 0.5, 0.30).toColor(),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: HSLColor.fromAHSL(1, hue.toDouble(), 0.6, 0.40).toColor().withValues(alpha:0.35),
+                      blurRadius: 14,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Center(
+                  child: Text(initial,
+                      style: GoogleFonts.inter(
+                          color: Colors.white, fontSize: 28, fontWeight: FontWeight.w700)),
+                ),
+              ),
+              const SizedBox(width: 18),
+              // Info
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      name.isNotEmpty ? name : 'Your Name',
+                      style: GoogleFonts.inter(
+                          color: name.isNotEmpty ? AppTheme.textPrimary : AppTheme.textSecondary,
+                          fontSize: 18, fontWeight: FontWeight.w700),
+                    ),
+                    if (_fingerprint.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      GestureDetector(
+                        onTap: () {
+                          Clipboard.setData(ClipboardData(text: _fingerprint));
+                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                            content: Text('Fingerprint copied', style: GoogleFonts.inter(fontSize: 13)),
+                            duration: const Duration(seconds: 2),
+                            backgroundColor: AppTheme.surfaceVariant,
+                          ));
+                        },
+                        child: Row(
+                          children: [
+                            Icon(Icons.shield_rounded, size: 12, color: AppTheme.primary),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                _fingerprint,
+                                style: GoogleFonts.jetBrainsMono(
+                                    color: AppTheme.textSecondary, fontSize: 10),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primary.withValues(alpha:0.12),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Row(mainAxisSize: MainAxisSize.min, children: [
+                        Icon(Icons.lock_rounded, size: 10, color: AppTheme.primary),
+                        const SizedBox(width: 4),
+                        Text('E2EE Identity',
+                            style: GoogleFonts.inter(
+                                color: AppTheme.primary, fontSize: 10, fontWeight: FontWeight.w700)),
+                      ]),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 20),
+          const Divider(height: 1, thickness: 0.5),
+          const SizedBox(height: 18),
+
+          // ─── Name field ─────────────────────────────
+          _buildField(
+            controller: _nameController,
+            label: 'Display Name',
+            hint: 'e.g. Ivan Ivanov',
+            icon: Icons.person_rounded,
+            onChanged: (_) => setState(() {}),
+          ),
+          const SizedBox(height: 12),
+
+          // ─── About field ─────────────────────────────
+          _buildField(
+            controller: _aboutController,
+            label: 'About',
+            hint: 'Privacy first 🔒',
+            icon: Icons.info_outline_rounded,
+          ),
+          const SizedBox(height: 20),
+
+          // ─── My Inbox Address ────────────────────────
+          if (widget.showAddressCard) ...[
+            const InboxAddressCard(),
+            const SizedBox(height: 20),
+          ],
+
+          // ─── Save button ─────────────────────────────
+          SizedBox(
+            width: double.infinity,
+            height: 46,
+            child: ElevatedButton(
+              onPressed: _saving ? null : _save,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primary,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                elevation: 0,
+              ),
+              child: _saving
+                  ? const SizedBox(width: 20, height: 20,
+                      child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                  : Text('Save Profile', style: GoogleFonts.inter(
+                      fontWeight: FontWeight.w700, color: Colors.white, fontSize: 15)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildField({
+    required TextEditingController controller,
+    required String label, required String hint, required IconData icon,
+    ValueChanged<String>? onChanged,
+  }) {
+    return TextField(
+      controller: controller,
+      style: GoogleFonts.inter(color: AppTheme.textPrimary, fontSize: 14),
+      onChanged: onChanged,
+      decoration: InputDecoration(
+        labelText: label,
+        hintText: hint,
+        labelStyle: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: 13),
+        prefixIcon: Icon(icon, color: AppTheme.textSecondary, size: 18),
+        filled: true,
+        fillColor: AppTheme.surfaceVariant,
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide(color: AppTheme.primary, width: 1.5),
+        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      ),
+    );
+  }
+}
+
+/// Shows all shareable inbox addresses (primary + secondaries) with copy buttons.
+class InboxAddressCard extends StatelessWidget {
+  const InboxAddressCard({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: ChatController(),
+      builder: (context, _) {
+        final addresses = ChatController().allAddresses;
+        if (addresses.isEmpty) return const SizedBox.shrink();
+
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: AppTheme.surfaceVariant,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: AppTheme.primary.withValues(alpha: 0.2)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.share_rounded, size: 13, color: AppTheme.primary),
+                  const SizedBox(width: 6),
+                  Text(
+                    addresses.length > 1 ? 'Your Inbox Addresses' : 'Your Inbox Address',
+                    style: GoogleFonts.inter(
+                        color: AppTheme.primary,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.4),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              for (final address in addresses) ...[
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        address,
+                        style: GoogleFonts.jetBrainsMono(
+                            color: AppTheme.textPrimary, fontSize: 11),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    GestureDetector(
+                      onTap: () {
+                        Clipboard.setData(ClipboardData(text: address));
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                          content: Text('Address copied!', style: GoogleFonts.inter()),
+                          backgroundColor: AppTheme.primary,
+                          behavior: SnackBarBehavior.floating,
+                          duration: const Duration(seconds: 2),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10)),
+                        ));
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: AppTheme.primary.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(mainAxisSize: MainAxisSize.min, children: [
+                          Icon(Icons.copy_rounded, size: 13, color: AppTheme.primary),
+                          const SizedBox(width: 4),
+                          Text('Copy',
+                              style: GoogleFonts.inter(
+                                  color: AppTheme.primary,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600)),
+                        ]),
+                      ),
+                    ),
+                  ],
+                ),
+                if (address != addresses.last) const SizedBox(height: 6),
+              ],
+              const SizedBox(height: 6),
+              Text('Share with contacts so they can message you.',
+                  style: GoogleFonts.inter(
+                      color: AppTheme.textSecondary, fontSize: 10)),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
