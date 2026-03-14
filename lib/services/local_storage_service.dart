@@ -1,4 +1,6 @@
 import 'dart:convert';
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
@@ -10,13 +12,19 @@ class LocalStorageService {
   Database? _db;
 
   Future<void> init() async {
-    sqfliteFfiInit();
-    databaseFactory = databaseFactoryFfi;
+    final String path;
+    if (!kIsWeb && (Platform.isLinux || Platform.isWindows || Platform.isMacOS)) {
+      sqfliteFfiInit();
+      databaseFactory = databaseFactoryFfi;
+      final dbDir = await databaseFactoryFfi.getDatabasesPath();
+      path = '$dbDir/messages.db';
+    } else {
+      // Android / iOS: sqflite plugin sets databaseFactory natively.
+      final dbDir = await databaseFactory.getDatabasesPath();
+      path = '$dbDir/messages.db';
+    }
 
-    final dbDir = await databaseFactoryFfi.getDatabasesPath();
-    final path = '$dbDir/messages.db';
-
-    _db = await databaseFactoryFfi.openDatabase(
+    _db = await databaseFactory.openDatabase(
       path,
       options: OpenDatabaseOptions(
         version: 1,

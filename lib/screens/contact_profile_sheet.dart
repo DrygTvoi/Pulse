@@ -429,6 +429,15 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
                       ],
                     ),
                   ),
+                  if (_contact.bio.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      _contact.bio,
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.inter(
+                          color: AppTheme.textSecondary, fontSize: 13),
+                    ),
+                  ],
                   const SizedBox(height: 6),
                   _buildProviderBadge(),
                   const SizedBox(height: 20),

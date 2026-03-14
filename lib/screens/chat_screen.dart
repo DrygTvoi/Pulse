@@ -9,11 +9,13 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'call_screen.dart';
 import 'group_call_screen.dart';
 import 'contact_profile_sheet.dart';
+import 'media_gallery_screen.dart';
 import '../models/contact.dart';
 import '../controllers/chat_controller.dart';
 import '../models/message.dart';
 import '../services/media_service.dart';
 import '../services/voice_service.dart';
+import '../services/notification_service.dart';
 import '../widgets/message_bubble.dart';
 
 class ChatScreen extends StatefulWidget {
@@ -43,9 +45,22 @@ class _ChatScreenState extends State<ChatScreen> {
   int _recordingSeconds = 0;
   Timer? _recordingTimer;
 
+  // Input focus for glow effect
+  final FocusNode _inputFocusNode = FocusNode();
+  bool _inputFocused = false;
+
   // Message editing / replying state
   String? _editingMessageId;
   Message? _replyingTo;
+
+  bool _chatMuted = false;
+
+  // Delete animation
+  final _pendingDelete = <String>{};
+
+  // Scroll-to-bottom FAB
+  bool _showScrollFab = false;
+  int _unreadWhileScrolled = 0;
 
   @override
   void initState() {
@@ -55,7 +70,10 @@ class _ChatScreenState extends State<ChatScreen> {
       final ctrl = context.read<ChatController>();
       await ctrl.loadRoomHistory(_contact);
       await ctrl.markRoomAsRead(_contact);
+      if (_contact.isGroup) unawaited(ctrl.markGroupMessagesRead(_contact));
       if (mounted) setState(() => _chatTtlSeconds = ctrl.getChatTtlCached(_contact.id));
+      final muted = await NotificationService().isChatMuted(_contact.id);
+      if (mounted) setState(() => _chatMuted = muted);
       _scrollToBottom(animated: false);
       // Restore draft
       final prefs = await SharedPreferences.getInstance();
@@ -67,6 +85,19 @@ class _ChatScreenState extends State<ChatScreen> {
     });
     _scrollController.addListener(_onScroll);
     _controller.addListener(_onTyping);
+    _inputFocusNode.addListener(() {
+      if (mounted) setState(() => _inputFocused = _inputFocusNode.hasFocus);
+    });
+    // Ctrl+Enter to send on desktop
+    _inputFocusNode.onKeyEvent = (_, event) {
+      if (event is KeyDownEvent &&
+          event.logicalKey == LogicalKeyboardKey.enter &&
+          HardwareKeyboard.instance.isControlPressed) {
+        _sendMessage();
+        return KeyEventResult.handled;
+      }
+      return KeyEventResult.ignored;
+    };
     _typingSub = ChatController().typingUpdates.listen((contactId) {
       if (contactId == _contact.id && mounted) setState(() {});
     });
@@ -120,6 +151,7 @@ class _ChatScreenState extends State<ChatScreen> {
     _recordingTimer?.cancel();
     _controller.removeListener(_onTyping);
     _controller.dispose();
+    _inputFocusNode.dispose();
     _searchController.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -135,11 +167,21 @@ class _ChatScreenState extends State<ChatScreen> {
 
   void _onScroll() {
     if (!_scrollController.hasClients) return;
+    // Load more history at top
     if (_scrollController.position.pixels <= 80) {
       final ctrl = context.read<ChatController>();
       if (ctrl.hasMoreHistory(_contact.id) && !ctrl.isLoadingMoreHistory(_contact.id)) {
         ctrl.loadMoreHistory(_contact);
       }
+    }
+    // Show/hide scroll-to-bottom FAB
+    final atBottom = _scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent - 120;
+    if (atBottom && _showScrollFab) {
+      setState(() { _showScrollFab = false; _unreadWhileScrolled = 0; });
+      context.read<ChatController>().markRoomAsRead(_contact);
+    } else if (!atBottom && !_showScrollFab) {
+      setState(() => _showScrollFab = true);
     }
   }
 
@@ -156,6 +198,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Future<void> _sendMessage() async {
     if (_controller.text.trim().isEmpty) return;
+    HapticFeedback.lightImpact();
     final text = _controller.text.trim();
     _controller.clear();
     SharedPreferences.getInstance().then((p) => p.remove('draft_${_contact.id}'));
@@ -261,6 +304,31 @@ class _ChatScreenState extends State<ChatScreen> {
           ));
           return;
         }
+        // Warn before sending large files (> 5 MB)
+        if (raw.bytes.length > 5 * 1024 * 1024) {
+          final sizeMB = (raw.bytes.length / (1024 * 1024)).toStringAsFixed(1);
+          final confirmed = await showDialog<bool>(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: const Text('Large File'),
+              content: Text(
+                'This file is $sizeMB MB. Sending large files may be slow '
+                'on some networks. Continue?',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: const Text('Cancel'),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, true),
+                  child: const Text('Send'),
+                ),
+              ],
+            ),
+          );
+          if (!mounted || confirmed != true) return;
+        }
         await context.read<ChatController>().sendFile(_contact, raw.bytes, raw.name);
       }
       WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
@@ -273,10 +341,21 @@ class _ChatScreenState extends State<ChatScreen> {
           ),
         );
       }
+    } on MediaSecurityException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.reason),
+            backgroundColor: Colors.red.shade700,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
     }
   }
 
   Future<void> _startRecording() async {
+    HapticFeedback.mediumImpact();
     final started = await VoiceService().startRecording();
     if (!started) {
       if (mounted) {
@@ -289,11 +368,14 @@ class _ChatScreenState extends State<ChatScreen> {
     }
     setState(() { _isRecording = true; _recordingSeconds = 0; });
     _recordingTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) setState(() => _recordingSeconds++);
+      if (!mounted) return;
+      setState(() => _recordingSeconds++);
+      if (_recordingSeconds >= 120) _stopRecording();
     });
   }
 
   Future<void> _stopRecording() async {
+    HapticFeedback.lightImpact();
     _recordingTimer?.cancel();
     final payload = await VoiceService().stopRecording();
     setState(() { _isRecording = false; _recordingSeconds = 0; });
@@ -359,6 +441,7 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   void _showMessageMenu(Message msg) {
+    HapticFeedback.mediumImpact();
     final chatController = context.read<ChatController>();
     final myId = chatController.identity?.id ?? '';
     final isMe = msg.senderId == myId;
@@ -448,9 +531,9 @@ class _ChatScreenState extends State<ChatScreen> {
             ListTile(
               leading: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent),
               title: Text('Delete', style: GoogleFonts.inter(color: Colors.redAccent)),
-              onTap: () async {
+              onTap: () {
                 Navigator.pop(context);
-                await chatController.deleteLocalMessage(_contact, msg.id);
+                _animateDelete(msg);
               },
             ),
             const SizedBox(height: 8),
@@ -458,6 +541,14 @@ class _ChatScreenState extends State<ChatScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _animateDelete(Message msg) async {
+    setState(() => _pendingDelete.add(msg.id));
+    await Future.delayed(const Duration(milliseconds: 280));
+    if (!mounted) return;
+    await context.read<ChatController>().deleteLocalMessage(_contact, msg.id);
+    setState(() => _pendingDelete.remove(msg.id));
   }
 
   void _showReactionDetails(String emoji, List<String> senderIds) {
@@ -699,10 +790,15 @@ class _ChatScreenState extends State<ChatScreen> {
 
     // Auto-scroll and mark as read when new messages arrive
     if (messages.length != _lastMessageCount) {
+      final delta = messages.length - _lastMessageCount;
       _lastMessageCount = messages.length;
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        _scrollToBottom();
-        chatController.markRoomAsRead(_contact);
+        if (!_showScrollFab) {
+          _scrollToBottom();
+          chatController.markRoomAsRead(_contact);
+        } else if (delta > 0) {
+          setState(() => _unreadWhileScrolled += delta);
+        }
       });
     }
 
@@ -732,7 +828,7 @@ class _ChatScreenState extends State<ChatScreen> {
         title: GestureDetector(
           onTap: _openProfile,
           child: Row(children: [
-            _buildAvatar(_contact.name, 38),
+            Hero(tag: 'contact_avatar_${_contact.id}', child: _buildAvatar(_contact.name, 38)),
             const SizedBox(width: 10),
             Expanded(
               child: Column(
@@ -805,12 +901,46 @@ class _ChatScreenState extends State<ChatScreen> {
             icon: Icon(Icons.more_vert_rounded, color: AppTheme.textSecondary),
             color: AppTheme.surface,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-            onSelected: (value) {
+            onSelected: (value) async {
               if (value == 'search') setState(() => _searchActive = true);
               if (value == 'timer') _showTtlDialog();
               if (value == 'admin') _openProfile();
+              if (value == 'media') {
+                Navigator.push(context, MaterialPageRoute(
+                  builder: (_) => MediaGalleryScreen(contact: _contact),
+                ));
+              }
+              if (value == 'mute') {
+                final newMuted = !_chatMuted;
+                await NotificationService().setChatMuted(_contact.id, newMuted);
+                if (mounted) setState(() => _chatMuted = newMuted);
+              }
             },
             itemBuilder: (_) => [
+              PopupMenuItem(
+                value: 'mute',
+                child: Row(children: [
+                  Icon(
+                    _chatMuted ? Icons.notifications_rounded : Icons.notifications_off_rounded,
+                    color: _chatMuted ? AppTheme.primary : AppTheme.textSecondary,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    _chatMuted ? 'Unmute' : 'Mute',
+                    style: GoogleFonts.inter(color: AppTheme.textPrimary),
+                  ),
+                ]),
+              ),
+              PopupMenuItem(
+                value: 'media',
+                child: Row(children: [
+                  Icon(Icons.photo_library_outlined,
+                      color: AppTheme.textSecondary, size: 20),
+                  const SizedBox(width: 12),
+                  Text('Media', style: GoogleFonts.inter(color: AppTheme.textPrimary)),
+                ]),
+              ),
               PopupMenuItem(
                 value: 'timer',
                 child: Row(children: [
@@ -843,7 +973,9 @@ class _ChatScreenState extends State<ChatScreen> {
       ),
       body: Column(children: [
         Expanded(
-          child: filtered.isEmpty && _searchQuery.isNotEmpty
+          child: Stack(
+            children: [
+              filtered.isEmpty && _searchQuery.isNotEmpty
               ? _buildNoSearchResults()
               : messages.isEmpty
                   ? _buildEmptyConversation()
@@ -904,7 +1036,15 @@ class _ChatScreenState extends State<ChatScreen> {
                         return _SwipeableBubble(
                           onLongPress: () => _showMessageMenu(msg),
                           onSwiped: () => setState(() => _replyingTo = msg),
-                          child: Padding(
+                          child: AnimatedOpacity(
+                            opacity: _pendingDelete.contains(msg.id) ? 0.0 : 1.0,
+                            duration: const Duration(milliseconds: 220),
+                            curve: Curves.easeIn,
+                            child: AnimatedScale(
+                              scale: _pendingDelete.contains(msg.id) ? 0.88 : 1.0,
+                              duration: const Duration(milliseconds: 220),
+                              curve: Curves.easeIn,
+                              child: Padding(
                             padding: EdgeInsets.only(bottom: entry.isGrouped ? 1 : 5),
                             child: MessageBubble(
                               message: msg.encryptedPayload,
@@ -915,7 +1055,7 @@ class _ChatScreenState extends State<ChatScreen> {
                               senderName: senderName,
                               isEdited: msg.isEdited,
                               reactions: chatController.getReactions(_contact.storageKey, msg.id),
-                              onReact: (e) => chatController.toggleReaction(_contact, msg.id, e),
+                              onReact: (e) { HapticFeedback.selectionClick(); chatController.toggleReaction(_contact, msg.id, e); },
                               onReactLongPress: (e) {
                                 final r = chatController.getReactions(_contact.storageKey, msg.id);
                                 final senders = r[e] ?? <String>[];
@@ -924,11 +1064,67 @@ class _ChatScreenState extends State<ChatScreen> {
                               replyToText: msg.replyToText,
                               replyToSender: replyFromName,
                               uploadProgress: chatController.getUploadProgress(msg.id),
-                            ).animate().fadeIn(duration: 200.ms).slideY(begin: 0.05, end: 0),
-                          ),
+                              readBy: msg.readBy,
+                            )
+                            .animate()
+                            .fadeIn(duration: 200.ms)
+                            .slideY(begin: 0.05, end: 0),
+                          ),       // Padding
+                          ),       // AnimatedScale
+                          ),       // AnimatedOpacity
                         );
                       },
                     ),
+              // Scroll-to-bottom FAB
+              if (_showScrollFab)
+                Positioned(
+                  right: 14,
+                  bottom: 14,
+                  child: GestureDetector(
+                    onTap: () {
+                      HapticFeedback.lightImpact();
+                      setState(() { _showScrollFab = false; _unreadWhileScrolled = 0; });
+                      _scrollToBottom();
+                      chatController.markRoomAsRead(_contact);
+                    },
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        Container(
+                          width: 42, height: 42,
+                          decoration: BoxDecoration(
+                            color: AppTheme.surface,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: AppTheme.surfaceVariant),
+                            boxShadow: [BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.25),
+                              blurRadius: 8, offset: const Offset(0, 2),
+                            )],
+                          ),
+                          child: Icon(Icons.keyboard_arrow_down_rounded,
+                              color: AppTheme.textSecondary, size: 24),
+                        ),
+                        if (_unreadWhileScrolled > 0)
+                          Positioned(
+                            top: -4, right: -4,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: AppTheme.primary,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Text(
+                                _unreadWhileScrolled > 99 ? '99+' : '$_unreadWhileScrolled',
+                                style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ).animate().fadeIn(duration: 150.ms).scale(begin: const Offset(0.7, 0.7)),
+                ),
+            ],
+          ),
         ),
         _buildMessageInput(),
       ]),
@@ -1085,7 +1281,100 @@ class _ChatScreenState extends State<ChatScreen> {
     return p;
   }
 
+  void _showScheduledPanel(List<Message> scheduled) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppTheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) {
+          final items = scheduled.where((m) => m.status == 'scheduled').toList();
+          return SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 40, height: 4,
+                  margin: const EdgeInsets.only(top: 12, bottom: 8),
+                  decoration: BoxDecoration(
+                    color: AppTheme.textSecondary.withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                  child: Row(children: [
+                    const Icon(Icons.schedule_rounded, size: 18, color: Colors.amber),
+                    const SizedBox(width: 8),
+                    Text('Scheduled messages',
+                        style: GoogleFonts.inter(
+                            color: AppTheme.textPrimary,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700)),
+                  ]),
+                ),
+                if (items.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Text('No scheduled messages',
+                        style: GoogleFonts.inter(color: AppTheme.textSecondary)),
+                  )
+                else
+                  Flexible(
+                    child: ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: items.length,
+                      itemBuilder: (_, i) {
+                        final m = items[i];
+                        final t = m.scheduledAt;
+                        final label = t != null
+                            ? '${t.day}/${t.month} ${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}'
+                            : '';
+                        return ListTile(
+                          leading: const Icon(Icons.schedule_rounded,
+                              color: Colors.amber, size: 20),
+                          title: Text(
+                            m.encryptedPayload,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.inter(
+                                color: AppTheme.textPrimary, fontSize: 14),
+                          ),
+                          subtitle: label.isNotEmpty
+                              ? Text('Sends on $label',
+                                  style: GoogleFonts.inter(
+                                      color: Colors.amber, fontSize: 12))
+                              : null,
+                          trailing: IconButton(
+                            icon: const Icon(Icons.cancel_rounded,
+                                color: Colors.redAccent, size: 20),
+                            tooltip: 'Cancel',
+                            onPressed: () async {
+                              await context
+                                  .read<ChatController>()
+                                  .cancelScheduledMessage(_contact, m.id);
+                              setLocal(() {});
+                            },
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                const SizedBox(height: 8),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
   Widget _buildMessageInput() {
+    final allMessages = context.read<ChatController>()
+        .getRoomForContact(_contact.id)?.messages ?? [];
+    final scheduledMsgs = allMessages.where((m) => m.status == 'scheduled').toList();
     return Container(
       decoration: BoxDecoration(
         color: AppTheme.surface,
@@ -1095,6 +1384,23 @@ class _ChatScreenState extends State<ChatScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            if (scheduledMsgs.isNotEmpty)
+              GestureDetector(
+                onTap: () => _showScheduledPanel(scheduledMsgs),
+                child: Container(
+                  padding: const EdgeInsets.fromLTRB(14, 6, 14, 0),
+                  child: Row(children: [
+                    const Icon(Icons.schedule_rounded, size: 13, color: Colors.amber),
+                    const SizedBox(width: 6),
+                    Text(
+                      '${scheduledMsgs.length} scheduled message${scheduledMsgs.length > 1 ? 's' : ''}',
+                      style: GoogleFonts.inter(color: Colors.amber, fontSize: 12),
+                    ),
+                    const Spacer(),
+                    Icon(Icons.chevron_right_rounded, size: 14, color: Colors.amber.withValues(alpha: 0.7)),
+                  ]),
+                ),
+              ),
             if (_replyingTo != null)
               Container(
                 padding: const EdgeInsets.fromLTRB(14, 6, 14, 0),
@@ -1162,13 +1468,21 @@ class _ChatScreenState extends State<ChatScreen> {
         ),
       ),
       Expanded(
-        child: Container(
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
           decoration: BoxDecoration(
             color: AppTheme.surfaceVariant,
             borderRadius: BorderRadius.circular(26),
+            border: Border.all(
+              color: _inputFocused
+                  ? AppTheme.primary.withValues(alpha: 0.5)
+                  : Colors.transparent,
+              width: 1.5,
+            ),
           ),
           child: TextField(
             controller: _controller,
+            focusNode: _inputFocusNode,
             style: GoogleFonts.inter(color: AppTheme.textPrimary, fontSize: 15),
             textInputAction: TextInputAction.send,
             minLines: 1,
@@ -1193,31 +1507,39 @@ class _ChatScreenState extends State<ChatScreen> {
         listenable: _controller,
         builder: (context, _) {
           final hasText = _controller.text.trim().isNotEmpty;
-          if (hasText) {
-            return GestureDetector(
-              onTap: _sendMessage,
-              onLongPress: _showSchedulePicker,
-              child: Container(
-                width: 46, height: 46,
-                decoration: BoxDecoration(
-                  color: AppTheme.primary,
-                  shape: BoxShape.circle,
-                  boxShadow: [BoxShadow(color: AppTheme.primary.withValues(alpha: 0.4), blurRadius: 8, offset: const Offset(0, 3))],
-                ),
-                child: const Icon(Icons.send_rounded, color: Colors.white, size: 20),
-              ),
-            );
-          }
-          return GestureDetector(
-            onTap: _startRecording,
-            child: Container(
-              width: 46, height: 46,
-              decoration: BoxDecoration(
-                color: AppTheme.surfaceVariant,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(Icons.mic_rounded, color: AppTheme.textSecondary, size: 22),
+          return AnimatedSwitcher(
+            duration: const Duration(milliseconds: 200),
+            transitionBuilder: (child, anim) => ScaleTransition(
+              scale: anim,
+              child: FadeTransition(opacity: anim, child: child),
             ),
+            child: hasText
+                ? GestureDetector(
+                    key: const ValueKey('send'),
+                    onTap: _sendMessage,
+                    onLongPress: _showSchedulePicker,
+                    child: Container(
+                      width: 46, height: 46,
+                      decoration: BoxDecoration(
+                        color: AppTheme.primary,
+                        shape: BoxShape.circle,
+                        boxShadow: [BoxShadow(color: AppTheme.primary.withValues(alpha: 0.4), blurRadius: 8, offset: const Offset(0, 3))],
+                      ),
+                      child: const Icon(Icons.send_rounded, color: Colors.white, size: 20),
+                    ),
+                  )
+                : GestureDetector(
+                    key: const ValueKey('mic'),
+                    onTap: _startRecording,
+                    child: Container(
+                      width: 46, height: 46,
+                      decoration: BoxDecoration(
+                        color: AppTheme.surfaceVariant,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(Icons.mic_rounded, color: AppTheme.textSecondary, size: 22),
+                    ),
+                  ),
           );
         },
       ),

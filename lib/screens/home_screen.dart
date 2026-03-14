@@ -3,10 +3,16 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
 import '../models/contact.dart';
+import '../models/user_status.dart';
+import '../services/status_service.dart';
 import 'chat_screen.dart';
 import 'settings_screen.dart';
 import 'contacts_screen.dart';
+import 'status_creator_screen.dart';
+import 'status_viewer_screen.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'dart:convert';
+import 'dart:typed_data';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
 import '../controllers/chat_controller.dart';
@@ -14,6 +20,17 @@ import '../models/message.dart';
 import 'call_screen.dart';
 import 'group_call_screen.dart';
 import '../services/connectivity_probe_service.dart';
+
+PageRoute _slideRoute(Widget page) => PageRouteBuilder(
+  pageBuilder: (context, animation, secondaryAnimation) => page,
+  transitionDuration: const Duration(milliseconds: 270),
+  reverseTransitionDuration: const Duration(milliseconds: 230),
+  transitionsBuilder: (context, animation, secondaryAnimation, child) => SlideTransition(
+    position: Tween(begin: const Offset(1, 0), end: Offset.zero)
+        .animate(CurvedAnimation(parent: animation, curve: Curves.easeOutCubic)),
+    child: child,
+  ),
+);
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -27,6 +44,7 @@ class _HomeScreenState extends State<HomeScreen> {
   StreamSubscription? _groupCallSubscription;
   StreamSubscription? _newMsgSubscription;
   StreamSubscription? _probeSubscription;
+  StreamSubscription? _statusUpdatesSubscription;
   ({Contact contact, Message message})? _banner;
   ProbeStatus? _probeStatus;
   Timer? _bannerTimer;
@@ -34,6 +52,10 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _searchActive = false;
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
+  UserStatus? _ownStatus;
+  Map<String, UserStatus> _contactStatuses = {};
+  Set<String> _mutedContactIds = {};
+  Map<String, Uint8List> _contactAvatars = {}; // contactId → JPEG bytes
 
   @override
   void initState() {
@@ -66,6 +88,14 @@ class _HomeScreenState extends State<HomeScreen> {
         if (mounted) setState(() => _banner = null);
       });
     });
+
+    _statusUpdatesSubscription = ChatController().statusUpdates.listen((_) {
+      if (mounted) _loadStatuses();
+    });
+
+    _loadStatuses();
+    _loadMutedChats();
+    _loadContactAvatars();
   }
 
   @override
@@ -74,10 +104,45 @@ class _HomeScreenState extends State<HomeScreen> {
     _groupCallSubscription?.cancel();
     _newMsgSubscription?.cancel();
     _probeSubscription?.cancel();
+    _statusUpdatesSubscription?.cancel();
     _bannerTimer?.cancel();
     _probeBannerTimer?.cancel();
     _searchController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadStatuses() async {
+    final contacts = ContactManager().contacts.where((c) => !c.isGroup).toList();
+    final own = await StatusService.instance.getOwnStatus();
+    final contactStatuses = await StatusService.instance
+        .getAllActiveStatuses(contacts.map((c) => c.id).toList());
+    if (mounted) {
+      setState(() {
+        _ownStatus = own;
+        _contactStatuses = contactStatuses;
+      });
+    }
+  }
+
+  Future<void> _loadContactAvatars() async {
+    final prefs = await SharedPreferences.getInstance();
+    final avatars = <String, Uint8List>{};
+    for (final c in ContactManager().contacts) {
+      final b64 = prefs.getString('contact_avatar_${c.id}');
+      if (b64 != null && b64.isNotEmpty) {
+        try { avatars[c.id] = base64Decode(b64); } catch (_) {}
+      }
+    }
+    if (mounted) setState(() => _contactAvatars = avatars);
+  }
+
+  Future<void> _loadMutedChats() async {
+    final prefs = await SharedPreferences.getInstance();
+    final muted = <String>{};
+    for (final c in ContactManager().contacts) {
+      if (prefs.getBool('chat_mute_${c.id}') == true) muted.add(c.id);
+    }
+    if (mounted) setState(() => _mutedContactIds = muted);
   }
 
   Future<void> _loadAll() async {
@@ -88,6 +153,7 @@ class _HomeScreenState extends State<HomeScreen> {
       await ctrl.loadRoomHistory(c);
     }
     if (mounted) setState(() {});
+    _loadStatuses();
   }
 
   Future<void> _onRefresh() async {
@@ -274,10 +340,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                   onSelected: (value) async {
                     if (value == 'settings') {
-                      await Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsScreen()));
+                      await Navigator.push(context, _slideRoute(const SettingsScreen()));
                       _loadAll();
                     } else if (value == 'new_group') {
-                      await Navigator.push(context, MaterialPageRoute(builder: (_) => const ContactsScreen(createGroup: true)));
+                      await Navigator.push(context, _slideRoute(const ContactsScreen(createGroup: true)));
                       _loadAll();
                     }
                   },
@@ -306,42 +372,49 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
           contacts.isEmpty
               ? _buildEmptyState()
-              : RefreshIndicator(
-                  color: AppTheme.primary,
-                  backgroundColor: AppTheme.surface,
-                  onRefresh: _onRefresh,
-                  child: sorted.isEmpty
-                      ? LayoutBuilder(
-                          builder: (ctx, box) => SingleChildScrollView(
-                            physics: const AlwaysScrollableScrollPhysics(),
-                            child: ConstrainedBox(
-                              constraints: BoxConstraints(minHeight: box.maxHeight),
-                              child: _buildNoResults(),
-                            ),
-                          ),
-                        )
-                      : ListView.builder(
-                          physics: const AlwaysScrollableScrollPhysics(),
-                          itemCount: sorted.length,
-                          itemBuilder: (context, index) {
-                            final c = sorted[index];
-                            final room = chatCtrl.getRoomForContact(c.id);
-                            final messages = room?.messages ?? [];
-                            Message? lastMsg = messages.isNotEmpty ? messages.last : null;
-                            final unread = messages.where((m) => !m.isRead && m.senderId != myId).length;
+              : Column(
+                  children: [
+                    _buildStatusRow(contacts),
+                    Expanded(
+                      child: RefreshIndicator(
+                        color: AppTheme.primary,
+                        backgroundColor: AppTheme.surface,
+                        onRefresh: _onRefresh,
+                        child: sorted.isEmpty
+                            ? LayoutBuilder(
+                                builder: (ctx, box) => SingleChildScrollView(
+                                  physics: const AlwaysScrollableScrollPhysics(),
+                                  child: ConstrainedBox(
+                                    constraints: BoxConstraints(minHeight: box.maxHeight),
+                                    child: _buildNoResults(),
+                                  ),
+                                ),
+                              )
+                            : ListView.builder(
+                                physics: const AlwaysScrollableScrollPhysics(),
+                                itemCount: sorted.length,
+                                itemBuilder: (context, index) {
+                                  final c = sorted[index];
+                                  final room = chatCtrl.getRoomForContact(c.id);
+                                  final messages = room?.messages ?? [];
+                                  Message? lastMsg = messages.isNotEmpty ? messages.last : null;
+                                  final unread = messages.where((m) => !m.isRead && m.senderId != myId).length;
 
-                            return _buildChatTile(
-                              context: context,
-                              contact: c,
-                              lastMsg: lastMsg,
-                              unreadCount: unread,
-                              myId: myId,
-                              isOnline: chatCtrl.isOnline(c.id),
-                            ).animate()
-                              .fadeIn(delay: Duration(milliseconds: 30 * index))
-                              .slideX(begin: 0.03, end: 0);
-                          },
-                        ),
+                                  return _buildChatTile(
+                                    context: context,
+                                    contact: c,
+                                    lastMsg: lastMsg,
+                                    unreadCount: unread,
+                                    myId: myId,
+                                    isOnline: chatCtrl.isOnline(c.id),
+                                  ).animate()
+                                    .fadeIn(delay: Duration(milliseconds: 30 * index))
+                                    .slideX(begin: 0.03, end: 0);
+                                },
+                              ),
+                      ),
+                    ),
+                  ],
                 ),
           if (_banner != null)
             Positioned(
@@ -367,9 +440,142 @@ class _HomeScreenState extends State<HomeScreen> {
         tooltip: 'New chat',
         child: const Icon(Icons.chat_rounded, color: Colors.white, size: 22),
         onPressed: () => Navigator.push(
-          context, MaterialPageRoute(builder: (_) => const ContactsScreen()),
+          context, _slideRoute(const ContactsScreen()),
         ).then((_) => _loadAll()),
       ).animate().scale(delay: 300.ms, curve: Curves.easeOutBack),
+    );
+  }
+
+  Widget _buildStatusRow(List<Contact> contacts) {
+    final nonGroupContacts = contacts.where((c) => !c.isGroup).toList();
+    final contactsWithStatus = nonGroupContacts
+        .where((c) => _contactStatuses.containsKey(c.id))
+        .toList();
+    final hasAnyStatus = _ownStatus != null || contactsWithStatus.isNotEmpty;
+
+    if (!hasAnyStatus) return const SizedBox.shrink();
+
+    return Container(
+      color: AppTheme.surface,
+      height: 90,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        children: [
+          // Own status item
+          _buildStatusAvatar(
+            name: 'My Status',
+            initial: '+',
+            hue: 200,
+            hasStatus: _ownStatus != null,
+            isOwn: true,
+            onTap: () async {
+              final result = await Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const StatusCreatorScreen()),
+              );
+              if (result == true) _loadStatuses();
+            },
+          ),
+          // Contacts with active statuses
+          ...contactsWithStatus.map((c) {
+            return _buildStatusAvatar(
+              name: c.name,
+              initial: c.name.isNotEmpty ? c.name[0].toUpperCase() : '?',
+              hue: c.name.isNotEmpty
+                  ? (c.name.codeUnitAt(0) * 17 + c.name.length * 31) % 360
+                  : 180,
+              hasStatus: true,
+              isOwn: false,
+              onTap: () {
+                final entries = contactsWithStatus.map((cc) {
+                  final s = _contactStatuses[cc.id]!;
+                  return (contactId: cc.id, contactName: cc.name, status: s);
+                }).toList();
+                final idx = contactsWithStatus.indexOf(c);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => StatusViewerScreen(
+                      entries: entries,
+                      initialIndex: idx,
+                    ),
+                  ),
+                );
+              },
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatusAvatar({
+    required String name,
+    required String initial,
+    required int hue,
+    required bool hasStatus,
+    required bool isOwn,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 6),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 52, height: 52,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: hasStatus
+                    ? Border.all(color: AppTheme.primary, width: 2.5)
+                    : Border.all(color: AppTheme.textSecondary.withValues(alpha: 0.4), width: 1.5),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(2),
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: isOwn
+                          ? [AppTheme.primary.withValues(alpha: 0.7), AppTheme.primary]
+                          : [
+                              HSLColor.fromAHSL(1, hue.toDouble(), 0.55, 0.42).toColor(),
+                              HSLColor.fromAHSL(1, hue.toDouble(), 0.5, 0.30).toColor(),
+                            ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Center(
+                    child: Text(initial,
+                        style: GoogleFonts.inter(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w700,
+                            fontSize: isOwn ? 22 : 18)),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 4),
+            SizedBox(
+              width: 58,
+              child: Text(
+                name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.inter(
+                    color: AppTheme.textSecondary,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w500),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -433,8 +639,8 @@ class _HomeScreenState extends State<HomeScreen> {
       color: Colors.transparent,
       child: InkWell(
         onTap: () => Navigator.push(
-          context, MaterialPageRoute(builder: (_) => ChatScreen(contact: contact)),
-        ).then((_) => setState(() {})),
+          context, _slideRoute(ChatScreen(contact: contact)),
+        ).then((_) { setState(() {}); _loadMutedChats(); _loadContactAvatars(); }),
         splashColor: AppTheme.primary.withValues(alpha: 0.07),
         highlightColor: AppTheme.primary.withValues(alpha: 0.04),
         child: Padding(
@@ -442,45 +648,52 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Row(
             children: [
               // Avatar
-              Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  Container(
-                    width: 54, height: 54,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          HSLColor.fromAHSL(1, hue.toDouble(), 0.55, 0.42).toColor(),
-                          HSLColor.fromAHSL(1, hue.toDouble(), 0.5, 0.30).toColor(),
-                        ],
-                        begin: Alignment.topLeft, end: Alignment.bottomRight,
+              Hero(
+                tag: 'contact_avatar_${contact.id}',
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Container(
+                      width: 54, height: 54,
+                      decoration: BoxDecoration(
+                        gradient: _contactAvatars.containsKey(contact.id) ? null : LinearGradient(
+                          colors: [
+                            HSLColor.fromAHSL(1, hue.toDouble(), 0.55, 0.42).toColor(),
+                            HSLColor.fromAHSL(1, hue.toDouble(), 0.5, 0.30).toColor(),
+                          ],
+                          begin: Alignment.topLeft, end: Alignment.bottomRight,
+                        ),
+                        shape: BoxShape.circle,
+                        image: _contactAvatars.containsKey(contact.id) ? DecorationImage(
+                          image: MemoryImage(_contactAvatars[contact.id]!),
+                          fit: BoxFit.cover,
+                        ) : null,
                       ),
-                      shape: BoxShape.circle,
+                      child: _contactAvatars.containsKey(contact.id) ? null : Center(child: Text(initial,
+                          style: GoogleFonts.inter(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w700))),
                     ),
-                    child: Center(child: Text(initial,
-                        style: GoogleFonts.inter(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w700))),
-                  ),
-                  if (contact.isGroup)
-                    Positioned(bottom: -1, right: -1,
-                      child: Container(
-                        padding: const EdgeInsets.all(2),
-                        decoration: BoxDecoration(color: AppTheme.surface, shape: BoxShape.circle),
-                        child: Icon(Icons.group_rounded, size: 13, color: AppTheme.primary),
-                      ),
-                    ),
-                  if (!contact.isGroup && isOnline)
-                    Positioned(
-                      bottom: 0, right: 0,
-                      child: Container(
-                        width: 10, height: 10,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF4CAF50),
-                          shape: BoxShape.circle,
-                          border: Border.all(color: AppTheme.background, width: 1.5),
+                    if (contact.isGroup)
+                      Positioned(bottom: -1, right: -1,
+                        child: Container(
+                          padding: const EdgeInsets.all(2),
+                          decoration: BoxDecoration(color: AppTheme.surface, shape: BoxShape.circle),
+                          child: Icon(Icons.group_rounded, size: 13, color: AppTheme.primary),
                         ),
                       ),
-                    ),
-                ],
+                    if (!contact.isGroup && isOnline)
+                      Positioned(
+                        bottom: 0, right: 0,
+                        child: Container(
+                          width: 10, height: 10,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF4CAF50),
+                            shape: BoxShape.circle,
+                            border: Border.all(color: AppTheme.background, width: 1.5),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
               ),
               const SizedBox(width: 13),
               // Text info
@@ -499,6 +712,10 @@ class _HomeScreenState extends State<HomeScreen> {
                               fontWeight: unreadCount > 0 ? FontWeight.w700 : FontWeight.w600,
                             )),
                       ),
+                      if (_mutedContactIds.contains(contact.id)) ...[
+                        Icon(Icons.notifications_off_rounded, size: 14, color: AppTheme.textSecondary),
+                        const SizedBox(width: 4),
+                      ],
                       if (timeStr != null)
                         Text(timeStr,
                             style: GoogleFonts.inter(
@@ -535,10 +752,20 @@ class _HomeScreenState extends State<HomeScreen> {
                               style: GoogleFonts.inter(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700)),
                         ),
                       ],
-                      // Provider badge (small, right-aligned, no unread)
-                      if (unreadCount == 0) ...[
+                      // SmartRouter badge: show route count if contact has alternates
+                      if (unreadCount == 0 && contact.alternateAddresses.isNotEmpty) ...[
                         const SizedBox(width: 6),
-                        _buildProviderDot(contact.provider),
+                        Container(
+                          width: 16, height: 16,
+                          decoration: BoxDecoration(
+                            color: AppTheme.primary.withValues(alpha: 0.15),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Center(
+                            child: Icon(Icons.shuffle_rounded,
+                                size: 9, color: AppTheme.primary),
+                          ),
+                        ),
                       ],
                     ]),
                   ],
@@ -548,18 +775,6 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
       ),
-    );
-  }
-
-  Widget _buildProviderDot(String provider) {
-    const colors = {
-      'Firebase': Color(0xFFFFAB00),
-      'Nostr': Color(0xFF9B59B6),
-    };
-    final color = colors[provider] ?? AppTheme.textSecondary;
-    return Container(
-      width: 7, height: 7,
-      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
     );
   }
 
@@ -674,7 +889,7 @@ class _HomeScreenState extends State<HomeScreen> {
         _bannerTimer?.cancel();
         setState(() => _banner = null);
         Navigator.push(
-          context, MaterialPageRoute(builder: (_) => ChatScreen(contact: contact)),
+          context, _slideRoute(ChatScreen(contact: contact)),
         ).then((_) => setState(() {}));
       },
       child: Container(
@@ -801,7 +1016,7 @@ class _HomeScreenState extends State<HomeScreen> {
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
             ),
             onPressed: () => Navigator.push(
-              context, MaterialPageRoute(builder: (_) => const ContactsScreen()),
+              context, _slideRoute(const ContactsScreen()),
             ).then((_) => _loadAll()),
           ).animate().fadeIn(delay: 350.ms).slideY(begin: 0.1, end: 0),
         ],

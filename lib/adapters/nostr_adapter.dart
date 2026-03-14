@@ -1,14 +1,17 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:crypto/crypto.dart' as crypto;
 import 'package:convert/convert.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
+import 'package:web_socket_channel/io.dart';
 import 'package:pointycastle/export.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/message.dart';
 import '../services/tor_service.dart' as tor;
+import '../services/utls_service.dart';
 import 'inbox_manager.dart';
 
 /// ─────────────────────────────────────────────────────────
@@ -187,10 +190,26 @@ class NostrInboxReader implements InboxReader {
   String _i2pHost = '127.0.0.1';
   int _i2pPort = 4447;
 
-  Future<WebSocketChannel> _wsConnect(String url) {
-    final proxyHost = _torEnabled ? _torHost : (_i2pEnabled ? _i2pHost : null);
-    final proxyPort = _torEnabled ? _torPort : (_i2pEnabled ? _i2pPort : 9050);
-    return tor.connectWebSocket(url, torHost: proxyHost, torPort: proxyPort);
+  Future<WebSocketChannel> _wsConnect(String url) async {
+    // Priority: Tor → I2P → uTLS (Chrome fingerprint) → plain
+    if (_torEnabled) {
+      return tor.connectWebSocket(url, torHost: _torHost, torPort: _torPort);
+    }
+    if (_i2pEnabled) {
+      return tor.connectWebSocket(url, torHost: _i2pHost, torPort: _i2pPort);
+    }
+    final utlsClient = UTLSService.instance.buildHttpClient();
+    if (utlsClient != null) {
+      // Dart's WebSocket.connect via HTTP CONNECT proxy requires explicit port
+      // for wss:// (otherwise it resolves to port 0 and fails).
+      final uri = Uri.parse(url);
+      final fixed = (!uri.hasPort || uri.port == 0)
+          ? uri.replace(port: uri.scheme == 'wss' ? 443 : 80).toString()
+          : url;
+      final ws = await WebSocket.connect(fixed, customClient: utlsClient);
+      return IOWebSocketChannel(ws);
+    }
+    return WebSocketChannel.connect(Uri.parse(url));
   }
 
   @override
@@ -370,6 +389,7 @@ class NostrInboxReader implements InboxReader {
     if (_publicKeyHex.isEmpty || _relayUrl.isEmpty) return null;
     final completer = Completer<Map<String, dynamic>?>();
     WebSocketChannel? channel;
+    StreamSubscription<dynamic>? sub;
     try {
       channel = await _wsConnect(_relayUrl);
       await channel.ready;
@@ -382,7 +402,7 @@ class NostrInboxReader implements InboxReader {
       Timer(const Duration(seconds: 10), () {
         if (!completer.isCompleted) completer.complete(null);
       });
-      channel.stream.listen((raw) {
+      sub = channel.stream.listen((raw) {
         try {
           final data = jsonDecode(raw as String) as List;
           if (data[0] == 'EVENT' && data[1] == subId) {
@@ -401,6 +421,7 @@ class NostrInboxReader implements InboxReader {
       debugPrint('[Nostr] fetchPublicKeys error: $e');
       return null;
     } finally {
+      await sub?.cancel();
       channel?.sink.close();
     }
   }
@@ -442,10 +463,24 @@ class NostrMessageSender implements MessageSender {
   String _i2pHost = '127.0.0.1';
   int _i2pPort = 4447;
 
-  Future<WebSocketChannel> _wsConnect(String url) {
-    final proxyHost = _torEnabled ? _torHost : (_i2pEnabled ? _i2pHost : null);
-    final proxyPort = _torEnabled ? _torPort : (_i2pEnabled ? _i2pPort : 9050);
-    return tor.connectWebSocket(url, torHost: proxyHost, torPort: proxyPort);
+  Future<WebSocketChannel> _wsConnect(String url) async {
+    // Priority: Tor → I2P → uTLS (Chrome fingerprint) → plain
+    if (_torEnabled) {
+      return tor.connectWebSocket(url, torHost: _torHost, torPort: _torPort);
+    }
+    if (_i2pEnabled) {
+      return tor.connectWebSocket(url, torHost: _i2pHost, torPort: _i2pPort);
+    }
+    final utlsClient = UTLSService.instance.buildHttpClient();
+    if (utlsClient != null) {
+      final uri = Uri.parse(url);
+      final fixed = (!uri.hasPort || uri.port == 0)
+          ? uri.replace(port: uri.scheme == 'wss' ? 443 : 80).toString()
+          : url;
+      final ws = await WebSocket.connect(fixed, customClient: utlsClient);
+      return IOWebSocketChannel(ws);
+    }
+    return WebSocketChannel.connect(Uri.parse(url));
   }
 
   @override
@@ -454,7 +489,8 @@ class NostrMessageSender implements MessageSender {
       try {
         final decoded = jsonDecode(apiKey);
         _privateKeyHex = (decoded['privkey'] as String? ?? '').trim();
-        _relayUrl = (decoded['relay'] as String? ?? _defaultRelay).trim();
+        final relay = (decoded['relay'] as String? ?? '').trim();
+        _relayUrl = relay.isNotEmpty ? relay : _defaultRelay;
       } catch (_) {}
     } else {
       _privateKeyHex = apiKey.trim();

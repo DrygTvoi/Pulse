@@ -12,6 +12,8 @@ class Message {
   final String? replyToText;
   final String? replyToSender;
   final DateTime? scheduledAt; // non-null when status == 'scheduled'
+  /// For group messages sent by self: list of contactIds who have read it.
+  final List<String> readBy;
 
   Message({
     required this.id,
@@ -27,6 +29,7 @@ class Message {
     this.replyToText,
     this.replyToSender,
     this.scheduledAt,
+    this.readBy = const [],
   });
 
   Message copyWith({
@@ -38,6 +41,7 @@ class Message {
     String? replyToText,
     String? replyToSender,
     DateTime? scheduledAt,
+    List<String>? readBy,
   }) {
     return Message(
       id: id,
@@ -53,6 +57,7 @@ class Message {
       replyToText: replyToText ?? this.replyToText,
       replyToSender: replyToSender ?? this.replyToSender,
       scheduledAt: scheduledAt ?? this.scheduledAt,
+      readBy: readBy ?? this.readBy,
     );
   }
 
@@ -71,6 +76,7 @@ class Message {
       if (replyToText != null) 'replyToText': replyToText,
       if (replyToSender != null) 'replyToSender': replyToSender,
       if (scheduledAt != null) 'scheduledAt': scheduledAt!.toIso8601String(),
+      if (readBy.isNotEmpty) 'readBy': readBy,
     };
   }
 
@@ -91,6 +97,7 @@ class Message {
       scheduledAt: json['scheduledAt'] != null
           ? DateTime.parse(json['scheduledAt'] as String)
           : null,
+      readBy: (json['readBy'] as List<dynamic>?)?.cast<String>() ?? const [],
     );
   }
 }

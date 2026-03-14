@@ -248,7 +248,7 @@ class ConnectivityProbeService {
             }
           }
 
-          await TorService.instance.stop();
+          if (!TorService.instance.persistent) await TorService.instance.stop();
           debugPrint('[Probe] Tor stopped. Via-tor-only: ${torNostr.length}');
         } else {
           debugPrint('[Probe] Tor unavailable — proceeding with direct only');

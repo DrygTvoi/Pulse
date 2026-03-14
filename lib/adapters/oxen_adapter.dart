@@ -24,6 +24,7 @@ const _ttlMs = 14 * 24 * 60 * 60 * 1000; // 14-day TTL (Session standard)
 class OxenInboxReader implements InboxReader {
   String _nodeUrl = '';
   String _sessionId = '';
+  int _nodeIndex = 0; // rotates through _defaultNodes on failure
 
   final _msgCtrl = StreamController<List<Message>>.broadcast();
   final _sigCtrl = StreamController<List<Map<String, dynamic>>>.broadcast();
@@ -31,6 +32,7 @@ class OxenInboxReader implements InboxReader {
 
   bool _loopStarted = false;
   String _lastHash = '';
+  int _pollDelay = 2;
 
   @override
   Future<void> initializeReader(String apiKey, String databaseId) async {
@@ -38,7 +40,7 @@ class OxenInboxReader implements InboxReader {
     await OxenKeyService.instance.initialize();
     // For own inbox: use the service's Session ID
     // For ad-hoc (fetching contact keys): databaseId = contact's Session ID
-    _nodeUrl = apiKey.isNotEmpty ? apiKey : _defaultNodes.first;
+    _nodeUrl = apiKey.isNotEmpty ? apiKey : _defaultNodes[_nodeIndex];
     if (_sessionId == OxenKeyService.instance.sessionId) {
       // Only start the poll loop for our own inbox
       _ensureLoop();
@@ -55,10 +57,20 @@ class OxenInboxReader implements InboxReader {
     while (true) {
       try {
         await _poll();
+        _pollDelay = 2;
       } catch (e) {
         debugPrint('[Oxen] Poll error: $e');
+        // Rotate to next node on connection/TLS failure
+        if (e.toString().contains('HandshakeException') ||
+            e.toString().contains('Connection refused') ||
+            e.toString().contains('SocketException')) {
+          _nodeIndex = (_nodeIndex + 1) % _defaultNodes.length;
+          _nodeUrl = _defaultNodes[_nodeIndex];
+          debugPrint('[Oxen] Switching to node: $_nodeUrl');
+        }
+        _pollDelay = (_pollDelay * 2).clamp(2, 60);
       }
-      await Future.delayed(const Duration(seconds: 2));
+      await Future.delayed(Duration(seconds: _pollDelay));
     }
   }
 

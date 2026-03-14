@@ -5,49 +5,91 @@ import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:web_socket_channel/io.dart';
+import 'bundled_binary_service.dart';
 
 // ─── TorService — process lifecycle ───────────────────────────────────────────
 
-/// Manages a system `tor` process used for bootstrap probing only.
+/// Manages a `tor` process used for bootstrap probing only.
 ///
-/// Uses a non-default SOCKS port (9250) to avoid conflicting with any
-/// existing system tor daemon on port 9050.
+/// Binary resolution order:
+///   1. Bundled binary extracted from assets (BundledBinaryService)
+///   2. System `tor` found in PATH
+///   3. Unavailable → start() returns false
+///
+/// If `snowflake-client` is available (bundled or system), tor is configured
+/// with a Snowflake pluggable transport bridge so it works in censored regions
+/// (China, Iran) where plain Tor is blocked.
+///
+/// Uses SOCKS port 9250 to avoid conflicting with any existing system tor
+/// daemon on port 9050.
 ///
 /// Lifecycle: start() → [probe via SOCKS5] → stop().
-/// Not used for ongoing message traffic — only for finding reachable servers.
+/// Not used for ongoing message traffic — only for relay/node discovery.
 class TorService {
   static final instance = TorService._();
   TorService._();
 
   static const int socksPort = 9250;
 
+  // Public Snowflake bridge from the Tor Project (updated rarely).
+  // See: https://gitlab.torproject.org/tpo/anti-censorship/pluggable-transports/snowflake
+  static const _snowflakeBridge =
+      'snowflake 192.0.2.3:1 2B280B23E1107BB62ABFC40DDCC8824814F80A72 '
+      'fingerprint=2B280B23E1107BB62ABFC40DDCC8824814F80A72 '
+      'url=https://snowflake.torproject.org/ '
+      'front=cdn.sstatic.net '
+      'ice=stun:stun.l.google.com:19302,stun:stun.voip.blackberry.com:3478,'
+      'stun:stun.altar.com.pl:3478';
+
   Process? _process;
   bool _bootstrapped = false;
+  bool _persistent = false;
 
   bool get isRunning      => _process != null;
   bool get isBootstrapped => _bootstrapped;
+  bool get persistent     => _persistent;
+
+  // ── Public API ─────────────────────────────────────────────────────────────
+
+  /// Starts tor in persistent mode (not stopped after probing).
+  /// Returns false if tor is unavailable or times out.
+  Future<bool> startPersistent() async {
+    _persistent = true;
+    final ok = await start();
+    if (!ok) _persistent = false;
+    return ok;
+  }
 
   /// Starts tor and waits for 100 % bootstrap (up to 90 s).
-  /// Returns false if tor is not installed or times out.
+  /// Returns false if tor is unavailable or times out.
   Future<bool> start() async {
     if (_bootstrapped) return true;
 
-    final which = await Process.run('which', ['tor']);
-    if (which.exitCode != 0) {
-      debugPrint('[TorService] tor not found in PATH — skipping');
+    // 1. Find tor binary
+    final torPath = await _findTor();
+    if (torPath == null) {
+      debugPrint('[TorService] tor not available (bundled or system)');
       return false;
     }
 
+    // 2. Find snowflake-client (optional)
+    final snowflakePath = await _findSnowflake();
+
+    // 3. Prepare data directory and write torrc
     final tmpDir = await getTemporaryDirectory();
     final dataDir = Directory('${tmpDir.path}/pulse_tor');
     await dataDir.create(recursive: true);
 
+    final torrcPath = await _writeTorrc(
+      dataDir:       dataDir.path,
+      snowflakePath: snowflakePath,
+    );
+
+    debugPrint('[TorService] Starting tor'
+        '${snowflakePath != null ? " + Snowflake" : " (plain)"}');
+
     try {
-      _process = await Process.start('tor', [
-        '--SocksPort',     '$socksPort',
-        '--Log',           'notice stdout',
-        '--DataDirectory', dataDir.path,
-      ]);
+      _process = await Process.start(torPath, ['-f', torrcPath]);
 
       final completer = Completer<bool>();
 
@@ -61,12 +103,21 @@ class TorService {
         }
       });
 
+      _process!.stderr
+          .transform(utf8.decoder)
+          .transform(const LineSplitter())
+          .listen((line) => debugPrint('[Tor:err] $line'));
+
       _process!.exitCode.then((_) {
         if (!completer.isCompleted) completer.complete(false);
       });
 
-      _bootstrapped = await completer.future
-          .timeout(const Duration(seconds: 90), onTimeout: () => false);
+      // Snowflake bootstrap is slower (WebRTC negotiation) — allow 120 s.
+      final timeoutSec = snowflakePath != null ? 120 : 90;
+      _bootstrapped = await completer.future.timeout(
+        Duration(seconds: timeoutSec),
+        onTimeout: () => false,
+      );
 
       if (!_bootstrapped) await stop();
       return _bootstrapped;
@@ -77,6 +128,7 @@ class TorService {
   }
 
   Future<void> stop() async {
+    _persistent = false;
     _process?.kill();
     await _process?.exitCode.catchError((_) => -1);
     _process = null;
@@ -85,10 +137,65 @@ class TorService {
   }
 
   /// Test if [host]:[port] is reachable through the tor SOCKS5 proxy.
-  /// Pure dart:io — no extra packages.
   Future<bool> probe(String host, int port) async {
     if (!_bootstrapped) return false;
     return _socks5TcpProbe('127.0.0.1', socksPort, host, port);
+  }
+
+  // ── Private helpers ────────────────────────────────────────────────────────
+
+  /// Bundled binary first, then system PATH.
+  Future<String?> _findTor() async {
+    final bundled = await BundledBinaryService.extract('tor');
+    if (bundled != null) {
+      debugPrint('[TorService] Using bundled tor: $bundled');
+      return bundled;
+    }
+    if (Platform.isWindows) return null; // no `which` on Windows
+    final res = await Process.run('which', ['tor']);
+    if (res.exitCode == 0) {
+      final path = (res.stdout as String).trim();
+      debugPrint('[TorService] Using system tor: $path');
+      return path;
+    }
+    return null;
+  }
+
+  Future<String?> _findSnowflake() async {
+    final bundled = await BundledBinaryService.extract('snowflake-client');
+    if (bundled != null) {
+      debugPrint('[TorService] Using bundled snowflake-client: $bundled');
+      return bundled;
+    }
+    if (Platform.isWindows) return null;
+    final res = await Process.run('which', ['snowflake-client']);
+    if (res.exitCode == 0) {
+      final path = (res.stdout as String).trim();
+      debugPrint('[TorService] Using system snowflake-client: $path');
+      return path;
+    }
+    return null;
+  }
+
+  Future<String> _writeTorrc({
+    required String dataDir,
+    String? snowflakePath,
+  }) async {
+    final buf = StringBuffer()
+      ..writeln('SocksPort $socksPort')
+      ..writeln('DataDirectory $dataDir')
+      ..writeln('Log notice stdout');
+
+    if (snowflakePath != null) {
+      buf
+        ..writeln('UseBridges 1')
+        ..writeln('ClientTransportPlugin snowflake exec $snowflakePath')
+        ..writeln('Bridge $_snowflakeBridge');
+    }
+
+    final torrcPath = '$dataDir/torrc';
+    await File(torrcPath).writeAsString(buf.toString());
+    return torrcPath;
   }
 }
 

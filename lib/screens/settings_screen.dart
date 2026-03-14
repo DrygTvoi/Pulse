@@ -9,6 +9,7 @@ import 'package:path_provider/path_provider.dart';
 import '../services/password_hasher.dart';
 import 'package:convert/convert.dart';
 import '../theme/app_theme.dart';
+import '../widgets/theme_picker_widget.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dynamic_theme_screen.dart';
 import 'device_transfer_screen.dart';
@@ -20,6 +21,7 @@ import '../widgets/panic_key_dialog.dart';
 import '../services/ice_server_config.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import '../services/waku_discovery_service.dart';
+import '../services/tor_service.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -54,6 +56,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   // Tor state
   bool _torEnabled = false;
+  bool _bundledTorEnabled = false;
+  bool _bundledTorLoading = false;
   final _torHostController = TextEditingController(text: '127.0.0.1');
   final _torPortController = TextEditingController(text: '9050');
 
@@ -131,8 +135,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final panicKeyEnabled =
         (await _secureStorage.read(key: 'app_panic_key_hash')) != null;
 
+    final bundledTorEnabled = prefs.getBool('bundled_tor_enabled') ?? false;
     setState(() {
       _torEnabled = torEnabled;
+      _bundledTorEnabled = bundledTorEnabled;
       _torHostController.text = torHost;
       _torPortController.text = torPort.toString();
       _i2pEnabled = i2pEnabled;
@@ -351,6 +357,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const SizedBox(height: 32),
           _sectionDivider('Censorship Resistance'),
           const SizedBox(height: 6),
+          _buildBundledTorCard(),
+          const SizedBox(height: 14),
           _buildTorInfo(),
           const SizedBox(height: 14),
           _sectionLabel('Tor Proxy (SOCKS5)'),
@@ -367,6 +375,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const SizedBox(height: 32),
           _sectionDivider('Appearance'),
           const SizedBox(height: 14),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppTheme.surface,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: const ThemePickerWidget(),
+          ),
+          const SizedBox(height: 12),
           _settingRow(
             icon: Icons.palette_rounded,
             iconColor: const Color(0xFF9B59B6),
@@ -1085,6 +1102,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       }
       final userIdentity = prefs.getString('user_identity');
       if (userIdentity != null) data['user_identity'] = userIdentity;
+      final contacts = prefs.getString('contacts');
+      if (contacts != null) data['contacts'] = contacts;
 
       final b64 = base64.encode(utf8.encode(jsonEncode(data)));
 
@@ -1260,16 +1279,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         key: key, value: data[key] as String);
                   }
                 }
+                final prefs2 = await SharedPreferences.getInstance();
                 if (data.containsKey('user_identity')) {
-                  final prefs = await SharedPreferences.getInstance();
-                  await prefs.setString(
+                  await prefs2.setString(
                       'user_identity', data['user_identity'] as String);
+                }
+                if (data.containsKey('contacts')) {
+                  await prefs2.setString('contacts', data['contacts'] as String);
                 }
                 if (ctx.mounted) Navigator.pop(ctx);
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                     content: Text(
-                        'Identity imported! Restart the app to apply.',
+                        'Identity + contacts imported! Restart the app to apply.',
                         style: GoogleFonts.inter()),
                     backgroundColor: AppTheme.primary,
                     behavior: SnackBarBehavior.floating,
@@ -1480,6 +1502,111 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  Widget _buildBundledTorCard() {
+    const purple = Color(0xFF7D4698);
+    return GestureDetector(
+      onTap: _bundledTorLoading ? null : _toggleBundledTor,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: _bundledTorEnabled
+              ? purple.withValues(alpha: 0.08)
+              : AppTheme.surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: _bundledTorEnabled
+                ? purple.withValues(alpha: 0.4)
+                : AppTheme.surfaceVariant,
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: purple.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.hub_rounded, color: purple, size: 18),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Built-in Tor',
+                      style: GoogleFonts.inter(
+                          color: AppTheme.textPrimary,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14)),
+                  Text(
+                    _bundledTorEnabled
+                        ? 'Running — Nostr routed via 127.0.0.1:9250'
+                        : 'Auto-starts bundled Tor (Snowflake for censored networks)',
+                    style: GoogleFonts.inter(
+                        color: _bundledTorEnabled
+                            ? purple
+                            : AppTheme.textSecondary,
+                        fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+            if (_bundledTorLoading)
+              const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation(purple)),
+              )
+            else
+              Switch(
+                value: _bundledTorEnabled,
+                onChanged: (_) => _toggleBundledTor(),
+                activeThumbColor: purple,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _toggleBundledTor() async {
+    if (_bundledTorLoading) return;
+    final prefs = await SharedPreferences.getInstance();
+    if (_bundledTorEnabled) {
+      // Turn off
+      await TorService.instance.stop();
+      setState(() => _bundledTorEnabled = false);
+      await prefs.setBool('bundled_tor_enabled', false);
+    } else {
+      // Turn on
+      setState(() => _bundledTorLoading = true);
+      final ok = await TorService.instance.startPersistent();
+      if (!mounted) return;
+      if (ok) {
+        setState(() {
+          _bundledTorEnabled = true;
+          _bundledTorLoading = false;
+          _torEnabled = true;
+          _torHostController.text = '127.0.0.1';
+          _torPortController.text = '9250';
+        });
+        await prefs.setBool('bundled_tor_enabled', true);
+        await prefs.setBool('tor_enabled', true);
+        await prefs.setString('tor_host', '127.0.0.1');
+        await prefs.setInt('tor_port', 9250);
+      } else {
+        setState(() => _bundledTorLoading = false);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Built-in Tor failed to start')),
+          );
+        }
+      }
+    }
+  }
+
   Widget _buildTorInfo() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -1510,11 +1637,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Widget _buildTorSettings() {
     const purple = Color(0xFF7D4698);
+    final managedByBundled = _bundledTorEnabled;
     return Column(
       children: [
         // Toggle row
         GestureDetector(
-          onTap: () => setState(() => _torEnabled = !_torEnabled),
+          onTap: managedByBundled ? null : () => setState(() => _torEnabled = !_torEnabled),
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             decoration: BoxDecoration(
@@ -1546,11 +1674,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     children: [
                       Text('Route Nostr via Tor',
                           style: GoogleFonts.inter(
-                              color: AppTheme.textPrimary,
+                              color: managedByBundled
+                                  ? AppTheme.textSecondary
+                                  : AppTheme.textPrimary,
                               fontWeight: FontWeight.w600,
                               fontSize: 14)),
                       Text(
-                          _torEnabled ? 'Active — Nostr traffic routed through Tor' : 'Disabled',
+                          managedByBundled
+                              ? 'Managed by Built-in Tor'
+                              : (_torEnabled ? 'Active — Nostr traffic routed through Tor' : 'Disabled'),
                           style: GoogleFonts.inter(
                               color: _torEnabled
                                   ? purple
@@ -1561,7 +1693,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 Switch(
                   value: _torEnabled,
-                  onChanged: (v) => setState(() => _torEnabled = v),
+                  onChanged: managedByBundled ? null : (v) => setState(() => _torEnabled = v),
                   activeThumbColor: purple,
                 ),
               ],
@@ -1570,29 +1702,49 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
         if (_torEnabled) ...[
           const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                flex: 3,
-                child: _field(
-                  controller: _torHostController,
-                  hint: '127.0.0.1',
-                  label: 'Proxy Host',
-                  icon: Icons.router_rounded,
-                ),
+          if (managedByBundled)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: AppTheme.surface,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: AppTheme.surfaceVariant),
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                flex: 1,
-                child: _field(
-                  controller: _torPortController,
-                  hint: '9050',
-                  label: 'Port',
-                  icon: Icons.electrical_services_rounded,
-                ),
+              child: Row(
+                children: [
+                  Icon(Icons.lock_outline_rounded, size: 14, color: AppTheme.textSecondary),
+                  const SizedBox(width: 8),
+                  Text('127.0.0.1 : 9250',
+                      style: GoogleFonts.inter(
+                          color: AppTheme.textSecondary, fontSize: 13,
+                          fontWeight: FontWeight.w500)),
+                ],
               ),
-            ],
-          ),
+            )
+          else
+            Row(
+              children: [
+                Expanded(
+                  flex: 3,
+                  child: _field(
+                    controller: _torHostController,
+                    hint: '127.0.0.1',
+                    label: 'Proxy Host',
+                    icon: Icons.router_rounded,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  flex: 1,
+                  child: _field(
+                    controller: _torPortController,
+                    hint: '9050',
+                    label: 'Port',
+                    icon: Icons.electrical_services_rounded,
+                  ),
+                ),
+              ],
+            ),
           const SizedBox(height: 8),
           Row(children: [
             Icon(Icons.info_outline_rounded,

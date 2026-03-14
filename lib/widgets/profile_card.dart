@@ -1,6 +1,9 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:image/image.dart' as img;
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../theme/app_theme.dart';
@@ -22,6 +25,7 @@ class _ProfileCardState extends State<ProfileCard> {
   final _aboutController = TextEditingController();
   bool _saving = false;
   String _fingerprint = '';
+  Uint8List? _avatarBytes; // own avatar raw JPEG bytes
 
   @override
   void initState() {
@@ -44,19 +48,45 @@ class _ProfileCardState extends State<ProfileCard> {
         final data = jsonDecode(raw);
         _nameController.text = data['name'] ?? '';
         _aboutController.text = data['about'] ?? '';
+        final avatarB64 = data['avatar'] as String?;
+        if (avatarB64 != null && avatarB64.isNotEmpty) {
+          _avatarBytes = base64Decode(avatarB64);
+        }
       } catch (_) {}
     }
     final fp = SignalService().ownFingerprint;
     if (mounted) setState(() => _fingerprint = fp);
   }
 
+  Future<void> _pickAvatar() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.image,
+      allowMultiple: false,
+      withData: true,
+    );
+    if (result == null || result.files.isEmpty) return;
+    final bytes = result.files.first.bytes;
+    if (bytes == null) return;
+    // Decode, resize to 256×256, encode as JPEG
+    final decoded = img.decodeImage(bytes);
+    if (decoded == null) return;
+    final resized = img.copyResizeCropSquare(decoded, size: 256);
+    final jpeg = img.encodeJpg(resized, quality: 85);
+    if (mounted) setState(() => _avatarBytes = Uint8List.fromList(jpeg));
+  }
+
   Future<void> _save() async {
     setState(() => _saving = true);
+    final name = _nameController.text.trim();
+    final about = _aboutController.text.trim();
     final prefs = await SharedPreferences.getInstance();
+    final avatarB64 = _avatarBytes != null ? base64Encode(_avatarBytes!) : '';
     await prefs.setString('user_profile', jsonEncode({
-      'name': _nameController.text.trim(),
-      'about': _aboutController.text.trim(),
+      'name': name,
+      'about': about,
+      if (avatarB64.isNotEmpty) 'avatar': avatarB64,
     }));
+    unawaited(ChatController().broadcastProfile(name, about, avatarB64: avatarB64));
     setState(() => _saving = false);
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -89,31 +119,54 @@ class _ProfileCardState extends State<ProfileCard> {
           // ─── Avatar row ──────────────────────────────
           Row(
             children: [
-              // Identicon avatar
-              Container(
-                width: 72, height: 72,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      HSLColor.fromAHSL(1, hue.toDouble(), 0.6, 0.45).toColor(),
-                      HSLColor.fromAHSL(1, hue.toDouble(), 0.5, 0.30).toColor(),
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: HSLColor.fromAHSL(1, hue.toDouble(), 0.6, 0.40).toColor().withValues(alpha:0.35),
-                      blurRadius: 14,
-                      offset: const Offset(0, 4),
+              // Avatar (tappable)
+              GestureDetector(
+                onTap: _pickAvatar,
+                child: Stack(
+                  children: [
+                    Container(
+                      width: 72, height: 72,
+                      decoration: BoxDecoration(
+                        gradient: _avatarBytes == null ? LinearGradient(
+                          colors: [
+                            HSLColor.fromAHSL(1, hue.toDouble(), 0.6, 0.45).toColor(),
+                            HSLColor.fromAHSL(1, hue.toDouble(), 0.5, 0.30).toColor(),
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ) : null,
+                        shape: BoxShape.circle,
+                        image: _avatarBytes != null ? DecorationImage(
+                          image: MemoryImage(_avatarBytes!),
+                          fit: BoxFit.cover,
+                        ) : null,
+                        boxShadow: [
+                          BoxShadow(
+                            color: HSLColor.fromAHSL(1, hue.toDouble(), 0.6, 0.40).toColor().withValues(alpha: 0.35),
+                            blurRadius: 14,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: _avatarBytes == null
+                          ? Center(child: Text(initial,
+                              style: GoogleFonts.inter(
+                                  color: Colors.white, fontSize: 28, fontWeight: FontWeight.w700)))
+                          : null,
+                    ),
+                    Positioned(
+                      bottom: 0, right: 0,
+                      child: Container(
+                        width: 22, height: 22,
+                        decoration: BoxDecoration(
+                          color: AppTheme.primary,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: AppTheme.surface, width: 2),
+                        ),
+                        child: const Icon(Icons.camera_alt_rounded, size: 11, color: Colors.white),
+                      ),
                     ),
                   ],
-                ),
-                child: Center(
-                  child: Text(initial,
-                      style: GoogleFonts.inter(
-                          color: Colors.white, fontSize: 28, fontWeight: FontWeight.w700)),
                 ),
               ),
               const SizedBox(width: 18),
@@ -338,6 +391,10 @@ class InboxAddressCard extends StatelessWidget {
                 ),
                 if (address != addresses.last) const SizedBox(height: 6),
               ],
+              const SizedBox(height: 10),
+              // Share All button (multi-address invite link)
+              if (addresses.length > 1)
+                _ShareAllButton(addresses: addresses),
               const SizedBox(height: 6),
               Text('Share with contacts so they can message you.',
                   style: GoogleFonts.inter(
@@ -346,6 +403,57 @@ class InboxAddressCard extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+class _ShareAllButton extends StatelessWidget {
+  final List<String> addresses;
+  const _ShareAllButton({required this.addresses});
+
+  Future<void> _share(BuildContext context) async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString('user_profile');
+    String name = '';
+    if (raw != null) {
+      try { name = (jsonDecode(raw)['name'] as String?) ?? ''; } catch (_) {}
+    }
+    final cfg = jsonEncode({'n': name, 'a': addresses});
+    final link = 'pulse://add?cfg=${base64Encode(utf8.encode(cfg))}';
+    await Clipboard.setData(ClipboardData(text: link));
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text('All ${addresses.length} addresses copied as one link!',
+          style: GoogleFonts.inter()),
+      backgroundColor: AppTheme.primary,
+      behavior: SnackBarBehavior.floating,
+      duration: const Duration(seconds: 2),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+    ));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => unawaited(_share(context)),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        decoration: BoxDecoration(
+          color: AppTheme.primary.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: AppTheme.primary.withValues(alpha: 0.3)),
+        ),
+        child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+          Icon(Icons.link_rounded, size: 14, color: AppTheme.primary),
+          const SizedBox(width: 6),
+          Text('Share All Addresses (SmartRouter)',
+              style: GoogleFonts.inter(
+                  color: AppTheme.primary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600)),
+        ]),
+      ),
     );
   }
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_theme.dart';
+import '../widgets/theme_picker_widget.dart';
 import 'setup_identity_screen.dart';
 
 class OnboardingScreen extends StatefulWidget {
@@ -15,7 +16,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   final _controller = PageController();
   int _page = 0;
 
-  static const _pages = [
+  // 4 info pages + 1 theme page
+  static const _infoPages = [
     _OnboardingPage(
       icon: Icons.shield_rounded,
       iconColor: Color(0xFF4ADE80),
@@ -55,6 +57,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     ),
   ];
 
+  // Total pages = info pages + theme picker
+  int get _totalPages => _infoPages.length + 1;
+  bool get _isThemePage => _page == _infoPages.length;
+
   @override
   void dispose() {
     _controller.dispose();
@@ -62,7 +68,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   void _next() {
-    if (_page < _pages.length - 1) {
+    if (_page < _totalPages - 1) {
       _controller.nextPage(
         duration: const Duration(milliseconds: 350),
         curve: Curves.easeInOut,
@@ -103,8 +109,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               child: PageView.builder(
                 controller: _controller,
                 onPageChanged: (i) => setState(() => _page = i),
-                itemCount: _pages.length,
-                itemBuilder: (_, i) => _PageView(page: _pages[i]),
+                itemCount: _totalPages,
+                itemBuilder: (_, i) {
+                  if (i < _infoPages.length) {
+                    return _InfoPageView(page: _infoPages[i]);
+                  }
+                  return const _ThemePageView();
+                },
               ),
             ),
 
@@ -115,7 +126,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 children: [
                   // Dots
                   Row(
-                    children: List.generate(_pages.length, (i) {
+                    children: List.generate(_totalPages, (i) {
                       final active = i == _page;
                       return AnimatedContainer(
                         duration: const Duration(milliseconds: 250),
@@ -144,7 +155,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                           borderRadius: BorderRadius.circular(14)),
                     ),
                     child: Text(
-                      _page == _pages.length - 1 ? 'Get Started' : 'Next',
+                      _isThemePage ? 'Get Started' : 'Next',
                       style: GoogleFonts.inter(
                           fontWeight: FontWeight.w600, fontSize: 15),
                     ),
@@ -159,9 +170,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 }
 
-class _PageView extends StatelessWidget {
+// ── Info page ──────────────────────────────────────────────────────────────
+
+class _InfoPageView extends StatelessWidget {
   final _OnboardingPage page;
-  const _PageView({required this.page});
+  const _InfoPageView({required this.page});
 
   @override
   Widget build(BuildContext context) {
@@ -186,7 +199,7 @@ class _PageView extends StatelessWidget {
             style: GoogleFonts.inter(
               fontSize: 26,
               fontWeight: FontWeight.w700,
-              color: Colors.white,
+              color: AppTheme.textPrimary,
               height: 1.2,
             ),
           ),
@@ -205,6 +218,58 @@ class _PageView extends StatelessWidget {
     );
   }
 }
+
+// ── Theme picker page ──────────────────────────────────────────────────────
+
+class _ThemePageView extends StatelessWidget {
+  const _ThemePageView();
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 16),
+          Container(
+            width: 72,
+            height: 72,
+            decoration: BoxDecoration(
+              color: const Color(0xFF9B59B6).withValues(alpha: 0.12),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.palette_rounded,
+                size: 36, color: Color(0xFF9B59B6)),
+          ),
+          const SizedBox(height: 24),
+          Text(
+            'Choose Your Look',
+            style: GoogleFonts.inter(
+              fontSize: 26,
+              fontWeight: FontWeight.w700,
+              color: AppTheme.textPrimary,
+              height: 1.2,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'Pick a theme and accent colour. You can always change this later in Settings.',
+            style: GoogleFonts.inter(
+              fontSize: 15,
+              color: AppTheme.textSecondary,
+              height: 1.6,
+            ),
+          ),
+          const SizedBox(height: 28),
+          const ThemePickerWidget(),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Data class ────────────────────────────────────────────────────────────
 
 class _OnboardingPage {
   final IconData icon;

@@ -18,44 +18,36 @@ class _DynamicThemeScreenState extends State<DynamicThemeScreen> {
   void _applyPreset(String name) {
     switch (name) {
       case 'Cyberpunk':
-        ThemeNotifier.instance.updateColors(
+        ThemeNotifier.instance.applyPreset(
           primary: const Color(0xFF00FF9D),
-          background: const Color(0xFF0D0221),
-          surface: const Color(0xFF261447),
-          accent: const Color(0xFFFF3864),
+          accent:  const Color(0xFFFF3864),
+          radius: 0.0,
+          font: 'Fira Code',
         );
-        ThemeNotifier.instance.updateFont('Fira Code');
-        ThemeNotifier.instance.updateRadius(0.0);
         break;
       case 'Minimalist Default':
-        ThemeNotifier.instance.updateColors(
+        ThemeNotifier.instance.applyPreset(
           primary: const Color(0xFF6366F1),
-          background: const Color(0xFF0F172A),
-          surface: const Color(0xFF1E293B),
-          accent: const Color(0xFFF43F5E),
+          accent:  const Color(0xFFF43F5E),
+          radius: 16.0,
+          font: 'Outfit',
         );
-        ThemeNotifier.instance.updateFont('Outfit');
-        ThemeNotifier.instance.updateRadius(16.0);
         break;
       case 'Midnight Indigo':
-        ThemeNotifier.instance.updateColors(
+        ThemeNotifier.instance.applyPreset(
           primary: const Color(0xFF818CF8),
-          background: const Color(0xFF050505),
-          surface: const Color(0xFF171717),
-          accent: const Color(0xFFC084FC),
+          accent:  const Color(0xFFC084FC),
+          radius: 24.0,
+          font: 'Inter',
         );
-        ThemeNotifier.instance.updateFont('Inter');
-        ThemeNotifier.instance.updateRadius(24.0);
         break;
       case 'Neon Pink':
-        ThemeNotifier.instance.updateColors(
+        ThemeNotifier.instance.applyPreset(
           primary: const Color(0xFFFF007F),
-          background: const Color(0xFF1A0010),
-          surface: const Color(0xFF330022),
-          accent: const Color(0xFF00E5FF),
+          accent:  const Color(0xFF00E5FF),
+          radius: 12.0,
+          font: 'Outfit',
         );
-        ThemeNotifier.instance.updateFont('Outfit');
-        ThemeNotifier.instance.updateRadius(12.0);
         break;
     }
   }

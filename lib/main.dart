@@ -13,6 +13,7 @@ import 'dart:convert';
 import 'controllers/chat_controller.dart';
 import 'services/notification_service.dart';
 import 'services/connectivity_probe_service.dart';
+import 'services/utls_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -44,6 +45,7 @@ void main() async {
   // Runs silently; if connection is already working, does nothing extra.
   // If tor is installed and direct probes fail, uses it for bootstrap only.
   unawaited(ConnectivityProbeService.instance.runIfNeeded());
+  unawaited(UTLSService.instance.ensureRunning());
 
   runApp(
     MultiProvider(
@@ -138,7 +140,9 @@ class _PulseAppState extends State<PulseApp> {
     return MaterialApp(
       title: 'Pulse',
       debugShowCheckedModeBanner: false,
-      theme: themeNotifier.themeData,
+      theme: themeNotifier.lightThemeData,
+      darkTheme: themeNotifier.darkThemeData,
+      themeMode: themeNotifier.themeMode,
       home: homeWidget,
     );
   }

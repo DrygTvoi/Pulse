@@ -15,6 +15,8 @@ class Contact {
   /// is unreachable. Same protocol or cross-protocol alternates are supported.
   /// Format: same as [databaseId] — e.g. "pubkey@wss://relay2.example.com"
   final List<String> alternateAddresses;
+  /// Bio/about text received via profile_update signal.
+  final String bio;
 
   Contact({
     required this.id,
@@ -26,6 +28,7 @@ class Contact {
     this.isGroup = false,
     this.members = const [],
     this.alternateAddresses = const [],
+    this.bio = '',
   });
 
   /// The canonical local storage key for this contact's message history.
@@ -44,6 +47,7 @@ class Contact {
       'isGroup': isGroup,
       'members': members,
       'alternateAddresses': alternateAddresses,
+      if (bio.isNotEmpty) 'bio': bio,
     };
   }
 
@@ -55,6 +59,7 @@ class Contact {
     String? avatarUrl,
     List<String>? members,
     List<String>? alternateAddresses,
+    String? bio,
   }) {
     return Contact(
       id: id,
@@ -66,6 +71,7 @@ class Contact {
       isGroup: isGroup,
       members: members ?? this.members,
       alternateAddresses: alternateAddresses ?? this.alternateAddresses,
+      bio: bio ?? this.bio,
     );
   }
 
@@ -80,6 +86,7 @@ class Contact {
       isGroup: map['isGroup'] ?? false,
       members: List<String>.from(map['members'] ?? []),
       alternateAddresses: List<String>.from(map['alternateAddresses'] ?? []),
+      bio: map['bio'] as String? ?? '',
     );
   }
 }

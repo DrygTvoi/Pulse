@@ -38,12 +38,8 @@ class SetupIdentityScreen extends StatefulWidget {
 }
 
 class _SetupIdentityScreenState extends State<SetupIdentityScreen> {
-  // ── Mode: null = choose, 'quick', 'advanced' ──────────────────────────────
+  // ── Mode: null = choose, 'anonymous', 'advanced' ──────────────────────────
   String? _mode;
-
-  // ── Quick Start ───────────────────────────────────────────────────────────
-  final _nameController = TextEditingController();
-  int _colorIndex = 0;
 
   // ── Anonymous ─────────────────────────────────────────────────────────────
   final _anonNameController = TextEditingController();
@@ -61,7 +57,6 @@ class _SetupIdentityScreenState extends State<SetupIdentityScreen> {
 
   @override
   void dispose() {
-    _nameController.dispose();
     _anonNameController.dispose();
     _firebaseUrlController.dispose();
     _firebaseKeyController.dispose();
@@ -90,10 +85,11 @@ class _SetupIdentityScreenState extends State<SetupIdentityScreen> {
   // ── Anonymous account creation ────────────────────────────────────────────
 
   Future<void> _createAnonymous() async {
+    final name = _anonNameController.text.trim();
+    if (name.isEmpty) return;
     setState(() => _isLoading = true);
     final rng = Random.secure();
 
-    final name = _anonNameController.text.trim(); // can be empty
     final colorIndex = _anonColorIndex;
 
     final signalService = SignalService();
@@ -224,55 +220,6 @@ class _SetupIdentityScreenState extends State<SetupIdentityScreen> {
     return hex.encode(saltBytes);
   }
 
-  // ── Quick Start setup ─────────────────────────────────────────────────────
-
-  Future<void> _quickStart() async {
-    final name = _nameController.text.trim();
-    if (name.isEmpty) return;
-    setState(() => _isLoading = true);
-
-    final signalService = SignalService();
-    await signalService.initialize();
-    final bundle = await signalService.getPublicBundle();
-
-    final uuid = const Uuid().v4();
-    final realPublicKey = base64Encode(
-        Uint8List.fromList(List<int>.from(bundle['identityKey'])));
-
-    // Auto-generate Nostr keypair
-    const secureStorage = FlutterSecureStorage();
-    final rng = Random.secure();
-    final keyBytes = Uint8List.fromList(List.generate(32, (_) => rng.nextInt(256)));
-    final privkey = hex.encode(keyBytes);
-    const relay = 'wss://relay.damus.io';
-    await secureStorage.write(key: 'nostr_privkey', value: privkey);
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('nostr_relay', relay);
-
-    final pubkey = deriveNostrPubkeyHex(privkey);
-    final identity = Identity(
-      id: uuid,
-      publicKey: realPublicKey,
-      privateKey: '',
-      preferredAdapter: 'nostr',
-      adapterConfig: {'dbId': '$pubkey@$relay', 'relay': relay},
-    );
-    await prefs.setString('user_identity', jsonEncode(identity.toJson()));
-
-    // Save profile name + avatar colour
-    await prefs.setString('user_profile', jsonEncode({
-      'name': name,
-      'about': '',
-      'avatar_color': _avatarColors[_colorIndex].toARGB32().toString(),
-    }));
-    await _registerOxenSecondary(prefs);
-
-    if (!mounted) return;
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const HomeScreen()),
-    );
-  }
-
   // ── Advanced setup ────────────────────────────────────────────────────────
 
   Future<void> _finishSetup() async {
@@ -385,8 +332,6 @@ class _SetupIdentityScreenState extends State<SetupIdentityScreen> {
                 _buildChooseMode(),
               ] else if (_mode == 'anonymous') ...[
                 _buildAnonymousProfile(),
-              ] else if (_mode == 'quick') ...[
-                _buildQuickStart(),
               ] else ...[
                 _buildAdvanced(),
               ],
@@ -410,39 +355,10 @@ class _SetupIdentityScreenState extends State<SetupIdentityScreen> {
                 fontWeight: FontWeight.w600)),
         const SizedBox(height: 20),
 
-        // ── Anonymous Account (zero-click, top of list) ───────────────────
+        // ── Anonymous Account ─────────────────────────────────────────────
         _AnonymousCard(
           isLoading: _isLoading,
           onTap: () => setState(() => _mode = 'anonymous'),
-        ),
-        const SizedBox(height: 20),
-
-        // ── Divider ───────────────────────────────────────────────────────
-        Row(children: [
-          Expanded(
-              child:
-                  Divider(color: AppTheme.surfaceVariant, thickness: 1)),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: Text('or',
-                style: GoogleFonts.inter(
-                    color: AppTheme.textSecondary, fontSize: 12)),
-          ),
-          Expanded(
-              child:
-                  Divider(color: AppTheme.surfaceVariant, thickness: 1)),
-        ]),
-        const SizedBox(height: 20),
-
-        // Quick Start card
-        _ModeCard(
-          icon: Icons.bolt_rounded,
-          iconColor: const Color(0xFF4ADE80),
-          title: 'Quick Start',
-          subtitle: 'Pick a name and go.\nNostr relay auto-configured.\nNo accounts, no registration.',
-          badge: '10 seconds',
-          badgeColor: const Color(0xFF4ADE80),
-          onTap: () => setState(() => _mode = 'quick'),
         ),
         const SizedBox(height: 14),
 
@@ -533,14 +449,15 @@ class _SetupIdentityScreenState extends State<SetupIdentityScreen> {
         ),
         const SizedBox(height: 28),
 
-        // Optional name field
+        // Name field (required)
         TextField(
           controller: _anonNameController,
+          autofocus: true,
           onChanged: (_) => setState(() {}),
           style: GoogleFonts.inter(
               color: AppTheme.textPrimary, fontSize: 16),
           decoration: InputDecoration(
-            hintText: 'Nickname (optional)',
+            hintText: 'Your display name',
             hintStyle: GoogleFonts.inter(
                 color: AppTheme.textSecondary, fontSize: 16),
             filled: true,
@@ -597,165 +514,14 @@ class _SetupIdentityScreenState extends State<SetupIdentityScreen> {
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(14)),
             ),
-            onPressed: _isLoading ? null : _createAnonymous,
+            onPressed: (_isLoading || _anonNameController.text.trim().isEmpty) ? null : _createAnonymous,
             child: _isLoading
                 ? const SizedBox(
                     width: 22,
                     height: 22,
                     child: CircularProgressIndicator(
                         color: Colors.white, strokeWidth: 2.5))
-                : Text('Create Anonymous Account',
-                    style: GoogleFonts.inter(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white)),
-          ),
-        ),
-      ],
-    );
-  }
-
-  // ── Quick Start form ──────────────────────────────────────────────────────
-
-  Widget _buildQuickStart() {
-    final color = _avatarColors[_colorIndex];
-    final name = _nameController.text.trim();
-    final initial = name.isEmpty ? '?' : name[0].toUpperCase();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(children: [
-          GestureDetector(
-            onTap: () => setState(() => _mode = null),
-            child: const Icon(Icons.arrow_back_rounded,
-                color: Colors.white54, size: 22),
-          ),
-          const SizedBox(width: 12),
-          Text('Quick Start',
-              style: GoogleFonts.inter(
-                  color: AppTheme.textPrimary,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700)),
-        ]),
-        const SizedBox(height: 32),
-
-        // Avatar picker — tap to cycle colour
-        Center(
-          child: GestureDetector(
-            onTap: () => setState(
-                () => _colorIndex = (_colorIndex + 1) % _avatarColors.length),
-            child: Stack(
-              alignment: Alignment.bottomRight,
-              children: [
-                Container(
-                  width: 88, height: 88,
-                  decoration: BoxDecoration(
-                    color: color,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Center(
-                    child: Text(initial,
-                        style: GoogleFonts.inter(
-                            fontSize: 36,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white)),
-                  ),
-                ),
-                Container(
-                  width: 26, height: 26,
-                  decoration: BoxDecoration(
-                    color: AppTheme.surface,
-                    shape: BoxShape.circle,
-                    border:
-                        Border.all(color: AppTheme.surfaceVariant, width: 2),
-                  ),
-                  child: const Icon(Icons.color_lens_rounded,
-                      size: 14, color: Colors.white70),
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 6),
-        Center(
-          child: Text('Tap to change colour',
-              style: GoogleFonts.inter(
-                  color: AppTheme.textSecondary, fontSize: 11)),
-        ),
-        const SizedBox(height: 28),
-
-        // Name field
-        TextField(
-          controller: _nameController,
-          autofocus: true,
-          onChanged: (_) => setState(() {}),
-          style:
-              GoogleFonts.inter(color: AppTheme.textPrimary, fontSize: 16),
-          decoration: InputDecoration(
-            hintText: 'Your display name',
-            hintStyle: GoogleFonts.inter(
-                color: AppTheme.textSecondary, fontSize: 16),
-            filled: true,
-            fillColor: AppTheme.surfaceVariant,
-            border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide.none),
-            enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide.none),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: BorderSide(color: color, width: 2),
-            ),
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-          ),
-        ),
-        const SizedBox(height: 16),
-
-        // Info banner
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: const Color(0xFF4ADE80).withValues(alpha: 0.08),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-                color: const Color(0xFF4ADE80).withValues(alpha: 0.25)),
-          ),
-          child: Row(children: [
-            const Icon(Icons.bolt_rounded,
-                color: Color(0xFF4ADE80), size: 16),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                'A Nostr keypair is generated locally on your device. '
-                'Your address will be pubkey@wss://relay.damus.io.',
-                style: GoogleFonts.inter(
-                    color: AppTheme.textSecondary, fontSize: 12, height: 1.5),
-              ),
-            ),
-          ]),
-        ),
-        const SizedBox(height: 28),
-
-        SizedBox(
-          width: double.infinity,
-          height: 52,
-          child: FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: name.isEmpty ? AppTheme.surfaceVariant : color,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14)),
-            ),
-            onPressed: (name.isEmpty || _isLoading) ? null : _quickStart,
-            child: _isLoading
-                ? const SizedBox(
-                    width: 22,
-                    height: 22,
-                    child: CircularProgressIndicator(
-                        color: Colors.white, strokeWidth: 2.5))
-                : Text('Start',
+                : Text('Create Account',
                     style: GoogleFonts.inter(
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
@@ -954,8 +720,6 @@ class _ModeCard extends StatelessWidget {
   final Color iconColor;
   final String title;
   final String subtitle;
-  final String? badge;
-  final Color? badgeColor;
   final VoidCallback onTap;
 
   const _ModeCard({
@@ -964,8 +728,6 @@ class _ModeCard extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.onTap,
-    this.badge,
-    this.badgeColor,
   });
 
   @override
@@ -997,29 +759,11 @@ class _ModeCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(children: [
-                    Text(title,
-                        style: GoogleFonts.inter(
-                            color: AppTheme.textPrimary,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700)),
-                    if (badge != null) ...[
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: badgeColor!.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(badge!,
-                            style: GoogleFonts.inter(
-                                color: badgeColor,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600)),
-                      ),
-                    ],
-                  ]),
+                  Text(title,
+                      style: GoogleFonts.inter(
+                          color: AppTheme.textPrimary,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700)),
                   const SizedBox(height: 6),
                   Text(subtitle,
                       style: GoogleFonts.inter(
@@ -1115,7 +859,7 @@ class _AnonymousCard extends StatelessWidget {
                               color: purple.withValues(alpha: 0.3),
                               borderRadius: BorderRadius.circular(6),
                             ),
-                            child: Text('Zero-click',
+                            child: Text('No server',
                                 style: GoogleFonts.inter(
                                     color: purple,
                                     fontSize: 10,
@@ -1124,7 +868,7 @@ class _AnonymousCard extends StatelessWidget {
                         ]),
                         const SizedBox(height: 4),
                         Text(
-                          'No name, no trace.\nEverything auto-generated instantly.',
+                          'Pick a name, keys stay on device.\nNostr + Session auto-configured.',
                           style: GoogleFonts.inter(
                               color: Colors.white60,
                               fontSize: 12,

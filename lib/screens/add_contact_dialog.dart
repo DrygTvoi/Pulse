@@ -19,63 +19,41 @@ class AddContactDialog extends StatefulWidget {
 
 class _AddContactDialogState extends State<AddContactDialog> {
   final _nameController = TextEditingController();
-  final _addressController = TextEditingController();
-  String? _detectedProvider; // null = not detected yet
-  String? _addressError;
+  final _manualAddressController = TextEditingController();
 
-  // Nostr profile fetch state
+  List<String> _detectedAddresses = [];
+  bool _showManual = false;
   bool _fetchingProfile = false;
-  String? _profileFetchStatus; // "Fetching…" / "Found: Alice" / "No profile found"
+  String? _profileFetchStatus;
   Timer? _debounceTimer;
-
-  static const _providerColors = {
-    'Nostr':    Color(0xFF9B59B6),
-    'Firebase': Color(0xFFFFAB00),
-    'Waku':     Color(0xFF00BCD4),
-  };
-
-  static const _providerIcons = {
-    'Nostr':    Icons.bolt_rounded,
-    'Firebase': Icons.local_fire_department_rounded,
-    'Waku':     Icons.hub_rounded,
-  };
 
   @override
   void dispose() {
     _debounceTimer?.cancel();
     _nameController.dispose();
-    _addressController.dispose();
+    _manualAddressController.dispose();
     super.dispose();
   }
 
-  // ── Provider auto-detection ───────────────────────────────────────────────
-
-  String? _detectProvider(String address) {
-    if (address.isEmpty) return null;
+  static String _detectProvider(String address) {
     final lower = address.toLowerCase();
-    if (lower.contains('@wss://') || lower.contains('@ws://')) return 'Nostr';
-    if (lower.contains('@https://')) return 'Firebase';
-    if (lower.contains('@http://')) return 'Waku';
-    // 64-char hex = bare Nostr pubkey
-    if (RegExp(r'^[0-9a-f]{64}$').hasMatch(lower)) return 'Nostr';
-    return null;
+    if (lower.startsWith('05') && lower.length == 66 &&
+        RegExp(r'^[0-9a-f]{66}$').hasMatch(lower)) { return 'Oxen'; }
+    if (lower.contains('@wss://') || lower.contains('@ws://') ||
+        RegExp(r'^[0-9a-f]{64}$').hasMatch(lower)) { return 'Nostr'; }
+    if (lower.contains('@https://')) { return 'Firebase'; }
+    if (lower.contains('@http://')) { return 'Waku'; }
+    return 'Nostr';
   }
 
-  void _onAddressChanged(String value) {
-    // Try to parse a pulse://add?cfg=... invite link
-    if (value.startsWith('pulse://add') || value.startsWith('messenger://join')) {
-      _parsePulseLink(value);
-      return;
-    }
-    setState(() {
-      _detectedProvider = _detectProvider(value);
-      _addressError = null;
-      _profileFetchStatus = null;
-    });
-    if (_detectedProvider == 'Nostr') {
-      _tryScheduleNostrFetch(value);
+  void _onInput(String value) {
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) return;
+    if (trimmed.startsWith('pulse://') || trimmed.startsWith('messenger://')) {
+      _parsePulseLink(trimmed);
     } else {
-      _debounceTimer?.cancel();
+      setState(() => _detectedAddresses = [trimmed]);
+      if (_detectProvider(trimmed) == 'Nostr') _tryScheduleNostrFetch(trimmed);
     }
   }
 
@@ -84,45 +62,39 @@ class _AddContactDialogState extends State<AddContactDialog> {
       final uri = Uri.parse(link);
       final cfg64 = uri.queryParameters['cfg'];
       if (cfg64 == null) return;
-      final json = jsonDecode(utf8.decode(base64Decode(cfg64)))
-          as Map<String, dynamic>;
-      final addr = (json['a'] as String?) ?? '';
-      final name = (json['n'] as String?) ?? '';
-      if (addr.isNotEmpty) {
-        _addressController.text = addr;
+      final json = jsonDecode(utf8.decode(base64Decode(cfg64))) as Map<String, dynamic>;
+
+      final dynamic rawA = json['a'];
+      final List<String> addresses;
+      if (rawA is List) {
+        addresses = rawA.map((e) => e.toString()).where((e) => e.isNotEmpty).toList();
+      } else if (rawA is String && rawA.isNotEmpty) {
+        addresses = [rawA];
+      } else {
+        return;
+      }
+      if (addresses.isEmpty) return;
+
+      final name = (json['n'] as String?)?.trim() ?? '';
+      setState(() {
+        _detectedAddresses = addresses;
         if (name.isNotEmpty && _nameController.text.isEmpty) {
           _nameController.text = name;
         }
-        setState(() {
-          _detectedProvider = _detectProvider(addr);
-          _addressError = null;
-          _profileFetchStatus = null;
-        });
-        // If Nostr and name is still empty, try fetching profile
-        if (_detectedProvider == 'Nostr' && _nameController.text.isEmpty) {
-          _tryScheduleNostrFetch(addr);
-        }
+      });
+      if (_nameController.text.isEmpty && _detectProvider(addresses.first) == 'Nostr') {
+        _tryScheduleNostrFetch(addresses.first);
       }
     } catch (_) {
-      // Not a valid link — treat as raw address
-      setState(() {
-        _detectedProvider = _detectProvider(link);
-        _addressError = null;
-        _profileFetchStatus = null;
-      });
+      _onInput(link);
     }
   }
 
-  // ── Nostr NIP-01 kind:0 profile fetch ─────────────────────────────────────
-
   void _tryScheduleNostrFetch(String address) {
     _debounceTimer?.cancel();
-
-    // Extract pubkey and relay from address
-    String pubkey;
-    String? relayWs;
-
     final lower = address.toLowerCase();
+    String pubkey;
+    String relayWs;
     if (lower.contains('@wss://') || lower.contains('@ws://')) {
       final atIdx = address.indexOf('@');
       if (atIdx < 0) return;
@@ -130,133 +102,86 @@ class _AddContactDialogState extends State<AddContactDialog> {
       relayWs = address.substring(atIdx + 1);
     } else if (RegExp(r'^[0-9a-f]{64}$').hasMatch(lower)) {
       pubkey = lower;
-      relayWs = 'wss://relay.damus.io'; // default public relay for bare pubkeys
+      relayWs = 'wss://relay.damus.io';
     } else {
       return;
     }
-
     if (!RegExp(r'^[0-9a-f]{64}$').hasMatch(pubkey)) return;
-
-    _debounceTimer = Timer(const Duration(milliseconds: 800), () {
-      _fetchNostrProfile(pubkey, relayWs!);
-    });
+    _debounceTimer = Timer(const Duration(milliseconds: 600), () => _fetchNostrProfile(pubkey, relayWs));
   }
 
   Future<void> _fetchNostrProfile(String pubkey, String relayWs) async {
     if (!mounted) return;
-    setState(() {
-      _fetchingProfile = true;
-      _profileFetchStatus = 'Fetching Nostr profile…';
-    });
-
+    setState(() { _fetchingProfile = true; _profileFetchStatus = 'Fetching profile…'; });
     WebSocketChannel? channel;
     try {
       channel = WebSocketChannel.connect(Uri.parse(relayWs));
       final subId = 'meta_${Random().nextInt(999999)}';
-      final req = jsonEncode([
-        'REQ',
-        subId,
-        {'kinds': [0], 'authors': [pubkey], 'limit': 1}
-      ]);
-      channel.sink.add(req);
-
+      channel.sink.add(jsonEncode(['REQ', subId, {'kinds': [0], 'authors': [pubkey], 'limit': 1}]));
       String? foundName;
       await for (final raw in channel.stream.timeout(const Duration(seconds: 6))) {
         final msg = jsonDecode(raw as String) as List<dynamic>;
         if (msg.isEmpty) continue;
-        final type = msg[0] as String;
-        if (type == 'EVENT' && msg.length >= 3) {
+        if (msg[0] == 'EVENT' && msg.length >= 3) {
           final event = msg[2] as Map<String, dynamic>;
           if (event['kind'] == 0) {
             try {
-              final content = jsonDecode(event['content'] as String)
-                  as Map<String, dynamic>;
-              final name = (content['display_name'] as String?)?.trim() ??
+              final content = jsonDecode(event['content'] as String) as Map<String, dynamic>;
+              final n = (content['display_name'] as String?)?.trim() ??
                   (content['name'] as String?)?.trim();
-              if (name != null && name.isNotEmpty) {
-                foundName = name;
-              }
+              if (n != null && n.isNotEmpty) foundName = n;
             } catch (_) {}
           }
-        } else if (type == 'EOSE') {
-          break;
-        }
+        } else if (msg[0] == 'EOSE') { break; }
       }
-
       if (!mounted) return;
       if (foundName != null) {
-        setState(() {
-          _fetchingProfile = false;
-          _profileFetchStatus = 'Found: $foundName';
-        });
-        // Auto-fill only if the user hasn't typed anything yet
-        if (_nameController.text.isEmpty) {
-          _nameController.text = foundName;
-        }
+        setState(() { _fetchingProfile = false; _profileFetchStatus = 'Found: $foundName'; });
+        if (_nameController.text.isEmpty) _nameController.text = foundName;
       } else {
-        setState(() {
-          _fetchingProfile = false;
-          _profileFetchStatus = 'No profile on this relay';
-        });
+        setState(() { _fetchingProfile = false; _profileFetchStatus = 'No profile found'; });
       }
     } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _fetchingProfile = false;
-        _profileFetchStatus = 'Could not reach relay';
-      });
+      if (mounted) setState(() { _fetchingProfile = false; _profileFetchStatus = null; });
     } finally {
       channel?.sink.close();
     }
   }
 
-  // ── Paste from clipboard ──────────────────────────────────────────────────
-
-  Future<void> _pasteFromClipboard() async {
-    final data = await Clipboard.getData(Clipboard.kTextPlain);
-    if (data?.text == null) return;
-    _addressController.text = data!.text!.trim();
-    _onAddressChanged(data.text!.trim());
+  void _addManualAddress() {
+    final addr = _manualAddressController.text.trim();
+    if (addr.isEmpty) return;
+    if (!_detectedAddresses.contains(addr)) {
+      setState(() => _detectedAddresses.add(addr));
+    }
+    _manualAddressController.clear();
   }
 
-  // ── Submit ────────────────────────────────────────────────────────────────
-
   void _submit() {
-    final address = _addressController.text.trim();
-    if (address.isEmpty) {
-      setState(() => _addressError = 'Address is required');
-      return;
-    }
-
-    final provider = _detectedProvider ?? 'Nostr';
+    if (_detectedAddresses.isEmpty) return;
+    final primaryAddr = _detectedAddresses.first;
+    final alternates = _detectedAddresses.length > 1 ? _detectedAddresses.sublist(1) : <String>[];
+    final provider = _detectProvider(primaryAddr);
     String name = _nameController.text.trim();
-
-    // Fall back to short address ID if name is blank
     if (name.isEmpty) {
-      final atIdx = address.indexOf('@');
-      final raw = atIdx > 0 ? address.substring(0, atIdx) : address;
+      final atIdx = primaryAddr.indexOf('@');
+      final raw = atIdx > 0 ? primaryAddr.substring(0, atIdx) : primaryAddr;
       name = raw.length > 12 ? raw.substring(0, 12) : raw;
     }
-
-    final contact = Contact(
+    widget.onAdd(Contact(
       id: const Uuid().v4(),
       name: name,
       provider: provider,
-      databaseId: address,
+      databaseId: primaryAddr,
       publicKey: '',
-    );
-    widget.onAdd(contact);
+      alternateAddresses: alternates,
+    ));
     Navigator.of(context).pop();
   }
 
-  // ── Build ─────────────────────────────────────────────────────────────────
-
   @override
   Widget build(BuildContext context) {
-    final providerColor =
-        _providerColors[_detectedProvider] ?? AppTheme.textSecondary;
-    final providerIcon =
-        _providerIcons[_detectedProvider] ?? Icons.person_add_rounded;
+    final hasAddresses = _detectedAddresses.isNotEmpty;
 
     return Dialog(
       backgroundColor: AppTheme.surface,
@@ -269,173 +194,125 @@ class _AddContactDialogState extends State<AddContactDialog> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header
+              // ── Header ──────────────────────────────────────
               Row(children: [
                 Container(
-                  width: 40,
-                  height: 40,
+                  width: 40, height: 40,
                   decoration: BoxDecoration(
                     color: AppTheme.primary.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Icon(Icons.person_add_rounded,
-                      color: AppTheme.primary, size: 20),
+                  child: Icon(Icons.person_add_rounded, color: AppTheme.primary, size: 20),
                 ),
                 const SizedBox(width: 12),
-                Text('Add Contact',
-                    style: GoogleFonts.inter(
-                        color: AppTheme.textPrimary,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700)),
+                Text('Add Contact', style: GoogleFonts.inter(
+                    color: AppTheme.textPrimary, fontSize: 18, fontWeight: FontWeight.w700)),
                 const Spacer(),
                 IconButton(
                   onPressed: () => Navigator.of(context).pop(),
-                  icon: Icon(Icons.close_rounded,
-                      color: AppTheme.textSecondary, size: 20),
+                  icon: Icon(Icons.close_rounded, color: AppTheme.textSecondary, size: 20),
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
                 ),
               ]),
               const SizedBox(height: 20),
 
-              // Address field
-              _label('Address or Invite Link'),
+              // ── Paste area ───────────────────────────────────
+              _label('Invite Link or Address'),
               const SizedBox(height: 8),
               Row(children: [
                 Expanded(
-                  child: TextField(
-                    controller: _addressController,
-                    autofocus: true,
-                    onChanged: _onAddressChanged,
-                    style: GoogleFonts.inter(
-                        color: AppTheme.textPrimary, fontSize: 14),
-                    decoration: InputDecoration(
-                      hintText:
-                          'pubkey@wss://relay  ·  userId@https://firebase  ·  pulse://add?...',
-                      hintStyle: GoogleFonts.inter(
-                          color: AppTheme.textSecondary.withValues(alpha: 0.5),
-                          fontSize: 12),
-                      filled: true,
-                      fillColor: AppTheme.surfaceVariant,
-                      border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide.none),
-                      enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide.none),
-                      focusedBorder: OutlineInputBorder(
+                  child: GestureDetector(
+                    onTap: () async {
+                      final data = await Clipboard.getData(Clipboard.kTextPlain);
+                      if (data?.text != null) _onInput(data!.text!.trim());
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+                      decoration: BoxDecoration(
+                        color: AppTheme.surfaceVariant,
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(
-                            color: _addressError != null
-                                ? const Color(0xFFF87171)
-                                : (_detectedProvider != null
-                                    ? providerColor
-                                    : AppTheme.primary),
-                            width: 1.5),
+                        border: Border.all(
+                          color: hasAddresses
+                              ? AppTheme.primary.withValues(alpha: 0.4)
+                              : Colors.transparent,
+                        ),
                       ),
-                      errorText: _addressError,
-                      errorStyle: GoogleFonts.inter(
-                          color: const Color(0xFFF87171), fontSize: 11),
-                      contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 12),
+                      child: hasAddresses
+                          ? Text(
+                              _detectedAddresses.first.length > 44
+                                  ? '${_detectedAddresses.first.substring(0, 42)}…'
+                                  : _detectedAddresses.first,
+                              style: GoogleFonts.jetBrainsMono(
+                                  color: AppTheme.textPrimary, fontSize: 11),
+                            )
+                          : Row(children: [
+                              Icon(Icons.link_rounded, color: AppTheme.textSecondary, size: 16),
+                              const SizedBox(width: 8),
+                              Text('Tap to paste invite link',
+                                  style: GoogleFonts.inter(
+                                      color: AppTheme.textSecondary.withValues(alpha: 0.6),
+                                      fontSize: 13)),
+                            ]),
                     ),
                   ),
                 ),
                 const SizedBox(width: 8),
-                // Paste button
                 Tooltip(
                   message: 'Paste from clipboard',
                   child: InkWell(
-                    onTap: _pasteFromClipboard,
+                    onTap: () async {
+                      final data = await Clipboard.getData(Clipboard.kTextPlain);
+                      if (data?.text != null) _onInput(data!.text!.trim());
+                    },
                     borderRadius: BorderRadius.circular(10),
                     child: Container(
-                      width: 40,
-                      height: 40,
+                      width: 42, height: 44,
                       decoration: BoxDecoration(
-                        color: AppTheme.surfaceVariant,
+                        color: AppTheme.primary,
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: Icon(Icons.content_paste_rounded,
-                          color: AppTheme.textSecondary, size: 18),
+                      child: const Icon(Icons.content_paste_rounded,
+                          color: Colors.white, size: 18),
                     ),
                   ),
                 ),
               ]),
 
-              // Provider chip (auto-detected)
-              if (_detectedProvider != null) ...[
-                const SizedBox(height: 8),
-                Row(children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: providerColor.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(8),
+              // ── Detected routes summary ──────────────────────
+              if (_detectedAddresses.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primary.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: AppTheme.primary.withValues(alpha: 0.2)),
+                  ),
+                  child: Row(children: [
+                    Icon(Icons.shuffle_rounded, size: 14, color: AppTheme.primary),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _detectedAddresses.length == 1
+                            ? 'Contact address detected'
+                            : '${_detectedAddresses.length} routes detected — SmartRouter picks the fastest',
+                        style: GoogleFonts.inter(
+                            color: AppTheme.primary, fontSize: 11, fontWeight: FontWeight.w600),
+                      ),
                     ),
-                    child: Row(mainAxisSize: MainAxisSize.min, children: [
-                      Icon(providerIcon, color: providerColor, size: 13),
-                      const SizedBox(width: 5),
-                      Text(_detectedProvider!,
-                          style: GoogleFonts.inter(
-                              color: providerColor,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600)),
-                    ]),
-                  ),
-                  const SizedBox(width: 6),
-                  Text('detected',
-                      style: GoogleFonts.inter(
-                          color: AppTheme.textSecondary, fontSize: 11)),
-                ]),
-              ],
-              const SizedBox(height: 16),
-
-              // Name field
-              _label('Display Name'),
-              const SizedBox(height: 8),
-              TextField(
-                controller: _nameController,
-                style: GoogleFonts.inter(
-                    color: AppTheme.textPrimary, fontSize: 14),
-                decoration: InputDecoration(
-                  hintText: _detectedProvider == 'Nostr'
-                      ? 'Optional — auto-filled from Nostr profile'
-                      : 'What do you want to call them?',
-                  hintStyle: GoogleFonts.inter(
-                      color: AppTheme.textSecondary.withValues(alpha: 0.5),
-                      fontSize: 12),
-                  filled: true,
-                  fillColor: AppTheme.surfaceVariant,
-                  border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none),
-                  enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide:
-                        BorderSide(color: AppTheme.primary, width: 1.5),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 14, vertical: 12),
+                    Icon(Icons.check_circle_rounded, size: 14, color: AppTheme.primary),
+                  ]),
                 ),
-              ),
+              ],
 
-              // Nostr profile fetch status
-              if (_detectedProvider == 'Nostr' && _profileFetchStatus != null) ...[
+              // ── Nostr fetch status ───────────────────────────
+              if (_profileFetchStatus != null) ...[
                 const SizedBox(height: 6),
                 Row(children: [
                   if (_fetchingProfile)
-                    SizedBox(
-                      width: 11,
-                      height: 11,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 1.5,
-                        color: _providerColors['Nostr'],
-                      ),
-                    )
+                    SizedBox(width: 11, height: 11,
+                        child: CircularProgressIndicator(strokeWidth: 1.5, color: AppTheme.primary))
                   else
                     Icon(
                       _profileFetchStatus!.startsWith('Found')
@@ -447,34 +324,110 @@ class _AddContactDialogState extends State<AddContactDialog> {
                           : AppTheme.textSecondary,
                     ),
                   const SizedBox(width: 5),
-                  Text(
-                    _profileFetchStatus!,
-                    style: GoogleFonts.inter(
-                      fontSize: 11,
-                      color: _profileFetchStatus!.startsWith('Found')
-                          ? const Color(0xFF4CAF50)
-                          : AppTheme.textSecondary,
+                  Text(_profileFetchStatus!,
+                      style: GoogleFonts.inter(
+                          fontSize: 11,
+                          color: _profileFetchStatus!.startsWith('Found')
+                              ? const Color(0xFF4CAF50)
+                              : AppTheme.textSecondary)),
+                ]),
+              ],
+              const SizedBox(height: 16),
+
+              // ── Name field ───────────────────────────────────
+              _label('Display Name'),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _nameController,
+                style: GoogleFonts.inter(color: AppTheme.textPrimary, fontSize: 14),
+                decoration: InputDecoration(
+                  hintText: 'What do you want to call them?',
+                  hintStyle: GoogleFonts.inter(
+                      color: AppTheme.textSecondary.withValues(alpha: 0.5), fontSize: 12),
+                  filled: true, fillColor: AppTheme.surfaceVariant,
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                  enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: AppTheme.primary, width: 1.5),
+                  ),
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                ),
+              ),
+
+              // ── Manual address entry ─────────────────────────
+              const SizedBox(height: 12),
+              GestureDetector(
+                onTap: () => setState(() => _showManual = !_showManual),
+                child: Row(children: [
+                  Icon(_showManual ? Icons.expand_less : Icons.expand_more,
+                      size: 16, color: AppTheme.textSecondary),
+                  const SizedBox(width: 4),
+                  Text('Add address manually',
+                      style: GoogleFonts.inter(
+                          color: AppTheme.textSecondary, fontSize: 12)),
+                ]),
+              ),
+              if (_showManual) ...[
+                const SizedBox(height: 8),
+                Row(children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _manualAddressController,
+                      style: GoogleFonts.jetBrainsMono(
+                          color: AppTheme.textPrimary, fontSize: 12),
+                      decoration: InputDecoration(
+                        hintText: 'pubkey@wss://relay  ·  05hex…  ·  id@https://...',
+                        hintStyle: GoogleFonts.inter(
+                            color: AppTheme.textSecondary.withValues(alpha: 0.4),
+                            fontSize: 11),
+                        filled: true, fillColor: AppTheme.surfaceVariant,
+                        border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: BorderSide.none),
+                        enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: BorderSide.none),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: BorderSide(color: AppTheme.primary, width: 1),
+                        ),
+                        contentPadding:
+                            const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      ),
+                      onSubmitted: (_) => _addManualAddress(),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  InkWell(
+                    onTap: _addManualAddress,
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primary.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(Icons.add, size: 16, color: AppTheme.primary),
                     ),
                   ),
                 ]),
               ],
-              const SizedBox(height: 24),
+              const SizedBox(height: 20),
 
-              // Add button
+              // ── Add button ───────────────────────────────────
               SizedBox(
-                width: double.infinity,
-                height: 48,
+                width: double.infinity, height: 48,
                 child: FilledButton(
                   style: FilledButton.styleFrom(
-                    backgroundColor: _detectedProvider != null
-                        ? providerColor
-                        : AppTheme.primary,
+                    backgroundColor: hasAddresses ? AppTheme.primary : AppTheme.surfaceVariant,
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12)),
                   ),
-                  onPressed: _addressController.text.trim().isEmpty
-                      ? null
-                      : _submit,
+                  onPressed: hasAddresses ? _submit : null,
                   child: Text('Add Contact',
                       style: GoogleFonts.inter(
                           fontWeight: FontWeight.w700,

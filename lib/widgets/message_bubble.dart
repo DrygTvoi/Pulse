@@ -1,11 +1,17 @@
 import 'dart:io';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:audioplayers/audioplayers.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../theme/app_theme.dart';
+import '../models/contact.dart';
 import '../services/media_service.dart';
 import '../services/voice_service.dart';
 import '../screens/image_viewer_screen.dart';
+
+final _urlRegex = RegExp(r'https?://[^\s<>"]+[^\s<>".!?,)]', caseSensitive: false);
 
 class MessageBubble extends StatelessWidget {
   final String message;
@@ -21,6 +27,8 @@ class MessageBubble extends StatelessWidget {
   final String? replyToText;
   final String? replyToSender;
   final double? uploadProgress; // 0.0..1.0 while uploading chunks
+  /// For group messages sent by self: contactIds who have read this message.
+  final List<String> readBy;
 
   const MessageBubble({
     super.key,
@@ -37,6 +45,7 @@ class MessageBubble extends StatelessWidget {
     this.replyToText,
     this.replyToSender,
     this.uploadProgress,
+    this.readBy = const [],
   });
 
   static const _unencryptedPrefix = '⚠️ UNENCRYPTED: ';
@@ -102,7 +111,7 @@ class MessageBubble extends StatelessWidget {
             ),
             child: media != null
                 ? _buildMediaContent(context, media, bgColor, radius)
-                : _buildTextContent(isUnencrypted, rawText),
+                : _buildTextContent(context, isUnencrypted, rawText),
           ),
           if (hasReactions)
             Padding(
@@ -142,12 +151,47 @@ class MessageBubble extends StatelessWidget {
                 }).toList(),
               ),
             ),
+          if (isMe && readBy.isNotEmpty)
+            _buildReadByRow(),
         ],
       ),
     );
   }
 
-  Widget _buildTextContent(bool isUnencrypted, String displayText) {
+  Widget _buildReadByRow() {
+    // Resolve contactIds to names
+    final names = readBy.map((id) {
+      final c = ContactManager().contacts.cast<Contact?>()
+          .firstWhere((c) => c?.id == id, orElse: () => null);
+      return c?.name ?? id.substring(0, id.length.clamp(0, 8));
+    }).toList();
+
+    final label = names.length == 1
+        ? 'Read by ${names[0]}'
+        : names.length == 2
+            ? 'Read by ${names[0]} & ${names[1]}'
+            : 'Read by ${names.length}';
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 2, right: 4),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.done_all_rounded, size: 11, color: AppTheme.primary.withValues(alpha: 0.7)),
+          const SizedBox(width: 3),
+          Text(
+            label,
+            style: GoogleFonts.inter(
+                color: AppTheme.textSecondary,
+                fontSize: 10,
+                fontWeight: FontWeight.w500),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTextContent(BuildContext context, bool isUnencrypted, String displayText) {
     return Column(
       crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
@@ -167,8 +211,7 @@ class MessageBubble extends StatelessWidget {
                   )),
             ]),
           ),
-        Text(displayText,
-            style: GoogleFonts.inter(color: Colors.white, fontSize: 15, height: 1.35)),
+        _buildLinkedText(context, displayText),
         if (isEdited)
           Text('(edited)',
               style: GoogleFonts.inter(
@@ -177,6 +220,115 @@ class MessageBubble extends StatelessWidget {
         _buildTimestamp(),
       ],
     );
+  }
+
+  Widget _buildLinkedText(BuildContext context, String text) {
+    final baseStyle = GoogleFonts.inter(color: Colors.white, fontSize: 15, height: 1.35);
+    final matches = _urlRegex.allMatches(text).toList();
+    if (matches.isEmpty) return Text(text, style: baseStyle);
+
+    final spans = <InlineSpan>[];
+    int last = 0;
+    for (final m in matches) {
+      if (m.start > last) {
+        spans.add(TextSpan(text: text.substring(last, m.start)));
+      }
+      final url = m.group(0)!;
+      spans.add(TextSpan(
+        text: url,
+        style: baseStyle.copyWith(
+          color: Colors.lightBlueAccent,
+          decoration: TextDecoration.underline,
+          decorationColor: Colors.lightBlueAccent,
+        ),
+        recognizer: TapGestureRecognizer()
+          ..onTap = () => _confirmAndLaunchUrl(context, url),
+      ));
+      last = m.end;
+    }
+    if (last < text.length) spans.add(TextSpan(text: text.substring(last)));
+
+    return RichText(text: TextSpan(style: baseStyle, children: spans));
+  }
+
+  static void _confirmAndLaunchUrl(BuildContext context, String url) {
+    final display = url.length > 70 ? '${url.substring(0, 70)}…' : url;
+    showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Open Link'),
+        content: Text('Open this URL in your browser?\n\n$display'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Open'),
+          ),
+        ],
+      ),
+    ).then((confirmed) {
+      if (confirmed == true) {
+        launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+      }
+    });
+  }
+
+  static Future<void> _saveFile(BuildContext context, MediaPayload media) async {
+    const dangerousExts = {
+      '.exe', '.sh', '.bat', '.cmd', '.ps1', '.vbs',
+      '.apk', '.deb', '.dmg', '.msi', '.pkg',
+    };
+    final dotIdx = media.name.lastIndexOf('.');
+    final ext = dotIdx >= 0 ? media.name.substring(dotIdx).toLowerCase() : '';
+
+    if (dangerousExts.contains(ext)) {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Security Warning'),
+          content: Text(
+            '"${media.name}" is an executable file type. '
+            'Saving and running it could harm your device. Save anyway?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              child: const Text('Save Anyway'),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true) return;
+    }
+
+    try {
+      final dir = await getDownloadsDirectory() ?? await getApplicationDocumentsDirectory();
+      final ts = DateTime.now().millisecondsSinceEpoch;
+      final file = File('${dir.path}/${ts}_${media.name}');
+      await file.writeAsBytes(media.data);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Saved to ${dir.path}', style: GoogleFonts.inter(fontSize: 13)),
+          backgroundColor: AppTheme.surfaceVariant,
+          duration: const Duration(seconds: 3),
+        ));
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Save failed: $e', style: GoogleFonts.inter(fontSize: 13)),
+          backgroundColor: Colors.red.shade900,
+        ));
+      }
+    }
   }
 
   Widget _buildReplyQuote() {
@@ -254,6 +406,18 @@ class MessageBubble extends StatelessWidget {
                   media.data,
                   fit: BoxFit.cover,
                   gaplessPlayback: true,
+                  errorBuilder: (context, error, stack) => Container(
+                    width: 260,
+                    height: 120,
+                    color: Colors.black26,
+                    alignment: Alignment.center,
+                    child: const Column(mainAxisSize: MainAxisSize.min, children: [
+                      Icon(Icons.broken_image_rounded, color: Colors.white54, size: 32),
+                      SizedBox(height: 6),
+                      Text('[Corrupted image]',
+                          style: TextStyle(color: Colors.white54, fontSize: 12)),
+                    ]),
+                  ),
                 ),
               ),
               // Timestamp bar over image
@@ -313,7 +477,19 @@ class MessageBubble extends StatelessWidget {
                   ],
                 ),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 6),
+              GestureDetector(
+                onTap: () => _saveFile(context, media),
+                child: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.download_rounded, color: Colors.white70, size: 18),
+                ),
+              ),
+              const SizedBox(width: 6),
               _buildTimestamp(),
             ],
           ),
@@ -429,6 +605,11 @@ class _VoiceBubbleState extends State<_VoiceBubble> {
         _isPlaying = false;
         _position = Duration.zero;
       });
+      // Delete temp file after playback ends; it will be re-created on replay.
+      if (_tmpPath != null) {
+        File(_tmpPath!).delete().catchError((_) => File(_tmpPath!));
+        _tmpPath = null;
+      }
     });
   }
 
@@ -447,6 +628,7 @@ class _VoiceBubbleState extends State<_VoiceBubble> {
       return;
     }
     _tmpPath ??= await VoiceService.writeTempAudio(widget.media.data);
+    if (_tmpPath == null) return; // security rejection
     if (_position > Duration.zero) {
       await _player.resume();
     } else {
@@ -514,13 +696,15 @@ class _VoiceBubbleState extends State<_VoiceBubble> {
                   alignment: Alignment.center,
                   children: [
                     // Background bars
-                    _WaveformBars(progress: 0.0, color: Colors.white.withValues(alpha: 0.25)),
+                    _WaveformBars(progress: 0.0, color: Colors.white.withValues(alpha: 0.25),
+                        amplitudes: widget.media.amplitudes),
                     // Foreground bars (played portion)
                     ClipRect(
                       child: Align(
                         alignment: Alignment.centerLeft,
                         widthFactor: progress,
-                        child: _WaveformBars(progress: 1.0, color: Colors.white.withValues(alpha: 0.9)),
+                        child: _WaveformBars(progress: 1.0, color: Colors.white.withValues(alpha: 0.9),
+                            amplitudes: widget.media.amplitudes),
                       ),
                     ),
                   ],
@@ -564,22 +748,28 @@ class _VoiceBubbleState extends State<_VoiceBubble> {
   }
 }
 
-/// Decorative waveform bars (static pattern, not real audio waveform).
+/// Waveform bars. Uses real amplitude data when available, static pattern otherwise.
 class _WaveformBars extends StatelessWidget {
   final double progress;
   final Color color;
+  final List<double>? amplitudes;
 
-  const _WaveformBars({required this.progress, required this.color});
+  const _WaveformBars({required this.progress, required this.color, this.amplitudes});
 
-  static const _heights = [6.0, 10.0, 16.0, 12.0, 20.0, 14.0, 8.0, 18.0,
-    22.0, 12.0, 16.0, 8.0, 20.0, 14.0, 10.0, 18.0, 6.0, 14.0, 22.0, 10.0];
+  static const _static = [6.0, 10.0, 16.0, 12.0, 20.0, 14.0, 8.0, 18.0,
+    22.0, 12.0, 16.0, 8.0, 20.0, 14.0, 10.0, 18.0, 6.0, 14.0, 22.0, 10.0,
+    16.0, 8.0, 20.0, 12.0, 18.0, 6.0, 14.0, 22.0, 10.0, 16.0];
 
   @override
   Widget build(BuildContext context) {
+    final heights = amplitudes != null
+        // Map 0..1 amplitude to 4..24 px height
+        ? amplitudes!.map((v) => 4.0 + v * 20.0).toList()
+        : _static;
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       crossAxisAlignment: CrossAxisAlignment.center,
-      children: _heights.map((h) => Container(
+      children: heights.map((h) => Container(
         width: 3,
         height: h,
         decoration: BoxDecoration(

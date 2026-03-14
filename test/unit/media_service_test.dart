@@ -5,8 +5,10 @@ import 'package:pulse_messenger/services/media_service.dart';
 
 void main() {
   // Helper: build a minimal media payload JSON
+  // Image bytes start with JPEG magic (FF D8 FF) so they pass magic validation.
   String makeImagePayload({String name = 'photo.jpg', int size = 1024}) {
     final bytes = Uint8List(size);
+    bytes[0] = 0xFF; bytes[1] = 0xD8; bytes[2] = 0xFF; // JPEG magic
     return jsonEncode({
       't': 'img',
       'd': base64Encode(bytes),
@@ -15,6 +17,7 @@ void main() {
     });
   }
 
+  // File bytes are plain zeros (PDF, etc.) — no executable magic, passes file validation.
   String makeFilePayload({String name = 'doc.pdf', int size = 2048}) {
     final bytes = Uint8List(size);
     return jsonEncode({
@@ -85,17 +88,19 @@ void main() {
     });
 
     test('uses "file" as default name when missing', () {
-      final bytes = Uint8List(10);
+      final bytes = Uint8List(10); // zeros — no executable magic, valid file
       final raw = jsonEncode({'t': 'file', 'd': base64Encode(bytes), 'sz': 10});
       final payload = MediaService.parse(raw);
       expect(payload!.name, equals('file'));
     });
 
-    test('uses 0 as default size when missing', () {
-      final bytes = Uint8List(5);
+    test('uses data.length as size when sz field is missing', () {
+      // Provide JPEG magic so the image passes security validation.
+      final bytes = Uint8List(16);
+      bytes[0] = 0xFF; bytes[1] = 0xD8; bytes[2] = 0xFF;
       final raw = jsonEncode({'t': 'img', 'd': base64Encode(bytes), 'n': 'x'});
       final payload = MediaService.parse(raw);
-      expect(payload!.size, equals(0));
+      expect(payload!.size, equals(bytes.length)); // falls back to rawData.length
     });
 
     test('returns null for corrupted base64 data', () {
@@ -146,7 +151,7 @@ void main() {
     test('toString returns descriptive message', () {
       expect(
         MediaTooLargeException().toString(),
-        contains('2 MB'),
+        contains('100 MB'),
       );
     });
   });

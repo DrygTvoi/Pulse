@@ -25,6 +25,8 @@ import '../services/signal_service.dart';
 import '../services/pqc_service.dart';
 import '../services/crypto_layer.dart';
 import '../services/network_monitor.dart';
+import '../models/user_status.dart';
+import '../services/status_service.dart';
 
 enum ConnectionStatus { disconnected, connecting, connected }
 
@@ -100,6 +102,10 @@ class ChatController extends ChangeNotifier {
   // Emits contact name when a message had to be sent unencrypted (E2EE session missing).
   final StreamController<String> _e2eeFailCtrl = StreamController.broadcast();
   Stream<String> get e2eeFailures => _e2eeFailCtrl.stream;
+
+  // Emits a contactId when that contact's status is updated.
+  final StreamController<String> _statusUpdatesCtrl = StreamController.broadcast();
+  Stream<String> get statusUpdates => _statusUpdatesCtrl.stream;
 
   Identity? get identity => _identity;
 
@@ -516,6 +522,144 @@ class ChatController extends ChangeNotifier {
   }
   // ─────────────────────────────────────────────────────────────────────────
 
+  /// Broadcast our own status to all non-group contacts.
+  Future<void> broadcastStatus(UserStatus status) async {
+    if (_identity == null || _selfId.isEmpty) return;
+    for (final contact in ContactManager().contacts) {
+      if (contact.isGroup) continue;
+      try {
+        final ourApiKey = _identity!.adapterConfig['token'] ?? '';
+        MessageSender? sender;
+        String senderApiKey = ourApiKey;
+        if (contact.provider == 'Firebase') {
+          sender = FirebaseInboxSender();
+        } else if (contact.provider == 'Nostr') {
+          final privkey = await _secureStorage.read(key: 'nostr_privkey') ?? '';
+          final prefs = await SharedPreferences.getInstance();
+          final relay = prefs.getString('nostr_relay') ?? 'wss://relay.damus.io';
+          senderApiKey = jsonEncode({'privkey': privkey, 'relay': relay});
+          sender = NostrMessageSender();
+        } else if (contact.provider == 'Waku') {
+          final prefs = await SharedPreferences.getInstance();
+          final nodeUrl = prefs.getString('waku_node_url') ?? 'http://127.0.0.1:8645';
+          final userId = prefs.getString('waku_identity') ?? '';
+          senderApiKey = jsonEncode({'nodeUrl': nodeUrl, 'userId': userId});
+          sender = WakuMessageSender();
+        } else if (contact.provider == 'Oxen') {
+          final prefs = await SharedPreferences.getInstance();
+          senderApiKey = prefs.getString('oxen_node_url') ?? '';
+          sender = OxenMessageSender();
+        }
+        if (sender == null) continue;
+        await sender.initializeSender(senderApiKey);
+        await sender.sendSignal(
+            contact.databaseId, contact.databaseId, _selfId,
+            'status_update', status.toJson());
+      } catch (e) {
+        debugPrint('[ChatController] broadcastStatus to ${contact.name} failed: $e');
+      }
+    }
+  }
+
+  /// Broadcast own profile (name + about) to all non-group contacts.
+  Future<void> broadcastProfile(String name, String about, {String avatarB64 = ''}) async {
+    if (_identity == null || _selfId.isEmpty) return;
+    final payload = <String, dynamic>{'name': name, 'about': about};
+    if (avatarB64.isNotEmpty) payload['avatar'] = avatarB64;
+    for (final contact in ContactManager().contacts) {
+      if (contact.isGroup) continue;
+      try {
+        final ourApiKey = _identity!.adapterConfig['token'] ?? '';
+        MessageSender? sender;
+        String senderApiKey = ourApiKey;
+        if (contact.provider == 'Firebase') {
+          sender = FirebaseInboxSender();
+        } else if (contact.provider == 'Nostr') {
+          final privkey = await _secureStorage.read(key: 'nostr_privkey') ?? '';
+          final prefs = await SharedPreferences.getInstance();
+          final relay = prefs.getString('nostr_relay') ?? 'wss://relay.damus.io';
+          senderApiKey = jsonEncode({'privkey': privkey, 'relay': relay});
+          sender = NostrMessageSender();
+        } else if (contact.provider == 'Waku') {
+          final prefs = await SharedPreferences.getInstance();
+          final nodeUrl = prefs.getString('waku_node_url') ?? 'http://127.0.0.1:8645';
+          final userId = prefs.getString('waku_identity') ?? '';
+          senderApiKey = jsonEncode({'nodeUrl': nodeUrl, 'userId': userId});
+          sender = WakuMessageSender();
+        } else if (contact.provider == 'Oxen') {
+          final prefs = await SharedPreferences.getInstance();
+          senderApiKey = prefs.getString('oxen_node_url') ?? '';
+          sender = OxenMessageSender();
+        }
+        if (sender == null) continue;
+        await sender.initializeSender(senderApiKey);
+        await sender.sendSignal(
+            contact.databaseId, contact.databaseId, _selfId,
+            'profile_update', payload);
+      } catch (e) {
+        debugPrint('[ChatController] broadcastProfile to ${contact.name} failed: $e');
+      }
+    }
+  }
+
+  /// Send a group read receipt for a specific message back to its sender.
+  Future<void> _sendGroupReadReceipt(Contact senderContact, String groupId, String msgId) async {
+    if (_identity == null || _selfId.isEmpty) return;
+    try {
+      final ourApiKey = _identity!.adapterConfig['token'] ?? '';
+      MessageSender? sender;
+      String senderApiKey = ourApiKey;
+      if (senderContact.provider == 'Firebase') {
+        sender = FirebaseInboxSender();
+      } else if (senderContact.provider == 'Nostr') {
+        final privkey = await _secureStorage.read(key: 'nostr_privkey') ?? '';
+        final prefs = await SharedPreferences.getInstance();
+        final relay = prefs.getString('nostr_relay') ?? 'wss://relay.damus.io';
+        senderApiKey = jsonEncode({'privkey': privkey, 'relay': relay});
+        sender = NostrMessageSender();
+      } else if (senderContact.provider == 'Waku') {
+        final prefs = await SharedPreferences.getInstance();
+        final nodeUrl = prefs.getString('waku_node_url') ?? 'http://127.0.0.1:8645';
+        final userId = prefs.getString('waku_identity') ?? '';
+        senderApiKey = jsonEncode({'nodeUrl': nodeUrl, 'userId': userId});
+        sender = WakuMessageSender();
+      } else if (senderContact.provider == 'Oxen') {
+        final prefs = await SharedPreferences.getInstance();
+        senderApiKey = prefs.getString('oxen_node_url') ?? '';
+        sender = OxenMessageSender();
+      }
+      if (sender == null) return;
+      await sender.initializeSender(senderApiKey);
+      await sender.sendSignal(
+        senderContact.databaseId, senderContact.databaseId, _selfId,
+        'msg_read', {'from': _selfId, 'groupId': groupId, 'msgId': msgId},
+      );
+    } catch (e) {
+      debugPrint('[ChatController] Group read receipt failed: $e');
+    }
+  }
+
+  /// Called when opening a group chat — sends read receipts to each original sender.
+  Future<void> markGroupMessagesRead(Contact group) async {
+    if (!group.isGroup || _identity == null || _selfId.isEmpty) return;
+    final room = _chatRooms[group.id];
+    if (room == null) return;
+    for (final msg in List.of(room.messages)) {
+      if (msg.senderId == _selfId || msg.senderId.isEmpty) continue;
+      // Find sender contact
+      Contact? senderContact;
+      for (final c in ContactManager().contacts) {
+        if (c.databaseId == msg.senderId ||
+            c.databaseId.split('@').first == msg.senderId) {
+          senderContact = c;
+          break;
+        }
+      }
+      if (senderContact == null) continue;
+      unawaited(_sendGroupReadReceipt(senderContact, group.id, msg.id));
+    }
+  }
+
   // A StreamController to emit incoming 1-on-1 calls to the UI layer
   final StreamController<Map<String, dynamic>> _incomingCallController = StreamController.broadcast();
   Stream<Map<String, dynamic>> get incomingCalls => _incomingCallController.stream;
@@ -551,7 +695,7 @@ class ChatController extends ChangeNotifier {
           if (typingContact != null) {
             final cid = typingContact.id;
             _isTypingMap[cid] = true;
-            _typingStreamCtrl.add(cid);
+            if (!_typingStreamCtrl.isClosed) _typingStreamCtrl.add(cid);
             _typingTimers[cid]?.cancel();
             _typingTimers[cid] = Timer(const Duration(seconds: 4), () {
               _isTypingMap.remove(cid);
@@ -559,9 +703,16 @@ class ChatController extends ChangeNotifier {
             });
           }
        } else if (sig['type'] == 'msg_read') {
-          final from = (sig['payload'] as Map<String, dynamic>?)?['from'] as String?
+          final payload = sig['payload'];
+          final from = (payload is Map ? payload['from'] as String? : null)
               ?? sig['from'] as String? ?? '';
-          if (from.isNotEmpty) _handleReadReceipt(from);
+          final groupId = payload is Map ? payload['groupId'] as String? : null;
+          final msgId = payload is Map ? payload['msgId'] as String? : null;
+          if (groupId != null && msgId != null && from.isNotEmpty) {
+            _handleGroupReadReceipt(from, groupId, msgId);
+          } else if (from.isNotEmpty) {
+            _handleReadReceipt(from);
+          }
        } else if (sig['type'] == 'ttl_update') {
           final payload = sig['payload'];
           final seconds = (payload is Map ? payload['seconds'] : null) as int? ?? 0;
@@ -699,7 +850,93 @@ class ChatController extends ChangeNotifier {
                   p2pContact.id, sig['type'] as String, rawPayload));
             }
           }
+       } else if (sig['type'] == 'status_update') {
+          final rawPayload = sig['payload'];
+          final statusJson = rawPayload is Map<String, dynamic> ? rawPayload : null;
+          final senderId = sig['senderId'] as String? ?? '';
+          if (statusJson is Map<String, dynamic>) {
+            Contact? senderContact;
+            for (final c in ContactManager().contacts) {
+              if (c.databaseId == senderId ||
+                  c.databaseId.split('@').first == senderId) {
+                senderContact = c;
+                break;
+              }
+            }
+            if (senderContact != null) {
+              try {
+                final status = UserStatus.fromJson(statusJson);
+                if (!status.isExpired) {
+                  await StatusService.instance.saveContactStatus(senderContact.id, status);
+                  if (!_statusUpdatesCtrl.isClosed) {
+                    _statusUpdatesCtrl.add(senderContact.id);
+                  }
+                }
+              } catch (e) {
+                debugPrint('[ChatController] status_update parse error: $e');
+              }
+            }
+          }
+       } else if (sig['type'] == 'profile_update') {
+          final payload = sig['payload'];
+          if (payload is Map) {
+            final senderId = sig['senderId'] as String? ?? '';
+            final about = payload['about'] as String? ?? '';
+            final avatarB64 = payload['avatar'] as String? ?? '';
+            Contact? profileContact;
+            for (final c in ContactManager().contacts) {
+              if (c.databaseId == senderId ||
+                  c.databaseId.split('@').first == senderId) {
+                profileContact = c;
+                break;
+              }
+            }
+            if (profileContact != null) {
+              bool changed = false;
+              Contact updated = profileContact;
+              if (about != profileContact.bio) {
+                updated = updated.copyWith(bio: about);
+                changed = true;
+              }
+              if (avatarB64.isNotEmpty) {
+                // Store avatar separately to keep contacts JSON small
+                final prefs = await SharedPreferences.getInstance();
+                await prefs.setString('contact_avatar_${profileContact.id}', avatarB64);
+                changed = true;
+              }
+              if (changed) {
+                await ContactManager().updateContact(updated);
+                notifyListeners();
+              }
+            }
+          }
        }
+    }
+  }
+
+  void _handleGroupReadReceipt(String fromId, String groupId, String msgId) {
+    final groupContact = ContactManager().contacts.cast<Contact?>()
+        .firstWhere((c) => c?.isGroup == true && c?.id == groupId, orElse: () => null);
+    if (groupContact == null) return;
+    final room = _chatRooms[groupContact.id];
+    if (room == null) return;
+    final idx = room.messages.indexWhere((m) => m.id == msgId);
+    if (idx == -1) return;
+    final msg = room.messages[idx];
+    // Resolve fromId (transport databaseId) to contactId (UUID)
+    Contact? reader;
+    for (final c in ContactManager().contacts) {
+      if (c.databaseId == fromId || c.databaseId.split('@').first == fromId) {
+        reader = c;
+        break;
+      }
+    }
+    final readerId = reader?.id ?? fromId;
+    if (!msg.readBy.contains(readerId)) {
+      room.messages[idx] = msg.copyWith(readBy: [...msg.readBy, readerId]);
+      unawaited(LocalStorageService().saveMessage(
+          groupContact.storageKey, room.messages[idx].toJson()));
+      notifyListeners();
     }
   }
 
@@ -829,6 +1066,16 @@ class ChatController extends ChangeNotifier {
                } else {
                  finalText = assembled;
                }
+             }
+
+             // Reject oversized plain-text messages (64 KB limit).
+             // Media payloads can legitimately be large; only plain text is capped.
+             if (!skipMessage &&
+                 !MediaService.isMediaPayload(finalText) &&
+                 !MediaService.isChunkPayload(finalText) &&
+                 finalText.length > 65536) {
+               debugPrint('[ChatController] Dropped oversized message (${finalText.length} bytes)');
+               skipMessage = true;
              }
 
              if (!skipMessage) {
@@ -2183,6 +2430,7 @@ class ChatController extends ChangeNotifier {
     _signalStreamController.close();
     _newMsgController.close();
     _e2eeFailCtrl.close();
+    _statusUpdatesCtrl.close();
     super.dispose();
   }
 }
