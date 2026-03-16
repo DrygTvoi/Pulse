@@ -12,8 +12,8 @@ import '../controllers/chat_controller.dart';
 import '../theme/app_theme.dart';
 
 /// Group video/audio call screen.
-/// ≤4 total participants (members + self) → WebRTC mesh via GroupSignalingService.
-/// 5+ total participants → Jitsi fallback: send meet.jit.si link, open browser.
+/// Video: ≤4 participants → WebRTC mesh (E2EE). 5+ → Jitsi fallback (NOT E2EE).
+/// Audio: ≤6 participants → WebRTC mesh (E2EE). 7+ → Jitsi fallback (NOT E2EE).
 class GroupCallScreen extends StatefulWidget {
   final Contact group;
   final String myId;
@@ -50,6 +50,8 @@ class _GroupCallScreenState extends State<GroupCallScreen> {
   bool _jitsiBrowserOpened = false;
 
   Timer? _durationTimer;
+  Timer? _turnFailedTimer;
+  bool _turnFailed = false;
   Duration _callDuration = Duration.zero;
   bool _disposed = false;
   bool _ready = false; // true after _startCall() completes
@@ -69,7 +71,8 @@ class _GroupCallScreenState extends State<GroupCallScreen> {
     // total = other members + self
     final total = memberContacts.length + 1;
 
-    if (total > 4) {
+    final meshLimit = widget.isVideoCall ? 4 : 6;
+    if (total > meshLimit) {
       // ── Jitsi fallback ──────────────────────────────────────────────────
       final roomId =
           const Uuid().v4().replaceAll('-', '').substring(0, 12);
@@ -152,6 +155,20 @@ class _GroupCallScreenState extends State<GroupCallScreen> {
     if (mounted) setState(() => _ready = true);
   }
 
+  void _startTurnFailedTimer() {
+    _turnFailedTimer?.cancel();
+    _turnFailedTimer = Timer(const Duration(seconds: 20), () {
+      if (_disposed || !mounted) return;
+      final allFailed = _peerStates.isNotEmpty &&
+          _peerStates.values.every((s) =>
+              s == RTCIceConnectionState.RTCIceConnectionStateFailed ||
+              s == RTCIceConnectionState.RTCIceConnectionStateNew);
+      if (allFailed && _currentProfile.isRestricted) {
+        setState(() => _turnFailed = true);
+      }
+    });
+  }
+
   void _startDurationTimer() {
     if (_durationTimer != null) return;
     _durationTimer = Timer.periodic(const Duration(seconds: 1), (_) {
@@ -164,6 +181,7 @@ class _GroupCallScreenState extends State<GroupCallScreen> {
   Future<void> _switchToRestrictedProfile() async {
     if (_disposed || _currentProfile.isRestricted) return;
     if (mounted) setState(() => _currentProfile = CallTransportProfile.restricted);
+    _startTurnFailedTimer();
 
     // Full teardown
     await _groupSignaling?.hangUp();
@@ -213,6 +231,7 @@ class _GroupCallScreenState extends State<GroupCallScreen> {
     if (_disposed) return;
     _disposed = true;
     _durationTimer?.cancel();
+    _turnFailedTimer?.cancel();
     await _groupSignaling?.hangUp();
     _localRenderer.dispose();
     for (final r in _remoteRenderers.values) {
@@ -226,6 +245,7 @@ class _GroupCallScreenState extends State<GroupCallScreen> {
     if (!_disposed) {
       _disposed = true;
       _durationTimer?.cancel();
+      _turnFailedTimer?.cancel();
       _groupSignaling?.hangUp();
       _localRenderer.dispose();
       for (final r in _remoteRenderers.values) {
@@ -329,6 +349,25 @@ class _GroupCallScreenState extends State<GroupCallScreen> {
                 textAlign: TextAlign.center,
                 style: GoogleFonts.inter(color: Colors.white38, fontSize: 13),
               ),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
+                ),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  const Icon(Icons.lock_open_rounded, color: Colors.orangeAccent, size: 14),
+                  const SizedBox(width: 6),
+                  Flexible(
+                    child: Text(
+                      'Jitsi calls are NOT end-to-end encrypted',
+                      style: GoogleFonts.inter(color: Colors.orangeAccent, fontSize: 12),
+                    ),
+                  ),
+                ]),
+              ),
               const SizedBox(height: 20),
               if (!_jitsiBrowserOpened)
                 OutlinedButton.icon(
@@ -391,23 +430,35 @@ class _GroupCallScreenState extends State<GroupCallScreen> {
               ),
             ),
 
-          // Restricted-mode banner
+          // Restricted / TURN-failed banner
           if (_currentProfile.isRestricted)
             Positioned(
               top: 0, left: 0, right: 0,
               child: Container(
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-                color: Colors.blueGrey.withValues(alpha: 0.85),
+                color: _turnFailed
+                    ? Colors.red.withValues(alpha: 0.85)
+                    : Colors.blueGrey.withValues(alpha: 0.85),
                 child: Row(children: [
-                  const Icon(Icons.shield_rounded, color: Colors.white, size: 13),
+                  Icon(
+                    _turnFailed
+                        ? Icons.warning_amber_rounded
+                        : Icons.shield_rounded,
+                    color: Colors.white,
+                    size: 13,
+                  ),
                   const SizedBox(width: 6),
-                  Text(
-                    'Relay mode active (restricted network)',
-                    style: GoogleFonts.inter(
-                      color: Colors.white,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
+                  Expanded(
+                    child: Text(
+                      _turnFailed
+                          ? 'TURN servers unreachable. Add a custom TURN in Settings → Advanced.'
+                          : 'Relay mode active (restricted network)',
+                      style: GoogleFonts.inter(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                   ),
                 ]),

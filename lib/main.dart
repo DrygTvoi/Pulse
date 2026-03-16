@@ -14,6 +14,7 @@ import 'controllers/chat_controller.dart';
 import 'services/notification_service.dart';
 import 'services/connectivity_probe_service.dart';
 import 'services/utls_service.dart';
+import 'services/tor_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -41,11 +42,18 @@ void main() async {
   await chatController.initialize(); // Load identity and setup Inbox manager
   await NotificationService().initialize();
 
+  // Announce our current addresses to all contacts (in case we changed relay/provider).
+  unawaited(chatController.broadcastAddressUpdate());
+
   // Background connectivity probe — finds reachable relays/nodes.
   // Runs silently; if connection is already working, does nothing extra.
   // If tor is installed and direct probes fail, uses it for bootstrap only.
   unawaited(ConnectivityProbeService.instance.runIfNeeded());
   unawaited(UTLSService.instance.ensureRunning());
+  // Re-start bundled Tor if user had it enabled previously.
+  if (prefs.getBool('bundled_tor_enabled') ?? false) {
+    unawaited(TorService.instance.startPersistent());
+  }
 
   runApp(
     MultiProvider(

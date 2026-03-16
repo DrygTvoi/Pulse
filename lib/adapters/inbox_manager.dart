@@ -12,12 +12,16 @@ import '../models/message.dart';
 abstract class InboxReader {
   /// Initialize with the user's personal API keys for their own inbox
   Future<void> initializeReader(String apiKey, String databaseId);
-  
+
   /// Listen for incoming messages to your own inbox
   Stream<List<Message>> listenForMessages();
-  
+
   /// Listen for incoming WebRTC signals
   Stream<List<Map<String, dynamic>>> listenForSignals();
+
+  /// Emits false when the adapter becomes unreachable (N consecutive failures),
+  /// true when it recovers. Default: empty stream (always considered healthy).
+  Stream<bool> get healthChanges => Stream<bool>.empty();
 
   /// Provision a new Inbox (e.g. create a new repo or sheet) and return its ID
   Future<String?> provisionGroup(String groupName);
@@ -45,7 +49,7 @@ class InboxManager {
   InboxReader? reader;
   final Map<String, MessageSender> _senders = {};
 
-  void configureSelf(String provider, String apiKey, String databaseId) {
+  Future<void> configureSelf(String provider, String apiKey, String databaseId) async {
     if (provider == 'Firebase') {
       reader = FirebaseInboxReader();
     } else if (provider == 'Nostr') {
@@ -55,7 +59,7 @@ class InboxManager {
     } else if (provider == 'Oxen') {
       reader = OxenInboxReader();
     }
-    reader?.initializeReader(apiKey, databaseId);
+    await reader?.initializeReader(apiKey, databaseId);
   }
 
   void addSenderPlugin(String provider, MessageSender sender, String apiKey) {

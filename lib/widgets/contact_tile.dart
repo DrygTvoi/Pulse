@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_theme.dart';
 import '../models/contact.dart';
+import 'avatar_widget.dart';
 
 /// Maps provider name to icon + color
 Map<String, ({IconData icon, Color color})> _providerMeta = {
@@ -127,34 +128,10 @@ class ContactTile extends StatelessWidget {
   }
 
   Widget _buildAvatar() {
-    final initial = contact.name.isNotEmpty ? contact.name[0].toUpperCase() : '?';
-    final hue = (contact.name.codeUnitAt(0) * 17 + contact.name.length * 31) % 360;
-    final avatarColor = HSLColor.fromAHSL(1, hue.toDouble(), 0.5, 0.32).toColor();
-
     return Stack(
       clipBehavior: Clip.none,
       children: [
-        Container(
-          width: 52,
-          height: 52,
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                HSLColor.fromAHSL(1, hue.toDouble(), 0.55, 0.42).toColor(),
-                avatarColor,
-              ],
-            ),
-            borderRadius: BorderRadius.circular(26),
-          ),
-          child: Center(
-            child: Text(
-              initial,
-              style: GoogleFonts.inter(color: Colors.white, fontSize: 21, fontWeight: FontWeight.w700),
-            ),
-          ),
-        ),
+        AvatarWidget(name: contact.name, size: 52, fontSize: 21),
         // Group indicator
         if (contact.isGroup)
           Positioned(

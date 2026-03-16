@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../theme/app_theme.dart';
 import '../controllers/chat_controller.dart';
 import '../services/signal_service.dart';
+import 'avatar_widget.dart';
 
 /// Self-contained profile editing card for use in Settings.
 /// Reads / writes from SharedPreferences key `user_profile`.
@@ -102,10 +103,6 @@ class _ProfileCardState extends State<ProfileCard> {
   @override
   Widget build(BuildContext context) {
     final name = _nameController.text.trim();
-    final initial = name.isNotEmpty ? name[0].toUpperCase() : '?';
-    final hue = name.isNotEmpty
-        ? (name.codeUnitAt(0) * 17 + name.length * 31) % 360
-        : 150;
 
     return Container(
       decoration: BoxDecoration(
@@ -124,35 +121,11 @@ class _ProfileCardState extends State<ProfileCard> {
                 onTap: _pickAvatar,
                 child: Stack(
                   children: [
-                    Container(
-                      width: 72, height: 72,
-                      decoration: BoxDecoration(
-                        gradient: _avatarBytes == null ? LinearGradient(
-                          colors: [
-                            HSLColor.fromAHSL(1, hue.toDouble(), 0.6, 0.45).toColor(),
-                            HSLColor.fromAHSL(1, hue.toDouble(), 0.5, 0.30).toColor(),
-                          ],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ) : null,
-                        shape: BoxShape.circle,
-                        image: _avatarBytes != null ? DecorationImage(
-                          image: MemoryImage(_avatarBytes!),
-                          fit: BoxFit.cover,
-                        ) : null,
-                        boxShadow: [
-                          BoxShadow(
-                            color: HSLColor.fromAHSL(1, hue.toDouble(), 0.6, 0.40).toColor().withValues(alpha: 0.35),
-                            blurRadius: 14,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: _avatarBytes == null
-                          ? Center(child: Text(initial,
-                              style: GoogleFonts.inter(
-                                  color: Colors.white, fontSize: 28, fontWeight: FontWeight.w700)))
-                          : null,
+                    AvatarWidget(
+                      name: name,
+                      size: 72,
+                      imageBytes: _avatarBytes,
+                      fontSize: 28,
                     ),
                     Positioned(
                       bottom: 0, right: 0,

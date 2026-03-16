@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'tor_service.dart' as tor;
 
 /// Probes known public Waku REST nodes and returns the fastest reachable one.
 ///
@@ -102,13 +103,16 @@ class WakuDiscoveryService {
   }
 
   Future<bool> _probeNode(String url) async {
+    final client = tor.buildTorHttpClient() ?? http.Client();
     try {
-      final res = await http
+      final res = await client
           .get(Uri.parse('$url/health'))
           .timeout(_probeTimeout);
       return res.statusCode == 200;
     } catch (_) {
       return false;
+    } finally {
+      client.close();
     }
   }
 

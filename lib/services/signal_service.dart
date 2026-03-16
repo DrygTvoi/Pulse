@@ -62,8 +62,14 @@ class _PersistentSignalStore extends InMemorySignalProtocolStore {
   Future<void> deleteAllSessions(String name) async {
     await super.deleteAllSessions(name);
     final all = await _storage.readAll();
+    // Key format: signal_session_<name>_<deviceId (int)>
+    // Use startsWith + int-parse to avoid false positives when one contact
+    // name is a suffix of another (e.g. "abc" matching "xyz_abc_1").
+    final expectedPrefix = '$_sessionPrefix${name}_';
     for (final k in all.keys) {
-      if (k.startsWith(_sessionPrefix) && k.contains('_${name}_')) {
+      if (!k.startsWith(expectedPrefix)) continue;
+      final suffix = k.substring(expectedPrefix.length);
+      if (int.tryParse(suffix) != null) {
         await _storage.delete(key: k);
       }
     }

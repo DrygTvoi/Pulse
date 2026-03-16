@@ -5,14 +5,20 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'tor_service.dart';
 import 'ice_server_config.dart';
+import 'relay_directory_service.dart';
+import 'nip65_discovery_service.dart';
+import 'adaptive_relay_service.dart';
+import 'circuit_breaker_service.dart';
+import '../controllers/chat_controller.dart';
 
 // ─── Status ───────────────────────────────────────────────────────────────────
 
 enum ProbePhase {
   idle,
-  directProbe,   // testing servers without Tor
-  torBoot,       // starting Tor
-  torProbe,      // testing servers through Tor
+  directProbe,   // testing static servers + nostr.watch
+  dohProbe,      // querying DNS TXT + CDN relay list + peer relays
+  torBoot,       // starting Tor (only if < 2 direct relays found)
+  torProbe,      // testing servers through Tor + nostr.watch via Tor
   done,
 }
 
@@ -78,6 +84,7 @@ const _kNostrCandidates = [
   // Japan (often accessible from CN without VPN)
   ('relay.nostr.wirednet.jp', 443),
   ('nostr-relay.nokotaro.com', 443),
+  ('nostr.vin',               443), // Japan
   // Hong Kong / Asia-Pacific CDN
   ('nostr.mom',    443),
   ('offchain.pub', 443),
@@ -92,6 +99,8 @@ const _kNostrCandidates = [
   ('relay.nos.social',       443),
   ('nostr.bitcoiner.social', 443),
   ('relay.current.fyi',      443),
+  ('strfry.iris.to',         443), // high-traffic global
+  ('nostr.fmt.wired.mn',     443), // global
 ];
 
 /// Oxen/Session network seed nodes (public, from Session open source).
@@ -104,38 +113,46 @@ const _kOxenCandidates = [
   ('storage.seed3.loki.network', 22023),
 ];
 
-/// Community TURN servers with embedded credentials.
+/// Community TURN servers probed for direct reachability.
 /// Each entry: (host, probePort, iceServers).
-/// probePort is the TCP port we test for reachability.
-/// iceServers is the list of RTCIceServer maps added when host is reachable.
+/// probePort — TCP port used for the TCP-connect reachability test.
+/// iceServers — RTCIceServer maps added to ICE config when reachable.
 ///
-/// Only publicly documented free credentials are used here.
-/// Add more entries as new free TURN services become available.
+/// Only verifiably-free credentials are included.
+/// metered.ca and Twilio TURN require account registration → STUN-only here.
 const _kTurnCandidates = <(String, int, List<Map<String, dynamic>>)>[
+  // openrelay.metered.ca — free community TURN, no account required.
+  // TLS/TCP port 443 reliably passes strict firewalls.
   (
     'openrelay.metered.ca', 443,
     [
-      {'urls': 'turn:openrelay.metered.ca:80',             'username': 'openrelayproject', 'credential': 'openrelayproject'},
-      {'urls': 'turn:openrelay.metered.ca:443',            'username': 'openrelayproject', 'credential': 'openrelayproject'},
-      {'urls': 'turns:openrelay.metered.ca:443?transport=tcp', 'username': 'openrelayproject', 'credential': 'openrelayproject'},
+      {'urls': 'turn:openrelay.metered.ca:80',                  'username': 'openrelayproject', 'credential': 'openrelayproject'},
+      {'urls': 'turn:openrelay.metered.ca:443',                 'username': 'openrelayproject', 'credential': 'openrelayproject'},
+      {'urls': 'turns:openrelay.metered.ca:443?transport=tcp',  'username': 'openrelayproject', 'credential': 'openrelayproject'},
     ],
   ),
+  // freestun.net — independent community TURN, no account required.
+  // Separate provider from openrelay — if one is down, the other may work.
   (
-    'relay.metered.ca', 443,
+    'freestun.net', 3479,
+    [
+      {'urls': 'turn:freestun.net:3479',                        'username': 'free', 'credential': 'free'},
+      {'urls': 'turns:freestun.net:5350',                       'username': 'free', 'credential': 'free'},
+    ],
+  ),
+  // relay.metered.ca — STUN is public; TURN requires account (omitted).
+  (
+    'relay.metered.ca', 80,
     [
       {'urls': 'stun:relay.metered.ca:80'},
-      {'urls': 'turn:relay.metered.ca:80',                 'username': 'free', 'credential': 'free'},
-      {'urls': 'turn:relay.metered.ca:443',                'username': 'free', 'credential': 'free'},
-      {'urls': 'turns:relay.metered.ca:443?transport=tcp', 'username': 'free', 'credential': 'free'},
     ],
   ),
-  // global.turn.twilio.com — Twilio's global anycast TURN (requires Twilio account;
-  // kept here as a reachability probe target — useful in Asia)
+  // global.turn.twilio.com — probe only (TURN requires Twilio account).
+  // Reachability check is still useful: confirms Twilio CDN is accessible
+  // from this network, so users know adding their Twilio credentials will work.
   (
     'global.turn.twilio.com', 443,
-    [
-      {'urls': 'turns:global.turn.twilio.com:443?transport=tcp', 'username': 'free', 'credential': 'free'},
-    ],
+    [], // no usable ICE entries without account credentials
   ),
 ];
 
@@ -154,7 +171,7 @@ class ConnectivityProbeService {
   ConnectivityProbeService._();
 
   static const _cacheKey   = 'connectivity_probe_v1';
-  static const _cacheTtlH  = 24;
+  static const _cacheTtlH  = 6; // match RelayDirectoryService TTL
   // If ≥ this many direct Nostr relays found, skip Tor entirely.
   static const _enoughDirect = 2;
 
@@ -165,6 +182,7 @@ class ConnectivityProbeService {
   ProbeResult get lastResult => _last;
 
   bool _running = false;
+  Timer? _refreshTimer;
 
   // ── Public API ─────────────────────────────────────────────────────────────
 
@@ -192,7 +210,72 @@ class ConnectivityProbeService {
   }
 
   /// Force a fresh probe regardless of cache age.
-  Future<void> forceProbe() => _runProbe();
+  Future<void> forceProbe() async {
+    await CircuitBreakerService.instance.reset();
+    return _runProbe();
+  }
+
+  /// Starts a periodic background refresh every [_cacheTtlH] hours.
+  /// Also runs a quick health check of cached relays halfway through.
+  void startPeriodicRefresh() {
+    _refreshTimer?.cancel();
+    _refreshTimer = Timer.periodic(Duration(hours: _cacheTtlH), (_) {
+      debugPrint('[Probe] Periodic refresh triggered');
+      unawaited(_runProbe());
+    });
+    // Health check at half the TTL — removes dead relays from cache
+    Future.delayed(Duration(hours: _cacheTtlH ~/ 2), () {
+      if (_refreshTimer != null) unawaited(_healthCheck());
+    });
+  }
+
+  /// Stops the periodic refresh.
+  void stopPeriodicRefresh() {
+    _refreshTimer?.cancel();
+    _refreshTimer = null;
+  }
+
+  /// Quick health check — re-probes cached relays and removes dead ones.
+  Future<void> _healthCheck() async {
+    if (_last.nostrRelays.isEmpty) return;
+    debugPrint('[Probe/Health] Checking ${_last.nostrRelays.length} cached relays');
+
+    final alive = <String>[];
+    await Future.wait(
+      _last.nostrRelays.map((url) async {
+        final uri = Uri.tryParse(url);
+        if (uri == null || uri.host.isEmpty) return;
+        final port = (uri.hasPort && uri.port != 0) ? uri.port : 443;
+        final ok = await _probeOne(uri.host, port, timeoutSec: 3);
+        if (ok) {
+          alive.add(url);
+        } else {
+          debugPrint('[Probe/Health] ✗ dead: $url');
+        }
+      }),
+    );
+
+    if (alive.length < _last.nostrRelays.length) {
+      debugPrint('[Probe/Health] ${_last.nostrRelays.length - alive.length} dead relay(s) removed');
+      _last = ProbeResult(
+        nostrRelays: alive,
+        oxenNodes: _last.oxenNodes,
+        turnServers: _last.turnServers,
+        torNostrRelays: _last.torNostrRelays,
+        timestamp: _last.timestamp,
+      );
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_cacheKey, jsonEncode(_last.toJson()));
+
+      // Trigger re-probe if too few relays remain
+      if (alive.length < _enoughDirect) {
+        debugPrint('[Probe/Health] Too few relays — triggering full re-probe');
+        unawaited(_runProbe());
+      }
+    } else {
+      debugPrint('[Probe/Health] All ${alive.length} relays healthy');
+    }
+  }
 
   // ── Internal ───────────────────────────────────────────────────────────────
 
@@ -201,19 +284,90 @@ class ConnectivityProbeService {
     _running = true;
 
     try {
-      // ── Phase 1: direct probes ─────────────────────────────────────────────
+      // ── Phase 1: static TCP probes ────────────────────────────────────────
       _emit(ProbePhase.directProbe);
-      debugPrint('[Probe] Phase 1: direct connectivity');
+      debugPrint('[Probe] Phase 1: static relay probes');
 
-      final directNostr = await _probeAll(_kNostrCandidates,
+      final directNostrHosts = await _probeAll(_kNostrCandidates,
           label: 'nostr', timeoutSec: 3);
+      // IMPORTANT: convert to full wss:// URLs — _probeAll returns bare hostnames
+      final directNostr = directNostrHosts.map((h) => 'wss://$h').toList();
       final directOxen  = await _probeAll(_kOxenCandidates,
           label: 'oxen',  timeoutSec: 3);
       final (directTurnHosts, directTurnConfigs) =
           await _probeAllTurn(timeoutSec: 3);
 
-      debugPrint('[Probe] Direct: nostr=${directNostr.length} '
+      debugPrint('[Probe] Static: nostr=${directNostr.length} '
           'oxen=${directOxen.length} turn=${directTurnHosts.length}');
+
+      // ── Early Tor start (parallel with phase 1.5) ────────────────────────
+      // If direct probes found fewer than enough relays, the network is likely
+      // censored. Start Tor NOW — in the background — so it bootstraps
+      // concurrently with relay discovery (phase 1.5) instead of after it.
+      // Tor+Snowflake takes 60-120s; starting early saves all of that wait.
+      Future<bool>? earlyTorFuture;
+      if (directNostr.length < _enoughDirect &&
+          !TorService.instance.isBootstrapped &&
+          !TorService.instance.isRunning) {
+        debugPrint('[Probe] Network looks censored — starting Tor early');
+        earlyTorFuture = TorService.instance.start();
+      }
+
+      // ── Phase 1.5: Autonomous relay discovery ─────────────────────────────
+      //
+      // Three parallel sources — zero developer infrastructure required:
+      //   A. Community relay directories (nostr.watch, nostr.band)
+      //   B. NIP-65 (kind:10002) events from any working Nostr relay
+      //      → the Nostr network IS its own relay directory
+      //   C. Peer relays shared by contacts via P2P exchange
+      //
+      // All three run in parallel; results are TCP-probed and joined.
+      // NOTE: Tor bootstrap is also running in background during this phase.
+      _emit(ProbePhase.dohProbe, found: directNostr.length);
+      debugPrint('[Probe] Phase 1.5: autonomous relay discovery');
+
+      final knownHosts1 = <String>{
+        ..._kNostrCandidates.map((c) => c.$1),
+        ...directNostr.map((u) => Uri.parse(u).host),
+      };
+
+      final regenResults = await Future.wait([
+        RelayDirectoryService.instance.getCandidates(),
+        Nip65DiscoveryService.instance.discover(
+          directNostr, knownHosts: knownHosts1),
+        _loadPeerRelayCandidates(knownHosts1),
+      ]);
+
+      // Merge + deduplicate against known hosts
+      final regenCandidates = <(String, int)>[];
+      final seenHosts       = Set<String>.from(knownHosts1);
+      for (final list in regenResults) {
+        for (final c in list) {
+          if (seenHosts.add(c.$1)) regenCandidates.add(c);
+        }
+      }
+
+      if (regenCandidates.isNotEmpty) {
+        debugPrint('[Probe] Probing ${regenCandidates.length} autonomously discovered relay(s)');
+        final extraHosts = await _probeAll(regenCandidates, label: 'regen', timeoutSec: 3);
+        directNostr.addAll(extraHosts.map((h) => 'wss://$h'));
+        debugPrint('[Probe] Regen: +${extraHosts.length} reachable (total ${directNostr.length})');
+      } else {
+        debugPrint('[Probe] Regen: no new candidates found');
+      }
+
+      // Seed AdaptiveRelayService with all known reachable relay URLs so the
+      // CF race can start immediately without waiting for a separate fetch.
+      {
+        final allKnownUrls = <String>{
+          ...directNostr,
+          ..._kNostrCandidates.map((c) => 'wss://${c.$1}'),
+          ...regenCandidates.map((c) => 'wss://${c.$1}'),
+        }.toList();
+        AdaptiveRelayService.instance.seedCandidates(allKnownUrls);
+        // Kick off background race so best relay is cached before first connect
+        unawaited(AdaptiveRelayService.instance.getBestRelay());
+      }
 
       // ── Phase 2: Tor probes (only if direct Nostr insufficient) ───────────
       final torNostr = <String>[];
@@ -221,13 +375,37 @@ class ConnectivityProbeService {
 
       if (directNostr.length < _enoughDirect) {
         _emit(ProbePhase.torBoot);
-        debugPrint('[Probe] Phase 2: starting Tor for bootstrap');
+        debugPrint('[Probe] Phase 2: waiting for Tor...');
 
-        final torReady = await TorService.instance.start();
+        // Re-use the early-start future if we already kicked it off,
+        // otherwise start now (edge case: regen found 0 new relays quickly).
+        final torReady = earlyTorFuture != null
+            ? await earlyTorFuture
+            : await TorService.instance.start();
         if (torReady) {
           torUsed = true;
           _emit(ProbePhase.torProbe, torUsed: true);
           debugPrint('[Probe] Tor ready — probing via SOCKS5');
+
+          // Retry all directory fetches via Tor (for censored environments).
+          debugPrint('[Probe] Retrying relay directories via Tor...');
+          final torDirCandidates = await RelayDirectoryService.instance
+              .getCandidates(viaTor: true);
+          if (torDirCandidates.isNotEmpty) {
+            final knownNow = <String>{
+              ..._kNostrCandidates.map((c) => c.$1),
+              ...directNostr.map((u) => Uri.parse(u).host),
+            };
+            final newViaTor = torDirCandidates
+                .where((c) => !knownNow.contains(c.$1))
+                .toList();
+            if (newViaTor.isNotEmpty) {
+              debugPrint('[Probe] Probing ${newViaTor.length} Tor-directory relay(s) directly');
+              final extraTorHosts = await _probeAll(
+                  newViaTor, label: 'regen+tor', timeoutSec: 4);
+              directNostr.addAll(extraTorHosts.map((h) => 'wss://$h'));
+            }
+          }
 
           // Only probe the ones that failed directly
           final failed = _kNostrCandidates
@@ -248,8 +426,47 @@ class ConnectivityProbeService {
             }
           }
 
-          if (!TorService.instance.persistent) await TorService.instance.stop();
-          debugPrint('[Probe] Tor stopped. Via-tor-only: ${torNostr.length}');
+          // ── Tor TURN probe ───────────────────────────────────────────────
+          // Check which TURN servers are reachable via Tor.
+          // Ones that failed the direct probe may work here.
+          // TorTurnProxy already runs for our static list; this confirms
+          // connectivity and discovers any extra working TURN configs.
+          debugPrint('[Probe] Tor TURN probe...');
+          final torTurnConfigs = <Map<String, dynamic>>[];
+          final directTurnHostSet = Set<String>.from(directTurnHosts
+              .map((h) => h.split(':').first));
+          for (final (host, port, iceServers) in _kTurnCandidates) {
+            if (iceServers.isEmpty) continue; // probe-only entry, no usable ICE
+            if (directTurnHostSet.contains(host)) {
+              // Already reachable directly — Tor path redundant but valid
+              continue;
+            }
+            final viaTor = await TorService.instance.probe(host, port);
+            if (viaTor) {
+              debugPrint('[Probe] ✓ turn via Tor: $host');
+              torTurnConfigs.addAll(
+                  iceServers.map((s) => Map<String, dynamic>.from(s)));
+            }
+          }
+          if (torTurnConfigs.isNotEmpty) {
+            await IceServerConfig.saveProbeTurnServers(
+                [...directTurnConfigs, ...torTurnConfigs]);
+            debugPrint('[Probe] Saved '
+                '${directTurnConfigs.length} direct + '
+                '${torTurnConfigs.length} Tor TURN entries');
+          }
+
+          if (!TorService.instance.persistent) {
+            if (torNostr.isNotEmpty || directNostr.isEmpty) {
+              // Network is censored — keep Tor running so Firebase/Waku/Oxen
+              // adapters (which already use buildTorHttpClient) can work too.
+              debugPrint('[Probe] Censored network — keeping Tor alive for all transports');
+            } else {
+              await TorService.instance.stop();
+              debugPrint('[Probe] Tor stopped.');
+            }
+          }
+          debugPrint('[Probe] Via-tor-only: ${torNostr.length}');
         } else {
           debugPrint('[Probe] Tor unavailable — proceeding with direct only');
         }
@@ -269,7 +486,11 @@ class ConnectivityProbeService {
 
       // Persist best relay for adapters to pick up on next connect
       if (_last.bestNostrRelay != null) {
-        final relay = _last.bestNostrRelay!;
+        var relay = _last.bestNostrRelay!;
+        // Ensure relay is stored with scheme so adapters can use it directly
+        if (!relay.startsWith('ws://') && !relay.startsWith('wss://')) {
+          relay = 'wss://$relay';
+        }
         // Store as a "probe-suggested" relay; adapters prefer this over default
         await prefs.setString('probe_nostr_relay', relay);
         debugPrint('[Probe] Best Nostr relay: $relay');
@@ -288,6 +509,9 @@ class ConnectivityProbeService {
           found: directNostr.length + torNostr.length, torUsed: torUsed);
       debugPrint('[Probe] Done. Total reachable: '
           '${directNostr.length} direct + ${torNostr.length} tor-only');
+
+      // Start periodic background refresh + health checks
+      startPeriodicRefresh();
     } catch (e) {
       debugPrint('[Probe] Error: $e');
       _emit(ProbePhase.done);
@@ -310,11 +534,22 @@ class ConnectivityProbeService {
     required String label,
     required int timeoutSec,
   }) async {
+    final breaker = CircuitBreakerService.instance;
     final results = await Future.wait(
       candidates.map((c) async {
-        final ok = await _probeOne(c.$1, c.$2, timeoutSec: timeoutSec);
-        if (ok) debugPrint('[Probe] ✓ $label ${c.$1}');
-        return ok ? c.$1 : null;
+        final relay = c.$1;
+        if (await breaker.shouldSkip(relay)) {
+          debugPrint('[Probe] ⊘ $label $relay (circuit breaker)');
+          return null;
+        }
+        final ok = await _probeOne(relay, c.$2, timeoutSec: timeoutSec);
+        if (ok) {
+          debugPrint('[Probe] ✓ $label $relay');
+          await breaker.recordSuccess(relay);
+        } else {
+          await breaker.recordFailure(relay);
+        }
+        return ok ? relay : null;
       }),
     );
     return results.whereType<String>().toList();
@@ -352,5 +587,19 @@ class ConnectivityProbeService {
     } catch (_) {
       return false;
     }
+  }
+
+  /// Loads peer-shared relay URLs from SharedPreferences and converts to candidates.
+  Future<List<(String, int)>> _loadPeerRelayCandidates(Set<String> knownHosts) async {
+    final urls = await ChatController.loadPeerRelays();
+    final candidates = <(String, int)>[];
+    for (final url in urls) {
+      final uri = Uri.tryParse(url);
+      if (uri == null || uri.host.isEmpty) continue;
+      if (knownHosts.contains(uri.host)) continue;
+      final port = (uri.hasPort && uri.port != 0) ? uri.port : 443;
+      candidates.add((uri.host, port));
+    }
+    return candidates;
   }
 }

@@ -30,6 +30,9 @@ class LanInboxReader implements InboxReader {
   final _seenIds  = <String>{};
 
   @override
+  Stream<bool> get healthChanges => Stream<bool>.empty();
+
+  @override
   Future<void> initializeReader(String apiKey, String databaseId) async {
     _selfAddress = databaseId;
     await _bindSocket();

@@ -1,4 +1,5 @@
 import 'ice_server_config.dart';
+import 'tor_turn_proxy.dart';
 
 /// Defines the ICE-transport strategy for a WebRTC call.
 ///
@@ -25,6 +26,7 @@ abstract class CallTransportProfile {
 
   static const CallTransportProfile auto       = _AutoProfile();
   static const CallTransportProfile restricted = _RestrictedProfile();
+  static const CallTransportProfile torRelay   = _TorRelayProfile();
 }
 
 // ─── Auto ─────────────────────────────────────────────────────────────────────
@@ -42,6 +44,31 @@ class _AutoProfile extends CallTransportProfile {
   Future<Map<String, dynamic>> peerConfig() async => {
     'iceServers':          await IceServerConfig.load(),
     'iceTransportPolicy':  'all',
+  };
+}
+
+// ─── Restricted ───────────────────────────────────────────────────────────────
+
+// ─── TorRelay ─────────────────────────────────────────────────────────────────
+
+/// Secondary/backup audio channel routed exclusively through Tor.
+///
+/// Uses all running TorTurnProxy instances (33478→openrelay, 33479→freestun)
+/// which tunnel TCP TURN traffic via the running Tor SOCKS5.  Even if every
+/// direct TURN server is blocked, this path reaches them through Tor exit nodes.
+///
+/// Returns empty ICE list if no proxies are running — ICE fails gracefully.
+class _TorRelayProfile extends CallTransportProfile {
+  const _TorRelayProfile();
+
+  @override String get id           => 'tor_relay';
+  @override String get displayName  => 'Tor Relay';
+  @override bool   get isRestricted => true;
+
+  @override
+  Future<Map<String, dynamic>> peerConfig() async => {
+    'iceServers':         TorTurnProxy.allIceServerEntries,
+    'iceTransportPolicy': 'relay',
   };
 }
 

@@ -1,8 +1,14 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../models/message.dart';
+import '../services/tor_service.dart' as tor;
 import 'inbox_manager.dart';
+
+/// Returns a Tor-proxied client when Tor is running, else a plain http.Client.
+http.Client _buildFirebaseClient() =>
+    tor.buildTorHttpClient() ?? http.Client();
 
 class FirebaseInboxReader implements InboxReader {
   late String _dbUrl;
@@ -10,6 +16,30 @@ class FirebaseInboxReader implements InboxReader {
   late String _selfDbId;
   http.Client? _messagesClient;
   http.Client? _signalsClient;
+
+  final _healthCtrl = StreamController<bool>.broadcast();
+  int _consecutiveFailures = 0;
+  bool _isHealthy = true;
+  static const _failureThreshold = 3;
+
+  @override
+  Stream<bool> get healthChanges => _healthCtrl.stream;
+
+  void _recordSuccess() {
+    _consecutiveFailures = 0;
+    if (!_isHealthy && !_healthCtrl.isClosed) {
+      _isHealthy = true;
+      _healthCtrl.add(true);
+    }
+  }
+
+  void _recordFailure() {
+    _consecutiveFailures++;
+    if (_consecutiveFailures >= _failureThreshold && _isHealthy && !_healthCtrl.isClosed) {
+      _isHealthy = false;
+      _healthCtrl.add(false);
+    }
+  }
 
   @override
   Future<void> initializeReader(String apiKey, String databaseId) async {
@@ -47,9 +77,10 @@ class FirebaseInboxReader implements InboxReader {
   Stream<List<Message>> listenForMessages() async* {
     int retryDelay = 5;
     while (true) {
+      bool cycleSuccess = false;
       try {
         _messagesClient?.close();
-        _messagesClient = http.Client();
+        _messagesClient = _buildFirebaseClient();
         final url = _buildUrl('/inbox/$_selfDbId/messages.json');
 
         final request = http.Request('GET', Uri.parse(url))
@@ -59,6 +90,8 @@ class FirebaseInboxReader implements InboxReader {
 
         if (response.statusCode == 200) {
           retryDelay = 5; // reset backoff on successful connection
+          cycleSuccess = true;
+          _recordSuccess();
           Map<String, dynamic>? dataBuffer;
           await for (final line in response.stream
               .transform(utf8.decoder)
@@ -110,6 +143,7 @@ class FirebaseInboxReader implements InboxReader {
       } catch (e) {
         debugPrint("Firebase listenForMessages error: $e");
       }
+      if (!cycleSuccess) _recordFailure();
       await Future.delayed(Duration(seconds: retryDelay));
       retryDelay = (retryDelay * 2).clamp(5, 300);
     }
@@ -121,7 +155,7 @@ class FirebaseInboxReader implements InboxReader {
     while (true) {
       try {
         _signalsClient?.close();
-        _signalsClient = http.Client();
+        _signalsClient = _buildFirebaseClient();
         final url = _buildUrl('/inbox/$_selfDbId/signals.json');
 
         final request = http.Request('GET', Uri.parse(url))
@@ -181,7 +215,9 @@ class FirebaseInboxReader implements InboxReader {
   Future<Map<String, dynamic>?> fetchPublicKeys() async {
     try {
       final url = _buildUrl('/inbox/$_selfDbId/signals.json');
-      final res = await http.get(Uri.parse(url));
+      final client = _buildFirebaseClient();
+      final res = await client.get(Uri.parse(url));
+      client.close();
       if (res.statusCode == 200 && res.body != 'null') {
         final data = jsonDecode(res.body) as Map;
         for (var item in data.values) {
@@ -236,8 +272,9 @@ class FirebaseInboxSender implements MessageSender {
     final authSuffix = (_authKey.isNotEmpty && targetDbUrl == _dbUrl) ? '?auth=$_authKey' : '';
     final url = '$targetDbUrl/inbox/$userId/messages.json$authSuffix';
 
+    final client = _buildFirebaseClient();
     try {
-      final response = await http.post(
+      final response = await client.post(
         Uri.parse(url),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode(message.toJson()),
@@ -246,6 +283,8 @@ class FirebaseInboxSender implements MessageSender {
     } catch (e) {
       debugPrint("Firebase send error: $e");
       return false;
+    } finally {
+      client.close();
     }
   }
 
@@ -269,8 +308,9 @@ class FirebaseInboxSender implements MessageSender {
     final authSuffix = (_authKey.isNotEmpty && targetDbUrl == _dbUrl) ? '?auth=$_authKey' : '';
     final url = '$targetDbUrl/inbox/$userId/signals.json$authSuffix';
 
+    final client = _buildFirebaseClient();
     try {
-      final response = await http.post(
+      final response = await client.post(
         Uri.parse(url),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
@@ -285,6 +325,8 @@ class FirebaseInboxSender implements MessageSender {
     } catch (e) {
       debugPrint("Firebase signal send error: $e");
       return false;
+    } finally {
+      client.close();
     }
   }
 }

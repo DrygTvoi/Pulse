@@ -12,6 +12,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/message.dart';
 import '../services/tor_service.dart' as tor;
 import '../services/utls_service.dart';
+import '../services/cloudflare_ip_service.dart';
 import 'inbox_manager.dart';
 
 /// ─────────────────────────────────────────────────────────
@@ -24,6 +25,259 @@ import 'inbox_manager.dart';
 /// ─────────────────────────────────────────────────────────
 
 const _defaultRelay = 'wss://relay.damus.io';
+
+/// Connects a WebSocket to [url] using pre-resolved [ips] (bypasses system DNS).
+///
+/// This is the key censorship workaround: GFW sometimes poisons DNS for
+/// CF-hosted Nostr relays. We use DoH-resolved IPs to connect directly,
+/// letting HttpClient handle TLS with the original hostname as SNI.
+///
+/// Strategy: connect plain TCP to the resolved IP, then let dart:io's
+/// HttpClient do the TLS+WebSocket upgrade using the original hostname
+/// (from the URL) for SNI — exactly as the Tor bridge does with loopback.
+Future<WebSocketChannel> _connectDirectViaIps(
+    String url, List<String> ips) async {
+  final uri = Uri.parse(url);
+  final port = (uri.hasPort && uri.port != 0)
+      ? uri.port
+      : (uri.scheme == 'wss' ? 443 : 80);
+  final normalized = (!uri.hasPort || uri.port == 0)
+      ? uri.replace(port: port).toString()
+      : url;
+
+  Exception? lastErr;
+  for (final ip in ips) {
+    try {
+      final httpClient = HttpClient();
+      httpClient.connectionFactory = (cfUri, proxyHost, proxyPort) async {
+        // Plain TCP to the CF IP — HttpClient sees the original URL host for SNI
+        final raw = await Socket.connect(ip, port,
+            timeout: const Duration(seconds: 4));
+        return ConnectionTask.fromSocket(
+            Future.value(raw), () => raw.destroy());
+      };
+      final ws = await WebSocket.connect(normalized, customClient: httpClient)
+          .timeout(const Duration(seconds: 4));
+      return IOWebSocketChannel(ws);
+    } catch (e) {
+      lastErr = e is Exception ? e : Exception(e.toString());
+    }
+  }
+  throw lastErr ?? Exception('_connectDirectViaIps: no working IP');
+}
+
+/// Connect a WebSocket through the uTLS HTTP CONNECT proxy.
+///
+/// Mirrors TorService.connectWebSocket (SOCKS5 pattern) but sends an
+/// HTTP CONNECT request instead of a SOCKS5 handshake.  This avoids
+/// Dart's WebSocket.connect/findProxy bug that produces "https://host:0#"
+/// when routing wss:// through an HTTP CONNECT proxy.
+Future<WebSocketChannel> _connectWebSocketViaUtls(
+    String url, int proxyPort) async {
+  final uri = Uri.parse(url);
+  final targetHost = uri.host;
+  final targetPort =
+      uri.hasPort ? uri.port : (uri.scheme == 'wss' ? 443 : 80);
+
+  // 1. Bind a throw-away local bridge so HttpClient can connect normally.
+  final server = await ServerSocket.bind(
+      InternetAddress.loopbackIPv4, 0,
+      shared: false);
+  final bridgePort = server.port;
+
+  // 2. Handle exactly one client connection → proxy it through uTLS proxy.
+  unawaited(server.first.then((client) async {
+    unawaited(server.close());
+    Socket? proxy;
+    try {
+      proxy = await Socket.connect(
+          InternetAddress.loopbackIPv4, proxyPort,
+          timeout: const Duration(seconds: 15));
+      proxy.setOption(SocketOption.tcpNoDelay, true);
+      client.setOption(SocketOption.tcpNoDelay, true);
+
+      final rxBuf = <int>[];
+      final clientBuf = <List<int>>[];
+      final waiters = <Completer<void>>[];
+      bool tunnelReady = false;
+
+      // Proxy → client (buffered until tunnel ready).
+      proxy.listen(
+        (data) {
+          if (!tunnelReady) {
+            rxBuf.addAll(data);
+            for (final w in [...waiters]) { if (!w.isCompleted) w.complete(); }
+            waiters.removeWhere((c) => c.isCompleted);
+          } else {
+            try { client.add(data); } catch (_) {}
+          }
+        },
+        onDone: () { try { client.close(); } catch (_) {} },
+        onError: (Object _) { client.destroy(); proxy?.destroy(); },
+        cancelOnError: true,
+      );
+
+      // Client → proxy (buffered until tunnel ready).
+      client.listen(
+        (data) {
+          if (!tunnelReady) {
+            clientBuf.add(data);
+          } else {
+            try { proxy!.add(data); } catch (_) {}
+          }
+        },
+        onDone: () { try { proxy?.close(); } catch (_) {} },
+        onError: (Object _) { client.destroy(); proxy?.destroy(); },
+        cancelOnError: true,
+      );
+
+      // HTTP CONNECT request.
+      proxy.write(
+          'CONNECT $targetHost:$targetPort HTTP/1.1\r\n'
+          'Host: $targetHost:$targetPort\r\n\r\n');
+
+      // Wait for "HTTP/1.x 200 …\r\n\r\n".
+      Future<bool> readUntilEndOfHeaders() async {
+        while (true) {
+          for (int i = 0; i <= rxBuf.length - 4; i++) {
+            if (rxBuf[i] == 13 && rxBuf[i + 1] == 10 &&
+                rxBuf[i + 2] == 13 && rxBuf[i + 3] == 10) {
+              final header = String.fromCharCodes(rxBuf.sublist(0, i));
+              final ok = header.contains(' 200 ');
+              rxBuf.removeRange(0, i + 4);
+              return ok;
+            }
+          }
+          final c = Completer<void>();
+          waiters.add(c);
+          await c.future;
+        }
+      }
+
+      final ok = await readUntilEndOfHeaders()
+          .timeout(const Duration(seconds: 10), onTimeout: () => false);
+      if (!ok) {
+        debugPrint('[Nostr] uTLS CONNECT to $targetHost:$targetPort refused');
+        client.destroy();
+        proxy.destroy();
+        return;
+      }
+
+      tunnelReady = true;
+      // Flush any proxy bytes received after the 200 header.
+      if (rxBuf.isNotEmpty) {
+        try { client.add(Uint8List.fromList(rxBuf)); } catch (_) {}
+        rxBuf.clear();
+      }
+      // Flush client data buffered before tunnel was ready.
+      for (final d in clientBuf) {
+        try { proxy.add(d); } catch (_) {}
+      }
+    } catch (e) {
+      debugPrint('[Nostr] uTLS bridge error: $e');
+      client.destroy();
+      proxy?.destroy();
+    }
+  }).catchError((_) {}));
+
+  // 3. HttpClient whose connectionFactory uses our local bridge.
+  //    WebSocket.connect(url) sees the original host for correct TLS SNI.
+  final httpClient = HttpClient();
+  httpClient.connectionFactory = (uri2, proxyHost2, proxyPort2) async {
+    final s = await Socket.connect(
+        InternetAddress.loopbackIPv4, bridgePort,
+        timeout: const Duration(seconds: 60));
+    return ConnectionTask.fromSocket(Future.value(s), () => s.destroy());
+  };
+
+  // 4. dart:io handles TLS negotiation + HTTP WebSocket upgrade.
+  //
+  // Dart doesn't know the default port for the 'wss' scheme (only 'https'),
+  // so `wss://host` → port 0 internally → wrong Host header → relay rejects.
+  // Explicitly set port 443 so the upgrade request carries the correct Host.
+  final wsUri = Uri.parse(url);
+  final normalizedUrl = (!wsUri.hasPort || wsUri.port == 0)
+      ? wsUri.replace(port: wsUri.scheme == 'wss' ? 443 : 80).toString()
+      : url;
+  try {
+    final ws = await WebSocket.connect(normalizedUrl, customClient: httpClient);
+    return IOWebSocketChannel(ws);
+  } catch (e) {
+    try { await server.close(); } catch (_) {}
+    rethrow;
+  }
+}
+
+// ─── Shared WebSocket connect (CF-direct → Tor → I2P → uTLS → plain) ───────
+//
+// Single implementation used by both InboxReader and Sender.
+// Connection chain: CF-direct (DoH-resolved) → Tor SOCKS5 → I2P SOCKS5
+//                   → uTLS (Chrome TLS fingerprint) → plain WebSocket.
+//
+// NOTE: I2P is an external proxy — the app doesn't bundle an I2P daemon.
+// Users who run their own I2P router can configure the SOCKS5 endpoint in
+// Settings → I2P Proxy. This enables routing Nostr traffic through I2P
+// outproxies (e.g. relay.damus.i2p) as an additional censorship bypass.
+
+Future<WebSocketChannel> _nostrWsConnect(
+  String url, {
+  required bool torEnabled,
+  required String torHost,
+  required int torPort,
+  required bool i2pEnabled,
+  required String i2pHost,
+  required int i2pPort,
+}) async {
+  // Step 0: CF-direct with DoH-resolved IP (bypasses poisoned system DNS)
+  try {
+    final host = Uri.parse(url).host;
+    if (host.isNotEmpty) {
+      final (isCf, ips) = await CloudflareIpService.instance
+          .resolveAndCheck(host)
+          .timeout(const Duration(seconds: 4),
+              onTimeout: () => (false, <String>[]));
+      if (isCf && ips.isNotEmpty) {
+        try {
+          final ch = await _connectDirectViaIps(url, ips);
+          debugPrint('[Nostr] CF-direct (DoH): $url via ${ips.first}');
+          return ch;
+        } catch (_) {
+          debugPrint('[Nostr] CF-direct failed → Tor fallback: $url');
+        }
+      }
+    }
+  } catch (_) {}
+
+  // Priority: Tor → I2P → uTLS (Chrome fingerprint) → plain
+  if (torEnabled && tor.TorService.instance.isBootstrapped) {
+    try {
+      return await tor.connectWebSocket(url,
+          torHost: torHost, torPort: torPort,
+          socks5Timeout: const Duration(seconds: 8));
+    } catch (e) {
+      debugPrint('[Nostr] Tor path failed ($e) — trying uTLS');
+    }
+  }
+  if (i2pEnabled) {
+    try {
+      return await tor.connectWebSocket(url,
+          torHost: i2pHost, torPort: i2pPort,
+          socks5Timeout: const Duration(seconds: 8));
+    } catch (e) {
+      debugPrint('[Nostr] I2P path failed ($e) — trying uTLS');
+    }
+  }
+  final utlsPort = UTLSService.instance.proxyPort;
+  if (utlsPort != null) {
+    return _connectWebSocketViaUtls(url, utlsPort);
+  }
+  // Plain WebSocket — normalize port so Dart doesn't produce an invalid URI.
+  final wsUri = Uri.parse(url);
+  final normalized = (!wsUri.hasPort || wsUri.port == 0)
+      ? wsUri.replace(port: wsUri.scheme == 'wss' ? 443 : 80).toString()
+      : url;
+  return WebSocketChannel.connect(Uri.parse(normalized));
+}
 
 // ─── Secp256k1 key utilities ──────────────────────────────
 
@@ -190,27 +444,9 @@ class NostrInboxReader implements InboxReader {
   String _i2pHost = '127.0.0.1';
   int _i2pPort = 4447;
 
-  Future<WebSocketChannel> _wsConnect(String url) async {
-    // Priority: Tor → I2P → uTLS (Chrome fingerprint) → plain
-    if (_torEnabled) {
-      return tor.connectWebSocket(url, torHost: _torHost, torPort: _torPort);
-    }
-    if (_i2pEnabled) {
-      return tor.connectWebSocket(url, torHost: _i2pHost, torPort: _i2pPort);
-    }
-    final utlsClient = UTLSService.instance.buildHttpClient();
-    if (utlsClient != null) {
-      // Dart's WebSocket.connect via HTTP CONNECT proxy requires explicit port
-      // for wss:// (otherwise it resolves to port 0 and fails).
-      final uri = Uri.parse(url);
-      final fixed = (!uri.hasPort || uri.port == 0)
-          ? uri.replace(port: uri.scheme == 'wss' ? 443 : 80).toString()
-          : url;
-      final ws = await WebSocket.connect(fixed, customClient: utlsClient);
-      return IOWebSocketChannel(ws);
-    }
-    return WebSocketChannel.connect(Uri.parse(url));
-  }
+  Future<WebSocketChannel> _wsConnect(String url) => _nostrWsConnect(url,
+      torEnabled: _torEnabled, torHost: _torHost, torPort: _torPort,
+      i2pEnabled: _i2pEnabled, i2pHost: _i2pHost, i2pPort: _i2pPort);
 
   @override
   Future<void> initializeReader(String apiKey, String databaseId) async {
@@ -251,10 +487,21 @@ class NostrInboxReader implements InboxReader {
     _i2pHost = prefs.getString('i2p_host') ?? '127.0.0.1';
     _i2pPort = prefs.getInt('i2p_port') ?? 4447;
 
-    // If relay is still the hardcoded default, try probe-suggested relay instead
+    // If relay is still the hardcoded default, try probe-suggested or adaptive relay
     if (_relayUrl == _defaultRelay) {
-      final probed = prefs.getString('probe_nostr_relay');
-      if (probed != null && probed.isNotEmpty) _relayUrl = probed;
+      final adaptive = prefs.getString('adaptive_cf_relay') ?? '';
+      if (adaptive.isNotEmpty) {
+        _relayUrl = adaptive;
+      } else {
+        var probed = prefs.getString('probe_nostr_relay') ?? '';
+        if (probed.isNotEmpty) {
+          // Probe may store just the hostname without scheme — add wss:// if missing
+          if (!probed.startsWith('ws://') && !probed.startsWith('wss://')) {
+            probed = 'wss://$probed';
+          }
+          _relayUrl = probed;
+        }
+      }
     }
   }
 
@@ -272,7 +519,14 @@ class NostrInboxReader implements InboxReader {
   // (signals) in one REQ. Events are dispatched to broadcast StreamControllers.
   final StreamController<List<Message>> _msgCtrl = StreamController.broadcast();
   final StreamController<List<Map<String, dynamic>>> _sigCtrl = StreamController.broadcast();
+  final StreamController<bool> _healthCtrl = StreamController<bool>.broadcast();
+  int _consecutiveFailures = 0;
+  bool _isHealthy = true;
+  static const _failureThreshold = 3;
   bool _loopStarted = false;
+
+  @override
+  Stream<bool> get healthChanges => _healthCtrl.stream;
 
   void _ensureLoop() {
     if (_loopStarted || _privateKeyHex.isEmpty) return;
@@ -284,6 +538,7 @@ class NostrInboxReader implements InboxReader {
     int retryDelay = 5;
     while (true) {
       WebSocketChannel? channel;
+      bool cycleSuccess = false;
       try {
         channel = await _wsConnect(_relayUrl);
         await channel.ready;
@@ -298,6 +553,12 @@ class NostrInboxReader implements InboxReader {
         }]));
 
         retryDelay = 5; // reset backoff on successful connect
+        cycleSuccess = true;
+        if (!_isHealthy && !_healthCtrl.isClosed) {
+          _isHealthy = true;
+          _healthCtrl.add(true);
+        }
+        _consecutiveFailures = 0;
 
         try {
           await for (final raw in channel.stream) {
@@ -332,6 +593,13 @@ class NostrInboxReader implements InboxReader {
         try { channel?.sink.close(); } catch (_) {}
       }
 
+      if (!cycleSuccess) {
+        _consecutiveFailures++;
+        if (_consecutiveFailures >= _failureThreshold && _isHealthy && !_healthCtrl.isClosed) {
+          _isHealthy = false;
+          _healthCtrl.add(false);
+        }
+      }
       debugPrint('[Nostr] Reconnecting in ${retryDelay}s…');
       await Future.delayed(Duration(seconds: retryDelay));
       retryDelay = (retryDelay * 2).clamp(5, 300);
@@ -463,25 +731,9 @@ class NostrMessageSender implements MessageSender {
   String _i2pHost = '127.0.0.1';
   int _i2pPort = 4447;
 
-  Future<WebSocketChannel> _wsConnect(String url) async {
-    // Priority: Tor → I2P → uTLS (Chrome fingerprint) → plain
-    if (_torEnabled) {
-      return tor.connectWebSocket(url, torHost: _torHost, torPort: _torPort);
-    }
-    if (_i2pEnabled) {
-      return tor.connectWebSocket(url, torHost: _i2pHost, torPort: _i2pPort);
-    }
-    final utlsClient = UTLSService.instance.buildHttpClient();
-    if (utlsClient != null) {
-      final uri = Uri.parse(url);
-      final fixed = (!uri.hasPort || uri.port == 0)
-          ? uri.replace(port: uri.scheme == 'wss' ? 443 : 80).toString()
-          : url;
-      final ws = await WebSocket.connect(fixed, customClient: utlsClient);
-      return IOWebSocketChannel(ws);
-    }
-    return WebSocketChannel.connect(Uri.parse(url));
-  }
+  Future<WebSocketChannel> _wsConnect(String url) => _nostrWsConnect(url,
+      torEnabled: _torEnabled, torHost: _torHost, torPort: _torPort,
+      i2pEnabled: _i2pEnabled, i2pHost: _i2pHost, i2pPort: _i2pPort);
 
   @override
   Future<void> initializeSender(String apiKey) async {
@@ -505,10 +757,20 @@ class NostrMessageSender implements MessageSender {
     _i2pHost = prefs.getString('i2p_host') ?? '127.0.0.1';
     _i2pPort = prefs.getInt('i2p_port') ?? 4447;
 
-    // If relay is still the hardcoded default, try probe-suggested relay instead
+    // If relay is still the hardcoded default, try adaptive CF relay or probe-suggested
     if (_relayUrl == _defaultRelay) {
-      final probed = prefs.getString('probe_nostr_relay');
-      if (probed != null && probed.isNotEmpty) _relayUrl = probed;
+      final adaptive = prefs.getString('adaptive_cf_relay') ?? '';
+      if (adaptive.isNotEmpty) {
+        _relayUrl = adaptive;
+      } else {
+        var probed = prefs.getString('probe_nostr_relay') ?? '';
+        if (probed.isNotEmpty) {
+          if (!probed.startsWith('ws://') && !probed.startsWith('wss://')) {
+            probed = 'wss://$probed';
+          }
+          _relayUrl = probed;
+        }
+      }
     }
   }
 

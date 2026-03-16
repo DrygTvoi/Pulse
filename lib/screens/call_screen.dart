@@ -44,6 +44,10 @@ class _CallScreenState extends State<CallScreen> {
   bool _autoRetried = false;   // true after we've switched to restricted once
   bool _isRetrying  = false;   // guard against concurrent retries
 
+  // Secondary (Tor relay) audio path
+  bool _secondaryReady  = false;  // secondary PC connected and stream available
+  bool _usingSecondary  = false;  // currently routing audio through secondary
+
   Timer? _hideControlsTimer;
   Timer? _durationTimer;
   Duration _callDuration = Duration.zero;
@@ -75,6 +79,23 @@ class _CallScreenState extends State<CallScreen> {
 
     _signaling!.onConnectionState = _onIceState;
 
+    // Secondary path callbacks
+    _signaling!.onSecondaryRemoteStream = (stream) {
+      if (!mounted) return;
+      setState(() => _secondaryReady = true);
+      // If primary has already failed, switch to secondary immediately
+      if (_iceState == RTCIceConnectionState.RTCIceConnectionStateFailed &&
+          !_usingSecondary) {
+        _switchToSecondary();
+      }
+    };
+    _signaling!.onSecondaryConnectionState = (state) {
+      if (state == RTCIceConnectionState.RTCIceConnectionStateConnected ||
+          state == RTCIceConnectionState.RTCIceConnectionStateCompleted) {
+        if (mounted) setState(() => _secondaryReady = true);
+      }
+    };
+
     await _signaling!.init(profile: profile);
     if (_disposed) return;
 
@@ -82,6 +103,10 @@ class _CallScreenState extends State<CallScreen> {
     if (_disposed) return;
 
     if (widget.isCaller) await _signaling!.createOffer();
+
+    // Start secondary audio path in background — will be ready if primary fails
+    unawaited(_signaling!.startSecondaryAudio());
+
     if (mounted) _resetHideControlsTimer();
   }
 
@@ -94,12 +119,20 @@ class _CallScreenState extends State<CallScreen> {
     if (state == RTCIceConnectionState.RTCIceConnectionStateConnected ||
         state == RTCIceConnectionState.RTCIceConnectionStateCompleted) {
       _startDurationTimer();
+      // Enforce bitrate limit at RTP level now that the sender exists
+      unawaited(_signaling?.applyBitrateLimit(
+          restricted: _currentProfile.isRestricted));
     }
 
     if (state == RTCIceConnectionState.RTCIceConnectionStateFailed) {
       _durationTimer?.cancel();
-      if (!_autoRetried && !_isRetrying) {
-        _retryRestricted();
+      if (!_usingSecondary) {
+        if (_secondaryReady) {
+          // Secondary (Tor backup) is already connected — switch instantly
+          _switchToSecondary();
+        } else if (!_autoRetried && !_isRetrying) {
+          _retryRestricted();
+        }
       }
     }
 
@@ -134,6 +167,19 @@ class _CallScreenState extends State<CallScreen> {
       if (_disposed) return;
       await _signaling?.createOffer();
     }
+  }
+
+  /// Switch active audio output to the secondary (Tor relay) stream.
+  void _switchToSecondary() {
+    if (_disposed || _signaling?.secondaryRemoteStream == null) return;
+    setState(() {
+      _usingSecondary = true;
+      _remoteRenderer.srcObject = _signaling!.secondaryRemoteStream;
+    });
+    _startDurationTimer();
+    // Secondary always runs on Tor — enforce 24 kbps RTP limit
+    unawaited(_signaling!.applyBitrateLimit(restricted: true));
+    debugPrint('[CallScreen] Switched to secondary audio (Tor relay)');
   }
 
   // ── Media ──────────────────────────────────────────────────────────────────
@@ -249,6 +295,9 @@ class _CallScreenState extends State<CallScreen> {
   // ── Status helpers ─────────────────────────────────────────────────────────
 
   String get _statusLabel {
+    if (_usingSecondary) {
+      return 'Tor backup · ${_formatDuration(_callDuration)}';
+    }
     if (_isRetrying) return 'Switching to relay mode…';
     switch (_iceState) {
       case RTCIceConnectionState.RTCIceConnectionStateNew:
@@ -258,7 +307,7 @@ class _CallScreenState extends State<CallScreen> {
       case RTCIceConnectionState.RTCIceConnectionStateCompleted:
         return _formatDuration(_callDuration);
       case RTCIceConnectionState.RTCIceConnectionStateFailed:
-        return _autoRetried ? 'Connection failed (relay also failed)' : 'Connection failed';
+        return _autoRetried ? 'Connection failed' : 'Connection failed';
       case RTCIceConnectionState.RTCIceConnectionStateDisconnected:
         return 'Reconnecting…';
       case RTCIceConnectionState.RTCIceConnectionStateClosed:
@@ -276,6 +325,7 @@ class _CallScreenState extends State<CallScreen> {
   }
 
   bool get _isConnected =>
+      _usingSecondary ||
       _iceState == RTCIceConnectionState.RTCIceConnectionStateConnected ||
       _iceState == RTCIceConnectionState.RTCIceConnectionStateCompleted;
 
@@ -331,7 +381,8 @@ class _CallScreenState extends State<CallScreen> {
                 ),
 
               // ── Restricted-mode banner ───────────────────────────────────
-              if (_currentProfile.isRestricted || _isRetrying)
+              if (_currentProfile.isRestricted || _isRetrying || _usingSecondary ||
+                  (_autoRetried && _iceState == RTCIceConnectionState.RTCIceConnectionStateFailed))
                 Positioned(
                   top: 0,
                   left: 0,
@@ -344,7 +395,7 @@ class _CallScreenState extends State<CallScreen> {
                 opacity: _showControls || !hasRemoteVideo ? 1.0 : 0.0,
                 duration: const Duration(milliseconds: 300),
                 child: Positioned(
-                  top: (_currentProfile.isRestricted || _isRetrying) ? 28 : 0,
+                  top: (_currentProfile.isRestricted || _isRetrying || _usingSecondary) ? 28 : 0,
                   left: 0,
                   right: 0,
                   child: _buildTopBar(),
@@ -370,26 +421,40 @@ class _CallScreenState extends State<CallScreen> {
   // ── Restricted-mode banner ─────────────────────────────────────────────────
 
   Widget _buildRestrictedBanner() {
-    final isRetrying = _isRetrying;
+    final IconData bannerIcon;
+    final Color bannerColor;
+    final String bannerText;
+
+    if (_usingSecondary) {
+      bannerIcon  = Icons.security_rounded;
+      bannerColor = Colors.teal.withValues(alpha: 0.85);
+      bannerText  = 'Tor backup active — primary path unavailable';
+    } else if (_isRetrying) {
+      bannerIcon  = Icons.sync_rounded;
+      bannerColor = Colors.orange.withValues(alpha: 0.85);
+      bannerText  = 'Direct connection failed — switching to relay mode…';
+    } else if (_autoRetried &&
+        _iceState == RTCIceConnectionState.RTCIceConnectionStateFailed) {
+      bannerIcon  = Icons.warning_amber_rounded;
+      bannerColor = Colors.red.withValues(alpha: 0.85);
+      bannerText  = 'TURN servers unreachable. Add a custom TURN in Settings → Advanced.';
+    } else {
+      bannerIcon  = Icons.shield_rounded;
+      bannerColor = Colors.blueGrey.withValues(alpha: 0.85);
+      bannerText  = 'Relay mode active (restricted network)';
+    }
+
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-      color: isRetrying
-          ? Colors.orange.withValues(alpha: 0.85)
-          : Colors.blueGrey.withValues(alpha: 0.85),
+      color: bannerColor,
       child: Row(children: [
-        Icon(
-          isRetrying ? Icons.sync_rounded : Icons.shield_rounded,
-          color: Colors.white,
-          size: 14,
-        ),
+        Icon(bannerIcon, color: Colors.white, size: 14),
         const SizedBox(width: 6),
         Expanded(
           child: Text(
-            isRetrying
-                ? 'Direct connection failed — switching to relay mode…'
-                : 'Relay mode active (restricted network)',
+            bannerText,
             style: GoogleFonts.inter(
               color: Colors.white,
               fontSize: 11,

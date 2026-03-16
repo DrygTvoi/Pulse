@@ -101,16 +101,21 @@ class MediaService {
 
   /// Split [bytes] into ≤512 KB chunks and return a list of JSON payload strings.
   static List<String> chunkPayloads(Uint8List bytes, String name,
-      {String mediaType = 'file'}) {
+      {String mediaType = 'file'}) =>
+      chunkIterable(bytes, name, mediaType: mediaType).toList();
+
+  /// Lazily yields chunk payloads one at a time to avoid pre-allocating the
+  /// entire encoded chunk list in memory.  Use this in send loops instead of
+  /// [chunkPayloads] when sending large files to reduce peak RAM usage.
+  static Iterable<String> chunkIterable(Uint8List bytes, String name,
+      {String mediaType = 'file'}) sync* {
     final safeName = MediaValidator.sanitizeFilename(name);
     if (bytes.length <= _chunkSizeBytes) {
-      return [
-        jsonEncode({'t': mediaType, 'd': base64Encode(bytes), 'n': safeName, 'sz': bytes.length})
-      ];
+      yield jsonEncode({'t': mediaType, 'd': base64Encode(bytes), 'n': safeName, 'sz': bytes.length});
+      return;
     }
     final fileId = _uuid.v4();
     final total = (bytes.length / _chunkSizeBytes).ceil();
-    final chunks = <String>[];
     for (int i = 0; i < total; i++) {
       final start = i * _chunkSizeBytes;
       final end = (start + _chunkSizeBytes).clamp(0, bytes.length);
@@ -127,9 +132,8 @@ class MediaService {
         map['sz'] = bytes.length;
         map['mt'] = mediaType;
       }
-      chunks.add(jsonEncode(map));
+      yield jsonEncode(map);
     }
-    return chunks;
   }
 
   /// Returns true if the payload is a chunk (not yet assembled).

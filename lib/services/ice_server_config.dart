@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'tor_turn_proxy.dart';
 
 /// Public STUN servers — diverse providers/regions so at least one responds
 /// regardless of location.  WebRTC's ICE agent queries them all in parallel
@@ -19,8 +20,15 @@ const _kStunUrls = [
   // Twilio — global CDN with PoPs in Asia; accessible from China
   'stun:global.stun.twilio.com:3478',
 
+  // Metered — accessible from China
+  'stun:stun.relay.metered.ca:80',
+
+  // Xirsys — commercial provider with Asian PoPs
+  'stun:us-turn4.xirsys.com:80',
+
   // Community / open-source
   'stun:stun.nextcloud.com:3478',
+  'stun:stun.nextcloud.com:443',
   'stun:stun.stunprotocol.org:3478',
   'stun:stun.services.mozilla.com:3478',
 
@@ -29,20 +37,34 @@ const _kStunUrls = [
   'stun:stun.ekiga.net:3478',
   'stun:stun.bluesip.net:3478',
   'stun:stun.dus.net:3478',
+  'stun:stun.bethesda.net:3478',
+  'stun:stun.mixvoip.com:3478',
 
   // VoIP / miscellaneous
   'stun:stun.ideasip.com:3478',
   'stun:stun.antisip.com:1024',
+  'stun:stun.voipgate.com:3478',
+
+  // Raw IP fallback — domain-based blocks don't apply
+  'stun:74.125.250.129:19302',
 ];
 
-/// Community TURN presets — free, no registration.
+/// Community TURN presets.
 ///
 /// IMPORTANT: TURN servers relay already-encrypted WebRTC streams (DTLS-SRTP).
 /// A TURN operator can see your IP and traffic volume but CANNOT decrypt call
 /// content.  No additional trust is required for confidentiality.
 ///
+/// Credentials below are PUBLIC and intentionally shared by the service operators:
+///   - openrelayproject: https://www.metered.ca/tools/openrelay/
+///   - free/free: https://freestun.net/
+/// These are NOT secrets — obfuscation would add complexity without benefit.
+///
 /// Each entry has at least one 'turns:' (TLS over TCP) URL so it can be used
 /// by RestrictedProfile even when UDP is blocked.
+///
+/// For reliable calls in China/Iran/Russia: add your own TURN server in
+/// Settings → Custom TURN. A self-hosted coturn on any $5/mo VPS works well.
 const kTurnPresets = [
   {
     'id': 'openrelay',
@@ -68,28 +90,36 @@ const kTurnPresets = [
     ],
   },
   {
-    'id': 'metered',
-    'name': 'Metered.ca (50 GB/mo free)',
-    'host': 'relay.metered.ca',
+    // freestun.net — community free TURN, independent of openrelay.
+    // Provides UDP on 3479 and TLS/TCP on 5349.  Credentials: free/free.
+    // Also proxied through Tor via TorTurnProxy (:33479) for censored networks.
+    'id': 'freestun',
+    'name': 'FreeTURN (freestun.net)',
+    'host': 'freestun.net',
     'servers': [
       {
-        'urls': 'stun:relay.metered.ca:80',
-      },
-      {
-        'urls': 'turn:relay.metered.ca:80',
-        'username': 'free',
-        'credential': 'free',
-      },
-      {
-        'urls': 'turn:relay.metered.ca:443',
+        'urls': 'turn:freestun.net:3479',
         'username': 'free',
         'credential': 'free',
       },
       // TLS over TCP — works through strict firewalls
       {
-        'urls': 'turns:relay.metered.ca:443?transport=tcp',
+        'urls': 'turns:freestun.net:5349?transport=tcp',
         'username': 'free',
         'credential': 'free',
+      },
+    ],
+  },
+  {
+    'id': 'metered',
+    'name': 'Metered.ca (requires free account — add API key in custom TURN)',
+    'host': 'relay.metered.ca',
+    // NOTE: Metered.ca requires account registration for TURN credentials.
+    // The STUN endpoint is public. To use TURN, register at metered.ca,
+    // get your API key, and add the TURN URL + credentials in custom TURN settings.
+    'servers': [
+      {
+        'urls': 'stun:relay.metered.ca:80',
       },
     ],
   },
@@ -113,8 +143,8 @@ class IceServerConfig {
       {'urls': _kStunUrls},
     ];
 
-    // Community presets — 'openrelay' enabled by default
-    final enabled = prefs.getStringList(_kEnabledPresets) ?? ['openrelay'];
+    // Community presets — 'openrelay' and 'freestun' enabled by default
+    final enabled = prefs.getStringList(_kEnabledPresets) ?? ['openrelay', 'freestun'];
     for (final preset in kTurnPresets) {
       if (!enabled.contains(preset['id'] as String)) continue;
       for (final s in preset['servers'] as List) {
@@ -145,6 +175,9 @@ class IceServerConfig {
       });
     }
 
+    // Tor TURN proxies — tunnel TURN through Tor when available (China/Iran)
+    servers.addAll(TorTurnProxy.allIceServerEntries);
+
     return servers;
   }
 
@@ -155,7 +188,11 @@ class IceServerConfig {
   /// Plain UDP and plain TCP TURN are excluded.
   static Future<List<Map<String, dynamic>>> loadRelay() async {
     final all = await load();
-    final result = <Map<String, dynamic>>[];
+    // Tor TURN proxy — first candidate so restricted profile tries it before
+    // anything else; remains empty list if Tor is not running.
+    final result = <Map<String, dynamic>>[
+      ...TorTurnProxy.allIceServerEntries,
+    ];
 
     for (final server in all) {
       final urls = server['urls'];
@@ -182,7 +219,7 @@ class IceServerConfig {
 
   static Future<List<String>> loadEnabledPresets() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getStringList(_kEnabledPresets) ?? ['openrelay'];
+    return prefs.getStringList(_kEnabledPresets) ?? ['openrelay', 'freestun'];
   }
 
   static Future<void> saveEnabledPresets(List<String> ids) async {

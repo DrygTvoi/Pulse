@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../models/message.dart';
+import '../services/tor_service.dart' as tor;
 import '../services/waku_discovery_service.dart';
 import 'inbox_manager.dart';
 
@@ -43,6 +44,30 @@ class WakuInboxReader implements InboxReader {
 
   bool _subscribed = false;
   bool _loopStarted = false;
+
+  final _healthCtrl = StreamController<bool>.broadcast();
+  int _subscribeFailures = 0;
+  bool _isHealthy = true;
+  static const _failureThreshold = 3;
+
+  // ── Persistent HTTP client — reused across polls; rebuilt when Tor status changes
+  http.Client? _httpClient;
+  bool _torActive = false;
+
+  http.Client get _client {
+    final torNow = tor.TorService.instance.isRunning;
+    if (_httpClient == null || torNow != _torActive) {
+      _httpClient?.close();
+      _torActive = torNow;
+      _httpClient = torNow
+          ? (tor.buildTorHttpClient() ?? http.Client())
+          : http.Client();
+    }
+    return _httpClient!;
+  }
+
+  @override
+  Stream<bool> get healthChanges => _healthCtrl.stream;
 
   // ── Init ──────────────────────────────────────────────────────────────────
 
@@ -88,7 +113,22 @@ class WakuInboxReader implements InboxReader {
 
   Future<void> _runLoop() async {
     while (true) {
-      if (!_subscribed) await _subscribe();
+      if (!_subscribed) {
+        await _subscribe();
+        if (_subscribed) {
+          _subscribeFailures = 0;
+          if (!_isHealthy && !_healthCtrl.isClosed) {
+            _isHealthy = true;
+            _healthCtrl.add(true);
+          }
+        } else {
+          _subscribeFailures++;
+          if (_subscribeFailures >= _failureThreshold && _isHealthy && !_healthCtrl.isClosed) {
+            _isHealthy = false;
+            _healthCtrl.add(false);
+          }
+        }
+      }
       if (_subscribed) {
         await Future.wait([
           _pollTopic(_msgTopic(_userId), _dispatchMessage),
@@ -101,7 +141,7 @@ class WakuInboxReader implements InboxReader {
 
   Future<void> _subscribe() async {
     try {
-      final res = await http.post(
+      final res = await _client.post(
         Uri.parse('$_nodeUrl/filter/v2/subscriptions'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
@@ -123,7 +163,7 @@ class WakuInboxReader implements InboxReader {
   ) async {
     try {
       final encoded = Uri.encodeComponent(topic);
-      final res = await http
+      final res = await _client
           .get(Uri.parse('$_nodeUrl/filter/v2/messages/$encoded'))
           .timeout(const Duration(seconds: 5));
       if (res.statusCode != 200) return;
@@ -141,7 +181,7 @@ class WakuInboxReader implements InboxReader {
         }
         handler(msg);
       }
-    } catch (_) {} // silently ignore transient poll errors
+    } catch (_) {}
   }
 
   void _dispatchMessage(Map<String, dynamic> msg) {
@@ -202,7 +242,7 @@ class WakuInboxReader implements InboxReader {
     if (_userId.isEmpty) return null;
     try {
       final topic = Uri.encodeComponent(_keysTopic(_userId));
-      final res = await http.get(
+      final res = await _client.get(
         Uri.parse('$_nodeUrl/store/v3/messages?contentTopics=$topic&pageSize=1&ascending=false'),
         headers: {'Accept': 'application/json'},
       ).timeout(const Duration(seconds: 10));
@@ -228,6 +268,22 @@ class WakuInboxReader implements InboxReader {
 class WakuMessageSender implements MessageSender {
   String _nodeUrl = _autoDiscoverSentinel;
   String _userId = '';
+
+  // ── Persistent HTTP client — reused across publishes; rebuilt when Tor status changes
+  http.Client? _httpClient;
+  bool _torActive = false;
+
+  http.Client get _client {
+    final torNow = tor.TorService.instance.isRunning;
+    if (_httpClient == null || torNow != _torActive) {
+      _httpClient?.close();
+      _torActive = torNow;
+      _httpClient = torNow
+          ? (tor.buildTorHttpClient() ?? http.Client())
+          : http.Client();
+    }
+    return _httpClient!;
+  }
 
   @override
   Future<void> initializeSender(String apiKey) async {
@@ -265,7 +321,7 @@ class WakuMessageSender implements MessageSender {
       String nodeUrl, String contentTopic, String jsonPayload) async {
     try {
       final encoded = Uri.encodeComponent(_pubsubTopic);
-      final res = await http.post(
+      final res = await _client.post(
         Uri.parse('$nodeUrl/relay/v1/messages/$encoded'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({

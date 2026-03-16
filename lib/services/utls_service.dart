@@ -53,6 +53,9 @@ class UTLSService {
     return client;
   }
 
+  /// Port the proxy is listening on, or null if not running.
+  int? get proxyPort => _port;
+
   Future<void> stop() async {
     _process?.kill();
     await _process?.exitCode.catchError((_) => -1);

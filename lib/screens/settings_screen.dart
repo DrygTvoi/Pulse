@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
@@ -22,6 +23,10 @@ import '../services/ice_server_config.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import '../services/waku_discovery_service.dart';
 import '../services/tor_service.dart';
+import 'network_diagnostics_screen.dart';
+import '../widgets/turn_config_section.dart';
+import '../widgets/tor_config_section.dart';
+import '../widgets/i2p_config_section.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -54,12 +59,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _wakuDiscovering = false;
   List<WakuNodeInfo>? _wakuNodes;
 
+  // LAN state
+  bool _lanModeEnabled = true;
+
   // Tor state
   bool _torEnabled = false;
   bool _bundledTorEnabled = false;
   bool _bundledTorLoading = false;
+  String _preferredPt = 'auto'; // auto, obfs4, webtunnel, snowflake, plain
   final _torHostController = TextEditingController(text: '127.0.0.1');
   final _torPortController = TextEditingController(text: '9050');
+  StreamSubscription<void>? _torStateSub;
 
   // I2P state
   bool _i2pEnabled = false;
@@ -74,10 +84,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void initState() {
     super.initState();
     _loadSettings();
+    _torStateSub = TorService.instance.stateChanges.listen((_) {
+      if (mounted) setState(() {});
+    });
   }
 
   @override
   void dispose() {
+    _torStateSub?.cancel();
     _firebaseUrlController.dispose();
     _firebaseKeyController.dispose();
     _nostrKeyController.dispose();
@@ -136,9 +150,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
         (await _secureStorage.read(key: 'app_panic_key_hash')) != null;
 
     final bundledTorEnabled = prefs.getBool('bundled_tor_enabled') ?? false;
+    final preferredPt = prefs.getString('preferred_pt') ?? 'auto';
+    final lanModeEnabled = await ChatController.getLanModeEnabled();
     setState(() {
+      _lanModeEnabled = lanModeEnabled;
       _torEnabled = torEnabled;
       _bundledTorEnabled = bundledTorEnabled;
+      _preferredPt = preferredPt;
       _torHostController.text = torHost;
       _torPortController.text = torPort.toString();
       _i2pEnabled = i2pEnabled;
@@ -258,6 +276,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     // Re-initialise inbox with updated config (also re-publishes Signal keys if needed)
     await chatCtrl.reconnectInbox();
+    unawaited(chatCtrl.broadcastAddressUpdate());
 
     setState(() => _isSaving = false);
     if (mounted) {
@@ -344,33 +363,49 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const SizedBox(height: 32),
           _sectionDivider('Calls & TURN'),
           const SizedBox(height: 6),
-          _buildTurnInfo(),
-          const SizedBox(height: 14),
-          _sectionLabel('Community TURN Servers'),
+          TurnConfigSection(
+            enabledPresets: _enabledPresets,
+            turnUrlController: _turnUrlController,
+            turnUsernameController: _turnUsernameController,
+            turnPasswordController: _turnPasswordController,
+            onPresetsChanged: (presets) => setState(() => _enabledPresets = presets),
+          ),
+
+          const SizedBox(height: 32),
+          _sectionDivider('Local Network'),
           const SizedBox(height: 10),
-          _buildTurnPresets(),
-          const SizedBox(height: 20),
-          _sectionLabel('Custom TURN Server (BYOD)'),
-          const SizedBox(height: 10),
-          _buildCustomTurn(),
+          _buildLanToggle(),
 
           const SizedBox(height: 32),
           _sectionDivider('Censorship Resistance'),
           const SizedBox(height: 6),
-          _buildBundledTorCard(),
-          const SizedBox(height: 14),
-          _buildTorInfo(),
-          const SizedBox(height: 14),
-          _sectionLabel('Tor Proxy (SOCKS5)'),
-          const SizedBox(height: 10),
-          _buildTorSettings(),
-
-          const SizedBox(height: 12),
-          _buildI2pInfo(),
-          const SizedBox(height: 14),
-          _sectionLabel('I2P Proxy (SOCKS5)'),
-          const SizedBox(height: 10),
-          _buildI2pSettings(),
+          TorConfigSection(
+            torEnabled: _torEnabled,
+            bundledTorEnabled: _bundledTorEnabled,
+            bundledTorLoading: _bundledTorLoading,
+            preferredPt: _preferredPt,
+            torHostController: _torHostController,
+            torPortController: _torPortController,
+            onTorEnabledChanged: (v) => setState(() => _torEnabled = v),
+            onToggleBundledTor: _toggleBundledTor,
+            onPreferredPtChanged: (val) async {
+              setState(() => _preferredPt = val);
+              final prefs = await SharedPreferences.getInstance();
+              await prefs.setString('preferred_pt', val);
+            },
+            onOpenDiagnostics: () => Navigator.push(context,
+                MaterialPageRoute(builder: (_) => const NetworkDiagnosticsScreen())),
+          ),
+          // I2P proxy settings — hidden when Built-in Tor is active
+          if (!_bundledTorEnabled) ...[
+            const SizedBox(height: 12),
+            I2pConfigSection(
+              i2pEnabled: _i2pEnabled,
+              i2pHostController: _i2pHostController,
+              i2pPortController: _i2pPortController,
+              onI2pEnabledChanged: (v) => setState(() => _i2pEnabled = v),
+            ),
+          ],
 
           const SizedBox(height: 32),
           _sectionDivider('Appearance'),
@@ -826,6 +861,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           'secondary_adapters', jsonEncode(updated));
                       setState(() => _secondaryAdapters = updated);
                       await ChatController().reconnectInbox();
+                      unawaited(ChatController().broadcastAddressUpdate());
                     },
                     child: Icon(Icons.close_rounded,
                         size: 18, color: AppTheme.textSecondary),
@@ -1021,6 +1057,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 final updated = await _loadSecondaryAdaptersFromPrefs();
                 setState(() => _secondaryAdapters = updated);
                 await ChatController().reconnectInbox();
+                unawaited(ChatController().broadcastAddressUpdate());
                 if (ctx.mounted) Navigator.pop(ctx);
               },
               style: ElevatedButton.styleFrom(
@@ -1502,75 +1539,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Widget _buildBundledTorCard() {
-    const purple = Color(0xFF7D4698);
-    return GestureDetector(
-      onTap: _bundledTorLoading ? null : _toggleBundledTor,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        decoration: BoxDecoration(
-          color: _bundledTorEnabled
-              ? purple.withValues(alpha: 0.08)
-              : AppTheme.surface,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: _bundledTorEnabled
-                ? purple.withValues(alpha: 0.4)
-                : AppTheme.surfaceVariant,
-          ),
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                color: purple.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Icon(Icons.hub_rounded, color: purple, size: 18),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Built-in Tor',
-                      style: GoogleFonts.inter(
-                          color: AppTheme.textPrimary,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 14)),
-                  Text(
-                    _bundledTorEnabled
-                        ? 'Running — Nostr routed via 127.0.0.1:9250'
-                        : 'Auto-starts bundled Tor (Snowflake for censored networks)',
-                    style: GoogleFonts.inter(
-                        color: _bundledTorEnabled
-                            ? purple
-                            : AppTheme.textSecondary,
-                        fontSize: 12),
-                  ),
-                ],
-              ),
-            ),
-            if (_bundledTorLoading)
-              const SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation(purple)),
-              )
-            else
-              Switch(
-                value: _bundledTorEnabled,
-                onChanged: (_) => _toggleBundledTor(),
-                activeThumbColor: purple,
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Future<void> _toggleBundledTor() async {
     if (_bundledTorLoading) return;
     final prefs = await SharedPreferences.getInstance();
@@ -1607,423 +1575,47 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  Widget _buildTorInfo() {
+  Widget _buildLanToggle() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFF7D4698).withValues(alpha: 0.07),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFF7D4698).withValues(alpha: 0.2)),
+        color: AppTheme.surface,
+        borderRadius: BorderRadius.circular(14),
       ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.privacy_tip_rounded, size: 15, color: Color(0xFF7D4698)),
-          const SizedBox(width: 10),
+          const Icon(Icons.wifi_rounded, color: Color(0xFF25D366), size: 22),
+          const SizedBox(width: 14),
           Expanded(
-            child: Text(
-              'When enabled, Nostr WebSocket connections are routed through Tor '
-              '(SOCKS5). Tor Browser listens on 127.0.0.1:9150. '
-              'The standalone tor daemon uses port 9050. '
-              'Firebase connections are not affected.',
-              style: GoogleFonts.inter(
-                  color: AppTheme.textSecondary, fontSize: 11, height: 1.5),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTorSettings() {
-    const purple = Color(0xFF7D4698);
-    final managedByBundled = _bundledTorEnabled;
-    return Column(
-      children: [
-        // Toggle row
-        GestureDetector(
-          onTap: managedByBundled ? null : () => setState(() => _torEnabled = !_torEnabled),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            decoration: BoxDecoration(
-              color: _torEnabled
-                  ? purple.withValues(alpha: 0.08)
-                  : AppTheme.surface,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: _torEnabled
-                    ? purple.withValues(alpha: 0.4)
-                    : AppTheme.surfaceVariant,
-              ),
-            ),
-            child: Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: purple.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Icon(Icons.security_rounded,
-                      color: purple, size: 18),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Route Nostr via Tor',
-                          style: GoogleFonts.inter(
-                              color: managedByBundled
-                                  ? AppTheme.textSecondary
-                                  : AppTheme.textPrimary,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 14)),
-                      Text(
-                          managedByBundled
-                              ? 'Managed by Built-in Tor'
-                              : (_torEnabled ? 'Active — Nostr traffic routed through Tor' : 'Disabled'),
-                          style: GoogleFonts.inter(
-                              color: _torEnabled
-                                  ? purple
-                                  : AppTheme.textSecondary,
-                              fontSize: 12)),
-                    ],
-                  ),
-                ),
-                Switch(
-                  value: _torEnabled,
-                  onChanged: managedByBundled ? null : (v) => setState(() => _torEnabled = v),
-                  activeThumbColor: purple,
+                Text('LAN Fallback',
+                    style: GoogleFonts.inter(
+                        color: AppTheme.textPrimary,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14)),
+                const SizedBox(height: 2),
+                Text(
+                  'Broadcast presence and deliver messages on the local network when internet is unavailable. '
+                  'Disable on untrusted networks (public Wi-Fi).',
+                  style: GoogleFonts.inter(
+                      color: AppTheme.textSecondary, fontSize: 11, height: 1.4),
                 ),
               ],
             ),
           ),
-        ),
-        if (_torEnabled) ...[
-          const SizedBox(height: 10),
-          if (managedByBundled)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
-                color: AppTheme.surface,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: AppTheme.surfaceVariant),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.lock_outline_rounded, size: 14, color: AppTheme.textSecondary),
-                  const SizedBox(width: 8),
-                  Text('127.0.0.1 : 9250',
-                      style: GoogleFonts.inter(
-                          color: AppTheme.textSecondary, fontSize: 13,
-                          fontWeight: FontWeight.w500)),
-                ],
-              ),
-            )
-          else
-            Row(
-              children: [
-                Expanded(
-                  flex: 3,
-                  child: _field(
-                    controller: _torHostController,
-                    hint: '127.0.0.1',
-                    label: 'Proxy Host',
-                    icon: Icons.router_rounded,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  flex: 1,
-                  child: _field(
-                    controller: _torPortController,
-                    hint: '9050',
-                    label: 'Port',
-                    icon: Icons.electrical_services_rounded,
-                  ),
-                ),
-              ],
-            ),
-          const SizedBox(height: 8),
-          Row(children: [
-            Icon(Icons.info_outline_rounded,
-                size: 13, color: AppTheme.textSecondary),
-            const SizedBox(width: 6),
-            Expanded(
-              child: Text(
-                'Tor Browser: port 9150  •  tor daemon: port 9050',
-                style: GoogleFonts.inter(
-                    color: AppTheme.textSecondary, fontSize: 11),
-              ),
-            ),
-          ]),
-        ],
-      ],
-    );
-  }
-
-  Widget _buildI2pInfo() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        color: const Color(0xFF00897B).withValues(alpha: 0.07),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFF00897B).withValues(alpha: 0.2)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Icon(Icons.vpn_lock_rounded, size: 15, color: Color(0xFF00897B)),
           const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              'I2P uses SOCKS5 on port 4447 by default. Connect to a Nostr relay via '
-              'I2P outproxy (e.g. relay.damus.i2p) to communicate with users on any transport. '
-              'Tor takes priority when both are enabled.',
-              style: GoogleFonts.inter(
-                  color: AppTheme.textSecondary, fontSize: 11, height: 1.5),
-            ),
+          Switch(
+            value: _lanModeEnabled,
+            activeThumbColor: const Color(0xFF25D366),
+            onChanged: (v) async {
+              setState(() => _lanModeEnabled = v);
+              await ChatController().setLanModeEnabled(v);
+            },
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildI2pSettings() {
-    const teal = Color(0xFF00897B);
-    return Column(
-      children: [
-        GestureDetector(
-          onTap: () => setState(() => _i2pEnabled = !_i2pEnabled),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            decoration: BoxDecoration(
-              color: _i2pEnabled
-                  ? teal.withValues(alpha: 0.08)
-                  : AppTheme.surface,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: _i2pEnabled
-                    ? teal.withValues(alpha: 0.4)
-                    : AppTheme.surfaceVariant,
-              ),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: teal.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Icon(Icons.vpn_lock_rounded, color: teal, size: 18),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Route Nostr via I2P',
-                          style: GoogleFonts.inter(
-                              color: AppTheme.textPrimary,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 14)),
-                      Text(
-                          _i2pEnabled ? 'Active — Nostr traffic routed through I2P' : 'Disabled',
-                          style: GoogleFonts.inter(
-                              color: _i2pEnabled ? teal : AppTheme.textSecondary,
-                              fontSize: 12)),
-                    ],
-                  ),
-                ),
-                Switch(
-                  value: _i2pEnabled,
-                  onChanged: (v) => setState(() => _i2pEnabled = v),
-                  activeThumbColor: teal,
-                ),
-              ],
-            ),
-          ),
-        ),
-        if (_i2pEnabled) ...[
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                flex: 3,
-                child: _field(
-                  controller: _i2pHostController,
-                  hint: '127.0.0.1',
-                  label: 'Proxy Host',
-                  icon: Icons.router_rounded,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                flex: 1,
-                child: _field(
-                  controller: _i2pPortController,
-                  hint: '4447',
-                  label: 'Port',
-                  icon: Icons.electrical_services_rounded,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(children: [
-            Icon(Icons.info_outline_rounded,
-                size: 13, color: AppTheme.textSecondary),
-            const SizedBox(width: 6),
-            Expanded(
-              child: Text(
-                'I2P Router default SOCKS5 port: 4447',
-                style: GoogleFonts.inter(
-                    color: AppTheme.textSecondary, fontSize: 11),
-              ),
-            ),
-          ]),
-        ],
-      ],
-    );
-  }
-
-  Widget _buildTurnInfo() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        color: AppTheme.primary.withValues(alpha: 0.07),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppTheme.primary.withValues(alpha: 0.2)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(Icons.lock_rounded, size: 15, color: AppTheme.primary),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              'TURN servers only relay already-encrypted streams (DTLS-SRTP). '
-              'A relay operator sees your IP and traffic volume, but cannot decrypt calls. '
-              'TURN is only used when direct P2P fails (~15–20% of connections).',
-              style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: 11, height: 1.5),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTurnPresets() {
-    return Column(
-      children: kTurnPresets.map((preset) {
-        final id = preset['id'] as String;
-        final name = preset['name'] as String;
-        final host = preset['host'] as String;
-        final enabled = _enabledPresets.contains(id);
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: GestureDetector(
-            onTap: () => setState(() {
-              if (enabled) {
-                _enabledPresets = List.from(_enabledPresets)..remove(id);
-              } else {
-                _enabledPresets = List.from(_enabledPresets)..add(id);
-              }
-            }),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              decoration: BoxDecoration(
-                color: enabled
-                    ? AppTheme.primary.withValues(alpha: 0.08)
-                    : AppTheme.surface,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: enabled ? AppTheme.primary.withValues(alpha: 0.4) : AppTheme.surfaceVariant,
-                ),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    enabled ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
-                    size: 18,
-                    color: enabled ? AppTheme.primary : AppTheme.textSecondary,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(name,
-                            style: GoogleFonts.inter(
-                                color: AppTheme.textPrimary,
-                                fontWeight: FontWeight.w600,
-                                fontSize: 13)),
-                        Text(host,
-                            style: GoogleFonts.jetBrainsMono(
-                                color: AppTheme.textSecondary, fontSize: 10)),
-                      ],
-                    ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF2ECC71).withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text('FREE',
-                        style: GoogleFonts.inter(
-                            color: const Color(0xFF2ECC71),
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700)),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      }).toList(),
-    );
-  }
-
-  Widget _buildCustomTurn() {
-    return Column(
-      children: [
-        _field(
-          controller: _turnUrlController,
-          hint: 'turn:your-server.com:3478 or turns:...',
-          label: 'TURN Server URL',
-          icon: Icons.dns_rounded,
-        ),
-        const SizedBox(height: 10),
-        _field(
-          controller: _turnUsernameController,
-          hint: 'Optional',
-          label: 'Username',
-          icon: Icons.person_outline_rounded,
-        ),
-        const SizedBox(height: 10),
-        _field(
-          controller: _turnPasswordController,
-          hint: 'Optional',
-          label: 'Password',
-          icon: Icons.password_rounded,
-          obscure: true,
-        ),
-        const SizedBox(height: 8),
-        Row(children: [
-          Icon(Icons.info_outline_rounded, size: 13, color: AppTheme.textSecondary),
-          const SizedBox(width: 6),
-          Expanded(
-            child: Text(
-              'Self-host coturn on any \$5/mo VPS for maximum control. '
-              'Credentials are stored locally.',
-              style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: 11),
-            ),
-          ),
-        ]),
-      ],
     );
   }
 

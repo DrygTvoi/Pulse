@@ -20,9 +20,6 @@ class ContactsScreen extends StatefulWidget {
 class _ContactsScreenState extends State<ContactsScreen> {
   final _searchController = TextEditingController();
   String _searchQuery = '';
-  String _filterProvider = 'All';
-
-  static const _providers = ['All', 'Firebase', 'Nostr'];
 
   @override
   void initState() {
@@ -76,13 +73,10 @@ class _ContactsScreenState extends State<ContactsScreen> {
 
   List<Contact> get _filtered {
     final contacts = ContactManager().contacts;
-    return contacts.where((c) {
-      final matchesProvider = _filterProvider == 'All' || c.provider == _filterProvider;
-      final matchesSearch = _searchQuery.isEmpty ||
-          c.name.toLowerCase().contains(_searchQuery) ||
-          c.databaseId.toLowerCase().contains(_searchQuery);
-      return matchesProvider && matchesSearch;
-    }).toList();
+    if (_searchQuery.isEmpty) return contacts;
+    return contacts.where((c) =>
+        c.name.toLowerCase().contains(_searchQuery) ||
+        c.databaseId.toLowerCase().contains(_searchQuery)).toList();
   }
 
   void _openChat(Contact contact) {
@@ -149,27 +143,6 @@ class _ContactsScreenState extends State<ContactsScreen> {
               ),
             ),
           ),
-
-          // ── Provider filter chips ───────────────────────────────────────
-          SizedBox(
-            height: 38,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              itemCount: _providers.length,
-              separatorBuilder: (_, _) => const SizedBox(width: 8),
-              itemBuilder: (_, i) {
-                final p = _providers[i];
-                final selected = _filterProvider == p;
-                return _FilterChip(
-                  label: p,
-                  selected: selected,
-                  onTap: () => setState(() => _filterProvider = p),
-                );
-              },
-            ),
-          ),
-          const SizedBox(height: 4),
 
           // ── List ────────────────────────────────────────────────────────
           Expanded(
@@ -330,36 +303,3 @@ class _ActionTile extends StatelessWidget {
   }
 }
 
-class _FilterChip extends StatelessWidget {
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-  const _FilterChip({required this.label, required this.selected, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-        decoration: BoxDecoration(
-          color: selected ? AppTheme.primary : AppTheme.surfaceVariant,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: selected ? AppTheme.primary : AppTheme.primary.withValues(alpha: 0.15),
-            width: 1,
-          ),
-        ),
-        child: Text(
-          label,
-          style: GoogleFonts.inter(
-            color: selected ? Colors.white : AppTheme.textSecondary,
-            fontSize: 13,
-            fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-          ),
-        ),
-      ),
-    );
-  }
-}
