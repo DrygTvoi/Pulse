@@ -44,7 +44,9 @@ class RelayDirectoryService {
         if (DateTime.now().difference(ts).inHours < _cacheTtlH) {
           return List<String>.from(j['relays'] as List);
         }
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('[RelayDir] Failed to parse cached relay URLs: $e');
+      }
     }
     // Fetch fresh and return URLs
     final candidates = await _fetchDirect();
@@ -67,7 +69,9 @@ class RelayDirectoryService {
             debugPrint('[RelayDir] ${urls.length} relay(s) from cache');
             return _urlsToCandidates(urls);
           }
-        } catch (_) {}
+        } catch (e) {
+          debugPrint('[RelayDir] Failed to parse cached candidates: $e');
+        }
       }
     }
     return viaTor ? _fetchViaTor() : _fetchDirect();
@@ -127,13 +131,20 @@ class RelayDirectoryService {
   }
 
   Future<List<String>> _fetchFromApi(String name, String url) async {
+    // Try system DNS first, fall back to DoH if it fails (GFW DNS poisoning)
+    final result = await _fetchFromApiDirect(name, url);
+    if (result.isNotEmpty) return result;
+    return _fetchFromApiViaDoh(name, url);
+  }
+
+  Future<List<String>> _fetchFromApiDirect(String name, String url) async {
     try {
       final client = HttpClient()
         ..connectionTimeout = const Duration(seconds: 5);
       final req  = await client.getUrl(Uri.parse(url))
           .timeout(const Duration(seconds: 6));
       req.headers.set('Accept',     'application/json');
-      req.headers.set('User-Agent', 'pulse-messenger/1.0');
+      req.headers.set('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; rv:128.0) Gecko/20100101 Firefox/128.0');
       final resp = await req.close().timeout(const Duration(seconds: 8));
       if (resp.statusCode != 200) { client.close(force: true); return []; }
       final body = await utf8.decoder
@@ -145,7 +156,57 @@ class RelayDirectoryService {
       }
       return relays;
     } catch (e) {
-      debugPrint('[RelayDir] $name failed: $e');
+      debugPrint('[RelayDir] $name direct failed: $e');
+      return [];
+    }
+  }
+
+  /// Fetch relay directory API using DoH-resolved IPs (bypasses DNS poisoning).
+  Future<List<String>> _fetchFromApiViaDoh(String name, String url) async {
+    try {
+      final uri = Uri.parse(url);
+      final host = uri.host;
+      // Resolve via DoH
+      final (_, ips) = await CloudflareIpService.instance
+          .resolveAndCheck(host)
+          .timeout(const Duration(seconds: 5),
+              onTimeout: () => (false, <String>[]));
+      // resolveAndCheck may return non-CF IPs too — we just need the IPs
+      List<String> resolvedIps = ips;
+      if (resolvedIps.isEmpty) {
+        // Try a plain DoH resolve without CF check
+        resolvedIps = await CloudflareIpService.instance
+            .resolveViaDoh(host)
+            .timeout(const Duration(seconds: 5), onTimeout: () => []);
+      }
+      if (resolvedIps.isEmpty) return [];
+
+      final ip = resolvedIps.first;
+      final port = uri.hasPort ? uri.port : 443;
+      final client = HttpClient()
+        ..connectionTimeout = const Duration(seconds: 5);
+      client.connectionFactory = (cfUri, proxyHost, proxyPort) async {
+        final raw = await Socket.connect(ip, port,
+            timeout: const Duration(seconds: 4));
+        return ConnectionTask.fromSocket(
+            Future.value(raw), () => raw.destroy());
+      };
+      final req = await client.getUrl(uri)
+          .timeout(const Duration(seconds: 6));
+      req.headers.set('Accept', 'application/json');
+      req.headers.set('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; rv:128.0) Gecko/20100101 Firefox/128.0');
+      final resp = await req.close().timeout(const Duration(seconds: 8));
+      if (resp.statusCode != 200) { client.close(force: true); return []; }
+      final body = await utf8.decoder
+          .bind(resp).join().timeout(const Duration(seconds: 5));
+      client.close(force: true);
+      final relays = _parseApiResponse(body);
+      if (relays.isNotEmpty) {
+        debugPrint('[RelayDir] $name (DoH): ${relays.length} relay(s)');
+      }
+      return relays;
+    } catch (e) {
+      debugPrint('[RelayDir] $name DoH failed: $e');
       return [];
     }
   }

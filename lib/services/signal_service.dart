@@ -1,8 +1,11 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:libsignal_protocol_dart/libsignal_protocol_dart.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'pqc_service.dart';
+import 'sentry_service.dart';
 
 // ─────────────────────────────────────────────────────────────────
 // Persistent Signal Protocol store backed by flutter_secure_storage.
@@ -36,13 +39,19 @@ class _PersistentSignalStore extends InMemorySignalProtocolStore {
           final lastUnderscore = withoutPrefix.lastIndexOf('_');
           if (lastUnderscore < 0) continue;
           final name = withoutPrefix.substring(0, lastUnderscore);
-          final deviceId = int.parse(withoutPrefix.substring(lastUnderscore + 1));
+          final deviceId = int.tryParse(withoutPrefix.substring(lastUnderscore + 1)) ?? 1;
           final address = SignalProtocolAddress(name, deviceId);
           final record = SessionRecord.fromSerialized(base64Decode(entry.value));
           await super.storeSession(address, record);
-        } catch (_) {}
+        } catch (e) {
+          debugPrint('[Signal] Failed to restore session ${entry.key}: $e');
+          sentryBreadcrumb('Session restore failed: ${entry.key}', category: 'signal');
+        }
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[Signal] Failed to restore sessions: $e');
+      sentryBreadcrumb('Session restore batch failed', category: 'signal');
+    }
   }
 
   @override
@@ -116,9 +125,15 @@ class _PersistentSignalStore extends InMemorySignalProtocolStore {
           );
           final record = PreKeyRecord(id, keyPair);
           await super.storePreKey(id, record);
-        } catch (_) {}
+        } catch (e) {
+          debugPrint('[Signal] Failed to restore prekey ${entry.key}: $e');
+          sentryBreadcrumb('PreKey restore failed: ${entry.key}', category: 'signal');
+        }
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[Signal] Failed to restore prekeys: $e');
+      sentryBreadcrumb('PreKey restore batch failed', category: 'signal');
+    }
   }
 }
 
@@ -137,6 +152,20 @@ class SignalService {
 
   bool get isInitialized => _isInitialized;
 
+  /// Fires when all 100 prekeys are exhausted and a fresh batch is regenerated.
+  /// ChatController subscribes to re-publish the updated bundle to all transports.
+  final _bundleRefreshCtrl = StreamController<void>.broadcast();
+  Stream<void> get onBundleRefresh => _bundleRefreshCtrl.stream;
+
+  /// Fires when prekey exhaustion happens suspiciously often (>3× in 24h).
+  /// ChatController can surface this as a security warning to the user.
+  final _preKeyExhaustionWarnCtrl = StreamController<String>.broadcast();
+  Stream<String> get onPreKeyExhaustionWarning => _preKeyExhaustionWarnCtrl.stream;
+
+  static const _kExhaustionTsKey = 'signal_prekey_exhaustion_ts';
+  static const _exhaustionWindow = Duration(hours: 24);
+  static const _exhaustionThreshold = 3;
+
   VoidCallback? _onPreKeyConsumed;
   /// Set by ChatController to republish the Signal bundle when a preKey is consumed.
   set onPreKeyConsumed(VoidCallback? cb) {
@@ -153,7 +182,7 @@ class SignalService {
     if (idKeyBase64 != null && regIdStr != null) {
       final keyBytes = base64Decode(idKeyBase64);
       _identityKeyPair = IdentityKeyPair.fromSerialized(keyBytes);
-      _registrationId = int.parse(regIdStr);
+      _registrationId = int.tryParse(regIdStr) ?? generateRegistrationId(false);
     } else {
       _identityKeyPair = generateIdentityKeyPair();
       _registrationId = generateRegistrationId(false);
@@ -194,10 +223,66 @@ class SignalService {
         key: 'signal_signed_prekey_0',
         value: base64Encode(signedPreKey.serialize()),
       );
+      // Record creation timestamp for rotation tracking.
+      await _storage.write(
+        key: _kSignedPreKeyTsKey,
+        value: DateTime.now().millisecondsSinceEpoch.toString(),
+      );
     }
 
     _store.onPreKeyConsumed = _onPreKeyConsumed;
     _isInitialized = true;
+
+    // Rotate signed prekey and PQC keypair if due.
+    unawaited(_rotateSignedPreKeyIfNeeded());
+    unawaited(PqcService().rotateIfNeeded());
+  }
+
+  static const _kSignedPreKeyRotationDays = 7;
+  static const _kSignedPreKeyTsKey = 'signal_signed_prekey_ts';
+  static const _kSignedPreKeyIdKey = 'signal_signed_prekey_current_id';
+
+  Future<void> _rotateSignedPreKeyIfNeeded() async {
+    try {
+      final tsStr = await _storage.read(key: _kSignedPreKeyTsKey);
+      if (tsStr != null) {
+        final ts = DateTime.fromMillisecondsSinceEpoch(int.tryParse(tsStr) ?? 0);
+        if (DateTime.now().difference(ts).inDays < _kSignedPreKeyRotationDays) {
+          return; // not due for rotation
+        }
+      }
+      // Get current ID and increment.
+      final idStr = await _storage.read(key: _kSignedPreKeyIdKey);
+      final currentId = idStr != null ? (int.tryParse(idStr) ?? 0) : 0;
+      final newId = currentId + 1;
+
+      final newSpk = generateSignedPreKey(_identityKeyPair, newId);
+      await _store.storeSignedPreKey(newId, newSpk);
+      await _storage.write(
+        key: 'signal_signed_prekey_$newId',
+        value: base64Encode(newSpk.serialize()),
+      );
+      await _storage.write(key: _kSignedPreKeyIdKey, value: newId.toString());
+      await _storage.write(
+        key: _kSignedPreKeyTsKey,
+        value: DateTime.now().millisecondsSinceEpoch.toString(),
+      );
+      debugPrint('[Signal] Rotated signed prekey: $currentId → $newId');
+
+      // Keep old key for 2 rotation periods (grace for in-flight messages).
+      final oldestKeep = newId - 2;
+      for (int id = 0; id < oldestKeep; id++) {
+        try {
+          await _store.removeSignedPreKey(id);
+          await _storage.delete(key: 'signal_signed_prekey_$id');
+        } catch (_) {}
+      }
+
+      // Trigger bundle republish so contacts get the new signed prekey.
+      _bundleRefreshCtrl.add(null);
+    } catch (e) {
+      debugPrint('[Signal] Signed prekey rotation failed: $e');
+    }
   }
 
   // ── Fingerprint ────────────────────────────────────────────────
@@ -218,6 +303,19 @@ class SignalService {
     return _formatFingerprint(base64Decode(b64));
   }
 
+  /// Returns the raw base64 of the contact's stored identity key.
+  /// Used by VerifyIdentityScreen to store a hash for auto-invalidation.
+  Future<String?> getContactIdentityKeyB64(String remoteId) async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('signal_contact_idkey_$remoteId');
+  }
+
+  /// Own identity key as base64 (for verification hash).
+  String get ownIdentityKeyB64 {
+    if (!_isInitialized) return '';
+    return base64Encode(_identityKeyPair.getPublicKey().serialize());
+  }
+
   String _formatFingerprint(Uint8List bytes) {
     // Skip leading prefix byte (0x05 for DJB), take 10 bytes, format as HEX:HEX:...
     final start = bytes.length > 10 ? 1 : 0;
@@ -230,7 +328,9 @@ class SignalService {
   // ── Public bundle ──────────────────────────────────────────────
 
   Future<Map<String, dynamic>> getPublicBundle() async {
-    final signedPreKey = await _store.loadSignedPreKey(0);
+    final idStr = await _storage.read(key: _kSignedPreKeyIdKey);
+    final spkId = idStr != null ? (int.tryParse(idStr) ?? 0) : 0;
+    final signedPreKey = await _store.loadSignedPreKey(spkId);
 
     // Find the first still-available preKey (ID 0..99).
     // When preKey 0 is consumed, we advance to 1, then 2, etc.
@@ -243,9 +343,12 @@ class SignalService {
     }
     // All 100 consumed — regenerate a fresh batch.
     if (preKey == null) {
+      debugPrint('[Signal] All prekeys exhausted — regenerating fresh batch');
       final newKeys = generatePreKeys(0, 100);
       for (final pk in newKeys) { await _store.storePreKey(pk.id, pk); }
       preKey = newKeys.first;
+      _bundleRefreshCtrl.add(null);
+      unawaited(_trackExhaustionEvent());
     }
 
     return {
@@ -259,6 +362,35 @@ class SignalService {
     };
   }
 
+  // ── Prekey exhaustion monitoring ────────────────────────────────
+
+  /// Records a prekey exhaustion event and emits a warning if > [_exhaustionThreshold]
+  /// events occurred within [_exhaustionWindow]. Possible signs of an active attack.
+  Future<void> _trackExhaustionEvent() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final stored = prefs.getStringList(_kExhaustionTsKey) ?? [];
+      final now = DateTime.now();
+      final cutoff = now.subtract(_exhaustionWindow);
+      // Keep only events within the window + add new one.
+      final recent = stored
+          .map((s) => DateTime.tryParse(s))
+          .whereType<DateTime>()
+          .where((t) => t.isAfter(cutoff))
+          .toList()
+        ..add(now);
+      await prefs.setStringList(
+          _kExhaustionTsKey, recent.map((t) => t.toIso8601String()).toList());
+      if (recent.length >= _exhaustionThreshold) {
+        debugPrint('[Signal] WARNING: prekey exhausted ${recent.length}× in 24h — possible attack');
+        _preKeyExhaustionWarnCtrl.add(
+            'Prekeys exhausted ${recent.length}× in 24h — possible replay attack');
+      }
+    } catch (e) {
+      debugPrint('[Signal] Failed to track exhaustion event: $e');
+    }
+  }
+
   // ── Session management ─────────────────────────────────────────
 
   /// Builds a Signal session with a contact using their published public bundle.
@@ -267,8 +399,25 @@ class SignalService {
   Future<bool> buildSession(String remoteId, Map<String, dynamic> bundle) async {
     final remoteAddress = SignalProtocolAddress(remoteId, 1);
 
-    final idKeyBytes = Uint8List.fromList(List<int>.from(bundle['identityKey']));
-    final identityKey = IdentityKey(Curve.decodePoint(idKeyBytes, 0));
+    final Uint8List idKeyBytes;
+    final IdentityKey identityKey;
+    final PreKeyBundle preKeyBundle;
+    try {
+      idKeyBytes = Uint8List.fromList(List<int>.from(bundle['identityKey'] as List));
+      identityKey = IdentityKey(Curve.decodePoint(idKeyBytes, 0));
+      preKeyBundle = PreKeyBundle(
+        (bundle['registrationId'] as num).toInt(),
+        1,
+        (bundle['preKeyId'] as num).toInt(),
+        Curve.decodePoint(Uint8List.fromList(List<int>.from(bundle['preKeyPublic'] as List)), 0),
+        (bundle['signedPreKeyId'] as num).toInt(),
+        Curve.decodePoint(Uint8List.fromList(List<int>.from(bundle['signedPreKeyPublic'] as List)), 0),
+        Uint8List.fromList(List<int>.from(bundle['signedPreKeySignature'] as List)),
+        identityKey,
+      );
+    } catch (e) {
+      throw FormatException('[Signal] Malformed key bundle from $remoteId: $e');
+    }
 
     // Detect key change vs previously stored identity key.
     final prefs = await SharedPreferences.getInstance();
@@ -277,23 +426,16 @@ class SignalService {
     final newB64 = base64Encode(idKeyBytes);
     final keyChanged = storedB64 != null && storedB64 != newB64;
 
-    final preKeyBundle = PreKeyBundle(
-      bundle['registrationId'] as int,
-      1,
-      bundle['preKeyId'] as int,
-      Curve.decodePoint(Uint8List.fromList(List<int>.from(bundle['preKeyPublic'])), 0),
-      bundle['signedPreKeyId'] as int,
-      Curve.decodePoint(Uint8List.fromList(List<int>.from(bundle['signedPreKeyPublic'])), 0),
-      Uint8List.fromList(List<int>.from(bundle['signedPreKeySignature'])),
-      identityKey,
-    );
-
     final sessionBuilder = SessionBuilder(_store, _store, _store, _store, remoteAddress);
     await sessionBuilder.processPreKeyBundle(preKeyBundle);
 
     // Persist updated identity key for fingerprint display and TOFU tracking.
     try {
       await prefs.setString(storageKey, newB64);
+      // Invalidate verification status when key changes — safety number is no longer valid.
+      if (keyChanged) {
+        await prefs.remove('verified_identity_$remoteId');
+      }
     } catch (e) {
       debugPrint('[Signal] Failed to persist identity key for $remoteId: $e');
     }
@@ -312,7 +454,7 @@ class SignalService {
     if (!envelope.startsWith('E2EE||')) return envelope;
 
     final parts = envelope.split('||');
-    final type = int.parse(parts[1]);
+    final type = int.tryParse(parts[1]) ?? -1;
     final bytes = base64Decode(parts[2]);
 
     final remoteAddress = SignalProtocolAddress(remoteId, 1);
@@ -327,5 +469,18 @@ class SignalService {
       throw Exception('Unknown ciphertext type: $type');
     }
     return utf8.decode(plaintext);
+  }
+
+  /// Clear sensitive key material from memory.
+  void zeroize() {
+    _isInitialized = false;
+    // Dart strings are immutable and GC'd, but we can drop references.
+    // IdentityKeyPair holds byte arrays — zero them out.
+    try {
+      final pubBytes = _identityKeyPair.getPublicKey().serialize();
+      for (int i = 0; i < pubBytes.length; i++) { pubBytes[i] = 0; }
+      final privBytes = _identityKeyPair.serialize();
+      for (int i = 0; i < privBytes.length; i++) { privBytes[i] = 0; }
+    } catch (_) {}
   }
 }

@@ -9,6 +9,7 @@ import '../screens/group_call_screen.dart';
 import '../screens/media_gallery_screen.dart';
 import '../services/notification_service.dart';
 import '../widgets/message_menu.dart' as menu;
+import '../l10n/l10n_ext.dart';
 
 /// Builds the normal (non-search) AppBar for the chat screen.
 PreferredSizeWidget buildChatAppBar({
@@ -33,6 +34,7 @@ PreferredSizeWidget buildChatAppBar({
         ? null
         : IconButton(
             icon: Icon(Icons.arrow_back_rounded, color: AppTheme.textSecondary),
+            tooltip: context.l10n.back,
             onPressed: () => Navigator.pop(context),
           ),
     title: GestureDetector(
@@ -48,14 +50,14 @@ PreferredSizeWidget buildChatAppBar({
               Text(contact.name,
                   style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w700, color: AppTheme.textPrimary)),
               chatController.isContactTyping(contact.id)
-                  ? _buildTypingIndicator()
+                  ? _buildTypingIndicator(context)
                   : chatController.isOnline(contact.id)
                       ? Row(mainAxisSize: MainAxisSize.min, children: [
                           Container(width: 8, height: 8,
                               decoration: const BoxDecoration(
                                   color: Color(0xFF4CAF50), shape: BoxShape.circle)),
                           const SizedBox(width: 4),
-                          Text('online',
+                          Text(context.l10n.appBarOnline,
                               style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF4CAF50))),
                         ])
                       : chatController.lastSeenLabel(contact.id).isNotEmpty
@@ -64,7 +66,7 @@ PreferredSizeWidget buildChatAppBar({
                           : Row(children: [
                               Icon(Icons.lock_rounded, size: 10, color: AppTheme.primary),
                               const SizedBox(width: 3),
-                              Text('Signal E2EE',
+                              Text(context.l10n.appBarSignalE2ee,
                                   style: GoogleFonts.inter(fontSize: 11, color: AppTheme.primary, fontWeight: FontWeight.w500)),
                               if (chatController.hasPqcKey(contact.databaseId)) ...[
                                 const SizedBox(width: 4),
@@ -74,7 +76,7 @@ PreferredSizeWidget buildChatAppBar({
                                     color: const Color(0xFF1A6B3C),
                                     borderRadius: BorderRadius.circular(4),
                                   ),
-                                  child: Text('+ Kyber',
+                                  child: Text(context.l10n.appBarKyber,
                                       style: GoogleFonts.inter(fontSize: 9, color: const Color(0xFF4ADE80), fontWeight: FontWeight.w700)),
                                 ),
                               ],
@@ -89,10 +91,12 @@ PreferredSizeWidget buildChatAppBar({
     actions: [
       IconButton(
         icon: Icon(Icons.search_rounded, color: AppTheme.textSecondary),
+        tooltip: context.l10n.appBarSearchTooltip,
         onPressed: onSearchActivate,
       ),
       IconButton(
         icon: Icon(Icons.call_rounded, color: AppTheme.textSecondary),
+        tooltip: context.l10n.appBarVoiceCall,
         onPressed: () => Navigator.push(context, MaterialPageRoute(
           builder: (_) => contact.isGroup
               ? GroupCallScreen(group: contact, myId: myId, isVideoCall: false, isCaller: true)
@@ -101,6 +105,7 @@ PreferredSizeWidget buildChatAppBar({
       ),
       IconButton(
         icon: Icon(Icons.videocam_rounded, color: AppTheme.textSecondary),
+        tooltip: context.l10n.appBarVideoCall,
         onPressed: () => Navigator.push(context, MaterialPageRoute(
           builder: (_) => contact.isGroup
               ? GroupCallScreen(group: contact, myId: myId, isVideoCall: true, isCaller: true)
@@ -109,6 +114,7 @@ PreferredSizeWidget buildChatAppBar({
       ),
       PopupMenuButton<String>(
         icon: Icon(Icons.more_vert_rounded, color: AppTheme.textSecondary),
+        tooltip: context.l10n.moreOptions,
         color: AppTheme.surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         onSelected: (value) async {
@@ -144,7 +150,7 @@ PreferredSizeWidget buildChatAppBar({
               ),
               const SizedBox(width: 12),
               Text(
-                chatMuted ? 'Unmute' : 'Mute',
+                chatMuted ? context.l10n.appBarUnmute : context.l10n.appBarMute,
                 style: GoogleFonts.inter(color: AppTheme.textPrimary),
               ),
             ]),
@@ -155,7 +161,7 @@ PreferredSizeWidget buildChatAppBar({
               Icon(Icons.photo_library_outlined,
                   color: AppTheme.textSecondary, size: 20),
               const SizedBox(width: 12),
-              Text('Media', style: GoogleFonts.inter(color: AppTheme.textPrimary)),
+              Text(context.l10n.appBarMedia, style: GoogleFonts.inter(color: AppTheme.textPrimary)),
             ]),
           ),
           PopupMenuItem(
@@ -168,7 +174,7 @@ PreferredSizeWidget buildChatAppBar({
               ),
               const SizedBox(width: 12),
               Text(
-                chatTtlSeconds > 0 ? 'Disappearing: on' : 'Disappearing messages',
+                chatTtlSeconds > 0 ? context.l10n.appBarDisappearingOn : context.l10n.appBarDisappearing,
                 style: GoogleFonts.inter(color: AppTheme.textPrimary),
               ),
             ]),
@@ -180,7 +186,7 @@ PreferredSizeWidget buildChatAppBar({
                 Icon(Icons.admin_panel_settings_rounded,
                     color: AppTheme.textSecondary, size: 20),
                 const SizedBox(width: 12),
-                Text('Group settings', style: GoogleFonts.inter(color: AppTheme.textPrimary)),
+                Text(context.l10n.appBarGroupSettings, style: GoogleFonts.inter(color: AppTheme.textPrimary)),
               ]),
             ),
         ],
@@ -202,6 +208,7 @@ PreferredSizeWidget buildSearchAppBar({
     elevation: 0,
     leading: IconButton(
       icon: Icon(Icons.arrow_back_rounded, color: AppTheme.textSecondary),
+      tooltip: context.l10n.closeSearch,
       onPressed: () {
         searchController.clear();
         onSearchClose();
@@ -213,7 +220,7 @@ PreferredSizeWidget buildSearchAppBar({
       style: GoogleFonts.inter(color: AppTheme.textPrimary, fontSize: 16),
       onChanged: onSearchChanged,
       decoration: InputDecoration(
-        hintText: 'Search messages...',
+        hintText: context.l10n.searchMessages,
         hintStyle: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: 16),
         border: InputBorder.none,
         enabledBorder: InputBorder.none,
@@ -246,9 +253,9 @@ Widget buildChatAvatar(String name, double size) {
   );
 }
 
-Widget _buildTypingIndicator() {
+Widget _buildTypingIndicator(BuildContext context) {
   return Row(mainAxisSize: MainAxisSize.min, children: [
-    Text('typing',
+    Text(context.l10n.appBarTyping,
         style: GoogleFonts.inter(
             fontSize: 11, color: AppTheme.primary, fontWeight: FontWeight.w500)),
     const SizedBox(width: 3),

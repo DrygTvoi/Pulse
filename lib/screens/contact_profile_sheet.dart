@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -7,6 +9,7 @@ import '../models/contact.dart';
 import '../theme/app_theme.dart';
 import '../services/signal_service.dart';
 import '../controllers/chat_controller.dart';
+import 'verify_identity_screen.dart';
 
 /// Bottom sheet showing contact or group profile.
 /// For groups: shows member list with optional kick button.
@@ -65,12 +68,15 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
   }
 
   Future<void> _loadFingerprints() async {
-    final own = SignalService().ownFingerprint;
+    final signal = SignalService();
+    final own = signal.ownFingerprint;
     final contact = !widget.contact.isGroup
-        ? await SignalService().getContactFingerprint(widget.contact.databaseId)
+        ? await signal.getContactFingerprint(widget.contact.databaseId)
         : null;
     final prefs = await SharedPreferences.getInstance();
-    final verified = prefs.getBool('contact_verified_${widget.contact.databaseId}') ?? false;
+    final storedHash = prefs.getString('verified_identity_${widget.contact.databaseId}');
+    final currentHash = await _computeCurrentHash();
+    final verified = storedHash != null && storedHash == currentHash;
     if (mounted) {
       setState(() {
         _ownFingerprint = own;
@@ -80,11 +86,26 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
     }
   }
 
+  Future<String?> _computeCurrentHash() async {
+    final signal = SignalService();
+    final ownB64 = signal.ownIdentityKeyB64;
+    final contactB64 = await signal.getContactIdentityKeyB64(widget.contact.databaseId);
+    if (ownB64.isEmpty || contactB64 == null) return null;
+    final combined = '$ownB64:$contactB64';
+    return sha256.convert(utf8.encode(combined)).toString();
+  }
+
   Future<void> _toggleVerified() async {
     final prefs = await SharedPreferences.getInstance();
-    final next = !_isVerified;
-    await prefs.setBool('contact_verified_${_contact.databaseId}', next);
-    if (mounted) setState(() => _isVerified = next);
+    if (_isVerified) {
+      await prefs.remove('verified_identity_${_contact.databaseId}');
+      if (mounted) setState(() => _isVerified = false);
+    } else {
+      final hash = await _computeCurrentHash();
+      if (hash == null) return;
+      await prefs.setString('verified_identity_${_contact.databaseId}', hash);
+      if (mounted) setState(() => _isVerified = true);
+    }
   }
 
   void _showVerifyDialog() {
@@ -778,6 +799,22 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
   Widget _buildActions(BuildContext context) {
     return Column(
       children: [
+        if (!_contact.isGroup)
+          _actionButton(
+            icon: Icons.verified_user_rounded,
+            label: 'Verify Safety Number',
+            color: _isVerified ? const Color(0xFF4CAF50) : AppTheme.primary,
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(context, MaterialPageRoute(
+                builder: (_) => VerifyIdentityScreen(
+                  contactName: _contact.name,
+                  contactId: _contact.databaseId,
+                ),
+              ));
+            },
+          ),
+        if (!_contact.isGroup) const SizedBox(height: 10),
         if (!_contact.isGroup)
           _actionButton(
             icon: Icons.qr_code_rounded,

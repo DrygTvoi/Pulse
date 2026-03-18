@@ -5,6 +5,7 @@ import '../theme/app_theme.dart';
 import '../models/contact.dart';
 import '../models/user_status.dart';
 import '../services/status_service.dart';
+import '../services/local_storage_service.dart';
 import 'chat_screen.dart';
 import 'settings_screen.dart';
 import 'contacts_screen.dart';
@@ -27,6 +28,8 @@ import 'call_screen.dart';
 import 'group_call_screen.dart';
 import '../services/connectivity_probe_service.dart';
 import '../services/tor_service.dart';
+import '../services/utls_service.dart';
+import '../l10n/l10n_ext.dart';
 
 PageRoute _slideRoute(Widget page) => PageRouteBuilder(
   pageBuilder: (context, animation, secondaryAnimation) => page,
@@ -56,6 +59,7 @@ class _HomeScreenState extends State<HomeScreen> {
   StreamSubscription? _torSubscription;
   int _torBootPercent = 0;
   bool _torRunning = false;
+  bool _utlsAvailable = true; // assume available until proven otherwise
   ({Contact contact, Message message})? _banner;
   ProbeStatus? _probeStatus;
   Timer? _bannerTimer;
@@ -63,6 +67,11 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _searchActive = false;
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
+  // Global message search state
+  Timer? _searchDebounce;
+  bool _globalSearching = false;
+  List<({String roomId, Map<String, dynamic> message})> _globalSearchResults = [];
+  bool _globalSearchDone = false; // true after a search completes (even with 0 results)
   UserStatus? _ownStatus;
   Map<String, UserStatus> _contactStatuses = {};
   Set<String> _mutedContactIds = {};
@@ -76,7 +85,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _loadAll();
     _listenForIncomingCalls();
     _listenForIncomingGroupCalls();
-    _searchController.addListener(() => setState(() => _searchQuery = _searchController.text.toLowerCase()));
+    _searchController.addListener(_onSearchChanged);
     _probeSubscription = ConnectivityProbeService.instance.status.listen((s) {
       if (!mounted) return;
       setState(() => _probeStatus = s);
@@ -91,7 +100,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ChatController().broadcastWorkingRelays();
         }
       }
-    });
+    }, onError: (e) => debugPrint('[HomeScreen] probe stream error: $e'));
 
     _newMsgSubscription = ChatController().newMessages.listen((event) {
       final contact = ContactManager().contacts.cast<Contact?>().firstWhere(
@@ -104,22 +113,23 @@ class _HomeScreenState extends State<HomeScreen> {
       _bannerTimer = Timer(const Duration(seconds: 4), () {
         if (mounted) setState(() => _banner = null);
       });
-    });
+    }, onError: (e) => debugPrint('[HomeScreen] newMsg stream error: $e'));
 
-    _statusUpdatesSubscription = ChatController().statusUpdates.listen((_) {
-      if (mounted) _loadStatuses();
-    });
+    _statusUpdatesSubscription = ChatController().statusUpdates.listen(
+      (_) { if (mounted) _loadStatuses(); },
+      onError: (e) => debugPrint('[HomeScreen] statusUpdates stream error: $e'),
+    );
 
     _failoverSubscription = ChatController().failoverEvents.listen((event) {
       if (!mounted) return;
       final shortAddr = event.to.split('@').first;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Transport switched \u2192 $shortAddr'),
+        content: Text(context.l10n.homeTransportSwitched(shortAddr)),
         backgroundColor: Colors.orange.shade800,
         behavior: SnackBarBehavior.floating,
         duration: const Duration(seconds: 6),
       ));
-    });
+    }, onError: (e) => debugPrint('[HomeScreen] failover stream error: $e'));
 
     _torRunning = TorService.instance.isRunning;
     _torBootPercent = TorService.instance.bootstrapPercent;
@@ -129,6 +139,13 @@ class _HomeScreenState extends State<HomeScreen> {
         _torRunning = TorService.instance.isRunning;
         _torBootPercent = TorService.instance.bootstrapPercent;
       });
+    }, onError: (e) => debugPrint('[HomeScreen] tor stream error: $e'));
+
+    // Track uTLS proxy availability for "No ECH" warning chip.
+    _utlsAvailable = UTLSService.instance.available.value;
+    UTLSService.instance.available.addListener(() {
+      if (!mounted) return;
+      setState(() => _utlsAvailable = UTLSService.instance.available.value);
     });
 
     _loadStatuses();
@@ -147,6 +164,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _torSubscription?.cancel();
     _bannerTimer?.cancel();
     _probeBannerTimer?.cancel();
+    _searchDebounce?.cancel();
     _searchController.dispose();
     super.dispose();
   }
@@ -170,7 +188,9 @@ class _HomeScreenState extends State<HomeScreen> {
     for (final c in ContactManager().contacts) {
       final b64 = prefs.getString('contact_avatar_${c.id}');
       if (b64 != null && b64.isNotEmpty) {
-        try { avatars[c.id] = base64Decode(b64); } catch (_) {}
+        try { avatars[c.id] = base64Decode(b64); } catch (e) {
+          debugPrint('[Home] Failed to decode avatar for ${c.id}: $e');
+        }
       }
     }
     if (mounted) setState(() => _contactAvatars = avatars);
@@ -196,6 +216,55 @@ class _HomeScreenState extends State<HomeScreen> {
     _loadStatuses();
   }
 
+  void _onSearchChanged() {
+    final text = _searchController.text;
+    setState(() => _searchQuery = text.toLowerCase());
+    _searchDebounce?.cancel();
+    if (text.trim().isEmpty) {
+      setState(() {
+        _globalSearchResults = [];
+        _globalSearching = false;
+        _globalSearchDone = false;
+      });
+      return;
+    }
+    // Debounce 300ms before firing the expensive decrypt-and-search.
+    _searchDebounce = Timer(const Duration(milliseconds: 300), () {
+      _runGlobalSearch(text.trim());
+    });
+  }
+
+  Future<void> _runGlobalSearch(String query) async {
+    if (!mounted) return;
+    setState(() {
+      _globalSearching = true;
+      _globalSearchDone = false;
+    });
+    try {
+      final results = await LocalStorageService().searchMessages(
+        query,
+        limit: 50,
+      );
+      if (!mounted) return;
+      // Only apply if the query hasn't changed while we were searching.
+      if (_searchController.text.trim() == query) {
+        setState(() {
+          _globalSearchResults = results;
+          _globalSearching = false;
+          _globalSearchDone = true;
+        });
+      }
+    } catch (e) {
+      debugPrint('[HomeScreen] Global search error: $e');
+      if (mounted) {
+        setState(() {
+          _globalSearching = false;
+          _globalSearchDone = true;
+        });
+      }
+    }
+  }
+
   Future<void> _onRefresh() async {
     await ChatController().reconnectInbox();
     await _loadAll();
@@ -213,7 +282,7 @@ class _HomeScreenState extends State<HomeScreen> {
         final myId = prefs.getString('my_device_id') ?? ChatController().identity?.id ?? '';
         if (mounted) _showIncomingCallDialog(callerContact, myId);
       }
-    });
+    }, onError: (e) => debugPrint('[HomeScreen] incomingCalls stream error: $e'));
   }
 
   void _showIncomingCallDialog(Contact caller, String myId) {
@@ -227,18 +296,18 @@ class _HomeScreenState extends State<HomeScreen> {
         content: Row(children: [
           AvatarWidget(name: caller.name, size: 48, fontSize: 20),
           const SizedBox(width: 14),
-          Expanded(child: Text('${caller.name} is calling...',
+          Expanded(child: Text(context.l10n.homeIncomingCall(caller.name),
               style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: 14))),
         ]),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
             style: TextButton.styleFrom(foregroundColor: AppTheme.error),
-            child: Text('Decline', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+            child: Text(context.l10n.homeDecline, style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
           ),
           ElevatedButton.icon(
             icon: const Icon(Icons.call, size: 16),
-            label: Text('Accept', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+            label: Text(context.l10n.homeAccept, style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
             style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primary,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
             onPressed: () {
@@ -264,7 +333,7 @@ class _HomeScreenState extends State<HomeScreen> {
       if (groupContact == null || !mounted) return;
       final myId = ChatController().identity?.id ?? '';
       _showIncomingGroupCallDialog(groupContact, myId);
-    });
+    }, onError: (e) => debugPrint('[HomeScreen] incomingGroupCalls stream error: $e'));
   }
 
   void _showIncomingGroupCallDialog(Contact group, String myId) {
@@ -295,11 +364,11 @@ class _HomeScreenState extends State<HomeScreen> {
           TextButton(
             onPressed: () => Navigator.pop(context),
             style: TextButton.styleFrom(foregroundColor: AppTheme.error),
-            child: Text('Decline', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+            child: Text(context.l10n.homeDecline, style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
           ),
           ElevatedButton.icon(
             icon: const Icon(Icons.video_call_rounded, size: 16),
-            label: Text('Accept', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+            label: Text(context.l10n.homeAccept, style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF26A69A),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -441,6 +510,25 @@ class _HomeScreenState extends State<HomeScreen> {
                 ],
               ),
               actions: [
+                // "No ECH" warning: shown when uTLS proxy is down but
+                // Tor/Psiphon is active (censored network detected).
+                if (!_utlsAvailable && _torRunning)
+                  Tooltip(
+                    message: 'uTLS proxy unavailable — ECH disabled.\n'
+                        'TLS fingerprint is visible to DPI.',
+                    child: Padding(
+                      padding: const EdgeInsets.only(right: 4),
+                      child: Chip(
+                        label: const Text('No ECH',
+                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                        backgroundColor: Colors.amber.shade700,
+                        labelStyle: const TextStyle(color: Colors.black87),
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        visualDensity: VisualDensity.compact,
+                      ),
+                    ),
+                  ),
                 TorChip(
                   isRunning: _torRunning,
                   bootstrapPercent: _torBootPercent,
@@ -448,10 +536,12 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 IconButton(
                   icon: Icon(Icons.search_rounded, color: AppTheme.textSecondary),
+                  tooltip: context.l10n.search,
                   onPressed: () => setState(() => _searchActive = true),
                 ),
                 PopupMenuButton<String>(
                   icon: Icon(Icons.more_vert_rounded, color: AppTheme.textSecondary),
+                  tooltip: context.l10n.moreOptions,
                   color: AppTheme.surface,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                   onSelected: (value) async {
@@ -469,7 +559,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       child: Row(children: [
                         Icon(Icons.group_add_rounded, color: AppTheme.textSecondary, size: 20),
                         const SizedBox(width: 12),
-                        Text('New group', style: GoogleFonts.inter(color: AppTheme.textPrimary)),
+                        Text(context.l10n.homeNewGroup, style: GoogleFonts.inter(color: AppTheme.textPrimary)),
                       ]),
                     ),
                     PopupMenuItem(
@@ -477,7 +567,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       child: Row(children: [
                         Icon(Icons.settings_rounded, color: AppTheme.textSecondary, size: 20),
                         const SizedBox(width: 12),
-                        Text('Settings', style: GoogleFonts.inter(color: AppTheme.textPrimary)),
+                        Text(context.l10n.homeSettings, style: GoogleFonts.inter(color: AppTheme.textPrimary)),
                       ]),
                     ),
                   ],
@@ -486,7 +576,9 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
       body: Stack(
         children: [
-          _loading && contacts.isEmpty
+          _searchActive && _searchQuery.isNotEmpty
+              ? _buildGlobalSearchBody(contacts, chatCtrl, isWide)
+              : _loading && contacts.isEmpty
               ? const ChatListSkeleton()
               : contacts.isEmpty
               ? _buildEmptyState()
@@ -628,9 +720,15 @@ class _HomeScreenState extends State<HomeScreen> {
       elevation: 0,
       leading: IconButton(
         icon: Icon(Icons.arrow_back_rounded, color: AppTheme.textSecondary),
+        tooltip: context.l10n.closeSearch,
         onPressed: () {
           _searchController.clear();
-          setState(() => _searchActive = false);
+          setState(() {
+            _searchActive = false;
+            _globalSearchResults = [];
+            _globalSearching = false;
+            _globalSearchDone = false;
+          });
         },
       ),
       title: TextField(
@@ -638,7 +736,7 @@ class _HomeScreenState extends State<HomeScreen> {
         autofocus: true,
         style: GoogleFonts.inter(color: AppTheme.textPrimary, fontSize: 16),
         decoration: InputDecoration(
-          hintText: 'Search chats...',
+          hintText: context.l10n.searchMessages,
           hintStyle: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: 16),
           border: InputBorder.none,
           enabledBorder: InputBorder.none,
@@ -647,21 +745,42 @@ class _HomeScreenState extends State<HomeScreen> {
           filled: false,
         ),
       ),
+      actions: [
+        if (_searchController.text.isNotEmpty)
+          IconButton(
+            icon: Icon(Icons.close_rounded, color: AppTheme.textSecondary, size: 20),
+            tooltip: context.l10n.clearSearch,
+            onPressed: () {
+              _searchController.clear();
+            },
+          ),
+      ],
     );
   }
 
   Widget _buildConnectionDot(ConnectionStatus status) {
+    final label = switch (status) {
+      ConnectionStatus.connected   => 'Connected',
+      ConnectionStatus.connecting  => 'Connecting…',
+      ConnectionStatus.disconnected => 'Disconnected',
+    };
     if (status == ConnectionStatus.connecting) {
-      return SizedBox(
-        width: 9, height: 9,
-        child: CircularProgressIndicator(strokeWidth: 1.5, color: Colors.orange),
+      return Tooltip(
+        message: label,
+        child: SizedBox(
+          width: 9, height: 9,
+          child: CircularProgressIndicator(strokeWidth: 1.5, color: Colors.orange),
+        ),
       );
     }
-    return Container(
-      width: 8, height: 8,
-      decoration: BoxDecoration(
-        color: status == ConnectionStatus.connected ? AppTheme.primary : AppTheme.textSecondary,
-        shape: BoxShape.circle,
+    return Tooltip(
+      message: label,
+      child: Container(
+        width: 8, height: 8,
+        decoration: BoxDecoration(
+          color: status == ConnectionStatus.connected ? AppTheme.primary : AppTheme.textSecondary,
+          shape: BoxShape.circle,
+        ),
       ),
     );
   }
@@ -703,6 +822,252 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
     );
+  }
+
+  // ── Global search results body ──────────────────────────────────────────────
+
+  Widget _buildGlobalSearchBody(List<Contact> contacts, ChatController chatCtrl, bool isWide) {
+    // 1. Contact name matches (instant, no decryption needed).
+    final contactMatches = contacts
+        .where((c) => c.name.toLowerCase().contains(_searchQuery))
+        .toList();
+
+    // 2. Build a roomId → Contact lookup for message results.
+    final contactByStorageKey = <String, Contact>{};
+    for (final c in contacts) {
+      contactByStorageKey[c.storageKey] = c;
+    }
+
+    // 3. Group message results by roomId.
+    final groupedMessages = <String, List<Map<String, dynamic>>>{};
+    for (final r in _globalSearchResults) {
+      groupedMessages.putIfAbsent(r.roomId, () => []).add(r.message);
+    }
+
+    // Total section count.
+    final hasContactSection = contactMatches.isNotEmpty;
+    final hasMessageSection = groupedMessages.isNotEmpty;
+    final bool showEmpty = _globalSearchDone && !_globalSearching &&
+        !hasContactSection && !hasMessageSection;
+
+    return ListView(
+      padding: const EdgeInsets.only(bottom: 80),
+      children: [
+        // Loading indicator.
+        if (_globalSearching)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: Center(
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(
+                    width: 16, height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: AppTheme.primary,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Text(context.l10n.homeSearching,
+                      style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: 13)),
+                ],
+              ),
+            ),
+          ),
+
+        // Contact name matches section.
+        if (hasContactSection) ...[
+          _buildSectionHeader('Chats'),
+          ...contactMatches.map((c) {
+            final room = chatCtrl.getRoomForContact(c.id);
+            final messages = room?.messages ?? [];
+            final lastMsg = messages.isNotEmpty ? messages.last : null;
+            final myId = chatCtrl.identity?.id ?? '';
+            final unread = messages.where((m) => !m.isRead && m.senderId != myId).length;
+            return ChatTile(
+              contact: c,
+              lastMsg: lastMsg,
+              unreadCount: unread,
+              myId: myId,
+              isOnline: chatCtrl.isOnline(c.id),
+              isMuted: _mutedContactIds.contains(c.id),
+              avatarBytes: _contactAvatars[c.id],
+              selected: isWide && _selectedContact?.id == c.id,
+              onTap: () => isWide ? _openChatWide(c) : _openChatNarrow(c),
+            );
+          }),
+        ],
+
+        // Message search results section.
+        if (hasMessageSection) ...[
+          _buildSectionHeader('Messages'),
+          ...groupedMessages.entries.expand((entry) {
+            final contact = contactByStorageKey[entry.key];
+            if (contact == null) return <Widget>[];
+            return entry.value.map((msgJson) =>
+                _buildMessageSearchTile(contact, msgJson, isWide));
+          }),
+        ],
+
+        // No results.
+        if (showEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 48),
+            child: Center(
+              child: Column(
+                children: [
+                  Icon(Icons.search_off_rounded, size: 48,
+                      color: AppTheme.textSecondary.withValues(alpha: 0.4)),
+                  const SizedBox(height: 12),
+                  Text(context.l10n.homeNoResults,
+                      style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: 14)),
+                ],
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildSectionHeader(String title) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
+      child: Text(title,
+          style: GoogleFonts.inter(
+            color: AppTheme.primary,
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.5,
+          )),
+    );
+  }
+
+  Widget _buildMessageSearchTile(Contact contact, Map<String, dynamic> msgJson, bool isWide) {
+    final payload = msgJson['encryptedPayload'] as String? ?? '';
+    final timestampStr = msgJson['timestamp']?.toString() ?? '';
+    final timestamp = DateTime.tryParse(timestampStr) ?? DateTime(2000);
+    final timeStr = _formatSearchTime(timestamp);
+
+    // Build a snippet with the match highlighted.
+    final snippet = _buildSnippet(payload, _searchQuery);
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          if (isWide) {
+            _openChatWide(contact);
+          } else {
+            _openChatNarrow(contact);
+          }
+        },
+        splashColor: AppTheme.primary.withValues(alpha: 0.07),
+        highlightColor: AppTheme.primary.withValues(alpha: 0.04),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          child: Row(
+            children: [
+              AvatarWidget(
+                name: contact.name,
+                size: 44,
+                imageBytes: _contactAvatars[contact.id],
+                fontSize: 18,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(contact.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.inter(
+                                color: AppTheme.textPrimary,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                              )),
+                        ),
+                        Text(timeStr,
+                            style: GoogleFonts.inter(
+                              color: AppTheme.textSecondary,
+                              fontSize: 11,
+                            )),
+                      ],
+                    ),
+                    const SizedBox(height: 3),
+                    RichText(
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      text: snippet,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  TextSpan _buildSnippet(String text, String query) {
+    final lowerText = text.toLowerCase();
+    final lowerQuery = query.toLowerCase();
+    final idx = lowerText.indexOf(lowerQuery);
+    if (idx < 0) {
+      // Shouldn't happen, but safety fallback.
+      return TextSpan(
+        text: text.length > 100 ? '${text.substring(0, 100)}...' : text,
+        style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: 13),
+      );
+    }
+
+    // Show context around the match: up to 20 chars before, the match, then after.
+    final start = (idx - 20).clamp(0, text.length);
+    final end = (idx + query.length + 40).clamp(0, text.length);
+    final prefix = start > 0 ? '...' : '';
+    final suffix = end < text.length ? '...' : '';
+
+    final before = text.substring(start, idx);
+    final match = text.substring(idx, idx + query.length);
+    final after = text.substring(idx + query.length, end);
+
+    return TextSpan(
+      children: [
+        TextSpan(
+          text: '$prefix$before',
+          style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: 13),
+        ),
+        TextSpan(
+          text: match,
+          style: GoogleFonts.inter(
+            color: AppTheme.textPrimary,
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+            backgroundColor: AppTheme.primary.withValues(alpha: 0.15),
+          ),
+        ),
+        TextSpan(
+          text: '$after$suffix',
+          style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: 13),
+        ),
+      ],
+    );
+  }
+
+  String _formatSearchTime(DateTime t) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = today.subtract(const Duration(days: 1));
+    final msgDay = DateTime(t.year, t.month, t.day);
+    if (msgDay == today) return '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+    if (msgDay == yesterday) return 'Yesterday';
+    if (now.year == t.year) return '${t.day}/${t.month}';
+    return '${t.day}/${t.month}/${t.year % 100}';
   }
 
   Widget _buildNoResults() {

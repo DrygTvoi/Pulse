@@ -53,7 +53,9 @@ class VoiceService {
         // dBFS range: ~-60 (silence) to 0 (max). Normalise to 0..1
         final norm = ((amp.current + 60.0) / 60.0).clamp(0.0, 1.0);
         _amplitudeSamples.add(norm);
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('[Voice] Amplitude sampling error: $e');
+      }
     });
     return true;
   }
@@ -72,7 +74,9 @@ class VoiceService {
       final bytes = await File(path).readAsBytes();
       await File(path).delete().catchError((_) => File(path));
       if (bytes.isEmpty) return null;
-      final b64 = base64Encode(bytes);
+      // GZIP compress WAV before base64 — typically ~70% smaller.
+      final compressed = gzip.encode(bytes);
+      final b64 = base64Encode(compressed);
       // Downsample / upsample to exactly _waveformBars values
       final amp = _resample(_amplitudeSamples, _waveformBars);
       // Encode as integers 0-100 to keep JSON small
@@ -81,8 +85,9 @@ class VoiceService {
         't': 'voice',
         'd': b64,
         'dur': duration,
-        'sz': bytes.length,
+        'sz': bytes.length, // original uncompressed size
         'amp': ampInt,
+        'z': true,          // gzip-compressed flag
       });
     } catch (e) {
       debugPrint('[VoiceService] stopRecording error: $e');

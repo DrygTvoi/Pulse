@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_theme.dart';
 import '../models/message.dart';
 import '../services/media_service.dart';
+import '../l10n/l10n_ext.dart';
 
 /// The bottom input area of the chat screen with text field, attach button,
 /// send/mic button, recording indicator, reply/edit banners, and scheduled
@@ -85,7 +86,7 @@ class MessageInputBar extends StatelessWidget {
                     const Icon(Icons.schedule_rounded, size: 13, color: Colors.amber),
                     const SizedBox(width: 6),
                     Text(
-                      '$scheduledCount scheduled message${scheduledCount > 1 ? 's' : ''}',
+                      context.l10n.inputScheduledMessages(scheduledCount),
                       style: GoogleFonts.inter(color: Colors.amber, fontSize: 12),
                     ),
                     const Spacer(),
@@ -108,9 +109,13 @@ class MessageInputBar extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    GestureDetector(
-                      onTap: onCancelReply,
-                      child: Icon(Icons.close_rounded, size: 14, color: AppTheme.textSecondary),
+                    Semantics(
+                      label: context.l10n.inputCancelReply,
+                      button: true,
+                      child: GestureDetector(
+                        onTap: onCancelReply,
+                        child: Icon(Icons.close_rounded, size: 14, color: AppTheme.textSecondary),
+                      ),
                     ),
                   ],
                 ),
@@ -123,20 +128,24 @@ class MessageInputBar extends StatelessWidget {
                     const Icon(Icons.edit_rounded, size: 14, color: Colors.amber),
                     const SizedBox(width: 6),
                     Expanded(
-                      child: Text('Editing message',
+                      child: Text(context.l10n.inputEditingMessage,
                           style: GoogleFonts.inter(
                               color: Colors.amber, fontSize: 12, fontWeight: FontWeight.w500)),
                     ),
-                    GestureDetector(
-                      onTap: onCancelEdit,
-                      child: const Icon(Icons.close_rounded, size: 14, color: Colors.amber),
+                    Semantics(
+                      label: context.l10n.inputCancelEdit,
+                      button: true,
+                      child: GestureDetector(
+                        onTap: onCancelEdit,
+                        child: const Icon(Icons.close_rounded, size: 14, color: Colors.amber),
+                      ),
                     ),
                   ],
                 ),
               ),
             Padding(
               padding: const EdgeInsets.fromLTRB(8, 6, 12, 12),
-              child: isRecording ? _buildRecordingBar() : _buildNormalInputBar(),
+              child: isRecording ? _buildRecordingBar(context) : _buildNormalInputBar(context),
             ),
           ],
         ),
@@ -144,16 +153,20 @@ class MessageInputBar extends StatelessWidget {
     );
   }
 
-  Widget _buildNormalInputBar() {
+  Widget _buildNormalInputBar(BuildContext context) {
     return Row(children: [
       // Attach button
-      GestureDetector(
-        onTap: onAttach,
-        child: Container(
-          width: 42, height: 42,
-          margin: const EdgeInsets.only(left: 4, right: 4),
-          decoration: BoxDecoration(color: AppTheme.surfaceVariant, shape: BoxShape.circle),
-          child: Icon(Icons.attach_file_rounded, color: AppTheme.textSecondary, size: 20),
+      Semantics(
+        label: context.l10n.inputAttachFile,
+        button: true,
+        child: GestureDetector(
+          onTap: onAttach,
+          child: Container(
+            width: 42, height: 42,
+            margin: const EdgeInsets.only(left: 4, right: 4),
+            decoration: BoxDecoration(color: AppTheme.surfaceVariant, shape: BoxShape.circle),
+            child: Icon(Icons.attach_file_rounded, color: AppTheme.textSecondary, size: 20),
+          ),
         ),
       ),
       Expanded(
@@ -178,7 +191,7 @@ class MessageInputBar extends StatelessWidget {
             maxLines: 5,
             onSubmitted: (_) => onSend(),
             decoration: InputDecoration(
-              hintText: 'Message...',
+              hintText: context.l10n.inputMessage,
               hintStyle: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: 15),
               border: InputBorder.none,
               enabledBorder: InputBorder.none,
@@ -203,30 +216,38 @@ class MessageInputBar extends StatelessWidget {
               child: FadeTransition(opacity: anim, child: child),
             ),
             child: hasText
-                ? GestureDetector(
-                    key: const ValueKey('send'),
-                    onTap: onSend,
-                    onLongPress: onSchedulePicker,
-                    child: Container(
-                      width: 46, height: 46,
-                      decoration: BoxDecoration(
-                        color: AppTheme.primary,
-                        shape: BoxShape.circle,
-                        boxShadow: [BoxShadow(color: AppTheme.primary.withValues(alpha: 0.4), blurRadius: 8, offset: const Offset(0, 3))],
+                ? Semantics(
+                    label: context.l10n.inputSendMessage,
+                    button: true,
+                    child: GestureDetector(
+                      key: const ValueKey('send'),
+                      onTap: onSend,
+                      onLongPress: onSchedulePicker,
+                      child: Container(
+                        width: 46, height: 46,
+                        decoration: BoxDecoration(
+                          color: AppTheme.primary,
+                          shape: BoxShape.circle,
+                          boxShadow: [BoxShadow(color: AppTheme.primary.withValues(alpha: 0.4), blurRadius: 8, offset: const Offset(0, 3))],
+                        ),
+                        child: const Icon(Icons.send_rounded, color: Colors.white, size: 20),
                       ),
-                      child: const Icon(Icons.send_rounded, color: Colors.white, size: 20),
                     ),
                   )
-                : GestureDetector(
-                    key: const ValueKey('mic'),
-                    onTap: onStartRecording,
-                    child: Container(
-                      width: 46, height: 46,
-                      decoration: BoxDecoration(
-                        color: AppTheme.surfaceVariant,
-                        shape: BoxShape.circle,
+                : Semantics(
+                    label: context.l10n.inputRecordVoice,
+                    button: true,
+                    child: GestureDetector(
+                      key: const ValueKey('mic'),
+                      onTap: onStartRecording,
+                      child: Container(
+                        width: 46, height: 46,
+                        decoration: BoxDecoration(
+                          color: AppTheme.surfaceVariant,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(Icons.mic_rounded, color: AppTheme.textSecondary, size: 22),
                       ),
-                      child: Icon(Icons.mic_rounded, color: AppTheme.textSecondary, size: 22),
                     ),
                   ),
           );
@@ -235,19 +256,23 @@ class MessageInputBar extends StatelessWidget {
     ]);
   }
 
-  Widget _buildRecordingBar() {
+  Widget _buildRecordingBar(BuildContext context) {
     return Row(children: [
       // Cancel
-      GestureDetector(
-        onTap: onCancelRecording,
-        child: Container(
-          width: 42, height: 42,
-          margin: const EdgeInsets.only(left: 4, right: 8),
-          decoration: BoxDecoration(
-            color: Colors.red.withValues(alpha: 0.12),
-            shape: BoxShape.circle,
+      Semantics(
+        label: context.l10n.inputCancelRecording,
+        button: true,
+        child: GestureDetector(
+          onTap: onCancelRecording,
+          child: Container(
+            width: 42, height: 42,
+            margin: const EdgeInsets.only(left: 4, right: 8),
+            decoration: BoxDecoration(
+              color: Colors.red.withValues(alpha: 0.12),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.delete_outline_rounded, color: Colors.red, size: 20),
           ),
-          child: const Icon(Icons.delete_outline_rounded, color: Colors.red, size: 20),
         ),
       ),
       Expanded(
@@ -270,7 +295,7 @@ class MessageInputBar extends StatelessWidget {
                     color: Colors.red, fontSize: 16, fontWeight: FontWeight.w600),
               ),
               const SizedBox(width: 10),
-              Text('Recording…',
+              Text(context.l10n.inputRecording,
                   style: GoogleFonts.inter(
                       color: AppTheme.textSecondary, fontSize: 13)),
             ],
@@ -279,16 +304,20 @@ class MessageInputBar extends StatelessWidget {
       ),
       const SizedBox(width: 8),
       // Send voice
-      GestureDetector(
-        onTap: onStopRecording,
-        child: Container(
-          width: 46, height: 46,
-          decoration: BoxDecoration(
-            color: Colors.red,
-            shape: BoxShape.circle,
-            boxShadow: [BoxShadow(color: Colors.red.withValues(alpha: 0.4), blurRadius: 8, offset: const Offset(0, 3))],
+      Semantics(
+        label: context.l10n.inputSendVoice,
+        button: true,
+        child: GestureDetector(
+          onTap: onStopRecording,
+          child: Container(
+            width: 46, height: 46,
+            decoration: BoxDecoration(
+              color: Colors.red,
+              shape: BoxShape.circle,
+              boxShadow: [BoxShadow(color: Colors.red.withValues(alpha: 0.4), blurRadius: 8, offset: const Offset(0, 3))],
+            ),
+            child: const Icon(Icons.send_rounded, color: Colors.white, size: 20),
           ),
-          child: const Icon(Icons.send_rounded, color: Colors.white, size: 20),
         ),
       ),
     ]);

@@ -1,4 +1,6 @@
 import 'dart:convert';
+import 'dart:io' show gzip;
+import 'package:crypto/crypto.dart' as crypto;
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:image/image.dart' as img;
@@ -120,12 +122,15 @@ class MediaService {
       final start = i * _chunkSizeBytes;
       final end = (start + _chunkSizeBytes).clamp(0, bytes.length);
       final chunk = bytes.sublist(start, end);
+      // Per-chunk SHA-256 so receiver can detect bit-flips early.
+      final hash = crypto.sha256.convert(chunk).toString();
       final map = <String, dynamic>{
         't': 'chunk',
         'fid': fileId,
         'idx': i,
         'total': total,
         'd': base64Encode(chunk),
+        'h': hash,
       };
       if (i == 0) {
         map['n'] = safeName;
@@ -191,7 +196,17 @@ class MediaService {
         return null;
       }
 
-      final rawData = base64Decode(b64Field);
+      Uint8List rawData = base64Decode(b64Field);
+
+      // Decompress gzip if the sender set the 'z' flag (voice messages).
+      if (map['z'] == true) {
+        try {
+          rawData = Uint8List.fromList(gzip.decode(rawData));
+        } catch (e) {
+          debugPrint('[MediaService] gzip.decode failed: $e');
+          return null;
+        }
+      }
 
       // Per-type security validation on decoded bytes
       if (type == 'img') {

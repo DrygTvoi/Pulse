@@ -74,6 +74,29 @@ class _GroupCallScreenState extends State<GroupCallScreen> {
     final meshLimit = widget.isVideoCall ? 4 : 6;
     if (total > meshLimit) {
       // ── Jitsi fallback ──────────────────────────────────────────────────
+      // Warn the user before opening Jitsi (not E2EE, opens external browser)
+      if (mounted) {
+        final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('⚠️ Not end-to-end encrypted'),
+            content: const Text(
+              'This call has too many participants for the built-in encrypted mesh.\n\n'
+              'A Jitsi Meet link will be opened in your browser. '
+              'Jitsi is NOT end-to-end encrypted — the server can see your call.',
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+              TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Continue anyway')),
+            ],
+          ),
+        );
+        if (confirmed != true) {
+          if (mounted) Navigator.pop(context);
+          return;
+        }
+      }
+
       final roomId =
           const Uuid().v4().replaceAll('-', '').substring(0, 12);
       if (!mounted) return;

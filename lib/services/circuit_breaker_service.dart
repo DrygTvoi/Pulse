@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Circuit breaker for bridges and relays.
@@ -87,7 +88,9 @@ class CircuitBreakerService {
             tripCount: v['tc'] as int? ?? 0,
           );
         }
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('[CircuitBreaker] Failed to restore state: $e');
+      }
     }
     _loaded = true;
   }

@@ -5,6 +5,7 @@ import '../theme/app_theme.dart';
 import '../models/contact.dart';
 import '../models/message.dart';
 import '../services/connectivity_probe_service.dart';
+import '../controllers/chat_controller.dart';
 import 'avatar_widget.dart';
 
 /// Toast-style banner showing a new message preview (slides in from top).
@@ -145,6 +146,34 @@ class ProbeBanner extends StatelessWidget {
           ),
       ]),
     );
+  }
+}
+
+/// Thin top banner shown when the app has no active relay connection.
+/// Hidden while a connectivity probe is still running (ProbeBanner covers that).
+class OfflineBanner extends StatelessWidget {
+  final ConnectionStatus status;
+  const OfflineBanner({super.key, required this.status});
+
+  @override
+  Widget build(BuildContext context) {
+    if (status != ConnectionStatus.disconnected) return const SizedBox.shrink();
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      color: const Color(0xFF424242), // grey-800
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.cloud_off_rounded, size: 13, color: Colors.white70),
+          const SizedBox(width: 6),
+          Text(
+            'No connection \u2014 messages will queue and send when back online',
+            style: GoogleFonts.inter(color: Colors.white70, fontSize: 11),
+          ),
+        ],
+      ),
+    ).animate().slideY(begin: -1.0, end: 0, duration: 240.ms, curve: Curves.easeOut);
   }
 }
 

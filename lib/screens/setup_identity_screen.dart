@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 import '../models/identity.dart';
+import '../constants.dart';
 import '../theme/app_theme.dart';
 import '../services/signal_service.dart';
 import '../services/key_derivation_service.dart';
@@ -58,8 +59,52 @@ class _SetupIdentityScreenState extends State<SetupIdentityScreen> {
   String? get _passwordError {
     final p = _passwordController.text;
     if (p.isEmpty) return null;
-    if (p.length < 8) return 'Минимум 8 символов';
+    if (p.length < 16) return 'Минимум 16 символов';
     return null;
+  }
+
+  /// Entropy estimate penalizing repetition and requiring character variety.
+  /// Returns effective bits = charset_bits * unique_char_ratio * length.
+  double get _entropyBits {
+    final p = _passwordController.text;
+    if (p.isEmpty) return 0;
+    int charset = 0;
+    if (p.contains(RegExp(r'[a-z]'))) charset += 26;
+    if (p.contains(RegExp(r'[A-Z]'))) charset += 26;
+    if (p.contains(RegExp(r'[0-9]'))) charset += 10;
+    if (p.contains(RegExp(r'[^a-zA-Z0-9]'))) charset += 32;
+    if (charset == 0) charset = 26;
+    // Penalize low uniqueness (repeated characters reduce effective entropy).
+    final uniqueChars = p.split('').toSet().length;
+    final uniqueRatio = uniqueChars / p.length;
+    return p.length * (log(charset) / ln2) * uniqueRatio;
+  }
+
+  /// True if password meets variety requirements (3 of 4 character classes).
+  bool get _hasVariety {
+    final p = _passwordController.text;
+    int classes = 0;
+    if (p.contains(RegExp(r'[a-z]'))) classes++;
+    if (p.contains(RegExp(r'[A-Z]'))) classes++;
+    if (p.contains(RegExp(r'[0-9]'))) classes++;
+    if (p.contains(RegExp(r'[^a-zA-Z0-9]'))) classes++;
+    return classes >= 3;
+  }
+
+  String get _entropyLabel {
+    if (!_hasVariety && _passwordController.text.length >= 16) return 'Слабый (нужно 3 типа символов)';
+    final bits = _entropyBits;
+    if (bits < 50) return 'Слабый';
+    if (bits < 80) return 'Средний';
+    return 'Сильный';
+  }
+
+  Color get _entropyColor {
+    if (!_hasVariety && _passwordController.text.length >= 16) return const Color(0xFFF87171);
+    final bits = _entropyBits;
+    if (bits < 50) return const Color(0xFFF87171);
+    if (bits < 80) return const Color(0xFFFBBF24);
+    return const Color(0xFF34D399);
   }
 
   String? get _confirmError {
@@ -75,7 +120,8 @@ class _SetupIdentityScreenState extends State<SetupIdentityScreen> {
     final conf = _confirmController.text;
     return !_isLoading &&
         name.isNotEmpty &&
-        pass.length >= 8 &&
+        pass.length >= 16 &&
+        _hasVariety &&
         pass == conf;
   }
 
@@ -111,7 +157,7 @@ class _SetupIdentityScreenState extends State<SetupIdentityScreen> {
     final realPubKey   = base64Encode(
         Uint8List.fromList(List<int>.from(bundle['identityKey'])));
 
-    const relay = 'wss://relay.damus.io';
+    final relay = kDefaultNostrRelay;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('nostr_relay', relay);
 
@@ -254,7 +300,7 @@ class _SetupIdentityScreenState extends State<SetupIdentityScreen> {
               // Password field
               _buildField(
                 controller: _passwordController,
-                hint: 'Пароль восстановления',
+                hint: 'Пароль восстановления (мин. 16)',
                 icon: Icons.lock_outline_rounded,
                 obscure: !_showPassword,
                 errorText: _passwordError,
@@ -270,6 +316,29 @@ class _SetupIdentityScreenState extends State<SetupIdentityScreen> {
                       setState(() => _showPassword = !_showPassword),
                 ),
               ),
+              if (_passwordController.text.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 6, left: 4),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 8, height: 8,
+                        decoration: BoxDecoration(
+                          color: _entropyColor,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        '$_entropyLabel (${_entropyBits.round()} бит)',
+                        style: GoogleFonts.inter(
+                          fontSize: 11,
+                          color: _entropyColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               const SizedBox(height: 14),
 
               // Confirm field

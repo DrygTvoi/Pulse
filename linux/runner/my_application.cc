@@ -62,7 +62,7 @@ static void my_application_activate(GApplication* application) {
     if (len > 0) {
       gchar* dir = g_path_get_dirname(exe_path);
       gchar* icon_path = g_build_filename(
-          dir, "data", "flutter_assets", "assets", "icons", "aegis.png", nullptr);
+          dir, "data", "flutter_assets", "assets", "icons", "pulse.png", nullptr);
       GdkPixbuf* icon = gdk_pixbuf_new_from_file(icon_path, nullptr);
       if (icon) {
         gtk_window_set_icon(window, icon);

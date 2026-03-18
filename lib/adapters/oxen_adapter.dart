@@ -6,7 +6,6 @@ import 'package:http/http.dart' as http;
 import 'package:http/io_client.dart';
 import '../models/message.dart';
 import '../services/oxen_key_service.dart';
-import '../services/tor_service.dart' as tor;
 import 'inbox_manager.dart';
 
 // Session network seed nodes — clearnet, standard TLS.
@@ -20,7 +19,9 @@ const _seedNodes = [
 const _ttlMs = 14 * 24 * 60 * 60 * 1000; // 14-day TTL (Session standard)
 
 // Snodes use self-signed certificates — accepted because payload is already
-// Signal-encrypted E2E. When Tor is running, connections are tunneled through it.
+// Signal-encrypted E2E.  Session has built-in onion routing (multi-hop via
+// snodes), so we never tunnel snode traffic through external proxies (Tor,
+// Psiphon, etc.) — SOCKS5 proxies fail on snode connections.
 http.Client _newSnodeClient() {
   final inner = HttpClient()..badCertificateCallback = (cert, host, port) => true;
   return IOClient(inner);
@@ -28,8 +29,9 @@ http.Client _newSnodeClient() {
 
 /// Discover active snodes from Session seed nodes.
 /// Returns a list of "https://ip:port" strings, or empty on failure.
+/// Always uses direct clearnet — Session snodes have built-in onion routing.
 Future<List<String>> _discoverSnodes() async {
-  final client = tor.buildTorHttpClient() ?? http.Client();
+  final client = _newSnodeClient();
   try {
   for (final seed in _seedNodes) {
     try {
@@ -96,20 +98,17 @@ class OxenInboxReader implements InboxReader {
   int _consecutiveFailures = 0;
   bool _isHealthy = true;
   static const _failureThreshold = 5;
+  static const _maxConsecutiveFailures = 30;
 
-  // ── Persistent HTTP client — reused across polls; rebuilt when Tor status changes
+  /// True when the poll loop stopped after [_maxConsecutiveFailures] failures.
+  bool get circuitBroken => _circuitBroken;
+  bool _circuitBroken = false;
+
+  // Session snodes have built-in onion routing — always direct, no proxy.
   http.Client? _httpClient;
-  bool _torActive = false;
 
   http.Client get _client {
-    final torNow = tor.TorService.instance.isRunning;
-    if (_httpClient == null || torNow != _torActive) {
-      _httpClient?.close();
-      _torActive = torNow;
-      _httpClient = torNow
-          ? (tor.buildTorHttpClient(acceptBadCertificate: true) ?? _newSnodeClient())
-          : _newSnodeClient();
-    }
+    _httpClient ??= _newSnodeClient();
     return _httpClient!;
   }
 
@@ -139,14 +138,17 @@ class OxenInboxReader implements InboxReader {
   }
 
   Future<void> _runLoop() async {
-    // If using discovery, fetch snodes first
+    // If using discovery, fetch snodes first (bounded retries)
     if (_usingDiscovery) {
-      _snodes = await _discoverSnodes();
-      if (_snodes.isEmpty) {
-        debugPrint('[Oxen] No snodes discovered — check network connectivity');
-        // Retry discovery after 60s
+      for (int attempt = 0; attempt < 10; attempt++) {
+        _snodes = await _discoverSnodes();
+        if (_snodes.isNotEmpty) break;
+        debugPrint('[Oxen] No snodes discovered (attempt ${attempt + 1}/10)');
         await Future.delayed(const Duration(seconds: 60));
-        unawaited(_runLoop());
+      }
+      if (_snodes.isEmpty) {
+        debugPrint('[Oxen] Discovery failed after 10 attempts — stopping');
+        _circuitBroken = true;
         return;
       }
       _nodeUrl = _snodes[_snodeIndex];
@@ -178,7 +180,15 @@ class OxenInboxReader implements InboxReader {
           _isHealthy = false;
           _healthCtrl.add(false);
         }
-        _pollDelay = (_pollDelay * 2).clamp(2, 30);
+        if (_consecutiveFailures >= _maxConsecutiveFailures) {
+          debugPrint('[Oxen] Max retries ($_maxConsecutiveFailures) reached, stopping');
+          _circuitBroken = true;
+          break;
+        }
+        // Tiered delay: 5s for first 5 failures, 30s up to 15, then 5min
+        _pollDelay = (_consecutiveFailures < 5) ? 5
+            : (_consecutiveFailures < 15) ? 30
+            : 300;
       }
       await Future.delayed(Duration(seconds: _pollDelay));
     }
@@ -190,20 +200,23 @@ class OxenInboxReader implements InboxReader {
     final sigBytes = await OxenKeyService.instance.sign(utf8.encode(msg));
     final sig = base64.encode(sigBytes);
 
-    final res = await _client.post(
-      Uri.parse('$_nodeUrl/storage_rpc/v1'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'method': 'retrieve',
-        'params': {
-          'pubkey': _sessionId,
-          'last_hash': _lastHash,
-          'timestamp': tsMs,
-          'signature': sig,
-        },
-      }),
-    ).timeout(const Duration(seconds: 10));
+    final jsonBody = jsonEncode({
+      'method': 'retrieve',
+      'params': {
+        'pubkey': _sessionId,
+        'last_hash': _lastHash,
+        'timestamp': tsMs,
+        'signature': sig,
+      },
+    });
 
+    final url = '$_nodeUrl/storage_rpc/v1';
+
+    final res = await _client.post(
+      Uri.parse(url),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonBody,
+    ).timeout(const Duration(seconds: 10));
     if (res.statusCode != 200) return;
 
     final data = jsonDecode(res.body) as Map<String, dynamic>;
@@ -266,16 +279,19 @@ class OxenInboxReader implements InboxReader {
   Future<Map<String, dynamic>?> fetchPublicKeys() async {
     if (_nodeUrl.isEmpty) return null;
     try {
-      final res = await _client.post(
-        Uri.parse('$_nodeUrl/storage_rpc/v1'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'method': 'retrieve',
-          'params': {'pubkey': _sessionId, 'last_hash': ''},
-        }),
-      ).timeout(const Duration(seconds: 10));
+      final jsonBody = jsonEncode({
+        'method': 'retrieve',
+        'params': {'pubkey': _sessionId, 'last_hash': ''},
+      });
+      final url = '$_nodeUrl/storage_rpc/v1';
 
+      final res = await _client.post(
+        Uri.parse(url),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonBody,
+      ).timeout(const Duration(seconds: 10));
       if (res.statusCode != 200) return null;
+
       final data = jsonDecode(res.body) as Map<String, dynamic>;
       final result = data['result'] as Map<String, dynamic>? ?? {};
       final messages =
@@ -291,7 +307,9 @@ class OxenInboxReader implements InboxReader {
             final p = outer['payload'];
             if (p is Map<String, dynamic>) return p;
           }
-        } catch (_) {}
+        } catch (e) {
+          debugPrint('[Oxen] fetchPublicKeys item parse error: $e');
+        }
       }
     } catch (e) {
       debugPrint('[Oxen] fetchPublicKeys error: $e');
@@ -310,19 +328,11 @@ class OxenMessageSender implements MessageSender {
   String _selfSessionId = '';
   List<String> _snodes = [];
 
-  // ── Persistent HTTP client — reused across stores; rebuilt when Tor status changes
+  // Session snodes have built-in onion routing — always direct, no proxy.
   http.Client? _httpClient;
-  bool _torActive = false;
 
   http.Client get _client {
-    final torNow = tor.TorService.instance.isRunning;
-    if (_httpClient == null || torNow != _torActive) {
-      _httpClient?.close();
-      _torActive = torNow;
-      _httpClient = torNow
-          ? (tor.buildTorHttpClient(acceptBadCertificate: true) ?? _newSnodeClient())
-          : _newSnodeClient();
-    }
+    _httpClient ??= _newSnodeClient();
     return _httpClient!;
   }
 
@@ -356,18 +366,21 @@ class OxenMessageSender implements MessageSender {
       String node, String recipientSessionId, Map<String, dynamic> body) async {
     try {
       final payload = base64.encode(utf8.encode(jsonEncode(body)));
+      final jsonBody = jsonEncode({
+        'method': 'store',
+        'params': {
+          'pubkey': recipientSessionId,
+          'ttl': _ttlMs,
+          'timestamp': DateTime.now().millisecondsSinceEpoch,
+          'data': payload,
+        },
+      });
+      final url = '$node/storage_rpc/v1';
+
       final res = await _client.post(
-        Uri.parse('$node/storage_rpc/v1'),
+        Uri.parse(url),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'method': 'store',
-          'params': {
-            'pubkey': recipientSessionId,
-            'ttl': _ttlMs,
-            'timestamp': DateTime.now().millisecondsSinceEpoch,
-            'data': payload,
-          },
-        }),
+        body: jsonBody,
       ).timeout(const Duration(seconds: 10));
       return res.statusCode == 200;
     } catch (e) {

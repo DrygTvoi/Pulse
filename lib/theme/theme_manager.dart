@@ -144,16 +144,35 @@ class ThemeNotifier extends ChangeNotifier {
     final acc         = _customAccent  ?? (isDark ? const Color(0xFF53BDEB) : const Color(0xFF027EB5));
 
     final base = isDark ? ThemeData.dark(useMaterial3: false) : ThemeData.light(useMaterial3: false);
-    final textTheme = GoogleFonts.interTextTheme(base.textTheme).copyWith(
-      displayLarge:  GoogleFonts.inter(color: txtPrimary,   fontWeight: FontWeight.bold, fontSize: 32),
-      displayMedium: GoogleFonts.inter(color: txtPrimary,   fontWeight: FontWeight.bold, fontSize: 26),
-      titleLarge:    GoogleFonts.inter(color: txtPrimary,   fontWeight: FontWeight.w600, fontSize: 20),
-      titleMedium:   GoogleFonts.inter(color: txtPrimary,   fontWeight: FontWeight.w500, fontSize: 17),
-      titleSmall:    GoogleFonts.inter(color: txtSecondary, fontWeight: FontWeight.w500, fontSize: 14),
-      bodyLarge:     GoogleFonts.inter(color: txtPrimary,   fontSize: 16, height: 1.4),
-      bodyMedium:    GoogleFonts.inter(color: txtSecondary, fontSize: 14, height: 1.4),
-      bodySmall:     GoogleFonts.inter(color: txtSecondary, fontSize: 12),
-      labelLarge:    GoogleFonts.inter(color: txtPrimary,   fontWeight: FontWeight.w600, fontSize: 16),
+    TextStyle Function({TextStyle? textStyle}) fontFn;
+    TextTheme Function(TextTheme) themeFn;
+    switch (_fontFamily) {
+      case 'Roboto':
+        fontFn = ({TextStyle? textStyle}) => GoogleFonts.roboto(textStyle: textStyle);
+        themeFn = GoogleFonts.robotoTextTheme;
+        break;
+      case 'Fira Code':
+        fontFn = ({TextStyle? textStyle}) => GoogleFonts.firaCode(textStyle: textStyle);
+        themeFn = GoogleFonts.firaCodeTextTheme;
+        break;
+      case 'Outfit':
+        fontFn = ({TextStyle? textStyle}) => GoogleFonts.outfit(textStyle: textStyle);
+        themeFn = GoogleFonts.outfitTextTheme;
+        break;
+      default:
+        fontFn = ({TextStyle? textStyle}) => GoogleFonts.inter(textStyle: textStyle);
+        themeFn = GoogleFonts.interTextTheme;
+    }
+    final textTheme = themeFn(base.textTheme).copyWith(
+      displayLarge:  fontFn(textStyle: TextStyle(color: txtPrimary,   fontWeight: FontWeight.bold, fontSize: 32)),
+      displayMedium: fontFn(textStyle: TextStyle(color: txtPrimary,   fontWeight: FontWeight.bold, fontSize: 26)),
+      titleLarge:    fontFn(textStyle: TextStyle(color: txtPrimary,   fontWeight: FontWeight.w600, fontSize: 20)),
+      titleMedium:   fontFn(textStyle: TextStyle(color: txtPrimary,   fontWeight: FontWeight.w500, fontSize: 17)),
+      titleSmall:    fontFn(textStyle: TextStyle(color: txtSecondary, fontWeight: FontWeight.w500, fontSize: 14)),
+      bodyLarge:     fontFn(textStyle: TextStyle(color: txtPrimary,   fontSize: 16, height: 1.4)),
+      bodyMedium:    fontFn(textStyle: TextStyle(color: txtSecondary, fontSize: 14, height: 1.4)),
+      bodySmall:     fontFn(textStyle: TextStyle(color: txtSecondary, fontSize: 12)),
+      labelLarge:    fontFn(textStyle: TextStyle(color: txtPrimary,   fontWeight: FontWeight.w600, fontSize: 16)),
     );
 
     return ThemeData(
@@ -177,7 +196,7 @@ class ThemeNotifier extends ChangeNotifier {
         elevation: 0,
         centerTitle: false,
         iconTheme: IconThemeData(color: txtSecondary),
-        titleTextStyle: GoogleFonts.inter(color: txtPrimary, fontSize: 19, fontWeight: FontWeight.w600),
+        titleTextStyle: fontFn(textStyle: TextStyle(color: txtPrimary, fontSize: 19, fontWeight: FontWeight.w600)),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
@@ -185,21 +204,21 @@ class ThemeNotifier extends ChangeNotifier {
           foregroundColor: Colors.white,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_borderRadius)),
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-          textStyle: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 16),
+          textStyle: fontFn(textStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
           elevation: 0,
         ),
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
           foregroundColor: pri,
-          textStyle: GoogleFonts.inter(fontWeight: FontWeight.w500, fontSize: 15),
+          textStyle: fontFn(textStyle: const TextStyle(fontWeight: FontWeight.w500, fontSize: 15)),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: surfVar,
-        hintStyle: GoogleFonts.inter(color: txtSecondary, fontSize: 15),
-        labelStyle: GoogleFonts.inter(color: txtSecondary, fontSize: 15),
+        hintStyle: fontFn(textStyle: TextStyle(color: txtSecondary, fontSize: 15)),
+        labelStyle: fontFn(textStyle: TextStyle(color: txtSecondary, fontSize: 15)),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(_borderRadius),
           borderSide: BorderSide.none,

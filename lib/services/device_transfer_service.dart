@@ -247,7 +247,9 @@ class DeviceTransferService {
           if (!addr.isLoopback) return addr.address;
         }
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[DeviceTransfer] Failed to get local IP: $e');
+    }
     return '127.0.0.1';
   }
 

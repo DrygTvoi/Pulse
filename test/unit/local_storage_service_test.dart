@@ -219,13 +219,13 @@ void main() {
         );
       }
 
-      // pageSize=3, offset=0 → last 3 (p2, p3, p4) in ascending order
+      // pageSize=3, no cursor → last 3 (p2, p3, p4) in ascending order
       final page = await LocalStorageService().loadMessagesPage(room, pageSize: 3);
       expect(page.map((m) => m['id']).toList(), ['p2', 'p3', 'p4']);
     });
 
-    test('offset skips already-loaded tail and returns older messages', () async {
-      const room = 'r_page_offset';
+    test('cursor-based pagination returns older messages', () async {
+      const room = 'r_page_cursor';
       await LocalStorageService().clearHistory(room);
 
       final base = DateTime(2024, 1, 1);
@@ -237,11 +237,14 @@ void main() {
       }
 
       // First load: last 3 → o3,o4,o5
-      final page1 = await LocalStorageService().loadMessagesPage(room, pageSize: 3, offset: 0);
-      // Second load: skip 3, next 3 → o0,o1,o2
-      final page2 = await LocalStorageService().loadMessagesPage(room, pageSize: 3, offset: 3);
-
+      final page1 = await LocalStorageService().loadMessagesPage(room, pageSize: 3);
       expect(page1.map((m) => m['id']).toList(), ['o3', 'o4', 'o5']);
+
+      // Second load: cursor = oldest timestamp from page1 (o3's timestamp)
+      final cursor = page1.first['timestamp'] as int;
+      final page2 = await LocalStorageService().loadMessagesPage(
+        room, pageSize: 3, beforeTimestamp: cursor,
+      );
       expect(page2.map((m) => m['id']).toList(), ['o0', 'o1', 'o2']);
     });
 
@@ -262,14 +265,17 @@ void main() {
       expect(await LocalStorageService().loadMessagesPage(room), isEmpty);
     });
 
-    test('offset beyond total returns empty list', () async {
-      const room = 'r_page_overoffset';
+    test('cursor before all messages returns empty list', () async {
+      const room = 'r_page_overcursor';
       await LocalStorageService().clearHistory(room);
 
       await LocalStorageService().saveMessage(room, _msg(id: 'oo1', roomId: room));
       await LocalStorageService().saveMessage(room, _msg(id: 'oo2', roomId: room));
 
-      final page = await LocalStorageService().loadMessagesPage(room, pageSize: 10, offset: 100);
+      // Use a cursor older than any stored message
+      final page = await LocalStorageService().loadMessagesPage(
+        room, pageSize: 10, beforeTimestamp: 0,
+      );
       expect(page, isEmpty);
     });
   });

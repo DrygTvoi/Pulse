@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../models/message.dart';
+import '../services/psiphon_service.dart' as psiphon;
 import '../services/tor_service.dart' as tor;
 import '../services/waku_discovery_service.dart';
 import 'inbox_manager.dart';
@@ -50,18 +51,30 @@ class WakuInboxReader implements InboxReader {
   bool _isHealthy = true;
   static const _failureThreshold = 3;
 
-  // ── Persistent HTTP client — reused across polls; rebuilt when Tor status changes
+  // Circuit breaker — stops infinite retries on persistent failures
+  int _consecutiveLoopFailures = 0;
+  static const _maxConsecutiveFailures = 30;
+
+  /// True when the poll loop stopped after [_maxConsecutiveFailures] failures.
+  bool get circuitBroken => _circuitBroken;
+  bool _circuitBroken = false;
+
+  // ── Persistent HTTP client — reused across polls; rebuilt when proxy status changes
   http.Client? _httpClient;
-  bool _torActive = false;
+  bool _proxyActive = false;
 
   http.Client get _client {
-    final torNow = tor.TorService.instance.isRunning;
-    if (_httpClient == null || torNow != _torActive) {
+    final psiphonNow = psiphon.PsiphonService.instance.isRunning;
+    final torNow = tor.TorService.instance.isBootstrapped;
+    final proxyNow = psiphonNow || torNow;
+    if (_httpClient == null || proxyNow != _proxyActive) {
       _httpClient?.close();
-      _torActive = torNow;
-      _httpClient = torNow
-          ? (tor.buildTorHttpClient() ?? http.Client())
-          : http.Client();
+      _proxyActive = proxyNow;
+      _httpClient = psiphonNow
+          ? (psiphon.buildPsiphonHttpClient() ?? http.Client())
+          : torNow
+              ? (tor.buildTorHttpClient() ?? http.Client())
+              : http.Client();
     }
     return _httpClient!;
   }
@@ -99,7 +112,9 @@ class WakuInboxReader implements InboxReader {
         // Empty string or missing = auto-discover
         if (nodeUrl != null && nodeUrl.isNotEmpty) _nodeUrl = nodeUrl;
         if ((m['userId'] as String?)?.isNotEmpty == true) _userId = m['userId'] as String;
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('[Waku] Failed to parse apiKey JSON: $e');
+      }
     }
   }
 
@@ -117,16 +132,31 @@ class WakuInboxReader implements InboxReader {
         await _subscribe();
         if (_subscribed) {
           _subscribeFailures = 0;
+          _consecutiveLoopFailures = 0; // circuit breaker: reset on success
           if (!_isHealthy && !_healthCtrl.isClosed) {
             _isHealthy = true;
             _healthCtrl.add(true);
           }
         } else {
           _subscribeFailures++;
+          _consecutiveLoopFailures++;
           if (_subscribeFailures >= _failureThreshold && _isHealthy && !_healthCtrl.isClosed) {
             _isHealthy = false;
             _healthCtrl.add(false);
           }
+          if (_consecutiveLoopFailures >= _maxConsecutiveFailures) {
+            debugPrint('[Waku] Max retries ($_maxConsecutiveFailures) reached, stopping');
+            _circuitBroken = true;
+            break;
+          }
+          // Tiered delay: 5s for first 5 failures, 30s up to 15, then 5min
+          final delay = Duration(seconds:
+              (_consecutiveLoopFailures < 5) ? 5
+              : (_consecutiveLoopFailures < 15) ? 30
+              : 300);
+          debugPrint('[Waku] Subscribe retry in ${delay.inSeconds}s (failure $_consecutiveLoopFailures/$_maxConsecutiveFailures)');
+          await Future.delayed(delay);
+          continue;
         }
       }
       if (_subscribed) {
@@ -134,6 +164,7 @@ class WakuInboxReader implements InboxReader {
           _pollTopic(_msgTopic(_userId), _dispatchMessage),
           _pollTopic(_sigTopic(_userId), _dispatchSignal),
         ]);
+        _consecutiveLoopFailures = 0; // reset on successful poll cycle
       }
       await Future.delayed(const Duration(milliseconds: 500));
     }
@@ -181,7 +212,9 @@ class WakuInboxReader implements InboxReader {
         }
         handler(msg);
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[Waku] Poll response parse error: $e');
+    }
   }
 
   void _dispatchMessage(Map<String, dynamic> msg) {
@@ -214,7 +247,13 @@ class WakuInboxReader implements InboxReader {
 
   void _dispatchSignal(Map<String, dynamic> msg) {
     try {
-      final payloadBytes = base64.decode(msg['payload'] as String);
+      final payloadB64 = msg['payload'] as String? ?? '';
+      if (payloadB64.isEmpty) return;
+      if (payloadB64.length > 700000) {
+        debugPrint('[Waku] Oversized signal payload (${payloadB64.length} chars) — dropped');
+        return;
+      }
+      final payloadBytes = base64.decode(payloadB64);
       final data = jsonDecode(utf8.decode(payloadBytes)) as Map<String, dynamic>;
       _sigCtrl.add([{
         'type': data['type'],
@@ -250,7 +289,9 @@ class WakuInboxReader implements InboxReader {
       final data = jsonDecode(res.body) as Map<String, dynamic>;
       final msgs = (data['messages'] as List?)?.cast<Map<String, dynamic>>() ?? [];
       if (msgs.isEmpty) return null;
-      final payloadBytes = base64.decode(msgs.first['payload'] as String);
+      final firstPayloadB64 = msgs.first['payload'] as String? ?? '';
+      if (firstPayloadB64.isEmpty) return null;
+      final payloadBytes = base64.decode(firstPayloadB64);
       return jsonDecode(utf8.decode(payloadBytes)) as Map<String, dynamic>;
     } catch (e) {
       debugPrint('[Waku] fetchPublicKeys error: $e');
@@ -269,18 +310,22 @@ class WakuMessageSender implements MessageSender {
   String _nodeUrl = _autoDiscoverSentinel;
   String _userId = '';
 
-  // ── Persistent HTTP client — reused across publishes; rebuilt when Tor status changes
+  // ── Persistent HTTP client — reused across publishes; rebuilt when proxy status changes
   http.Client? _httpClient;
-  bool _torActive = false;
+  bool _proxyActive = false;
 
   http.Client get _client {
-    final torNow = tor.TorService.instance.isRunning;
-    if (_httpClient == null || torNow != _torActive) {
+    final psiphonNow = psiphon.PsiphonService.instance.isRunning;
+    final torNow = tor.TorService.instance.isBootstrapped;
+    final proxyNow = psiphonNow || torNow;
+    if (_httpClient == null || proxyNow != _proxyActive) {
       _httpClient?.close();
-      _torActive = torNow;
-      _httpClient = torNow
-          ? (tor.buildTorHttpClient() ?? http.Client())
-          : http.Client();
+      _proxyActive = proxyNow;
+      _httpClient = psiphonNow
+          ? (psiphon.buildPsiphonHttpClient() ?? http.Client())
+          : torNow
+              ? (tor.buildTorHttpClient() ?? http.Client())
+              : http.Client();
     }
     return _httpClient!;
   }
@@ -293,7 +338,9 @@ class WakuMessageSender implements MessageSender {
         final nodeUrl = m['nodeUrl'] as String?;
         if (nodeUrl != null && nodeUrl.isNotEmpty) _nodeUrl = nodeUrl;
         if ((m['userId'] as String?)?.isNotEmpty == true) _userId = m['userId'] as String;
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('[Waku] Sender failed to parse apiKey JSON: $e');
+      }
     }
     if (_nodeUrl == _autoDiscoverSentinel) {
       _nodeUrl = await WakuDiscoveryService.instance.discoverBestNode();
@@ -313,7 +360,9 @@ class WakuMessageSender implements MessageSender {
         debugPrint('[Waku] Sender switched to: $_nodeUrl');
         return _tryPublish(_nodeUrl, contentTopic, jsonPayload);
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[Waku] Publish fallback node discovery failed: $e');
+    }
     return false;
   }
 

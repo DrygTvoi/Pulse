@@ -5,21 +5,22 @@ import 'package:flutter/foundation.dart';
 import 'bundled_binary_service.dart';
 
 /// Manages the `pulse-utls-proxy` subprocess — a local HTTP CONNECT proxy
-/// that uses Chrome's TLS fingerprint (via the Go uTLS library) for all
-/// upstream connections.
+/// with full anti-GFW stack:
 ///
-/// This defeats DPI systems (GFW, Iranian DPI) that block traffic by
-/// identifying Dart's distinctive TLS ClientHello fingerprint.
+///   - ECH (Encrypted Client Hello) — hides real SNI from DPI
+///   - ECH retry configs — auto-recovers on ECH key rotation
+///   - TLS fingerprint rotation — Chrome/Firefox/Edge/Safari/Randomized
+///   - DoH resolution — bypasses DNS poisoning (7 providers)
+///   - Probe resistance — looks like nginx on non-CONNECT
 ///
 /// Usage:
 ///   await UTLSService.instance.ensureRunning();
-///   final client = UTLSService.instance.buildHttpClient();
-///   if (client != null) {
-///     final ws = await WebSocket.connect(url, customClient: client);
-///   }
+///   final port = UTLSService.instance.proxyPort;
+///   // Dart sends CONNECT host:443 → Go proxy handles TLS+ECH+DoH
 ///
+/// Auto-restarts on crash with exponential backoff (1s, 2s, 4s, max 30s).
 /// Falls back gracefully: if the binary is unavailable, ensureRunning() is a
-/// no-op and buildHttpClient() returns null — callers use plain dart:io TLS.
+/// no-op and proxyPort returns null — callers fall through to Tor/plain.
 class UTLSService {
   static final instance = UTLSService._();
   UTLSService._();
@@ -27,6 +28,14 @@ class UTLSService {
   Process? _process;
   int? _port;
   bool _starting = false;
+  bool _stopped = false; // true when stop() called explicitly
+  int _restartCount = 0;
+  static const _maxRestartDelay = 30; // seconds
+
+  /// True when the uTLS proxy binary was successfully extracted and started.
+  /// False if the binary is missing (e.g. unsupported platform) — callers can
+  /// show a "No ECH" warning chip to inform the user.
+  final ValueNotifier<bool> available = ValueNotifier<bool>(false);
 
   bool get isRunning => _process != null && _port != null;
 
@@ -36,6 +45,7 @@ class UTLSService {
   /// Safe to call multiple times — idempotent.
   Future<void> ensureRunning() async {
     if (isRunning || _starting) return;
+    _stopped = false;
     _starting = true;
     try {
       await _start();
@@ -57,6 +67,7 @@ class UTLSService {
   int? get proxyPort => _port;
 
   Future<void> stop() async {
+    _stopped = true;
     _process?.kill();
     await _process?.exitCode.catchError((_) => -1);
     _process = null;
@@ -71,6 +82,7 @@ class UTLSService {
         await BundledBinaryService.extract('pulse-utls-proxy');
     if (binaryPath == null) {
       debugPrint('[UTLSService] pulse-utls-proxy not available — skipping uTLS');
+      available.value = false;
       return;
     }
 
@@ -93,12 +105,27 @@ class UTLSService {
       _process!.stderr
           .transform(utf8.decoder)
           .transform(const LineSplitter())
-          .listen((line) => debugPrint('[uTLS:err] $line'));
+          .listen((line) => debugPrint('[uTLS] $line'));
 
+      // Auto-restart on unexpected exit
       _process!.exitCode.then((_) {
         _process = null;
         _port = null;
-        debugPrint('[UTLSService] proxy exited');
+        available.value = false;
+        if (!_stopped) {
+          // Exponential backoff: 1s, 2s, 4s, 8s... max 30s
+          final delay = (_restartCount < 5)
+              ? (1 << _restartCount)
+              : _maxRestartDelay;
+          _restartCount++;
+          debugPrint('[UTLSService] proxy crashed — restarting in ${delay}s '
+              '(attempt $_restartCount)');
+          Future.delayed(Duration(seconds: delay), () {
+            if (!_stopped) ensureRunning();
+          });
+        } else {
+          debugPrint('[UTLSService] proxy exited (explicit stop)');
+        }
       });
 
       _port = await portCompleter.future
@@ -106,8 +133,12 @@ class UTLSService {
 
       if (_port == null) {
         await stop();
+        _stopped = false; // allow auto-restart after timeout
+        available.value = false;
         debugPrint('[UTLSService] timed out waiting for port');
       } else {
+        _restartCount = 0; // reset on successful start
+        available.value = true;
         debugPrint('[UTLSService] proxy running on 127.0.0.1:$_port');
       }
     } catch (e) {

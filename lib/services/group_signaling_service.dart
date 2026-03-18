@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
+import '../constants.dart';
 import '../adapters/inbox_manager.dart';
 import '../adapters/firebase_adapter.dart';
 import 'call_transport.dart';
@@ -92,53 +94,57 @@ class GroupSignalingService {
 
   void _listenForSignals() {
     _signalSub = ChatController().signalStream.listen((sig) async {
-      final type = sig['type'] as String?;
-      if (type == null) return;
-      if (type != 'webrtc_offer' && type != 'webrtc_answer' && type != 'webrtc_candidate') return;
-
-      // Group signals carry groupId UNENCRYPTED for routing without decryption
-      final raw = sig['payload'];
-      if (raw is! Map<String, dynamic>) return;
-
-      // 1. Fast-path group check — no decryption needed
-      if (raw['groupId'] != group.id) return;
-
-      // 2. Identify sender — needed to pick the correct Signal session
-      final fromId = sig['senderId'] as String? ?? '';
-      final Contact? member = members.cast<Contact?>().firstWhere(
-        (m) => m?.databaseId == fromId || m?.databaseId.split('@').first == fromId,
-        orElse: () => null,
-      );
-      if (member == null) return;
-
-      // 3. Decrypt with the member's databaseId (Signal session key)
-      Map<String, dynamic> payload;
       try {
-        final encrypted = raw['e2ee'] as String?;
-        if (encrypted != null) {
-          final plain = await SignalService().decryptMessage(member.databaseId, encrypted);
-          payload = jsonDecode(plain) as Map<String, dynamic>;
-        } else {
-          payload = raw;
+        final type = sig['type'] as String?;
+        if (type == null) return;
+        if (type != 'webrtc_offer' && type != 'webrtc_answer' && type != 'webrtc_candidate') return;
+
+        // Group signals carry groupId UNENCRYPTED for routing without decryption
+        final raw = sig['payload'];
+        if (raw is! Map<String, dynamic>) return;
+
+        // 1. Fast-path group check — no decryption needed
+        if (raw['groupId'] != group.id) return;
+
+        // 2. Identify sender — needed to pick the correct Signal session
+        final fromId = sig['senderId'] as String? ?? '';
+        final Contact? member = members.cast<Contact?>().firstWhere(
+          (m) => m?.databaseId == fromId || m?.databaseId.split('@').first == fromId,
+          orElse: () => null,
+        );
+        if (member == null) return;
+
+        // 3. Decrypt with the member's databaseId (Signal session key)
+        Map<String, dynamic> payload;
+        try {
+          final encrypted = raw['e2ee'] as String?;
+          if (encrypted != null) {
+            final plain = await SignalService().decryptMessage(member.databaseId, encrypted);
+            payload = jsonDecode(plain) as Map<String, dynamic>;
+          } else {
+            payload = raw;
+          }
+        } catch (_) {
+          return;
         }
-      } catch (_) {
-        return;
-      }
 
-      final pc = _peers[member.id];
-      if (pc == null) return;
+        final pc = _peers[member.id];
+        if (pc == null) return;
 
-      final data = payload['data'] as Map<String, dynamic>? ?? {};
+        final data = payload['data'] as Map<String, dynamic>? ?? {};
 
-      if (type == 'webrtc_offer') {
-        await pc.setRemoteDescription(RTCSessionDescription(data['sdp'], data['type']));
-        final answer = await pc.createAnswer();
-        await pc.setLocalDescription(answer);
-        await _sendSignal(member, 'webrtc_answer', answer.toMap());
-      } else if (type == 'webrtc_answer') {
-        await pc.setRemoteDescription(RTCSessionDescription(data['sdp'], data['type']));
-      } else if (type == 'webrtc_candidate') {
-        await pc.addCandidate(RTCIceCandidate(data['candidate'], data['sdpMid'], data['sdpMLineIndex']));
+        if (type == 'webrtc_offer') {
+          await pc.setRemoteDescription(RTCSessionDescription(data['sdp'], data['type']));
+          final answer = await pc.createAnswer();
+          await pc.setLocalDescription(answer);
+          await _sendSignal(member, 'webrtc_answer', answer.toMap());
+        } else if (type == 'webrtc_answer') {
+          await pc.setRemoteDescription(RTCSessionDescription(data['sdp'], data['type']));
+        } else if (type == 'webrtc_candidate') {
+          await pc.addCandidate(RTCIceCandidate(data['candidate'], data['sdpMid'], data['sdpMLineIndex']));
+        }
+      } catch (e) {
+        debugPrint('[GroupSignaling] Signal handler error: $e');
       }
     });
   }
@@ -148,8 +154,16 @@ class GroupSignalingService {
     final identityJson = prefs.getString('user_identity');
     if (identityJson == null) return;
 
-    final identityData = jsonDecode(identityJson);
-    final adapterConfig = identityData['adapterConfig'] as Map<String, dynamic>;
+    final dynamic identityData;
+    try {
+      identityData = jsonDecode(identityJson);
+    } catch (e) {
+      debugPrint('[GroupSignaling] Failed to parse identity: $e');
+      return;
+    }
+    final adapterConfig = (identityData is Map<String, dynamic>
+        ? identityData['adapterConfig'] as Map<String, dynamic>?
+        : null) ?? {};
     final ourApiKey = adapterConfig['token'] as String? ?? '';
 
     // Wrap payload with groupId for routing
@@ -167,11 +181,11 @@ class GroupSignalingService {
     }
 
     if (target.provider == 'Firebase') {
-      InboxManager().addSenderPlugin('Firebase', FirebaseInboxSender(), ourApiKey);
+      await InboxManager().addSenderPlugin('Firebase', FirebaseInboxSender(), ourApiKey);
     } else if (target.provider == 'Nostr') {
       final privkey = await _secureStorage.read(key: 'nostr_privkey') ?? '';
-      final relay = prefs.getString('nostr_relay') ?? 'wss://relay.damus.io';
-      InboxManager().addSenderPlugin('Nostr', NostrMessageSender(),
+      final relay = prefs.getString('nostr_relay') ?? kDefaultNostrRelay;
+      await InboxManager().addSenderPlugin('Nostr', NostrMessageSender(),
           jsonEncode({'privkey': privkey, 'relay': relay}));
     }
 

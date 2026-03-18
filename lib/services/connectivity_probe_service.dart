@@ -1,9 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'package:crypto/crypto.dart' as crypto;
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'tor_service.dart';
+import 'psiphon_service.dart';
+import 'psiphon_turn_proxy.dart';
 import 'ice_server_config.dart';
 import 'relay_directory_service.dart';
 import 'nip65_discovery_service.dart';
@@ -170,19 +173,44 @@ class ConnectivityProbeService {
   static final instance = ConnectivityProbeService._();
   ConnectivityProbeService._();
 
-  static const _cacheKey   = 'connectivity_probe_v1';
-  static const _cacheTtlH  = 6; // match RelayDirectoryService TTL
+  static const _cacheKeyBase  = 'connectivity_probe_v1';
+  static const _cacheKey      = 'connectivity_probe_v1'; // kept for fallback reads
+  static const _cacheTtlH     = 6; // match RelayDirectoryService TTL
+  static const _lastNetworkKey = 'probe_last_network';
   // If ≥ this many direct Nostr relays found, skip Tor entirely.
   static const _enoughDirect = 2;
 
   final _statusCtrl = StreamController<ProbeStatus>.broadcast();
   Stream<ProbeStatus> get status => _statusCtrl.stream;
 
+  /// Completes (once) when the first probe run finishes, so ChatController
+  /// can reconnect with the newly discovered best relay.
+  Completer<ProbeResult> _firstRunCompleter = Completer<ProbeResult>();
+
+  /// Resolves after the first probe run finishes.  Callers that start
+  /// before the probe can `await` this to get the freshest result.
+  Future<ProbeResult> get firstRunDone => _firstRunCompleter.future;
+
   ProbeResult _last = ProbeResult.empty();
   ProbeResult get lastResult => _last;
 
   bool _running = false;
   Timer? _refreshTimer;
+
+  // ── Network-aware cache key ─────────────────────────────────────────────
+
+  /// Compute a short key identifying the active network (first 8 hex chars of
+  /// SHA-256 of sorted interface names).  Falls back to empty string on error.
+  Future<String> _getNetworkKey() async {
+    try {
+      final ifaces = await NetworkInterface.list();
+      final names = ifaces.map((i) => i.name).toList()..sort();
+      final digest = crypto.sha256.convert(names.join(',').codeUnits);
+      return digest.toString().substring(0, 8);
+    } catch (_) {
+      return '';
+    }
+  }
 
   // ── Public API ─────────────────────────────────────────────────────────────
 
@@ -191,7 +219,21 @@ class ConnectivityProbeService {
   Future<void> runIfNeeded() async {
     if (_running) return;
     final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(_cacheKey);
+
+    // Invalidate cache when network changes (e.g. WiFi ↔ mobile/VPN switch).
+    final netKey = await _getNetworkKey();
+    final lastNet = prefs.getString(_lastNetworkKey) ?? '';
+    final networkChanged = netKey.isNotEmpty && netKey != lastNet;
+    if (networkChanged) {
+      debugPrint('[Probe] Network changed ($lastNet → $netKey) — forcing fresh probe');
+    }
+    if (netKey.isNotEmpty) {
+      await prefs.setString(_lastNetworkKey, netKey);
+    }
+
+    // Try per-network cache first; fall back to global cache key.
+    final cacheKey = netKey.isNotEmpty ? '${_cacheKeyBase}_$netKey' : _cacheKey;
+    final raw = !networkChanged ? prefs.getString(cacheKey) ?? prefs.getString(_cacheKey) : null;
     if (raw != null) {
       try {
         final j = jsonDecode(raw) as Map<String, dynamic>;
@@ -202,15 +244,27 @@ class ConnectivityProbeService {
               found: cached.nostrRelays.length, torUsed: false));
           debugPrint('[Probe] Using cached results '
               '(${cached.nostrRelays.length} relays)');
+          if (!_firstRunCompleter.isCompleted) {
+            _firstRunCompleter.complete(_last);
+          }
+          // Start censorship-bypass transports even from cache —
+          // otherwise Psiphon/Tor never launch until cache expires.
+          _startBypassIfCensored(cached.nostrRelays.length);
           return;
         }
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('[Probe] Failed to parse cached probe result: $e');
+      }
     }
     unawaited(_runProbe());
   }
 
   /// Force a fresh probe regardless of cache age.
   Future<void> forceProbe() async {
+    if (!_firstRunCompleter.isCompleted) {
+      _firstRunCompleter.completeError(StateError('forceProbe: superseded'));
+    }
+    _firstRunCompleter = Completer<ProbeResult>();
     await CircuitBreakerService.instance.reset();
     return _runProbe();
   }
@@ -265,7 +319,12 @@ class ConnectivityProbeService {
         timestamp: _last.timestamp,
       );
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_cacheKey, jsonEncode(_last.toJson()));
+      final json = jsonEncode(_last.toJson());
+      await prefs.setString(_cacheKey, json);
+      final netKey = await _getNetworkKey();
+      if (netKey.isNotEmpty) {
+        await prefs.setString('${_cacheKeyBase}_$netKey', json);
+      }
 
       // Trigger re-probe if too few relays remain
       if (alive.length < _enoughDirect) {
@@ -306,11 +365,20 @@ class ConnectivityProbeService {
       // concurrently with relay discovery (phase 1.5) instead of after it.
       // Tor+Snowflake takes 60-120s; starting early saves all of that wait.
       Future<bool>? earlyTorFuture;
-      if (directNostr.length < _enoughDirect &&
+      final looksCensored = directNostr.length < _enoughDirect;
+      if (looksCensored &&
           !TorService.instance.isBootstrapped &&
           !TorService.instance.isRunning) {
         debugPrint('[Probe] Network looks censored — starting Tor early');
         earlyTorFuture = TorService.instance.start();
+      }
+      // Start Psiphon in parallel with Tor — bootstraps in 3-5s,
+      // provides faster message relay + TURN proxy for calls.
+      if (looksCensored && !PsiphonService.instance.isRunning) {
+        debugPrint('[Probe] Starting Psiphon (parallel with Tor)');
+        PsiphonService.instance.ensureRunning().then((_) {
+          if (PsiphonService.instance.isRunning) PsiphonTurnProxy.startAll();
+        });
       }
 
       // ── Phase 1.5: Autonomous relay discovery ─────────────────────────────
@@ -338,11 +406,12 @@ class ConnectivityProbeService {
         _loadPeerRelayCandidates(knownHosts1),
       ]);
 
-      // Merge + deduplicate against known hosts
+      // Merge + deduplicate against known hosts; skip .onion (Tor-only)
       final regenCandidates = <(String, int)>[];
       final seenHosts       = Set<String>.from(knownHosts1);
       for (final list in regenResults) {
         for (final c in list) {
+          if (c.$1.endsWith('.onion')) continue;
           if (seenHosts.add(c.$1)) regenCandidates.add(c);
         }
       }
@@ -458,12 +527,14 @@ class ConnectivityProbeService {
 
           if (!TorService.instance.persistent) {
             if (torNostr.isNotEmpty || directNostr.isEmpty) {
-              // Network is censored — keep Tor running so Firebase/Waku/Oxen
-              // adapters (which already use buildTorHttpClient) can work too.
-              debugPrint('[Probe] Censored network — keeping Tor alive for all transports');
+              // Network is censored — keep Tor + Psiphon running so
+              // Firebase/Waku/Oxen adapters can work too.
+              debugPrint('[Probe] Censored network — keeping Tor/Psiphon alive');
             } else {
               await TorService.instance.stop();
-              debugPrint('[Probe] Tor stopped.');
+              await PsiphonTurnProxy.stopAll();
+              await PsiphonService.instance.stop();
+              debugPrint('[Probe] Tor/Psiphon stopped.');
             }
           }
           debugPrint('[Probe] Via-tor-only: ${torNostr.length}');
@@ -482,7 +553,12 @@ class ConnectivityProbeService {
       );
 
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_cacheKey, jsonEncode(_last.toJson()));
+      final json = jsonEncode(_last.toJson());
+      await prefs.setString(_cacheKey, json);
+      final netKey = await _getNetworkKey();
+      if (netKey.isNotEmpty) {
+        await prefs.setString('${_cacheKeyBase}_$netKey', json);
+      }
 
       // Persist best relay for adapters to pick up on next connect
       if (_last.bestNostrRelay != null) {
@@ -510,13 +586,36 @@ class ConnectivityProbeService {
       debugPrint('[Probe] Done. Total reachable: '
           '${directNostr.length} direct + ${torNostr.length} tor-only');
 
+      // Notify waiters (ChatController) that probe finished
+      if (!_firstRunCompleter.isCompleted) {
+        _firstRunCompleter.complete(_last);
+      }
+
       // Start periodic background refresh + health checks
       startPeriodicRefresh();
     } catch (e) {
       debugPrint('[Probe] Error: $e');
       _emit(ProbePhase.done);
+      if (!_firstRunCompleter.isCompleted) {
+        _firstRunCompleter.complete(_last);
+      }
     } finally {
       _running = false;
+    }
+  }
+
+  /// Start Tor + Psiphon if the network looks censored.
+  /// Called from both cached and fresh probe paths.
+  void _startBypassIfCensored(int directRelayCount) {
+    if (directRelayCount >= _enoughDirect) return;
+    debugPrint('[Probe] Looks censored ($directRelayCount direct) — ensuring bypass transports');
+    if (!TorService.instance.isBootstrapped && !TorService.instance.isRunning) {
+      TorService.instance.start();
+    }
+    if (!PsiphonService.instance.isRunning) {
+      PsiphonService.instance.ensureRunning().then((_) {
+        if (PsiphonService.instance.isRunning) PsiphonTurnProxy.startAll();
+      });
     }
   }
 
@@ -577,12 +676,24 @@ class ConnectivityProbeService {
     return (hosts, configs);
   }
 
-  /// Simple TCP connect probe — no data sent.
+  /// TLS handshake probe — verifies GFW isn't blocking at the TLS layer.
+  ///
+  /// Pure TCP connect passes even when GFW blocks TLS (RST after ClientHello).
+  /// This does a real TLS handshake so we know the relay is actually reachable.
   Future<bool> _probeOne(String host, int port, {int timeoutSec = 3}) async {
     try {
-      final sock = await Socket.connect(host, port,
-          timeout: Duration(seconds: timeoutSec));
-      sock.destroy();
+      if (port == 443 || port == 8443) {
+        // TLS probe — catches GFW TLS-level blocking
+        final sock = await SecureSocket.connect(host, port,
+            timeout: Duration(seconds: timeoutSec),
+            onBadCertificate: (_) => true); // accept self-signed for probe
+        sock.destroy();
+      } else {
+        // Non-TLS ports: plain TCP is sufficient
+        final sock = await Socket.connect(host, port,
+            timeout: Duration(seconds: timeoutSec));
+        sock.destroy();
+      }
       return true;
     } catch (_) {
       return false;

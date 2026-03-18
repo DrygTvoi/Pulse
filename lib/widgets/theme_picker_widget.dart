@@ -1,18 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
 import '../theme/theme_manager.dart';
 import '../theme/app_theme.dart';
 
 /// Reusable theme picker — used on the onboarding screen and in Settings.
 /// Shows a Light / Dark / System mode selector + accent color swatches.
-class ThemePickerWidget extends StatefulWidget {
+class ThemePickerWidget extends StatelessWidget {
   const ThemePickerWidget({super.key});
 
-  @override
-  State<ThemePickerWidget> createState() => _ThemePickerWidgetState();
-}
-
-class _ThemePickerWidgetState extends State<ThemePickerWidget> {
   static const _accents = [
     Color(0xFF00A884), // WhatsApp green (default)
     Color(0xFF6366F1), // Indigo
@@ -24,48 +20,37 @@ class _ThemePickerWidgetState extends State<ThemePickerWidget> {
     Color(0xFFEF4444), // Red
   ];
 
+  static const _modes = [
+    (ThemeMode.light, Icons.light_mode_rounded, 'Light'),
+    (ThemeMode.dark, Icons.dark_mode_rounded, 'Dark'),
+    (ThemeMode.system, Icons.brightness_auto_rounded, 'System'),
+  ];
+
   @override
   Widget build(BuildContext context) {
-    final notifier = ThemeNotifier.instance;
+    final notifier = context.watch<ThemeNotifier>();
     final mode = notifier.themeMode;
     final accent = notifier.primary;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // ── Mode selector ────────────────────────────────────────────────────
+        // ── Mode selector ──────────────────────────────────────────────
         Text('Appearance',
             style: GoogleFonts.inter(
                 color: AppTheme.textPrimary,
                 fontSize: 15,
                 fontWeight: FontWeight.w700)),
         const SizedBox(height: 12),
-        Row(children: [
-          _ModeCard(
-            icon: Icons.light_mode_rounded,
-            label: 'Light',
-            selected: mode == ThemeMode.light,
-            onTap: () => ThemeNotifier.instance.setThemeMode(ThemeMode.light),
-          ),
-          const SizedBox(width: 10),
-          _ModeCard(
-            icon: Icons.dark_mode_rounded,
-            label: 'Dark',
-            selected: mode == ThemeMode.dark,
-            onTap: () => ThemeNotifier.instance.setThemeMode(ThemeMode.dark),
-          ),
-          const SizedBox(width: 10),
-          _ModeCard(
-            icon: Icons.brightness_auto_rounded,
-            label: 'System',
-            selected: mode == ThemeMode.system,
-            onTap: () => ThemeNotifier.instance.setThemeMode(ThemeMode.system),
-          ),
-        ]),
+        _SegmentedPill(
+          items: _modes.map((m) => (m.$1, m.$2, m.$3)).toList(),
+          selected: mode,
+          onTap: (m) => ThemeNotifier.instance.setThemeMode(m),
+        ),
 
         const SizedBox(height: 20),
 
-        // ── Accent color ─────────────────────────────────────────────────────
+        // ── Accent color ───────────────────────────────────────────────
         Text('Accent Color',
             style: GoogleFonts.inter(
                 color: AppTheme.textPrimary,
@@ -79,23 +64,16 @@ class _ThemePickerWidgetState extends State<ThemePickerWidget> {
             final selected = c.toARGB32() == accent.toARGB32();
             return GestureDetector(
               onTap: () => ThemeNotifier.instance.updateColors(primary: c),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                width: 36,
-                height: 36,
+              child: Container(
+                width: 30,
+                height: 30,
                 decoration: BoxDecoration(
                   color: c,
                   shape: BoxShape.circle,
-                  border: Border.all(
-                    color: selected ? Colors.white : Colors.transparent,
-                    width: 2.5,
-                  ),
-                  boxShadow: selected
-                      ? [BoxShadow(color: c.withValues(alpha: 0.5), blurRadius: 8)]
-                      : null,
                 ),
                 child: selected
-                    ? const Icon(Icons.check_rounded, color: Colors.white, size: 18)
+                    ? const Icon(Icons.check_rounded,
+                        color: Colors.white, size: 16)
                     : null,
               ),
             );
@@ -106,49 +84,82 @@ class _ThemePickerWidgetState extends State<ThemePickerWidget> {
   }
 }
 
-class _ModeCard extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
+/// Telegram-style segmented pill control.
+class _SegmentedPill extends StatelessWidget {
+  final List<(ThemeMode, IconData, String)> items;
+  final ThemeMode selected;
+  final ValueChanged<ThemeMode> onTap;
 
-  const _ModeCard({
-    required this.icon,
-    required this.label,
+  const _SegmentedPill({
+    required this.items,
     required this.selected,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Expanded(
-      child: GestureDetector(
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(vertical: 14),
-          decoration: BoxDecoration(
-            color: selected
-                ? AppTheme.primary.withValues(alpha: 0.15)
-                : AppTheme.surfaceVariant,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(
-              color: selected ? AppTheme.primary : Colors.transparent,
-              width: 1.5,
-            ),
-          ),
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Icon(icon,
-                color: selected ? AppTheme.primary : AppTheme.textSecondary,
-                size: 24),
-            const SizedBox(height: 6),
-            Text(label,
-                style: GoogleFonts.inter(
-                    color: selected ? AppTheme.primary : AppTheme.textSecondary,
-                    fontSize: 12,
-                    fontWeight: selected ? FontWeight.w600 : FontWeight.w400)),
-          ]),
-        ),
+    return Container(
+      height: 44,
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceVariant,
+        borderRadius: BorderRadius.circular(22),
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final segmentWidth = constraints.maxWidth / items.length;
+          final selectedIndex =
+              items.indexWhere((item) => item.$1 == selected);
+
+          return Stack(
+            children: [
+              // Sliding indicator
+              AnimatedPositioned(
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeOut,
+                left: selectedIndex * segmentWidth + 3,
+                top: 3,
+                bottom: 3,
+                width: segmentWidth - 6,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: AppTheme.primary,
+                    borderRadius: BorderRadius.circular(19),
+                  ),
+                ),
+              ),
+              // Segments
+              Row(
+                children: items.map((item) {
+                  final isSelected = item.$1 == selected;
+                  return Expanded(
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () => onTap(item.$1),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(item.$2,
+                              size: 16,
+                              color: isSelected
+                                  ? Colors.white
+                                  : AppTheme.textSecondary),
+                          const SizedBox(width: 5),
+                          Text(item.$3,
+                              style: GoogleFonts.inter(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                  color: isSelected
+                                      ? Colors.white
+                                      : AppTheme.textSecondary)),
+                        ],
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ],
+          );
+        },
       ),
     );
   }

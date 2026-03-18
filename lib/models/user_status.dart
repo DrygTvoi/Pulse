@@ -41,8 +41,8 @@ class UserStatus {
         id: json['id'] as String? ?? '',
         text: json['text'] as String? ?? '',
         mediaPayload: json['media'] as String?,
-        createdAt: DateTime.fromMillisecondsSinceEpoch(json['createdAt'] as int),
-        expiresAt: DateTime.fromMillisecondsSinceEpoch(json['expiresAt'] as int),
+        createdAt: DateTime.fromMillisecondsSinceEpoch((json['createdAt'] as int?) ?? 0),
+        expiresAt: DateTime.fromMillisecondsSinceEpoch((json['expiresAt'] as int?) ?? 0),
       );
 
   String toJsonString() => jsonEncode(toJson());

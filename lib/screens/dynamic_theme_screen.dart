@@ -3,7 +3,6 @@ import 'package:google_fonts/google_fonts.dart';
 import '../theme/theme_manager.dart';
 import '../theme/app_theme.dart';
 import 'package:provider/provider.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 
 class DynamicThemeScreen extends StatefulWidget {
   const DynamicThemeScreen({super.key});
@@ -15,168 +14,212 @@ class DynamicThemeScreen extends StatefulWidget {
 class _DynamicThemeScreenState extends State<DynamicThemeScreen> {
   final List<String> _fonts = ['Outfit', 'Inter', 'Roboto', 'Fira Code'];
 
-  void _applyPreset(String name) {
-    switch (name) {
-      case 'Cyberpunk':
-        ThemeNotifier.instance.applyPreset(
-          primary: const Color(0xFF00FF9D),
-          accent:  const Color(0xFFFF3864),
-          radius: 0.0,
-          font: 'Fira Code',
-        );
-        break;
-      case 'Minimalist Default':
-        ThemeNotifier.instance.applyPreset(
-          primary: const Color(0xFF6366F1),
-          accent:  const Color(0xFFF43F5E),
-          radius: 16.0,
-          font: 'Outfit',
-        );
-        break;
-      case 'Midnight Indigo':
-        ThemeNotifier.instance.applyPreset(
-          primary: const Color(0xFF818CF8),
-          accent:  const Color(0xFFC084FC),
-          radius: 24.0,
-          font: 'Inter',
-        );
-        break;
-      case 'Neon Pink':
-        ThemeNotifier.instance.applyPreset(
-          primary: const Color(0xFFFF007F),
-          accent:  const Color(0xFF00E5FF),
-          radius: 12.0,
-          font: 'Outfit',
-        );
-        break;
-    }
-  }
+  static const _presets = [
+    ('Cyberpunk', Color(0xFF00FF9D), Color(0xFFFF3864), 0.0, 'Fira Code'),
+    ('Minimalist', Color(0xFF6366F1), Color(0xFFF43F5E), 16.0, 'Outfit'),
+    ('Midnight', Color(0xFF818CF8), Color(0xFFC084FC), 24.0, 'Inter'),
+    ('Neon Pink', Color(0xFFFF007F), Color(0xFF00E5FF), 12.0, 'Outfit'),
+  ];
 
-  Widget _buildColorPicker(String label, Color currentColor, Function(Color) onSelect) {
-    // A simple palette for the prototype
-    final colors = [
-      Colors.redAccent, Colors.pinkAccent, Colors.purpleAccent,
-      Colors.deepPurpleAccent, Colors.indigoAccent, Colors.blueAccent,
-      Colors.cyanAccent, Colors.tealAccent, Colors.greenAccent,
-      Colors.orangeAccent, Colors.deepOrangeAccent, Colors.amberAccent
-    ];
+  static const _paletteColors = [
+    Colors.redAccent, Colors.pinkAccent, Colors.purpleAccent,
+    Colors.deepPurpleAccent, Colors.indigoAccent, Colors.blueAccent,
+    Colors.cyanAccent, Colors.tealAccent, Colors.greenAccent,
+    Colors.orangeAccent, Colors.deepOrangeAccent, Colors.amberAccent,
+  ];
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: GoogleFonts.inter(color: AppTheme.textPrimary, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 12),
-        SizedBox(
-          height: 60,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            itemCount: colors.length,
-            itemBuilder: (context, index) {
-              final color = colors[index];
-              final isSelected = color.toARGB32() == currentColor.toARGB32();
-              return GestureDetector(
-                onTap: () => onSelect(color),
-                child: Container(
-                  margin: const EdgeInsets.only(right: 12),
-                  width: 50,
-                  height: 50,
-                  decoration: BoxDecoration(
-                    color: color,
-                    shape: BoxShape.circle,
-                    border: isSelected ? Border.all(color: Colors.white, width: 3) : null,
-                  ),
-                ),
-              ).animate().scale(delay: Duration(milliseconds: 50 * index));
-            },
-          ),
-        ),
-      ],
+  void _applyPreset(int index) {
+    final p = _presets[index];
+    ThemeNotifier.instance.applyPreset(
+      primary: p.$2,
+      accent: p.$3,
+      radius: p.$4,
+      font: p.$5,
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    // Note: Since main.dart rebuilds the whole app, this screen will automatically refresh on changes
-    // But we still watch it here to be explicit
     final theme = context.watch<ThemeNotifier>();
     return Scaffold(
       appBar: AppBar(
-        title: Text('Theme Engine Sandbox', style: GoogleFonts.outfit(color: theme.textPrimary)),
+        title: Text('Theme Engine', style: GoogleFonts.inter(
+            color: theme.textPrimary, fontWeight: FontWeight.w600)),
       ),
       body: ListView(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(20),
         children: [
-          Text('Presets', style: GoogleFonts.outfit(fontSize: 24, color: theme.textPrimary, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 16),
-          Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            children: [
-              _buildPresetButton('Cyberpunk', const Color(0xFF00FF9D)),
-              _buildPresetButton('Minimalist Default', const Color(0xFF6366F1)),
-              _buildPresetButton('Midnight Indigo', const Color(0xFF818CF8)),
-              _buildPresetButton('Neon Pink', const Color(0xFFFF007F)),
-            ],
-          ),
-          const SizedBox(height: 32),
-          const Divider(color: Colors.white24),
-          const SizedBox(height: 24),
-          
-          Text('Custom Properties', style: GoogleFonts.outfit(fontSize: 24, color: theme.textPrimary, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 24),
-
-          _buildColorPicker('Primary Color', theme.primary, (c) => ThemeNotifier.instance.updateColors(primary: c)),
-          const SizedBox(height: 24),
-          _buildColorPicker('Accent Color', theme.accent, (c) => ThemeNotifier.instance.updateColors(accent: c)),
-          const SizedBox(height: 24),
-
-          Text('Border Radius', style: GoogleFonts.inter(color: theme.textPrimary, fontWeight: FontWeight.bold)),
-          Slider(
-            value: theme.borderRadius,
-            min: 0,
-            max: 32,
-            activeColor: theme.primary,
-            onChanged: (val) => ThemeNotifier.instance.updateRadius(val),
-          ),
-          const SizedBox(height: 24),
-
-          Text('Typography', style: GoogleFonts.inter(color: theme.textPrimary, fontWeight: FontWeight.bold)),
+          // ── Presets ────────────────────────────────────────────────────
+          _sectionLabel('Presets', theme),
           const SizedBox(height: 12),
           Wrap(
-            spacing: 12,
-            children: _fonts.map((f) => ChoiceChip(
-              label: Text(f, style: GoogleFonts.inter(color: theme.textPrimary)),
-              selected: theme.fontFamily == f,
-              onSelected: (selected) {
-                if(selected) ThemeNotifier.instance.updateFont(f);
-              },
-              selectedColor: theme.primary,
-              backgroundColor: theme.surface,
-            )).toList(),
+            spacing: 10,
+            runSpacing: 10,
+            children: List.generate(_presets.length, (i) {
+              final p = _presets[i];
+              final isActive = theme.primary.toARGB32() == p.$2.toARGB32();
+              return GestureDetector(
+                onTap: () => _applyPreset(i),
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: isActive
+                        ? theme.primary.withValues(alpha: 0.15)
+                        : AppTheme.surfaceVariant,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 12,
+                        height: 12,
+                        decoration: BoxDecoration(
+                          color: p.$2,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(p.$1,
+                          style: GoogleFonts.inter(
+                              color: isActive
+                                  ? theme.primary
+                                  : AppTheme.textPrimary,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500)),
+                      if (isActive) ...[
+                        const SizedBox(width: 6),
+                        Icon(Icons.check_rounded,
+                            size: 14, color: theme.primary),
+                      ],
+                    ],
+                  ),
+                ),
+              );
+            }),
           ),
+
+          const SizedBox(height: 28),
+          Divider(color: AppTheme.surfaceVariant, height: 1),
+          const SizedBox(height: 24),
+
+          // ── Primary color ─────────────────────────────────────────────
+          _sectionLabel('Primary Color', theme),
+          const SizedBox(height: 12),
+          _buildColorGrid(theme.primary, (c) =>
+              ThemeNotifier.instance.updateColors(primary: c)),
+
+          const SizedBox(height: 24),
+
+          // ── Accent color ──────────────────────────────────────────────
+          _sectionLabel('Accent Color', theme),
+          const SizedBox(height: 12),
+          _buildColorGrid(theme.accent, (c) =>
+              ThemeNotifier.instance.updateColors(accent: c)),
+
+          const SizedBox(height: 24),
+
+          // ── Border radius ─────────────────────────────────────────────
+          _sectionLabel('Border Radius', theme),
+          const SizedBox(height: 4),
+          SliderTheme(
+            data: SliderThemeData(
+              activeTrackColor: theme.primary,
+              inactiveTrackColor: AppTheme.surfaceVariant,
+              thumbColor: theme.primary,
+              overlayColor: theme.primary.withValues(alpha: 0.12),
+              trackHeight: 3,
+              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 7),
+              overlayShape: const RoundSliderOverlayShape(overlayRadius: 16),
+            ),
+            child: Slider(
+              value: theme.borderRadius,
+              min: 0,
+              max: 32,
+              onChanged: (val) => ThemeNotifier.instance.updateRadius(val),
+            ),
+          ),
+
+          const SizedBox(height: 20),
+
+          // ── Typography ────────────────────────────────────────────────
+          _sectionLabel('Typography', theme),
+          const SizedBox(height: 12),
+          _buildFontSelector(theme),
         ],
       ),
     );
   }
 
-  Widget _buildPresetButton(String name, Color badgeColor) {
-    return InkWell(
-      onTap: () => _applyPreset(name),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          color: AppTheme.surface,
-          borderRadius: BorderRadius.circular(ThemeNotifier.instance.borderRadius),
-          border: Border.all(color: AppTheme.primary.withValues(alpha: 0.3)),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            CircleAvatar(radius: 6, backgroundColor: badgeColor),
-            const SizedBox(width: 8),
-            Text(name, style: GoogleFonts.inter(color: AppTheme.textPrimary)),
-          ],
-        ),
+  Widget _sectionLabel(String text, ThemeNotifier theme) {
+    return Text(text,
+        style: GoogleFonts.inter(
+            color: theme.textPrimary,
+            fontSize: 15,
+            fontWeight: FontWeight.w600));
+  }
+
+  Widget _buildColorGrid(Color current, ValueChanged<Color> onSelect) {
+    return Wrap(
+      spacing: 10,
+      runSpacing: 10,
+      children: _paletteColors.map((c) {
+        final isSelected = c.toARGB32() == current.toARGB32();
+        return GestureDetector(
+          onTap: () => onSelect(c),
+          child: Container(
+            width: 30,
+            height: 30,
+            decoration: BoxDecoration(
+              color: c,
+              shape: BoxShape.circle,
+              border: isSelected
+                  ? Border.all(color: Colors.white, width: 2)
+                  : null,
+            ),
+            child: isSelected
+                ? const Icon(Icons.check_rounded,
+                    color: Colors.white, size: 14)
+                : null,
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildFontSelector(ThemeNotifier theme) {
+    return Container(
+      height: 38,
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceVariant,
+        borderRadius: BorderRadius.circular(19),
+      ),
+      child: Row(
+        children: _fonts.map((f) {
+          final isSelected = theme.fontFamily == f;
+          return Expanded(
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => ThemeNotifier.instance.updateFont(f),
+              child: Container(
+                margin: const EdgeInsets.all(3),
+                decoration: BoxDecoration(
+                  color: isSelected ? theme.primary : Colors.transparent,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                alignment: Alignment.center,
+                child: Text(f,
+                    style: GoogleFonts.inter(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: isSelected
+                            ? Colors.white
+                            : AppTheme.textSecondary)),
+              ),
+            ),
+          );
+        }).toList(),
       ),
     );
   }

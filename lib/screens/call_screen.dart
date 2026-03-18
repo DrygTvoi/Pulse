@@ -7,6 +7,7 @@ import '../services/call_transport.dart';
 import '../theme/app_theme.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../models/contact.dart';
+import '../l10n/l10n_ext.dart';
 
 class CallScreen extends StatefulWidget {
   final Contact contact;
@@ -47,6 +48,7 @@ class _CallScreenState extends State<CallScreen> {
   // Secondary (Tor relay) audio path
   bool _secondaryReady  = false;  // secondary PC connected and stream available
   bool _usingSecondary  = false;  // currently routing audio through secondary
+  bool _ready           = false;  // true after _initWebRTC() completes
 
   Timer? _hideControlsTimer;
   Timer? _durationTimer;
@@ -107,7 +109,10 @@ class _CallScreenState extends State<CallScreen> {
     // Start secondary audio path in background — will be ready if primary fails
     unawaited(_signaling!.startSecondaryAudio());
 
-    if (mounted) _resetHideControlsTimer();
+    if (mounted) {
+      setState(() => _ready = true);
+      _resetHideControlsTimer();
+    }
   }
 
   // ── ICE state handler with auto-retry ─────────────────────────────────────
@@ -294,26 +299,27 @@ class _CallScreenState extends State<CallScreen> {
 
   // ── Status helpers ─────────────────────────────────────────────────────────
 
-  String get _statusLabel {
+  String _statusLabel(BuildContext context) {
+    final l = context.l10n;
     if (_usingSecondary) {
-      return 'Tor backup · ${_formatDuration(_callDuration)}';
+      return l.callTorBackup(_formatDuration(_callDuration));
     }
-    if (_isRetrying) return 'Switching to relay mode…';
+    if (_isRetrying) return l.callSwitchingRelay;
     switch (_iceState) {
       case RTCIceConnectionState.RTCIceConnectionStateNew:
       case RTCIceConnectionState.RTCIceConnectionStateChecking:
-        return _currentProfile.isRestricted ? 'Connecting (relay)…' : 'Connecting…';
+        return _currentProfile.isRestricted ? l.callConnectingRelay : l.callConnecting;
       case RTCIceConnectionState.RTCIceConnectionStateConnected:
       case RTCIceConnectionState.RTCIceConnectionStateCompleted:
         return _formatDuration(_callDuration);
       case RTCIceConnectionState.RTCIceConnectionStateFailed:
-        return _autoRetried ? 'Connection failed' : 'Connection failed';
+        return l.callConnectionFailed;
       case RTCIceConnectionState.RTCIceConnectionStateDisconnected:
-        return 'Reconnecting…';
+        return l.callReconnecting;
       case RTCIceConnectionState.RTCIceConnectionStateClosed:
-        return 'Call ended';
+        return l.callEnded;
       default:
-        return 'Connecting…';
+        return l.callConnecting;
     }
   }
 
@@ -331,8 +337,22 @@ class _CallScreenState extends State<CallScreen> {
 
   // ── Build ──────────────────────────────────────────────────────────────────
 
+  Widget _buildLoading() => Scaffold(
+    backgroundColor: Colors.black,
+    body: Builder(builder: (context) => Center(
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        const CircularProgressIndicator(color: Colors.white54, strokeWidth: 2),
+        const SizedBox(height: 16),
+        Text(context.l10n.callInitializing,
+          style: GoogleFonts.inter(color: Colors.white54, fontSize: 13)),
+      ]),
+    )),
+  );
+
   @override
   Widget build(BuildContext context) {
+    if (!_ready) return _buildLoading();
+
     final hasRemoteVideo = widget.isVideoCall && _remoteRenderer.srcObject != null;
     final hasLocalVideo  = widget.isVideoCall && _localRenderer.srcObject != null;
 
@@ -425,23 +445,24 @@ class _CallScreenState extends State<CallScreen> {
     final Color bannerColor;
     final String bannerText;
 
+    final l = context.l10n;
     if (_usingSecondary) {
       bannerIcon  = Icons.security_rounded;
       bannerColor = Colors.teal.withValues(alpha: 0.85);
-      bannerText  = 'Tor backup active — primary path unavailable';
+      bannerText  = l.callTorBackupBanner;
     } else if (_isRetrying) {
       bannerIcon  = Icons.sync_rounded;
       bannerColor = Colors.orange.withValues(alpha: 0.85);
-      bannerText  = 'Direct connection failed — switching to relay mode…';
+      bannerText  = l.callDirectFailed;
     } else if (_autoRetried &&
         _iceState == RTCIceConnectionState.RTCIceConnectionStateFailed) {
       bannerIcon  = Icons.warning_amber_rounded;
       bannerColor = Colors.red.withValues(alpha: 0.85);
-      bannerText  = 'TURN servers unreachable. Add a custom TURN in Settings → Advanced.';
+      bannerText  = l.callTurnUnreachable;
     } else {
       bannerIcon  = Icons.shield_rounded;
       bannerColor = Colors.blueGrey.withValues(alpha: 0.85);
-      bannerText  = 'Relay mode active (restricted network)';
+      bannerText  = l.callRelayMode;
     }
 
     return AnimatedContainer(
@@ -538,7 +559,7 @@ class _CallScreenState extends State<CallScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            _statusLabel,
+            _statusLabel(context),
             style: GoogleFonts.inter(color: Colors.white70, fontSize: 15),
           ).animate(onPlay: (c) {
             if (!_isConnected) c.repeat(reverse: true);
@@ -563,6 +584,7 @@ class _CallScreenState extends State<CallScreen> {
       child: Row(children: [
         IconButton(
           icon: const Icon(Icons.arrow_back_ios_rounded, color: Colors.white),
+          tooltip: context.l10n.back,
           onPressed: () => Navigator.pop(context),
         ),
         const SizedBox(width: 4),
@@ -577,7 +599,7 @@ class _CallScreenState extends State<CallScreen> {
               ),
             ),
             Text(
-              _statusLabel,
+              _statusLabel(context),
               style: GoogleFonts.inter(color: Colors.white70, fontSize: 13),
             ),
           ]),
@@ -600,7 +622,7 @@ class _CallScreenState extends State<CallScreen> {
               ),
               const SizedBox(width: 5),
               Text(
-                'Live',
+                context.l10n.callLive,
                 style: GoogleFonts.inter(
                   color: Colors.greenAccent,
                   fontSize: 12,
@@ -632,7 +654,7 @@ class _CallScreenState extends State<CallScreen> {
             child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
               _buildSmallButton(
                 icon:        _isScreenSharing ? Icons.stop_screen_share_rounded : Icons.screen_share_rounded,
-                label:       _isScreenSharing ? 'Stop Share' : 'Share Screen',
+                label:       _isScreenSharing ? context.l10n.callStopShare : context.l10n.callShareScreen,
                 active:      _isScreenSharing,
                 activeColor: Colors.blueAccent,
                 onTap:       _toggleScreenShare,
@@ -640,7 +662,7 @@ class _CallScreenState extends State<CallScreen> {
               const SizedBox(width: 24),
               _buildSmallButton(
                 icon:  _isCameraOff ? Icons.videocam_off_rounded : Icons.videocam_rounded,
-                label: _isCameraOff ? 'Camera Off' : 'Camera On',
+                label: _isCameraOff ? context.l10n.callCameraOff : context.l10n.callCameraOn,
                 active: _isCameraOff,
                 onTap:  _toggleCamera,
               ),
@@ -649,36 +671,40 @@ class _CallScreenState extends State<CallScreen> {
         Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
           _buildControlButton(
             icon:      _isMuted ? Icons.mic_off_rounded : Icons.mic_rounded,
-            label:     _isMuted ? 'Unmute' : 'Mute',
+            label:     _isMuted ? context.l10n.callUnmute : context.l10n.callMute,
             color:     _isMuted ? Colors.white : Colors.white24,
             iconColor: _isMuted ? Colors.black : Colors.white,
             onPressed: _toggleMute,
           ),
-          GestureDetector(
-            onTap: _hangUp,
-            child: Column(mainAxisSize: MainAxisSize.min, children: [
-              Container(
-                width: 68, height: 68,
-                decoration: BoxDecoration(
-                  color: Colors.redAccent,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.redAccent.withValues(alpha: 0.5),
-                      blurRadius: 16,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: const Icon(Icons.call_end_rounded, color: Colors.white, size: 30),
-              ).animate().scale(),
-              const SizedBox(height: 6),
-              Text('End', style: GoogleFonts.inter(color: Colors.white70, fontSize: 11)),
-            ]),
+          Semantics(
+            label: context.l10n.callEndCall,
+            button: true,
+            child: GestureDetector(
+              onTap: _hangUp,
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                Container(
+                  width: 68, height: 68,
+                  decoration: BoxDecoration(
+                    color: Colors.redAccent,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.redAccent.withValues(alpha: 0.5),
+                        blurRadius: 16,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: const Icon(Icons.call_end_rounded, color: Colors.white, size: 30),
+                ).animate().scale(),
+                const SizedBox(height: 6),
+                Text(context.l10n.callEnd, style: GoogleFonts.inter(color: Colors.white70, fontSize: 11)),
+              ]),
+            ),
           ),
           _buildControlButton(
             icon:      Icons.volume_up_rounded,
-            label:     'Speaker',
+            label:     context.l10n.callSpeaker,
             color:     Colors.white24,
             iconColor: Colors.white,
             onPressed: () {},
@@ -695,17 +721,21 @@ class _CallScreenState extends State<CallScreen> {
     required Color iconColor,
     required VoidCallback onPressed,
   }) {
-    return GestureDetector(
-      onTap: onPressed,
-      child: Column(mainAxisSize: MainAxisSize.min, children: [
-        Container(
-          width: 56, height: 56,
-          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-          child: Icon(icon, color: iconColor, size: 24),
-        ).animate().scale(),
-        const SizedBox(height: 6),
-        Text(label, style: GoogleFonts.inter(color: Colors.white70, fontSize: 11)),
-      ]),
+    return Semantics(
+      label: label,
+      button: true,
+      child: GestureDetector(
+        onTap: onPressed,
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Container(
+            width: 56, height: 56,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+            child: Icon(icon, color: iconColor, size: 24),
+          ).animate().scale(),
+          const SizedBox(height: 6),
+          Text(label, style: GoogleFonts.inter(color: Colors.white70, fontSize: 11)),
+        ]),
+      ),
     );
   }
 
@@ -716,21 +746,25 @@ class _CallScreenState extends State<CallScreen> {
     bool active = false,
     Color activeColor = Colors.white,
   }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Column(mainAxisSize: MainAxisSize.min, children: [
-        Container(
-          width: 44, height: 44,
-          decoration: BoxDecoration(
-            color: active ? activeColor.withValues(alpha: 0.2) : Colors.white12,
-            shape: BoxShape.circle,
-            border: active ? Border.all(color: activeColor, width: 1.5) : null,
+    return Semantics(
+      label: label,
+      button: true,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Container(
+            width: 44, height: 44,
+            decoration: BoxDecoration(
+              color: active ? activeColor.withValues(alpha: 0.2) : Colors.white12,
+              shape: BoxShape.circle,
+              border: active ? Border.all(color: activeColor, width: 1.5) : null,
+            ),
+            child: Icon(icon, color: active ? activeColor : Colors.white, size: 20),
           ),
-          child: Icon(icon, color: active ? activeColor : Colors.white, size: 20),
-        ),
-        const SizedBox(height: 4),
-        Text(label, style: GoogleFonts.inter(color: Colors.white60, fontSize: 10)),
-      ]),
+          const SizedBox(height: 4),
+          Text(label, style: GoogleFonts.inter(color: Colors.white60, fontSize: 10)),
+        ]),
+      ),
     );
   }
 }

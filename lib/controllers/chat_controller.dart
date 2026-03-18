@@ -11,6 +11,7 @@ import '../models/contact.dart';
 import '../models/message.dart';
 import '../models/message_envelope.dart';
 import '../models/chat_room.dart';
+import '../constants.dart';
 import '../adapters/inbox_manager.dart';
 import '../services/local_storage_service.dart';
 import '../services/media_service.dart';
@@ -28,6 +29,10 @@ import '../services/network_monitor.dart';
 import '../models/user_status.dart';
 import '../services/status_service.dart';
 import '../services/connectivity_probe_service.dart';
+import '../services/rate_limiter.dart';
+import '../services/chunk_assembler.dart';
+import '../services/sentry_service.dart';
+import '../services/voice_service.dart';
 
 enum ConnectionStatus { disconnected, connecting, connected }
 
@@ -40,6 +45,7 @@ class ChatController extends ChangeNotifier {
   String _selfId = ''; // adapter-specific ID used as senderId in outgoing messages
   final Map<String, ChatRoom> _chatRooms = {}; // Key is Contact ID
   final SignalService _signalService = SignalService();
+  StreamSubscription<void>? _bundleRefreshSub;
   final List<StreamSubscription> _messageSubs = [];
   final List<StreamSubscription> _signalSubs = [];
   final List<StreamSubscription> _healthSubs = [];
@@ -80,16 +86,34 @@ class ChatController extends ChangeNotifier {
       StreamController.broadcast();
   Stream<({String contactId, Message message})> get newMessages => _newMsgController.stream;
 
-  // Emits contact name when their Signal identity key changes (possible reinstall / MITM).
-  final StreamController<String> _keyChangeCtrl = StreamController.broadcast();
-  Stream<String> get keyChangeWarnings => _keyChangeCtrl.stream;
+  // Emits contact name + databaseId when their Signal identity key changes (possible reinstall / MITM).
+  final StreamController<({String contactName, String contactId})> _keyChangeCtrl = StreamController.broadcast();
+  Stream<({String contactName, String contactId})> get keyChangeWarnings => _keyChangeCtrl.stream;
+
+  // Emits a display message when an incoming signal fails MAC/integrity check
+  // (possible tamper or malicious relay injection).
+  final StreamController<String> _tamperWarningCtrl = StreamController.broadcast();
+  Stream<String> get tamperWarnings => _tamperWarningCtrl.stream;
+
+  // SmartRouter: per-address delivery success counts (in-memory + persisted).
+  // Halved every 24h to de-weight stale successes.
+  final Map<String, int> _deliverySuccessCount = {};
+  static const _kDeliveryStatsKey = 'delivery_stats_v1';
+  Timer? _deliveryStatsHalveTimer;
+
+  // File transfer resume: map of fileId → (contact, bytes, name) for active sends.
+  // Cleared after 10 min to avoid unbounded growth.
+  final Map<String, ({Contact contact, Uint8List bytes, String name})> _pendingSends = {};
+  // Stall detection: periodic timer checking for stalled receiver-side transfers.
+  Timer? _stallCheckTimer;
 
   // Per-room TTL cache (seconds, 0 = off). Populated in loadRoomHistory().
   final Map<String, int> _chatTtls = {};
 
-  // Pagination: how many messages from the end we have already loaded per room.
+  // Pagination: cursor-based — track oldest loaded timestamp per room.
   static const int _historyPageSize = 50;
   final Map<String, int> _historyLoaded = {};  // loaded count
+  final Map<String, int?> _oldestTimestamp = {}; // cursor: oldest msg timestamp per room
   final Map<String, bool> _historyFull = {};   // true when all history is in memory
   final Map<String, bool> _loadingMoreHistory = {};
 
@@ -115,15 +139,19 @@ class ChatController extends ChangeNotifier {
   // Populated when building a Signal session; persisted to SharedPreferences.
   final Map<String, Uint8List> _contactKyberPks = {};
 
-  // Chunk assembly buffers (keyed by file ID from sender)
-  final Map<String, Map<int, Uint8List>> _pendingChunks = {};
-  final Map<String, ({String name, int total, int size, String mediaType})> _chunkMeta = {};
+  // Chunk assembly for multi-part file transfers
+  final _chunkAssembler = ChunkAssembler();
   int getChatTtlCached(String contactId) => _chatTtls[contactId] ?? 0;
 
   // Global dedup: prevents the same message ID from being processed twice
   // across different transports (e.g. LAN + Nostr delivering same message).
   // Capped at 10k entries to bound memory; oldest cleared on overflow.
   final _seenMsgIds = <String>{};
+
+  // Per-sender rate limiters to prevent spam flooding.
+  // Messages: 30 burst, 1 per 2s sustained. Signals: 20 burst, 1 per 3s sustained.
+  final _msgRateLimiter = RateLimiter(maxTokens: 30, refillInterval: Duration(seconds: 2));
+  final _sigRateLimiter = RateLimiter(maxTokens: 20, refillInterval: Duration(seconds: 3));
 
   // Emits contact name when a message had to be sent unencrypted (E2EE session missing).
   final StreamController<String> _e2eeFailCtrl = StreamController.broadcast();
@@ -147,7 +175,9 @@ class ChatController extends ChangeNotifier {
           final cfg = jsonDecode(_identity!.adapterConfig['token'] ?? '{}');
           final url = (cfg['url'] as String? ?? '').replaceAll(RegExp(r'/$'), '');
           if (url.isNotEmpty) return '$dbId@$url';
-        } catch (_) {}
+        } catch (e) {
+          debugPrint('[Chat] Failed to parse Firebase address config: $e');
+        }
         return dbId;
       case 'nostr':
         return _selfId; // pubkey@relay
@@ -170,6 +200,16 @@ class ChatController extends ChangeNotifier {
     );
     _historyLoaded[contact.id] = stored.length;
     _historyFull[contact.id] = stored.length >= total;
+    // Track oldest loaded timestamp for cursor-based pagination.
+    if (stored.isNotEmpty) {
+      final firstTs = stored.first['timestamp'];
+      if (firstTs is int) {
+        _oldestTimestamp[contact.id] = firstTs;
+      } else if (firstTs is String) {
+        _oldestTimestamp[contact.id] =
+            DateTime.tryParse(firstTs)?.millisecondsSinceEpoch;
+      }
+    }
     if (stored.isEmpty) return;
 
     if (!_chatRooms.containsKey(contact.id)) {
@@ -184,19 +224,23 @@ class ChatController extends ChangeNotifier {
     }
     final room = _chatRooms[contact.id]!;
     for (final m in stored) {
-      final msg = Message.fromJson(m);
+      final msg = Message.tryFromJson(m);
+      if (msg == null) continue;
       if (!room.messages.any((x) => x.id == msg.id)) {
         room.messages.add(msg);
       }
     }
     room.messages.sort((a, b) => a.timestamp.compareTo(b.timestamp));
     // Fix messages stuck in 'sending' from a crashed session
+    bool hadStuck = false;
     for (int i = 0; i < room.messages.length; i++) {
       if (room.messages[i].status == 'sending') {
         room.messages[i] = room.messages[i].copyWith(status: 'failed');
         unawaited(LocalStorageService().saveMessage(storageKey, room.messages[i].toJson()));
+        hadStuck = true;
       }
     }
+    if (hadStuck) notifyListeners();
     // Load reactions for this room
     await _loadReactions(storageKey);
 
@@ -221,6 +265,7 @@ class ChatController extends ChangeNotifier {
   }
 
   /// Load the next page of older messages for a room (triggered by scroll-to-top).
+  /// Uses cursor-based pagination (timestamp < oldest loaded) for O(log N) lookups.
   Future<void> loadMoreHistory(Contact contact) async {
     if (_historyFull[contact.id] == true) return;
     if (_loadingMoreHistory[contact.id] == true) return;
@@ -230,25 +275,35 @@ class ChatController extends ChangeNotifier {
 
     try {
       final storageKey = contact.isGroup ? contact.id : contact.databaseId;
-      final offset = _historyLoaded[contact.id] ?? 0;
-      final total = await LocalStorageService().countMessages(storageKey);
+      final cursor = _oldestTimestamp[contact.id];
       final older = await LocalStorageService().loadMessagesPage(
         storageKey,
         pageSize: _historyPageSize,
-        offset: offset,
+        beforeTimestamp: cursor,
       );
 
       final room = _chatRooms[contact.id];
       if (room != null && older.isNotEmpty) {
         // Prepend older messages in timestamp order
         final toInsert = older
-            .map((m) => Message.fromJson(m))
+            .map((m) => Message.tryFromJson(m))
+            .whereType<Message>()
             .where((m) => !room.messages.any((x) => x.id == m.id))
             .toList();
         room.messages.insertAll(0, toInsert);
-        _historyLoaded[contact.id] = offset + older.length;
+        _historyLoaded[contact.id] =
+            (_historyLoaded[contact.id] ?? 0) + older.length;
+        // Update cursor to the oldest message in this batch.
+        final firstTs = older.first['timestamp'];
+        if (firstTs is int) {
+          _oldestTimestamp[contact.id] = firstTs;
+        } else if (firstTs is String) {
+          _oldestTimestamp[contact.id] =
+              DateTime.tryParse(firstTs)?.millisecondsSinceEpoch;
+        }
       }
-      _historyFull[contact.id] = (_historyLoaded[contact.id] ?? 0) >= total;
+      // Mark full when we got fewer than a full page (no more older messages).
+      _historyFull[contact.id] = older.length < _historyPageSize;
     } finally {
       _loadingMoreHistory[contact.id] = false;
       notifyListeners();
@@ -256,13 +311,20 @@ class ChatController extends ChangeNotifier {
   }
 
   Future<void> initialize() async {
+    sentryBreadcrumb('ChatController.initialize() started', category: 'lifecycle');
     await LocalStorageService().init();
     unawaited(_restoreScheduledTtls());
     _connectionStatus = ConnectionStatus.connecting;
     final prefs = await SharedPreferences.getInstance();
     final identityJson = prefs.getString('user_identity');
     if (identityJson != null) {
-      _identity = Identity.fromJson(jsonDecode(identityJson));
+      try {
+        _identity = Identity.fromJson(jsonDecode(identityJson));
+      } catch (e) {
+        debugPrint('[ChatController] Failed to parse stored identity: $e');
+        _connectionStatus = ConnectionStatus.disconnected;
+        return;
+      }
       await _signalService.initialize();
       await PqcService().initialize();
       await _initInbox();
@@ -286,7 +348,7 @@ class ChatController extends ChangeNotifier {
 
   static const _secureStorage = FlutterSecureStorage();
   static const _uuid = Uuid();
-  static const _kDefaultNostrRelay = 'wss://relay.damus.io';
+  static const _kDefaultNostrRelay = kDefaultNostrRelay;
   static const _kLanModeEnabled = 'lan_mode_enabled';
 
   Future<void> _initInbox() async {
@@ -355,7 +417,9 @@ class ChatController extends ChangeNotifier {
           try {
             final cfg = jsonDecode(apiKey) as Map<String, dynamic>;
             nodeUrl = (cfg['nodeUrl'] as String? ?? nodeUrl).trim();
-          } catch (_) {}
+          } catch (e) {
+            debugPrint('[Chat] Failed to parse Waku config: $e');
+          }
           apiKey = jsonEncode({'nodeUrl': nodeUrl, 'userId': userId});
           dbId = '$userId@$nodeUrl';
           _selfId = dbId;
@@ -378,10 +442,31 @@ class ChatController extends ChangeNotifier {
 
     await InboxManager().configureSelf(providerName, apiKey, dbId);
     _connectionStatus = ConnectionStatus.connected;
+    sentryBreadcrumb('Adapter connected: $providerName', category: 'adapter');
     notifyListeners();
+
+    // Load delivery stats and start 24h halving timer.
+    unawaited(_loadDeliveryStats());
+    _deliveryStatsHalveTimer?.cancel();
+    _deliveryStatsHalveTimer = Timer.periodic(const Duration(hours: 24), (_) {
+      _deliverySuccessCount.updateAll((_, v) => v ~/ 2);
+      unawaited(_saveDeliveryStats());
+    });
 
     // Republish Signal bundle whenever a preKey is consumed (new contact established session).
     _signalService.onPreKeyConsumed = () => unawaited(_republishKeys());
+
+    // Re-publish bundle to ALL transports when prekeys are exhausted and regenerated.
+    _bundleRefreshSub?.cancel();
+    _bundleRefreshSub = _signalService.onBundleRefresh.listen((_) {
+      debugPrint('[Chat] PreKeys exhausted — re-publishing bundle to all transports');
+      unawaited(_republishAllKeys());
+    });
+
+    // Surface prekey exhaustion attack warnings via e2eeFailures stream.
+    _signalSubs.add(_signalService.onPreKeyExhaustionWarning.listen((msg) {
+      if (!_e2eeFailCtrl.isClosed) _e2eeFailCtrl.add('⚠️ $msg');
+    }));
 
     // Publish Signal public keys to own inbox (once per adapter + selfId combination)
     unawaited(_maybePublishOwnKeys());
@@ -406,10 +491,18 @@ class ChatController extends ChangeNotifier {
       _healthSubs.add(r.healthChanges.listen((h) => _onAdapterHealthChange(myAddress, h)));
     }
 
+    // Subscribe to tamper warnings from the Nostr layer.
+    _signalSubs.add(NostrInboxReader.tamperWarnings.stream.listen((senderId) {
+      final short = senderId.length > 8 ? senderId.substring(0, 8) : senderId;
+      debugPrint('[Security] MAC tamper warning from $senderId');
+      _tamperWarningCtrl.add(
+          'Tamper detected — a signal from $short… failed integrity check');
+    }));
+
     // Subscribe secondary adapters
     final secondaryCfgs = await _loadSecondaryAdapters();
     for (final cfg in secondaryCfgs) {
-      final reader = InboxManager().createAdhocReader(
+      final reader = await InboxManager().createAdhocReader(
           cfg['provider']!, cfg['apiKey']!, cfg['databaseId']!);
       if (reader == null) continue;
       _messageSubs.add(reader.listenForMessages().listen(_handleIncomingMessages));
@@ -438,13 +531,24 @@ class ChatController extends ChangeNotifier {
       _signalSubs.add(_lanReader!.listenForSignals().listen(_handleIncomingSignals));
     }
 
-    // Monitor internet; flip lanModeActive flag when status changes
+    // Monitor internet; flip lanModeActive flag when status changes.
+    // Also detect network changes (WiFi↔cellular, VPN) and re-probe.
     NetworkMonitor.instance.startMonitoring(
       onChanged: (isAvailable) {
         if (_lanModeActive == isAvailable) {
           _lanModeActive = !isAvailable;
           notifyListeners();
         }
+      },
+      onNetworkChanged: () {
+        debugPrint('[Chat] Network changed — re-probing relays');
+        unawaited(ConnectivityProbeService.instance.forceProbe());
+        // Reconnect after probe finds new relays, then flush failed messages
+        unawaited(ConnectivityProbeService.instance.firstRunDone.then((_) {
+          reconnectInbox();
+          // Delay flush slightly to let new connections stabilize
+          Future.delayed(const Duration(seconds: 3), _flushFailedMessages);
+        }));
       },
     );
 
@@ -481,12 +585,16 @@ class ChatController extends ChangeNotifier {
           try {
             final pubkey = privkey.isNotEmpty ? deriveNostrPubkeyHex(privkey) : '';
             entry['selfId'] = pubkey.isNotEmpty ? '$pubkey@$relay' : (entry['selfId'] ?? '');
-          } catch (_) {}
+          } catch (e) {
+            debugPrint('[Chat] Failed to derive secondary Nostr pubkey: $e');
+          }
         }
         result.add(entry);
       }
       return result;
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[Chat] Failed to load secondary adapters: $e');
+      sentryBreadcrumb('Secondary adapter load failed', category: 'adapter');
       return [];
     }
   }
@@ -559,6 +667,90 @@ class ChatController extends ChangeNotifier {
     }
   }
 
+  /// Centralized helper: init sender for contact's provider and send a signal.
+  /// Replaces 8+ duplicated sender-init-then-sendSignal blocks.
+  /// For non-Nostr transports, adds HMAC-SHA256 signature using ECDH shared secret
+  /// to prevent signal forgery (addr_update, bundle injection, etc.).
+  Future<void> _sendSignalTo(Contact contact, String type, Map<String, dynamic> payload) async {
+    if (_identity == null || _selfId.isEmpty) return;
+    try {
+      final built = await _buildSenderFor(contact);
+      if (built == null) return;
+      await built.sender.initializeSender(built.apiKey);
+
+      // Sign for non-Nostr transports (Nostr signs natively via Schnorr).
+      var signedPayload = payload;
+      if (contact.provider != 'Nostr') {
+        signedPayload = await _signPayload(contact, type, payload);
+      }
+
+      await built.sender.sendSignal(
+          contact.databaseId, contact.databaseId, _selfId, type, signedPayload);
+    } catch (e) {
+      debugPrint('[ChatController] Signal $type to ${contact.name} failed: $e');
+    }
+  }
+
+  /// Compute HMAC-SHA256 over signal payload using ECDH shared secret.
+  Future<Map<String, dynamic>> _signPayload(
+      Contact contact, String type, Map<String, dynamic> payload) async {
+    try {
+      final privkey = await _secureStorage.read(key: 'nostr_privkey') ?? '';
+      if (privkey.isEmpty) return payload;
+      // Derive recipient pubkey from contact's databaseId.
+      final recipientPub = _extractPubkey(contact.databaseId);
+      if (recipientPub == null) return payload;
+
+      final senderPub = deriveNostrPubkeyHex(privkey);
+      // Canonical JSON for HMAC: sorted type + payload.
+      final canonical = jsonEncode({'t': type, 'p': payload});
+      final hmac = signSignalPayload(privkey, recipientPub, canonical);
+      return {...payload, '_sig': hmac, '_spk': senderPub};
+    } catch (e) {
+      debugPrint('[ChatController] Signal sign error: $e');
+      return payload; // graceful fallback — unsigned
+    }
+  }
+
+  /// Extract Nostr pubkey from any address format.
+  /// Nostr: pubkey@wss://relay → pubkey
+  /// Oxen: 66-char hex → derive from stored contact key
+  /// Firebase/Waku: userId@url → look up stored contact pubkey
+  String? _extractPubkey(String databaseId) {
+    // Try Nostr format: 64-hex pubkey @ relay
+    final atWss = databaseId.indexOf('@wss://');
+    final atWs = databaseId.indexOf('@ws://');
+    final atIdx = atWss != -1 ? atWss : (atWs != -1 ? atWs : -1);
+    if (atIdx != -1) {
+      final pub = databaseId.substring(0, atIdx);
+      if (RegExp(r'^[0-9a-f]{64}$').hasMatch(pub)) return pub;
+    }
+    // 64-hex pubkey standalone
+    if (RegExp(r'^[0-9a-f]{64}$').hasMatch(databaseId)) return databaseId;
+    // Look up stored contact Nostr pubkey
+    final contact = ContactManager().contacts.firstWhere(
+      (c) => c.databaseId == databaseId,
+      orElse: () => Contact(id: '', name: '', databaseId: '', provider: '', publicKey: ''),
+    );
+    // Check alternateAddresses for Nostr address
+    for (final addr in [contact.databaseId, ...contact.alternateAddresses]) {
+      final at = addr.indexOf('@wss://');
+      if (at != -1) {
+        final pub = addr.substring(0, at);
+        if (RegExp(r'^[0-9a-f]{64}$').hasMatch(pub)) return pub;
+      }
+    }
+    return null;
+  }
+
+  /// Register a sender plugin with InboxManager for [contact]'s provider.
+  Future<void> _addSenderPlugin(Contact contact) async {
+    final built = await _buildSenderFor(contact);
+    if (built != null) {
+      await InboxManager().addSenderPlugin(contact.provider, built.sender, built.apiKey);
+    }
+  }
+
   // ── Typing indicators ─────────────────────────────────────────────────────
   final Map<String, Timer> _typingTimers = {};
   final Map<String, bool> _isTypingMap = {};
@@ -569,16 +761,8 @@ class ChatController extends ChangeNotifier {
 
   bool isContactTyping(String contactId) => _isTypingMap[contactId] ?? false;
 
-  Future<void> sendTypingSignal(Contact contact) async {
-    if (_identity == null || _selfId.isEmpty) return;
-    try {
-      final built = await _buildSenderFor(contact);
-      if (built == null) return;
-      await built.sender.initializeSender(built.apiKey);
-      await built.sender.sendSignal(
-          contact.databaseId, contact.databaseId, _selfId, 'typing', {'from': _selfId});
-    } catch (_) {}
-  }
+  Future<void> sendTypingSignal(Contact contact) =>
+      _sendSignalTo(contact, 'typing', {'from': _selfId});
   // ─────────────────────────────────────────────────────────────────────────
 
   /// Broadcast our own status to all non-group contacts.
@@ -586,16 +770,7 @@ class ChatController extends ChangeNotifier {
     if (_identity == null || _selfId.isEmpty) return;
     for (final contact in ContactManager().contacts) {
       if (contact.isGroup) continue;
-      try {
-        final built = await _buildSenderFor(contact);
-        if (built == null) continue;
-        await built.sender.initializeSender(built.apiKey);
-        await built.sender.sendSignal(
-            contact.databaseId, contact.databaseId, _selfId,
-            'status_update', status.toJson());
-      } catch (e) {
-        debugPrint('[ChatController] broadcastStatus to ${contact.name} failed: $e');
-      }
+      await _sendSignalTo(contact, 'status_update', status.toJson());
     }
   }
 
@@ -631,33 +806,13 @@ class ChatController extends ChangeNotifier {
     final probe  = ConnectivityProbeService.instance.lastResult;
     final relays = [...probe.nostrRelays, ...probe.torNostrRelays];
     if (relays.isEmpty) return;
-
     for (final contact in ContactManager().contacts) {
       if (contact.isGroup) continue;
-      try {
-        MessageSender? sender;
-        String senderApiKey = '';
-        if (contact.provider == 'Nostr') {
-          final privkey = await _secureStorage.read(key: 'nostr_privkey') ?? '';
-          final prefs   = await SharedPreferences.getInstance();
-          final relay   = prefs.getString('nostr_relay') ?? _kDefaultNostrRelay;
-          senderApiKey  = jsonEncode({'privkey': privkey, 'relay': relay});
-          sender        = NostrMessageSender();
-        } else if (contact.provider == 'Oxen') {
-          final prefs  = await SharedPreferences.getInstance();
-          senderApiKey = prefs.getString('oxen_node_url') ?? '';
-          sender       = OxenMessageSender();
-        }
-        if (sender == null) continue;
-        await sender.initializeSender(senderApiKey);
-        await sender.sendSignal(
-            contact.databaseId, contact.databaseId, _selfId,
-            'relay_exchange', {'relays': relays});
-      } catch (e) {
-        debugPrint('[P2P] broadcastWorkingRelays to ${contact.name} failed: $e');
-      }
+      // Only Nostr/Oxen contacts benefit from relay exchange
+      if (contact.provider != 'Nostr' && contact.provider != 'Oxen') continue;
+      await _sendSignalTo(contact, 'relay_exchange', {'relays': relays});
     }
-    debugPrint('[P2P] Shared ${relays.length} relay(s) with ${ContactManager().contacts.where((c) => !c.isGroup).length} contact(s)');
+    debugPrint('[P2P] Shared ${relays.length} relay(s) with contacts');
   }
 
   /// Broadcast own profile (name + about) to all non-group contacts.
@@ -667,16 +822,7 @@ class ChatController extends ChangeNotifier {
     if (avatarB64.isNotEmpty) payload['avatar'] = avatarB64;
     for (final contact in ContactManager().contacts) {
       if (contact.isGroup) continue;
-      try {
-        final built = await _buildSenderFor(contact);
-        if (built == null) continue;
-        await built.sender.initializeSender(built.apiKey);
-        await built.sender.sendSignal(
-            contact.databaseId, contact.databaseId, _selfId,
-            'profile_update', payload);
-      } catch (e) {
-        debugPrint('[ChatController] broadcastProfile to ${contact.name} failed: $e');
-      }
+      await _sendSignalTo(contact, 'profile_update', payload);
     }
   }
 
@@ -684,28 +830,17 @@ class ChatController extends ChangeNotifier {
   /// Called on startup and whenever the user changes their transport settings.
   Future<void> broadcastAddressUpdate() async {
     if (_identity == null || _selfId.isEmpty || _allAddresses.isEmpty) return;
-    final payload = <String, dynamic>{
-      'primary': _selfId,
-      'all': _allAddresses,
-    };
+    final payload = <String, dynamic>{'primary': _selfId, 'all': _allAddresses};
     for (final contact in ContactManager().contacts) {
       if (contact.isGroup) continue;
-      try {
-        final built = await _buildSenderFor(contact);
-        if (built == null) continue;
-        await built.sender.initializeSender(built.apiKey);
-        await built.sender.sendSignal(
-            contact.databaseId, contact.databaseId, _selfId,
-            'addr_update', payload);
-      } catch (e) {
-        debugPrint('[ChatController] broadcastAddressUpdate to ${contact.name} failed: $e');
-      }
+      await _sendSignalTo(contact, 'addr_update', payload);
     }
   }
 
   /// Called when an adapter reports a health change (healthy=true/false).
   void _onAdapterHealthChange(String addr, bool healthy) {
     _adapterHealth[addr] = healthy;
+    sentryBreadcrumb('Adapter health: ${healthy ? "healthy" : "unhealthy"}', category: 'adapter');
     debugPrint('[Failover] $addr → ${healthy ? "healthy" : "UNHEALTHY"}');
     if (!healthy && addr == _selfId) {
       // Primary adapter failed — find the first healthy secondary.
@@ -732,20 +867,8 @@ class ChatController extends ChangeNotifier {
   }
 
   /// Send a group read receipt for a specific message back to its sender.
-  Future<void> _sendGroupReadReceipt(Contact senderContact, String groupId, String msgId) async {
-    if (_identity == null || _selfId.isEmpty) return;
-    try {
-      final built = await _buildSenderFor(senderContact);
-      if (built == null) return;
-      await built.sender.initializeSender(built.apiKey);
-      await built.sender.sendSignal(
-        senderContact.databaseId, senderContact.databaseId, _selfId,
-        'msg_read', {'from': _selfId, 'groupId': groupId, 'msgId': msgId},
-      );
-    } catch (e) {
-      debugPrint('[ChatController] Group read receipt failed: $e');
-    }
-  }
+  Future<void> _sendGroupReadReceipt(Contact senderContact, String groupId, String msgId) =>
+      _sendSignalTo(senderContact, 'msg_read', {'from': _selfId, 'groupId': groupId, 'msgId': msgId});
 
   /// Called when opening a group chat — sends read receipts to each original sender.
   Future<void> markGroupMessagesRead(Contact group) async {
@@ -780,8 +903,82 @@ class ChatController extends ChangeNotifier {
   final StreamController<Map<String, dynamic>> _signalStreamController = StreamController.broadcast();
   Stream<Map<String, dynamic>> get signalStream => _signalStreamController.stream;
 
+  // Signal types that require HMAC signature verification (anti-forgery).
+  static const _signatureRequiredSignals = <String>{
+    'addr_update',      // address migration — forgery redirects messages
+    'sys_keys',         // key bundle — forgery enables MITM
+    'relay_exchange',   // relay list — forgery isolates contact
+    'profile_update',   // profile data — forgery impersonates contact
+  };
+
+  /// Verify HMAC-SHA256 signature on an incoming signal payload.
+  Future<bool> _verifySignalSignature(
+      String type, Map<String, dynamic> payload, String hmac, String senderPub) async {
+    try {
+      final privkey = await _secureStorage.read(key: 'nostr_privkey') ?? '';
+      if (privkey.isEmpty) return true; // can't verify without own key
+      // Reconstruct canonical JSON without _sig and _spk fields.
+      final cleanPayload = Map<String, dynamic>.from(payload)
+        ..remove('_sig')
+        ..remove('_spk');
+      final canonical = jsonEncode({'t': type, 'p': cleanPayload});
+      return verifySignalPayload(privkey, senderPub, canonical, hmac);
+    } catch (e) {
+      debugPrint('[Chat] Signature verification error: $e');
+      return false;
+    }
+  }
+
+  // Signal types exempt from rate limiting (system-critical).
+  static const _rateLimitExemptSignals = <String>{
+    'sys_keys',       // key bundle exchange
+    'addr_update',    // address migration
+    'webrtc_offer',   // call signaling
+    'webrtc_answer',
+    'webrtc_candidate',
+    'webrtc2_offer',  // secondary call signaling
+    'webrtc2_answer',
+    'webrtc2_candidate',
+  };
+
   Future<void> _handleIncomingSignals(List<Map<String, dynamic>> signals) async {
     for (var sig in signals) {
+      try {
+       // Per-sender rate limiting for non-system signals.
+       final sigType = sig['type'] as String? ?? '';
+       final sigSender = sig['senderId'] as String? ?? '';
+       if (sigSender.isNotEmpty &&
+           !_allAddresses.contains(sigSender) &&
+           sigSender != _selfId &&
+           !_rateLimitExemptSignals.contains(sigType) &&
+           !sigType.startsWith('p2p_') &&
+           !_sigRateLimiter.allow(sigSender)) {
+         debugPrint('[Chat] Rate limited signal ($sigType) from: $sigSender');
+         continue;
+       }
+
+       // Verify HMAC signature on security-critical signals.
+       // Nostr signs natively (Schnorr) — skip HMAC for Nostr-originated signals.
+       // For Firebase/Waku/Oxen: require _sig + _spk, reject unsigned.
+       if (_signatureRequiredSignals.contains(sigType)) {
+         final isNostrOrigin = sigSender.contains('@wss://') || sigSender.contains('@ws://');
+         if (!isNostrOrigin) {
+           final payload = sig['payload'];
+           if (payload is Map<String, dynamic>) {
+             final hmac = payload['_sig'] as String?;
+             final senderPub = payload['_spk'] as String?;
+             if (hmac == null || senderPub == null) {
+               debugPrint('[Chat] REJECTED unsigned signal ($sigType) from $sigSender');
+               continue;
+             }
+             if (!await _verifySignalSignature(sigType, payload, hmac, senderPub)) {
+               debugPrint('[Chat] REJECTED forged signal ($sigType) — HMAC invalid');
+               continue;
+             }
+           }
+         }
+       }
+
        _signalStreamController.add(sig); // Broadcast to active calls
        if (sig['type'] == 'webrtc_offer') {
           final rawPayload = sig['payload'];
@@ -820,6 +1017,14 @@ class ChatController extends ChangeNotifier {
             _handleGroupReadReceipt(from, groupId, msgId);
           } else if (from.isNotEmpty) {
             _handleReadReceipt(from);
+          }
+       } else if (sig['type'] == 'msg_ack') {
+          // Delivery acknowledgment — update message status from 'sent' to 'delivered'.
+          final payload = sig['payload'];
+          final msgId = payload is Map ? payload['msgId'] as String? : null;
+          final from = (payload is Map ? payload['from'] as String? : null) ?? '';
+          if (msgId != null && from.isNotEmpty) {
+            _handleDeliveryAck(from, msgId);
           }
        } else if (sig['type'] == 'ttl_update') {
           final payload = sig['payload'];
@@ -932,7 +1137,7 @@ class ChatController extends ChangeNotifier {
                   keyContact.databaseId, Map<String, dynamic>.from(payload));
               _cacheContactKyberPk(keyContact.databaseId, Map<String, dynamic>.from(payload));
               if (keyChanged && !_keyChangeCtrl.isClosed) {
-                _keyChangeCtrl.add(keyContact.name);
+                _keyChangeCtrl.add((contactName: keyContact.name, contactId: keyContact.databaseId));
               }
               // For Oxen contacts: respond with our own keys (in-band key exchange)
               if (keyContact.provider == 'Oxen') {
@@ -959,7 +1164,8 @@ class ChatController extends ChangeNotifier {
             }
           }
        } else if (sig['type'] == 'relay_exchange') {
-          final rawRelays = sig['relays'] ?? sig['payload'];
+          final payload = sig['payload'];
+          final rawRelays = payload is Map ? payload['relays'] : payload;
           final relays = rawRelays is List
               ? List<String>.from(rawRelays.whereType<String>())
               : <String>[];
@@ -1058,7 +1264,21 @@ class ChatController extends ChangeNotifier {
               }
             }
           }
+       } else if (sig['type'] == 'chunk_req') {
+          // Receiver is requesting specific missing chunks for a stalled transfer.
+          final payload = sig['payload'];
+          if (payload is Map) {
+            final fid = payload['fid'] as String?;
+            final missing = payload['missing'];
+            final senderId = sig['senderId'] as String? ?? '';
+            if (fid != null && missing is List) {
+              unawaited(_resendMissingChunks(fid, List<int>.from(missing), senderId));
+            }
+          }
        }
+      } catch (e) {
+        debugPrint('[ChatController] Skipping malformed signal: $e');
+      }
     }
   }
 
@@ -1103,10 +1323,23 @@ class ChatController extends ChangeNotifier {
     }
 
     for (var msg in newMessages) {
+      try {
       // Global dedup: skip messages we've already processed (cross-transport duplicates).
       if (_seenMsgIds.contains(msg.id)) continue;
-      if (_seenMsgIds.length >= 10000) _seenMsgIds.clear();
+      if (_seenMsgIds.length >= 10000) {
+        // Sliding window: remove oldest half instead of clearing all (prevents dedup gap).
+        final oldest = _seenMsgIds.take(5000).toList();
+        oldest.forEach(_seenMsgIds.remove);
+      }
       _seenMsgIds.add(msg.id);
+
+      // Per-sender rate limiting: don't rate-limit our own messages.
+      if (!_allAddresses.contains(msg.senderId) &&
+          msg.senderId != _selfId &&
+          !_msgRateLimiter.allow(msg.senderId)) {
+        debugPrint('[Chat] Rate limited message from: ${msg.senderId}');
+        continue;
+      }
 
       // Step 1: Decrypt the payload first so we can read the federation envelope.
       // PQC: unwrap outer Kyber hybrid layer before Signal decryption.
@@ -1131,16 +1364,23 @@ class ChatController extends ChangeNotifier {
         if (fastContact != null) {
           try {
             decryptedRaw = await _signalService.decryptMessage(fastContact.databaseId, rawPayload);
-          } catch (_) {}
+          } catch (e) {
+            debugPrint('[Chat] E2EE fast-path decrypt failed for ${fastContact.databaseId}: $e');
+            sentryBreadcrumb('E2EE fast-path decrypt failed', category: 'signal');
+          }
         }
-        // Fallback (cross-adapter): transport senderId is a throwaway key (e.g. Firebase→Nostr).
-        // Try ALL contacts — Signal decrypt throws for wrong sessions, safe to brute-force.
+        // Cross-adapter fallback: try alternate addresses of known contacts.
+        // We do NOT brute-force all contacts — that can corrupt Signal ratchet state.
         if (decryptedRaw == rawPayload) {
+          final senderPubPrefix = msg.senderId.split('@').first;
           for (final c in ContactManager().contacts) {
-            try {
-              decryptedRaw = await _signalService.decryptMessage(c.databaseId, rawPayload);
-              break; // correct session found
-            } catch (_) {}
+            // Only try contacts whose alternate addresses match the sender.
+            if (c.alternateAddresses.any((a) => a.startsWith(senderPubPrefix))) {
+              try {
+                decryptedRaw = await _signalService.decryptMessage(c.databaseId, rawPayload);
+                break;
+              } catch (e) { debugPrint('[Chat] Alt-address decrypt failed for ${c.databaseId}: $e'); }
+            }
           }
         }
       }
@@ -1158,10 +1398,8 @@ class ChatController extends ChangeNotifier {
       Contact? senderContact = contactByDbId[canonicalSenderId]
           ?? contactByDbId[canonicalSenderId.split('@').first];
       // Fallback: match by transport-layer senderId (backward compat / same-adapter)
-      if (senderContact == null) {
-        senderContact = contactByDbId[msg.senderId]
-            ?? contactByDbId[msg.senderId.split('@').first];
-      }
+      senderContact ??= contactByDbId[msg.senderId]
+          ?? contactByDbId[msg.senderId.split('@').first];
 
       if (senderContact != null) {
         if (!_chatRooms.containsKey(senderContact.id)) {
@@ -1209,12 +1447,12 @@ class ChatController extends ChangeNotifier {
                    }
                  }
                }
-             } catch (_) {} // not JSON — plain message
+             } catch (e) { debugPrint('[Chat] Signal JSON parse (treating as plain text): $e'); } // not JSON — plain message
 
              // Handle chunked file transfer: buffer chunks and assemble when complete.
              bool skipMessage = false;
              if (MediaService.isChunkPayload(finalText)) {
-               final assembled = _handleChunk(finalText);
+               final assembled = _chunkAssembler.handleChunk(finalText);
                if (assembled == null) {
                  skipMessage = true; // still waiting for remaining chunks
                } else {
@@ -1254,6 +1492,11 @@ class ChatController extends ChangeNotifier {
                  if (!_newMsgController.isClosed) {
                    _newMsgController.add((contactId: targetContact.id, message: decryptedMsg));
                  }
+                 // Send delivery ACK back to the actual sender (not the group).
+                 unawaited(_sendSignalTo(senderContact, 'msg_ack', {
+                   'msgId': msg.id,
+                   'from': _selfId,
+                 }));
                  final ttl = _chatTtls[targetContact.id] ?? 0;
                  if (ttl > 0) _scheduleTtlDelete(targetContact, decryptedMsg, ttl);
                }
@@ -1262,6 +1505,9 @@ class ChatController extends ChangeNotifier {
              debugPrint("Decryption failed for message ${msg.id}: $e");
            }
         }
+      }
+      } catch (e) {
+        debugPrint('[ChatController] Skipping malformed message ${msg.id}: $e');
       }
     }
 
@@ -1381,7 +1627,7 @@ class ChatController extends ChangeNotifier {
           final keyChanged = await _signalService.buildSession(contact.databaseId, bundle);
           _cacheContactKyberPk(contact.databaseId, bundle);
           if (keyChanged && !_keyChangeCtrl.isClosed) {
-            _keyChangeCtrl.add(contact.name);
+            _keyChangeCtrl.add((contactName: contact.name, contactId: contact.databaseId));
           }
           encryptedText = await _signalService.encryptMessage(contact.databaseId, envelope);
         } else {
@@ -1391,6 +1637,7 @@ class ChatController extends ChangeNotifier {
         }
       } catch (e2) {
         debugPrint('[E2EE] Session build failed for ${contact.name}: $e2 — send aborted');
+        sentryBreadcrumb('E2EE session build failed', category: 'encryption');
         if (!_e2eeFailCtrl.isClosed) _e2eeFailCtrl.add(contact.name);
         return;
       }
@@ -1449,26 +1696,7 @@ class ChatController extends ChangeNotifier {
       return;
     }
     // Initialize sender and deliver
-    final ourApiKey = _identity!.adapterConfig['token'] ?? '';
-    if (contact.provider == 'Firebase') {
-      InboxManager().addSenderPlugin('Firebase', FirebaseInboxSender(), ourApiKey);
-    } else if (contact.provider == 'Nostr') {
-      final privkey = await _secureStorage.read(key: 'nostr_privkey') ?? '';
-      final prefs = await SharedPreferences.getInstance();
-      final relay = prefs.getString('nostr_relay') ?? _kDefaultNostrRelay;
-      final nostrApiKey = jsonEncode({'privkey': privkey, 'relay': relay});
-      InboxManager().addSenderPlugin('Nostr', NostrMessageSender(), nostrApiKey);
-    } else if (contact.provider == 'Waku') {
-      final prefs = await SharedPreferences.getInstance();
-      final nodeUrl = prefs.getString('waku_node_url') ?? 'http://127.0.0.1:8645';
-      final userId = prefs.getString('waku_identity') ?? '';
-      InboxManager().addSenderPlugin('Waku', WakuMessageSender(),
-          jsonEncode({'nodeUrl': nodeUrl, 'userId': userId}));
-    } else if (contact.provider == 'Oxen') {
-      final prefs = await SharedPreferences.getInstance();
-      final nodeUrl = prefs.getString('oxen_node_url') ?? '';
-      InboxManager().addSenderPlugin('Oxen', OxenMessageSender(), nodeUrl);
-    }
+    await _addSenderPlugin(contact);
     // ── P2P fast path: deliver directly if DataChannel is open ────────────────
     bool sent;
     if (!contact.isGroup && P2PTransportService.instance.isConnected(contact.id)) {
@@ -1521,7 +1749,7 @@ class ChatController extends ChangeNotifier {
     );
     final ourApiKey = _identity!.adapterConfig['token'] ?? '';
     if (provider == 'Firebase') {
-      InboxManager().addSenderPlugin('Firebase', FirebaseInboxSender(), ourApiKey);
+      await InboxManager().addSenderPlugin('Firebase', FirebaseInboxSender(), ourApiKey);
     } else if (provider == 'Nostr') {
       final privkey = await _secureStorage.read(key: 'nostr_privkey') ?? '';
       final prefs = await SharedPreferences.getInstance();
@@ -1529,19 +1757,19 @@ class ChatController extends ChangeNotifier {
       final relay = atIdx != -1
           ? address.substring(atIdx + 1)
           : prefs.getString('nostr_relay') ?? _kDefaultNostrRelay;
-      InboxManager().addSenderPlugin('Nostr', NostrMessageSender(),
+      await InboxManager().addSenderPlugin('Nostr', NostrMessageSender(),
           jsonEncode({'privkey': privkey, 'relay': relay}));
     } else if (provider == 'Waku') {
       final prefs = await SharedPreferences.getInstance();
       final userId = prefs.getString('waku_identity') ?? '';
       final atIdx = address.indexOf('@http');
       final nodeUrl = atIdx != -1 ? address.substring(atIdx + 1) : '';
-      InboxManager().addSenderPlugin('Waku', WakuMessageSender(),
+      await InboxManager().addSenderPlugin('Waku', WakuMessageSender(),
           jsonEncode({'nodeUrl': nodeUrl, 'userId': userId}));
     } else if (provider == 'Oxen') {
       final prefs = await SharedPreferences.getInstance();
       final nodeUrl = prefs.getString('oxen_node_url') ?? '';
-      InboxManager().addSenderPlugin('Oxen', OxenMessageSender(), nodeUrl);
+      await InboxManager().addSenderPlugin('Oxen', OxenMessageSender(), nodeUrl);
     } else {
       return false;
     }
@@ -1592,7 +1820,7 @@ class ChatController extends ChangeNotifier {
           final keyChanged = await _signalService.buildSession(contact.databaseId, bundle);
           _cacheContactKyberPk(contact.databaseId, bundle);
           if (keyChanged && !_keyChangeCtrl.isClosed) {
-            _keyChangeCtrl.add(contact.name);
+            _keyChangeCtrl.add((contactName: contact.name, contactId: contact.databaseId));
           }
           encryptedText = await _signalService.encryptMessage(contact.databaseId, envelope);
         } else {
@@ -1619,26 +1847,7 @@ class ChatController extends ChangeNotifier {
           : contact.provider == 'Oxen' ? 'oxen'
           : 'firebase',
     );
-    final ourApiKey = _identity!.adapterConfig['token'] ?? '';
-    if (contact.provider == 'Firebase') {
-      InboxManager().addSenderPlugin('Firebase', FirebaseInboxSender(), ourApiKey);
-    } else if (contact.provider == 'Nostr') {
-      final privkey = await _secureStorage.read(key: 'nostr_privkey') ?? '';
-      final prefs = await SharedPreferences.getInstance();
-      final relay = prefs.getString('nostr_relay') ?? _kDefaultNostrRelay;
-      InboxManager().addSenderPlugin('Nostr', NostrMessageSender(),
-          jsonEncode({'privkey': privkey, 'relay': relay}));
-    } else if (contact.provider == 'Waku') {
-      final prefs = await SharedPreferences.getInstance();
-      final nodeUrl = prefs.getString('waku_node_url') ?? 'http://127.0.0.1:8645';
-      final userId = prefs.getString('waku_identity') ?? '';
-      InboxManager().addSenderPlugin('Waku', WakuMessageSender(),
-          jsonEncode({'nodeUrl': nodeUrl, 'userId': userId}));
-    } else if (contact.provider == 'Oxen') {
-      final prefs = await SharedPreferences.getInstance();
-      final nodeUrl = prefs.getString('oxen_node_url') ?? '';
-      InboxManager().addSenderPlugin('Oxen', OxenMessageSender(), nodeUrl);
-    }
+    await _addSenderPlugin(contact);
     // ── P2P fast path ─────────────────────────────────────────────────────────
     bool sent = false;
     if (!contact.isGroup && P2PTransportService.instance.isConnected(contact.id)) {
@@ -1651,14 +1860,20 @@ class ChatController extends ChangeNotifier {
       if (!contact.isGroup) unawaited(P2PTransportService.instance.connect(contact.id));
     }
 
-    // ── Smart Router: retry via alternate addresses ──────────────────────────
+    // ── Smart Router: retry via alternate addresses (weighted by past success) ─
     if (!sent && contact.alternateAddresses.isNotEmpty) {
-      final order = [...contact.alternateAddresses]..shuffle();
+      // Sort by descending success count; shuffle within ties for fairness.
+      final order = [...contact.alternateAddresses];
+      order.shuffle(); // randomise ties
+      order.sort((a, b) =>
+          (_deliverySuccessCount[b] ?? 0).compareTo(_deliverySuccessCount[a] ?? 0));
       for (final alt in order) {
         debugPrint('[SmartRouter] Primary failed, trying alternate: $alt');
         sent = await _deliverEncryptedMessage(alt, msg);
         if (sent) {
           debugPrint('[SmartRouter] Delivered via alternate: $alt');
+          _deliverySuccessCount[alt] = (_deliverySuccessCount[alt] ?? 0) + 1;
+          unawaited(_saveDeliveryStats());
           break;
         }
       }
@@ -1734,20 +1949,37 @@ class ChatController extends ChangeNotifier {
     bool allSent = true;
     _uploadProgress[msgId] = 0.0;
     int i = 0;
-    // Use lazy iterable to avoid holding all encoded chunks in memory at once.
-    for (final chunk in MediaService.chunkIterable(bytes, name)) {
-      final bool ok;
-      if (isGroup) {
-        ok = await _sendGroupChunk(contact, chunk);
-      } else {
-        ok = await _sendToContact(contact, chunk);
+    String? fileId; // extracted from first chunk JSON
+    try {
+      // Use lazy iterable to avoid holding all encoded chunks in memory at once.
+      for (final chunk in MediaService.chunkIterable(bytes, name)) {
+        // Record fileId from first chunk for resume support.
+        if (fileId == null) {
+          try {
+            final m = jsonDecode(chunk) as Map<String, dynamic>;
+            fileId = m['fid'] as String?;
+          } catch (e) { debugPrint('[Chat] Could not extract fileId from chunk: $e'); }
+        }
+        final bool ok;
+        if (isGroup) {
+          ok = await _sendGroupChunk(contact, chunk);
+        } else {
+          ok = await _sendToContact(contact, chunk);
+        }
+        if (!ok) { allSent = false; break; }
+        i++;
+        _uploadProgress[msgId] = i / totalChunks;
+        notifyListeners();
       }
-      if (!ok) { allSent = false; break; }
-      i++;
-      _uploadProgress[msgId] = i / totalChunks;
-      notifyListeners();
+      // Register for resume (kept for 10 min so receiver can request missing chunks).
+      if (fileId != null) {
+        _pendingSends[fileId] = (contact: contact, bytes: bytes, name: name);
+        Future.delayed(const Duration(minutes: 10), () => _pendingSends.remove(fileId));
+        _startStallCheckTimer();
+      }
+    } finally {
+      _uploadProgress.remove(msgId);
     }
-    _uploadProgress.remove(msgId);
 
     final idx = room.messages.indexWhere((m) => m.id == msgId);
     final finalMsg = localMsg.copyWith(status: allSent ? 'sent' : 'failed');
@@ -1770,62 +2002,6 @@ class ChatController extends ChangeNotifier {
       if (ok) sent++;
     }
     return sent > 0;
-  }
-
-  /// Buffer an incoming chunk and return the assembled media payload once all
-  /// chunks for a file ID have arrived, or null if more chunks are expected.
-  String? _handleChunk(String chunkPayload) {
-    try {
-      final map = jsonDecode(chunkPayload) as Map<String, dynamic>;
-      final fid = map['fid'] as String;
-      final idx = map['idx'] as int;
-      final total = map['total'] as int;
-      final data = map['d'] as String;
-
-      _pendingChunks[fid] ??= {};
-      _pendingChunks[fid]![idx] = base64Decode(data);
-
-      if (idx == 0) {
-        _chunkMeta[fid] = (
-          name: map['n'] as String? ?? 'file',
-          total: total,
-          size: (map['sz'] as num?)?.toInt() ?? 0,
-          mediaType: map['mt'] as String? ?? 'file',
-        );
-      }
-
-      if ((_pendingChunks[fid]?.length ?? 0) < total) return null;
-
-      final meta = _chunkMeta[fid];
-      if (meta == null) return null;
-
-      final partsList = <Uint8List>[];
-      for (int i = 0; i < total; i++) {
-        final part = _pendingChunks[fid]![i];
-        if (part == null) return null;
-        partsList.add(part);
-      }
-      final totalSize = partsList.fold(0, (s, b) => s + b.length);
-      final assembled = Uint8List(totalSize);
-      int offset = 0;
-      for (final part in partsList) {
-        assembled.setRange(offset, offset + part.length, part);
-        offset += part.length;
-      }
-
-      _pendingChunks.remove(fid);
-      _chunkMeta.remove(fid);
-
-      return jsonEncode({
-        't': meta.mediaType,
-        'd': base64Encode(assembled),
-        'n': meta.name,
-        'sz': assembled.length,
-      });
-    } catch (e) {
-      debugPrint('[ChatController] Chunk assembly error: $e');
-      return null;
-    }
   }
 
   Future<void> deleteLocalMessage(Contact contact, String messageId) async {
@@ -1894,6 +2070,29 @@ class ChatController extends ChangeNotifier {
     });
   }
 
+  /// Flush all failed messages when network is restored.
+  /// Finds every message with status 'failed' across all rooms and retries.
+  Future<void> _flushFailedMessages() async {
+    int count = 0;
+    for (final room in _chatRooms.values) {
+      final failed = room.messages
+          .where((m) => m.status == 'failed')
+          .toList();
+      if (failed.isEmpty) continue;
+      for (final msg in failed) {
+        // Skip if already scheduled for retry
+        if (_retryTimers.containsKey(msg.id)) continue;
+        count++;
+        unawaited(retryMessage(room.contact, msg));
+        // Stagger retries to avoid thundering herd
+        await Future.delayed(const Duration(milliseconds: 200));
+      }
+    }
+    if (count > 0) {
+      debugPrint('[Chat] Flushing $count failed message(s) after network change');
+    }
+  }
+
   void _handleReadReceipt(String fromId) {
     bool changed = false;
     for (final room in _chatRooms.values) {
@@ -1901,7 +2100,7 @@ class ChatController extends ChangeNotifier {
       if (contactId != fromId && contactId.split('@').first != fromId) continue;
       for (int i = 0; i < room.messages.length; i++) {
         final m = room.messages[i];
-        if (m.status == 'sent') {
+        if (m.status == 'sent' || m.status == 'delivered') {
           room.messages[i] = m.copyWith(status: 'read');
           unawaited(LocalStorageService().saveMessage(room.contact.storageKey, room.messages[i].toJson()));
           changed = true;
@@ -1911,38 +2110,26 @@ class ChatController extends ChangeNotifier {
     if (changed) notifyListeners();
   }
 
-  Future<void> _sendReadReceipt(Contact contact) async {
-    if (_identity == null || _selfId.isEmpty) return;
-    try {
-      final ourApiKey = _identity!.adapterConfig['token'] ?? '';
-      final payload = <String, dynamic>{'from': _selfId};
-      MessageSender? sender;
-      String senderApiKey = ourApiKey;
-      if (contact.provider == 'Firebase') {
-        sender = FirebaseInboxSender();
-      } else if (contact.provider == 'Nostr') {
-        final privkey = await _secureStorage.read(key: 'nostr_privkey') ?? '';
-        final prefs = await SharedPreferences.getInstance();
-        final relay = prefs.getString('nostr_relay') ?? _kDefaultNostrRelay;
-        senderApiKey = jsonEncode({'privkey': privkey, 'relay': relay});
-        sender = NostrMessageSender();
-      } else if (contact.provider == 'Waku') {
-        final prefs = await SharedPreferences.getInstance();
-        final nodeUrl = prefs.getString('waku_node_url') ?? 'http://127.0.0.1:8645';
-        final userId = prefs.getString('waku_identity') ?? '';
-        senderApiKey = jsonEncode({'nodeUrl': nodeUrl, 'userId': userId});
-        sender = WakuMessageSender();
-      } else if (contact.provider == 'Oxen') {
-        final prefs = await SharedPreferences.getInstance();
-        senderApiKey = prefs.getString('oxen_node_url') ?? '';
-        sender = OxenMessageSender();
+  Future<void> _sendReadReceipt(Contact contact) =>
+      _sendSignalTo(contact, 'msg_read', {'from': _selfId});
+
+  void _handleDeliveryAck(String fromId, String msgId) {
+    bool changed = false;
+    for (final room in _chatRooms.values) {
+      final contactId = room.contact.databaseId;
+      if (contactId != fromId && contactId.split('@').first != fromId) continue;
+      for (int i = 0; i < room.messages.length; i++) {
+        final m = room.messages[i];
+        if (m.id == msgId && m.status == 'sent') {
+          room.messages[i] = m.copyWith(status: 'delivered');
+          unawaited(LocalStorageService().saveMessage(room.contact.storageKey, room.messages[i].toJson()));
+          changed = true;
+          break;
+        }
       }
-      if (sender == null) return;
-      await sender.initializeSender(senderApiKey);
-      await sender.sendSignal(contact.databaseId, contact.databaseId, _selfId, 'msg_read', payload);
-    } catch (e) {
-      debugPrint('[ChatController] Read receipt failed: $e');
+      if (changed) break;
     }
+    if (changed) notifyListeners();
   }
 
   // ─── Disappearing messages ────────────────────────────────────────────────
@@ -1977,86 +2164,13 @@ class ChatController extends ChangeNotifier {
     }
   }
 
-  /// Sends a TTL sync signal directly to the contact's inbox.
-  /// Creates a fresh sender each time so it works cross-adapter
-  /// (e.g. Firebase user → Nostr contact, where no privkey is available).
-  Future<void> _sendTtlSignal(Contact contact, int seconds) async {
-    if (_identity == null || _selfId.isEmpty) return;
-    try {
-      final ourApiKey = _identity!.adapterConfig['token'] ?? '';
-      MessageSender? sender;
-      String senderApiKey = ourApiKey;
-      if (contact.provider == 'Firebase') {
-        sender = FirebaseInboxSender();
-      } else if (contact.provider == 'Nostr') {
-        final privkey = await _secureStorage.read(key: 'nostr_privkey') ?? '';
-        final prefs = await SharedPreferences.getInstance();
-        final relay = prefs.getString('nostr_relay') ?? _kDefaultNostrRelay;
-        senderApiKey = jsonEncode({'privkey': privkey, 'relay': relay});
-        sender = NostrMessageSender();
-      } else if (contact.provider == 'Waku') {
-        final prefs = await SharedPreferences.getInstance();
-        final nodeUrl = prefs.getString('waku_node_url') ?? 'http://127.0.0.1:8645';
-        final userId = prefs.getString('waku_identity') ?? '';
-        senderApiKey = jsonEncode({'nodeUrl': nodeUrl, 'userId': userId});
-        sender = WakuMessageSender();
-      } else if (contact.provider == 'Oxen') {
-        final prefs = await SharedPreferences.getInstance();
-        senderApiKey = prefs.getString('oxen_node_url') ?? '';
-        sender = OxenMessageSender();
-      }
-      if (sender == null) return;
-      await sender.initializeSender(senderApiKey);
-      await sender.sendSignal(
-        contact.databaseId, contact.databaseId, _selfId,
-        'ttl_update', {'seconds': seconds},
-      );
-    } catch (e) {
-      debugPrint('[ChatController] TTL signal to ${contact.name} failed: $e');
-    }
-  }
+  Future<void> _sendTtlSignal(Contact contact, int seconds) =>
+      _sendSignalTo(contact, 'ttl_update', {'seconds': seconds});
 
   // ── P2P signaling helpers ───────────────────────────────────────────────────
 
-  /// Send a WebRTC signaling message (offer/answer/ICE) to a contact.
-  /// Uses the same fresh-sender pattern as [_sendTtlSignal].
-  Future<void> _sendP2PSignal(
-    Contact contact,
-    String type,
-    Map<String, dynamic> payload,
-  ) async {
-    if (_identity == null || _selfId.isEmpty) return;
-    try {
-      final ourApiKey = _identity!.adapterConfig['token'] ?? '';
-      MessageSender? sender;
-      String senderApiKey = ourApiKey;
-      if (contact.provider == 'Firebase') {
-        sender = FirebaseInboxSender();
-      } else if (contact.provider == 'Nostr') {
-        final privkey = await _secureStorage.read(key: 'nostr_privkey') ?? '';
-        final prefs = await SharedPreferences.getInstance();
-        final relay = prefs.getString('nostr_relay') ?? _kDefaultNostrRelay;
-        senderApiKey = jsonEncode({'privkey': privkey, 'relay': relay});
-        sender = NostrMessageSender();
-      } else if (contact.provider == 'Waku') {
-        final prefs = await SharedPreferences.getInstance();
-        final nodeUrl = prefs.getString('waku_node_url') ?? 'http://127.0.0.1:8645';
-        final userId = prefs.getString('waku_identity') ?? '';
-        senderApiKey = jsonEncode({'nodeUrl': nodeUrl, 'userId': userId});
-        sender = WakuMessageSender();
-      } else if (contact.provider == 'Oxen') {
-        final prefs = await SharedPreferences.getInstance();
-        senderApiKey = prefs.getString('oxen_node_url') ?? '';
-        sender = OxenMessageSender();
-      }
-      if (sender == null) return;
-      await sender.initializeSender(senderApiKey);
-      await sender.sendSignal(
-          contact.databaseId, contact.databaseId, _selfId, type, payload);
-    } catch (e) {
-      debugPrint('[P2P] Signal $type to ${contact.name} failed: $e');
-    }
-  }
+  Future<void> _sendP2PSignal(Contact contact, String type, Map<String, dynamic> payload) =>
+      _sendSignalTo(contact, type, payload);
 
   /// Deliver a P2P-received (Signal-encrypted) payload as if it arrived
   /// from the contact's normal adapter.
@@ -2142,6 +2256,26 @@ class ChatController extends ChangeNotifier {
     await prefs.remove(flag);
     await _maybePublishOwnKeys();
     debugPrint('[ChatController] Republished Signal bundle after preKey consumption');
+  }
+
+  /// Re-publish the Signal bundle to the primary adapter AND all secondary adapters.
+  /// Called when prekeys are exhausted and regenerated, so every transport gets the
+  /// updated bundle (identity key + signed prekey + fresh prekeys).
+  Future<void> _republishAllKeys() async {
+    // Re-publish to primary adapter.
+    await _republishKeys();
+
+    // Re-publish to every secondary adapter by clearing their published flags.
+    final secondaryCfgs = await _loadSecondaryAdapters();
+    final prefs = await SharedPreferences.getInstance();
+    for (final cfg in secondaryCfgs) {
+      final selfId = cfg['selfId'] ?? '';
+      if (selfId.isEmpty) continue;
+      final flag = 'signal_keys_published_${cfg['provider']?.toLowerCase()}_$selfId';
+      await prefs.remove(flag);
+      await _publishKeysToAdapter(cfg['provider']!, cfg['apiKey']!, selfId);
+    }
+    debugPrint('[ChatController] Republished Signal bundle to all transports after preKey exhaustion');
   }
 
   /// Publish only if not yet published for this adapter+selfId combination.
@@ -2286,7 +2420,10 @@ class ChatController extends ChangeNotifier {
         final list = (entry.value as List).cast<String>();
         _reactions[storageKey]![entry.key] = Set<String>.from(list);
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[Chat] Failed to load reactions for $storageKey: $e');
+      sentryBreadcrumb('Reactions load failed', category: 'storage');
+    }
   }
 
   Future<void> _persistReactions(String storageKey) async {
@@ -2306,43 +2443,11 @@ class ChatController extends ChangeNotifier {
   Future<void> _sendReactionSignal(Contact contact, String msgId, String emoji, {
     bool remove = false,
     String? groupId,
-  }) async {
-    if (_identity == null || _selfId.isEmpty) return;
-    try {
-      final payload = <String, dynamic>{
+  }) => _sendSignalTo(contact, 'reaction', {
         'msgId': msgId, 'emoji': emoji, 'from': _selfId,
         if (remove) 'remove': true,
         'groupId': groupId,
-      };
-      final ourApiKey = _identity!.adapterConfig['token'] ?? '';
-      MessageSender? sender;
-      String senderApiKey = ourApiKey;
-      if (contact.provider == 'Firebase') {
-        sender = FirebaseInboxSender();
-      } else if (contact.provider == 'Nostr') {
-        final privkey = await _secureStorage.read(key: 'nostr_privkey') ?? '';
-        final prefs = await SharedPreferences.getInstance();
-        final relay = prefs.getString('nostr_relay') ?? _kDefaultNostrRelay;
-        senderApiKey = jsonEncode({'privkey': privkey, 'relay': relay});
-        sender = NostrMessageSender();
-      } else if (contact.provider == 'Waku') {
-        final prefs = await SharedPreferences.getInstance();
-        final nodeUrl = prefs.getString('waku_node_url') ?? 'http://127.0.0.1:8645';
-        final userId = prefs.getString('waku_identity') ?? '';
-        senderApiKey = jsonEncode({'nodeUrl': nodeUrl, 'userId': userId});
-        sender = WakuMessageSender();
-      } else if (contact.provider == 'Oxen') {
-        final prefs = await SharedPreferences.getInstance();
-        senderApiKey = prefs.getString('oxen_node_url') ?? '';
-        sender = OxenMessageSender();
-      }
-      if (sender == null) return;
-      await sender.initializeSender(senderApiKey);
-      await sender.sendSignal(contact.databaseId, contact.databaseId, _selfId, 'reaction', payload);
-    } catch (e) {
-      debugPrint('[ChatController] Reaction signal failed: $e');
-    }
-  }
+      });
 
   // ─── Message Editing ──────────────────────────────────────────────────────
 
@@ -2361,41 +2466,8 @@ class ChatController extends ChangeNotifier {
     unawaited(_sendEditSignal(contact, msgId, newText));
   }
 
-  Future<void> _sendEditSignal(Contact contact, String msgId, String text) async {
-    if (_identity == null || _selfId.isEmpty) return;
-    try {
-      final ourApiKey = _identity!.adapterConfig['token'] ?? '';
-      MessageSender? sender;
-      String senderApiKey = ourApiKey;
-      if (contact.provider == 'Firebase') {
-        sender = FirebaseInboxSender();
-      } else if (contact.provider == 'Nostr') {
-        final privkey = await _secureStorage.read(key: 'nostr_privkey') ?? '';
-        final prefs = await SharedPreferences.getInstance();
-        final relay = prefs.getString('nostr_relay') ?? _kDefaultNostrRelay;
-        senderApiKey = jsonEncode({'privkey': privkey, 'relay': relay});
-        sender = NostrMessageSender();
-      } else if (contact.provider == 'Waku') {
-        final prefs = await SharedPreferences.getInstance();
-        final nodeUrl = prefs.getString('waku_node_url') ?? 'http://127.0.0.1:8645';
-        final userId = prefs.getString('waku_identity') ?? '';
-        senderApiKey = jsonEncode({'nodeUrl': nodeUrl, 'userId': userId});
-        sender = WakuMessageSender();
-      } else if (contact.provider == 'Oxen') {
-        final prefs = await SharedPreferences.getInstance();
-        senderApiKey = prefs.getString('oxen_node_url') ?? '';
-        sender = OxenMessageSender();
-      }
-      if (sender == null) return;
-      await sender.initializeSender(senderApiKey);
-      await sender.sendSignal(
-        contact.databaseId, contact.databaseId, _selfId,
-        'edit', {'msgId': msgId, 'text': text, 'from': _selfId},
-      );
-    } catch (e) {
-      debugPrint('[ChatController] Edit signal failed: $e');
-    }
-  }
+  Future<void> _sendEditSignal(Contact contact, String msgId, String text) =>
+      _sendSignalTo(contact, 'edit', {'msgId': msgId, 'text': text, 'from': _selfId});
 
   // ─── Online Status ────────────────────────────────────────────────────────
 
@@ -2419,36 +2491,8 @@ class ChatController extends ChangeNotifier {
     if (_identity == null || _selfId.isEmpty) return;
     for (final contact in ContactManager().contacts) {
       if (contact.isGroup) continue;
-      try {
-        final ourApiKey = _identity!.adapterConfig['token'] ?? '';
-        MessageSender? sender;
-        String senderApiKey = ourApiKey;
-        if (contact.provider == 'Firebase') {
-          sender = FirebaseInboxSender();
-        } else if (contact.provider == 'Nostr') {
-          final privkey = await _secureStorage.read(key: 'nostr_privkey') ?? '';
-          final prefs = await SharedPreferences.getInstance();
-          final relay = prefs.getString('nostr_relay') ?? _kDefaultNostrRelay;
-          senderApiKey = jsonEncode({'privkey': privkey, 'relay': relay});
-          sender = NostrMessageSender();
-        } else if (contact.provider == 'Waku') {
-          final prefs = await SharedPreferences.getInstance();
-          final nodeUrl = prefs.getString('waku_node_url') ?? 'http://127.0.0.1:8645';
-          final userId = prefs.getString('waku_identity') ?? '';
-          senderApiKey = jsonEncode({'nodeUrl': nodeUrl, 'userId': userId});
-          sender = WakuMessageSender();
-        } else if (contact.provider == 'Oxen') {
-          final prefs = await SharedPreferences.getInstance();
-          senderApiKey = prefs.getString('oxen_node_url') ?? '';
-          sender = OxenMessageSender();
-        }
-        if (sender == null) continue;
-        await sender.initializeSender(senderApiKey);
-        await sender.sendSignal(
-          contact.databaseId, contact.databaseId, _selfId,
-          'heartbeat', {'from': _selfId, 'ts': DateTime.now().millisecondsSinceEpoch},
-        );
-      } catch (_) {}
+      await _sendSignalTo(contact, 'heartbeat',
+          {'from': _selfId, 'ts': DateTime.now().millisecondsSinceEpoch});
     }
   }
 
@@ -2460,7 +2504,8 @@ class ChatController extends ChangeNotifier {
     final myId = _identity?.id ?? '';
     final buf = StringBuffer('=== Chat with ${contact.name} ===\n\n');
     for (final m in all) {
-      final msg = Message.fromJson(m);
+      final msg = Message.tryFromJson(m);
+      if (msg == null) continue;
       final who = msg.senderId == myId ? 'You' : contact.name;
       final ts = '${msg.timestamp.year}-${msg.timestamp.month.toString().padLeft(2, '0')}-'
           '${msg.timestamp.day.toString().padLeft(2, '0')} '
@@ -2513,7 +2558,12 @@ class ChatController extends ChangeNotifier {
     // Persist so it survives restarts
     final prefs = await SharedPreferences.getInstance();
     final storageKey = 'scheduled_${contact.id}';
-    final existing = jsonDecode(prefs.getString(storageKey) ?? '[]') as List;
+    List existing;
+    try {
+      existing = jsonDecode(prefs.getString(storageKey) ?? '[]') as List;
+    } catch (_) {
+      existing = [];
+    }
     existing.add(placeholder.toJson());
     await prefs.setString(storageKey, jsonEncode(existing));
 
@@ -2538,9 +2588,14 @@ class ChatController extends ChangeNotifier {
     // Remove from SharedPreferences
     final prefs = await SharedPreferences.getInstance();
     final storageKey = 'scheduled_${contact.id}';
-    final list = (jsonDecode(prefs.getString(storageKey) ?? '[]') as List)
-        .where((m) => m['id'] != msg.id)
-        .toList();
+    List list;
+    try {
+      list = (jsonDecode(prefs.getString(storageKey) ?? '[]') as List)
+          .where((m) => m is Map && m['id'] != msg.id)
+          .toList();
+    } catch (_) {
+      list = [];
+    }
     if (list.isEmpty) {
       await prefs.remove(storageKey);
     } else {
@@ -2558,9 +2613,14 @@ class ChatController extends ChangeNotifier {
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     final storageKey = 'scheduled_${contact.id}';
-    final list = (jsonDecode(prefs.getString(storageKey) ?? '[]') as List)
-        .where((m) => m['id'] != msgId)
-        .toList();
+    List list;
+    try {
+      list = (jsonDecode(prefs.getString(storageKey) ?? '[]') as List)
+          .where((m) => m is Map && m['id'] != msgId)
+          .toList();
+    } catch (_) {
+      list = [];
+    }
     if (list.isEmpty) {
       await prefs.remove(storageKey);
     } else {
@@ -2578,8 +2638,9 @@ class ChatController extends ChangeNotifier {
       try {
         final list = jsonDecode(raw) as List;
         for (final item in list) {
-          final msg = Message.fromJson(item as Map<String, dynamic>);
-          if (msg.scheduledAt == null) continue;
+          if (item is! Map<String, dynamic>) continue;
+          final msg = Message.tryFromJson(item);
+          if (msg == null || msg.scheduledAt == null) continue;
           if (!_chatRooms.containsKey(contact.id)) {
             _chatRooms[contact.id] = ChatRoom(
               id: contact.isGroup ? contact.id : contact.databaseId,
@@ -2629,6 +2690,78 @@ class ChatController extends ChangeNotifier {
     return pk;
   }
 
+  // ── File transfer resume ─────────────────────────────────────────────────
+
+  /// Start a periodic stall-check timer (if not already running).
+  /// Every 30s, scans active receiver-side transfers for stalls and sends
+  /// a `chunk_req` signal to the original sender.
+  void _startStallCheckTimer() {
+    if (_stallCheckTimer?.isActive == true) return;
+    _stallCheckTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      for (final fid in _chunkAssembler.activeTransferIds) {
+        if (!_chunkAssembler.isStalled(fid)) continue;
+        final missing = _chunkAssembler.getMissingChunks(fid);
+        if (missing == null || missing.isEmpty) continue;
+        // Find which contact this transfer came from (by matching fid in pending sends).
+        // If we're the receiver, send chunk_req to all contacts (sender will recognise fid).
+        for (final contact in ContactManager().contacts) {
+          unawaited(_sendSignalTo(contact, 'chunk_req', {
+            'fid': fid,
+            'missing': missing,
+          }));
+        }
+        debugPrint('[Resume] Sent chunk_req for $fid — missing ${missing.length} chunks');
+      }
+      if (_chunkAssembler.activeTransferIds.isEmpty && _pendingSends.isEmpty) {
+        _stallCheckTimer?.cancel();
+        _stallCheckTimer = null;
+      }
+    });
+  }
+
+  /// Re-send only the [missingIndices] chunks of [fileId] to [recipientId].
+  Future<void> _resendMissingChunks(
+      String fileId, List<int> missingIndices, String recipientId) async {
+    final pending = _pendingSends[fileId];
+    if (pending == null) {
+      debugPrint('[Resume] chunk_req for $fileId but not in pending sends — ignoring');
+      return;
+    }
+    debugPrint('[Resume] Re-sending ${missingIndices.length} chunks for $fileId to $recipientId');
+    final allChunks = MediaService.chunkIterable(pending.bytes, pending.name).toList();
+    for (final idx in missingIndices) {
+      if (idx < 0 || idx >= allChunks.length) continue;
+      await _sendToContact(pending.contact, allChunks[idx]);
+    }
+  }
+
+  // ── SmartRouter delivery stats persistence ───────────────────────────────
+
+  Future<void> _loadDeliveryStats() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_kDeliveryStatsKey);
+      if (raw == null) return;
+      final map = jsonDecode(raw) as Map<String, dynamic>;
+      _deliverySuccessCount.clear();
+      map.forEach((k, v) {
+        if (v is int) _deliverySuccessCount[k] = v;
+      });
+    } catch (e) {
+      debugPrint('[SmartRouter] Failed to load delivery stats: $e');
+    }
+  }
+
+  Future<void> _saveDeliveryStats() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+          _kDeliveryStatsKey, jsonEncode(Map<String, int>.from(_deliverySuccessCount)));
+    } catch (e) {
+      debugPrint('[SmartRouter] Failed to save delivery stats: $e');
+    }
+  }
+
   /// Wrap a Signal ciphertext with the PQC hybrid layer for [contactId].
   /// No-op (returns original) if no Kyber key is available for the contact.
   Future<String> _pqcWrap(String signalCt, String contactId) async {
@@ -2642,6 +2775,7 @@ class ChatController extends ChangeNotifier {
     P2PTransportService.instance.dispose();
     _lanReader?.close();
     _lanSender?.close();
+    _bundleRefreshSub?.cancel();
     for (final s in _messageSubs) { s.cancel(); }
     for (final s in _signalSubs) { s.cancel(); }
     for (final t in _typingTimers.values) { t.cancel(); }
@@ -2651,6 +2785,8 @@ class ChatController extends ChangeNotifier {
     for (final t in _ttlTimers.values) { t.cancel(); }
     _ttlTimers.clear();
     _heartbeatTimer?.cancel();
+    _deliveryStatsHalveTimer?.cancel();
+    _stallCheckTimer?.cancel();
     _typingStreamCtrl.close();
     _incomingCallController.close();
     _incomingGroupCallController.close();
@@ -2658,6 +2794,20 @@ class ChatController extends ChangeNotifier {
     _newMsgController.close();
     _e2eeFailCtrl.close();
     _statusUpdatesCtrl.close();
+    _keyChangeCtrl.close();
+    _tamperWarningCtrl.close();
+    _failoverCtrl.close();
+    _msgRateLimiter.clear();
+    _sigRateLimiter.clear();
+    unawaited(VoiceService().dispose());
+    // Zeroize key material from memory.
+    _signalService.zeroize();
+    PqcService().zeroize();
+    final reader = InboxManager().reader;
+    if (reader is NostrInboxReader) reader.zeroize();
+    for (final sender in InboxManager().senders.values) {
+      if (sender is NostrMessageSender) sender.zeroize();
+    }
     super.dispose();
   }
 }

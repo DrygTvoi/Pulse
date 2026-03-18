@@ -1,0 +1,915 @@
+// Settings — Provider section: inbox provider chips, connection details,
+// secondary inboxes and the Save & Connect button.
+import 'dart:async';
+import 'dart:convert';
+import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../../constants.dart';
+import '../../adapters/nostr_adapter.dart';
+import '../../controllers/chat_controller.dart';
+import '../../services/waku_discovery_service.dart';
+import '../../theme/app_theme.dart';
+import 'settings_widgets.dart';
+
+class ProviderSection extends StatefulWidget {
+  final String selectedProvider;
+  final TextEditingController firebaseUrlController;
+  final TextEditingController firebaseKeyController;
+  final TextEditingController nostrKeyController;
+  final TextEditingController nostrRelayController;
+  final TextEditingController wakuNodeUrlController;
+  final TextEditingController oxenNodeUrlController;
+  final bool isSaving;
+  final List<Map<String, String>> secondaryAdapters;
+  final VoidCallback onSave;
+  final ValueChanged<String> onProviderChanged;
+  final ValueChanged<List<Map<String, String>>> onSecondaryAdaptersChanged;
+
+  const ProviderSection({
+    super.key,
+    required this.selectedProvider,
+    required this.firebaseUrlController,
+    required this.firebaseKeyController,
+    required this.nostrKeyController,
+    required this.nostrRelayController,
+    required this.wakuNodeUrlController,
+    required this.oxenNodeUrlController,
+    required this.isSaving,
+    required this.secondaryAdapters,
+    required this.onSave,
+    required this.onProviderChanged,
+    required this.onSecondaryAdaptersChanged,
+  });
+
+  @override
+  State<ProviderSection> createState() => _ProviderSectionState();
+}
+
+class _ProviderSectionState extends State<ProviderSection> {
+  static const _secureStorage = FlutterSecureStorage();
+
+  bool _wakuDiscovering = false;
+  List<WakuNodeInfo>? _wakuNodes;
+  bool _showNostrAdvanced = false;
+  bool _showOxenAdvanced = false;
+  String? _activeNostrRelay;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadActiveRelay();
+  }
+
+  Future<void> _loadActiveRelay() async {
+    final prefs = await SharedPreferences.getInstance();
+    final relay = prefs.getString('adaptive_cf_relay') ??
+        prefs.getString('probe_nostr_relay') ??
+        prefs.getString('nostr_relay');
+    if (mounted) setState(() => _activeNostrRelay = relay);
+  }
+
+  Future<List<Map<String, String>>> _loadSecondaryAdaptersFromPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString('secondary_adapters');
+    if (raw == null || raw.isEmpty) return [];
+    try {
+      final list = jsonDecode(raw) as List;
+      return list
+          .map((e) => Map<String, String>.from(
+              (e as Map).map((k, v) => MapEntry(k.toString(), v.toString()))))
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<void> _discoverWakuNodes() async {
+    setState(() {
+      _wakuDiscovering = true;
+      _wakuNodes = null;
+    });
+    await WakuDiscoveryService.instance.clearCache();
+    final nodes = await WakuDiscoveryService.instance.probeAll();
+    if (!mounted) return;
+    setState(() {
+      _wakuDiscovering = false;
+      _wakuNodes = nodes;
+      if (widget.wakuNodeUrlController.text.trim().isEmpty) {
+        final best =
+            nodes.firstWhere((n) => n.online, orElse: () => nodes.first);
+        if (best.online) widget.wakuNodeUrlController.text = best.url;
+      }
+    });
+  }
+
+  Future<void> _showAddSecondaryDialog() async {
+    String provider = 'Firebase';
+    final fbUrlCtrl = TextEditingController();
+    final fbKeyCtrl = TextEditingController();
+    final nostrRelayCtrl =
+        TextEditingController(text: kDefaultNostrRelay);
+    final nostrKeyCtrl = TextEditingController();
+
+    await showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          backgroundColor: AppTheme.surface,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Text(
+            'Add Secondary Inbox',
+            style: GoogleFonts.inter(
+                color: AppTheme.textPrimary, fontWeight: FontWeight.w700),
+          ),
+          content: SizedBox(
+            width: 340,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(children: [
+                  for (final p in ['Firebase', 'Nostr']) ...[
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () => setDialogState(() => provider = p),
+                        child: Container(
+                          height: 38,
+                          decoration: BoxDecoration(
+                            color: provider == p
+                                ? AppTheme.primary.withValues(alpha: 0.15)
+                                : AppTheme.surfaceVariant,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                                color: provider == p
+                                    ? AppTheme.primary
+                                    : AppTheme.surfaceVariant),
+                          ),
+                          child: Center(
+                            child: Text(
+                              p,
+                              style: GoogleFonts.inter(
+                                color: provider == p
+                                    ? AppTheme.primary
+                                    : AppTheme.textSecondary,
+                                fontWeight: provider == p
+                                    ? FontWeight.w700
+                                    : FontWeight.w500,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    if (p != 'Nostr') const SizedBox(width: 8),
+                  ],
+                ]),
+                const SizedBox(height: 16),
+                if (provider == 'Firebase') ...[
+                  settingsField(
+                    controller: fbUrlCtrl,
+                    hint: 'https://project.firebaseio.com',
+                    label: 'Database URL',
+                    icon: Icons.link_rounded,
+                  ),
+                  const SizedBox(height: 10),
+                  settingsField(
+                    controller: fbKeyCtrl,
+                    hint: 'Optional',
+                    label: 'Web API Key',
+                    icon: Icons.key_rounded,
+                    obscure: true,
+                  ),
+                ] else ...[
+                  settingsField(
+                    controller: nostrRelayCtrl,
+                    hint: 'wss://relay.damus.io',
+                    label: 'Relay URL',
+                    icon: Icons.bolt_rounded,
+                  ),
+                  const SizedBox(height: 10),
+                  settingsField(
+                    controller: nostrKeyCtrl,
+                    hint: 'nsec1... or hex',
+                    label: 'Private Key',
+                    icon: Icons.vpn_key_rounded,
+                    obscure: true,
+                  ),
+                ],
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text('Cancel',
+                  style: GoogleFonts.inter(color: AppTheme.textSecondary)),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final prefs = await SharedPreferences.getInstance();
+                if (!ctx.mounted) return;
+                final currentRaw =
+                    prefs.getString('secondary_adapters') ?? '[]';
+                List<dynamic> current;
+                try {
+                  current = jsonDecode(currentRaw);
+                } catch (_) {
+                  current = [];
+                }
+                Map<String, String> newEntry;
+                if (provider == 'Firebase') {
+                  final url = fbUrlCtrl.text.trim();
+                  if (url.isEmpty) {
+                    Navigator.pop(ctx);
+                    return;
+                  }
+                  final key = fbKeyCtrl.text.trim();
+                  final identity = ChatController().identity;
+                  final userId =
+                      identity?.adapterConfig['dbId'] ?? identity?.id ?? '';
+                  final selfId = userId.isNotEmpty ? '$userId@$url' : url;
+                  final apiKey = jsonEncode({'url': url, 'key': key});
+                  newEntry = {
+                    'provider': 'Firebase',
+                    'databaseId': userId,
+                    'selfId': selfId,
+                    'apiKey': apiKey,
+                  };
+                } else {
+                  final relay = nostrRelayCtrl.text.trim();
+                  if (relay.isEmpty) {
+                    Navigator.pop(ctx);
+                    return;
+                  }
+                  final privkey = nostrKeyCtrl.text.trim();
+                  if (privkey.isNotEmpty) {
+                    final keySuffix =
+                        relay.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_');
+                    await _secureStorage.write(
+                        key: 'secondary_nostr_privkey_$keySuffix',
+                        value: privkey);
+                  }
+                  String selfId = '';
+                  try {
+                    if (privkey.isNotEmpty) {
+                      final pubkey = deriveNostrPubkeyHex(privkey);
+                      selfId = '$pubkey@$relay';
+                    }
+                  } catch (e) {
+                    debugPrint(
+                        '[Settings] Failed to derive Nostr pubkey: $e');
+                  }
+                  newEntry = {
+                    'provider': 'Nostr',
+                    'databaseId': relay,
+                    'selfId': selfId,
+                  };
+                }
+                current.add(newEntry);
+                await prefs.setString(
+                    'secondary_adapters', jsonEncode(current));
+                final updated = await _loadSecondaryAdaptersFromPrefs();
+                widget.onSecondaryAdaptersChanged(updated);
+                await ChatController().reconnectInbox();
+                unawaited(ChatController().broadcastAddressUpdate());
+                if (ctx.mounted) Navigator.pop(ctx);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primary,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10)),
+              ),
+              child: Text(
+                'Add',
+                style: GoogleFonts.inter(
+                    color: Colors.white, fontWeight: FontWeight.w700),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    fbUrlCtrl.dispose();
+    fbKeyCtrl.dispose();
+    nostrRelayCtrl.dispose();
+    nostrKeyCtrl.dispose();
+  }
+
+  Widget _buildProviderChips() {
+    const providers = [
+      (
+        name: 'Firebase',
+        icon: Icons.local_fire_department_rounded,
+        color: Color(0xFFFFAB00)
+      ),
+      (name: 'Nostr', icon: Icons.bolt_rounded, color: Color(0xFF9B59B6)),
+      (name: 'Waku', icon: Icons.hub_rounded, color: Color(0xFF00BCD4)),
+      (
+        name: 'Oxen',
+        icon: Icons.security_rounded,
+        color: Color(0xFF00695C)
+      ),
+    ];
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        for (final p in providers)
+          SizedBox(
+            width: (MediaQuery.of(context).size.width - 40 - 24) / 4,
+            child: _providerChip(p.name, p.icon, p.color),
+          ),
+      ],
+    );
+  }
+
+  Widget _providerChip(String name, IconData icon, Color color) {
+    final selected = widget.selectedProvider == name;
+    return GestureDetector(
+      onTap: () => widget.onProviderChanged(name),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        height: 40,
+        decoration: BoxDecoration(
+          color: selected
+              ? color.withValues(alpha: 0.12)
+              : AppTheme.surface,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: selected ? color : AppTheme.surfaceVariant,
+            width: 1.5,
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon,
+                size: 15,
+                color: selected ? color : AppTheme.textSecondary),
+            const SizedBox(width: 6),
+            Text(
+              name,
+              style: GoogleFonts.inter(
+                color: selected ? color : AppTheme.textSecondary,
+                fontSize: 13,
+                fontWeight:
+                    selected ? FontWeight.w700 : FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNostrInfoCard() {
+    // Derive pubkey from the current private key field
+    String pubkey = '';
+    final privkey = widget.nostrKeyController.text.trim();
+    if (privkey.isNotEmpty) {
+      try {
+        pubkey = deriveNostrPubkeyHex(privkey);
+      } catch (_) {}
+    }
+
+    // Resolve active relay: adaptive → probe → configured → default
+    final activeRelay = _activeNostrRelay ??
+        (widget.nostrRelayController.text.trim().isNotEmpty
+            ? widget.nostrRelayController.text.trim()
+            : kDefaultNostrRelay);
+
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: const Color(0xFF9B59B6).withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+            color: const Color(0xFF9B59B6).withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        children: [
+          if (pubkey.isNotEmpty)
+            Row(children: [
+              const Icon(Icons.vpn_key_rounded,
+                  size: 13, color: Color(0xFF9B59B6)),
+              const SizedBox(width: 8),
+              Text('Public Key',
+                  style: GoogleFonts.inter(
+                      color: AppTheme.textSecondary,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600)),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  '${pubkey.substring(0, 8)}...${pubkey.substring(pubkey.length - 8)}',
+                  style: GoogleFonts.robotoMono(
+                      color: const Color(0xFF9B59B6), fontSize: 11),
+                  textAlign: TextAlign.end,
+                ),
+              ),
+            ]),
+          if (pubkey.isNotEmpty) const SizedBox(height: 6),
+          Row(children: [
+            const Icon(Icons.bolt_rounded,
+                size: 13, color: Color(0xFF9B59B6)),
+            const SizedBox(width: 8),
+            Text('Relay',
+                style: GoogleFonts.inter(
+                    color: AppTheme.textSecondary,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600)),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                activeRelay,
+                style: GoogleFonts.robotoMono(
+                    color: const Color(0xFF9B59B6), fontSize: 11),
+                textAlign: TextAlign.end,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ]),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProviderConfig() {
+    if (widget.selectedProvider == 'Firebase') {
+      return Column(children: [
+        settingsField(
+          controller: widget.firebaseUrlController,
+          hint: 'https://project.firebaseio.com',
+          label: 'Database URL',
+          icon: Icons.link_rounded,
+        ),
+        const SizedBox(height: 12),
+        settingsField(
+          controller: widget.firebaseKeyController,
+          hint: 'Optional for public DB',
+          label: 'Web API Key',
+          icon: Icons.key_rounded,
+          obscure: true,
+        ),
+      ]);
+    } else if (widget.selectedProvider == 'Nostr') {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildNostrInfoCard(),
+          const SizedBox(height: 8),
+          Row(children: [
+            Icon(Icons.info_outline_rounded,
+                size: 13, color: AppTheme.textSecondary),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                'Auto-configured from your recovery password. Relay auto-discovered.',
+                style: GoogleFonts.inter(
+                    color: AppTheme.textSecondary, fontSize: 11),
+              ),
+            ),
+          ]),
+          const SizedBox(height: 4),
+          GestureDetector(
+            onTap: () => setState(() => _showNostrAdvanced = !_showNostrAdvanced),
+            child: Row(
+              children: [
+                Icon(
+                  _showNostrAdvanced
+                      ? Icons.expand_less_rounded
+                      : Icons.expand_more_rounded,
+                  size: 16,
+                  color: AppTheme.textSecondary,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  'Advanced',
+                  style: GoogleFonts.inter(
+                    color: AppTheme.textSecondary,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (_showNostrAdvanced) ...[
+            const SizedBox(height: 12),
+            settingsField(
+              controller: widget.nostrRelayController,
+              hint: 'wss://relay.damus.io',
+              label: 'Relay URL',
+              icon: Icons.bolt_rounded,
+            ),
+            const SizedBox(height: 12),
+            settingsField(
+              controller: widget.nostrKeyController,
+              hint: 'nsec1... or hex private key',
+              label: 'Private Key (nsec)',
+              icon: Icons.vpn_key_rounded,
+              obscure: true,
+            ),
+            const SizedBox(height: 8),
+            Row(children: [
+              Icon(Icons.info_outline_rounded,
+                  size: 13, color: AppTheme.textSecondary),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  'Your key is stored locally in secure storage — never sent to any server.',
+                  style: GoogleFonts.inter(
+                      color: AppTheme.textSecondary, fontSize: 11),
+                ),
+              ),
+            ]),
+          ],
+        ],
+      );
+    } else if (widget.selectedProvider == 'Waku') {
+      return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+              Expanded(
+                child: settingsField(
+                  controller: widget.wakuNodeUrlController,
+                  hint: 'Leave empty for auto-discovery',
+                  label: 'nwaku Node URL (optional)',
+                  icon: Icons.hub_rounded,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Tooltip(
+                message: 'Probe all known public nodes',
+                child: SizedBox(
+                  height: 48,
+                  child: FilledButton.tonal(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: const Color(0xFF00BCD4)
+                          .withValues(alpha: 0.15),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                      padding:
+                          const EdgeInsets.symmetric(horizontal: 14),
+                    ),
+                    onPressed:
+                        _wakuDiscovering ? null : _discoverWakuNodes,
+                    child: _wakuDiscovering
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Color(0xFF00BCD4)),
+                          )
+                        : Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.radar_rounded,
+                                  size: 16, color: Color(0xFF00BCD4)),
+                              const SizedBox(width: 6),
+                              Text(
+                                'Discover',
+                                style: GoogleFonts.inter(
+                                  color: const Color(0xFF00BCD4),
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                  ),
+                ),
+              ),
+            ]),
+            const SizedBox(height: 8),
+            if (_wakuNodes != null) ...[
+              ..._wakuNodes!.map((n) => Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: InkWell(
+                      onTap: n.online
+                          ? () => setState(() =>
+                              widget.wakuNodeUrlController.text = n.url)
+                          : null,
+                      borderRadius: BorderRadius.circular(8),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 7),
+                        decoration: BoxDecoration(
+                          color: AppTheme.surfaceVariant,
+                          borderRadius: BorderRadius.circular(8),
+                          border:
+                              widget.wakuNodeUrlController.text == n.url
+                                  ? Border.all(
+                                      color: const Color(0xFF00BCD4),
+                                      width: 1.5)
+                                  : null,
+                        ),
+                        child: Row(children: [
+                          Icon(
+                            n.online
+                                ? Icons.circle
+                                : Icons.circle_outlined,
+                            size: 8,
+                            color: n.online
+                                ? const Color(0xFF4CAF50)
+                                : AppTheme.textSecondary,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              n.label,
+                              style: GoogleFonts.jetBrainsMono(
+                                color: n.online
+                                    ? AppTheme.textPrimary
+                                    : AppTheme.textSecondary,
+                                fontSize: 11,
+                              ),
+                            ),
+                          ),
+                          Text(
+                            n.latencyLabel,
+                            style: GoogleFonts.inter(
+                              color: n.online
+                                  ? const Color(0xFF4CAF50)
+                                  : AppTheme.textSecondary,
+                              fontSize: 11,
+                            ),
+                          ),
+                          if (n.online) ...[
+                            const SizedBox(width: 6),
+                            Icon(Icons.arrow_forward_ios_rounded,
+                                size: 10,
+                                color: AppTheme.textSecondary),
+                          ],
+                        ]),
+                      ),
+                    ),
+                  )),
+              const SizedBox(height: 4),
+            ],
+            Row(children: [
+              Icon(Icons.info_outline_rounded,
+                  size: 13, color: AppTheme.textSecondary),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  'Leave URL empty to auto-discover the fastest public node. '
+                  'Or run nwaku locally (port 8645) for maximum privacy.',
+                  style: GoogleFonts.inter(
+                      color: AppTheme.textSecondary, fontSize: 11),
+                ),
+              ),
+            ]),
+          ]);
+    } else if (widget.selectedProvider == 'Oxen') {
+      return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(children: [
+              Icon(Icons.info_outline_rounded,
+                  size: 13, color: const Color(0xFF00695C)),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  'Oxen/Session network — onion-routed E2EE. '
+                  'Your Session ID is auto-generated and stored securely. '
+                  'Nodes auto-discovered from built-in seed nodes.',
+                  style: GoogleFonts.inter(
+                      color: AppTheme.textSecondary, fontSize: 11),
+                ),
+              ),
+            ]),
+            const SizedBox(height: 8),
+            Builder(builder: (ctx) {
+              final sessionId = ChatController().myAddress;
+              if (sessionId.startsWith('05') &&
+                  sessionId.length == 66) {
+                return Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 10, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF00695C).withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                        color: const Color(0xFF00695C)
+                            .withValues(alpha: 0.3)),
+                  ),
+                  child: Row(children: [
+                    const Icon(Icons.fingerprint_rounded,
+                        size: 14, color: Color(0xFF00695C)),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        sessionId,
+                        style: GoogleFonts.robotoMono(
+                            color: const Color(0xFF00695C), fontSize: 10),
+                      ),
+                    ),
+                  ]),
+                );
+              }
+              return const SizedBox.shrink();
+            }),
+            const SizedBox(height: 4),
+            GestureDetector(
+              onTap: () => setState(() => _showOxenAdvanced = !_showOxenAdvanced),
+              child: Row(
+                children: [
+                  Icon(
+                    _showOxenAdvanced
+                        ? Icons.expand_less_rounded
+                        : Icons.expand_more_rounded,
+                    size: 16,
+                    color: AppTheme.textSecondary,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Advanced',
+                    style: GoogleFonts.inter(
+                      color: AppTheme.textSecondary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (_showOxenAdvanced) ...[
+              const SizedBox(height: 12),
+              settingsField(
+                controller: widget.oxenNodeUrlController,
+                hint: 'Leave empty for built-in seed nodes',
+                label: 'Storage Node URL (optional)',
+                icon: Icons.security_rounded,
+              ),
+            ],
+          ]);
+    }
+    return const SizedBox.shrink();
+  }
+
+  Widget _buildSecondaryInboxesSection() {
+    return Column(
+      children: [
+        for (int i = 0; i < widget.secondaryAdapters.length; i++)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: AppTheme.surface,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    widget.secondaryAdapters[i]['provider'] == 'Nostr'
+                        ? Icons.bolt_rounded
+                        : Icons.local_fire_department_rounded,
+                    size: 16,
+                    color:
+                        widget.secondaryAdapters[i]['provider'] == 'Nostr'
+                            ? const Color(0xFF9B59B6)
+                            : const Color(0xFFFFAB00),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          widget.secondaryAdapters[i]['provider'] ?? '',
+                          style: GoogleFonts.inter(
+                            color: AppTheme.textPrimary,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                          ),
+                        ),
+                        Text(
+                          widget.secondaryAdapters[i]['selfId'] ??
+                              widget.secondaryAdapters[i]['databaseId'] ??
+                              '',
+                          style: GoogleFonts.jetBrainsMono(
+                              color: AppTheme.textSecondary, fontSize: 10),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: () async {
+                      final updated =
+                          List<Map<String, String>>.from(
+                              widget.secondaryAdapters)
+                            ..removeAt(i);
+                      final prefs = await SharedPreferences.getInstance();
+                      await prefs.setString(
+                          'secondary_adapters', jsonEncode(updated));
+                      widget.onSecondaryAdaptersChanged(updated);
+                      await ChatController().reconnectInbox();
+                      unawaited(
+                          ChatController().broadcastAddressUpdate());
+                    },
+                    child: Icon(Icons.close_rounded,
+                        size: 18, color: AppTheme.textSecondary),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        GestureDetector(
+          onTap: _showAddSecondaryDialog,
+          child: Container(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              color: AppTheme.surface,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                  color: AppTheme.primary.withValues(alpha: 0.3), width: 1),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.add_rounded,
+                    size: 16, color: AppTheme.primary),
+                const SizedBox(width: 8),
+                Text(
+                  'Add Secondary Inbox',
+                  style: GoogleFonts.inter(
+                    color: AppTheme.primary,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // ─── Provider selection ───────────────────────────────
+        settingsSectionLabel('Your Inbox Provider'),
+        const SizedBox(height: 12),
+        _buildProviderChips(),
+        const SizedBox(height: 28),
+
+        // ─── Provider-specific config ─────────────────────────
+        settingsSectionLabel('Connection Details'),
+        const SizedBox(height: 12),
+        _buildProviderConfig(),
+
+        const SizedBox(height: 32),
+
+        // ─── Save button ──────────────────────────────────────
+        SizedBox(
+          width: double.infinity,
+          height: 54,
+          child: ElevatedButton(
+            onPressed: widget.isSaving ? null : widget.onSave,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primary,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16)),
+              elevation: 0,
+            ),
+            child: widget.isSaving
+                ? const SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(
+                        color: Colors.white, strokeWidth: 2.5))
+                : Text(
+                    'Save & Connect',
+                    style: GoogleFonts.inter(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 16,
+                        color: Colors.white),
+                  ),
+          ),
+        ),
+
+        const SizedBox(height: 32),
+
+        // ─── Secondary Inboxes ────────────────────────────────
+        settingsSectionLabel('Secondary Inboxes'),
+        const SizedBox(height: 10),
+        _buildSecondaryInboxesSection(),
+      ],
+    );
+  }
+}

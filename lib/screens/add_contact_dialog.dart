@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:uuid/uuid.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
+import '../constants.dart';
 import '../models/contact.dart';
 import '../theme/app_theme.dart';
 
@@ -102,7 +103,7 @@ class _AddContactDialogState extends State<AddContactDialog> {
       relayWs = address.substring(atIdx + 1);
     } else if (RegExp(r'^[0-9a-f]{64}$').hasMatch(lower)) {
       pubkey = lower;
-      relayWs = 'wss://relay.damus.io';
+      relayWs = kDefaultNostrRelay;
     } else {
       return;
     }
@@ -120,19 +121,26 @@ class _AddContactDialogState extends State<AddContactDialog> {
       channel.sink.add(jsonEncode(['REQ', subId, {'kinds': [0], 'authors': [pubkey], 'limit': 1}]));
       String? foundName;
       await for (final raw in channel.stream.timeout(const Duration(seconds: 6))) {
-        final msg = jsonDecode(raw as String) as List<dynamic>;
-        if (msg.isEmpty) continue;
-        if (msg[0] == 'EVENT' && msg.length >= 3) {
-          final event = msg[2] as Map<String, dynamic>;
-          if (event['kind'] == 0) {
-            try {
-              final content = jsonDecode(event['content'] as String) as Map<String, dynamic>;
-              final n = (content['display_name'] as String?)?.trim() ??
-                  (content['name'] as String?)?.trim();
-              if (n != null && n.isNotEmpty) foundName = n;
-            } catch (_) {}
-          }
-        } else if (msg[0] == 'EOSE') { break; }
+        try {
+          final msg = jsonDecode(raw as String) as List<dynamic>;
+          if (msg.isEmpty) continue;
+          if (msg[0] == 'EVENT' && msg.length >= 3) {
+            final event = msg[2] as Map<String, dynamic>;
+            if (event['kind'] == 0) {
+              try {
+                final content = jsonDecode(event['content'] as String) as Map<String, dynamic>;
+                final n = (content['display_name'] as String?)?.trim() ??
+                    (content['name'] as String?)?.trim();
+                if (n != null && n.isNotEmpty) foundName = n;
+              } catch (e) {
+                debugPrint('[AddContact] NIP-0 profile content parse error: $e');
+              }
+            }
+          } else if (msg[0] == 'EOSE') { break; }
+        } catch (e) {
+          debugPrint('[AddContact] Nostr message parse error: $e');
+          continue;
+        }
       }
       if (!mounted) return;
       if (foundName != null) {
@@ -141,7 +149,8 @@ class _AddContactDialogState extends State<AddContactDialog> {
       } else {
         setState(() { _fetchingProfile = false; _profileFetchStatus = 'No profile found'; });
       }
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[AddContact] Profile fetch failed: $e');
       if (mounted) setState(() { _fetchingProfile = false; _profileFetchStatus = null; });
     } finally {
       channel?.sink.close();
@@ -448,4 +457,31 @@ class _AddContactDialogState extends State<AddContactDialog> {
           fontSize: 11,
           fontWeight: FontWeight.w600,
           letterSpacing: 0.5));
+}
+
+/// Parse a pulse:// or messenger:// deep link into {name, addresses}.
+/// [addresses] contains all addresses from the `a` field (array or single string).
+/// Returns null if the link is invalid.
+@visibleForTesting
+({String name, List<String> addresses})? parsePulseLink(String link) {
+  try {
+    final uri = Uri.parse(link);
+    final cfg64 = uri.queryParameters['cfg'];
+    if (cfg64 == null) return null;
+    final json = jsonDecode(utf8.decode(base64Decode(cfg64))) as Map<String, dynamic>;
+    final dynamic rawA = json['a'];
+    final List<String> addresses;
+    if (rawA is List) {
+      addresses = rawA.map((e) => e.toString()).where((e) => e.isNotEmpty).toList();
+    } else if (rawA is String && rawA.isNotEmpty) {
+      addresses = [rawA];
+    } else {
+      return null;
+    }
+    if (addresses.isEmpty) return null;
+    final name = (json['n'] as String?)?.trim() ?? '';
+    return (name: name, addresses: addresses);
+  } catch (_) {
+    return null;
+  }
 }

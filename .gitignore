@@ -53,18 +53,32 @@ flutter_*.png
 assets/bins/linux_x64/tor
 assets/bins/linux_x64/snowflake-client
 assets/bins/linux_x64/pulse-utls-proxy
+assets/bins/linux_x64/obfs4proxy
+assets/bins/linux_x64/pulse-psiphon
 assets/bins/linux_arm64/tor
 assets/bins/linux_arm64/snowflake-client
 assets/bins/linux_arm64/pulse-utls-proxy
+assets/bins/linux_arm64/obfs4proxy
+assets/bins/linux_arm64/pulse-psiphon
 assets/bins/android_arm64/tor
 assets/bins/android_arm64/snowflake-client
 assets/bins/android_arm64/pulse-utls-proxy
+assets/bins/android_arm64/obfs4proxy
+assets/bins/android_arm64/pulse-psiphon
 assets/bins/android_x64/tor
 assets/bins/android_x64/snowflake-client
 assets/bins/android_x64/pulse-utls-proxy
+assets/bins/android_x64/obfs4proxy
+assets/bins/android_x64/pulse-psiphon
 assets/bins/windows_x64/tor.exe
 assets/bins/windows_x64/snowflake-client.exe
 assets/bins/windows_x64/pulse-utls-proxy.exe
 
 # Go build artifacts
 tools/utls-proxy/pulse-utls-proxy
+tools/utls-proxy/utls-proxy
+tools/psiphon-client/pulse-psiphon
+
+# Android release signing
+android/key.properties
+android/app/*.jks

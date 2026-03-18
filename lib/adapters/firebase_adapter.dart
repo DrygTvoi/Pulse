@@ -3,12 +3,13 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../models/message.dart';
+import '../services/psiphon_service.dart' as psiphon;
 import '../services/tor_service.dart' as tor;
 import 'inbox_manager.dart';
 
-/// Returns a Tor-proxied client when Tor is running, else a plain http.Client.
+/// Returns a proxied client: Psiphon (fast) → Tor (slow) → plain.
 http.Client _buildFirebaseClient() =>
-    tor.buildTorHttpClient() ?? http.Client();
+    psiphon.buildPsiphonHttpClient() ?? tor.buildTorHttpClient() ?? http.Client();
 
 class FirebaseInboxReader implements InboxReader {
   late String _dbUrl;
@@ -21,6 +22,19 @@ class FirebaseInboxReader implements InboxReader {
   int _consecutiveFailures = 0;
   bool _isHealthy = true;
   static const _failureThreshold = 3;
+
+  // Circuit breaker — stops infinite retries on persistent failures
+  int _msgLoopFailures = 0;
+  int _sigLoopFailures = 0;
+  static const _maxConsecutiveFailures = 30;
+
+  /// True when the message listener stopped after [_maxConsecutiveFailures] failures.
+  bool get messagesCircuitBroken => _msgCircuitBroken;
+  bool _msgCircuitBroken = false;
+
+  /// True when the signal listener stopped after [_maxConsecutiveFailures] failures.
+  bool get signalsCircuitBroken => _sigCircuitBroken;
+  bool _sigCircuitBroken = false;
 
   @override
   Stream<bool> get healthChanges => _healthCtrl.stream;
@@ -91,6 +105,7 @@ class FirebaseInboxReader implements InboxReader {
         if (response.statusCode == 200) {
           retryDelay = 5; // reset backoff on successful connection
           cycleSuccess = true;
+          _msgLoopFailures = 0; // circuit breaker: reset on success
           _recordSuccess();
           Map<String, dynamic>? dataBuffer;
           await for (final line in response.stream
@@ -114,21 +129,17 @@ class FirebaseInboxReader implements InboxReader {
                   final data = buf['data'];
                   if (data != null && data is Map) {
                     data.forEach((key, value) {
-                      try {
-                        messages.add(Message.fromJson(value as Map<String, dynamic>));
-                      } catch (e) {
-                        debugPrint("Error parsing Firebase message snapshot: $e");
+                      if (value is Map<String, dynamic>) {
+                        final msg = Message.tryFromJson(value);
+                        if (msg != null) messages.add(msg);
                       }
                     });
                   }
                 } else if (buf.containsKey('path') && buf['path'] != '/') {
                   final data = buf['data'];
-                  if (data != null && data is Map) {
-                    try {
-                      messages.add(Message.fromJson(data as Map<String, dynamic>));
-                    } catch (e) {
-                      debugPrint("Error parsing Firebase message delta: $e");
-                    }
+                  if (data != null && data is Map<String, dynamic>) {
+                    final msg = Message.tryFromJson(data);
+                    if (msg != null) messages.add(msg);
                   }
                 }
               } catch (e) {
@@ -143,9 +154,24 @@ class FirebaseInboxReader implements InboxReader {
       } catch (e) {
         debugPrint("Firebase listenForMessages error: $e");
       }
-      if (!cycleSuccess) _recordFailure();
-      await Future.delayed(Duration(seconds: retryDelay));
-      retryDelay = (retryDelay * 2).clamp(5, 300);
+      if (!cycleSuccess) {
+        _recordFailure();
+        _msgLoopFailures++;
+        if (_msgLoopFailures >= _maxConsecutiveFailures) {
+          debugPrint('[Firebase] Messages: max retries ($_maxConsecutiveFailures) reached, stopping');
+          _msgCircuitBroken = true;
+          break;
+        }
+        // Tiered delay: 5s for first 5 failures, 30s up to 15, then 5min
+        final delay = Duration(seconds:
+            (_msgLoopFailures < 5) ? 5
+            : (_msgLoopFailures < 15) ? 30
+            : 300);
+        await Future.delayed(delay);
+      } else {
+        await Future.delayed(Duration(seconds: retryDelay));
+        retryDelay = (retryDelay * 2).clamp(5, 300);
+      }
     }
   }
 
@@ -153,6 +179,7 @@ class FirebaseInboxReader implements InboxReader {
   Stream<List<Map<String, dynamic>>> listenForSignals() async* {
     int retryDelay = 5;
     while (true) {
+      bool cycleSuccess = false;
       try {
         _signalsClient?.close();
         _signalsClient = _buildFirebaseClient();
@@ -165,6 +192,8 @@ class FirebaseInboxReader implements InboxReader {
 
         if (response.statusCode == 200) {
           retryDelay = 5; // reset backoff on successful connection
+          cycleSuccess = true;
+          _sigLoopFailures = 0; // circuit breaker: reset on success
           Map<String, dynamic>? dataBuffer;
           await for (final line in response.stream
               .transform(utf8.decoder)
@@ -174,7 +203,9 @@ class FirebaseInboxReader implements InboxReader {
               if (dataStr.isEmpty || dataStr == 'null') continue;
               try {
                 dataBuffer = jsonDecode(dataStr);
-              } catch (_) {}
+              } catch (e) {
+                debugPrint('[Firebase] SSE JSON parse failed: $e');
+              }
             } else if (line.isEmpty && dataBuffer != null) {
               // Grab and reset buffer BEFORE processing
               final buf = dataBuffer;
@@ -201,8 +232,24 @@ class FirebaseInboxReader implements InboxReader {
       } catch (e) {
         debugPrint("Firebase listenForSignals error: $e");
       }
-      await Future.delayed(Duration(seconds: retryDelay));
-      retryDelay = (retryDelay * 2).clamp(5, 300);
+      if (!cycleSuccess) {
+        _recordFailure();
+        _sigLoopFailures++;
+        if (_sigLoopFailures >= _maxConsecutiveFailures) {
+          debugPrint('[Firebase] Signals: max retries ($_maxConsecutiveFailures) reached, stopping');
+          _sigCircuitBroken = true;
+          break;
+        }
+        // Tiered delay: 5s for first 5 failures, 30s up to 15, then 5min
+        final delay = Duration(seconds:
+            (_sigLoopFailures < 5) ? 5
+            : (_sigLoopFailures < 15) ? 30
+            : 300);
+        await Future.delayed(delay);
+      } else {
+        await Future.delayed(Duration(seconds: retryDelay));
+        retryDelay = (retryDelay * 2).clamp(5, 300);
+      }
     }
   }
 
@@ -228,7 +275,9 @@ class FirebaseInboxReader implements InboxReader {
           }
         }
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[Firebase] fetchPublicKeys error: $e');
+    }
     return null;
   }
 }

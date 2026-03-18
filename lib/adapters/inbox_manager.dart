@@ -49,6 +49,9 @@ class InboxManager {
   InboxReader? reader;
   final Map<String, MessageSender> _senders = {};
 
+  /// Read-only access to registered senders (for zeroization on dispose).
+  Map<String, MessageSender> get senders => Map.unmodifiable(_senders);
+
   Future<void> configureSelf(String provider, String apiKey, String databaseId) async {
     if (provider == 'Firebase') {
       reader = FirebaseInboxReader();
@@ -62,8 +65,8 @@ class InboxManager {
     await reader?.initializeReader(apiKey, databaseId);
   }
 
-  void addSenderPlugin(String provider, MessageSender sender, String apiKey) {
-    sender.initializeSender(apiKey);
+  Future<void> addSenderPlugin(String provider, MessageSender sender, String apiKey) async {
+    await sender.initializeSender(apiKey);
     _senders[provider] = sender;
   }
 
@@ -80,7 +83,7 @@ class InboxManager {
     return await sender.sendSignal(targetDatabaseId, roomId, senderId, type, payload);
   }
 
-  InboxReader? createAdhocReader(String provider, String apiKey, String databaseId) {
+  Future<InboxReader?> createAdhocReader(String provider, String apiKey, String databaseId) async {
     InboxReader? adhocReader;
     if (provider == 'Firebase') {
       adhocReader = FirebaseInboxReader();
@@ -91,7 +94,7 @@ class InboxManager {
     } else if (provider == 'Oxen') {
       adhocReader = OxenInboxReader();
     }
-    adhocReader?.initializeReader(apiKey, databaseId);
+    await adhocReader?.initializeReader(apiKey, databaseId);
     return adhocReader;
   }
 }

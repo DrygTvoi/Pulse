@@ -1,10 +1,16 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:ffi';
 import 'dart:io';
+import 'dart:math';
+import 'dart:typed_data';
 import 'package:cryptography/cryptography.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:pointycastle/export.dart' as pc;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+import 'package:sqlite3/open.dart' as sqlite3_open;
 
 class LocalStorageService {
   static final LocalStorageService _instance = LocalStorageService._internal();
@@ -13,8 +19,12 @@ class LocalStorageService {
 
   Database? _db;
   SecretKey? _encKey;
+  bool _sqlcipherAvailable = false;
 
   static const _kAesKeyPref = 'local_db_aes_key_v1';
+  static const _kDbKeyPref = 'local_db_cipher_key_v1';
+  static const _kDbKeyTsPref = 'local_db_cipher_key_created_at';
+  static const _kDbKeyRotationDays = 365;
   static final _aesGcm = AesGcm.with256bits();
 
   Future<void> init() async {
@@ -23,6 +33,7 @@ class LocalStorageService {
 
     final String path;
     if (!kIsWeb && (Platform.isLinux || Platform.isWindows || Platform.isMacOS)) {
+      _sqlcipherAvailable = _tryLoadSqlcipher();
       sqfliteFfiInit();
       databaseFactory = databaseFactoryFfi;
       final dbDir = await databaseFactoryFfi.getDatabasesPath();
@@ -32,10 +43,23 @@ class LocalStorageService {
       path = '$dbDir/messages.db';
     }
 
+    // If SQLCipher is available, migrate plaintext DB → encrypted DB.
+    if (_sqlcipherAvailable) {
+      await _migratePlaintextToEncrypted(path);
+    }
+
+    final dbKey = _sqlcipherAvailable ? await _getOrCreateDbKey() : null;
+
     _db = await databaseFactory.openDatabase(
       path,
       options: OpenDatabaseOptions(
         version: 2,
+        onConfigure: (db) async {
+          if (dbKey != null) {
+            await db.rawQuery("PRAGMA KEY=\"x'$dbKey'\"");
+            debugPrint('[LocalStorage] SQLCipher: full-DB encryption active');
+          }
+        },
         onCreate: (db, _) async {
           await db.execute('''
             CREATE TABLE messages (
@@ -75,16 +99,235 @@ class LocalStorageService {
 
     await _migrateEncryption();
     await _migrateFromPrefs();
+
+    // Rotate DB encryption key if overdue (SQLCipher only; per-row key is static for now).
+    if (_sqlcipherAvailable) {
+      unawaited(_rotateDbKeyIfNeeded());
+    }
+  }
+
+  /// Try to load libsqlcipher.so; if available, override the sqlite3 library
+  /// so all DB operations use SQLCipher (transparent full-DB AES-256 encryption).
+  /// Returns true if SQLCipher was loaded successfully.
+  static bool _tryLoadSqlcipher() {
+    try {
+      final lib = DynamicLibrary.open('libsqlcipher.so');
+      sqlite3_open.open.overrideForAll(() => lib);
+      debugPrint('[LocalStorage] SQLCipher loaded successfully');
+      return true;
+    } catch (e) {
+      debugPrint('[LocalStorage] libsqlcipher.so not found — using plain SQLite '
+          '(install sqlcipher for full-DB encryption)');
+      return false;
+    }
+  }
+
+  /// Validates that [s] is exactly 64 lowercase hex characters.
+  /// Iterates all characters without short-circuiting to avoid timing variance
+  /// on the format check (not a secret comparison, but good hygiene).
+  static bool _isValidHex64(String s) {
+    if (s.length != 64) return false;
+    int invalid = 0;
+    for (int i = 0; i < s.length; i++) {
+      final c = s.codeUnitAt(i);
+      // '0'-'9' = 48-57, 'a'-'f' = 97-102
+      final isDigit = (c >= 48 && c <= 57) ? 0 : 1;
+      final isLowerHex = (c >= 97 && c <= 102) ? 0 : 1;
+      invalid |= isDigit & isLowerHex;
+    }
+    return invalid == 0;
+  }
+
+  /// Get or create a hex key for SQLCipher PRAGMA KEY.
+  Future<String> _getOrCreateDbKey() async {
+    const ss = FlutterSecureStorage();
+    final existing = await ss.read(key: _kDbKeyPref);
+    if (existing != null && _isValidHex64(existing)) {
+      return existing;
+    }
+
+    // Generate a random 32-byte (256-bit) key as hex.
+    final rng = Random.secure();
+    final bytes = List.generate(32, (_) => rng.nextInt(256));
+    final hexKey = bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+    await ss.write(key: _kDbKeyPref, value: hexKey);
+    await ss.write(
+        key: _kDbKeyTsPref,
+        value: DateTime.now().millisecondsSinceEpoch.toString());
+    return hexKey;
+  }
+
+  /// Rotate the SQLCipher encryption key if it's older than [_kDbKeyRotationDays].
+  /// Uses PRAGMA rekey to atomically re-encrypt the database file.
+  Future<void> _rotateDbKeyIfNeeded() async {
+    try {
+      const ss = FlutterSecureStorage();
+      final tsStr = await ss.read(key: _kDbKeyTsPref);
+      if (tsStr != null) {
+        final created = DateTime.fromMillisecondsSinceEpoch(int.parse(tsStr));
+        final age = DateTime.now().difference(created).inDays;
+        if (age < _kDbKeyRotationDays) return;
+      }
+      // Generate new key.
+      final rng = Random.secure();
+      final newBytes = List.generate(32, (_) => rng.nextInt(256));
+      final newKey = newBytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+      // Apply PRAGMA rekey (SQLCipher atomically re-encrypts the database).
+      final db = _db;
+      if (db == null) return;
+      await db.rawQuery("PRAGMA rekey=\"x'$newKey'\"");
+      // Persist the new key and timestamp.
+      await ss.write(key: _kDbKeyPref, value: newKey);
+      await ss.write(
+          key: _kDbKeyTsPref,
+          value: DateTime.now().millisecondsSinceEpoch.toString());
+      debugPrint('[LocalStorage] SQLCipher key rotated successfully');
+    } catch (e) {
+      // Non-fatal — keep using existing key.
+      debugPrint('[LocalStorage] DB key rotation failed: $e');
+    }
+  }
+
+  /// Migrate an existing plaintext DB to an encrypted one.
+  ///
+  /// Strategy: open the old DB without a key, read all data, close it,
+  /// rename it to .bak, and let init() create a fresh encrypted DB which
+  /// will be populated via _migrateEncryption() and _migrateFromPrefs().
+  Future<void> _migratePlaintextToEncrypted(String path) async {
+    final file = File(path);
+    if (!file.existsSync()) return; // no existing DB to migrate
+
+    // Check if already encrypted — try opening with key
+    const ss = FlutterSecureStorage();
+    final hasKey = await ss.read(key: _kDbKeyPref) != null;
+    if (hasKey) return; // already encrypted or fresh install
+
+    // Read all data from the plaintext DB
+    debugPrint('[LocalStorage] Migrating plaintext DB to SQLCipher...');
+    try {
+      final plainDb = await databaseFactory.openDatabase(path,
+          options: OpenDatabaseOptions(readOnly: true));
+      final messages = await plainDb.query('messages');
+
+      List<Map<String, dynamic>> ttlRows = [];
+      try {
+        ttlRows = await plainDb.query('ttl_pending');
+      } catch (_) {
+        // ttl_pending may not exist in very old DBs
+      }
+
+      await plainDb.close();
+
+      // Rename old DB
+      final bak = File('$path.plaintext.bak');
+      await file.rename(bak.path);
+      // Also rename journal/wal files if present
+      for (final suffix in ['-journal', '-wal', '-shm']) {
+        final f = File('$path$suffix');
+        if (f.existsSync()) await f.rename('$path$suffix.bak');
+      }
+
+      // Create the encryption key now (before the new DB is opened)
+      await _getOrCreateDbKey();
+      final dbKey = await ss.read(key: _kDbKeyPref);
+
+      // Create encrypted DB
+      final encDb = await databaseFactory.openDatabase(path,
+          options: OpenDatabaseOptions(
+            version: 2,
+            onConfigure: (db) async {
+              if (dbKey != null) {
+                await db.rawQuery("PRAGMA KEY=\"x'$dbKey'\"");
+              }
+            },
+            onCreate: (db, _) async {
+              await db.execute('''
+                CREATE TABLE messages (
+                  msg_id    TEXT NOT NULL,
+                  room_id   TEXT NOT NULL,
+                  timestamp INTEGER NOT NULL,
+                  data      TEXT NOT NULL,
+                  PRIMARY KEY (msg_id, room_id)
+                )
+              ''');
+              await db.execute(
+                'CREATE INDEX idx_messages_room_ts ON messages(room_id, timestamp)',
+              );
+              await db.execute('''
+                CREATE TABLE ttl_pending (
+                  msg_id     TEXT NOT NULL,
+                  room_id    TEXT NOT NULL,
+                  expires_at INTEGER NOT NULL,
+                  PRIMARY KEY (msg_id, room_id)
+                )
+              ''');
+            },
+          ));
+
+      // Restore data
+      if (messages.isNotEmpty) {
+        final batch = encDb.batch();
+        for (final row in messages) {
+          batch.insert('messages', Map<String, dynamic>.from(row),
+              conflictAlgorithm: ConflictAlgorithm.replace);
+        }
+        await batch.commit(noResult: true);
+      }
+
+      if (ttlRows.isNotEmpty) {
+        final batch = encDb.batch();
+        for (final row in ttlRows) {
+          batch.insert('ttl_pending', Map<String, dynamic>.from(row),
+              conflictAlgorithm: ConflictAlgorithm.replace);
+        }
+        await batch.commit(noResult: true);
+      }
+
+      await encDb.close();
+
+      // Clean up backup
+      if (bak.existsSync()) await bak.delete();
+      for (final suffix in ['-journal', '-wal', '-shm']) {
+        final f = File('$path$suffix.bak');
+        if (f.existsSync()) await f.delete();
+      }
+
+      debugPrint('[LocalStorage] Migration complete: ${messages.length} messages '
+          'moved to encrypted DB');
+    } catch (e) {
+      debugPrint('[LocalStorage] Migration failed: $e — continuing with plaintext DB');
+      // Restore backup if migration failed
+      final bak = File('$path.plaintext.bak');
+      if (bak.existsSync() && !file.existsSync()) {
+        await bak.rename(path);
+      }
+      // Remove the cipher key so next run doesn't try to use it on a plaintext DB
+      await ss.delete(key: _kDbKeyPref);
+    }
   }
 
   // ── Encryption ─────────────────────────────────────────────────────────────
 
   Future<SecretKey> _getOrCreateEncKey() async {
     const ss = FlutterSecureStorage();
+
+    // 1. Try secure storage first (normal path for new + already-migrated users).
     final stored = await ss.read(key: _kAesKeyPref);
     if (stored != null) {
       return SecretKey(base64Decode(stored));
     }
+
+    // 2. Migration: check SharedPreferences for a legacy key.
+    final prefs = await SharedPreferences.getInstance();
+    final legacyKey = prefs.getString(_kAesKeyPref);
+    if (legacyKey != null) {
+      await ss.write(key: _kAesKeyPref, value: legacyKey);
+      await prefs.remove(_kAesKeyPref);
+      debugPrint('[LocalStorage] Migrated AES key to secure storage');
+      return SecretKey(base64Decode(legacyKey));
+    }
+
+    // 3. First launch: generate a brand-new key.
     final key = await _aesGcm.newSecretKey();
     final bytes = await key.extractBytes();
     await ss.write(
@@ -107,8 +350,18 @@ class LocalStorageService {
 
   Future<String> _decrypt(String stored) async {
     if (!stored.startsWith('ENC:')) return stored; // legacy plaintext
-    final bytes = base64Decode(stored.substring(4));
+    final Uint8List bytes;
+    try {
+      bytes = base64Decode(stored.substring(4));
+    } catch (e) {
+      debugPrint('[LocalStorage] Invalid base64 in encrypted row: $e');
+      return stored; // treat as unencrypted
+    }
     const nonceLen = 12, macLen = 16;
+    if (bytes.length < nonceLen + macLen) {
+      debugPrint('[LocalStorage] Encrypted row too short (${bytes.length} bytes)');
+      return stored;
+    }
     final nonce = bytes.sublist(0, nonceLen);
     final mac = Mac(bytes.sublist(nonceLen, nonceLen + macLen));
     final cipherText = bytes.sublist(nonceLen + macLen);
@@ -281,23 +534,38 @@ class LocalStorageService {
     return (result.first['cnt'] as int?) ?? 0;
   }
 
-  /// Load a page of messages, most-recent first then reversed to ascending.
-  /// [offset] = how many messages from the end to skip (0 = most recent page).
+  /// Load a page of messages using cursor-based pagination (O(log N) via index).
+  ///
+  /// [beforeTimestamp] — if non-null, only returns messages with
+  /// `timestamp < beforeTimestamp` (cursor-based, avoids OFFSET scan).
+  /// If null, returns the most-recent [pageSize] messages.
+  ///
+  /// Returns messages in ascending (oldest→newest) order within the page.
   Future<List<Map<String, dynamic>>> loadMessagesPage(
     String roomId, {
     int pageSize = 50,
-    int offset = 0,
+    int? beforeTimestamp,
   }) async {
-    final rows = await _database.query(
-      'messages',
-      columns: ['data'],
-      where: 'room_id = ?',
-      whereArgs: [roomId],
-      orderBy: 'timestamp DESC',
-      limit: pageSize,
-      offset: offset,
-    );
-    // Reverse so the caller gets oldest→newest within the page
+    final List<Map<String, dynamic>> rows;
+    if (beforeTimestamp != null) {
+      // Cursor-based: fetch [pageSize] messages older than the cursor.
+      // Uses the idx_messages_room_ts index (room_id, timestamp) — O(log N).
+      rows = await _database.rawQuery(
+        'SELECT data FROM messages '
+        'WHERE room_id = ? AND timestamp < ? '
+        'ORDER BY timestamp DESC LIMIT ?',
+        [roomId, beforeTimestamp, pageSize],
+      );
+    } else {
+      // First page: most recent [pageSize] messages.
+      rows = await _database.rawQuery(
+        'SELECT data FROM messages '
+        'WHERE room_id = ? '
+        'ORDER BY timestamp DESC LIMIT ?',
+        [roomId, pageSize],
+      );
+    }
+    // Reverse so the caller gets oldest→newest within the page.
     final reversed = rows.reversed.toList();
     final result = <Map<String, dynamic>>[];
     for (final r in reversed) {
@@ -309,6 +577,99 @@ class LocalStorageService {
       }
     }
     return result;
+  }
+
+  // ── Full-text search (decrypt-then-filter) ─────────────────────────────────
+
+  /// Search messages across all rooms or within a specific [roomId].
+  ///
+  /// Because messages are AES-256-GCM encrypted at rest, SQL LIKE/FTS cannot
+  /// be used. Instead, this method loads rows in batches (newest first),
+  /// decrypts each, and performs a case-insensitive substring match on the
+  /// message text (the `encryptedPayload` field after decryption).
+  ///
+  /// Messages whose payload starts with `E2EE||` (media/file blobs) are
+  /// skipped since they are not human-readable text.
+  ///
+  /// [onProgress] is called with (scanned, total) so the UI can show a
+  /// progress indicator for large histories.
+  ///
+  /// Returns at most [limit] results sorted by timestamp descending.
+  Future<List<({String roomId, Map<String, dynamic> message})>> searchMessages(
+    String query, {
+    String? roomId,
+    int limit = 50,
+    void Function(int scanned, int total)? onProgress,
+  }) async {
+    if (query.isEmpty) return [];
+    final queryLower = query.toLowerCase();
+    final db = _database;
+
+    // Get total count for progress reporting.
+    final countResult = roomId != null
+        ? await db.rawQuery(
+            'SELECT COUNT(*) AS cnt FROM messages WHERE room_id = ?',
+            [roomId])
+        : await db.rawQuery('SELECT COUNT(*) AS cnt FROM messages');
+    final total = (countResult.first['cnt'] as int?) ?? 0;
+    if (total == 0) return [];
+
+    final results = <({String roomId, Map<String, dynamic> message})>[];
+    const batchSize = 200;
+    int scanned = 0;
+
+    // Stream through messages in batches (newest first) using OFFSET pagination.
+    for (int offset = 0; offset < total && results.length < limit; offset += batchSize) {
+      final List<Map<String, dynamic>> rows;
+      if (roomId != null) {
+        rows = await db.rawQuery(
+          'SELECT room_id, data FROM messages '
+          'WHERE room_id = ? '
+          'ORDER BY timestamp DESC LIMIT ? OFFSET ?',
+          [roomId, batchSize, offset],
+        );
+      } else {
+        rows = await db.rawQuery(
+          'SELECT room_id, data FROM messages '
+          'ORDER BY timestamp DESC LIMIT ? OFFSET ?',
+          [batchSize, offset],
+        );
+      }
+
+      if (rows.isEmpty) break;
+
+      for (final row in rows) {
+        scanned++;
+        try {
+          final plain = await _decrypt(row['data'] as String);
+          final msg = jsonDecode(plain) as Map<String, dynamic>;
+          final payload = msg['encryptedPayload'] as String? ?? '';
+
+          // Skip media/file payloads and empty messages.
+          if (payload.isEmpty || payload.startsWith('E2EE||')) continue;
+
+          if (payload.toLowerCase().contains(queryLower)) {
+            results.add((
+              roomId: row['room_id'] as String,
+              message: msg,
+            ));
+            if (results.length >= limit) break;
+          }
+        } catch (e) {
+          debugPrint('[Search] Failed to decrypt/parse row: $e');
+        }
+
+        // Report progress every 100 rows.
+        if (onProgress != null && (scanned % 100 == 0)) {
+          onProgress(scanned, total);
+        }
+      }
+    }
+
+    // Final progress callback.
+    if (onProgress != null) onProgress(total, total);
+
+    return results;
   }
 
   /// Delete all messages for a room.
@@ -330,5 +691,248 @@ class LocalStorageService {
     if (_db == null) return;
     await _database.delete('messages');
     await _database.delete('ttl_pending');
+  }
+
+  // ── Encrypted Backup / Restore ──────────────────────────────────────────────
+  //
+  // File format (v1):
+  //   [4 bytes magic "PLBK"]
+  //   [2 bytes version  LE uint16 = 1]
+  //   [16 bytes PBKDF2 salt]
+  //   [12 bytes AES-GCM IV]
+  //   [remaining: AES-256-GCM ciphertext including 16-byte auth tag appended by
+  //    the cryptography package]
+  //
+  // The plaintext is a UTF-8 encoded JSON array of message objects.  Messages
+  // are stored in the DB encrypted with the device AES key — export decrypts
+  // them first, then re-encrypts under the user's backup password.
+
+  static const _kBackupMagic = [0x50, 0x4C, 0x42, 0x4B]; // "PLBK"
+  static const _kBackupVersion = 1;
+  static const _kPbkdf2Iterations = 200000; // OWASP 2023
+  static const _kPbkdf2KeyLen = 32; // 256-bit
+  static const _kSaltLen = 16;
+  static const _kIvLen = 12;
+  static const _kHeaderLen = 4 + 2 + _kSaltLen + _kIvLen; // 34 bytes
+
+  /// Derive a 256-bit AES key from [password] and [salt] using
+  /// PBKDF2-HMAC-SHA256 in an isolate (non-blocking).
+  static Future<Uint8List> _deriveBackupKey(String password, Uint8List salt) {
+    return compute(_pbkdf2Isolate, {
+      'password': password,
+      'salt': salt,
+    });
+  }
+
+  /// Isolate entry point for PBKDF2.
+  static Uint8List _pbkdf2Isolate(Map<String, dynamic> params) {
+    final password = params['password'] as String;
+    final salt = params['salt'] as Uint8List;
+    final derivator = pc.PBKDF2KeyDerivator(pc.HMac(pc.SHA256Digest(), 64));
+    derivator.init(pc.Pbkdf2Parameters(salt, _kPbkdf2Iterations, _kPbkdf2KeyLen));
+    return derivator.process(Uint8List.fromList(utf8.encode(password)));
+  }
+
+  /// Export all messages as an AES-256-GCM encrypted backup file.
+  ///
+  /// Messages are decrypted from the local DB encryption, serialised to JSON,
+  /// then re-encrypted under the user-supplied [password].
+  /// Returns the encrypted bytes (ready to write to a file), or null on failure.
+  /// [onProgress] is called with (processed, total) for UI feedback.
+  Future<Uint8List?> exportBackup(
+    String password, {
+    void Function(int processed, int total)? onProgress,
+  }) async {
+    try {
+      final db = _database;
+      final rows = await db.query(
+        'messages',
+        columns: ['msg_id', 'room_id', 'timestamp', 'data'],
+        orderBy: 'room_id, timestamp ASC',
+      );
+
+      final total = rows.length;
+      final messages = <Map<String, dynamic>>[];
+
+      for (int i = 0; i < rows.length; i++) {
+        final row = rows[i];
+        try {
+          final plainJson = await _decrypt(row['data'] as String);
+          messages.add({
+            'msg_id': row['msg_id'],
+            'room_id': row['room_id'],
+            'timestamp': row['timestamp'],
+            'data': plainJson,
+          });
+        } catch (e) {
+          debugPrint('[Backup] Skipping corrupt row: $e');
+        }
+        if (onProgress != null && (i % 100 == 0 || i == total - 1)) {
+          onProgress(i + 1, total);
+        }
+      }
+
+      // Serialise to JSON
+      final jsonBytes = utf8.encode(jsonEncode(messages));
+
+      // Generate salt + IV
+      final rng = Random.secure();
+      final salt = Uint8List.fromList(
+          List.generate(_kSaltLen, (_) => rng.nextInt(256)));
+      final iv = Uint8List.fromList(
+          List.generate(_kIvLen, (_) => rng.nextInt(256)));
+
+      // Derive key
+      final keyBytes = await _deriveBackupKey(password, salt);
+      final secretKey = SecretKey(keyBytes);
+
+      // Encrypt with AES-256-GCM
+      final secretBox = await _aesGcm.encrypt(
+        jsonBytes,
+        secretKey: secretKey,
+        nonce: iv,
+      );
+
+      // Assemble file: magic + version + salt + iv + ciphertext + mac
+      final cipherWithMac = [
+        ...secretBox.cipherText,
+        ...secretBox.mac.bytes,
+      ];
+
+      final output = BytesBuilder(copy: false);
+      output.add(_kBackupMagic);
+      // Version as LE uint16
+      output.add([_kBackupVersion & 0xFF, (_kBackupVersion >> 8) & 0xFF]);
+      output.add(salt);
+      output.add(iv);
+      output.add(cipherWithMac);
+
+      return output.toBytes();
+    } catch (e, st) {
+      debugPrint('[Backup] Export failed: $e\n$st');
+      return null;
+    }
+  }
+
+  /// Import messages from an encrypted backup file.
+  ///
+  /// Returns the number of imported (new) messages, or -1 on error.
+  /// [onProgress] is called with (processed, total) for UI feedback.
+  Future<int> importBackup(
+    Uint8List data,
+    String password, {
+    void Function(int processed, int total)? onProgress,
+  }) async {
+    try {
+      // ── Validate header ──
+      if (data.length < _kHeaderLen + 16) {
+        debugPrint('[Backup] File too small (${data.length} bytes)');
+        return -1;
+      }
+      // Check magic
+      for (int i = 0; i < 4; i++) {
+        if (data[i] != _kBackupMagic[i]) {
+          debugPrint('[Backup] Invalid magic bytes');
+          return -1;
+        }
+      }
+      // Check version
+      final version = data[4] | (data[5] << 8);
+      if (version != _kBackupVersion) {
+        debugPrint('[Backup] Unsupported backup version: $version');
+        return -1;
+      }
+
+      // ── Extract fields ──
+      final salt = Uint8List.sublistView(data, 6, 6 + _kSaltLen);
+      final iv = Uint8List.sublistView(data, 6 + _kSaltLen, _kHeaderLen);
+      final encryptedPayload = Uint8List.sublistView(data, _kHeaderLen);
+
+      // The encrypted payload is ciphertext + 16-byte GCM tag at the end
+      if (encryptedPayload.length < 16) {
+        debugPrint('[Backup] Encrypted payload too small');
+        return -1;
+      }
+      final cipherText = Uint8List.sublistView(
+          encryptedPayload, 0, encryptedPayload.length - 16);
+      final macBytes = Uint8List.sublistView(
+          encryptedPayload, encryptedPayload.length - 16);
+
+      // ── Derive key ──
+      final keyBytes = await _deriveBackupKey(password, salt);
+      final secretKey = SecretKey(keyBytes);
+
+      // ── Decrypt ──
+      final secretBox = SecretBox(
+        cipherText,
+        nonce: iv,
+        mac: Mac(macBytes),
+      );
+
+      final List<int> plainBytes;
+      try {
+        plainBytes = await _aesGcm.decrypt(secretBox, secretKey: secretKey);
+      } catch (e) {
+        debugPrint('[Backup] Decryption failed (wrong password?): $e');
+        return -1;
+      }
+
+      // ── Parse JSON ──
+      final List<dynamic> messages;
+      try {
+        messages = jsonDecode(utf8.decode(plainBytes)) as List<dynamic>;
+      } catch (e) {
+        debugPrint('[Backup] JSON parse failed: $e');
+        return -1;
+      }
+
+      // ── Insert with dedup ──
+      final db = _database;
+      int imported = 0;
+      final total = messages.length;
+
+      for (int i = 0; i < messages.length; i++) {
+        final entry = messages[i] as Map<String, dynamic>;
+        final msgId = entry['msg_id'] as String? ?? '';
+        final roomId = entry['room_id'] as String? ?? '';
+        final timestamp = entry['timestamp'] as int? ?? 0;
+        final plainData = entry['data'] as String? ?? '{}';
+
+        // Check if message already exists (dedup by primary key)
+        final existing = await db.query(
+          'messages',
+          columns: ['msg_id'],
+          where: 'msg_id = ? AND room_id = ?',
+          whereArgs: [msgId, roomId],
+          limit: 1,
+        );
+
+        if (existing.isEmpty) {
+          // Re-encrypt with the device's DB AES key
+          final encrypted = await _encrypt(plainData);
+          await db.insert(
+            'messages',
+            {
+              'msg_id': msgId,
+              'room_id': roomId,
+              'timestamp': timestamp,
+              'data': encrypted,
+            },
+            conflictAlgorithm: ConflictAlgorithm.ignore,
+          );
+          imported++;
+        }
+
+        if (onProgress != null && (i % 100 == 0 || i == total - 1)) {
+          onProgress(i + 1, total);
+        }
+      }
+
+      debugPrint('[Backup] Imported $imported new messages out of $total total');
+      return imported;
+    } catch (e, st) {
+      debugPrint('[Backup] Import failed: $e\n$st');
+      return -1;
+    }
   }
 }

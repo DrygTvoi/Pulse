@@ -34,7 +34,8 @@ class ChatRoom {
       id: json['id'],
       contact: Contact.fromMap(json['contact']), // Assuming Contact has fromMap
       messages: (json['messages'] as List)
-          .map((m) => Message.fromJson(m))
+          .map((m) => Message.tryFromJson(m as Map<String, dynamic>))
+          .whereType<Message>()
           .toList(),
       adapterType: json['adapterType'],
       adapterConfig: json['adapterConfig'],

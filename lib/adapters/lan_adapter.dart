@@ -83,7 +83,9 @@ class LanInboxReader implements InboxReader {
         try {
           final sigData = jsonDecode(payload) as Map<String, dynamic>;
           _sigCtrl.add([sigData]);
-        } catch (_) {}
+        } catch (e) {
+          debugPrint('[LAN] Signal JSON parse error: $e');
+        }
         return;
       }
 

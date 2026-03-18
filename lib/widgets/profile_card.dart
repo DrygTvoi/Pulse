@@ -53,7 +53,9 @@ class _ProfileCardState extends State<ProfileCard> {
         if (avatarB64 != null && avatarB64.isNotEmpty) {
           _avatarBytes = base64Decode(avatarB64);
         }
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('[ProfileCard] Failed to parse user profile: $e');
+      }
     }
     final fp = SignalService().ownFingerprint;
     if (mounted) setState(() => _fingerprint = fp);
@@ -389,7 +391,9 @@ class _ShareAllButton extends StatelessWidget {
     final raw = prefs.getString('user_profile');
     String name = '';
     if (raw != null) {
-      try { name = (jsonDecode(raw)['name'] as String?) ?? ''; } catch (_) {}
+      try { name = (jsonDecode(raw)['name'] as String?) ?? ''; } catch (e) {
+        debugPrint('[ProfileCard] Failed to parse profile name: $e');
+      }
     }
     final cfg = jsonEncode({'n': name, 'a': addresses});
     final link = 'pulse://add?cfg=${base64Encode(utf8.encode(cfg))}';

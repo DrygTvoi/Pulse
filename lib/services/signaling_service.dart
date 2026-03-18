@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../constants.dart';
 import '../adapters/inbox_manager.dart';
 import '../adapters/firebase_adapter.dart';
 import 'call_transport.dart';
@@ -223,45 +224,65 @@ class SignalingService {
   }
 
   void _handleOffer(Map<String, dynamic> data) async {
-    await peerConnection?.setRemoteDescription(RTCSessionDescription(data['sdp'], data['type']));
-    await createAnswer();
+    try {
+      await peerConnection?.setRemoteDescription(RTCSessionDescription(data['sdp'], data['type']));
+      await createAnswer();
+    } catch (e) {
+      debugPrint('[Signaling] handleOffer error: $e');
+    }
   }
 
   void _handleAnswer(Map<String, dynamic> data) async {
-    await peerConnection?.setRemoteDescription(RTCSessionDescription(data['sdp'], data['type']));
+    try {
+      await peerConnection?.setRemoteDescription(RTCSessionDescription(data['sdp'], data['type']));
+    } catch (e) {
+      debugPrint('[Signaling] handleAnswer error: $e');
+    }
   }
 
   void _handleCandidate(Map<String, dynamic> data) async {
-    await peerConnection?.addCandidate(
-      RTCIceCandidate(data['candidate'], data['sdpMid'], data['sdpMLineIndex']),
-    );
+    try {
+      await peerConnection?.addCandidate(
+        RTCIceCandidate(data['candidate'], data['sdpMid'], data['sdpMLineIndex']),
+      );
+    } catch (e) {
+      debugPrint('[Signaling] handleCandidate error: $e');
+    }
   }
 
   // ── Secondary signal handlers ──────────────────────────────────────────────
 
   void _handleSecondaryOffer(Map<String, dynamic> data) async {
-    // Lazily create secondary PC if startSecondaryAudio was not yet called
-    if (_secondaryPc == null) {
-      final config = await CallTransportProfile.torRelay.peerConfig();
-      _secondaryPc = await createPeerConnection(config);
-      _attachSecondaryCallbacks();
-      if (localStream != null) {
-        for (final track in localStream!.getAudioTracks()) {
-          await _secondaryPc!.addTrack(track, localStream!);
+    try {
+      // Lazily create secondary PC if startSecondaryAudio was not yet called
+      if (_secondaryPc == null) {
+        final config = await CallTransportProfile.torRelay.peerConfig();
+        _secondaryPc = await createPeerConnection(config);
+        _attachSecondaryCallbacks();
+        if (localStream != null) {
+          for (final track in localStream!.getAudioTracks()) {
+            await _secondaryPc!.addTrack(track, localStream!);
+          }
         }
       }
+      await _secondaryPc!.setRemoteDescription(
+          RTCSessionDescription(data['sdp'], data['type']));
+      final answer = await _secondaryPc!.createAnswer();
+      final constrained = _applyAudioConstraints(answer, restricted: true);
+      await _secondaryPc!.setLocalDescription(constrained);
+      await _sendSignalingData('answer', constrained.toMap(), prefix: 'webrtc2');
+    } catch (e) {
+      debugPrint('[Signaling] handleSecondaryOffer error: $e');
     }
-    await _secondaryPc!.setRemoteDescription(
-        RTCSessionDescription(data['sdp'], data['type']));
-    final answer = await _secondaryPc!.createAnswer();
-    final constrained = _applyAudioConstraints(answer, restricted: true);
-    await _secondaryPc!.setLocalDescription(constrained);
-    await _sendSignalingData('answer', constrained.toMap(), prefix: 'webrtc2');
   }
 
   void _handleSecondaryAnswer(Map<String, dynamic> data) async {
-    await _secondaryPc?.setRemoteDescription(
-        RTCSessionDescription(data['sdp'], data['type']));
+    try {
+      await _secondaryPc?.setRemoteDescription(
+          RTCSessionDescription(data['sdp'], data['type']));
+    } catch (e) {
+      debugPrint('[Signaling] handleSecondaryAnswer error: $e');
+    }
   }
 
   void _handleSecondaryCandidate(Map<String, dynamic> data) async {
@@ -269,7 +290,9 @@ class SignalingService {
       await _secondaryPc?.addCandidate(
         RTCIceCandidate(data['candidate'], data['sdpMid'], data['sdpMLineIndex']),
       );
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[Signaling] handleSecondaryCandidate error: $e');
+    }
   }
 
   // ── Audio quality constraints ──────────────────────────────────────────────
@@ -338,11 +361,18 @@ class SignalingService {
     required bool restricted,
   }) async {
     if (pc == null) return;
-    final maxBitrate = restricted ? 48000 : 64000;
     try {
       final senders = await pc.getSenders();
       for (final sender in senders) {
-        if (sender.track?.kind != 'audio') continue;
+        final kind = sender.track?.kind;
+        final int maxBitrate;
+        if (kind == 'audio') {
+          maxBitrate = restricted ? 48000 : 64000;
+        } else if (kind == 'video') {
+          maxBitrate = restricted ? 100000 : 500000;
+        } else {
+          continue;
+        }
         final params = sender.parameters; // sync getter
         final encodings = params.encodings;
         if (encodings == null || encodings.isEmpty) continue;
@@ -350,7 +380,7 @@ class SignalingService {
         if (encodings.first.maxBitrate == maxBitrate) continue;
         encodings.first.maxBitrate = maxBitrate;
         await sender.setParameters(params);
-        debugPrint('[RTP] audio maxBitrate set to $maxBitrate bps');
+        debugPrint('[RTP] $kind maxBitrate set to $maxBitrate bps');
       }
     } catch (e) {
       debugPrint('[RTP] setParameters failed (non-fatal): $e');
@@ -374,17 +404,25 @@ class SignalingService {
     final prefs = await SharedPreferences.getInstance();
     final identityJson = prefs.getString('user_identity');
     if (identityJson != null) {
-      final identityData = jsonDecode(identityJson);
-      final adapterConfig = identityData['adapterConfig'] as Map<String, dynamic>;
+      final dynamic identityData;
+      try {
+        identityData = jsonDecode(identityJson);
+      } catch (e) {
+        debugPrint('[Signaling] Failed to parse identity: $e');
+        return;
+      }
+      final adapterConfig = (identityData is Map<String, dynamic>
+          ? identityData['adapterConfig'] as Map<String, dynamic>?
+          : null) ?? {};
       final ourApiKey = adapterConfig['token'] ?? '';
 
       if (contact.provider == 'Firebase') {
-        InboxManager().addSenderPlugin('Firebase', FirebaseInboxSender(), ourApiKey);
+        await InboxManager().addSenderPlugin('Firebase', FirebaseInboxSender(), ourApiKey);
       } else if (contact.provider == 'Nostr') {
         const storage = FlutterSecureStorage();
         final privkey = await storage.read(key: 'nostr_privkey') ?? '';
-        final relay = prefs.getString('nostr_relay') ?? 'wss://relay.damus.io';
-        InboxManager().addSenderPlugin('Nostr', NostrMessageSender(),
+        final relay = prefs.getString('nostr_relay') ?? kDefaultNostrRelay;
+        await InboxManager().addSenderPlugin('Nostr', NostrMessageSender(),
             jsonEncode({'privkey': privkey, 'relay': relay}));
       }
     }

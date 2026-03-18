@@ -160,7 +160,9 @@ class Nip65DiscoveryService {
               relays.add(url);
             }
           }
-        } catch (_) {}
+        } catch (e) {
+          debugPrint('[NIP-65] Event parse error: $e');
+        }
       }
 
       debugPrint('[NIP-65] $relayUrl → ${relays.length} relay URL(s) in kind:10002');

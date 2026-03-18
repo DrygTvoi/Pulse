@@ -29,6 +29,8 @@ class MessageBubble extends StatelessWidget {
   final double? uploadProgress; // 0.0..1.0 while uploading chunks
   /// For group messages sent by self: contactIds who have read this message.
   final List<String> readBy;
+  /// Called when the user taps the failed-status icon to retry sending.
+  final VoidCallback? onRetry;
 
   const MessageBubble({
     super.key,
@@ -46,6 +48,7 @@ class MessageBubble extends StatelessWidget {
     this.replyToSender,
     this.uploadProgress,
     this.readBy = const [],
+    this.onRetry,
   });
 
   static const _unencryptedPrefix = '⚠️ UNENCRYPTED: ';
@@ -542,10 +545,15 @@ class MessageBubble extends StatelessWidget {
         );
       case 'sent':
         return Icon(Icons.done_rounded, size: 13, color: Colors.white.withValues(alpha: 0.7));
+      case 'delivered':
+        return Icon(Icons.done_all_rounded, size: 13, color: Colors.white.withValues(alpha: 0.7));
       case 'read':
         return Icon(Icons.done_all_rounded, size: 13, color: AppTheme.primary);
       case 'failed':
-        return const Icon(Icons.error_outline_rounded, size: 13, color: Colors.orangeAccent);
+        return GestureDetector(
+          onTap: onRetry,
+          child: const Icon(Icons.error_outline_rounded, size: 13, color: Colors.orangeAccent),
+        );
       case 'scheduled':
         return Icon(Icons.schedule_rounded, size: 13, color: Colors.white.withValues(alpha: 0.55));
       default:

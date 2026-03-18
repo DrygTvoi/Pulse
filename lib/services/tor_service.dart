@@ -33,8 +33,11 @@ class TorService {
   static const int socksPort = 9250;
 
   Process? _process;
+  StreamSubscription<String>? _stdoutSub;
+  StreamSubscription<String>? _stderrSub;
   bool _bootstrapped = false;
   bool _persistent = false;
+  bool _starting = false;
   int _bootstrapPercent = 0;
   _PtMode? _activeMode;
 
@@ -70,6 +73,8 @@ class TorService {
   /// Returns false if tor is unavailable or all strategies time out.
   Future<bool> start() async {
     if (_bootstrapped) return true;
+    if (_starting) return false; // prevent concurrent start()
+    _starting = true;
 
     // Adopt an existing routing SOCKS5 on our port (e.g. previous session).
     if (await _isSocks5Listening(socksPort)) {
@@ -80,6 +85,7 @@ class TorService {
         debugPrint('[TorService] Existing SOCKS5 on :$socksPort — adopting');
         _bootstrapped = true;
         _bootstrapPercent = 100;
+        _starting = false;
         _stateCtrl.add(null);
         return true;
       }
@@ -161,6 +167,7 @@ class TorService {
     await _process?.exitCode.catchError((_) => -1);
     _process = null;
     _bootstrapPercent = 0;
+    _starting = false;
     _stateCtrl.add(null);
     return false;
   }
@@ -168,6 +175,10 @@ class TorService {
   Future<void> stop() async {
     _persistent = false;
     unawaited(TorTurnProxy.stopAll());
+    _stdoutSub?.cancel();
+    _stderrSub?.cancel();
+    _stdoutSub = null;
+    _stderrSub = null;
     _process?.kill();
     await _process?.exitCode.catchError((_) => -1);
     _process = null;
@@ -221,7 +232,8 @@ class TorService {
       _process = await Process.start(torPath, ['-f', torrcPath]);
       final completer = Completer<bool>();
 
-      _process!.stdout
+      _stdoutSub?.cancel();
+      _stdoutSub = _process!.stdout
           .transform(utf8.decoder)
           .transform(const LineSplitter())
           .listen((line) {
@@ -237,7 +249,8 @@ class TorService {
         }
       });
 
-      _process!.stderr
+      _stderrSub?.cancel();
+      _stderrSub = _process!.stderr
           .transform(utf8.decoder)
           .transform(const LineSplitter())
           .listen((line) => debugPrint('[Tor/$mode:err] $line'));
@@ -251,6 +264,7 @@ class TorService {
 
       if (_bootstrapped) {
         _activeMode = mode;
+        _starting = false;
         debugPrint('[TorService] Bootstrapped via $mode');
         unawaited(TorTurnProxy.startAll());
         return true;
@@ -275,8 +289,6 @@ class TorService {
       ..writeln('SocksPort $socksPort')
       ..writeln('DataDirectory $dataDir')
       ..writeln('Log notice stdout')
-      // Let Tor update bridge descriptors from the authority automatically
-      ..writeln('UpdateBridgesFromAuthority 1')
       // Faster circuit building
       ..writeln('LearnCircuitBuildTimeout 1')
       ..writeln('CircuitBuildTimeout 60');
@@ -777,6 +789,170 @@ Future<String?> fetchUrlViaSocks5(String url,
   }
 }
 
+/// Performs an HTTP(S) POST via Tor SOCKS5 without the local-bridge pattern.
+///
+/// Unlike [buildTorHttpClient] (which pipes through a local TCP bridge),
+/// this function connects directly to the Tor SOCKS5 proxy, does the
+/// SOCKS5 handshake, upgrades to TLS (for https), and performs a raw
+/// HTTP/1.1 POST — all on the same socket.
+///
+/// Designed for Oxen/Session snodes that use self-signed certificates.
+/// Returns the response body as a String, or null on failure.
+Future<String?> postUrlViaSocks5({
+  required String url,
+  required String body,
+  Map<String, String> headers = const {},
+  String proxyHost = '127.0.0.1',
+  int proxyPort = TorService.socksPort,
+  int timeoutSec = 25,
+}) async {
+  final uri = Uri.parse(url);
+  final targetHost = uri.host;
+  final targetPort = (uri.hasPort && uri.port != 0)
+      ? uri.port
+      : (uri.scheme == 'https' ? 443 : 80);
+  final isHttps = uri.scheme == 'https';
+
+  Socket? rawSock;
+  try {
+    // ── 1. Connect to SOCKS5 proxy ─────────────────────────────────────────
+    rawSock = await Socket.connect(proxyHost, proxyPort,
+        timeout: Duration(seconds: timeoutSec));
+    rawSock.setOption(SocketOption.tcpNoDelay, true);
+
+    // ── 2. SOCKS5 handshake ────────────────────────────────────────────────
+    // Use completer-based buffered reader on a single subscription.
+    final rxBuf = <int>[];
+    final waiters = <Completer<void>>[];
+    bool socks5Done = false;
+
+    final sub = rawSock.listen(
+      (data) {
+        if (!socks5Done) {
+          rxBuf.addAll(data);
+          for (final w in [...waiters]) {
+            if (!w.isCompleted) w.complete();
+          }
+          waiters.removeWhere((c) => c.isCompleted);
+        }
+      },
+      onError: (Object e) {
+        for (final w in waiters) {
+          if (!w.isCompleted) w.completeError(e);
+        }
+      },
+      onDone: () {
+        for (final w in waiters) {
+          if (!w.isCompleted) {
+            w.completeError(SocketException('Socket closed during SOCKS5'));
+          }
+        }
+      },
+    );
+
+    Future<Uint8List> readN(int n) async {
+      while (rxBuf.length < n) {
+        final c = Completer<void>();
+        waiters.add(c);
+        await c.future.timeout(Duration(seconds: timeoutSec));
+      }
+      final r = Uint8List.fromList(rxBuf.sublist(0, n));
+      rxBuf.removeRange(0, n);
+      return r;
+    }
+
+    // Greeting: version=5, 1 method, no-auth
+    rawSock.add([0x05, 0x01, 0x00]);
+    final greet = await readN(2);
+    if (greet[0] != 0x05 || greet[1] != 0x00) {
+      throw SocketException('SOCKS5 auth negotiation failed');
+    }
+
+    // CONNECT
+    final hostBytes = utf8.encode(targetHost);
+    rawSock.add([
+      0x05, 0x01, 0x00, 0x03,
+      hostBytes.length, ...hostBytes,
+      (targetPort >> 8) & 0xFF, targetPort & 0xFF,
+    ]);
+    final hdr = await readN(4);
+    if (hdr[1] != 0x00) {
+      throw SocketException(
+          'SOCKS5 CONNECT to $targetHost:$targetPort failed (rep=${hdr[1]})');
+    }
+    // Drain bound-address
+    switch (hdr[3]) {
+      case 0x01: await readN(6); break;
+      case 0x03:
+        final len = (await readN(1))[0];
+        await readN(len + 2); break;
+      case 0x04: await readN(18); break;
+    }
+
+    socks5Done = true;
+
+    // ── 3. Cancel stream subscription so SecureSocket can take over ───────
+    await sub.cancel();
+
+    // ── 4. TLS upgrade ──────────────────────────────────────────────────────
+    Socket dataSock = rawSock;
+    if (isHttps) {
+      dataSock = await SecureSocket.secure(rawSock,
+              host: targetHost, onBadCertificate: (_) => true)
+          .timeout(Duration(seconds: timeoutSec));
+    }
+
+    // ── 5. Send raw HTTP/1.1 POST ───────────────────────────────────────────
+    final bodyBytes = utf8.encode(body);
+    final path = uri.path.isEmpty ? '/' : uri.path;
+    final hostHeader = (targetPort == 443 || targetPort == 80)
+        ? targetHost
+        : '$targetHost:$targetPort';
+
+    final reqBuf = StringBuffer()
+      ..write('POST $path HTTP/1.1\r\n')
+      ..write('Host: $hostHeader\r\n')
+      ..write('Content-Length: ${bodyBytes.length}\r\n')
+      ..write('Connection: close\r\n');
+    for (final e in headers.entries) {
+      reqBuf.write('${e.key}: ${e.value}\r\n');
+    }
+    reqBuf.write('\r\n');
+
+    dataSock.add(utf8.encode(reqBuf.toString()));
+    dataSock.add(bodyBytes);
+    await dataSock.flush();
+
+    // ── 6. Read response (Connection: close → read until stream ends) ──────
+    final respBytes = <int>[];
+    await dataSock
+        .listen((data) => respBytes.addAll(data))
+        .asFuture<void>()
+        .timeout(Duration(seconds: timeoutSec));
+
+    dataSock.destroy();
+
+    // ── 7. Parse HTTP response ─────────────────────────────────────────────
+    final resp = utf8.decode(respBytes, allowMalformed: true);
+    final hdrEnd = resp.indexOf('\r\n\r\n');
+    if (hdrEnd < 0) return null;
+
+    final statusLine = resp.substring(0, resp.indexOf('\r\n'));
+    final parts = statusLine.split(' ');
+    if (parts.length < 2) return null;
+    final statusCode = int.tryParse(parts[1]) ?? 0;
+    if (statusCode != 200) {
+      debugPrint('[TorService] postUrl $targetHost got $statusCode');
+      return null;
+    }
+    return resp.substring(hdrEnd + 4);
+  } catch (e) {
+    debugPrint('[TorService] postUrl failed ($targetHost:$targetPort): $e');
+    rawSock?.destroy();
+    return null;
+  }
+}
+
 // ─── Tor-proxied HTTP client ───────────────────────────────────────────────────
 
 /// Returns an [IOClient] whose TCP connections are tunneled through the local
@@ -785,9 +961,9 @@ Future<String?> fetchUrlViaSocks5(String url,
 /// If [acceptBadCertificate] is true, TLS verification is skipped — needed
 /// for Oxen/Session snodes that use self-signed certificates.
 ///
-/// Returns null if Tor is not running.
+/// Returns null if Tor is not bootstrapped.
 IOClient? buildTorHttpClient({bool acceptBadCertificate = false}) {
-  if (!TorService.instance.isRunning) return null;
+  if (!TorService.instance.isBootstrapped) return null;
   final inner = HttpClient();
   if (acceptBadCertificate) {
     inner.badCertificateCallback = (cert, host, port) => true;
@@ -800,9 +976,23 @@ IOClient? buildTorHttpClient({bool acceptBadCertificate = false}) {
     final server =
         await ServerSocket.bind(InternetAddress.loopbackIPv4, 0, shared: false);
     final localPort = server.port;
-    unawaited(_runHttpSocks5Bridge(server, host, port));
+
+    // Signal: bridge completes this when SOCKS5 is done and pipe is active.
+    // connectionFactory WAITS for it before handing the socket to HttpClient,
+    // so HttpClient never sends TLS data into an unready bridge.
+    final ready = Completer<bool>();
+    unawaited(_runHttpSocks5Bridge(server, host, port, ready));
+
     final s = await Socket.connect(InternetAddress.loopbackIPv4, localPort,
         timeout: const Duration(seconds: 60));
+
+    final ok = await ready.future
+        .timeout(const Duration(seconds: 45), onTimeout: () => false);
+    if (!ok) {
+      s.destroy();
+      throw SocketException(
+          'Tor SOCKS5 bridge to $host:$port failed or timed out');
+    }
     return ConnectionTask.fromSocket(Future.value(s), () => s.destroy());
   };
   return IOClient(inner);
@@ -810,8 +1000,12 @@ IOClient? buildTorHttpClient({bool acceptBadCertificate = false}) {
 
 /// Internal bridge: accepts one local connection then tunnels it to
 /// [targetHost]:[targetPort] via Tor SOCKS5.
+///
+/// [ready] is completed with `true` when the SOCKS5 handshake succeeds and the
+/// bidirectional pipe is active, or `false` on any error.
 Future<void> _runHttpSocks5Bridge(
-    ServerSocket server, String targetHost, int targetPort) async {
+    ServerSocket server, String targetHost, int targetPort,
+    Completer<bool> ready) async {
   Socket? client;
   Socket? proxy;
   try {
@@ -825,7 +1019,6 @@ Future<void> _runHttpSocks5Bridge(
 
     final rxBuf = <int>[];
     final waiters = <Completer<void>>[];
-    final clientBuf = <List<int>>[];
     bool active = false;
 
     proxy.listen(
@@ -841,16 +1034,28 @@ Future<void> _runHttpSocks5Bridge(
         }
       },
       onDone: () { try { client?.close(); } catch (_) {} },
-      onError: (Object _) { client?.destroy(); proxy?.destroy(); },
+      onError: (Object e) {
+        debugPrint('[Tor] HTTP bridge proxy error: $e');
+        client?.destroy();
+        proxy?.destroy();
+      },
       cancelOnError: true,
     );
     client.listen(
       (data) {
-        if (!active) { clientBuf.add(data); }
-        else { try { proxy!.add(data); } catch (_) {} }
+        // After bridge is active, forward client→proxy directly.
+        // Before active, no client data should arrive (connectionFactory
+        // waits for the ready signal before returning the socket).
+        if (active) {
+          try { proxy!.add(data); } catch (_) {}
+        }
       },
-      onDone: () { try { proxy?.destroy(); } catch (_) {} },
-      onError: (Object _) { client?.destroy(); proxy?.destroy(); },
+      onDone: () { try { proxy?.close(); } catch (_) {} },
+      onError: (Object e) {
+        debugPrint('[Tor] HTTP bridge client error: $e');
+        client?.destroy();
+        proxy?.destroy();
+      },
       cancelOnError: true,
     );
 
@@ -891,16 +1096,21 @@ Future<void> _runHttpSocks5Bridge(
       case 0x04: await readN(18); break;              // IPv6 (16) + port (2)
     }
 
-    active = true;
+    // Flush any leftover proxy→client SOCKS5 data, then activate.
+    // No clientBuf needed: connectionFactory waits for ready before returning
+    // the socket, so HttpClient hasn't sent any data yet.
     if (rxBuf.isNotEmpty) {
       try { client.add(rxBuf.toList()); } catch (_) {}
       rxBuf.clear();
     }
-    for (final d in clientBuf) { try { proxy.add(d); } catch (_) {} }
-    clientBuf.clear();
+    active = true;
     debugPrint('[Tor] HTTP bridge active → $targetHost:$targetPort');
+
+    // Signal connectionFactory that the bridge is ready for traffic.
+    if (!ready.isCompleted) ready.complete(true);
   } catch (e) {
     debugPrint('[Tor] HTTP bridge error ($targetHost:$targetPort): $e');
+    if (!ready.isCompleted) ready.complete(false);
     client?.destroy();
     proxy?.destroy();
   }

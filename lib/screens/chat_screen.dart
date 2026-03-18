@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../theme/app_theme.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'contact_profile_sheet.dart';
+import 'verify_identity_screen.dart';
 import '../models/contact.dart';
 import '../controllers/chat_controller.dart';
 import '../models/message.dart';
@@ -18,6 +19,8 @@ import '../widgets/message_input_bar.dart';
 import '../widgets/message_menu.dart' as menu;
 import '../widgets/swipeable_bubble.dart';
 import '../widgets/chat_app_bar.dart';
+import '../widgets/connection_banner.dart';
+import '../l10n/l10n_ext.dart';
 
 class ChatScreen extends StatefulWidget {
   final Contact contact;
@@ -42,6 +45,7 @@ class _ChatScreenState extends State<ChatScreen> {
   Timer? _typingDebounce;
   StreamSubscription? _typingSub;
   StreamSubscription? _keyChangeSub;
+  StreamSubscription? _tamperWarnSub;
   StreamSubscription? _e2eeFailSub;
   late Contact _contact;
 
@@ -59,6 +63,9 @@ class _ChatScreenState extends State<ChatScreen> {
   Message? _replyingTo;
 
   bool _chatMuted = false;
+
+  // Key change warning banner
+  bool _showKeyChangeBanner = false;
 
   // Delete animation
   final _pendingDelete = <String>{};
@@ -103,24 +110,30 @@ class _ChatScreenState extends State<ChatScreen> {
       }
       return KeyEventResult.ignored;
     };
-    _typingSub = ChatController().typingUpdates.listen((contactId) {
-      if (contactId == _contact.id && mounted) setState(() {});
-    });
-    _keyChangeSub = ChatController().keyChangeWarnings.listen((contactName) {
+    _typingSub = ChatController().typingUpdates.listen(
+      (contactId) { if (contactId == _contact.id && mounted) setState(() {}); },
+      onError: (e) => debugPrint('[ChatScreen] typing stream error: $e'),
+    );
+    _keyChangeSub = ChatController().keyChangeWarnings.listen((event) {
       if (!mounted) return;
+      // Show persistent banner if the key change is for the current contact
+      if (event.contactId == _contact.databaseId) {
+        setState(() => _showKeyChangeBanner = true);
+      }
+      // Also show a SnackBar for any key change (visible across chats)
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Row(children: [
           const Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 18),
           const SizedBox(width: 8),
           Expanded(child: Text(
-            '⚠️ $contactName\'s security key changed. Verify out-of-band.',
+            '${event.contactName}\'s security key changed. Tap to verify.',
             style: const TextStyle(color: Colors.white),
           )),
         ]),
         backgroundColor: const Color(0xFF7A3000),
         duration: const Duration(seconds: 8),
       ));
-    });
+    }, onError: (e) => debugPrint('[ChatScreen] keyChange stream error: $e'));
     _e2eeFailSub = ChatController().e2eeFailures.listen((contactName) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -135,7 +148,20 @@ class _ChatScreenState extends State<ChatScreen> {
         backgroundColor: const Color(0xFF7A2600),
         duration: const Duration(seconds: 6),
       ));
-    });
+    }, onError: (e) => debugPrint('[ChatScreen] e2eeFail stream error: $e'));
+    _tamperWarnSub = ChatController().tamperWarnings.listen((msg) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Row(children: [
+          const Icon(Icons.gpp_bad_rounded, color: Colors.red, size: 18),
+          const SizedBox(width: 8),
+          Expanded(child: Text(msg,
+              style: const TextStyle(color: Colors.white))),
+        ]),
+        backgroundColor: const Color(0xFF8B0000),
+        duration: const Duration(seconds: 10),
+      ));
+    }, onError: (e) => debugPrint('[ChatScreen] tamper stream error: $e'));
   }
 
   @override
@@ -152,6 +178,7 @@ class _ChatScreenState extends State<ChatScreen> {
     _typingDebounce?.cancel();
     _typingSub?.cancel();
     _keyChangeSub?.cancel();
+    _tamperWarnSub?.cancel();
     _e2eeFailSub?.cancel();
     _recordingTimer?.cancel();
     _controller.removeListener(_onTyping);
@@ -230,8 +257,8 @@ class _ChatScreenState extends State<ChatScreen> {
         if (raw == null) return;
         if (!mounted) return;
         if (_contact.isGroup && raw.bytes.length > 512 * 1024) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text('Files over 512 KB are not supported in group chats'),
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(context.l10n.chatFileTooLargeGroup),
             duration: Duration(seconds: 3),
           ));
           return;
@@ -241,7 +268,7 @@ class _ChatScreenState extends State<ChatScreen> {
           final confirmed = await showDialog<bool>(
             context: context,
             builder: (ctx) => AlertDialog(
-              title: const Text('Large File'),
+              title: Text(context.l10n.chatLargeFile),
               content: Text(
                 'This file is $sizeMB MB. Sending large files may be slow '
                 'on some networks. Continue?',
@@ -249,11 +276,11 @@ class _ChatScreenState extends State<ChatScreen> {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(ctx, false),
-                  child: const Text('Cancel'),
+                  child: Text(context.l10n.chatCancel),
                 ),
                 TextButton(
                   onPressed: () => Navigator.pop(ctx, true),
-                  child: const Text('Send'),
+                  child: Text(context.l10n.chatSend),
                 ),
               ],
             ),
@@ -266,8 +293,8 @@ class _ChatScreenState extends State<ChatScreen> {
     } on MediaTooLargeException {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('File too large — maximum size is 100 MB'),
+          SnackBar(
+            content: Text(context.l10n.chatFileTooLarge),
             duration: Duration(seconds: 3),
           ),
         );
@@ -290,9 +317,9 @@ class _ChatScreenState extends State<ChatScreen> {
     final started = await VoiceService().startRecording();
     if (!started) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Microphone permission denied'),
-          duration: Duration(seconds: 2),
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(context.l10n.chatMicDenied),
+          duration: const Duration(seconds: 2),
         ));
       }
       return;
@@ -308,9 +335,19 @@ class _ChatScreenState extends State<ChatScreen> {
   Future<void> _stopRecording() async {
     HapticFeedback.lightImpact();
     _recordingTimer?.cancel();
+    final wasRecording = _recordingSeconds > 0;
     final payload = await VoiceService().stopRecording();
     setState(() { _isRecording = false; _recordingSeconds = 0; });
-    if (payload == null || !mounted) return;
+    if (payload == null) {
+      if (wasRecording && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(context.l10n.chatVoiceFailed),
+          duration: const Duration(seconds: 3),
+        ));
+      }
+      return;
+    }
+    if (!mounted) return;
     await context.read<ChatController>().sendMessage(_contact, payload);
     WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
   }
@@ -360,7 +397,7 @@ class _ChatScreenState extends State<ChatScreen> {
     final scheduledAt = DateTime(date.year, date.month, date.day, time.hour, time.minute);
     if (scheduledAt.isBefore(DateTime.now())) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Scheduled time must be in the future')),
+        SnackBar(content: Text(context.l10n.chatScheduleFuture)),
       );
       return;
     }
@@ -452,6 +489,51 @@ class _ChatScreenState extends State<ChatScreen> {
               embedded: widget.embedded,
             ),
       body: Column(children: [
+        // Offline indicator (hidden while probe is still running)
+        OfflineBanner(status: chatController.connectionStatus),
+        // Key change warning banner
+        if (_showKeyChangeBanner)
+          GestureDetector(
+            onTap: () {
+              setState(() => _showKeyChangeBanner = false);
+              Navigator.push(context, MaterialPageRoute(
+                builder: (_) => VerifyIdentityScreen(
+                  contactName: _contact.name,
+                  contactId: _contact.databaseId,
+                ),
+              ));
+            },
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: const BoxDecoration(
+                color: Color(0xFFE65100),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.warning_amber_rounded, color: Colors.white, size: 18),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Safety number changed for ${_contact.name}. Tap to verify.',
+                      style: GoogleFonts.inter(
+                        color: Colors.white,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  const Icon(Icons.chevron_right_rounded, color: Colors.white, size: 20),
+                  const SizedBox(width: 4),
+                  GestureDetector(
+                    onTap: () => setState(() => _showKeyChangeBanner = false),
+                    child: const Icon(Icons.close_rounded, color: Colors.white70, size: 18),
+                  ),
+                ],
+              ),
+            ),
+          ),
         Expanded(
           child: Stack(
             children: [
@@ -475,7 +557,7 @@ class _ChatScreenState extends State<ChatScreen> {
                                   : TextButton.icon(
                                       onPressed: () => chatController.loadMoreHistory(_contact),
                                       icon: const Icon(Icons.expand_less_rounded, size: 16),
-                                      label: const Text('Load earlier messages'),
+                                      label: Text(context.l10n.homeLoadEarlier),
                                       style: TextButton.styleFrom(
                                         foregroundColor: AppTheme.textSecondary,
                                         textStyle: const TextStyle(fontSize: 12),
@@ -573,6 +655,9 @@ class _ChatScreenState extends State<ChatScreen> {
                               replyToSender: replyFromName,
                               uploadProgress: chatController.getUploadProgress(msg.id),
                               readBy: msg.readBy,
+                              onRetry: msg.status == 'failed'
+                                  ? () => chatController.retryMessage(_contact, msg)
+                                  : null,
                             )
                             .animate()
                             .fadeIn(duration: 200.ms)
@@ -719,9 +804,9 @@ class _ChatScreenState extends State<ChatScreen> {
     final yesterday = today.subtract(const Duration(days: 1));
     String label;
     if (date == today) {
-      label = 'Today';
+      label = context.l10n.chatToday;
     } else if (date == yesterday) {
-      label = 'Yesterday';
+      label = context.l10n.chatYesterday;
     } else if (now.year == date.year) {
       label = '${_monthName(date.month)} ${date.day}';
     } else {

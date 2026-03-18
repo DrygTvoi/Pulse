@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class Contact {
@@ -103,8 +104,19 @@ class ContactManager {
     final prefs = await SharedPreferences.getInstance();
     final String? contactsJson = prefs.getString('contacts');
     if (contactsJson != null) {
-      final List<dynamic> decoded = jsonDecode(contactsJson);
-      _contacts = decoded.map((e) => Contact.fromMap(e)).toList();
+      try {
+        final List<dynamic> decoded = jsonDecode(contactsJson);
+        _contacts = decoded
+            .map((e) {
+              try { return Contact.fromMap(e); }
+              catch (_) { return null; }
+            })
+            .whereType<Contact>()
+            .toList();
+      } catch (e) {
+        debugPrint('[ContactManager] Failed to parse contacts: $e');
+        _contacts = [];
+      }
     }
   }
 

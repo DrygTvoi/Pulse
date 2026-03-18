@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'circuit_breaker_service.dart';
 import 'cloudflare_ip_service.dart';
 
 // ── BridgeFetchService ────────────────────────────────────────────────────────
@@ -34,7 +33,7 @@ class BridgeFetchService {
 
   // Known Cloudflare IP for bridges.torproject.org (verified CF AS13335).
   // We connect by IP to avoid DNS poisoning, SNI carries the hostname.
-  static const _cfIps = ['104.21.56.28', '172.67.178.139'];
+  static const _cfIps = ['116.202.120.184'];
 
   static const _host    = 'bridges.torproject.org';
   static const _mirrorHost = 'bridges.gitlab.torproject.org';
@@ -44,6 +43,7 @@ class BridgeFetchService {
   Map<String, List<String>>? _cached;
   DateTime? _cachedAt;
   Timer? _refreshTimer;
+  Completer<Map<String, List<String>>>? _inflightFetch;
 
   /// Age of the current bridge data (null if never fetched).
   DateTime? get lastFetchTime => _cachedAt;
@@ -118,12 +118,28 @@ class BridgeFetchService {
             debugPrint('[BridgeFetch] Loaded from cache');
             return _cached!;
           }
-        } catch (_) {}
+        } catch (e) {
+          debugPrint('[BridgeFetch] Failed to parse cached bridge data: $e');
+        }
       }
     }
 
-    // Fetch fresh
-    final fetched = await _fetchBuiltin();
+    // Fetch fresh — dedup concurrent calls via Completer
+    if (_inflightFetch != null) {
+      debugPrint('[BridgeFetch] Joining in-flight fetch');
+      return _inflightFetch!.future;
+    }
+    _inflightFetch = Completer<Map<String, List<String>>>();
+    late final Map<String, List<String>> fetched;
+    try {
+      fetched = await _fetchBuiltin();
+      _inflightFetch!.complete(fetched);
+    } catch (e) {
+      fetched = {};
+      _inflightFetch!.complete(fetched);
+    } finally {
+      _inflightFetch = null;
+    }
     if (fetched.isNotEmpty) {
       _cached   = fetched;
       _cachedAt = DateTime.now();
@@ -152,67 +168,65 @@ class BridgeFetchService {
   }
 
   // ── Network fetch ──────────────────────────────────────────────────────────
+  //
+  // Bridge fetching is rare (every 12h) and critical for Tor bootstrap.
+  // No circuit breaker — always try all IPs from scratch.
 
   Future<Map<String, List<String>>> _fetchBuiltin() async {
-    // Try primary host, then mirror if primary fails all IPs.
-    final breaker = CircuitBreakerService.instance;
+    // Try 1: normal HTTPS POST (works on uncensored networks, proper ALPN).
+    for (final host in [_host, _mirrorHost]) {
+      try {
+        final result = await _doPostNormal(host)
+            .timeout(const Duration(seconds: 8));
+        if (result != null) {
+          debugPrint('[BridgeFetch] Normal POST to $host succeeded');
+          return result;
+        }
+        debugPrint('[BridgeFetch] Normal POST to $host: response parsed as empty');
+      } catch (e) {
+        debugPrint('[BridgeFetch] Normal POST to $host failed: $e');
+      }
+    }
+
+    // Try 2: IP-based direct connection (bypasses DNS poisoning).
+    // No circuit breaker here — bridge fetch is rare and critical.
     for (final host in [_host, _mirrorHost]) {
       final ips = await _resolveHost(host);
       for (final ip in ips) {
-        if (breaker.shouldSkipSync(ip)) {
-          debugPrint('[BridgeFetch] Skipping $ip (circuit breaker)');
-          continue;
-        }
-        // Try each IP twice — transient errors (TCP reset, TLS handshake
-        // timeout) are common on censored networks. One retry is cheap.
         for (var attempt = 0; attempt < 2; attempt++) {
           try {
-            final result = await _doPost(ip, host: host)
-                .timeout(const Duration(seconds: 12));
+            final result = await _doPostDirect(ip, host: host)
+                .timeout(const Duration(seconds: 10));
             if (result != null) {
-              unawaited(breaker.recordSuccess(ip));
+              debugPrint('[BridgeFetch] Direct POST to $host/$ip succeeded');
               return result;
             }
           } catch (e) {
             debugPrint('[BridgeFetch] $host/$ip attempt $attempt failed: $e');
             if (attempt == 0) {
-              await Future.delayed(const Duration(milliseconds: 500));
+              await Future.delayed(const Duration(milliseconds: 300));
             }
           }
         }
-        unawaited(breaker.recordFailure(ip));
       }
       debugPrint('[BridgeFetch] All IPs failed for $host');
     }
     return {};
   }
 
-  Future<Map<String, List<String>>?> _doPost(String ip, {String host = _host}) async {
-    final httpClient = HttpClient();
-    httpClient.connectionFactory = (uri, proxyHost, proxyPort) async {
-      final raw = await Socket.connect(ip, 443,
-          timeout: const Duration(seconds: 6));
-      return ConnectionTask.fromSocket(Future.value(raw), () => raw.destroy());
-    };
-
+  /// Normal HTTPS POST — lets Dart handle DNS, TLS, and ALPN natively.
+  Future<Map<String, List<String>>?> _doPostNormal(String host) async {
+    final httpClient = HttpClient()
+      ..connectionTimeout = const Duration(seconds: 8);
     try {
       final req = await httpClient
           .postUrl(Uri.parse('https://$host$_apiPath'))
           .timeout(const Duration(seconds: 8));
-      req.headers
-        ..contentType = ContentType.json
-        ..set('Accept', 'application/vnd.api+json')
-        ..set('User-Agent', 'pulse-messenger/1.0');
-      req.write(jsonEncode({
-        'data': [{
-          'version': '0.1.0',
-          'type': 'client-transports',
-          'supported': ['snowflake', 'obfs4', 'webtunnel'],
-        }],
-      }));
-
+      _setPostHeaders(req);
+      req.write(_postBody());
       final resp = await req.close().timeout(const Duration(seconds: 10));
       if (resp.statusCode != 200) {
+        debugPrint('[BridgeFetch] $host returned HTTP ${resp.statusCode}');
         httpClient.close(force: true);
         return null;
       }
@@ -226,17 +240,129 @@ class BridgeFetchService {
     }
   }
 
+  /// IP-based POST — bypasses DNS by connecting directly to [ip]:443 with
+  /// TLS SNI set to [host]. Forces HTTP/1.1 via ALPN to avoid h2 mismatch.
+  /// Uses \r\n line endings per HTTP/1.1 spec (RFC 7230).
+  Future<Map<String, List<String>>?> _doPostDirect(String ip, {String host = _host}) async {
+    final path = Uri.parse('https://$host$_apiPath').path;
+    final bodyStr = _postBody();
+    final bodyBytes = utf8.encode(bodyStr);
+    Socket? raw;
+    SecureSocket? secure;
+    try {
+      raw = await Socket.connect(ip, 443,
+          timeout: const Duration(seconds: 6));
+      secure = await SecureSocket.secure(
+        raw,
+        host: host,
+        supportedProtocols: ['http/1.1'],
+      );
+
+      // HTTP/1.1 request with proper \r\n line endings
+      final request = 'POST $path HTTP/1.1\r\n'
+          'Host: $host\r\n'
+          'Content-Type: application/json\r\n'
+          'Accept: application/vnd.api+json\r\n'
+          'User-Agent: Mozilla/5.0 (Windows NT 10.0; rv:128.0) Gecko/20100101 Firefox/128.0\r\n'
+          'Content-Length: ${bodyBytes.length}\r\n'
+          'Connection: close\r\n'
+          '\r\n'
+          '$bodyStr';
+      secure.write(request);
+      await secure.flush();
+
+      // Read response
+      final responseBuf = StringBuffer();
+      await for (final chunk in utf8.decoder.bind(secure)
+          .timeout(const Duration(seconds: 10))) {
+        responseBuf.write(chunk);
+        if (responseBuf.length > 1024 * 1024) break; // 1MB safety limit
+      }
+      final response = responseBuf.toString();
+      secure.destroy();
+
+      // Parse HTTP response — find body after \r\n\r\n
+      final headerEnd = response.indexOf('\r\n\r\n');
+      if (headerEnd == -1) {
+        debugPrint('[BridgeFetch] $host/$ip: no header terminator in response');
+        return null;
+      }
+      final headers = response.substring(0, headerEnd).toLowerCase();
+      final statusLine = response.substring(0, response.indexOf('\r\n'));
+      if (!statusLine.contains(' 200 ')) {
+        debugPrint('[BridgeFetch] $host/$ip: $statusLine');
+        return null;
+      }
+      var body = response.substring(headerEnd + 4);
+
+      // Decode chunked transfer encoding if present
+      if (headers.contains('transfer-encoding: chunked')) {
+        body = _decodeChunked(body);
+      }
+      return _parseBuiltinResponse(body);
+    } catch (e) {
+      secure?.destroy();
+      raw?.destroy();
+      rethrow;
+    }
+  }
+
+  /// Decode HTTP chunked transfer encoding (RFC 7230 §4.1).
+  /// Format: hex-size CRLF data CRLF ... 0 CRLF CRLF
+  static String _decodeChunked(String raw) {
+    final buf = StringBuffer();
+    var pos = 0;
+    while (pos < raw.length) {
+      final lineEnd = raw.indexOf('\r\n', pos);
+      if (lineEnd == -1) break;
+      final sizeHex = raw.substring(pos, lineEnd).trim();
+      // Strip chunk extensions (e.g. ";name=value")
+      final size = int.tryParse(sizeHex.split(';').first.trim(), radix: 16) ?? 0;
+      if (size == 0) break; // terminal chunk
+      final dataStart = lineEnd + 2;
+      final dataEnd = dataStart + size;
+      if (dataEnd > raw.length) {
+        buf.write(raw.substring(dataStart));
+        break;
+      }
+      buf.write(raw.substring(dataStart, dataEnd));
+      pos = dataEnd + 2; // skip trailing \r\n after chunk data
+    }
+    return buf.toString();
+  }
+
+  void _setPostHeaders(HttpClientRequest req) {
+    req.headers
+      ..contentType = ContentType.json
+      ..set('Accept', 'application/vnd.api+json')
+      ..set('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; rv:128.0) Gecko/20100101 Firefox/128.0');
+  }
+
+  String _postBody() => jsonEncode({
+    'data': [{
+      'version': '0.1.0',
+      'type': 'client-transports',
+      'supported': ['snowflake', 'obfs4', 'webtunnel'],
+    }],
+  });
+
   Map<String, List<String>>? _parseBuiltinResponse(String body) {
     try {
       final json = jsonDecode(body);
 
-      // moat/circumvention/builtin format:
-      // { "snowflake": {"bridges": {"bridge_strings": [...]}},
-      //   "obfs4":     {"bridges": {"bridge_strings": [...]}} }
       if (json is Map) {
         final result = <String, List<String>>{};
-        for (final transport in ['snowflake', 'obfs4', 'webtunnel']) {
+        for (final transport in ['snowflake', 'obfs4', 'webtunnel', 'meek', 'meek-azure']) {
           final t = json[transport];
+
+          // Current format (2025+): {"obfs4": ["obfs4 IP:port ...", ...]}
+          if (t is List) {
+            final lines = t.whereType<String>().toList();
+            if (lines.isNotEmpty) result[transport] = lines;
+            continue;
+          }
+
+          // Legacy nested format: {"obfs4": {"bridges": {"bridge_strings": [...]}}}
           if (t is Map) {
             final bridges = t['bridges'];
             if (bridges is Map) {
@@ -280,7 +406,9 @@ class BridgeFetchService {
           .where(_isPublicIp)
           .toList();
       if (ips.isNotEmpty) return [...ips, ..._cfIps];
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[BridgeFetch] System DNS resolution failed for $host: $e');
+    }
 
     // 2. DoH resolution (bypasses GFW DNS poisoning)
     try {
@@ -288,11 +416,14 @@ class BridgeFetchService {
           .resolveAndCheck(host)
           .timeout(const Duration(seconds: 6),
               onTimeout: () => (false, <String>[]));
-      if (dohIps.isNotEmpty) {
-        debugPrint('[BridgeFetch] Resolved $host via DoH: $dohIps');
-        return [...dohIps, ..._cfIps];
+      final cleanDoh = dohIps.where(_isPublicIp).toList();
+      if (cleanDoh.isNotEmpty) {
+        debugPrint('[BridgeFetch] Resolved $host via DoH: $cleanDoh');
+        return [...cleanDoh, ..._cfIps];
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[BridgeFetch] DoH resolution failed for $host: $e');
+    }
 
     // 3. Hardcoded CF IPs (last resort — works even if DNS+DoH both fail)
     debugPrint('[BridgeFetch] Using hardcoded CF IPs for $host');
@@ -304,10 +435,13 @@ class BridgeFetchService {
     if (parts.length != 4) return false;
     final b = parts.map((p) => int.tryParse(p) ?? -1).toList();
     if (b.any((x) => x < 0 || x > 255)) return false;
-    if (b[0] == 10) return false;
-    if (b[0] == 172 && b[1] >= 16 && b[1] <= 31) return false;
-    if (b[0] == 192 && b[1] == 168) return false;
-    if (b[0] == 127) return false;
+    if (b[0] == 10) return false;                                   // RFC 1918
+    if (b[0] == 172 && b[1] >= 16 && b[1] <= 31) return false;     // RFC 1918
+    if (b[0] == 192 && b[1] == 168) return false;                   // RFC 1918
+    if (b[0] == 127) return false;                                   // loopback
+    if (b[0] == 198 && (b[1] == 18 || b[1] == 19)) return false;   // RFC 2544 benchmark
+    if (b[0] == 100 && b[1] >= 64 && b[1] <= 127) return false;    // RFC 6598 CGN
+    if (b[0] == 0) return false;                                     // "this" network
     return true;
   }
 
@@ -349,19 +483,32 @@ class BridgeFetchService {
         'utls-imitate=hellorandomizedalpn',
   ];
 
-  // Tor Browser 13.x built-in obfs4 bridges (public, from Tor Project).
+  // Community-collected obfs4 bridges (diverse IP ranges, refreshed 2026-03).
   // Used only if BridgeFetch returns empty and obfs4proxy binary is present.
+  // Source: Tor-Bridges-Collector + Tor Browser defaults.
   static const _embeddedObfs4 = [
+    // Diverse geographic / AS distribution for maximum reachability
     'obfs4 193.11.166.194:27015 2D82C2E354D531A68469ADF7F878190A975A8FC7 '
         'cert=4TLQPJrTSaDffMK7Nbao6LC7G9OW/NHkUwIdjLSS3KYf06igE7DbfYZXne9aRzA+Lx0vTQ iat-mode=0',
-    'obfs4 37.218.245.14:38224 D9A82D2F9C2F65A18407B1D2B764F130847F8B5D '
-        'cert=bjRkvkvkH3bY4mNFzI4FPSUNfqnAEIFJDCPFcFjCAlVtyFqDqMFq8r/yrMcBuIaHMuDCYg iat-mode=0',
     'obfs4 85.31.186.98:443 011F2599C0E9B27EE74B353155E244813763C3E5 '
         'cert=ayq0XzCwhpdysn5o0EyDU7iank0SMa1TjJMNx7s0M2R6RHXEOdYMjCmjFBOCGq7rEE3Yeg iat-mode=0',
     'obfs4 85.31.186.26:443 91A6354697E6B02A386312F68D82CF86824D3606 '
         'cert=gI3wkHNkxqGRcQFUFMoC38HA6KgFJMmKMZ27ZBx38qvvrgGJnlb2M/f4h1oJ6kRNnEHtZg iat-mode=0',
     'obfs4 38.229.1.78:80 C8CBDB2464FC9804A69531437BCF2BE31FDD2EE4 '
         'cert=Hmyfd2ev46gGY7NoVxA9ngrPF2zCZtzskRTzoWXbxNkzeVnGFPWmrTKsuXx4z5Z/3p3E2A iat-mode=0',
+    'obfs4 37.218.245.14:38224 D9A82D2F9C2F65A18407B1D2B764F130847F8B5D '
+        'cert=bjRkvkvkH3bY4mNFzI4FPSUNfqnAEIFJDCPFcFjCAlVtyFqDqMFq8r/yrMcBuIaHMuDCYg iat-mode=0',
+    // Fresh community-sourced bridges (2025+)
+    'obfs4 2.59.183.64:4875 71FF3B7AB90C34646CFB80753FD758761D73927A '
+        'cert=hgR5X0kiUdQPmxvrzVCpqUcnMKtcrs4tw2FNJ73EwH1Y+VUXoZZ7rJyU2J8UmWYfQo8jBQ iat-mode=0',
+    'obfs4 2.200.59.69:8888 B7E8B832F055435293840D69FE476AA6143C0449 '
+        'cert=X2IIgewaeED2fctW8uSAd9NTsq8fP3uhsm7yS6QUC3k/NdXvEMtJelEz/t3X5SnmFCnHJQ iat-mode=0',
+    'obfs4 2.35.113.108:9906 5A3E33D354B7B7BAE5D3873EF8A68E79B4194A2A '
+        'cert=IJXo/z1hPSJ0Yr2bShs3UVnBS35rweyktBxY+azSyQwSwD2qAdrVpo8VSWhVxly6wIWkDg iat-mode=0',
+    'obfs4 1.2.217.144:5987 DCE57AC308CB82958C56B1B5C9C3D08D225EC942 '
+        'cert=Uemn6kep2gxo9J0P81geJV3gTWQtkrNHvEh1DL3wzhvLaUaIrn0/e0a1mvyB3T4c0jmHKg iat-mode=0',
+    'obfs4 2.102.149.89:5830 0346CC8DD92B635B65E46D0917395045DFA47717 '
+        'cert=jq65/cNMiMPlL/Y4TjNru0KP9pAp31y3wU/Jm1mFK28OhJQ23aQne6Od4nqzUIRaIADBBw iat-mode=0',
   ];
 
   // WebTunnel bridges — fetched dynamically from MOAT API only.

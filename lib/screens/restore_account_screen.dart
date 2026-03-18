@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 import '../models/identity.dart';
+import '../constants.dart';
 import '../theme/app_theme.dart';
 import '../services/signal_service.dart';
 import '../services/key_derivation_service.dart';
@@ -48,10 +49,53 @@ class _RestoreAccountScreenState extends State<RestoreAccountScreen> {
     super.dispose();
   }
 
+  /// True if password meets variety requirements (3 of 4 character classes).
+  bool get _hasVariety {
+    final p = _passwordController.text;
+    int classes = 0;
+    if (p.contains(RegExp(r'[a-z]'))) classes++;
+    if (p.contains(RegExp(r'[A-Z]'))) classes++;
+    if (p.contains(RegExp(r'[0-9]'))) classes++;
+    if (p.contains(RegExp(r'[^a-zA-Z0-9]'))) classes++;
+    return classes >= 3;
+  }
+
   bool get _canSubmit =>
       !_isLoading &&
       _nameController.text.trim().isNotEmpty &&
-      _passwordController.text.length >= 8;
+      _passwordController.text.length >= 16 &&
+      _hasVariety;
+
+  double get _entropyBits {
+    final p = _passwordController.text;
+    if (p.isEmpty) return 0;
+    int charset = 0;
+    if (p.contains(RegExp(r'[a-z]'))) charset += 26;
+    if (p.contains(RegExp(r'[A-Z]'))) charset += 26;
+    if (p.contains(RegExp(r'[0-9]'))) charset += 10;
+    if (p.contains(RegExp(r'[^a-zA-Z0-9]'))) charset += 32;
+    if (charset == 0) charset = 26;
+    // Penalize low uniqueness (repeated characters reduce effective entropy).
+    final uniqueChars = p.split('').toSet().length;
+    final uniqueRatio = uniqueChars / p.length;
+    return p.length * (log(charset) / ln2) * uniqueRatio;
+  }
+
+  String get _entropyLabel {
+    if (!_hasVariety && _passwordController.text.length >= 16) return 'Слабый (нужно 3 типа символов)';
+    final bits = _entropyBits;
+    if (bits < 50) return 'Слабый';
+    if (bits < 80) return 'Средний';
+    return 'Сильный';
+  }
+
+  Color get _entropyColor {
+    if (!_hasVariety && _passwordController.text.length >= 16) return const Color(0xFFF87171);
+    final bits = _entropyBits;
+    if (bits < 50) return const Color(0xFFF87171);
+    if (bits < 80) return const Color(0xFFFBBF24);
+    return const Color(0xFF34D399);
+  }
 
   // ── Restore ───────────────────────────────────────────────────────────────
 
@@ -81,7 +125,7 @@ class _RestoreAccountScreenState extends State<RestoreAccountScreen> {
     final realPubKey = base64Encode(
         Uint8List.fromList(List<int>.from(bundle['identityKey'])));
 
-    const relay = 'wss://relay.damus.io';
+    final relay = kDefaultNostrRelay;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('nostr_relay', relay);
 
@@ -247,7 +291,7 @@ class _RestoreAccountScreenState extends State<RestoreAccountScreen> {
               // Password
               _buildField(
                 controller: _passwordController,
-                hint: 'Пароль восстановления',
+                hint: 'Пароль восстановления (мин. 16)',
                 icon: Icons.lock_outline_rounded,
                 obscure: !_showPassword,
                 onChanged: (_) => setState(() {}),
@@ -262,6 +306,29 @@ class _RestoreAccountScreenState extends State<RestoreAccountScreen> {
                       setState(() => _showPassword = !_showPassword),
                 ),
               ),
+              if (_passwordController.text.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 6, left: 4),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 8, height: 8,
+                        decoration: BoxDecoration(
+                          color: _entropyColor,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        '$_entropyLabel (${_entropyBits.round()} бит)',
+                        style: GoogleFonts.inter(
+                          fontSize: 11,
+                          color: _entropyColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               const SizedBox(height: 32),
 
               SizedBox(

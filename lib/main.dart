@@ -1,7 +1,10 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
 import 'theme/theme_manager.dart';
 import 'screens/home_screen.dart';
 import 'screens/setup_identity_screen.dart';
@@ -15,58 +18,120 @@ import 'services/notification_service.dart';
 import 'services/connectivity_probe_service.dart';
 import 'services/utls_service.dart';
 import 'services/tor_service.dart';
+import 'services/psiphon_service.dart';
+import 'services/psiphon_turn_proxy.dart';
+import 'services/background_service.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'l10n/app_localizations.dart';
 
-void main() async {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
-  final prefs = await SharedPreferences.getInstance();
-  // Clear legacy auto-saved theme keys so new design defaults apply cleanly.
-  if (prefs.getBool('theme_user_customized') != true) {
-    await prefs.remove('theme_primary');
-    await prefs.remove('theme_background');
-    await prefs.remove('theme_surface');
-    await prefs.remove('theme_accent');
-    await prefs.remove('theme_radius');
-    await prefs.remove('theme_font');
-  }
-  final hasIdentity = prefs.containsKey('user_identity');
-  final onboardingDone = prefs.getBool('onboarding_done') ?? false;
-  if (!onboardingDone) await prefs.setBool('onboarding_done', true);
 
-  // Check if app-level password lock is enabled
-  const ss = FlutterSecureStorage();
-  final passwordEnabled =
-      hasIdentity && await ss.read(key: 'app_password_enabled') == 'true';
+  // Silence debugPrint in release builds — prevents log spam on user devices.
+  if (kReleaseMode) debugPrint = (String? message, {int? wrapWidth}) {};
 
-  final chatController = ChatController();
-  await chatController.initialize(); // Load identity and setup Inbox manager
-  await NotificationService().initialize();
+  // Use bundled fonts from google_fonts/ — no runtime fetching from Google servers.
+  GoogleFonts.config.allowRuntimeFetching = false;
 
-  // Announce our current addresses to all contacts (in case we changed relay/provider).
-  unawaited(chatController.broadcastAddressUpdate());
+  await SentryFlutter.init(
+    (options) {
+      options.dsn = const String.fromEnvironment('SENTRY_DSN', defaultValue: '');
+      options.tracesSampleRate = 0.2;
+      options.environment = kDebugMode ? 'debug' : 'release';
+      options.sendDefaultPii = false; // privacy: never send PII
+      options.attachScreenshot = false; // privacy
+      options.beforeSend = (event, hint) {
+        // Strip any message content from breadcrumbs for privacy
+        final sanitized = event.copyWith(
+          breadcrumbs: event.breadcrumbs?.map((b) {
+            // Keep category and timestamp but ensure no PII leaks through data map
+            return Breadcrumb(
+              message: b.message,
+              category: b.category,
+              timestamp: b.timestamp,
+              level: b.level,
+              type: b.type,
+            );
+          }).toList(),
+        );
+        return sanitized;
+      };
+    },
+    appRunner: () async {
+      // Catch Flutter framework errors
+      FlutterError.onError = (details) {
+        FlutterError.presentError(details);
+        Sentry.captureException(details.exception, stackTrace: details.stack);
+      };
 
-  // Background connectivity probe — finds reachable relays/nodes.
-  // Runs silently; if connection is already working, does nothing extra.
-  // If tor is installed and direct probes fail, uses it for bootstrap only.
-  unawaited(ConnectivityProbeService.instance.runIfNeeded());
-  unawaited(UTLSService.instance.ensureRunning());
-  // Re-start bundled Tor if user had it enabled previously.
-  if (prefs.getBool('bundled_tor_enabled') ?? false) {
-    unawaited(TorService.instance.startPersistent());
-  }
+      final prefs = await SharedPreferences.getInstance();
+      // Clear legacy auto-saved theme keys so new design defaults apply cleanly.
+      if (prefs.getBool('theme_user_customized') != true) {
+        await prefs.remove('theme_primary');
+        await prefs.remove('theme_background');
+        await prefs.remove('theme_surface');
+        await prefs.remove('theme_accent');
+        await prefs.remove('theme_radius');
+        await prefs.remove('theme_font');
+      }
+      final hasIdentity = prefs.containsKey('user_identity');
+      final onboardingDone = prefs.getBool('onboarding_done') ?? false;
+      if (!onboardingDone) await prefs.setBool('onboarding_done', true);
 
-  runApp(
-    MultiProvider(
-      providers: [
-        ChangeNotifierProvider.value(value: ThemeNotifier.instance),
-        ChangeNotifierProvider.value(value: chatController),
-      ],
-      child: PulseApp(
-        hasIdentity: hasIdentity,
-        showOnboarding: !onboardingDone && !hasIdentity,
-        passwordEnabled: passwordEnabled,
-      ),
-    ),
+      // Check if app-level password lock is enabled
+      const ss = FlutterSecureStorage();
+      final passwordEnabled =
+          hasIdentity && await ss.read(key: 'app_password_enabled') == 'true';
+
+      final chatController = ChatController();
+      await chatController.initialize(); // Load identity and setup Inbox manager
+      await NotificationService().initialize();
+
+      // Announce our current addresses to all contacts (in case we changed relay/provider).
+      unawaited(chatController.broadcastAddressUpdate());
+
+      // Background connectivity probe — finds reachable relays/nodes.
+      // Runs silently; if connection is already working, does nothing extra.
+      // If tor is installed and direct probes fail, uses it for bootstrap only.
+      unawaited(ConnectivityProbeService.instance.runIfNeeded());
+
+      // After probe finishes, reconnect ChatController if a better relay was found.
+      // Fixes race: ChatController connects with default relay before probe discovers better ones.
+      unawaited(ConnectivityProbeService.instance.firstRunDone.then((result) {
+        if (result.bestNostrRelay != null) {
+          debugPrint('[Main] Probe found relay: ${result.bestNostrRelay} — reconnecting');
+          chatController.reconnectInbox();
+        }
+      }));
+      unawaited(UTLSService.instance.ensureRunning());
+      // Android foreground service — keeps WS connections alive in background.
+      BackgroundService.instance.init();
+      unawaited(BackgroundService.instance.startIfEnabled());
+      // Re-start bundled Tor if user had it enabled previously.
+      if (prefs.getBool('bundled_tor_enabled') ?? false) {
+        unawaited(TorService.instance.startPersistent());
+      }
+      // Re-start Psiphon if user had it enabled previously.
+      if (prefs.getBool('bundled_psiphon_enabled') ?? false) {
+        unawaited(PsiphonService.instance.ensureRunning().then((_) {
+          if (PsiphonService.instance.isRunning) PsiphonTurnProxy.startAll();
+        }));
+      }
+
+      runApp(
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider.value(value: ThemeNotifier.instance),
+            ChangeNotifierProvider.value(value: chatController),
+          ],
+          child: PulseApp(
+            hasIdentity: hasIdentity,
+            showOnboarding: !onboardingDone && !hasIdentity,
+            passwordEnabled: passwordEnabled,
+          ),
+        ),
+      );
+    },
   );
 }
 
@@ -101,7 +166,9 @@ class _PulseAppState extends State<PulseApp> {
     try {
       final initialUri = await _appLinks.getInitialLink();
       if (initialUri != null) _processUri(initialUri);
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[App] Failed to get initial deep link: $e');
+    }
 
     _sub = _appLinks.uriLinkStream.listen((Uri? uri) {
       if (uri != null && mounted) {
@@ -120,7 +187,9 @@ class _PulseAppState extends State<PulseApp> {
           setState(() {
             _initialDeepLinkConfig = configStr;
           });
-        } catch (_) {}
+        } catch (e) {
+          debugPrint('[App] Failed to decode deep link config: $e');
+        }
       }
     }
   }
@@ -151,6 +220,13 @@ class _PulseAppState extends State<PulseApp> {
       theme: themeNotifier.lightThemeData,
       darkTheme: themeNotifier.darkThemeData,
       themeMode: themeNotifier.themeMode,
+      localizationsDelegates: const [
+        AppLocalizations.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: AppLocalizations.supportedLocales,
       home: homeWidget,
     );
   }

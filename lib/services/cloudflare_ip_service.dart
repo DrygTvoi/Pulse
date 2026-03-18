@@ -73,6 +73,8 @@ class CloudflareIpService {
   /// Callers can use the returned IPs to open direct connections to CF
   /// servers, bypassing poisoned system DNS.
   Future<(bool, List<String>)> resolveAndCheck(String host) async {
+    // .onion addresses can only be resolved via Tor — skip DNS entirely.
+    if (host.endsWith('.onion')) return (false, <String>[]);
     try {
       await _ensureBlocks();
 
@@ -86,7 +88,9 @@ class CloudflareIpService {
             .map((a) => a.address)
             .where(_isPublicIp)   // filter RFC-1918 / loopback poison results
             .toList();
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('[CF] System DNS lookup failed for $host: $e');
+      }
 
       // Step 2: DoH fallback (when system DNS fails or returns no public IPs)
       if (ips.isEmpty) {
@@ -108,6 +112,10 @@ class CloudflareIpService {
     }
   }
 
+  /// Public DoH resolver — resolves hostname to IPs via DoH (bypasses DNS poisoning).
+  /// Used by RelayDirectoryService to fetch APIs when system DNS is blocked.
+  Future<List<String>> resolveViaDoh(String host) => _dohResolve(host);
+
   /// Fetches the ECH (Encrypted Client Hello) config blob for [host] via DoH.
   ///
   /// Queries DNS HTTPS record (type=65) from Cloudflare DoH at 1.1.1.1 by IP
@@ -116,12 +124,14 @@ class CloudflareIpService {
   /// ECH lets TLS clients encrypt the SNI field so DPI cannot see which
   /// hostname is being contacted. Cloudflare deploys ECH on all its edges.
   ///
-  /// Returns raw ECH config bytes (to be passed to TLS stack when dart:io
-  /// gains ECH support), or null if unavailable. Currently used for
-  /// pre-fetching and caching; call [isOnCloudflare] to check CF hosting first.
+  /// Returns raw ECH config bytes, or null if unavailable.
+  /// Currently used for pre-fetching and caching; call [isOnCloudflare] to
+  /// check CF hosting first.
   ///
-  /// TODO: wire these bytes into dart:io SecureSocket once
-  ///       https://github.com/dart-lang/sdk/issues/55949 lands.
+  /// NOTE: ECH is now handled by the Go uTLS proxy (tools/utls-proxy), which
+  /// fetches ECH configs via DoH and applies them during the TLS handshake.
+  /// This method is retained for diagnostics and future use if dart:io gains
+  /// ECH support (https://github.com/dart-lang/sdk/issues/55949).
   Future<Uint8List?> fetchEchConfig(String host) async {
     // In-memory cache hit
     final entry = _echCache[host];
@@ -149,10 +159,13 @@ class CloudflareIpService {
           httpClient.close(force: true);
           continue;
         }
-        final body = await utf8.decoder
-            .bind(resp)
-            .join()
-            .timeout(const Duration(seconds: 3));
+        final bodyBuf = StringBuffer();
+        await for (final chunk in utf8.decoder.bind(resp)
+            .timeout(const Duration(seconds: 3))) {
+          bodyBuf.write(chunk);
+          if (bodyBuf.length > 64 * 1024) break;
+        }
+        final body = bodyBuf.toString();
         httpClient.close(force: true);
 
         final json = jsonDecode(body) as Map<String, dynamic>;
@@ -173,7 +186,9 @@ class CloudflareIpService {
               debugPrint('[CF/ECH] $host → ${echBytes.length}B ECH'
                   ' (via $dohIp${ad ? ', DNSSEC✓' : ''})');
               return echBytes;
-            } catch (_) {}
+            } catch (e) {
+              debugPrint('[CF/ECH] Failed to decode ECH base64: $e');
+            }
           }
         }
       } catch (e) {
@@ -249,11 +264,10 @@ class CloudflareIpService {
       final issuerOk = trusted.isEmpty ||
           trusted.any((t) => issuer.contains(t));
       if (!issuerOk) {
-        debugPrint('[CF/PIN] WARNING: $sniHost cert issuer "$issuer" '
+        debugPrint('[CF/PIN] REJECTED: $sniHost cert issuer "$issuer" '
             'not in trusted list! DER=$derHash… Possible MITM.');
+        return false; // Hard reject — prevents state-level MITM on DoH.
       }
-      // Soft-fail: always accept to avoid app breakage on CA rotation.
-      // The warning is logged so we can detect MITM in debug builds.
       return true;
     };
     return httpClient;
@@ -266,6 +280,8 @@ class CloudflareIpService {
   ///
   /// Returns list of IPv4 address strings, empty on failure.
   Future<List<String>> _dohResolve(String host) async {
+    // .onion addresses are Tor-only — DNS cannot resolve them.
+    if (host.endsWith('.onion')) return [];
     for (final (dohIp, sniHost, pathPrefix) in _dohProviders) {
       try {
         final httpClient = _pinnedDohClient(dohIp, sniHost);
@@ -283,10 +299,13 @@ class CloudflareIpService {
           httpClient.close(force: true);
           continue;
         }
-        final body = await utf8.decoder
-            .bind(resp)
-            .join()
-            .timeout(const Duration(seconds: 3));
+        final bodyBuf2 = StringBuffer();
+        await for (final chunk in utf8.decoder.bind(resp)
+            .timeout(const Duration(seconds: 3))) {
+          bodyBuf2.write(chunk);
+          if (bodyBuf2.length > 64 * 1024) break;
+        }
+        final body = bodyBuf2.toString();
         httpClient.close(force: true);
 
         final json = jsonDecode(body) as Map<String, dynamic>;
@@ -338,7 +357,9 @@ class CloudflareIpService {
             _loadedAt = DateTime.fromMillisecondsSinceEpoch(ts);
             debugPrint('[CF] Loaded ${_blocks!.length} CIDR blocks from cache');
             return;
-          } catch (_) {}
+          } catch (e) {
+            debugPrint('[CF] Failed to parse cached CIDR blocks: $e');
+          }
         }
       }
     }
@@ -368,10 +389,13 @@ class CloudflareIpService {
         client.close(force: true);
         return [];
       }
-      final body = await utf8.decoder
-          .bind(resp)
-          .join()
-          .timeout(const Duration(seconds: 5));
+      final bodyBuf3 = StringBuffer();
+      await for (final chunk in utf8.decoder.bind(resp)
+          .timeout(const Duration(seconds: 5))) {
+        bodyBuf3.write(chunk);
+        if (bodyBuf3.length > 256 * 1024) break;
+      }
+      final body = bodyBuf3.toString();
       client.close(force: true);
       final ranges = body
           .split('\n')

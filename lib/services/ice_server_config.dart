@@ -1,5 +1,7 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'psiphon_turn_proxy.dart';
 import 'tor_turn_proxy.dart';
 
 /// Public STUN servers — diverse providers/regions so at least one responds
@@ -9,10 +11,7 @@ import 'tor_turn_proxy.dart';
 /// Servers are kept in a single RTCIceServer object (one 'urls' array) so the
 /// agent treats them as a pool rather than independent servers.
 const _kStunUrls = [
-  // Google — fast globally, blocked in mainland China
-  'stun:stun.l.google.com:19302',
-  'stun:stun1.l.google.com:19302',
-  'stun:stun2.l.google.com:19302',
+  // Non-blocked providers first (accessible from China)
 
   // Cloudflare — privacy-friendly, global CDN
   'stun:stun.cloudflare.com:3478',
@@ -45,8 +44,24 @@ const _kStunUrls = [
   'stun:stun.antisip.com:1024',
   'stun:stun.voipgate.com:3478',
 
+  // Italian VoIP provider — not blocked in CN
+  'stun:stun.voip.eutelia.it:3478',
+
+  // Russian VoIP (accessible from CN)
+  'stun:stun.sipnet.net:3478',
+
+  // Chinese providers — always accessible from CN
+  'stun:stun.yy.com:3478',
+  'stun:stun.qq.com:3478',
+  'stun:stun.miwifi.com:3478',
+
   // Raw IP fallback — domain-based blocks don't apply
   'stun:74.125.250.129:19302',
+
+  // Google — fast globally but BLOCKED in mainland China (last priority)
+  'stun:stun.l.google.com:19302',
+  'stun:stun1.l.google.com:19302',
+  'stun:stun2.l.google.com:19302',
 ];
 
 /// Community TURN presets.
@@ -160,7 +175,9 @@ class IceServerConfig {
         for (final s in list) {
           servers.add(Map<String, dynamic>.from(s as Map));
         }
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('[ICE] Failed to parse probe TURN servers: $e');
+      }
     }
 
     // Custom TURN server (BYOD — highest priority, added last so WebRTC tries it first)
@@ -175,6 +192,9 @@ class IceServerConfig {
       });
     }
 
+    // Psiphon TURN proxies — fast path (3-5s bootstrap)
+    servers.addAll(PsiphonTurnProxy.allIceServerEntries);
+
     // Tor TURN proxies — tunnel TURN through Tor when available (China/Iran)
     servers.addAll(TorTurnProxy.allIceServerEntries);
 
@@ -188,9 +208,10 @@ class IceServerConfig {
   /// Plain UDP and plain TCP TURN are excluded.
   static Future<List<Map<String, dynamic>>> loadRelay() async {
     final all = await load();
-    // Tor TURN proxy — first candidate so restricted profile tries it before
-    // anything else; remains empty list if Tor is not running.
+    // Psiphon/Tor TURN proxies — first candidates so restricted profile tries
+    // them before anything else; remains empty if proxies are not running.
     final result = <Map<String, dynamic>>[
+      ...PsiphonTurnProxy.allIceServerEntries,
       ...TorTurnProxy.allIceServerEntries,
     ];
 

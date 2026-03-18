@@ -9,10 +9,13 @@ import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:web_socket_channel/io.dart';
 import 'package:pointycastle/export.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../constants.dart';
 import '../models/message.dart';
 import '../services/tor_service.dart' as tor;
 import '../services/utls_service.dart';
-import '../services/cloudflare_ip_service.dart';
+import '../services/psiphon_service.dart';
+import '../services/nip44_service.dart' as nip44;
+import '../services/gift_wrap_service.dart' as giftwrap;
 import 'inbox_manager.dart';
 
 /// ─────────────────────────────────────────────────────────
@@ -24,47 +27,7 @@ import 'inbox_manager.dart';
 ///   kind 20000 → Ephemeral signaling event (WebRTC, NIP-04 encrypted)
 /// ─────────────────────────────────────────────────────────
 
-const _defaultRelay = 'wss://relay.damus.io';
-
-/// Connects a WebSocket to [url] using pre-resolved [ips] (bypasses system DNS).
-///
-/// This is the key censorship workaround: GFW sometimes poisons DNS for
-/// CF-hosted Nostr relays. We use DoH-resolved IPs to connect directly,
-/// letting HttpClient handle TLS with the original hostname as SNI.
-///
-/// Strategy: connect plain TCP to the resolved IP, then let dart:io's
-/// HttpClient do the TLS+WebSocket upgrade using the original hostname
-/// (from the URL) for SNI — exactly as the Tor bridge does with loopback.
-Future<WebSocketChannel> _connectDirectViaIps(
-    String url, List<String> ips) async {
-  final uri = Uri.parse(url);
-  final port = (uri.hasPort && uri.port != 0)
-      ? uri.port
-      : (uri.scheme == 'wss' ? 443 : 80);
-  final normalized = (!uri.hasPort || uri.port == 0)
-      ? uri.replace(port: port).toString()
-      : url;
-
-  Exception? lastErr;
-  for (final ip in ips) {
-    try {
-      final httpClient = HttpClient();
-      httpClient.connectionFactory = (cfUri, proxyHost, proxyPort) async {
-        // Plain TCP to the CF IP — HttpClient sees the original URL host for SNI
-        final raw = await Socket.connect(ip, port,
-            timeout: const Duration(seconds: 4));
-        return ConnectionTask.fromSocket(
-            Future.value(raw), () => raw.destroy());
-      };
-      final ws = await WebSocket.connect(normalized, customClient: httpClient)
-          .timeout(const Duration(seconds: 4));
-      return IOWebSocketChannel(ws);
-    } catch (e) {
-      lastErr = e is Exception ? e : Exception(e.toString());
-    }
-  }
-  throw lastErr ?? Exception('_connectDirectViaIps: no working IP');
-}
+const _defaultRelay = kDefaultNostrRelay;
 
 /// Connect a WebSocket through the uTLS HTTP CONNECT proxy.
 ///
@@ -208,16 +171,21 @@ Future<WebSocketChannel> _connectWebSocketViaUtls(
   }
 }
 
-// ─── Shared WebSocket connect (CF-direct → Tor → I2P → uTLS → plain) ───────
+// ─── Shared WebSocket connect ────────────────────────────────────────────────
 //
 // Single implementation used by both InboxReader and Sender.
-// Connection chain: CF-direct (DoH-resolved) → Tor SOCKS5 → I2P SOCKS5
-//                   → uTLS (Chrome TLS fingerprint) → plain WebSocket.
+// Connection chain (each step is a fast fallback, no wasted time):
 //
-// NOTE: I2P is an external proxy — the app doesn't bundle an I2P daemon.
-// Users who run their own I2P router can configure the SOCKS5 endpoint in
-// Settings → I2P Proxy. This enables routing Nostr traffic through I2P
-// outproxies (e.g. relay.damus.i2p) as an additional censorship bypass.
+//   1. uTLS+ECH      (~2s) — Go proxy: Chrome fingerprint + ECH + DoH resolve
+//   2. CF Worker      (~2s) — personal relay proxy on CF CDN (if configured)
+//   3. Custom SOCKS5  (~2s) — V2Ray/Xray/Shadowsocks (if configured)
+//   4. Psiphon      (~3-5s) — ~2000 rotating VPS, obfuscated protocols
+//   5. Tor SOCKS5   (~120s) — Tor with PTs (obfs4/WebTunnel/Snowflake)
+//   6. I2P SOCKS5           — external I2P router (if configured)
+//   7. Plain WS             — last resort, no proxy
+//
+// The Go uTLS proxy handles DoH resolution, Chrome TLS fingerprint, and ECH
+// (Encrypted Client Hello) — GFW sees only a decoy SNI, not the real hostname.
 
 Future<WebSocketChannel> _nostrWsConnect(
   String url, {
@@ -227,51 +195,84 @@ Future<WebSocketChannel> _nostrWsConnect(
   required bool i2pEnabled,
   required String i2pHost,
   required int i2pPort,
+  required bool customProxyEnabled,
+  required String customProxyHost,
+  required int customProxyPort,
+  required String cfWorkerRelay,
 }) async {
-  // Step 0: CF-direct with DoH-resolved IP (bypasses poisoned system DNS)
-  try {
-    final host = Uri.parse(url).host;
-    if (host.isNotEmpty) {
-      final (isCf, ips) = await CloudflareIpService.instance
-          .resolveAndCheck(host)
-          .timeout(const Duration(seconds: 4),
-              onTimeout: () => (false, <String>[]));
-      if (isCf && ips.isNotEmpty) {
-        try {
-          final ch = await _connectDirectViaIps(url, ips);
-          debugPrint('[Nostr] CF-direct (DoH): $url via ${ips.first}');
-          return ch;
-        } catch (_) {
-          debugPrint('[Nostr] CF-direct failed → Tor fallback: $url');
-        }
-      }
+  // 1. uTLS+ECH (Go proxy: Chrome fingerprint + ECH + DoH)
+  final utlsPort = UTLSService.instance.proxyPort;
+  if (utlsPort != null) {
+    try {
+      return await _connectWebSocketViaUtls(url, utlsPort)
+          .timeout(const Duration(seconds: 8));
+    } catch (e) {
+      debugPrint('[Nostr] uTLS+ECH path failed ($e) — trying next');
     }
-  } catch (_) {}
+  }
 
-  // Priority: Tor → I2P → uTLS (Chrome fingerprint) → plain
+  // 2. CF Worker relay proxy (if configured)
+  if (cfWorkerRelay.isNotEmpty && utlsPort != null) {
+    try {
+      // Build Worker URL: wss://domain/?r=<relay_url>
+      var workerHost = cfWorkerRelay;
+      if (!workerHost.startsWith('wss://') && !workerHost.startsWith('ws://')) {
+        workerHost = 'wss://$workerHost';
+      }
+      final workerUrl = '$workerHost/?r=${Uri.encodeComponent(url)}';
+      return await _connectWebSocketViaUtls(workerUrl, utlsPort)
+          .timeout(const Duration(seconds: 8));
+    } catch (e) {
+      debugPrint('[Nostr] CF Worker path failed ($e) — trying next');
+    }
+  }
+
+  // 3. Custom SOCKS5 proxy (V2Ray/Xray/Shadowsocks)
+  if (customProxyEnabled) {
+    try {
+      return await tor.connectWebSocket(url,
+          torHost: customProxyHost, torPort: customProxyPort,
+          socks5Timeout: const Duration(seconds: 8));
+    } catch (e) {
+      debugPrint('[Nostr] Custom proxy path failed ($e) — trying Tor');
+    }
+  }
+
+  // 4. Psiphon SOCKS5 (~2000 rotating VPS, 3-5s bootstrap)
+  final psiphonPort = PsiphonService.instance.proxyPort;
+  if (psiphonPort != null) {
+    try {
+      return await tor.connectWebSocket(url,
+          torHost: '127.0.0.1', torPort: psiphonPort,
+          socks5Timeout: const Duration(seconds: 10));
+    } catch (e) {
+      debugPrint('[Nostr] Psiphon path failed ($e) — trying Tor');
+    }
+  }
+
+  // 5. Tor SOCKS5
   if (torEnabled && tor.TorService.instance.isBootstrapped) {
     try {
       return await tor.connectWebSocket(url,
           torHost: torHost, torPort: torPort,
           socks5Timeout: const Duration(seconds: 8));
     } catch (e) {
-      debugPrint('[Nostr] Tor path failed ($e) — trying uTLS');
+      debugPrint('[Nostr] Tor path failed ($e) — trying I2P');
     }
   }
+
+  // 6. I2P SOCKS5
   if (i2pEnabled) {
     try {
       return await tor.connectWebSocket(url,
           torHost: i2pHost, torPort: i2pPort,
           socks5Timeout: const Duration(seconds: 8));
     } catch (e) {
-      debugPrint('[Nostr] I2P path failed ($e) — trying uTLS');
+      debugPrint('[Nostr] I2P path failed ($e) — falling back to plain');
     }
   }
-  final utlsPort = UTLSService.instance.proxyPort;
-  if (utlsPort != null) {
-    return _connectWebSocketViaUtls(url, utlsPort);
-  }
-  // Plain WebSocket — normalize port so Dart doesn't produce an invalid URI.
+
+  // 7. Plain WebSocket — normalize port so Dart doesn't produce an invalid URI.
   final wsUri = Uri.parse(url);
   final normalized = (!wsUri.hasPort || wsUri.port == 0)
       ? wsUri.replace(port: wsUri.scheme == 'wss' ? 443 : 80).toString()
@@ -285,6 +286,55 @@ final _secp256k1 = ECCurve_secp256k1();
 
 /// Public API: derive Nostr pubkey (x-coordinate) from hex private key
 String deriveNostrPubkeyHex(String privkeyHex) => _derivePubkeyHex(privkeyHex);
+
+/// Public API: compute ECDH shared secret (x-coord) from our privkey + their pubkey.
+/// Same derivation as NIP-04 — deterministic per-pair shared key.
+Uint8List computeEcdhSecret(String ourPrivkeyHex, String theirPubkeyHex) {
+  const pHex = 'FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F';
+  final p = BigInt.parse(pHex, radix: 16);
+  final d = BigInt.parse(ourPrivkeyHex, radix: 16);
+  final curve = _secp256k1.curve;
+  final x = BigInt.parse(theirPubkeyHex, radix: 16);
+  final y2 = (x.modPow(BigInt.from(3), p) + BigInt.from(7)) % p;
+  final y = y2.modPow((p + BigInt.one) ~/ BigInt.from(4), p);
+  final useY = y.isEven ? y : p - y;
+  final sharedPoint = curve.createPoint(x, useY) * d;
+  final xVal = sharedPoint?.x?.toBigInteger();
+  if (xVal == null) throw StateError('ECDH: invalid shared point');
+  return _bigIntToBytes(xVal, 32);
+}
+
+/// Encrypt plaintext with NIP-04 (AES-CBC + HMAC-SHA256 MAC). Visible for testing.
+@visibleForTesting
+String nip04Encrypt(String senderPrivkeyHex, String recipientPubkeyHex, String plaintext) =>
+    _nip04Encrypt(senderPrivkeyHex, recipientPubkeyHex, plaintext);
+
+/// Decrypt NIP-04 ciphertext. Requires MAC — throws if missing or invalid. Visible for testing.
+@visibleForTesting
+String nip04Decrypt(String recipientPrivkeyHex, String senderPubkeyHex, String ciphertext) =>
+    _nip04Decrypt(recipientPrivkeyHex, senderPubkeyHex, ciphertext);
+
+/// Sign a signal payload with HMAC-SHA256 using ECDH shared secret.
+/// Returns hex-encoded HMAC.
+String signSignalPayload(String senderPrivkeyHex, String recipientPubkeyHex, String canonicalJson) {
+  final secret = computeEcdhSecret(senderPrivkeyHex, recipientPubkeyHex);
+  final hmac = crypto.Hmac(crypto.sha256, secret);
+  return hmac.convert(utf8.encode(canonicalJson)).toString();
+}
+
+/// Verify a signal's HMAC using ECDH shared secret.
+bool verifySignalPayload(String receiverPrivkeyHex, String senderPubkeyHex, String canonicalJson, String hmacHex) {
+  final secret = computeEcdhSecret(receiverPrivkeyHex, senderPubkeyHex);
+  final hmac = crypto.Hmac(crypto.sha256, secret);
+  final expected = hmac.convert(utf8.encode(canonicalJson)).toString();
+  // Constant-time comparison to prevent timing attacks.
+  if (expected.length != hmacHex.length) return false;
+  int result = 0;
+  for (int i = 0; i < expected.length; i++) {
+    result |= expected.codeUnitAt(i) ^ hmacHex.codeUnitAt(i);
+  }
+  return result == 0;
+}
 
 String _derivePubkeyHex(String privkeyHex) {
   final d = BigInt.parse(privkeyHex, radix: 16);
@@ -398,14 +448,29 @@ String _nip04Encrypt(String senderPrivkeyHex, String recipientPubkeyHex, String 
     ..fillRange(plaintextBytes.length, plaintextBytes.length + padLen, padLen);
   final ciphertext = Uint8List(padded.length);
   for (int i = 0; i < padded.length; i += 16) { cipher.processBlock(padded, i, ciphertext, i); }
-  return '${base64.encode(ciphertext)}?iv=${base64.encode(iv)}';
+  // Encrypt-then-MAC: HMAC-SHA256 over ciphertext+IV using derived MAC key.
+  final macKey = _sha256([...sharedX, 0x01]); // derive separate MAC key
+  final hmac = crypto.Hmac(crypto.sha256, macKey);
+  final mac = hmac.convert([...ciphertext, ...iv]).toString();
+  return '${base64.encode(ciphertext)}?iv=${base64.encode(iv)}&mac=$mac';
 }
 
 String _nip04Decrypt(String recipientPrivkeyHex, String senderPubkeyHex, String ciphertext) {
-  final parts = ciphertext.split('?iv=');
-  if (parts.length != 2) throw FormatException('Invalid NIP-04 ciphertext');
-  final ct = base64.decode(parts[0]);
-  final iv = base64.decode(parts[1]);
+  // Parse: base64_ct?iv=base64_iv[&mac=hex_hmac]
+  final ivSplit = ciphertext.split('?iv=');
+  if (ivSplit.length != 2) throw FormatException('Invalid NIP-04 ciphertext');
+  final ctB64 = ivSplit[0];
+  String ivB64;
+  String? macHex;
+  if (ivSplit[1].contains('&mac=')) {
+    final macSplit = ivSplit[1].split('&mac=');
+    ivB64 = macSplit[0];
+    macHex = macSplit[1];
+  } else {
+    ivB64 = ivSplit[1];
+  }
+  final ct = base64.decode(ctB64);
+  final iv = base64.decode(ivB64);
   const pHex = 'FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F';
   final p = BigInt.parse(pHex, radix: 16);
   final d = BigInt.parse(recipientPrivkeyHex, radix: 16);
@@ -418,11 +483,34 @@ String _nip04Decrypt(String recipientPrivkeyHex, String senderPubkeyHex, String 
   final xVal = sharedPoint?.x?.toBigInteger();
   if (xVal == null) throw FormatException('NIP-04 decrypt: invalid shared point');
   final sharedX = _bigIntToBytes(xVal, 32);
+  // Verify MAC before decrypting (Encrypt-then-MAC). MAC is required — no fallback.
+  if (macHex == null) throw FormatException('NIP-04 decrypt: missing MAC');
+  final macKey = _sha256([...sharedX, 0x01]);
+  final hmac = crypto.Hmac(crypto.sha256, macKey);
+  final expected = hmac.convert([...ct, ...iv]).toString();
+  if (expected.length != macHex.length) {
+    throw FormatException('NIP-04 decrypt: MAC verification failed');
+  }
+  int cmp = 0;
+  for (int i = 0; i < expected.length; i++) {
+    cmp |= expected.codeUnitAt(i) ^ macHex.codeUnitAt(i);
+  }
+  if (cmp != 0) throw FormatException('NIP-04 decrypt: MAC verification failed');
   final cipher = CBCBlockCipher(AESEngine());
   cipher.init(false, ParametersWithIV<KeyParameter>(KeyParameter(Uint8List.fromList(sharedX)), Uint8List.fromList(iv)));
   final plainBytes = Uint8List(ct.length);
   for (int i = 0; i < ct.length; i += 16) { cipher.processBlock(Uint8List.fromList(ct), i, plainBytes, i); }
+  // Validate PKCS#7 padding to prevent padding oracle attacks.
+  if (plainBytes.isEmpty) throw FormatException('NIP-04 decrypt: empty plaintext after AES-CBC');
   final padLen = plainBytes.last;
+  if (padLen < 1 || padLen > 16 || padLen > plainBytes.length) {
+    throw FormatException('NIP-04 decrypt: invalid PKCS#7 padding length');
+  }
+  for (int i = plainBytes.length - padLen; i < plainBytes.length; i++) {
+    if (plainBytes[i] != padLen) {
+      throw FormatException('NIP-04 decrypt: invalid PKCS#7 padding bytes');
+    }
+  }
   return utf8.decode(plainBytes.sublist(0, plainBytes.length - padLen));
 }
 
@@ -434,6 +522,11 @@ class NostrInboxReader implements InboxReader {
   String _relayUrl = _defaultRelay;
   final Set<String> _seenIds = {};
 
+  /// Emits a sender pubkey whenever an incoming signal fails MAC verification.
+  /// This indicates a possible tamper attempt or malicious relay injection.
+  static final StreamController<String> tamperWarnings =
+      StreamController<String>.broadcast();
+
   // Tor settings — loaded once in initializeReader
   bool _torEnabled = false;
   String _torHost = '127.0.0.1';
@@ -444,9 +537,18 @@ class NostrInboxReader implements InboxReader {
   String _i2pHost = '127.0.0.1';
   int _i2pPort = 4447;
 
+  // Custom proxy + CF Worker — loaded once in initializeReader
+  bool _customProxyEnabled = false;
+  String _customProxyHost = '127.0.0.1';
+  int _customProxyPort = 10808;
+  String _cfWorkerRelay = '';
+
   Future<WebSocketChannel> _wsConnect(String url) => _nostrWsConnect(url,
       torEnabled: _torEnabled, torHost: _torHost, torPort: _torPort,
-      i2pEnabled: _i2pEnabled, i2pHost: _i2pHost, i2pPort: _i2pPort);
+      i2pEnabled: _i2pEnabled, i2pHost: _i2pHost, i2pPort: _i2pPort,
+      customProxyEnabled: _customProxyEnabled,
+      customProxyHost: _customProxyHost, customProxyPort: _customProxyPort,
+      cfWorkerRelay: _cfWorkerRelay);
 
   @override
   Future<void> initializeReader(String apiKey, String databaseId) async {
@@ -468,17 +570,21 @@ class NostrInboxReader implements InboxReader {
         _privateKeyHex = (decoded['privkey'] as String? ?? '').trim();
         final relayOverride = (decoded['relay'] as String? ?? '').trim();
         if (relayOverride.isNotEmpty && atIdx == -1) _relayUrl = relayOverride;
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('[Nostr] Failed to parse apiKey JSON: $e');
+      }
     } else if (apiKey.isNotEmpty && !apiKey.startsWith('{')) {
       _privateKeyHex = apiKey.trim();
     }
 
     // Derive own pubkey from privkey if not already set via databaseId
     if (_privateKeyHex.isNotEmpty && _publicKeyHex.isEmpty) {
-      try { _publicKeyHex = _derivePubkeyHex(_privateKeyHex); } catch (_) {}
+      try { _publicKeyHex = _derivePubkeyHex(_privateKeyHex); } catch (e) {
+        debugPrint('[Nostr] Failed to derive pubkey from privkey: $e');
+      }
     }
 
-    // Load Tor and I2P settings
+    // Load Tor, I2P, and custom proxy settings
     final prefs = await SharedPreferences.getInstance();
     _torEnabled = prefs.getBool('tor_enabled') ?? false;
     _torHost = prefs.getString('tor_host') ?? '127.0.0.1';
@@ -486,6 +592,10 @@ class NostrInboxReader implements InboxReader {
     _i2pEnabled = prefs.getBool('i2p_enabled') ?? false;
     _i2pHost = prefs.getString('i2p_host') ?? '127.0.0.1';
     _i2pPort = prefs.getInt('i2p_port') ?? 4447;
+    _customProxyEnabled = prefs.getBool('custom_proxy_enabled') ?? false;
+    _customProxyHost = prefs.getString('custom_proxy_host') ?? '127.0.0.1';
+    _customProxyPort = prefs.getInt('custom_proxy_port') ?? 10808;
+    _cfWorkerRelay = prefs.getString('cf_worker_relay') ?? '';
 
     // If relay is still the hardcoded default, try probe-suggested or adaptive relay
     if (_relayUrl == _defaultRelay) {
@@ -523,6 +633,12 @@ class NostrInboxReader implements InboxReader {
   int _consecutiveFailures = 0;
   bool _isHealthy = true;
   static const _failureThreshold = 3;
+  static const _maxConsecutiveFailures = 30;
+
+  /// True when the shared loop stopped after [_maxConsecutiveFailures] failures.
+  bool get circuitBroken => _circuitBroken;
+  bool _circuitBroken = false;
+
   bool _loopStarted = false;
 
   @override
@@ -535,24 +651,23 @@ class NostrInboxReader implements InboxReader {
   }
 
   Future<void> _runSharedLoop() async {
-    int retryDelay = 5;
     while (true) {
       WebSocketChannel? channel;
       bool cycleSuccess = false;
       try {
         channel = await _wsConnect(_relayUrl);
         await channel.ready;
+        debugPrint('[Nostr] Connected to $_relayUrl');
 
         final subId = 'sub_${DateTime.now().millisecondsSinceEpoch}';
         final since = await _getSince();
         channel.sink.add(jsonEncode(['REQ', subId, {
-          'kinds': [4, 20000],
+          'kinds': [4, 20000, 1059],
           '#p': [_publicKeyHex],
           'since': since,
           'limit': 100,
         }]));
 
-        retryDelay = 5; // reset backoff on successful connect
         cycleSuccess = true;
         if (!_isHealthy && !_healthCtrl.isClosed) {
           _isHealthy = true;
@@ -564,19 +679,24 @@ class NostrInboxReader implements InboxReader {
           await for (final raw in channel.stream) {
             try {
               final data = jsonDecode(raw as String) as List;
+              if (data.isEmpty) continue;
               if (data[0] == 'EOSE') {
                 debugPrint('[Nostr] EOSE on $_relayUrl');
                 continue;
               }
-              if (data[0] != 'EVENT' || data[1] != subId) continue;
-              final event = data[2] as Map<String, dynamic>;
-              final id = event['id'] as String;
+              if (data.length < 3 || data[0] != 'EVENT' || data[1] != subId) continue;
+              final event = data[2] as Map<String, dynamic>?;
+              if (event == null) continue;
+              final id = event['id'] as String?;
+              if (id == null || id.isEmpty) continue;
               if (_seenIds.contains(id)) continue;
               _trackSeenId(id);
               final ts = event['created_at'] as int?;
               if (ts != null) unawaited(_updateSince(ts));
-              final kind = event['kind'] as int;
-              if (kind == 4) {
+              final kind = (event['kind'] as int?) ?? -1;
+              if (kind == 1059) {
+                _dispatchGiftWrap(event);
+              } else if (kind == 4) {
                 _dispatchMessage(event);
               } else if (kind == 20000) {
                 _dispatchSignal(event);
@@ -599,21 +719,64 @@ class NostrInboxReader implements InboxReader {
           _isHealthy = false;
           _healthCtrl.add(false);
         }
+        if (_consecutiveFailures >= _maxConsecutiveFailures) {
+          debugPrint('[Nostr] Max retries ($_maxConsecutiveFailures) reached, stopping');
+          _circuitBroken = true;
+          break;
+        }
+        // Tiered delay: 5s for first 5 failures, 30s up to 15, then 5min
+        final delay = Duration(seconds:
+            (_consecutiveFailures < 5) ? 5
+            : (_consecutiveFailures < 15) ? 30
+            : 300);
+        debugPrint('[Nostr] Reconnecting in ${delay.inSeconds}s (failure $_consecutiveFailures/$_maxConsecutiveFailures)…');
+        await Future.delayed(delay);
+      } else {
+        // Successful cycle — reconnect quickly (relay closed gracefully).
+        debugPrint('[Nostr] Reconnecting in 2s…');
+        await Future.delayed(const Duration(seconds: 2));
       }
-      debugPrint('[Nostr] Reconnecting in ${retryDelay}s…');
-      await Future.delayed(Duration(seconds: retryDelay));
-      retryDelay = (retryDelay * 2).clamp(5, 300);
+    }
+  }
+
+  void _dispatchGiftWrap(Map<String, dynamic> event) async {
+    try {
+      final inner = await giftwrap.unwrapEvent(
+        recipientPrivkey: _privateKeyHex,
+        wrapEvent: event,
+      );
+      if (inner == null) {
+        debugPrint('[Nostr] Gift Wrap: failed to unwrap');
+        return;
+      }
+      final innerKind = (inner['kind'] as int?) ?? -1;
+      if (innerKind == 4) {
+        _dispatchMessage(inner);
+      } else if (innerKind == 20000) {
+        _dispatchSignal(inner);
+      } else {
+        debugPrint('[Nostr] Gift Wrap: unknown inner kind $innerKind');
+      }
+    } catch (e) {
+      debugPrint('[Nostr] Gift Wrap dispatch error: $e');
     }
   }
 
   void _dispatchMessage(Map<String, dynamic> event) {
     try {
+      final id = event['id'] as String? ?? '';
+      final pubkey = event['pubkey'] as String? ?? '';
+      final content = event['content'] as String? ?? '';
+      final createdAt = event['created_at'] as int?;
+      if (id.isEmpty || pubkey.isEmpty || content.isEmpty) return;
       _msgCtrl.add([Message(
-        id: event['id'] as String,
-        senderId: event['pubkey'] as String,
+        id: id,
+        senderId: pubkey,
         receiverId: _publicKeyHex,
-        encryptedPayload: event['content'] as String,
-        timestamp: DateTime.fromMillisecondsSinceEpoch((event['created_at'] as int) * 1000),
+        encryptedPayload: content,
+        timestamp: createdAt != null && createdAt > 0
+            ? DateTime.fromMillisecondsSinceEpoch(createdAt * 1000)
+            : DateTime.now(),
         adapterType: 'nostr',
       )]);
     } catch (e) {
@@ -621,10 +784,28 @@ class NostrInboxReader implements InboxReader {
     }
   }
 
-  void _dispatchSignal(Map<String, dynamic> event) {
+  void _dispatchSignal(Map<String, dynamic> event) async {
     try {
-      final senderPubkey = event['pubkey'] as String;
-      final plain = _nip04Decrypt(_privateKeyHex, senderPubkey, event['content'] as String);
+      final senderPubkey = event['pubkey'] as String? ?? '';
+      final content = event['content'] as String? ?? '';
+      if (senderPubkey.isEmpty || content.isEmpty) return;
+
+      // Detect NIP-44 vs NIP-04: NIP-44 is base64 starting with version byte 0x02.
+      String plain;
+      bool isNip44 = false;
+      try {
+        final raw = base64.decode(content);
+        isNip44 = raw.isNotEmpty && raw[0] == 0x02;
+      } catch (_) {
+        // Not valid base64 or too short — try NIP-04
+      }
+
+      if (isNip44) {
+        plain = await nip44.nip44DecryptWithKeys(_privateKeyHex, senderPubkey, content);
+      } else {
+        plain = _nip04Decrypt(_privateKeyHex, senderPubkey, content);
+      }
+
       final data = jsonDecode(plain) as Map<String, dynamic>;
       _sigCtrl.add([{
         'type': data['type'],
@@ -634,6 +815,10 @@ class NostrInboxReader implements InboxReader {
       }]);
     } catch (e) {
       debugPrint('[Nostr] Signal parse error: $e');
+      if (e.toString().contains('MAC verification failed')) {
+        final senderId = event['pubkey'] as String? ?? 'unknown';
+        NostrInboxReader.tamperWarnings.add(senderId);
+      }
     }
   }
 
@@ -680,7 +865,9 @@ class NostrInboxReader implements InboxReader {
           } else if (data[0] == 'EOSE') {
             if (!completer.isCompleted) completer.complete(null);
           }
-        } catch (_) {}
+        } catch (e) {
+          debugPrint('[Nostr] fetchPublicKeys parse error: $e');
+        }
       }, onError: (_) {
         if (!completer.isCompleted) completer.complete(null);
       });
@@ -713,6 +900,12 @@ class NostrInboxReader implements InboxReader {
 
   @override
   Future<String?> provisionGroup(String groupName) async => '$_publicKeyHex@$_relayUrl';
+
+  /// Clear private key from memory.
+  void zeroize() {
+    _privateKeyHex = '';
+    _publicKeyHex = '';
+  }
 }
 
 // ─── MessageSender ───────────────────────────────────────
@@ -720,6 +913,10 @@ class NostrInboxReader implements InboxReader {
 class NostrMessageSender implements MessageSender {
   String _privateKeyHex = '';
   String _relayUrl = _defaultRelay;
+
+  // Persistent WS pool: relay URL → (channel, lastUsed)
+  final Map<String, ({WebSocketChannel ch, DateTime ts})> _wsPool = {};
+  static const _wsPoolTtl = Duration(minutes: 5);
 
   // Tor settings — loaded once in initializeSender
   bool _torEnabled = false;
@@ -731,9 +928,18 @@ class NostrMessageSender implements MessageSender {
   String _i2pHost = '127.0.0.1';
   int _i2pPort = 4447;
 
+  // Custom proxy + CF Worker — loaded once in initializeSender
+  bool _customProxyEnabled = false;
+  String _customProxyHost = '127.0.0.1';
+  int _customProxyPort = 10808;
+  String _cfWorkerRelay = '';
+
   Future<WebSocketChannel> _wsConnect(String url) => _nostrWsConnect(url,
       torEnabled: _torEnabled, torHost: _torHost, torPort: _torPort,
-      i2pEnabled: _i2pEnabled, i2pHost: _i2pHost, i2pPort: _i2pPort);
+      i2pEnabled: _i2pEnabled, i2pHost: _i2pHost, i2pPort: _i2pPort,
+      customProxyEnabled: _customProxyEnabled,
+      customProxyHost: _customProxyHost, customProxyPort: _customProxyPort,
+      cfWorkerRelay: _cfWorkerRelay);
 
   @override
   Future<void> initializeSender(String apiKey) async {
@@ -743,12 +949,14 @@ class NostrMessageSender implements MessageSender {
         _privateKeyHex = (decoded['privkey'] as String? ?? '').trim();
         final relay = (decoded['relay'] as String? ?? '').trim();
         _relayUrl = relay.isNotEmpty ? relay : _defaultRelay;
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('[Nostr] Sender failed to parse apiKey JSON: $e');
+      }
     } else {
       _privateKeyHex = apiKey.trim();
     }
 
-    // Load Tor and I2P settings
+    // Load Tor, I2P, and custom proxy settings
     final prefs = await SharedPreferences.getInstance();
     _torEnabled = prefs.getBool('tor_enabled') ?? false;
     _torHost = prefs.getString('tor_host') ?? '127.0.0.1';
@@ -756,6 +964,10 @@ class NostrMessageSender implements MessageSender {
     _i2pEnabled = prefs.getBool('i2p_enabled') ?? false;
     _i2pHost = prefs.getString('i2p_host') ?? '127.0.0.1';
     _i2pPort = prefs.getInt('i2p_port') ?? 4447;
+    _customProxyEnabled = prefs.getBool('custom_proxy_enabled') ?? false;
+    _customProxyHost = prefs.getString('custom_proxy_host') ?? '127.0.0.1';
+    _customProxyPort = prefs.getInt('custom_proxy_port') ?? 10808;
+    _cfWorkerRelay = prefs.getString('cf_worker_relay') ?? '';
 
     // If relay is still the hardcoded default, try adaptive CF relay or probe-suggested
     if (_relayUrl == _defaultRelay) {
@@ -774,30 +986,78 @@ class NostrMessageSender implements MessageSender {
     }
   }
 
+  /// Get or create a pooled WebSocket connection for a relay.
+  Future<WebSocketChannel?> _getPooledWs(String relayUrl) async {
+    final cached = _wsPool[relayUrl];
+    if (cached != null) {
+      final age = DateTime.now().difference(cached.ts);
+      if (age < _wsPoolTtl) {
+        return cached.ch;
+      }
+      // Stale — close and reconnect.
+      try { cached.ch.sink.close(); } catch (_) {}
+      _wsPool.remove(relayUrl);
+    }
+    try {
+      final ch = await _wsConnect(relayUrl);
+      await ch.ready;
+      _wsPool[relayUrl] = (ch: ch, ts: DateTime.now());
+      // Listen for close/errors to evict from pool. Subscription kept via
+      // onDone/onError self-cleanup (removes pool entry which drops channel ref).
+      ch.stream.listen(
+        (_) { /* consume data frames to keep stream alive */ },
+        onDone: () => _wsPool.remove(relayUrl),
+        onError: (_) => _wsPool.remove(relayUrl),
+        cancelOnError: true,
+      );
+      return ch;
+    } catch (e) {
+      debugPrint('[Nostr] Pool connect failed: $e');
+      return null;
+    }
+  }
+
   Future<bool> _publishEvent(Map<String, dynamic> event, String relayUrl) async {
     try {
-      final channel = await _wsConnect(relayUrl);
-      await channel.ready;
+      // Try pooled connection first; fall back to one-shot on failure.
+      var channel = await _getPooledWs(relayUrl);
+      bool isPooled = channel != null;
+      if (channel == null) {
+        channel = await _wsConnect(relayUrl);
+        await channel.ready;
+        isPooled = false;
+      }
+
       channel.sink.add(jsonEncode(['EVENT', event]));
-      final completer = Completer<bool>();
-      final sub = channel.stream.listen((raw) {
-        try {
-          final data = jsonDecode(raw as String) as List;
-          if (data[0] == 'OK' && data[1] == event['id']) {
-            if (!completer.isCompleted) completer.complete(data[2] == true);
+
+      // For pooled connections, we don't wait for OK (fire-and-forget with pool).
+      // For one-shot, wait for confirmation.
+      if (!isPooled) {
+        final completer = Completer<bool>();
+        final sub = channel.stream.listen((raw) {
+          try {
+            final data = jsonDecode(raw as String) as List;
+            if (data[0] == 'OK' && data[1] == event['id']) {
+              if (!completer.isCompleted) completer.complete(data[2] == true);
+            }
+          } catch (e) {
+            debugPrint('[Nostr] Sender response parse error: $e');
           }
-        } catch (_) {}
-      }, onError: (_) {
-        if (!completer.isCompleted) completer.complete(false);
-      });
-      final result = await completer.future.timeout(
-        const Duration(seconds: 10), onTimeout: () => true,
-      );
-      sub.cancel();
-      channel.sink.close();
-      return result;
+        }, onError: (_) {
+          if (!completer.isCompleted) completer.complete(false);
+        });
+        final result = await completer.future.timeout(
+          const Duration(seconds: 10), onTimeout: () => true,
+        );
+        sub.cancel();
+        channel.sink.close();
+        return result;
+      }
+      return true;
     } catch (e) {
       debugPrint('[Nostr] Failed to publish: $e');
+      // Evict broken pool entry.
+      _wsPool.remove(relayUrl);
       return false;
     }
   }
@@ -816,13 +1076,13 @@ class NostrMessageSender implements MessageSender {
     final relay = parts.length > 1 ? parts.sublist(1).join('@') : _relayUrl;
 
     try {
-      // Content is the Signal-encrypted payload directly — no NIP-04 outer wrapper
-      // Signal provides E2EE; the relay sees sender/recipient pubkeys but not content
-      final event = _buildEvent(
-        privkeyHex: senderKey,
-        kind: 4,
-        content: message.encryptedPayload,
-        tags: [['p', recipientPubkey]],
+      // Wrap kind:4 message in Gift Wrap (NIP-59) for metadata privacy
+      final event = await giftwrap.wrapEvent(
+        senderPrivkey: senderKey,
+        recipientPubkey: recipientPubkey,
+        innerKind: 4,
+        innerContent: message.encryptedPayload,
+        innerTags: [['p', recipientPubkey]],
       );
       return await _publishEvent(event, relay);
     } catch (e) {
@@ -869,12 +1129,14 @@ class NostrMessageSender implements MessageSender {
       final signalPayload = jsonEncode({
         'type': type, 'roomId': roomId, 'senderId': senderId, 'payload': payload,
       });
-      final encrypted = _nip04Encrypt(signingKey, recipientPubkey, signalPayload);
-      final event = _buildEvent(
-        privkeyHex: signingKey,
-        kind: 20000,
-        content: encrypted,
-        tags: [['p', recipientPubkey]],
+      final encrypted = await nip44.nip44EncryptWithKeys(signingKey, recipientPubkey, signalPayload);
+      // Wrap kind:20000 signal in Gift Wrap (NIP-59) for metadata privacy
+      final event = await giftwrap.wrapEvent(
+        senderPrivkey: signingKey,
+        recipientPubkey: recipientPubkey,
+        innerKind: 20000,
+        innerContent: encrypted,
+        innerTags: [['p', recipientPubkey]],
       );
       return await _publishEvent(event, relay);
     } catch (e) {
@@ -896,5 +1158,14 @@ class NostrMessageSender implements MessageSender {
       debugPrint('[Nostr] publishProfile error: $e');
       return false;
     }
+  }
+
+  /// Clear private key from memory and close pooled connections.
+  void zeroize() {
+    _privateKeyHex = '';
+    for (final entry in _wsPool.values) {
+      try { entry.ch.sink.close(); } catch (_) {}
+    }
+    _wsPool.clear();
   }
 }

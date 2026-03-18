@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 class Message {
   final String id;
   final String senderId;
@@ -82,22 +84,33 @@ class Message {
 
   factory Message.fromJson(Map<String, dynamic> json) {
     return Message(
-      id: json['id'],
-      senderId: json['senderId'],
-      receiverId: json['receiverId'],
-      encryptedPayload: json['encryptedPayload'],
-      timestamp: DateTime.parse(json['timestamp']),
-      adapterType: json['adapterType'],
-      isRead: json['isRead'] ?? false,
-      status: json['status'] ?? '',
-      isEdited: json['isEdited'] ?? false,
+      id: json['id'] as String? ?? '',
+      senderId: json['senderId'] as String? ?? '',
+      receiverId: json['receiverId'] as String? ?? '',
+      encryptedPayload: json['encryptedPayload'] as String? ?? '',
+      timestamp: DateTime.tryParse(json['timestamp']?.toString() ?? '') ?? DateTime.now(),
+      adapterType: json['adapterType'] as String? ?? '',
+      isRead: json['isRead'] as bool? ?? false,
+      status: json['status'] as String? ?? '',
+      isEdited: json['isEdited'] as bool? ?? false,
       replyToId: json['replyToId'] as String?,
       replyToText: json['replyToText'] as String?,
       replyToSender: json['replyToSender'] as String?,
       scheduledAt: json['scheduledAt'] != null
-          ? DateTime.parse(json['scheduledAt'] as String)
+          ? DateTime.tryParse(json['scheduledAt'].toString())
           : null,
       readBy: (json['readBy'] as List<dynamic>?)?.cast<String>() ?? const [],
     );
+  }
+
+  /// Safe variant of [fromJson] that returns null instead of throwing
+  /// on malformed data.
+  static Message? tryFromJson(Map<String, dynamic> json) {
+    try {
+      return Message.fromJson(json);
+    } catch (e) {
+      debugPrint('[Message] Failed to parse: $e');
+      return null;
+    }
   }
 }

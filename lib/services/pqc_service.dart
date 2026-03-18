@@ -10,6 +10,11 @@ import 'package:pqcrypto/pqcrypto.dart';
 ///
 /// Keys are generated once and persisted in flutter_secure_storage so they
 /// survive restarts without invalidating published bundles.
+///
+/// Rotation: the keypair is regenerated every 30 days to limit exposure of a
+/// compromised secret key.  The previous secret key is retained for one extra
+/// rotation period so in-flight messages using the old public key can still be
+/// decrypted.
 class PqcService {
   static final PqcService _instance = PqcService._internal();
   factory PqcService() => _instance;
@@ -18,8 +23,16 @@ class PqcService {
   static final _kem = PqcKem.kyber1024;
   static const _storage = FlutterSecureStorage();
 
+  static const _kPk       = 'pqc_kyber_pk';
+  static const _kSk       = 'pqc_kyber_sk';
+  static const _kPkPrev   = 'pqc_kyber_pk_prev';
+  static const _kSkPrev   = 'pqc_kyber_sk_prev';
+  static const _kRotationTs = 'pqc_kyber_rotation_ts';
+  static const _kRotationDays = 30;
+
   Uint8List? _pk;
   Uint8List? _sk;
+  Uint8List? _skPrev; // previous secret key kept for one rotation period
   bool _initialized = false;
 
   bool get isInitialized => _initialized;
@@ -27,19 +40,22 @@ class PqcService {
   /// Load or generate the Kyber-1024 keypair.
   Future<void> initialize() async {
     if (_initialized) return;
-    final pkB64 = await _storage.read(key: 'pqc_kyber_pk');
-    final skB64 = await _storage.read(key: 'pqc_kyber_sk');
+    final pkB64 = await _storage.read(key: _kPk);
+    final skB64 = await _storage.read(key: _kSk);
     if (pkB64 != null && skB64 != null) {
       _pk = base64Decode(pkB64);
       _sk = base64Decode(skB64);
     } else {
-      final (pk, sk) = _kem.generateKeyPair();
-      _pk = Uint8List.fromList(pk);
-      _sk = Uint8List.fromList(sk);
-      await _storage.write(key: 'pqc_kyber_pk', value: base64Encode(_pk!));
-      await _storage.write(key: 'pqc_kyber_sk', value: base64Encode(_sk!));
+      await _generateNewKeypair(isFirst: true);
+    }
+    // Load previous sk if present (for decapsulating in-flight messages).
+    final skPrevB64 = await _storage.read(key: _kSkPrev);
+    if (skPrevB64 != null) {
+      _skPrev = base64Decode(skPrevB64);
     }
     _initialized = true;
+    // Rotate if due.
+    await rotateIfNeeded();
   }
 
   /// Our Kyber-1024 public key — included in the Signal bundle we publish.
@@ -57,9 +73,60 @@ class PqcService {
   }
 
   /// Decapsulate an incoming Kyber ciphertext → 32-byte shared secret.
+  /// Tries the current sk first; falls back to the previous sk (grace period).
   Uint8List decapsulate(Uint8List ciphertext) {
     if (!_initialized) throw StateError('PqcService not initialized');
-    final ss = _kem.decapsulate(_sk!, ciphertext);
-    return Uint8List.fromList(ss);
+    try {
+      final ss = _kem.decapsulate(_sk!, ciphertext);
+      return Uint8List.fromList(ss);
+    } catch (_) {
+      if (_skPrev != null) {
+        final ss = _kem.decapsulate(_skPrev!, ciphertext);
+        return Uint8List.fromList(ss);
+      }
+      rethrow;
+    }
+  }
+
+  // ── Rotation ────────────────────────────────────────────────────────────────
+
+  Future<void> rotateIfNeeded() async {
+    try {
+      final tsStr = await _storage.read(key: _kRotationTs);
+      if (tsStr != null) {
+        final ts = DateTime.fromMillisecondsSinceEpoch(int.tryParse(tsStr) ?? 0);
+        if (DateTime.now().difference(ts).inDays < _kRotationDays) return;
+      }
+      await _generateNewKeypair(isFirst: false);
+    } catch (e) {
+      // Non-fatal — keep existing keys.
+    }
+  }
+
+  /// Zero out all key material from memory (call on logout/dispose).
+  void zeroize() {
+    if (_pk != null) { _pk!.fillRange(0, _pk!.length, 0); _pk = null; }
+    if (_sk != null) { _sk!.fillRange(0, _sk!.length, 0); _sk = null; }
+    if (_skPrev != null) { _skPrev!.fillRange(0, _skPrev!.length, 0); _skPrev = null; }
+    _initialized = false;
+  }
+
+  Future<void> _generateNewKeypair({required bool isFirst}) async {
+    if (!isFirst && _sk != null) {
+      // Promote current → previous (one rotation grace period).
+      _skPrev = _sk;
+      await _storage.write(key: _kSkPrev, value: base64Encode(_sk!));
+      if (_pk != null) {
+        await _storage.write(key: _kPkPrev, value: base64Encode(_pk!));
+      }
+    }
+    final (pk, sk) = _kem.generateKeyPair();
+    _pk = Uint8List.fromList(pk);
+    _sk = Uint8List.fromList(sk);
+    await _storage.write(key: _kPk, value: base64Encode(_pk!));
+    await _storage.write(key: _kSk, value: base64Encode(_sk!));
+    await _storage.write(
+        key: _kRotationTs,
+        value: DateTime.now().millisecondsSinceEpoch.toString());
   }
 }
