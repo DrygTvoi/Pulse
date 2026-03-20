@@ -449,6 +449,24 @@
   "@profileDeleteGroup": { "description": "Button to delete a group" },
   "profileDeleteContact": "Delete contact",
   "@profileDeleteContact": { "description": "Button to delete a contact" },
+  "profileLeaveGroup": "Leave group",
+  "@profileLeaveGroup": { "description": "Button to leave a group" },
+  "profileLeaveGroupBody": "You will be removed from this group and it will be deleted from your contacts.",
+  "@profileLeaveGroupBody": { "description": "Confirmation body for leaving a group" },
+  "groupInviteTitle": "Group invitation",
+  "@groupInviteTitle": { "description": "Title for the incoming group invite dialog" },
+  "groupInviteBody": "{from} invited you to join \"{group}\"",
+  "@groupInviteBody": {
+    "description": "Body text for group invite dialog",
+    "placeholders": {
+      "from": { "type": "String" },
+      "group": { "type": "String" }
+    }
+  },
+  "groupInviteAccept": "Accept",
+  "@groupInviteAccept": { "description": "Accept group invite button" },
+  "groupInviteDecline": "Decline",
+  "@groupInviteDecline": { "description": "Decline group invite button" },
 
   "transferTitle": "Transfer to Another Device",
   "@transferTitle": { "description": "Title for the device transfer screen" },

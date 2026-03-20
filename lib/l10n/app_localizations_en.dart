@@ -858,6 +858,27 @@ class AppLocalizationsEn extends AppLocalizations {
   String get profileDeleteContact => 'Delete contact';
 
   @override
+  String get profileLeaveGroup => 'Leave group';
+
+  @override
+  String get profileLeaveGroupBody =>
+      'You will be removed from this group and it will be deleted from your contacts.';
+
+  @override
+  String get groupInviteTitle => 'Group invitation';
+
+  @override
+  String groupInviteBody(String from, String group) {
+    return '$from invited you to join \"$group\"';
+  }
+
+  @override
+  String get groupInviteAccept => 'Accept';
+
+  @override
+  String get groupInviteDecline => 'Decline';
+
+  @override
   String get transferTitle => 'Transfer to Another Device';
 
   @override

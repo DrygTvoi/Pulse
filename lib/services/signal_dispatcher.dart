@@ -25,10 +25,11 @@ class SignalIncomingGroupCallEvent {
   SignalIncomingGroupCallEvent(this.signal, this.groupId);
 }
 
-/// Contact started typing.
+/// Contact started typing (optionally in a group room).
 class SignalTypingEvent {
   final Contact contact;
-  SignalTypingEvent(this.contact);
+  final String? groupId;
+  SignalTypingEvent(this.contact, {this.groupId});
 }
 
 /// Read receipt (1-on-1).
@@ -141,6 +142,15 @@ class SignalChunkReqEvent {
   SignalChunkReqEvent(this.fid, this.missing, this.senderId);
 }
 
+/// Group invite from a known contact — receiver can accept or decline.
+class SignalGroupInviteEvent {
+  final Contact fromContact;
+  final String groupId;
+  final String groupName;
+  final List<String> members;
+  SignalGroupInviteEvent(this.fromContact, this.groupId, this.groupName, this.members);
+}
+
 /// Group membership change broadcast by group admin.
 class SignalGroupUpdateEvent {
   final String groupId;
@@ -209,6 +219,7 @@ class SignalDispatcher {
   final _profileUpdateCtrl = StreamController<SignalProfileUpdateEvent>.broadcast();
   final _chunkReqCtrl = StreamController<SignalChunkReqEvent>.broadcast();
   final _groupUpdateCtrl = StreamController<SignalGroupUpdateEvent>.broadcast();
+  final _groupInviteCtrl = StreamController<SignalGroupInviteEvent>.broadcast();
 
   Stream<SignalRawEvent> get rawSignals => _rawCtrl.stream;
   Stream<SignalIncomingCallEvent> get incomingCalls => _incomingCallCtrl.stream;
@@ -229,6 +240,7 @@ class SignalDispatcher {
   Stream<SignalProfileUpdateEvent> get profileUpdates => _profileUpdateCtrl.stream;
   Stream<SignalChunkReqEvent> get chunkRequests => _chunkReqCtrl.stream;
   Stream<SignalGroupUpdateEvent> get groupUpdates => _groupUpdateCtrl.stream;
+  Stream<SignalGroupInviteEvent> get groupInvites => _groupInviteCtrl.stream;
 
   // ── Constants ────────────────────────────────────────────────────────────
 
@@ -239,6 +251,7 @@ class SignalDispatcher {
     'relay_exchange',
     'profile_update',
     'group_update',
+    'group_invite',
   };
 
   /// Signal types exempt from rate limiting (system-critical).
@@ -329,8 +342,10 @@ class SignalDispatcher {
         } else if (sigType == 'typing') {
           final fromId = sig['senderId'] as String? ?? '';
           final typingContact = _resolveContact(fromId, contactByDbId);
+          final payload = sig['payload'];
+          final groupId = payload is Map ? payload['groupId'] as String? : null;
           if (typingContact != null && !_typingCtrl.isClosed) {
-            _typingCtrl.add(SignalTypingEvent(typingContact));
+            _typingCtrl.add(SignalTypingEvent(typingContact, groupId: groupId));
           }
         } else if (sigType == 'msg_read') {
           final payload = sig['payload'];
@@ -519,6 +534,20 @@ class SignalDispatcher {
                   groupId, groupName, List<String>.from(rawMembers)));
             }
           }
+        } else if (sigType == 'group_invite') {
+          final payload = sig['payload'];
+          if (payload is Map) {
+            final groupId = payload['groupId'] as String?;
+            final groupName = payload['name'] as String? ?? '';
+            final rawMembers = payload['members'];
+            final senderId = sig['senderId'] as String? ?? '';
+            final inviter = _resolveContact(senderId, contactByDbId);
+            if (groupId != null && rawMembers is List && inviter != null &&
+                !_groupInviteCtrl.isClosed) {
+              _groupInviteCtrl.add(SignalGroupInviteEvent(
+                  inviter, groupId, groupName, List<String>.from(rawMembers)));
+            }
+          }
         } else if (sigType == 'chunk_req') {
           final payload = sig['payload'];
           if (payload is Map) {
@@ -558,6 +587,7 @@ class SignalDispatcher {
     _profileUpdateCtrl.close();
     _chunkReqCtrl.close();
     _groupUpdateCtrl.close();
+    _groupInviteCtrl.close();
     _sigRateLimiter.clear();
   }
 }

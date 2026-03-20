@@ -270,6 +270,12 @@
   "profileClearChatHistory": "Очистить историю чата",
   "profileDeleteGroup": "Удалить группу",
   "profileDeleteContact": "Удалить контакт",
+  "profileLeaveGroup": "Покинуть группу",
+  "profileLeaveGroupBody": "Вы будете удалены из группы, и она будет удалена из ваших контактов.",
+  "groupInviteTitle": "Приглашение в группу",
+  "groupInviteBody": "{from} приглашает вас в \"{group}\"",
+  "groupInviteAccept": "Принять",
+  "groupInviteDecline": "Отклонить",
 
   "transferTitle": "Перенос на другое устройство",
   "transferInfoBox": "Перенесите свою Signal-личность и ключи Nostr на новое устройство.\nСессии чатов НЕ переносятся — прямая секретность сохраняется.",

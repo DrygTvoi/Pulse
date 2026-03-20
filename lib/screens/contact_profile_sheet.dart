@@ -239,6 +239,43 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
     );
   }
 
+  void _leaveGroup() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.surface,
+        title: Text(context.l10n.profileLeaveGroup,
+            style: GoogleFonts.inter(color: AppTheme.textPrimary, fontWeight: FontWeight.w700)),
+        content: Text(context.l10n.profileLeaveGroupBody,
+            style: GoogleFonts.inter(color: AppTheme.textSecondary)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(context.l10n.cancel,
+                style: GoogleFonts.inter(color: AppTheme.textSecondary)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(context.l10n.profileLeaveGroup,
+                style: GoogleFonts.inter(color: AppTheme.error, fontWeight: FontWeight.w700)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    final myId = context.read<ChatController>().identity?.id ?? '';
+    final updated = _contact.copyWith(
+      members: _contact.members.where((id) => id != myId).toList(),
+    );
+    // Notify remaining members before removing locally
+    unawaited(context.read<ChatController>().broadcastGroupUpdate(updated));
+    await context.read<IContactRepository>().removeContact(_contact.id);
+    if (mounted) {
+      Navigator.pop(context);
+      widget.onDeleteContact?.call();
+    }
+  }
+
   void _kickMember(String memberId) async {
     final updated = _contact.copyWith(
       members: _contact.members.where((id) => id != memberId).toList(),
@@ -303,8 +340,20 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
                           if (mounted) {
                             setState(() => _contact = updated);
                             widget.onContactUpdated?.call(updated);
-                            // Notify all members (including newly added) of the updated list
+                            // Notify existing members of new list
                             unawaited(context.read<ChatController>().broadcastGroupUpdate(updated));
+                            // Invite each newly added member so they get the group
+                            final ctrl = context.read<ChatController>();
+                            for (final newId in selected) {
+                              final newContact = context
+                                  .read<IContactRepository>()
+                                  .contacts
+                                  .cast<Contact?>()
+                                  .firstWhere((c) => c?.id == newId, orElse: () => null);
+                              if (newContact != null) {
+                                unawaited(ctrl.sendGroupInvite(newContact, updated));
+                              }
+                            }
                           }
                         },
                         child: Text(context.l10n.profileAddCount(selected.length),
@@ -393,6 +442,9 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
               if (mounted) {
                 setState(() => _contact = updated);
                 widget.onContactUpdated?.call(updated);
+                if (_contact.isGroup) {
+                  unawaited(context.read<ChatController>().broadcastGroupUpdate(updated));
+                }
               }
             },
             child: Text(context.l10n.profileRename,
@@ -856,6 +908,15 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
           },
         ),
         const SizedBox(height: DesignTokens.spacing10),
+        if (_contact.isGroup) ...[
+          _actionButton(
+            icon: Icons.exit_to_app_rounded,
+            label: context.l10n.profileLeaveGroup,
+            color: AppTheme.error,
+            onTap: _leaveGroup,
+          ),
+          const SizedBox(height: DesignTokens.spacing10),
+        ],
         _actionButton(
           icon: Icons.person_remove_rounded,
           label: _contact.isGroup ? context.l10n.profileDeleteGroup : context.l10n.profileDeleteContact,

@@ -199,6 +199,37 @@ class GroupSignalingService {
       target.provider, target.databaseId, target.databaseId, myId, type, payload);
   }
 
+  /// Replace the video track in all peer connections (for screen share toggle).
+  Future<void> replaceVideoTrack(MediaStreamTrack newTrack) async {
+    for (final pc in _peers.values) {
+      try {
+        final senders = await pc.getSenders();
+        final videoSender = senders.cast<RTCRtpSender?>()
+            .firstWhere((s) => s?.track?.kind == 'video', orElse: () => null);
+        await videoSender?.replaceTrack(newTrack);
+      } catch (e) {
+        debugPrint('[GroupSignaling] replaceVideoTrack error: $e');
+      }
+    }
+  }
+
+  /// Returns audio level (0.0–1.0) per peer memberId from WebRTC stats.
+  Future<Map<String, double>> getAudioLevels() async {
+    final levels = <String, double>{};
+    for (final entry in _peers.entries) {
+      try {
+        final stats = await entry.value.getStats();
+        for (final report in stats) {
+          if (report.type == 'inbound-rtp') {
+            final level = (report.values['audioLevel'] as num?)?.toDouble();
+            if (level != null) levels[entry.key] = level;
+          }
+        }
+      } catch (_) {}
+    }
+    return levels;
+  }
+
   Future<void> hangUp() async {
     _signalSub?.cancel();
     localStream?.getTracks().forEach((t) => t.stop());

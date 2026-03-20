@@ -1592,6 +1592,42 @@ abstract class AppLocalizations {
   /// **'Delete contact'**
   String get profileDeleteContact;
 
+  /// Button to leave a group
+  ///
+  /// In en, this message translates to:
+  /// **'Leave group'**
+  String get profileLeaveGroup;
+
+  /// Confirmation body for leaving a group
+  ///
+  /// In en, this message translates to:
+  /// **'You will be removed from this group and it will be deleted from your contacts.'**
+  String get profileLeaveGroupBody;
+
+  /// Title for the incoming group invite dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Group invitation'**
+  String get groupInviteTitle;
+
+  /// Body text for group invite dialog
+  ///
+  /// In en, this message translates to:
+  /// **'{from} invited you to join \"{group}\"'**
+  String groupInviteBody(String from, String group);
+
+  /// Accept group invite button
+  ///
+  /// In en, this message translates to:
+  /// **'Accept'**
+  String get groupInviteAccept;
+
+  /// Decline group invite button
+  ///
+  /// In en, this message translates to:
+  /// **'Decline'**
+  String get groupInviteDecline;
+
   /// Title for the device transfer screen
   ///
   /// In en, this message translates to:

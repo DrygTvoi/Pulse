@@ -85,6 +85,7 @@ class _ChatScreenState extends State<ChatScreen> {
       await ctrl.loadRoomHistory(_contact);
       await ctrl.markRoomAsRead(_contact);
       if (_contact.isGroup) unawaited(ctrl.markGroupMessagesRead(_contact));
+      ctrl.setActiveRoom(_contact.id);
       if (mounted) setState(() => _chatTtlSeconds = ctrl.getChatTtlCached(_contact.id));
       final muted = await NotificationService().isChatMuted(_contact.id);
       if (mounted) setState(() => _chatMuted = muted);
@@ -167,6 +168,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   void dispose() {
+    context.read<ChatController>().setActiveRoom(null);
     // Save draft
     final draft = _controller.text.trim();
     final storage = LocalStorageService();

@@ -74,6 +74,10 @@ class ChatController extends ChangeNotifier {
   LanMessageSender? _lanSender;
   bool _lanModeActive = false;
   bool _disposed = false;
+  String? _activeRoomId; // contact ID of the currently open chat screen
+
+  /// Called by ChatScreen when it becomes the active/visible chat.
+  void setActiveRoom(String? contactId) => _activeRoomId = contactId;
 
   /// True when all internet adapters are unreachable and LAN is being used.
   bool get lanModeActive => _lanModeActive;
@@ -171,6 +175,11 @@ class ChatController extends ChangeNotifier {
   // Emits contact name when a message had to be sent unencrypted (E2EE session missing).
   final StreamController<String> _e2eeFailCtrl = StreamController.broadcast();
   Stream<String> get e2eeFailures => _e2eeFailCtrl.stream;
+
+  // Emits incoming group invites.
+  final StreamController<SignalGroupInviteEvent> _groupInviteCtrl =
+      StreamController.broadcast();
+  Stream<SignalGroupInviteEvent> get groupInvites => _groupInviteCtrl.stream;
 
   // Emits a contactId when that contact's status is updated.
   final StreamController<String> _statusUpdatesCtrl = StreamController.broadcast();
@@ -794,8 +803,18 @@ class ChatController extends ChangeNotifier {
 
   bool isContactTyping(String contactId) => _isTypingMap[contactId] ?? false;
 
-  Future<void> sendTypingSignal(Contact contact) =>
-      _sendSignalTo(contact, 'typing', {'from': _selfId});
+  Future<void> sendTypingSignal(Contact contact) async {
+    if (contact.isGroup) {
+      // Fan-out to each member carrying groupId so receivers route to the group room
+      final memberContacts = _contacts.contacts
+          .where((c) => !c.isGroup && contact.members.contains(c.id))
+          .toList();
+      final payload = {'from': _selfId, 'groupId': contact.id};
+      await Future.wait(memberContacts.map((m) => _sendSignalTo(m, 'typing', payload)));
+    } else {
+      await _sendSignalTo(contact, 'typing', {'from': _selfId});
+    }
+  }
   // ─────────────────────────────────────────────────────────────────────────
 
   /// Broadcast our own status to all non-group contacts.
@@ -853,6 +872,37 @@ class ChatController extends ChangeNotifier {
     if (avatarB64.isNotEmpty) payload['avatar'] = avatarB64;
     final targets = _contacts.contacts.where((c) => !c.isGroup).toList();
     await Future.wait(targets.map((c) => _sendSignalTo(c, 'profile_update', payload)));
+  }
+
+  /// Send a group invitation to a specific contact.
+  Future<void> sendGroupInvite(Contact target, Contact group) async {
+    if (_identity == null || _selfId.isEmpty) return;
+    await _sendSignalTo(target, 'group_invite', {
+      'groupId': group.id,
+      'name': group.name,
+      'members': group.members,
+    });
+    debugPrint('[Group] Sent invite to ${target.name} for "${group.name}"');
+  }
+
+  /// Accept a group invite — create the group contact locally.
+  Future<void> acceptGroupInvite(SignalGroupInviteEvent invite) async {
+    final existing = _contacts.contacts.cast<Contact?>()
+        .firstWhere((c) => c?.isGroup == true && c?.id == invite.groupId,
+            orElse: () => null);
+    if (existing != null) return; // already a member
+    final newGroup = Contact(
+      id: invite.groupId,
+      name: invite.groupName,
+      provider: 'group',
+      databaseId: '',
+      publicKey: '',
+      isGroup: true,
+      members: invite.members,
+    );
+    await _contacts.addContact(newGroup);
+    debugPrint('[Group] Joined group "${invite.groupName}" via invite');
+    notifyListeners();
   }
 
   /// Broadcast updated group membership to all current members.
@@ -1017,15 +1067,15 @@ class ChatController extends ChangeNotifier {
       }
     }));
 
-    // Typing indicator
+    // Typing indicator — route to group room if groupId present, else 1-on-1
     _dispatcherSubs.add(d.typingEvents.listen((e) {
-      final cid = e.contact.id;
-      _isTypingMap[cid] = true;
-      if (!_typingStreamCtrl.isClosed) _typingStreamCtrl.add(cid);
-      _typingTimers[cid]?.cancel();
-      _typingTimers[cid] = Timer(const Duration(seconds: 4), () {
-        _isTypingMap.remove(cid);
-        if (!_typingStreamCtrl.isClosed) _typingStreamCtrl.add(cid);
+      final targetId = e.groupId ?? e.contact.id;
+      _isTypingMap[targetId] = true;
+      if (!_typingStreamCtrl.isClosed) _typingStreamCtrl.add(targetId);
+      _typingTimers[targetId]?.cancel();
+      _typingTimers[targetId] = Timer(const Duration(seconds: 4), () {
+        _isTypingMap.remove(targetId);
+        if (!_typingStreamCtrl.isClosed) _typingStreamCtrl.add(targetId);
       });
     }));
 
@@ -1162,6 +1212,11 @@ class ChatController extends ChangeNotifier {
     // Chunk re-requests
     _dispatcherSubs.add(d.chunkRequests.listen((e) {
       unawaited(_resendMissingChunks(e.fid, e.missing, e.senderId));
+    }));
+
+    // Group invites
+    _dispatcherSubs.add(d.groupInvites.listen((e) {
+      if (!_groupInviteCtrl.isClosed) _groupInviteCtrl.add(e);
     }));
 
     // Group membership updates from admin
@@ -1402,6 +1457,10 @@ class ChatController extends ChangeNotifier {
                    'msgId': msg.id,
                    'from': _selfId,
                  }));
+                 // Auto read receipt if this group chat is currently open
+                 if (targetContact.isGroup && _activeRoomId == targetContact.id) {
+                   unawaited(_sendGroupReadReceipt(senderContact, targetContact.id, decryptedMsg.id));
+                 }
                  final ttl = _chatTtls[targetContact.id] ?? 0;
                  if (ttl > 0) _scheduleTtlDelete(targetContact, decryptedMsg, ttl);
                }
@@ -2697,6 +2756,7 @@ class ChatController extends ChangeNotifier {
     _keyChangeCtrl.close();
     _tamperWarningCtrl.close();
     _failoverCtrl.close();
+    _groupInviteCtrl.close();
     _msgRateLimiter.clear();
     unawaited(VoiceService().dispose());
     // Zeroize key material from memory.

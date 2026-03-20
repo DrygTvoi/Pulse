@@ -18,6 +18,7 @@ import 'dart:typed_data';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
 import '../controllers/chat_controller.dart';
+import '../services/signal_dispatcher.dart';
 import '../models/message.dart';
 import '../widgets/avatar_widget.dart';
 import '../widgets/status_row.dart';
@@ -54,6 +55,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   StreamSubscription? _signalSubscription;
   StreamSubscription? _groupCallSubscription;
+  StreamSubscription? _groupInviteSubscription;
   StreamSubscription? _newMsgSubscription;
   StreamSubscription? _probeSubscription;
   StreamSubscription? _statusUpdatesSubscription;
@@ -87,6 +89,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _loadAll();
     _listenForIncomingCalls();
     _listenForIncomingGroupCalls();
+    _listenForGroupInvites();
     _searchController.addListener(_onSearchChanged);
     _probeSubscription = ConnectivityProbeService.instance.status.listen((s) {
       if (!mounted) return;
@@ -182,6 +185,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void dispose() {
     _signalSubscription?.cancel();
     _groupCallSubscription?.cancel();
+    _groupInviteSubscription?.cancel();
     _newMsgSubscription?.cancel();
     _probeSubscription?.cancel();
     _statusUpdatesSubscription?.cancel();
@@ -414,6 +418,48 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ));
             },
+          ),
+        ],
+      ).animate().scale(curve: Curves.easeOutBack),
+    );
+  }
+
+  void _listenForGroupInvites() {
+    _groupInviteSubscription = ChatController().groupInvites.listen((invite) {
+      if (!mounted) return;
+      _showGroupInviteDialog(invite);
+    }, onError: (e) => debugPrint('[HomeScreen] groupInvites stream error: $e'));
+  }
+
+  void _showGroupInviteDialog(SignalGroupInviteEvent invite) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppTheme.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.dialogRadius)),
+        title: Text(context.l10n.groupInviteTitle,
+            style: GoogleFonts.inter(color: AppTheme.textPrimary, fontWeight: FontWeight.w700)),
+        content: Text(
+          context.l10n.groupInviteBody(invite.fromContact.name, invite.groupName),
+          style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: DesignTokens.fontLg),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            style: TextButton.styleFrom(foregroundColor: AppTheme.textSecondary),
+            child: Text(context.l10n.groupInviteDecline, style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primary,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.radiusMedium)),
+            ),
+            onPressed: () async {
+              Navigator.pop(context);
+              await ChatController().acceptGroupInvite(invite);
+              if (mounted) _loadAll();
+            },
+            child: Text(context.l10n.groupInviteAccept, style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
           ),
         ],
       ).animate().scale(curve: Curves.easeOutBack),

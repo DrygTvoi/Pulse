@@ -838,6 +838,27 @@ class AppLocalizationsRu extends AppLocalizations {
   String get profileDeleteContact => 'Удалить контакт';
 
   @override
+  String get profileLeaveGroup => 'Покинуть группу';
+
+  @override
+  String get profileLeaveGroupBody =>
+      'Вы будете удалены из группы, и она будет удалена из ваших контактов.';
+
+  @override
+  String get groupInviteTitle => 'Приглашение в группу';
+
+  @override
+  String groupInviteBody(String from, String group) {
+    return '$from приглашает вас в \"$group\"';
+  }
+
+  @override
+  String get groupInviteAccept => 'Принять';
+
+  @override
+  String get groupInviteDecline => 'Отклонить';
+
+  @override
   String get transferTitle => 'Перенос на другое устройство';
 
   @override

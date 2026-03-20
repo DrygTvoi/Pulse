@@ -44,6 +44,10 @@ class _GroupCallScreenState extends State<GroupCallScreen> {
   bool _isMuted = false;
   bool _isCameraOff = false;
   bool _isSpeakerOn = true; // default to speaker for group audio calls
+  bool _isScreenSharing = false;
+
+  Timer? _audioLevelTimer;
+  final Map<String, bool> _speakingPeers = {};
 
   CallTransportProfile _currentProfile = CallTransportProfile.auto;
 
@@ -145,6 +149,7 @@ class _GroupCallScreenState extends State<GroupCallScreen> {
       setState(() => _peerStates[memberId] = state);
       if (state == RTCIceConnectionState.RTCIceConnectionStateConnected) {
         _startDurationTimer();
+        _startAudioLevelPolling(); // idempotent — cancels previous timer
       }
       // If all peers failed on auto → switch to restricted profile
       if (state == RTCIceConnectionState.RTCIceConnectionStateFailed &&
@@ -250,11 +255,50 @@ class _GroupCallScreenState extends State<GroupCallScreen> {
     }
   }
 
+  void _startAudioLevelPolling() {
+    _audioLevelTimer?.cancel();
+    _audioLevelTimer = Timer.periodic(const Duration(milliseconds: 500), (_) async {
+      if (_disposed || _groupSignaling == null) return;
+      final levels = await _groupSignaling!.getAudioLevels();
+      if (!mounted) return;
+      setState(() {
+        for (final id in _remoteRenderers.keys) {
+          _speakingPeers[id] = (levels[id] ?? 0.0) > 0.01;
+        }
+      });
+    });
+  }
+
+  Future<void> _toggleScreenShare() async {
+    if (!widget.isVideoCall) return;
+    try {
+      if (_isScreenSharing) {
+        final camStream = await navigator.mediaDevices.getUserMedia({'audio': false, 'video': true});
+        final track = camStream.getVideoTracks().first;
+        await _groupSignaling?.replaceVideoTrack(track);
+        await _localRenderer.initialize();
+        _localRenderer.srcObject = camStream;
+        _groupSignaling?.localStream = camStream;
+        if (mounted) setState(() => _isScreenSharing = false);
+      } else {
+        final screen = await navigator.mediaDevices.getDisplayMedia({'video': true, 'audio': false});
+        final track = screen.getVideoTracks().first;
+        await _groupSignaling?.replaceVideoTrack(track);
+        _localRenderer.srcObject = screen;
+        _groupSignaling?.localStream = screen;
+        if (mounted) setState(() => _isScreenSharing = true);
+      }
+    } catch (e) {
+      debugPrint('[GroupCall] Screen share error: $e');
+    }
+  }
+
   Future<void> _hangUp() async {
     if (_disposed) return;
     _disposed = true;
     _durationTimer?.cancel();
     _turnFailedTimer?.cancel();
+    _audioLevelTimer?.cancel();
     await _groupSignaling?.hangUp();
     _localRenderer.dispose();
     for (final r in _remoteRenderers.values) {
@@ -269,6 +313,7 @@ class _GroupCallScreenState extends State<GroupCallScreen> {
       _disposed = true;
       _durationTimer?.cancel();
       _turnFailedTimer?.cancel();
+      _audioLevelTimer?.cancel();
       _groupSignaling?.hangUp();
       _localRenderer.dispose();
       for (final r in _remoteRenderers.values) {
@@ -516,64 +561,88 @@ class _GroupCallScreenState extends State<GroupCallScreen> {
         ]),
       );
     }
-    return GridView.count(
-      crossAxisCount: entries.length == 1 ? 1 : 2,
-      physics: const NeverScrollableScrollPhysics(),
-      children: entries.map((entry) {
-        final memberId = entry.key;
-        final renderer = entry.value;
-        final state = _peerStates[memberId];
-        final connected = state == RTCIceConnectionState.RTCIceConnectionStateConnected ||
-            state == RTCIceConnectionState.RTCIceConnectionStateCompleted;
-        final memberContact = context.read<IContactRepository>()
-            .contacts
-            .cast<Contact?>()
-            .firstWhere((c) => c?.id == memberId, orElse: () => null);
+    final count = entries.length;
+    if (count == 1) {
+      return _buildPeerTile(entries[0]);
+    } else if (count == 2) {
+      return Row(children: entries.map((e) => Expanded(child: _buildPeerTile(e))).toList());
+    } else if (count == 3) {
+      return Column(children: [
+        Expanded(child: Row(children: [
+          Expanded(child: _buildPeerTile(entries[0])),
+          Expanded(child: _buildPeerTile(entries[1])),
+        ])),
+        Expanded(child: Center(child: AspectRatio(
+          aspectRatio: 1.5,
+          child: _buildPeerTile(entries[2]),
+        ))),
+      ]);
+    } else {
+      // 4+ peers: 2×2 grid
+      return GridView.count(
+        crossAxisCount: 2,
+        physics: const NeverScrollableScrollPhysics(),
+        children: entries.take(4).map(_buildPeerTile).toList(),
+      );
+    }
+  }
 
-        return Stack(children: [
-          Positioned.fill(
-            child: connected && renderer.textureId != null
-                ? RTCVideoView(
-                    renderer,
-                    objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
-                  )
-                : Container(
-                    color: const Color(0xFF1C1C1E),
-                    child: Center(
-                      child: _buildAvatar(memberContact?.name ?? '?', 64),
-                    ),
-                  ),
-          ),
-          // Name label
-          Positioned(
-            left: 10, bottom: 10,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: Colors.black54,
-                borderRadius: BorderRadius.circular(8),
+  Widget _buildPeerTile(MapEntry<String, RTCVideoRenderer> entry) {
+    final memberId = entry.key;
+    final renderer = entry.value;
+    final state = _peerStates[memberId];
+    final connected = state == RTCIceConnectionState.RTCIceConnectionStateConnected ||
+        state == RTCIceConnectionState.RTCIceConnectionStateCompleted;
+    final memberContact = context.read<IContactRepository>().contacts
+        .cast<Contact?>()
+        .firstWhere((c) => c?.id == memberId, orElse: () => null);
+    final isSpeaking = _speakingPeers[memberId] ?? false;
+
+    return Stack(children: [
+      Positioned.fill(
+        child: connected && renderer.textureId != null
+            ? RTCVideoView(renderer,
+                objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitCover)
+            : Container(
+                color: const Color(0xFF1C1C1E),
+                child: Center(child: _buildAvatar(memberContact?.name ?? '?', 64)),
               ),
-              child: Text(
-                memberContact?.name ?? memberId,
-                style: GoogleFonts.inter(
-                    color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
+      ),
+      // Speaking ring
+      if (isSpeaking)
+        Positioned.fill(
+          child: IgnorePointer(
+            child: Container(
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.greenAccent, width: 3),
               ),
             ),
           ),
-          // Connection status dot
-          Positioned(
-            right: 10, bottom: 12,
-            child: Container(
-              width: 8, height: 8,
-              decoration: BoxDecoration(
-                color: connected ? Colors.greenAccent : Colors.orangeAccent,
-                shape: BoxShape.circle,
-              ),
-            ),
+        ),
+      // Name label
+      Positioned(
+        left: 10, bottom: 10,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+              color: Colors.black54, borderRadius: BorderRadius.circular(8)),
+          child: Text(memberContact?.name ?? memberId,
+              style: GoogleFonts.inter(
+                  color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
+        ),
+      ),
+      // Connection dot
+      Positioned(
+        right: 10, bottom: 12,
+        child: Container(
+          width: 8, height: 8,
+          decoration: BoxDecoration(
+            color: connected ? Colors.greenAccent : Colors.orangeAccent,
+            shape: BoxShape.circle,
           ),
-        ]);
-      }).toList(),
-    );
+        ),
+      ),
+    ]);
   }
 
   Widget _buildAvatar(String name, double size) {
@@ -704,6 +773,17 @@ class _GroupCallScreenState extends State<GroupCallScreen> {
                 debugPrint('[GroupCall] setSpeakerphoneOn failed: $e');
               }
             },
+          ),
+        if (widget.isVideoCall)
+          _controlBtn(
+            icon: _isScreenSharing
+                ? Icons.stop_screen_share_rounded
+                : Icons.screen_share_rounded,
+            label: _isScreenSharing
+                ? context.l10n.callStopShare
+                : context.l10n.callShareScreen,
+            active: _isScreenSharing,
+            onTap: _toggleScreenShare,
           ),
       ]),
     );
