@@ -624,5 +624,17 @@
   "providerStorageNodeLabel": "URL узла хранения (необязательно)",
   "providerStorageNodeHint": "Оставьте пустым для встроенных узлов",
 
-  "transferInvalidCodeFormat": "Нераспознанный формат кода — должен начинаться с LAN: или NOS:"
+  "transferInvalidCodeFormat": "Нераспознанный формат кода — должен начинаться с LAN: или NOS:",
+
+  "profileCardSaved": "Профиль сохранён!",
+  "profileCardYourName": "Ваше имя",
+  "profileCardFingerprintCopied": "Отпечаток скопирован",
+  "profileCardE2eeIdentity": "E2EE-личность",
+  "profileCardDisplayName": "Имя",
+  "profileCardDisplayNameHint": "например, Иван Иванов",
+  "profileCardAbout": "О себе",
+  "profileCardAboutHint": "Приватность прежде всего \uD83D\uDD12",
+  "profileCardSaveButton": "Сохранить профиль",
+
+  "settingsBackupMessagesSubtitleV2": "Экспорт зашифрованных сообщений, контактов и аватаров в файл"
 }

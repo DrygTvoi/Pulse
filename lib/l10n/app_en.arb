@@ -1308,5 +1308,27 @@
   "@providerStorageNodeHint": { "description": "Hint for Oxen storage node URL field" },
 
   "transferInvalidCodeFormat": "Unrecognised code format \u2014 must start with LAN: or NOS:",
-  "@transferInvalidCodeFormat": { "description": "Error when transfer code format is not recognised" }
+  "@transferInvalidCodeFormat": { "description": "Error when transfer code format is not recognised" },
+
+  "profileCardSaved": "Profile saved!",
+  "@profileCardSaved": { "description": "Snackbar shown after saving profile" },
+  "profileCardYourName": "Your Name",
+  "@profileCardYourName": { "description": "Placeholder shown when display name is empty" },
+  "profileCardFingerprintCopied": "Fingerprint copied",
+  "@profileCardFingerprintCopied": { "description": "Snackbar shown after copying E2EE fingerprint" },
+  "profileCardE2eeIdentity": "E2EE Identity",
+  "@profileCardE2eeIdentity": { "description": "Badge label indicating end-to-end encrypted identity" },
+  "profileCardDisplayName": "Display Name",
+  "@profileCardDisplayName": { "description": "Label for display name input field" },
+  "profileCardDisplayNameHint": "e.g. Alex Smith",
+  "@profileCardDisplayNameHint": { "description": "Hint for display name input field" },
+  "profileCardAbout": "About",
+  "@profileCardAbout": { "description": "Label for about/bio input field" },
+  "profileCardAboutHint": "Privacy first \uD83D\uDD12",
+  "@profileCardAboutHint": { "description": "Hint for about/bio input field" },
+  "profileCardSaveButton": "Save Profile",
+  "@profileCardSaveButton": { "description": "Save button label on profile card" },
+
+  "settingsBackupMessagesSubtitleV2": "Export encrypted messages, contacts and avatars to a file",
+  "@settingsBackupMessagesSubtitleV2": { "description": "Updated backup subtitle mentioning contacts and avatars" }
 }

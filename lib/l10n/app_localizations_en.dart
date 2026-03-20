@@ -1151,7 +1151,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get profileCardDisplayName => 'Display Name';
 
   @override
-  String get profileCardDisplayNameHint => 'e.g. Ivan Ivanov';
+  String get profileCardDisplayNameHint => 'e.g. Alex Smith';
 
   @override
   String get profileCardAbout => 'About';
@@ -1960,4 +1960,17 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get transferInvalidCodeFormat =>
       'Unrecognised code format — must start with LAN: or NOS:';
+
+  @override
+  String get profileCardFingerprintCopied => 'Fingerprint copied';
+
+  @override
+  String get profileCardAboutHint => 'Privacy first 🔒';
+
+  @override
+  String get profileCardSaveButton => 'Save Profile';
+
+  @override
+  String get settingsBackupMessagesSubtitleV2 =>
+      'Export encrypted messages, contacts and avatars to a file';
 }

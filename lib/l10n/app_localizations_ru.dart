@@ -1128,10 +1128,10 @@ class AppLocalizationsRu extends AppLocalizations {
   String get profileCardE2eeIdentity => 'E2EE-личность';
 
   @override
-  String get profileCardDisplayName => 'Отображаемое имя';
+  String get profileCardDisplayName => 'Имя';
 
   @override
-  String get profileCardDisplayNameHint => 'напр. Иван Иванов';
+  String get profileCardDisplayNameHint => 'например, Иван Иванов';
 
   @override
   String get profileCardAbout => 'О себе';
@@ -1945,4 +1945,17 @@ class AppLocalizationsRu extends AppLocalizations {
   @override
   String get transferInvalidCodeFormat =>
       'Нераспознанный формат кода — должен начинаться с LAN: или NOS:';
+
+  @override
+  String get profileCardFingerprintCopied => 'Отпечаток скопирован';
+
+  @override
+  String get profileCardAboutHint => 'Приватность прежде всего 🔒';
+
+  @override
+  String get profileCardSaveButton => 'Сохранить профиль';
+
+  @override
+  String get settingsBackupMessagesSubtitleV2 =>
+      'Экспорт зашифрованных сообщений, контактов и аватаров в файл';
 }

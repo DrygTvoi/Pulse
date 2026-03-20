@@ -6,6 +6,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:image/image.dart' as img;
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../l10n/l10n_ext.dart';
 import '../theme/app_theme.dart';
 import '../controllers/chat_controller.dart';
 import '../services/signal_service.dart';
@@ -93,7 +94,7 @@ class _ProfileCardState extends State<ProfileCard> {
     setState(() => _saving = false);
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Profile saved!', style: GoogleFonts.inter()),
+        content: Text(context.l10n.profileCardSaved, style: GoogleFonts.inter()),
         backgroundColor: AppTheme.primary,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -151,7 +152,7 @@ class _ProfileCardState extends State<ProfileCard> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      name.isNotEmpty ? name : 'Your Name',
+                      name.isNotEmpty ? name : context.l10n.profileCardYourName,
                       style: GoogleFonts.inter(
                           color: name.isNotEmpty ? AppTheme.textPrimary : AppTheme.textSecondary,
                           fontSize: 18, fontWeight: FontWeight.w700),
@@ -162,7 +163,7 @@ class _ProfileCardState extends State<ProfileCard> {
                         onTap: () {
                           Clipboard.setData(ClipboardData(text: _fingerprint));
                           ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                            content: Text('Fingerprint copied', style: GoogleFonts.inter(fontSize: 13)),
+                            content: Text(context.l10n.profileCardFingerprintCopied, style: GoogleFonts.inter(fontSize: 13)),
                             duration: const Duration(seconds: 2),
                             backgroundColor: AppTheme.surfaceVariant,
                           ));
@@ -193,7 +194,7 @@ class _ProfileCardState extends State<ProfileCard> {
                       child: Row(mainAxisSize: MainAxisSize.min, children: [
                         Icon(Icons.lock_rounded, size: 10, color: AppTheme.primary),
                         const SizedBox(width: 4),
-                        Text('E2EE Identity',
+                        Text(context.l10n.profileCardE2eeIdentity,
                             style: GoogleFonts.inter(
                                 color: AppTheme.primary, fontSize: 10, fontWeight: FontWeight.w700)),
                       ]),
@@ -211,8 +212,8 @@ class _ProfileCardState extends State<ProfileCard> {
           // ─── Name field ─────────────────────────────
           _buildField(
             controller: _nameController,
-            label: 'Display Name',
-            hint: 'e.g. Ivan Ivanov',
+            label: context.l10n.profileCardDisplayName,
+            hint: context.l10n.profileCardDisplayNameHint,
             icon: Icons.person_rounded,
             onChanged: (_) => setState(() {}),
           ),
@@ -221,8 +222,8 @@ class _ProfileCardState extends State<ProfileCard> {
           // ─── About field ─────────────────────────────
           _buildField(
             controller: _aboutController,
-            label: 'About',
-            hint: 'Privacy first 🔒',
+            label: context.l10n.profileCardAbout,
+            hint: context.l10n.profileCardAboutHint,
             icon: Icons.info_outline_rounded,
           ),
           const SizedBox(height: 20),
@@ -247,7 +248,7 @@ class _ProfileCardState extends State<ProfileCard> {
               child: _saving
                   ? const SizedBox(width: 20, height: 20,
                       child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                  : Text('Save Profile', style: GoogleFonts.inter(
+                  : Text(context.l10n.profileCardSaveButton, style: GoogleFonts.inter(
                       fontWeight: FontWeight.w700, color: Colors.white, fontSize: 15)),
             ),
           ),

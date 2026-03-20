@@ -645,7 +645,10 @@ class ChatController extends ChangeNotifier {
         try {
           final cfg = jsonDecode(apiKey);
           if ((cfg['privkey'] as String? ?? '').isEmpty) return;
-        } catch (_) { return; }
+        } catch (e) {
+          debugPrint('[ChatController] publishSignalBundle: malformed Nostr config: $e');
+          return;
+        }
         sender = NostrMessageSender();
       } else if (provider == 'Waku') {
         sender = WakuMessageSender();

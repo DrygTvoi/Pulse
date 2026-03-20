@@ -2108,31 +2108,31 @@ abstract class AppLocalizations {
   /// **'Passwords do not match'**
   String get passwordsDoNotMatch;
 
-  /// Snackbar after saving profile
+  /// Snackbar shown after saving profile
   ///
   /// In en, this message translates to:
   /// **'Profile saved!'**
   String get profileCardSaved;
 
-  /// Badge text for E2EE identity
+  /// Badge label indicating end-to-end encrypted identity
   ///
   /// In en, this message translates to:
   /// **'E2EE Identity'**
   String get profileCardE2eeIdentity;
 
-  /// Label for display name field
+  /// Label for display name input field
   ///
   /// In en, this message translates to:
   /// **'Display Name'**
   String get profileCardDisplayName;
 
-  /// Hint for display name field
+  /// Hint for display name input field
   ///
   /// In en, this message translates to:
-  /// **'e.g. Ivan Ivanov'**
+  /// **'e.g. Alex Smith'**
   String get profileCardDisplayNameHint;
 
-  /// Label for about field
+  /// Label for about/bio input field
   ///
   /// In en, this message translates to:
   /// **'About'**
@@ -2144,7 +2144,7 @@ abstract class AppLocalizations {
   /// **'Save Profile'**
   String get profileCardSaveProfile;
 
-  /// Placeholder when name is empty
+  /// Placeholder shown when display name is empty
   ///
   /// In en, this message translates to:
   /// **'Your Name'**
@@ -3553,6 +3553,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Unrecognised code format — must start with LAN: or NOS:'**
   String get transferInvalidCodeFormat;
+
+  /// Snackbar shown after copying E2EE fingerprint
+  ///
+  /// In en, this message translates to:
+  /// **'Fingerprint copied'**
+  String get profileCardFingerprintCopied;
+
+  /// Hint for about/bio input field
+  ///
+  /// In en, this message translates to:
+  /// **'Privacy first 🔒'**
+  String get profileCardAboutHint;
+
+  /// Save button label on profile card
+  ///
+  /// In en, this message translates to:
+  /// **'Save Profile'**
+  String get profileCardSaveButton;
+
+  /// Updated backup subtitle mentioning contacts and avatars
+  ///
+  /// In en, this message translates to:
+  /// **'Export encrypted messages, contacts and avatars to a file'**
+  String get settingsBackupMessagesSubtitleV2;
 }
 
 class _AppLocalizationsDelegate

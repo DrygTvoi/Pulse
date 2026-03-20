@@ -745,7 +745,7 @@ class DataSection extends StatelessWidget {
           icon: Icons.cloud_download_rounded,
           iconColor: const Color(0xFF3498DB),
           title: context.l10n.settingsBackupMessages,
-          subtitle: context.l10n.settingsBackupMessagesSubtitle,
+          subtitle: context.l10n.settingsBackupMessagesSubtitleV2,
           onTap: () => _backupMessages(context),
         ),
         const SizedBox(height: 12),
