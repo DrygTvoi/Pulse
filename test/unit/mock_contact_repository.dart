@@ -29,4 +29,13 @@ class MockContactRepository implements IContactRepository {
     final idx = _contacts.indexWhere((c) => c.id == updated.id);
     if (idx != -1) _contacts[idx] = updated;
   }
+
+  @override
+  Contact? findById(String id) =>
+      _contacts.cast<Contact?>().firstWhere((c) => c?.id == id, orElse: () => null);
+
+  @override
+  Contact? findByAddress(String address) =>
+      _contacts.cast<Contact?>().firstWhere(
+          (c) => c?.databaseId == address, orElse: () => null);
 }

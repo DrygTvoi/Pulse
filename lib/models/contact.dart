@@ -1,6 +1,5 @@
-import 'dart:convert';
 import 'package:flutter/foundation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import '../services/local_storage_service.dart';
 import 'contact_repository.dart';
 
 class Contact {
@@ -104,35 +103,31 @@ class ContactManager implements IContactRepository {
 
   @override
   Future<void> loadContacts() async {
-    final prefs = await SharedPreferences.getInstance();
-    final String? contactsJson = prefs.getString('contacts');
-    if (contactsJson != null) {
-      try {
-        final List<dynamic> decoded = jsonDecode(contactsJson);
-        _contacts = decoded
-            .map((e) {
-              try { return Contact.fromMap(e); }
-              catch (_) { return null; }
-            })
-            .whereType<Contact>()
-            .toList();
-      } catch (e) {
-        debugPrint('[ContactManager] Failed to parse contacts: $e');
-        _contacts = [];
-      }
+    try {
+      final rows = await LocalStorageService().loadContacts();
+      _contacts = rows
+          .map((e) {
+            try { return Contact.fromMap(e); }
+            catch (_) { return null; }
+          })
+          .whereType<Contact>()
+          .toList();
+    } catch (e) {
+      debugPrint('[ContactManager] Failed to load contacts: $e');
+      _contacts = [];
     }
   }
 
   @override
   Future<void> addContact(Contact contact) async {
     _contacts.add(contact);
-    await _saveContacts();
+    await LocalStorageService().saveContact(contact.id, contact.toMap());
   }
 
   @override
   Future<void> removeContact(String id) async {
     _contacts.removeWhere((c) => c.id == id);
-    await _saveContacts();
+    await LocalStorageService().deleteContact(id);
   }
 
   @override
@@ -140,7 +135,7 @@ class ContactManager implements IContactRepository {
     final idx = _contacts.indexWhere((c) => c.id == updated.id);
     if (idx != -1) {
       _contacts[idx] = updated;
-      await _saveContacts();
+      await LocalStorageService().saveContact(updated.id, updated.toMap());
     }
   }
 
@@ -152,10 +147,4 @@ class ContactManager implements IContactRepository {
   Contact? findByAddress(String address) =>
       _contacts.cast<Contact?>().firstWhere(
           (c) => c?.databaseId == address, orElse: () => null);
-
-  Future<void> _saveContacts() async {
-    final prefs = await SharedPreferences.getInstance();
-    final String encoded = jsonEncode(_contacts.map((c) => c.toMap()).toList());
-    await prefs.setString('contacts', encoded);
-  }
 }

@@ -57,7 +57,7 @@ class LocalStorageService {
     _db = await databaseFactory.openDatabase(
       path,
       options: OpenDatabaseOptions(
-        version: 3,
+        version: 4,
         onConfigure: (db) async {
           if (dbKey != null) {
             await db.rawQuery("PRAGMA KEY=\"x'$dbKey'\"");
@@ -86,6 +86,7 @@ class LocalStorageService {
             )
           ''');
           await _createReactionsTable(db);
+          await _createContactsTable(db);
         },
         onUpgrade: (db, oldVersion, newVersion) async {
           if (oldVersion < 2) {
@@ -101,6 +102,9 @@ class LocalStorageService {
           if (oldVersion < 3) {
             await _createReactionsTable(db, ifNotExists: true);
           }
+          if (oldVersion < 4) {
+            await _createContactsTable(db, ifNotExists: true);
+          }
         },
       ),
     );
@@ -108,6 +112,7 @@ class LocalStorageService {
     await _migrateEncryption();
     await _migrateFromPrefs();
     await migrateReactionsFromPrefs();
+    await _migrateContactsFromPrefs();
 
     // Rotate DB encryption key if overdue (SQLCipher only; per-row key is static for now).
     if (_sqlcipherAvailable) {
@@ -132,6 +137,19 @@ class LocalStorageService {
     await db.execute(
       'CREATE INDEX ${q}idx_reactions_room_msg ON reactions(room_id, msg_id)',
     );
+  }
+
+  /// Create the contacts table inside [db].
+  /// Pass [ifNotExists] = true for upgrade/migration paths that must be idempotent.
+  static Future<void> _createContactsTable(Database db,
+      {bool ifNotExists = false}) async {
+    final q = ifNotExists ? 'IF NOT EXISTS ' : '';
+    await db.execute('''
+      CREATE TABLE ${q}contacts (
+        id   TEXT NOT NULL PRIMARY KEY,
+        data TEXT NOT NULL
+      )
+    ''');
   }
 
   /// Try to load libsqlcipher.so; if available, override the sqlite3 library
@@ -262,7 +280,7 @@ class LocalStorageService {
       // Create encrypted DB
       final encDb = await databaseFactory.openDatabase(path,
           options: OpenDatabaseOptions(
-            version: 3,
+            version: 4,
             onConfigure: (db) async {
               if (dbKey != null) {
                 await db.rawQuery("PRAGMA KEY=\"x'$dbKey'\"");
@@ -290,6 +308,7 @@ class LocalStorageService {
                 )
               ''');
               await _createReactionsTable(db);
+              await _createContactsTable(db);
             },
           ));
 
@@ -778,6 +797,96 @@ class LocalStorageService {
     debugPrint('[LocalStorage] Migrated reactions from ${keys.length} room(s) to SQLite');
   }
 
+  /// Migrate contacts from SharedPreferences to SQLite (one-time on upgrade to v4).
+  Future<void> _migrateContactsFromPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString('contacts');
+    if (raw == null) return;
+
+    List<dynamic> decoded;
+    try {
+      decoded = jsonDecode(raw) as List<dynamic>;
+    } catch (e) {
+      debugPrint('[LocalStorage] Failed to parse contacts for migration: $e');
+      await prefs.remove('contacts');
+      return;
+    }
+
+    final db = _database;
+    final batch = db.batch();
+    for (final item in decoded) {
+      try {
+        final map = item as Map<String, dynamic>;
+        final id = map['id'] as String? ?? '';
+        if (id.isEmpty) continue;
+        batch.insert(
+          'contacts',
+          {'id': id, 'data': jsonEncode(map)},
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      } catch (e) {
+        debugPrint('[LocalStorage] Skipping malformed contact during migration: $e');
+      }
+    }
+    await batch.commit(noResult: true);
+    await prefs.remove('contacts');
+    debugPrint('[LocalStorage] Migrated ${decoded.length} contact(s) from SharedPrefs to SQLite');
+  }
+
+  // ── Contacts public CRUD ────────────────────────────────────────────────────
+
+  /// Load all contacts from the database.
+  Future<List<Map<String, dynamic>>> loadContacts() async {
+    final rows = await _database.query('contacts');
+    final result = <Map<String, dynamic>>[];
+    for (final row in rows) {
+      try {
+        final map = jsonDecode(row['data'] as String) as Map<String, dynamic>;
+        result.add(map);
+      } catch (e) {
+        debugPrint('[LocalStorage] Skipping malformed contact row: $e');
+      }
+    }
+    return result;
+  }
+
+  /// Upsert (insert or replace) a single contact by its [id].
+  Future<void> saveContact(String id, Map<String, dynamic> data) async {
+    await _database.insert(
+      'contacts',
+      {'id': id, 'data': jsonEncode(data)},
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  /// Delete a single contact by [id].
+  Future<void> deleteContact(String id) async {
+    await _database.delete(
+      'contacts',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  /// Replace all contacts atomically (used on full re-sync or restore).
+  Future<void> saveAllContacts(List<Map<String, dynamic>> contacts) async {
+    final db = _database;
+    await db.transaction((txn) async {
+      await txn.delete('contacts');
+      final batch = txn.batch();
+      for (final map in contacts) {
+        final id = map['id'] as String? ?? '';
+        if (id.isEmpty) continue;
+        batch.insert(
+          'contacts',
+          {'id': id, 'data': jsonEncode(map)},
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+      await batch.commit(noResult: true);
+    });
+  }
+
   /// Delete all messages for a room.
   Future<void> clearHistory(String roomId) async {
     await _database.delete(
@@ -803,6 +912,7 @@ class LocalStorageService {
     await _database.delete('messages');
     await _database.delete('ttl_pending');
     await _database.delete('reactions');
+    await _database.delete('contacts');
   }
 
   // ── Encrypted Backup / Restore ──────────────────────────────────────────────
