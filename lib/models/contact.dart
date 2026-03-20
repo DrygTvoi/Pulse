@@ -99,8 +99,10 @@ class ContactManager implements IContactRepository {
   ContactManager._internal();
 
   List<Contact> _contacts = [];
+  @override
   List<Contact> get contacts => _contacts;
 
+  @override
   Future<void> loadContacts() async {
     final prefs = await SharedPreferences.getInstance();
     final String? contactsJson = prefs.getString('contacts');
@@ -121,16 +123,19 @@ class ContactManager implements IContactRepository {
     }
   }
 
+  @override
   Future<void> addContact(Contact contact) async {
     _contacts.add(contact);
     await _saveContacts();
   }
 
+  @override
   Future<void> removeContact(String id) async {
     _contacts.removeWhere((c) => c.id == id);
     await _saveContacts();
   }
 
+  @override
   Future<void> updateContact(Contact updated) async {
     final idx = _contacts.indexWhere((c) => c.id == updated.id);
     if (idx != -1) {
@@ -138,6 +143,15 @@ class ContactManager implements IContactRepository {
       await _saveContacts();
     }
   }
+
+  @override
+  Contact? findById(String id) =>
+      _contacts.cast<Contact?>().firstWhere((c) => c?.id == id, orElse: () => null);
+
+  @override
+  Contact? findByAddress(String address) =>
+      _contacts.cast<Contact?>().firstWhere(
+          (c) => c?.databaseId == address, orElse: () => null);
 
   Future<void> _saveContacts() async {
     final prefs = await SharedPreferences.getInstance();
