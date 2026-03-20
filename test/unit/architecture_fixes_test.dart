@@ -139,6 +139,47 @@ void main() {
   });
 
   // -------------------------------------------------------------------------
+  // Error recovery: unawaited + catchError pattern
+  // -------------------------------------------------------------------------
+  group('unawaited+catchError pattern', () {
+    test('catchError on future receives the thrown error', () async {
+      Object? caught;
+      // Simulates the pattern used in addReaction/removeReaction:
+      //   unawaited(someDbCall().catchError((e) => debugPrint(...)))
+      Future<void> failingOp() => Future.error(Exception('db write failed'));
+
+      unawaited(failingOp().catchError((Object e) { caught = e; }));
+      // Yield to allow microtask queue to flush
+      await Future<void>.delayed(Duration.zero);
+      expect(caught, isA<Exception>());
+      expect(caught.toString(), contains('db write failed'));
+    });
+
+    test('catchError does not suppress the success path', () async {
+      int called = 0;
+      Future<void> succeedingOp() async { called++; }
+
+      unawaited(succeedingOp().catchError((Object e) {}));
+      await Future<void>.delayed(Duration.zero);
+      expect(called, equals(1));
+    });
+
+    test('multiple concurrent unawaited operations complete independently', () async {
+      final results = <int>[];
+      for (int i = 0; i < 5; i++) {
+        final idx = i;
+        unawaited(
+          Future<void>.delayed(Duration(milliseconds: idx))
+              .then((_) => results.add(idx))
+              .catchError((Object _) {}),
+        );
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      expect(results.length, equals(5));
+    });
+  });
+
+  // -------------------------------------------------------------------------
   // MockContactRepository sanity (used by chat_controller_test too)
   // -------------------------------------------------------------------------
   group('MockContactRepository', () {

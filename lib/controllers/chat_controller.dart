@@ -90,8 +90,12 @@ class ChatController extends ChangeNotifier {
 
   /// Enable or disable the LAN adapter and reconnect the inbox.
   Future<void> setLanModeEnabled(bool enabled) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_kLanModeEnabled, enabled);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_kLanModeEnabled, enabled);
+    } catch (e) {
+      debugPrint('[ChatController] setLanModeEnabled: prefs write failed: $e');
+    }
     await reconnectInbox();
   }
 
@@ -2511,10 +2515,12 @@ class ChatController extends ChangeNotifier {
     if (set.contains(key)) {
       set.remove(key);
       remove = true;
-      unawaited(LocalStorageService().removeReaction(storageKey, msgId, emoji, _selfId));
+      unawaited(LocalStorageService().removeReaction(storageKey, msgId, emoji, _selfId)
+          .catchError((Object e) => debugPrint('[Chat] removeReaction DB failed: $e')));
     } else {
       set.add(key);
-      unawaited(LocalStorageService().addReaction(storageKey, msgId, emoji, _selfId));
+      unawaited(LocalStorageService().addReaction(storageKey, msgId, emoji, _selfId)
+          .catchError((Object e) => debugPrint('[Chat] addReaction DB failed: $e')));
     }
     notifyListeners();
     if (contact.isGroup) {
