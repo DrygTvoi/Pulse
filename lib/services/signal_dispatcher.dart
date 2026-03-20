@@ -148,7 +148,8 @@ class SignalGroupInviteEvent {
   final String groupId;
   final String groupName;
   final List<String> members;
-  SignalGroupInviteEvent(this.fromContact, this.groupId, this.groupName, this.members);
+  final String? creatorId;
+  SignalGroupInviteEvent(this.fromContact, this.groupId, this.groupName, this.members, {this.creatorId});
 }
 
 /// Group membership change broadcast by group admin.
@@ -156,7 +157,8 @@ class SignalGroupUpdateEvent {
   final String groupId;
   final String groupName;
   final List<String> members;
-  SignalGroupUpdateEvent(this.groupId, this.groupName, this.members);
+  final String? creatorId;
+  SignalGroupUpdateEvent(this.groupId, this.groupName, this.members, {this.creatorId});
 }
 
 // ── Callbacks for operations the dispatcher cannot do on its own ────────────
@@ -529,9 +531,11 @@ class SignalDispatcher {
             final groupId = payload['groupId'] as String?;
             final groupName = payload['name'] as String? ?? '';
             final rawMembers = payload['members'];
+            final creatorId = payload['creatorId'] as String?;
             if (groupId != null && rawMembers is List && !_groupUpdateCtrl.isClosed) {
               _groupUpdateCtrl.add(SignalGroupUpdateEvent(
-                  groupId, groupName, List<String>.from(rawMembers)));
+                  groupId, groupName, List<String>.from(rawMembers),
+                  creatorId: creatorId));
             }
           }
         } else if (sigType == 'group_invite') {
@@ -540,12 +544,14 @@ class SignalDispatcher {
             final groupId = payload['groupId'] as String?;
             final groupName = payload['name'] as String? ?? '';
             final rawMembers = payload['members'];
+            final creatorId = payload['creatorId'] as String?;
             final senderId = sig['senderId'] as String? ?? '';
             final inviter = _resolveContact(senderId, contactByDbId);
             if (groupId != null && rawMembers is List && inviter != null &&
                 !_groupInviteCtrl.isClosed) {
               _groupInviteCtrl.add(SignalGroupInviteEvent(
-                  inviter, groupId, groupName, List<String>.from(rawMembers)));
+                  inviter, groupId, groupName, List<String>.from(rawMembers),
+                  creatorId: creatorId));
             }
           }
         } else if (sigType == 'chunk_req') {

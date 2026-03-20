@@ -468,6 +468,18 @@
   "groupInviteDecline": "Decline",
   "@groupInviteDecline": { "description": "Decline group invite button" },
 
+  "groupMemberLimitTitle": "Too many participants",
+  "@groupMemberLimitTitle": { "description": "Title for dialog when group exceeds mesh call limit" },
+  "groupMemberLimitBody": "This group will have {count} participants. Encrypted mesh calls support up to 6. Larger groups fall back to Jitsi (not E2EE).",
+  "@groupMemberLimitBody": {
+    "description": "Body for dialog when group exceeds mesh call limit",
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "groupMemberLimitContinue": "Add anyway",
+  "@groupMemberLimitContinue": { "description": "Button to add members despite the call limit warning" },
+
   "transferTitle": "Transfer to Another Device",
   "@transferTitle": { "description": "Title for the device transfer screen" },
   "transferInfoBox": "Move your Signal identity and Nostr keys to a new device.\nChat sessions are NOT transferred \u2014 forward secrecy is preserved.",

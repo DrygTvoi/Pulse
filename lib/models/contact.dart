@@ -12,6 +12,8 @@ class Contact {
   final bool isGroup;
   // For groups: list of member contact IDs
   final List<String> members;
+  /// UUID of the contact who created this group — determines admin privileges.
+  final String? creatorId;
   /// Fallback addresses tried (in random order) if the primary [databaseId]
   /// is unreachable. Same protocol or cross-protocol alternates are supported.
   /// Format: same as [databaseId] — e.g. "pubkey@wss://relay2.example.com"
@@ -28,6 +30,7 @@ class Contact {
     this.avatarUrl,
     this.isGroup = false,
     this.members = const [],
+    this.creatorId,
     this.alternateAddresses = const [],
     this.bio = '',
   });
@@ -47,6 +50,7 @@ class Contact {
       'avatarUrl': avatarUrl,
       'isGroup': isGroup,
       'members': members,
+      if (creatorId != null) 'creatorId': creatorId,
       'alternateAddresses': alternateAddresses,
       if (bio.isNotEmpty) 'bio': bio,
     };
@@ -59,6 +63,7 @@ class Contact {
     String? publicKey,
     String? avatarUrl,
     List<String>? members,
+    String? creatorId,
     List<String>? alternateAddresses,
     String? bio,
   }) {
@@ -71,6 +76,7 @@ class Contact {
       avatarUrl: avatarUrl ?? this.avatarUrl,
       isGroup: isGroup,
       members: members ?? this.members,
+      creatorId: creatorId ?? this.creatorId,
       alternateAddresses: alternateAddresses ?? this.alternateAddresses,
       bio: bio ?? this.bio,
     );
@@ -86,6 +92,7 @@ class Contact {
       avatarUrl: map['avatarUrl'],
       isGroup: map['isGroup'] ?? false,
       members: List<String>.from(map['members'] ?? []),
+      creatorId: map['creatorId'] as String?,
       alternateAddresses: List<String>.from(map['alternateAddresses'] ?? []),
       bio: map['bio'] as String? ?? '',
     );

@@ -177,6 +177,10 @@ class ChatController extends ChangeNotifier {
   Stream<String> get e2eeFailures => _e2eeFailCtrl.stream;
 
   // Emits incoming group invites.
+  final StreamController<SignalGroupUpdateEvent> _groupUpdatePublicCtrl =
+      StreamController.broadcast();
+  Stream<SignalGroupUpdateEvent> get groupUpdates => _groupUpdatePublicCtrl.stream;
+
   final StreamController<SignalGroupInviteEvent> _groupInviteCtrl =
       StreamController.broadcast();
   Stream<SignalGroupInviteEvent> get groupInvites => _groupInviteCtrl.stream;
@@ -881,6 +885,7 @@ class ChatController extends ChangeNotifier {
       'groupId': group.id,
       'name': group.name,
       'members': group.members,
+      if (group.creatorId != null) 'creatorId': group.creatorId,
     });
     debugPrint('[Group] Sent invite to ${target.name} for "${group.name}"');
   }
@@ -899,6 +904,7 @@ class ChatController extends ChangeNotifier {
       publicKey: '',
       isGroup: true,
       members: invite.members,
+      creatorId: invite.creatorId,
     );
     await _contacts.addContact(newGroup);
     debugPrint('[Group] Joined group "${invite.groupName}" via invite');
@@ -913,6 +919,7 @@ class ChatController extends ChangeNotifier {
       'groupId': group.id,
       'name': group.name,
       'members': group.members,
+      if (group.creatorId != null) 'creatorId': group.creatorId,
     };
     final memberContacts = _contacts.contacts
         .where((c) => !c.isGroup && group.members.contains(c.id))
@@ -1227,9 +1234,11 @@ class ChatController extends ChangeNotifier {
       final updated = group.copyWith(
         name: e.groupName.isNotEmpty ? e.groupName : group.name,
         members: e.members,
+        creatorId: group.creatorId ?? e.creatorId,
       );
       await _contacts.updateContact(updated);
       debugPrint('[Group] Membership updated for ${updated.name}: ${e.members.length} members');
+      if (!_groupUpdatePublicCtrl.isClosed) _groupUpdatePublicCtrl.add(e);
       notifyListeners();
     }));
   }
@@ -2757,6 +2766,7 @@ class ChatController extends ChangeNotifier {
     _tamperWarningCtrl.close();
     _failoverCtrl.close();
     _groupInviteCtrl.close();
+    _groupUpdatePublicCtrl.close();
     _msgRateLimiter.clear();
     unawaited(VoiceService().dispose());
     // Zeroize key material from memory.

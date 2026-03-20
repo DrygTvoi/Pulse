@@ -49,6 +49,8 @@ class _GroupCallScreenState extends State<GroupCallScreen> {
   Timer? _audioLevelTimer;
   final Map<String, bool> _speakingPeers = {};
 
+  StreamSubscription? _groupUpdateSub;
+
   CallTransportProfile _currentProfile = CallTransportProfile.auto;
 
   // Jitsi fallback
@@ -179,7 +181,40 @@ class _GroupCallScreenState extends State<GroupCallScreen> {
       await _groupSignaling!.createOffers();
     }
 
+    // Subscribe to roster changes (kick/add during active call)
+    _groupUpdateSub = context.read<ChatController>().groupUpdates.listen((e) {
+      if (!mounted || _disposed) return;
+      if (e.groupId != widget.group.id) return;
+      _handleRosterChange(e.members);
+    });
+
     if (mounted) setState(() => _ready = true);
+  }
+
+  Future<void> _handleRosterChange(List<String> newMemberIds) async {
+    if (_disposed || _groupSignaling == null) return;
+    final allContacts = context.read<IContactRepository>().contacts;
+    final oldIds = Set<String>.from(_remoteRenderers.keys);
+    final newIds = newMemberIds.toSet()..remove(widget.myId);
+
+    // Remove peers that left
+    for (final removedId in oldIds.difference(newIds)) {
+      await _groupSignaling!.removePeer(removedId);
+      _remoteRenderers[removedId]?.dispose();
+      if (mounted) setState(() => _remoteRenderers.remove(removedId));
+    }
+
+    // Add peers that joined
+    for (final addedId in newIds.difference(oldIds)) {
+      final contact = allContacts.cast<Contact?>()
+          .firstWhere((c) => c?.id == addedId, orElse: () => null);
+      if (contact == null) continue;
+      final r = RTCVideoRenderer();
+      await r.initialize();
+      if (mounted) setState(() => _remoteRenderers[addedId] = r);
+      await _groupSignaling!.addPeer(contact);
+      if (widget.isCaller) await _groupSignaling!.createOfferTo(contact);
+    }
   }
 
   void _startTurnFailedTimer() {
@@ -299,6 +334,7 @@ class _GroupCallScreenState extends State<GroupCallScreen> {
     _durationTimer?.cancel();
     _turnFailedTimer?.cancel();
     _audioLevelTimer?.cancel();
+    _groupUpdateSub?.cancel();
     await _groupSignaling?.hangUp();
     _localRenderer.dispose();
     for (final r in _remoteRenderers.values) {
@@ -314,6 +350,7 @@ class _GroupCallScreenState extends State<GroupCallScreen> {
       _durationTimer?.cancel();
       _turnFailedTimer?.cancel();
       _audioLevelTimer?.cancel();
+      _groupUpdateSub?.cancel();
       _groupSignaling?.hangUp();
       _localRenderer.dispose();
       for (final r in _remoteRenderers.values) {

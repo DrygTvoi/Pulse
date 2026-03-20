@@ -879,6 +879,17 @@ class AppLocalizationsEn extends AppLocalizations {
   String get groupInviteDecline => 'Decline';
 
   @override
+  String get groupMemberLimitTitle => 'Too many participants';
+
+  @override
+  String groupMemberLimitBody(int count) {
+    return 'This group will have $count participants. Encrypted mesh calls support up to 6. Larger groups fall back to Jitsi (not E2EE).';
+  }
+
+  @override
+  String get groupMemberLimitContinue => 'Add anyway';
+
+  @override
   String get transferTitle => 'Transfer to Another Device';
 
   @override

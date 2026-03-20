@@ -859,6 +859,17 @@ class AppLocalizationsRu extends AppLocalizations {
   String get groupInviteDecline => 'Отклонить';
 
   @override
+  String get groupMemberLimitTitle => 'Слишком много участников';
+
+  @override
+  String groupMemberLimitBody(int count) {
+    return 'В группе будет $count участников. Зашифрованные mesh-звонки поддерживают до 6. Большие группы переключаются на Jitsi (без E2EE).';
+  }
+
+  @override
+  String get groupMemberLimitContinue => 'Добавить всё равно';
+
+  @override
   String get transferTitle => 'Перенос на другое устройство';
 
   @override

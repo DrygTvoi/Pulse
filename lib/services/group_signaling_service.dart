@@ -20,13 +20,20 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 class GroupSignalingService {
   final Contact group;
   final String myId;
-  final List<Contact> members; // resolved Contact objects (not the group itself)
+  List<Contact> members; // mutable — updated on roster changes
 
   static const _secureStorage = FlutterSecureStorage();
+  static const _maxOfferRetries = 3;
+  static const _offerRetryDelay = Duration(seconds: 30);
 
   // One peer connection per remote member
   final Map<String, RTCPeerConnection> _peers = {};
   final Map<String, MediaStream> _remoteStreams = {};
+
+  // Offer retransmission state
+  final Set<String> _answeredPeers = {};
+  final Map<String, Timer> _offerRetryTimers = {};
+  final Map<String, int> _offerRetryCount = {};
 
   MediaStream? localStream;
 
@@ -40,8 +47,8 @@ class GroupSignalingService {
   GroupSignalingService({
     required this.group,
     required this.myId,
-    required this.members,
-  });
+    required List<Contact> members,
+  }) : members = List<Contact>.from(members);
 
   /// SHA-256(groupId) hex — used as routing token so relay can't see group UUID.
   static String _routingToken(String groupId) =>
@@ -49,7 +56,6 @@ class GroupSignalingService {
 
   Future<void> init({CallTransportProfile profile = CallTransportProfile.auto}) async {
     _peerConfig = await profile.peerConfig();
-    // Create one peer connection per member
     for (final member in members) {
       await _createPeer(member);
     }
@@ -86,16 +92,75 @@ class GroupSignalingService {
     }
   }
 
+  // ── Offer retransmission ────────────────────────────────────────────────
+
+  /// Send an offer to [member] and schedule retransmission if no answer arrives.
+  Future<void> _sendOfferTo(Contact member) async {
+    final pc = _peers[member.id];
+    if (pc == null) return;
+    final offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+    await _sendSignal(member, 'webrtc_offer', offer.toMap());
+    _scheduleOfferRetry(member);
+  }
+
+  void _scheduleOfferRetry(Contact member) {
+    _offerRetryTimers[member.id]?.cancel();
+    final retries = _offerRetryCount[member.id] ?? 0;
+    if (retries >= _maxOfferRetries) return;
+
+    _offerRetryTimers[member.id] = Timer(_offerRetryDelay, () async {
+      if (_answeredPeers.contains(member.id)) return;
+      _offerRetryCount[member.id] = retries + 1;
+      debugPrint('[GroupSignaling] Retrying offer to ${member.id} '
+          '(attempt ${retries + 1}/$_maxOfferRetries)');
+      await _sendOfferTo(member);
+    });
+  }
+
   /// Caller initiates: send offer to every member
   Future<void> createOffers() async {
     for (final member in members) {
-      final pc = _peers[member.id];
-      if (pc == null) continue;
-      final offer = await pc.createOffer();
-      await pc.setLocalDescription(offer);
-      await _sendSignal(member, 'webrtc_offer', offer.toMap());
+      if (_peers.containsKey(member.id)) {
+        await _sendOfferTo(member);
+      }
     }
   }
+
+  /// Send an offer to a single member (for late joiners or roster updates).
+  Future<void> createOfferTo(Contact member) async {
+    await _sendOfferTo(member);
+  }
+
+  // ── Dynamic roster management ───────────────────────────────────────────
+
+  /// Add a peer connection for a newly joined member.
+  Future<void> addPeer(Contact member) async {
+    if (_peers.containsKey(member.id)) return;
+    members.add(member);
+    final pc = await _createPeer(member);
+    if (localStream != null) {
+      localStream!.getTracks().forEach((t) => pc.addTrack(t, localStream!));
+    }
+    debugPrint('[GroupSignaling] Added peer: ${member.name}');
+  }
+
+  /// Remove the peer connection for a member who left the group.
+  Future<void> removePeer(String memberId) async {
+    _offerRetryTimers[memberId]?.cancel();
+    _offerRetryTimers.remove(memberId);
+    _offerRetryCount.remove(memberId);
+    _answeredPeers.remove(memberId);
+    await _peers[memberId]?.close();
+    _peers.remove(memberId);
+    _remoteStreams[memberId]?.getTracks().forEach((t) => t.stop());
+    await _remoteStreams[memberId]?.dispose();
+    _remoteStreams.remove(memberId);
+    members.removeWhere((m) => m.id == memberId);
+    debugPrint('[GroupSignaling] Removed peer: $memberId');
+  }
+
+  // ── Signal listener ─────────────────────────────────────────────────────
 
   void _listenForSignals() {
     _signalSub = ChatController().signalStream.listen((sig) async {
@@ -146,6 +211,10 @@ class GroupSignalingService {
           await _sendSignal(member, 'webrtc_answer', answer.toMap());
         } else if (type == 'webrtc_answer') {
           await pc.setRemoteDescription(RTCSessionDescription(data['sdp'], data['type']));
+          // Mark answered and cancel retry timer
+          _answeredPeers.add(member.id);
+          _offerRetryTimers[member.id]?.cancel();
+          _offerRetryTimers.remove(member.id);
         } else if (type == 'webrtc_candidate') {
           await pc.addCandidate(RTCIceCandidate(data['candidate'], data['sdpMid'], data['sdpMLineIndex']));
         }
@@ -232,6 +301,12 @@ class GroupSignalingService {
 
   Future<void> hangUp() async {
     _signalSub?.cancel();
+    for (final t in _offerRetryTimers.values) {
+      t.cancel();
+    }
+    _offerRetryTimers.clear();
+    _answeredPeers.clear();
+    _offerRetryCount.clear();
     localStream?.getTracks().forEach((t) => t.stop());
     await localStream?.dispose();
     for (final entry in _remoteStreams.entries) {

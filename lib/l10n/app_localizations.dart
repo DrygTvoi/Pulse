@@ -1628,6 +1628,24 @@ abstract class AppLocalizations {
   /// **'Decline'**
   String get groupInviteDecline;
 
+  /// Title for dialog when group exceeds mesh call limit
+  ///
+  /// In en, this message translates to:
+  /// **'Too many participants'**
+  String get groupMemberLimitTitle;
+
+  /// Body for dialog when group exceeds mesh call limit
+  ///
+  /// In en, this message translates to:
+  /// **'This group will have {count} participants. Encrypted mesh calls support up to 6. Larger groups fall back to Jitsi (not E2EE).'**
+  String groupMemberLimitBody(int count);
+
+  /// Button to add members despite the call limit warning
+  ///
+  /// In en, this message translates to:
+  /// **'Add anyway'**
+  String get groupMemberLimitContinue;
+
   /// Title for the device transfer screen
   ///
   /// In en, this message translates to:

@@ -664,6 +664,88 @@ void main() {
     });
   });
 
+  group('SignalDispatcher group_invite', () {
+    test('emits group invite from known sender', () async {
+      final d = _dispatcher();
+      final events = <SignalGroupInviteEvent>[];
+      d.groupInvites.listen(events.add);
+
+      await d.dispatch([
+        {
+          'type': 'group_invite',
+          'senderId': 'alice@wss://relay',
+          'payload': {
+            'groupId': 'g42',
+            'name': 'Dev Team',
+            'members': ['alice@wss://relay', 'bob@wss://relay'],
+          },
+        },
+      ]);
+      await Future.delayed(Duration.zero);
+
+      expect(events, hasLength(1));
+      expect(events.first.groupId, 'g42');
+      expect(events.first.groupName, 'Dev Team');
+      expect(events.first.fromContact.name, 'Alice');
+      expect(events.first.members, contains('alice@wss://relay'));
+    });
+
+    test('drops group invite from unknown sender', () async {
+      final d = _dispatcher();
+      final events = <SignalGroupInviteEvent>[];
+      d.groupInvites.listen(events.add);
+
+      await d.dispatch([
+        {
+          'type': 'group_invite',
+          'senderId': 'stranger@wss://relay',
+          'payload': {
+            'groupId': 'g99',
+            'groupName': 'Spam Group',
+            'members': ['stranger@wss://relay'],
+          },
+        },
+      ]);
+      await Future.delayed(Duration.zero);
+
+      expect(events, isEmpty);
+    });
+  });
+
+  group('SignalDispatcher typing with groupId', () {
+    test('emits typing event with groupId populated', () async {
+      final d = _dispatcher();
+      final events = <SignalTypingEvent>[];
+      d.typingEvents.listen(events.add);
+
+      await d.dispatch([
+        {
+          'type': 'typing',
+          'senderId': 'alice@wss://relay',
+          'payload': {'groupId': 'g7'},
+        },
+      ]);
+      await Future.delayed(Duration.zero);
+
+      expect(events, hasLength(1));
+      expect(events.first.groupId, 'g7');
+    });
+
+    test('emits typing event with null groupId when absent', () async {
+      final d = _dispatcher();
+      final events = <SignalTypingEvent>[];
+      d.typingEvents.listen(events.add);
+
+      await d.dispatch([
+        {'type': 'typing', 'senderId': 'alice@wss://relay'},
+      ]);
+      await Future.delayed(Duration.zero);
+
+      expect(events, hasLength(1));
+      expect(events.first.groupId, isNull);
+    });
+  });
+
   group('SignalDispatcher dispose', () {
     test('dispose closes all streams', () async {
       final d = _dispatcher();

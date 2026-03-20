@@ -288,6 +288,32 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
   }
 
   void _showAddMembersSheet() {
+    const meshMemberLimit = 6;
+    if (_contact.members.length >= meshMemberLimit) {
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: AppTheme.surface,
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(DesignTokens.dialogRadius)),
+          title: Text(context.l10n.groupMemberLimitTitle,
+              style: GoogleFonts.inter(
+                  color: AppTheme.textPrimary, fontWeight: FontWeight.w700)),
+          content: Text(
+              context.l10n.groupMemberLimitBody(_contact.members.length),
+              style: GoogleFonts.inter(color: AppTheme.textSecondary)),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text(context.l10n.cancel,
+                  style: GoogleFonts.inter(color: AppTheme.textSecondary)),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
     final currentMemberIds = Set<String>.from(_contact.members);
     final candidates = context.read<IContactRepository>().contacts
         .where((c) => !c.isGroup && !currentMemberIds.contains(c.id))
@@ -333,8 +359,54 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
                       TextButton(
                         onPressed: () async {
                           Navigator.pop(ctx);
+                          // Dedup: filter out any IDs already in the group
+                          final existingIds = Set<String>.from(_contact.members);
+                          final uniqueNew = selected
+                              .where((id) => !existingIds.contains(id))
+                              .toList();
+                          if (uniqueNew.isEmpty) return;
+                          // Warn but don't block if total exceeds mesh limit
+                          final total = _contact.members.length + uniqueNew.length;
+                          if (total > meshMemberLimit && mounted) {
+                            final proceed = await showDialog<bool>(
+                              context: context,
+                              builder: (dctx) => AlertDialog(
+                                backgroundColor: AppTheme.surface,
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(
+                                        DesignTokens.dialogRadius)),
+                                title: Text(context.l10n.groupMemberLimitTitle,
+                                    style: GoogleFonts.inter(
+                                        color: AppTheme.textPrimary,
+                                        fontWeight: FontWeight.w700)),
+                                content: Text(
+                                    context.l10n.groupMemberLimitBody(total),
+                                    style: GoogleFonts.inter(
+                                        color: AppTheme.textSecondary)),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () =>
+                                        Navigator.pop(dctx, false),
+                                    child: Text(context.l10n.cancel,
+                                        style: GoogleFonts.inter(
+                                            color: AppTheme.textSecondary)),
+                                  ),
+                                  TextButton(
+                                    onPressed: () =>
+                                        Navigator.pop(dctx, true),
+                                    child: Text(
+                                        context.l10n.groupMemberLimitContinue,
+                                        style: GoogleFonts.inter(
+                                            color: AppTheme.primary,
+                                            fontWeight: FontWeight.w600)),
+                                  ),
+                                ],
+                              ),
+                            );
+                            if (proceed != true) return;
+                          }
                           final updated = _contact.copyWith(
-                            members: [..._contact.members, ...selected],
+                            members: [..._contact.members, ...uniqueNew],
                           );
                           await context.read<IContactRepository>().updateContact(updated);
                           if (mounted) {
@@ -344,7 +416,7 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
                             unawaited(context.read<ChatController>().broadcastGroupUpdate(updated));
                             // Invite each newly added member so they get the group
                             final ctrl = context.read<ChatController>();
-                            for (final newId in selected) {
+                            for (final newId in uniqueNew) {
                               final newContact = context
                                   .read<IContactRepository>()
                                   .contacts

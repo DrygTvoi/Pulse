@@ -409,10 +409,12 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   void _openProfile() {
+    final myId = context.read<ChatController>().identity?.id ?? '';
+    final isAdmin = !_contact.isGroup || _contact.creatorId == null || _contact.creatorId == myId;
     showContactProfile(
       context,
       _contact,
-      isAdmin: true,
+      isAdmin: isAdmin,
       onContactUpdated: (updated) {
         if (mounted) setState(() => _contact = updated);
       },

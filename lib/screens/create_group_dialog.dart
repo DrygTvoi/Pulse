@@ -6,6 +6,7 @@ import '../theme/app_theme.dart';
 import '../theme/design_tokens.dart';
 import '../models/contact.dart';
 import '../models/contact_repository.dart';
+import '../controllers/chat_controller.dart';
 import '../l10n/l10n_ext.dart';
 
 class CreateGroupDialog extends StatefulWidget {
@@ -37,6 +38,7 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
     final name = _nameController.text.trim();
     if (name.isEmpty || _selectedIds.length < 2) return;
 
+    final myId = context.read<ChatController>().identity?.id ?? '';
     final group = Contact(
       id: const Uuid().v4(),
       name: name,
@@ -45,6 +47,7 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
       publicKey: '',
       isGroup: true,
       members: _selectedIds.toList(),
+      creatorId: myId.isNotEmpty ? myId : null,
     );
     widget.onCreate(group);
     Navigator.pop(context);
