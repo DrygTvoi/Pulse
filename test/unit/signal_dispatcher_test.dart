@@ -871,6 +871,139 @@ void main() {
     });
   });
 
+  group('SignalDispatcher msg_delete', () {
+    test('emits msg_delete event with groupId from known sender', () async {
+      final d = _dispatcher();
+      final events = <SignalMsgDeleteEvent>[];
+      d.msgDeletes.listen(events.add);
+
+      await d.dispatch([
+        {
+          'type': 'msg_delete',
+          'senderId': 'alice@wss://relay',
+          'payload': {
+            'msgId': 'msg-to-delete',
+            'groupId': 'g42',
+            'from': 'alice@wss://relay',
+          },
+        },
+      ]);
+      await Future.delayed(Duration.zero);
+
+      expect(events, hasLength(1));
+      expect(events.first.msgId, 'msg-to-delete');
+      expect(events.first.groupId, 'g42');
+      expect(events.first.fromId, 'alice@wss://relay');
+    });
+
+    test('emits msg_delete event without groupId for 1-on-1', () async {
+      final d = _dispatcher();
+      final events = <SignalMsgDeleteEvent>[];
+      d.msgDeletes.listen(events.add);
+
+      await d.dispatch([
+        {
+          'type': 'msg_delete',
+          'senderId': 'alice@wss://relay',
+          'payload': {
+            'msgId': 'solo-msg',
+            'from': 'alice@wss://relay',
+          },
+        },
+      ]);
+      await Future.delayed(Duration.zero);
+
+      expect(events, hasLength(1));
+      expect(events.first.msgId, 'solo-msg');
+      expect(events.first.groupId, isNull);
+    });
+
+    test('drops msg_delete with missing msgId', () async {
+      final d = _dispatcher();
+      final events = <SignalMsgDeleteEvent>[];
+      d.msgDeletes.listen(events.add);
+
+      await d.dispatch([
+        {
+          'type': 'msg_delete',
+          'senderId': 'alice@wss://relay',
+          'payload': {'groupId': 'g42'},
+        },
+      ]);
+      await Future.delayed(Duration.zero);
+
+      expect(events, isEmpty);
+    });
+  });
+
+  group('SignalDispatcher incoming group call isVideoCall', () {
+    test('emits isVideoCall=true when flag is true in payload', () async {
+      final d = _dispatcher();
+      final events = <SignalIncomingGroupCallEvent>[];
+      d.incomingGroupCalls.listen(events.add);
+
+      await d.dispatch([
+        {
+          'type': 'webrtc_offer',
+          'senderId': 'alice@wss://relay',
+          'payload': {
+            'groupId': 'g5',
+            'isVideoCall': true,
+            '_g': 'hash',
+          },
+        },
+      ]);
+      await Future.delayed(Duration.zero);
+
+      expect(events, hasLength(1));
+      expect(events.first.groupId, 'g5');
+      expect(events.first.isVideoCall, isTrue);
+    });
+
+    test('emits isVideoCall=false when flag is false in payload', () async {
+      final d = _dispatcher();
+      final events = <SignalIncomingGroupCallEvent>[];
+      d.incomingGroupCalls.listen(events.add);
+
+      await d.dispatch([
+        {
+          'type': 'webrtc_offer',
+          'senderId': 'alice@wss://relay',
+          'payload': {
+            'groupId': 'g6',
+            'isVideoCall': false,
+            '_g': 'hash',
+          },
+        },
+      ]);
+      await Future.delayed(Duration.zero);
+
+      expect(events, hasLength(1));
+      expect(events.first.isVideoCall, isFalse);
+    });
+
+    test('defaults isVideoCall=true when flag is absent', () async {
+      final d = _dispatcher();
+      final events = <SignalIncomingGroupCallEvent>[];
+      d.incomingGroupCalls.listen(events.add);
+
+      await d.dispatch([
+        {
+          'type': 'webrtc_offer',
+          'senderId': 'alice@wss://relay',
+          'payload': {
+            'groupId': 'g7',
+            '_g': 'hash',
+          },
+        },
+      ]);
+      await Future.delayed(Duration.zero);
+
+      expect(events, hasLength(1));
+      expect(events.first.isVideoCall, isTrue);
+    });
+  });
+
   group('SignalDispatcher dispose', () {
     test('dispose closes all streams', () async {
       final d = _dispatcher();

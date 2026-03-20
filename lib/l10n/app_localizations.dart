@@ -3643,6 +3643,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Export encrypted messages, contacts and avatars to a file'**
   String get settingsBackupMessagesSubtitleV2;
+
+  /// Label for video call type
+  ///
+  /// In en, this message translates to:
+  /// **'Video'**
+  String get callVideo;
+
+  /// Label for audio call type
+  ///
+  /// In en, this message translates to:
+  /// **'Audio'**
+  String get callAudio;
+
+  /// Shows delivery status to named members
+  ///
+  /// In en, this message translates to:
+  /// **'Delivered to {names}'**
+  String bubbleDeliveredTo(String names);
+
+  /// Shows delivery status to N members
+  ///
+  /// In en, this message translates to:
+  /// **'Delivered to {count}'**
+  String bubbleDeliveredToCount(int count);
 }
 
 class _AppLocalizationsDelegate

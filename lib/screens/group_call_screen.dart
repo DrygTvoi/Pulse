@@ -139,6 +139,7 @@ class _GroupCallScreenState extends State<GroupCallScreen> {
       group: widget.group,
       myId: widget.myId,
       members: memberContacts,
+      isVideoCall: widget.isVideoCall,
     );
 
     _groupSignaling!.onRemoteStream = (memberId, stream) {
@@ -167,7 +168,11 @@ class _GroupCallScreenState extends State<GroupCallScreen> {
     if (_disposed) return;
 
     final localStream = await navigator.mediaDevices.getUserMedia({
-      'audio': true,
+      'audio': {
+        'noiseSuppression': true,
+        'echoCancellation': true,
+        'autoGainControl': true,
+      },
       'video': widget.isVideoCall,
     });
     if (_disposed) {

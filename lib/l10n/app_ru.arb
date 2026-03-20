@@ -647,5 +647,10 @@
   "profileCardAboutHint": "Приватность прежде всего \uD83D\uDD12",
   "profileCardSaveButton": "Сохранить профиль",
 
-  "settingsBackupMessagesSubtitleV2": "Экспорт зашифрованных сообщений, контактов и аватаров в файл"
+  "settingsBackupMessagesSubtitleV2": "Экспорт зашифрованных сообщений, контактов и аватаров в файл",
+
+  "callVideo": "Видео",
+  "callAudio": "Аудио",
+  "bubbleDeliveredTo": "Доставлено: {names}",
+  "bubbleDeliveredToCount": "Доставлено: {count}"
 }

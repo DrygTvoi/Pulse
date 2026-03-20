@@ -369,11 +369,12 @@ class _HomeScreenState extends State<HomeScreen> {
       );
       if (groupContact == null || !mounted) return;
       final myId = ChatController().identity?.id ?? '';
-      _showIncomingGroupCallDialog(groupContact, myId);
+      final isVideoCall = sig['isVideoCall'] as bool? ?? true;
+      _showIncomingGroupCallDialog(groupContact, myId, isVideoCall: isVideoCall);
     }, onError: (e) => debugPrint('[HomeScreen] incomingGroupCalls stream error: $e'));
   }
 
-  void _showIncomingGroupCallDialog(Contact group, String myId) {
+  void _showIncomingGroupCallDialog(Contact group, String myId, {bool isVideoCall = true}) {
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -389,12 +390,33 @@ class _HomeScreenState extends State<HomeScreen> {
               color: const Color(0xFF26A69A).withValues(alpha: 0.15),
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.group_rounded, color: Color(0xFF26A69A), size: DesignTokens.iconLg),
+            child: Icon(
+              isVideoCall ? Icons.video_call_rounded : Icons.call_rounded,
+              color: const Color(0xFF26A69A),
+              size: DesignTokens.iconLg,
+            ),
           ),
           const SizedBox(width: DesignTokens.spacing14),
           Expanded(
-            child: Text(context.l10n.homeGroupCallIncoming(group.name),
-                style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: DesignTokens.fontLg)),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(group.name,
+                    style: GoogleFonts.inter(
+                        color: AppTheme.textPrimary,
+                        fontSize: DesignTokens.fontXl,
+                        fontWeight: FontWeight.w700)),
+                const SizedBox(height: DesignTokens.spacing4),
+                Text(
+                  context.l10n.homeGroupCallIncoming(
+                      isVideoCall ? context.l10n.callVideo : context.l10n.callAudio),
+                  style: GoogleFonts.inter(
+                      color: AppTheme.textSecondary,
+                      fontSize: DesignTokens.fontBody),
+                ),
+              ],
+            ),
           ),
         ]),
         actions: [
@@ -404,7 +426,8 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Text(context.l10n.homeDecline, style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
           ),
           ElevatedButton.icon(
-            icon: const Icon(Icons.video_call_rounded, size: DesignTokens.iconSm),
+            icon: Icon(isVideoCall ? Icons.video_call_rounded : Icons.call_rounded,
+                size: DesignTokens.iconSm),
             label: Text(context.l10n.homeAccept, style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF26A69A),
@@ -417,7 +440,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   group: group,
                   myId: myId,
                   isCaller: false,
-                  isVideoCall: true,
+                  isVideoCall: isVideoCall,
                 ),
               ));
             },

@@ -1371,5 +1371,20 @@
   "@profileCardSaveButton": { "description": "Save button label on profile card" },
 
   "settingsBackupMessagesSubtitleV2": "Export encrypted messages, contacts and avatars to a file",
-  "@settingsBackupMessagesSubtitleV2": { "description": "Updated backup subtitle mentioning contacts and avatars" }
+  "@settingsBackupMessagesSubtitleV2": { "description": "Updated backup subtitle mentioning contacts and avatars" },
+
+  "callVideo": "Video",
+  "@callVideo": { "description": "Label for video call type" },
+  "callAudio": "Audio",
+  "@callAudio": { "description": "Label for audio call type" },
+  "bubbleDeliveredTo": "Delivered to {names}",
+  "@bubbleDeliveredTo": {
+    "description": "Shows delivery status to named members",
+    "placeholders": { "names": { "type": "String" } }
+  },
+  "bubbleDeliveredToCount": "Delivered to {count}",
+  "@bubbleDeliveredToCount": {
+    "description": "Shows delivery status to N members",
+    "placeholders": { "count": { "type": "int" } }
+  }
 }

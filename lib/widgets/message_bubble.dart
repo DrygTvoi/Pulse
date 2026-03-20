@@ -33,6 +33,8 @@ class MessageBubble extends StatelessWidget {
   final double? uploadProgress; // 0.0..1.0 while uploading chunks
   /// For group messages sent by self: contactIds who have read this message.
   final List<String> readBy;
+  /// For group messages sent by self: contactIds who have received (delivered) this message.
+  final List<String> deliveredTo;
   /// Called when the user taps the failed-status icon to retry sending.
   final VoidCallback? onRetry;
 
@@ -52,6 +54,7 @@ class MessageBubble extends StatelessWidget {
     this.replyToSender,
     this.uploadProgress,
     this.readBy = const [],
+    this.deliveredTo = const [],
     this.onRetry,
   });
 
@@ -159,7 +162,41 @@ class MessageBubble extends StatelessWidget {
               ),
             ),
           if (isMe && readBy.isNotEmpty)
-            _buildReadByRow(context),
+            _buildReadByRow(context)
+          else if (isMe && deliveredTo.isNotEmpty)
+            _buildDeliveredToRow(context),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDeliveredToRow(BuildContext context) {
+    final names = deliveredTo.map((id) {
+      final c = context.read<IContactRepository>().contacts.cast<Contact?>()
+          .firstWhere((c) => c?.id == id, orElse: () => null);
+      return c?.name ?? id.substring(0, id.length.clamp(0, 8));
+    }).toList();
+
+    final label = names.length <= 2
+        ? context.l10n.bubbleDeliveredTo(names.join(' & '))
+        : context.l10n.bubbleDeliveredToCount(names.length);
+
+    return Padding(
+      padding: const EdgeInsets.only(top: DesignTokens.spacing2, right: DesignTokens.spacing4),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.done_all_rounded,
+              size: DesignTokens.fontSm,
+              color: AppTheme.textSecondary.withValues(alpha: 0.6)),
+          const SizedBox(width: 3),
+          Text(
+            label,
+            style: GoogleFonts.inter(
+                color: AppTheme.textSecondary,
+                fontSize: DesignTokens.fontXs,
+                fontWeight: FontWeight.w500),
+          ),
         ],
       ),
     );

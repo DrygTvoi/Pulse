@@ -18,11 +18,12 @@ class SignalIncomingCallEvent {
   SignalIncomingCallEvent(this.signal);
 }
 
-/// Incoming group call offer (carries groupId).
+/// Incoming group call offer (carries groupId and isVideoCall flag).
 class SignalIncomingGroupCallEvent {
   final Map<String, dynamic> signal;
   final String groupId;
-  SignalIncomingGroupCallEvent(this.signal, this.groupId);
+  final bool isVideoCall;
+  SignalIncomingGroupCallEvent(this.signal, this.groupId, {this.isVideoCall = true});
 }
 
 /// Contact started typing (optionally in a group room).
@@ -84,6 +85,14 @@ class SignalEditEvent {
   final String text;
   final String? groupId;
   SignalEditEvent(this.contact, this.msgId, this.text, {this.groupId});
+}
+
+/// Remote-side delete request for a specific message.
+class SignalMsgDeleteEvent {
+  final String msgId;
+  final String? groupId;
+  final String fromId;
+  SignalMsgDeleteEvent(this.fromId, this.msgId, {this.groupId});
 }
 
 /// Group invite was declined by the recipient.
@@ -231,6 +240,7 @@ class SignalDispatcher {
   final _chunkReqCtrl = StreamController<SignalChunkReqEvent>.broadcast();
   final _groupUpdateCtrl = StreamController<SignalGroupUpdateEvent>.broadcast();
   final _groupInviteCtrl = StreamController<SignalGroupInviteEvent>.broadcast();
+  final _msgDeleteCtrl = StreamController<SignalMsgDeleteEvent>.broadcast();
   final _groupInviteDeclineCtrl =
       StreamController<SignalGroupInviteDeclineEvent>.broadcast();
 
@@ -254,6 +264,7 @@ class SignalDispatcher {
   Stream<SignalChunkReqEvent> get chunkRequests => _chunkReqCtrl.stream;
   Stream<SignalGroupUpdateEvent> get groupUpdates => _groupUpdateCtrl.stream;
   Stream<SignalGroupInviteEvent> get groupInvites => _groupInviteCtrl.stream;
+  Stream<SignalMsgDeleteEvent> get msgDeletes => _msgDeleteCtrl.stream;
   Stream<SignalGroupInviteDeclineEvent> get groupInviteDeclines =>
       _groupInviteDeclineCtrl.stream;
 
@@ -344,10 +355,14 @@ class SignalDispatcher {
           final rawPayload = sig['payload'];
           final groupId =
               rawPayload is Map ? rawPayload['groupId'] as String? : null;
+          final isVideoCall =
+              rawPayload is Map ? (rawPayload['isVideoCall'] as bool? ?? true) : true;
           if (groupId != null) {
             if (!_incomingGroupCallCtrl.isClosed) {
-              _incomingGroupCallCtrl
-                  .add(SignalIncomingGroupCallEvent({...sig, 'groupId': groupId}, groupId));
+              _incomingGroupCallCtrl.add(SignalIncomingGroupCallEvent(
+                  {...sig, 'groupId': groupId, 'isVideoCall': isVideoCall},
+                  groupId,
+                  isVideoCall: isVideoCall));
             }
           } else {
             if (!_incomingCallCtrl.isClosed) {
@@ -584,6 +599,16 @@ class SignalDispatcher {
                   .add(SignalGroupInviteDeclineEvent(decliner, groupId));
             }
           }
+        } else if (sigType == 'msg_delete') {
+          final payload = sig['payload'];
+          if (payload is Map) {
+            final msgId = payload['msgId'] as String?;
+            final deleteGroupId = payload['groupId'] as String?;
+            final senderId = sig['senderId'] as String? ?? '';
+            if (msgId != null && senderId.isNotEmpty && !_msgDeleteCtrl.isClosed) {
+              _msgDeleteCtrl.add(SignalMsgDeleteEvent(senderId, msgId, groupId: deleteGroupId));
+            }
+          }
         } else if (sigType == 'chunk_req') {
           final payload = sig['payload'];
           if (payload is Map) {
@@ -625,6 +650,7 @@ class SignalDispatcher {
     _groupUpdateCtrl.close();
     _groupInviteCtrl.close();
     _groupInviteDeclineCtrl.close();
+    _msgDeleteCtrl.close();
     _sigRateLimiter.clear();
   }
 }

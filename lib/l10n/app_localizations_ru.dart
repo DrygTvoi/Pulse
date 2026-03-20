@@ -1999,4 +1999,20 @@ class AppLocalizationsRu extends AppLocalizations {
   @override
   String get settingsBackupMessagesSubtitleV2 =>
       'Экспорт зашифрованных сообщений, контактов и аватаров в файл';
+
+  @override
+  String get callVideo => 'Видео';
+
+  @override
+  String get callAudio => 'Аудио';
+
+  @override
+  String bubbleDeliveredTo(String names) {
+    return 'Доставлено: $names';
+  }
+
+  @override
+  String bubbleDeliveredToCount(int count) {
+    return 'Доставлено: $count';
+  }
 }

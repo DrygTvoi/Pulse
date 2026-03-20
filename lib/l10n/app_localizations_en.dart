@@ -2013,4 +2013,20 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get settingsBackupMessagesSubtitleV2 =>
       'Export encrypted messages, contacts and avatars to a file';
+
+  @override
+  String get callVideo => 'Video';
+
+  @override
+  String get callAudio => 'Audio';
+
+  @override
+  String bubbleDeliveredTo(String names) {
+    return 'Delivered to $names';
+  }
+
+  @override
+  String bubbleDeliveredToCount(int count) {
+    return 'Delivered to $count';
+  }
 }

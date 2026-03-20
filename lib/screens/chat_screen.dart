@@ -363,7 +363,7 @@ class _ChatScreenState extends State<ChatScreen> {
     setState(() => _pendingDelete.add(msg.id));
     await Future.delayed(const Duration(milliseconds: 280));
     if (!mounted) return;
-    await context.read<ChatController>().deleteLocalMessage(_contact, msg.id);
+    await context.read<ChatController>().deleteMessage(_contact, msg);
     setState(() => _pendingDelete.remove(msg.id));
   }
 
@@ -667,6 +667,7 @@ class _ChatScreenState extends State<ChatScreen> {
                               replyToSender: replyFromName,
                               uploadProgress: chatController.getUploadProgress(msg.id),
                               readBy: msg.readBy,
+                              deliveredTo: msg.deliveredTo,
                               onRetry: msg.status == 'failed'
                                   ? () => chatController.retryMessage(_contact, msg)
                                   : null,

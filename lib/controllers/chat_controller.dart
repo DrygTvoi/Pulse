@@ -1276,6 +1276,11 @@ class ChatController extends ChangeNotifier {
       if (!_groupInviteDeclineCtrl.isClosed) _groupInviteDeclineCtrl.add(e);
     }));
 
+    // Remote message deletes
+    _dispatcherSubs.add(d.msgDeletes.listen((e) {
+      _handleRemoteDelete(e.fromId, e.msgId, groupId: e.groupId);
+    }));
+
     // Group membership updates from admin
     _dispatcherSubs.add(d.groupUpdates.listen((e) async {
       final group = _contacts.contacts.cast<Contact?>()
@@ -2042,6 +2047,64 @@ class ChatController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Delete a message locally and, for own messages in a group, broadcast
+  /// a [msg_delete] signal to all members so they also remove it.
+  Future<void> deleteMessage(Contact contact, Message message) async {
+    await deleteLocalMessage(contact, message.id);
+    if (contact.isGroup && message.senderId == _selfId) {
+      unawaited(_broadcastGroupDelete(contact, message.id));
+    }
+  }
+
+  Future<void> _broadcastGroupDelete(Contact group, String msgId) async {
+    final memberContacts = _contacts.contacts
+        .where((c) => !c.isGroup && group.members.contains(c.id))
+        .toList();
+    await Future.wait(memberContacts.map((c) => _sendSignalTo(c, 'msg_delete', {
+          'msgId': msgId,
+          'groupId': group.id,
+          'from': _selfId,
+        })));
+  }
+
+  /// Handle a [msg_delete] signal received from a remote sender.
+  /// Only allows deletion of the *sender's own* messages.
+  void _handleRemoteDelete(String fromId, String msgId, {String? groupId}) {
+    if (groupId != null) {
+      final room = _chatRooms[groupId];
+      if (room == null) return;
+      final idx = room.messages.indexWhere((m) => m.id == msgId);
+      if (idx == -1) return;
+      // Resolve transport fromId to a contactId for senderId comparison
+      Contact? sender;
+      for (final c in _contacts.contacts) {
+        if (c.databaseId == fromId || c.databaseId.split('@').first == fromId) {
+          sender = c;
+          break;
+        }
+      }
+      final senderId = sender?.id ?? fromId;
+      if (room.messages[idx].senderId != senderId) return; // only own messages
+      room.messages.removeAt(idx);
+      unawaited(LocalStorageService().deleteMessage(room.contact.storageKey, msgId));
+      notifyListeners();
+    } else {
+      // 1-on-1: find the room where sender's message lives
+      for (final room in _chatRooms.values) {
+        if (room.contact.isGroup) continue;
+        final cId = room.contact.databaseId;
+        if (cId != fromId && cId.split('@').first != fromId) continue;
+        final idx = room.messages.indexWhere((m) => m.id == msgId);
+        if (idx != -1) {
+          room.messages.removeAt(idx);
+          unawaited(LocalStorageService().deleteMessage(room.contact.storageKey, msgId));
+          notifyListeners();
+          break;
+        }
+      }
+    }
+  }
+
   Future<void> markRoomAsRead(Contact contact) async {
     final room = _chatRooms[contact.id];
     if (room == null) return;
@@ -2148,10 +2211,33 @@ class ChatController extends ChangeNotifier {
             final cId = r.contact.databaseId;
             return cId == fromId || cId.split('@').first == fromId;
           }).toList();
+
+    // Resolve transport fromId → contactId for deliveredTo tracking
+    String resolvedId = fromId;
+    if (groupId != null) {
+      for (final c in _contacts.contacts) {
+        if (c.databaseId == fromId || c.databaseId.split('@').first == fromId) {
+          resolvedId = c.id;
+          break;
+        }
+      }
+    }
+
     for (final room in roomsToSearch) {
       for (int i = 0; i < room.messages.length; i++) {
         final m = room.messages[i];
-        if (m.id == msgId && m.status == 'sent') {
+        if (m.id != msgId) continue;
+        // Track per-member delivery for group messages
+        if (groupId != null && !m.deliveredTo.contains(resolvedId)) {
+          final newDeliveredTo = [...m.deliveredTo, resolvedId];
+          final newStatus = m.status == 'sent' ? 'delivered' : m.status;
+          room.messages[i] = m.copyWith(status: newStatus, deliveredTo: newDeliveredTo);
+          unawaited(LocalStorageService().saveMessage(
+              room.contact.storageKey, room.messages[i].toJson()));
+          changed = true;
+          break;
+        }
+        if (m.status == 'sent') {
           room.messages[i] = m.copyWith(status: 'delivered');
           unawaited(LocalStorageService().saveMessage(
               room.contact.storageKey, room.messages[i].toJson()));
