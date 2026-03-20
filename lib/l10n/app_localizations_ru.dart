@@ -2015,4 +2015,39 @@ class AppLocalizationsRu extends AppLocalizations {
   String bubbleDeliveredToCount(int count) {
     return 'Доставлено: $count';
   }
+
+  @override
+  String get groupStatusDialogTitle => 'Сведения о сообщении';
+
+  @override
+  String get groupStatusRead => 'Прочитано';
+
+  @override
+  String get groupStatusDelivered => 'Доставлено';
+
+  @override
+  String get groupStatusPending => 'Ожидание';
+
+  @override
+  String get groupStatusNoData => 'Данные о доставке ещё не получены';
+
+  @override
+  String get profileTransferAdmin => 'Назначить admin';
+
+  @override
+  String profileTransferAdminConfirm(String name) {
+    return 'Назначить $name новым администратором?';
+  }
+
+  @override
+  String get profileTransferAdminBody =>
+      'Вы потеряете права администратора. Это действие нельзя отменить.';
+
+  @override
+  String profileTransferAdminDone(String name) {
+    return '$name теперь администратор';
+  }
+
+  @override
+  String get profileAdminBadge => 'Admin';
 }

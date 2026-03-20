@@ -37,6 +37,8 @@ class MessageBubble extends StatelessWidget {
   final List<String> deliveredTo;
   /// Called when the user taps the failed-status icon to retry sending.
   final VoidCallback? onRetry;
+  /// Called when user taps the delivery-status row to see per-member detail.
+  final VoidCallback? onGroupStatusTap;
 
   const MessageBubble({
     super.key,
@@ -56,6 +58,7 @@ class MessageBubble extends StatelessWidget {
     this.readBy = const [],
     this.deliveredTo = const [],
     this.onRetry,
+    this.onGroupStatusTap,
   });
 
   static const _unencryptedPrefix = '⚠️ UNENCRYPTED: ';
@@ -161,10 +164,13 @@ class MessageBubble extends StatelessWidget {
                 }).toList(),
               ),
             ),
-          if (isMe && readBy.isNotEmpty)
-            _buildReadByRow(context)
-          else if (isMe && deliveredTo.isNotEmpty)
-            _buildDeliveredToRow(context),
+          if (isMe && (readBy.isNotEmpty || deliveredTo.isNotEmpty))
+            GestureDetector(
+              onTap: onGroupStatusTap,
+              child: readBy.isNotEmpty
+                  ? _buildReadByRow(context)
+                  : _buildDeliveredToRow(context),
+            ),
         ],
       ),
     );
@@ -176,58 +182,46 @@ class MessageBubble extends StatelessWidget {
           .firstWhere((c) => c?.id == id, orElse: () => null);
       return c?.name ?? id.substring(0, id.length.clamp(0, 8));
     }).toList();
-
     final label = names.length <= 2
         ? context.l10n.bubbleDeliveredTo(names.join(' & '))
         : context.l10n.bubbleDeliveredToCount(names.length);
-
-    return Padding(
-      padding: const EdgeInsets.only(top: DesignTokens.spacing2, right: DesignTokens.spacing4),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.done_all_rounded,
-              size: DesignTokens.fontSm,
-              color: AppTheme.textSecondary.withValues(alpha: 0.6)),
-          const SizedBox(width: 3),
-          Text(
-            label,
-            style: GoogleFonts.inter(
-                color: AppTheme.textSecondary,
-                fontSize: DesignTokens.fontXs,
-                fontWeight: FontWeight.w500),
-          ),
-        ],
-      ),
-    );
+    return _buildStatusRow(
+        context, label: label, iconColor: AppTheme.textSecondary.withValues(alpha: 0.6));
   }
 
   Widget _buildReadByRow(BuildContext context) {
-    // Resolve contactIds to names
     final names = readBy.map((id) {
       final c = context.read<IContactRepository>().contacts.cast<Contact?>()
           .firstWhere((c) => c?.id == id, orElse: () => null);
       return c?.name ?? id.substring(0, id.length.clamp(0, 8));
     }).toList();
-
     final label = names.length <= 2
         ? context.l10n.bubbleReadBy(names.join(' & '))
         : context.l10n.bubbleReadByCount(names.length);
+    return _buildStatusRow(
+        context, label: label, iconColor: AppTheme.primary.withValues(alpha: 0.8));
+  }
 
+  Widget _buildStatusRow(BuildContext context,
+      {required String label, required Color iconColor}) {
     return Padding(
       padding: const EdgeInsets.only(top: DesignTokens.spacing2, right: DesignTokens.spacing4),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.done_all_rounded, size: DesignTokens.fontSm, color: AppTheme.primary.withValues(alpha: 0.7)),
+          Icon(Icons.done_all_rounded, size: DesignTokens.fontSm, color: iconColor),
           const SizedBox(width: 3),
-          Text(
-            label,
-            style: GoogleFonts.inter(
-                color: AppTheme.textSecondary,
-                fontSize: DesignTokens.fontXs,
-                fontWeight: FontWeight.w500),
-          ),
+          Text(label,
+              style: GoogleFonts.inter(
+                  color: AppTheme.textSecondary,
+                  fontSize: DesignTokens.fontXs,
+                  fontWeight: FontWeight.w500)),
+          if (onGroupStatusTap != null) ...[
+            const SizedBox(width: DesignTokens.spacing4),
+            Icon(Icons.info_outline_rounded,
+                size: DesignTokens.fontSm,
+                color: AppTheme.textSecondary.withValues(alpha: 0.45)),
+          ],
         ],
       ),
     );

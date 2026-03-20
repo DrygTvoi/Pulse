@@ -2029,4 +2029,39 @@ class AppLocalizationsEn extends AppLocalizations {
   String bubbleDeliveredToCount(int count) {
     return 'Delivered to $count';
   }
+
+  @override
+  String get groupStatusDialogTitle => 'Message Info';
+
+  @override
+  String get groupStatusRead => 'Read';
+
+  @override
+  String get groupStatusDelivered => 'Delivered';
+
+  @override
+  String get groupStatusPending => 'Pending';
+
+  @override
+  String get groupStatusNoData => 'No delivery information yet';
+
+  @override
+  String get profileTransferAdmin => 'Make Admin';
+
+  @override
+  String profileTransferAdminConfirm(String name) {
+    return 'Make $name the new admin?';
+  }
+
+  @override
+  String get profileTransferAdminBody =>
+      'You will lose admin privileges. This cannot be undone.';
+
+  @override
+  String profileTransferAdminDone(String name) {
+    return '$name is now the admin';
+  }
+
+  @override
+  String get profileAdminBadge => 'Admin';
 }

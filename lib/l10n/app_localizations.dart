@@ -3667,6 +3667,66 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Delivered to {count}'**
   String bubbleDeliveredToCount(int count);
+
+  /// Title for per-member delivery/read status dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Message Info'**
+  String get groupStatusDialogTitle;
+
+  /// Section header for members who read the message
+  ///
+  /// In en, this message translates to:
+  /// **'Read'**
+  String get groupStatusRead;
+
+  /// Section header for members who received but haven't read
+  ///
+  /// In en, this message translates to:
+  /// **'Delivered'**
+  String get groupStatusDelivered;
+
+  /// Section header for members who haven't received the message
+  ///
+  /// In en, this message translates to:
+  /// **'Pending'**
+  String get groupStatusPending;
+
+  /// Shown when no delivery data is available
+  ///
+  /// In en, this message translates to:
+  /// **'No delivery information yet'**
+  String get groupStatusNoData;
+
+  /// Button label to transfer admin role to a member
+  ///
+  /// In en, this message translates to:
+  /// **'Make Admin'**
+  String get profileTransferAdmin;
+
+  /// Confirmation question for admin transfer
+  ///
+  /// In en, this message translates to:
+  /// **'Make {name} the new admin?'**
+  String profileTransferAdminConfirm(String name);
+
+  /// Warning in admin transfer confirmation dialog
+  ///
+  /// In en, this message translates to:
+  /// **'You will lose admin privileges. This cannot be undone.'**
+  String get profileTransferAdminBody;
+
+  /// Snackbar shown after successful admin transfer
+  ///
+  /// In en, this message translates to:
+  /// **'{name} is now the admin'**
+  String profileTransferAdminDone(String name);
+
+  /// Badge shown on the current group admin's tile
+  ///
+  /// In en, this message translates to:
+  /// **'Admin'**
+  String get profileAdminBadge;
 }
 
 class _AppLocalizationsDelegate

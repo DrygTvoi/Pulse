@@ -1386,5 +1386,33 @@
   "@bubbleDeliveredToCount": {
     "description": "Shows delivery status to N members",
     "placeholders": { "count": { "type": "int" } }
-  }
+  },
+
+  "groupStatusDialogTitle": "Message Info",
+  "@groupStatusDialogTitle": { "description": "Title for per-member delivery/read status dialog" },
+  "groupStatusRead": "Read",
+  "@groupStatusRead": { "description": "Section header for members who read the message" },
+  "groupStatusDelivered": "Delivered",
+  "@groupStatusDelivered": { "description": "Section header for members who received but haven't read" },
+  "groupStatusPending": "Pending",
+  "@groupStatusPending": { "description": "Section header for members who haven't received the message" },
+  "groupStatusNoData": "No delivery information yet",
+  "@groupStatusNoData": { "description": "Shown when no delivery data is available" },
+
+  "profileTransferAdmin": "Make Admin",
+  "@profileTransferAdmin": { "description": "Button label to transfer admin role to a member" },
+  "profileTransferAdminConfirm": "Make {name} the new admin?",
+  "@profileTransferAdminConfirm": {
+    "description": "Confirmation question for admin transfer",
+    "placeholders": { "name": { "type": "String" } }
+  },
+  "profileTransferAdminBody": "You will lose admin privileges. This cannot be undone.",
+  "@profileTransferAdminBody": { "description": "Warning in admin transfer confirmation dialog" },
+  "profileTransferAdminDone": "{name} is now the admin",
+  "@profileTransferAdminDone": {
+    "description": "Snackbar shown after successful admin transfer",
+    "placeholders": { "name": { "type": "String" } }
+  },
+  "profileAdminBadge": "Admin",
+  "@profileAdminBadge": { "description": "Badge shown on the current group admin's tile" }
 }
