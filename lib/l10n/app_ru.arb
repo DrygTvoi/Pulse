@@ -652,5 +652,17 @@
   "callVideo": "Видео",
   "callAudio": "Аудио",
   "bubbleDeliveredTo": "Доставлено: {names}",
-  "bubbleDeliveredToCount": "Доставлено: {count}"
+  "bubbleDeliveredToCount": "Доставлено: {count}",
+
+  "groupStatusDialogTitle": "Сведения о сообщении",
+  "groupStatusRead": "Прочитано",
+  "groupStatusDelivered": "Доставлено",
+  "groupStatusPending": "Ожидание",
+  "groupStatusNoData": "Данные о доставке ещё не получены",
+
+  "profileTransferAdmin": "Назначить admin",
+  "profileTransferAdminConfirm": "Назначить {name} новым администратором?",
+  "profileTransferAdminBody": "Вы потеряете права администратора. Это действие нельзя отменить.",
+  "profileTransferAdminDone": "{name} теперь администратор",
+  "profileAdminBadge": "Admin"
 }

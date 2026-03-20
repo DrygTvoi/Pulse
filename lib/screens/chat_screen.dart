@@ -367,6 +367,93 @@ class _ChatScreenState extends State<ChatScreen> {
     setState(() => _pendingDelete.remove(msg.id));
   }
 
+  void _showGroupStatusDialog(Message msg) {
+    final repo = context.read<IContactRepository>();
+    final myId = context.read<ChatController>().identity?.id ?? '';
+    // All members except self
+    final allMembers = _contact.members.where((id) => id != myId).toList();
+    // Buckets
+    final read = msg.readBy;
+    final delivered = msg.deliveredTo.where((id) => !read.contains(id)).toList();
+    final pending = allMembers.where(
+        (id) => !read.contains(id) && !delivered.contains(id)).toList();
+
+    String resolveName(String id) {
+      final c = repo.contacts.cast<Contact?>()
+          .firstWhere((c) => c?.id == id, orElse: () => null);
+      return c?.name ?? id.substring(0, id.length.clamp(0, 10));
+    }
+
+    Widget section(String header, List<String> ids, IconData icon, Color color) {
+      if (ids.isEmpty) return const SizedBox.shrink();
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(
+                top: DesignTokens.spacing12, bottom: DesignTokens.spacing6),
+            child: Row(children: [
+              Icon(icon, size: DesignTokens.fontBody, color: color),
+              const SizedBox(width: DesignTokens.spacing6),
+              Text(header,
+                  style: GoogleFonts.inter(
+                      color: color,
+                      fontSize: DesignTokens.fontBody,
+                      fontWeight: FontWeight.w700)),
+            ]),
+          ),
+          ...ids.map((id) => Padding(
+                padding: const EdgeInsets.only(
+                    left: DesignTokens.spacing20, bottom: DesignTokens.spacing4),
+                child: Text(resolveName(id),
+                    style: GoogleFonts.inter(
+                        color: AppTheme.textPrimary,
+                        fontSize: DesignTokens.fontBody)),
+              )),
+        ],
+      );
+    }
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.surface,
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(DesignTokens.dialogRadius)),
+        title: Text(context.l10n.groupStatusDialogTitle,
+            style: GoogleFonts.inter(
+                color: AppTheme.textPrimary, fontWeight: FontWeight.w700)),
+        content: read.isEmpty && delivered.isEmpty && pending.isEmpty
+            ? Text(context.l10n.groupStatusNoData,
+                style: GoogleFonts.inter(color: AppTheme.textSecondary))
+            : SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    section(context.l10n.groupStatusRead, read,
+                        Icons.done_all_rounded, AppTheme.primary),
+                    section(context.l10n.groupStatusDelivered, delivered,
+                        Icons.done_all_rounded,
+                        AppTheme.textSecondary.withValues(alpha: 0.7)),
+                    section(context.l10n.groupStatusPending, pending,
+                        Icons.schedule_rounded,
+                        AppTheme.textSecondary.withValues(alpha: 0.5)),
+                  ],
+                ),
+              ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('OK',
+                style: GoogleFonts.inter(
+                    color: AppTheme.primary, fontWeight: FontWeight.w600)),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _showSchedulePicker() async {
     final text = _controller.text.trim();
     if (text.isEmpty) return;
@@ -668,6 +755,10 @@ class _ChatScreenState extends State<ChatScreen> {
                               uploadProgress: chatController.getUploadProgress(msg.id),
                               readBy: msg.readBy,
                               deliveredTo: msg.deliveredTo,
+                              onGroupStatusTap: (isMe && _contact.isGroup &&
+                                      (msg.readBy.isNotEmpty || msg.deliveredTo.isNotEmpty))
+                                  ? () => _showGroupStatusDialog(msg)
+                                  : null,
                               onRetry: msg.status == 'failed'
                                   ? () => chatController.retryMessage(_contact, msg)
                                   : null,

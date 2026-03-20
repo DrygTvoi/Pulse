@@ -287,6 +287,52 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
     unawaited(context.read<ChatController>().broadcastGroupUpdate(updated));
   }
 
+  void _showTransferAdminConfirm(String memberId, String name) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.surface,
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(DesignTokens.dialogRadius)),
+        title: Text(context.l10n.profileTransferAdminConfirm(name),
+            style: GoogleFonts.inter(
+                color: AppTheme.textPrimary, fontWeight: FontWeight.w700)),
+        content: Text(context.l10n.profileTransferAdminBody,
+            style: GoogleFonts.inter(color: AppTheme.textSecondary)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(context.l10n.cancel,
+                style: GoogleFonts.inter(color: AppTheme.textSecondary)),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _transferAdmin(memberId, name);
+            },
+            child: Text(context.l10n.profileTransferAdmin,
+                style: GoogleFonts.inter(
+                    color: AppTheme.primary, fontWeight: FontWeight.w700)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _transferAdmin(String memberId, String name) async {
+    final updated = _contact.copyWith(creatorId: memberId);
+    await context.read<IContactRepository>().updateContact(updated);
+    setState(() => _contact = updated);
+    widget.onContactUpdated?.call(updated);
+    unawaited(context.read<ChatController>().broadcastGroupUpdate(updated));
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(context.l10n.profileTransferAdminDone(name)),
+        backgroundColor: AppTheme.surface,
+      ));
+    }
+  }
+
   void _showAddMembersSheet() {
     const meshMemberLimit = 6;
     if (_contact.members.length >= meshMemberLimit) {
@@ -881,21 +927,48 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
                 style: GoogleFonts.inter(
                     color: AppTheme.textPrimary, fontWeight: FontWeight.w500)),
           ),
-          if (widget.isAdmin)
-            GestureDetector(
-              onTap: () => _showKickConfirm(memberId, name),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: DesignTokens.spacing10, vertical: 5),
-                decoration: BoxDecoration(
-                  color: AppTheme.error.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(DesignTokens.radiusSmall),
+          if (memberId == _contact.creatorId)
+            Tooltip(
+              message: context.l10n.profileAdminBadge,
+              child: const Icon(Icons.workspace_premium_rounded,
+                  size: 18, color: Color(0xFFFFB300)),
+            )
+          else if (widget.isAdmin)
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                GestureDetector(
+                  onTap: () => _showTransferAdminConfirm(memberId, name),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: DesignTokens.spacing8, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primary.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(DesignTokens.radiusSmall),
+                    ),
+                    child: Text(context.l10n.profileTransferAdmin,
+                        style: GoogleFonts.inter(
+                            color: AppTheme.primary,
+                            fontSize: DesignTokens.fontBody,
+                            fontWeight: FontWeight.w600)),
+                  ),
                 ),
-                child: Text(context.l10n.profileKickButton,
-                    style: GoogleFonts.inter(
-                        color: AppTheme.error,
-                        fontSize: DesignTokens.fontBody,
-                        fontWeight: FontWeight.w600)),
-              ),
+                const SizedBox(width: DesignTokens.spacing6),
+                GestureDetector(
+                  onTap: () => _showKickConfirm(memberId, name),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: DesignTokens.spacing8, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: AppTheme.error.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(DesignTokens.radiusSmall),
+                    ),
+                    child: Text(context.l10n.profileKickButton,
+                        style: GoogleFonts.inter(
+                            color: AppTheme.error,
+                            fontSize: DesignTokens.fontBody,
+                            fontWeight: FontWeight.w600)),
+                  ),
+                ),
+              ],
             ),
         ],
       ),
