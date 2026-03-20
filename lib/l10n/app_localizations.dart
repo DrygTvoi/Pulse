@@ -2045,7 +2045,7 @@ abstract class AppLocalizations {
   /// Validation: key too short
   ///
   /// In en, this message translates to:
-  /// **'Panic key must be at least 4 characters'**
+  /// **'Panic key must be at least 8 characters'**
   String get panicMinChars;
 
   /// Validation: keys don't match
@@ -2053,6 +2053,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Keys do not match'**
   String get panicKeysDoNotMatch;
+
+  /// Error shown when panic key storage fails
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to save panic key — please try again'**
+  String get panicSetFailed;
 
   /// Title for password setup dialog
   ///

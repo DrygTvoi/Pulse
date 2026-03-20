@@ -639,10 +639,12 @@
   "@panicKeyHint": { "description": "Hint for panic key input field" },
   "panicConfirmHint": "Confirm panic key",
   "@panicConfirmHint": { "description": "Hint for panic key confirmation field" },
-  "panicMinChars": "Panic key must be at least 4 characters",
+  "panicMinChars": "Panic key must be at least 8 characters",
   "@panicMinChars": { "description": "Validation: key too short" },
   "panicKeysDoNotMatch": "Keys do not match",
   "@panicKeysDoNotMatch": { "description": "Validation: keys don't match" },
+  "panicSetFailed": "Failed to save panic key — please try again",
+  "@panicSetFailed": { "description": "Error shown when panic key storage fails" },
 
   "passwordSetAppPassword": "Set App Password",
   "@passwordSetAppPassword": { "description": "Title for password setup dialog" },

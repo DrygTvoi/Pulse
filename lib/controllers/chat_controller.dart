@@ -73,6 +73,7 @@ class ChatController extends ChangeNotifier {
   LanInboxReader?  _lanReader;
   LanMessageSender? _lanSender;
   bool _lanModeActive = false;
+  bool _disposed = false;
 
   /// True when all internet adapters are unreachable and LAN is being used.
   bool get lanModeActive => _lanModeActive;
@@ -1659,7 +1660,8 @@ class ChatController extends ChangeNotifier {
     String encryptedText;
     try {
       encryptedText = await _signalService.encryptMessage(contact.databaseId, envelope);
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[E2EE] encryptMessage failed for ${contact.name} — attempting session rebuild: $e');
       try {
         final ourApiKey = _identity!.adapterConfig['token'] ?? '';
         final InboxReader contactReader;
@@ -2106,6 +2108,7 @@ class ChatController extends ChangeNotifier {
           _ttlTimers.remove(msgId);
           await LocalStorageService().deleteMessage(roomId, msgId);
           await LocalStorageService().deleteTtlExpiry(roomId, msgId);
+          if (_disposed) return; // guard: controller may have been disposed during awaits
           for (final room in _chatRooms.values) {
             if (room.contact.storageKey == roomId ||
                 room.contact.id == roomId) {
@@ -2376,7 +2379,8 @@ class ChatController extends ChangeNotifier {
       final file = File('${dir.path}/chat_${contact.name}_$date.txt');
       await file.writeAsString(buf.toString());
       return file.path;
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[ChatController] exportChatHistory failed: $e');
       return null;
     }
   }
@@ -2416,7 +2420,8 @@ class ChatController extends ChangeNotifier {
     List existing;
     try {
       existing = jsonDecode(prefs.getString(storageKey) ?? '[]') as List;
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[Scheduled] Corrupt scheduled list for ${contact.id}: $e');
       existing = [];
     }
     existing.add(placeholder.toJson());
@@ -2448,7 +2453,8 @@ class ChatController extends ChangeNotifier {
       list = (jsonDecode(prefs.getString(storageKey) ?? '[]') as List)
           .where((m) => m is Map && m['id'] != msg.id)
           .toList();
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[Scheduled] Corrupt scheduled list on fire for ${contact.id}: $e');
       list = [];
     }
     if (list.isEmpty) {
@@ -2473,7 +2479,8 @@ class ChatController extends ChangeNotifier {
       list = (jsonDecode(prefs.getString(storageKey) ?? '[]') as List)
           .where((m) => m is Map && m['id'] != msgId)
           .toList();
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[Scheduled] Corrupt scheduled list on cancel for ${contact.id}: $e');
       list = [];
     }
     if (list.isEmpty) {
@@ -2626,6 +2633,7 @@ class ChatController extends ChangeNotifier {
 
   @override
   void dispose() {
+    _disposed = true;
     NetworkMonitor.instance.stopMonitoring();
     P2PTransportService.instance.dispose();
     _lanReader?.close();

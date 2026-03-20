@@ -1108,10 +1108,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get panicConfirmHint => 'Confirm panic key';
 
   @override
-  String get panicMinChars => 'Panic key must be at least 4 characters';
+  String get panicMinChars => 'Panic key must be at least 8 characters';
 
   @override
   String get panicKeysDoNotMatch => 'Keys do not match';
+
+  @override
+  String get panicSetFailed => 'Failed to save panic key — please try again';
 
   @override
   String get passwordSetAppPassword => 'Set App Password';

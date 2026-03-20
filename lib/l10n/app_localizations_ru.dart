@@ -1088,10 +1088,14 @@ class AppLocalizationsRu extends AppLocalizations {
   String get panicConfirmHint => 'Подтвердите паник-ключ';
 
   @override
-  String get panicMinChars => 'Паник-ключ должен быть не менее 4 символов';
+  String get panicMinChars => 'Паник-ключ должен быть не менее 8 символов';
 
   @override
   String get panicKeysDoNotMatch => 'Ключи не совпадают';
+
+  @override
+  String get panicSetFailed =>
+      'Не удалось сохранить паник-ключ — попробуйте ещё раз';
 
   @override
   String get passwordSetAppPassword => 'Установить пароль';

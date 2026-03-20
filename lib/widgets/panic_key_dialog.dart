@@ -39,7 +39,7 @@ class _PanicKeyDialogState extends State<PanicKeyDialog> {
     final key = _keyController.text;
     final confirm = _confirmController.text;
 
-    if (key.length < 4) {
+    if (key.length < 8) {
       setState(() => _error = context.l10n.panicMinChars);
       return;
     }
@@ -54,8 +54,12 @@ class _PanicKeyDialogState extends State<PanicKeyDialog> {
     });
     try {
       await widget.onSet(key);
-    } catch (_) {
-      if (mounted) setState(() => _loading = false);
+    } catch (e) {
+      debugPrint('[PanicKey] Failed to save panic key: $e');
+      if (mounted) setState(() {
+        _loading = false;
+        _error = context.l10n.panicSetFailed;
+      });
     }
   }
 
