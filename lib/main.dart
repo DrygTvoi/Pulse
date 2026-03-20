@@ -70,6 +70,7 @@ Future<void> main() async {
       final chatController = ChatController();
       await chatController.initialize(); // Load identity and setup Inbox manager
       await NotificationService().initialize();
+      NotificationService().setContactRepository(ContactManager());
 
       // Announce our current addresses to all contacts (in case we changed relay/provider).
       unawaited(chatController.broadcastAddressUpdate());

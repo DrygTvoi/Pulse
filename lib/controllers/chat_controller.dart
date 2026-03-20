@@ -1129,9 +1129,8 @@ class ChatController extends ChangeNotifier {
         changed = true;
       }
       if (e.avatarB64.isNotEmpty) {
-        // Store avatar separately to keep contacts JSON small
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('contact_avatar_${profileContact.id}', e.avatarB64);
+        // Store avatar in SQLite (separate table to keep contacts JSON small)
+        await LocalStorageService().saveAvatar(profileContact.id, e.avatarB64);
         changed = true;
       }
       if (changed) {

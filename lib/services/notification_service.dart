@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../controllers/chat_controller.dart';
-import '../models/contact.dart';
+import '../models/contact_repository.dart';
 import '../models/message.dart';
 import 'media_service.dart';
 
@@ -21,8 +21,14 @@ class NotificationService {
 
   static const String _mutePrefix = 'chat_mute_';
 
+  IContactRepository? _contacts;
   StreamSubscription? _sub;
   fln.FlutterLocalNotificationsPlugin? _flnPlugin;
+
+  /// Inject the contact repository. Call this from main() after initialization.
+  void setContactRepository(IContactRepository repo) {
+    _contacts = repo;
+  }
 
   Future<bool> isChatMuted(String contactId) async {
     final prefs = await SharedPreferences.getInstance();
@@ -75,7 +81,7 @@ class NotificationService {
       if (await isChatMuted(event.contactId)) return;
       final Message msg = event.message;
 
-      final contact = ContactManager().contacts
+      final contact = (_contacts?.contacts ?? [])
           .where((c) => c.id == event.contactId)
           .firstOrNull;
       final senderName = contact?.name ?? 'New message';

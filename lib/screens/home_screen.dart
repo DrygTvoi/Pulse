@@ -209,10 +209,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _loadContactAvatars() async {
     final contactList = context.read<IContactRepository>().contacts.toList();
-    final prefs = await SharedPreferences.getInstance();
+    final storage = LocalStorageService();
     final avatars = <String, Uint8List>{};
     for (final c in contactList) {
-      final b64 = prefs.getString('contact_avatar_${c.id}');
+      final b64 = await storage.loadAvatar(c.id);
       if (b64 != null && b64.isNotEmpty) {
         try { avatars[c.id] = base64Decode(b64); } catch (e) {
           debugPrint('[Home] Failed to decode avatar for ${c.id}: $e');

@@ -57,7 +57,7 @@ class LocalStorageService {
     _db = await databaseFactory.openDatabase(
       path,
       options: OpenDatabaseOptions(
-        version: 4,
+        version: 5,
         onConfigure: (db) async {
           if (dbKey != null) {
             await db.rawQuery("PRAGMA KEY=\"x'$dbKey'\"");
@@ -87,6 +87,7 @@ class LocalStorageService {
           ''');
           await _createReactionsTable(db);
           await _createContactsTable(db);
+          await _createAvatarsTable(db);
         },
         onUpgrade: (db, oldVersion, newVersion) async {
           if (oldVersion < 2) {
@@ -105,6 +106,9 @@ class LocalStorageService {
           if (oldVersion < 4) {
             await _createContactsTable(db, ifNotExists: true);
           }
+          if (oldVersion < 5) {
+            await _createAvatarsTable(db, ifNotExists: true);
+          }
         },
       ),
     );
@@ -113,6 +117,7 @@ class LocalStorageService {
     await _migrateFromPrefs();
     await migrateReactionsFromPrefs();
     await _migrateContactsFromPrefs();
+    await _migrateAvatarsFromPrefs();
 
     // Rotate DB encryption key if overdue (SQLCipher only; per-row key is static for now).
     if (_sqlcipherAvailable) {
@@ -148,6 +153,19 @@ class LocalStorageService {
       CREATE TABLE ${q}contacts (
         id   TEXT NOT NULL PRIMARY KEY,
         data TEXT NOT NULL
+      )
+    ''');
+  }
+
+  /// Create the avatars table inside [db].
+  /// Pass [ifNotExists] = true for upgrade/migration paths that must be idempotent.
+  static Future<void> _createAvatarsTable(Database db,
+      {bool ifNotExists = false}) async {
+    final q = ifNotExists ? 'IF NOT EXISTS ' : '';
+    await db.execute('''
+      CREATE TABLE ${q}avatars (
+        contact_id TEXT NOT NULL PRIMARY KEY,
+        data       TEXT NOT NULL
       )
     ''');
   }
@@ -280,7 +298,7 @@ class LocalStorageService {
       // Create encrypted DB
       final encDb = await databaseFactory.openDatabase(path,
           options: OpenDatabaseOptions(
-            version: 4,
+            version: 5,
             onConfigure: (db) async {
               if (dbKey != null) {
                 await db.rawQuery("PRAGMA KEY=\"x'$dbKey'\"");
@@ -309,6 +327,7 @@ class LocalStorageService {
               ''');
               await _createReactionsTable(db);
               await _createContactsTable(db);
+              await _createAvatarsTable(db);
             },
           ));
 
@@ -887,6 +906,66 @@ class LocalStorageService {
     });
   }
 
+  /// Migrate contact avatars from SharedPreferences to SQLite (one-time on upgrade to v5).
+  Future<void> _migrateAvatarsFromPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    final keys = prefs.getKeys()
+        .where((k) => k.startsWith('contact_avatar_'))
+        .toList();
+    if (keys.isEmpty) return;
+
+    final db = _database;
+    final batch = db.batch();
+    for (final key in keys) {
+      final data = prefs.getString(key);
+      if (data == null || data.isEmpty) continue;
+      final contactId = key.substring('contact_avatar_'.length);
+      batch.insert(
+        'avatars',
+        {'contact_id': contactId, 'data': data},
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    }
+    await batch.commit(noResult: true);
+    for (final key in keys) {
+      await prefs.remove(key);
+    }
+    debugPrint('[LocalStorage] Migrated ${keys.length} avatar(s) from SharedPrefs to SQLite');
+  }
+
+  // ── Avatars public CRUD ─────────────────────────────────────────────────────
+
+  /// Load the base64-encoded avatar for [contactId], or null if not stored.
+  Future<String?> loadAvatar(String contactId) async {
+    final rows = await _database.query(
+      'avatars',
+      columns: ['data'],
+      where: 'contact_id = ?',
+      whereArgs: [contactId],
+      limit: 1,
+    );
+    if (rows.isEmpty) return null;
+    return rows.first['data'] as String?;
+  }
+
+  /// Upsert the base64-encoded avatar for [contactId].
+  Future<void> saveAvatar(String contactId, String base64Data) async {
+    await _database.insert(
+      'avatars',
+      {'contact_id': contactId, 'data': base64Data},
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  /// Delete the stored avatar for [contactId].
+  Future<void> deleteAvatar(String contactId) async {
+    await _database.delete(
+      'avatars',
+      where: 'contact_id = ?',
+      whereArgs: [contactId],
+    );
+  }
+
   /// Delete all messages for a room.
   Future<void> clearHistory(String roomId) async {
     await _database.delete(
@@ -913,24 +992,27 @@ class LocalStorageService {
     await _database.delete('ttl_pending');
     await _database.delete('reactions');
     await _database.delete('contacts');
+    await _database.delete('avatars');
   }
 
   // ── Encrypted Backup / Restore ──────────────────────────────────────────────
   //
-  // File format (v1):
+  // File format (v1 / v2):
   //   [4 bytes magic "PLBK"]
-  //   [2 bytes version  LE uint16 = 1]
+  //   [2 bytes version  LE uint16]
   //   [16 bytes PBKDF2 salt]
   //   [12 bytes AES-GCM IV]
   //   [remaining: AES-256-GCM ciphertext including 16-byte auth tag appended by
   //    the cryptography package]
   //
-  // The plaintext is a UTF-8 encoded JSON array of message objects.  Messages
-  // are stored in the DB encrypted with the device AES key — export decrypts
-  // them first, then re-encrypts under the user's backup password.
+  // v1 plaintext: UTF-8 JSON array of message objects (messages only).
+  // v2 plaintext: UTF-8 JSON object:
+  //   {"messages": [...], "contacts": [...], "avatars": [...]}
+  //   Messages are decrypted from the device AES key before export, and
+  //   re-encrypted under the user's backup password.
 
   static const _kBackupMagic = [0x50, 0x4C, 0x42, 0x4B]; // "PLBK"
-  static const _kBackupVersion = 1;
+  static const _kBackupVersion = 2;
   static const _kPbkdf2Iterations = 200000; // OWASP 2023
   static const _kPbkdf2KeyLen = 32; // 256-bit
   static const _kSaltLen = 16;
@@ -994,8 +1076,28 @@ class LocalStorageService {
         }
       }
 
-      // Serialise to JSON
-      final jsonBytes = utf8.encode(jsonEncode(messages));
+      // Collect contacts and avatars for v2 format
+      final contactRows = await db.query('contacts');
+      final contacts = contactRows.map((r) {
+        try {
+          return jsonDecode(r['data'] as String) as Map<String, dynamic>;
+        } catch (_) {
+          return null;
+        }
+      }).whereType<Map<String, dynamic>>().toList();
+
+      final avatarRows = await db.query('avatars');
+      final avatars = avatarRows.map((r) => <String, dynamic>{
+        'contact_id': r['contact_id'],
+        'data': r['data'],
+      }).toList();
+
+      // Serialise to JSON (v2: object with messages + contacts + avatars)
+      final jsonBytes = utf8.encode(jsonEncode({
+        'messages': messages,
+        'contacts': contacts,
+        'avatars': avatars,
+      }));
 
       // Generate salt + IV
       final rng = Random.secure();
@@ -1058,9 +1160,9 @@ class LocalStorageService {
           return -1;
         }
       }
-      // Check version
+      // Check version (accept v1 and v2)
       final version = data[4] | (data[5] << 8);
-      if (version != _kBackupVersion) {
+      if (version != 1 && version != 2) {
         debugPrint('[Backup] Unsupported backup version: $version');
         return -1;
       }
@@ -1100,15 +1202,31 @@ class LocalStorageService {
       }
 
       // ── Parse JSON ──
+      // v1: plain array of messages
+      // v2: {messages: [...], contacts: [...], avatars: [...]}
       final List<dynamic> messages;
+      List<dynamic>? contactsPayload;
+      List<dynamic>? avatarsPayload;
       try {
-        messages = jsonDecode(utf8.decode(plainBytes)) as List<dynamic>;
+        final decoded = jsonDecode(utf8.decode(plainBytes));
+        if (decoded is List) {
+          // v1 backup — messages only
+          messages = decoded;
+        } else if (decoded is Map) {
+          // v2 backup
+          messages = (decoded['messages'] as List?) ?? [];
+          contactsPayload = decoded['contacts'] as List?;
+          avatarsPayload = decoded['avatars'] as List?;
+        } else {
+          debugPrint('[Backup] Unknown payload structure');
+          return -1;
+        }
       } catch (e) {
         debugPrint('[Backup] JSON parse failed: $e');
         return -1;
       }
 
-      // ── Insert with dedup ──
+      // ── Insert messages with dedup ──
       final db = _database;
       int imported = 0;
       final total = messages.length;
@@ -1150,7 +1268,47 @@ class LocalStorageService {
         }
       }
 
-      debugPrint('[Backup] Imported $imported new messages out of $total total');
+      // ── Restore contacts (v2 only, no-clobber) ──
+      if (contactsPayload != null) {
+        for (final raw in contactsPayload) {
+          try {
+            final map = raw as Map<String, dynamic>;
+            final id = map['id'] as String? ?? '';
+            if (id.isEmpty) continue;
+            // Only insert if not already present (don't overwrite local edits)
+            await db.insert(
+              'contacts',
+              {'id': id, 'data': jsonEncode(map)},
+              conflictAlgorithm: ConflictAlgorithm.ignore,
+            );
+          } catch (e) {
+            debugPrint('[Backup] Skipping malformed contact: $e');
+          }
+        }
+      }
+
+      // ── Restore avatars (v2 only, no-clobber) ──
+      if (avatarsPayload != null) {
+        for (final raw in avatarsPayload) {
+          try {
+            final entry = raw as Map<String, dynamic>;
+            final contactId = entry['contact_id'] as String? ?? '';
+            final avatarData = entry['data'] as String? ?? '';
+            if (contactId.isEmpty || avatarData.isEmpty) continue;
+            await db.insert(
+              'avatars',
+              {'contact_id': contactId, 'data': avatarData},
+              conflictAlgorithm: ConflictAlgorithm.ignore,
+            );
+          } catch (e) {
+            debugPrint('[Backup] Skipping malformed avatar: $e');
+          }
+        }
+      }
+
+      debugPrint('[Backup] Imported $imported new messages out of $total total'
+          '${contactsPayload != null ? ", ${contactsPayload.length} contact(s)" : ""}'
+          '${avatarsPayload != null ? ", ${avatarsPayload.length} avatar(s)" : ""}');
       return imported;
     } catch (e, st) {
       debugPrint('[Backup] Import failed: $e\n$st');
