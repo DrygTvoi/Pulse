@@ -141,6 +141,14 @@ class SignalChunkReqEvent {
   SignalChunkReqEvent(this.fid, this.missing, this.senderId);
 }
 
+/// Group membership change broadcast by group admin.
+class SignalGroupUpdateEvent {
+  final String groupId;
+  final String groupName;
+  final List<String> members;
+  SignalGroupUpdateEvent(this.groupId, this.groupName, this.members);
+}
+
 // ── Callbacks for operations the dispatcher cannot do on its own ────────────
 
 /// Signature verifier: returns true if HMAC is valid.
@@ -200,6 +208,7 @@ class SignalDispatcher {
   final _addrUpdateCtrl = StreamController<SignalAddrUpdateEvent>.broadcast();
   final _profileUpdateCtrl = StreamController<SignalProfileUpdateEvent>.broadcast();
   final _chunkReqCtrl = StreamController<SignalChunkReqEvent>.broadcast();
+  final _groupUpdateCtrl = StreamController<SignalGroupUpdateEvent>.broadcast();
 
   Stream<SignalRawEvent> get rawSignals => _rawCtrl.stream;
   Stream<SignalIncomingCallEvent> get incomingCalls => _incomingCallCtrl.stream;
@@ -219,6 +228,7 @@ class SignalDispatcher {
   Stream<SignalAddrUpdateEvent> get addrUpdates => _addrUpdateCtrl.stream;
   Stream<SignalProfileUpdateEvent> get profileUpdates => _profileUpdateCtrl.stream;
   Stream<SignalChunkReqEvent> get chunkRequests => _chunkReqCtrl.stream;
+  Stream<SignalGroupUpdateEvent> get groupUpdates => _groupUpdateCtrl.stream;
 
   // ── Constants ────────────────────────────────────────────────────────────
 
@@ -228,6 +238,7 @@ class SignalDispatcher {
     'sys_keys',
     'relay_exchange',
     'profile_update',
+    'group_update',
   };
 
   /// Signal types exempt from rate limiting (system-critical).
@@ -497,6 +508,17 @@ class SignalDispatcher {
                   SignalProfileUpdateEvent(profileContact, about, avatarB64));
             }
           }
+        } else if (sigType == 'group_update') {
+          final payload = sig['payload'];
+          if (payload is Map) {
+            final groupId = payload['groupId'] as String?;
+            final groupName = payload['name'] as String? ?? '';
+            final rawMembers = payload['members'];
+            if (groupId != null && rawMembers is List && !_groupUpdateCtrl.isClosed) {
+              _groupUpdateCtrl.add(SignalGroupUpdateEvent(
+                  groupId, groupName, List<String>.from(rawMembers)));
+            }
+          }
         } else if (sigType == 'chunk_req') {
           final payload = sig['payload'];
           if (payload is Map) {
@@ -535,6 +557,7 @@ class SignalDispatcher {
     _addrUpdateCtrl.close();
     _profileUpdateCtrl.close();
     _chunkReqCtrl.close();
+    _groupUpdateCtrl.close();
     _sigRateLimiter.clear();
   }
 }

@@ -855,6 +855,22 @@ class ChatController extends ChangeNotifier {
     await Future.wait(targets.map((c) => _sendSignalTo(c, 'profile_update', payload)));
   }
 
+  /// Broadcast updated group membership to all current members.
+  /// Call after kicking or adding a member so everyone stays in sync.
+  Future<void> broadcastGroupUpdate(Contact group) async {
+    if (_identity == null || _selfId.isEmpty) return;
+    final payload = <String, dynamic>{
+      'groupId': group.id,
+      'name': group.name,
+      'members': group.members,
+    };
+    final memberContacts = _contacts.contacts
+        .where((c) => !c.isGroup && group.members.contains(c.id))
+        .toList();
+    await Future.wait(memberContacts.map((c) => _sendSignalTo(c, 'group_update', payload)));
+    debugPrint('[Group] Broadcast membership update for ${group.name} to ${memberContacts.length} members');
+  }
+
   /// Broadcast our current addresses to all non-group contacts.
   /// Called on startup and whenever the user changes their transport settings.
   Future<void> broadcastAddressUpdate() async {
@@ -1147,6 +1163,20 @@ class ChatController extends ChangeNotifier {
     _dispatcherSubs.add(d.chunkRequests.listen((e) {
       unawaited(_resendMissingChunks(e.fid, e.missing, e.senderId));
     }));
+
+    // Group membership updates from admin
+    _dispatcherSubs.add(d.groupUpdates.listen((e) async {
+      final group = _contacts.contacts.cast<Contact?>()
+          .firstWhere((c) => c?.isGroup == true && c?.id == e.groupId, orElse: () => null);
+      if (group == null) return;
+      final updated = group.copyWith(
+        name: e.groupName.isNotEmpty ? e.groupName : group.name,
+        members: e.members,
+      );
+      await _contacts.updateContact(updated);
+      debugPrint('[Group] Membership updated for ${updated.name}: ${e.members.length} members');
+      notifyListeners();
+    }));
   }
 
   void _handleGroupReadReceipt(String fromId, String groupId, String msgId) {
@@ -1305,7 +1335,9 @@ class ChatController extends ChangeNotifier {
                  final groupContact = _contacts.contacts.cast<Contact?>()
                      .firstWhere((c) => c?.isGroup == true && c?.id == groupId,
                          orElse: () => null);
-                 if (groupContact != null) {
+                 // Reject if sender is not a known member of this group
+                 final isMember = groupContact?.members.contains(senderContact.id) ?? false;
+                 if (groupContact != null && isMember) {
                    targetContact = groupContact;
                    finalText = parsed['text'] as String? ?? displayText;
                    groupReplyToId = parsed['_replyToId'] as String?;

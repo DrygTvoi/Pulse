@@ -43,6 +43,7 @@ class _GroupCallScreenState extends State<GroupCallScreen> {
 
   bool _isMuted = false;
   bool _isCameraOff = false;
+  bool _isSpeakerOn = true; // default to speaker for group audio calls
 
   CallTransportProfile _currentProfile = CallTransportProfile.auto;
 
@@ -689,10 +690,20 @@ class _GroupCallScreenState extends State<GroupCallScreen> {
           )
         else
           _controlBtn(
-            icon: Icons.speaker_phone_rounded,
+            icon: _isSpeakerOn
+                ? Icons.volume_up_rounded
+                : Icons.volume_off_rounded,
             label: context.l10n.callSpeaker,
-            active: false,
-            onTap: () {},
+            active: !_isSpeakerOn,
+            onTap: () async {
+              final next = !_isSpeakerOn;
+              setState(() => _isSpeakerOn = next);
+              try {
+                await Helper.setSpeakerphoneOn(next);
+              } catch (e) {
+                debugPrint('[GroupCall] setSpeakerphoneOn failed: $e');
+              }
+            },
           ),
       ]),
     );

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import '../constants.dart';
@@ -41,6 +42,10 @@ class GroupSignalingService {
     required this.myId,
     required this.members,
   });
+
+  /// SHA-256(groupId) hex — used as routing token so relay can't see group UUID.
+  static String _routingToken(String groupId) =>
+      sha256.convert(utf8.encode(groupId)).toString();
 
   Future<void> init({CallTransportProfile profile = CallTransportProfile.auto}) async {
     _peerConfig = await profile.peerConfig();
@@ -99,12 +104,13 @@ class GroupSignalingService {
         if (type == null) return;
         if (type != 'webrtc_offer' && type != 'webrtc_answer' && type != 'webrtc_candidate') return;
 
-        // Group signals carry groupId UNENCRYPTED for routing without decryption
+        // Group signals carry SHA-256(groupId) as routing token (never raw UUID)
         final raw = sig['payload'];
         if (raw is! Map<String, dynamic>) return;
 
-        // 1. Fast-path group check — no decryption needed
-        if (raw['groupId'] != group.id) return;
+        // 1. Fast-path group check via hashed token — no decryption needed
+        final token = raw['_g'] as String?;
+        if (token != _routingToken(group.id)) return;
 
         // 2. Identify sender — needed to pick the correct Signal session
         final fromId = sig['senderId'] as String? ?? '';
@@ -166,18 +172,18 @@ class GroupSignalingService {
         : null) ?? {};
     final ourApiKey = adapterConfig['token'] as String? ?? '';
 
-    // Wrap payload with groupId for routing
+    // Wrap payload — use SHA-256(groupId) as routing token, never raw UUID
+    final token = _routingToken(group.id);
     Map<String, dynamic> innerPayload = {'groupId': group.id, 'data': data};
 
-    // Try to encrypt
+    // Try to encrypt; outer wrapper uses hashed token so relay can't see group UUID
     Map<String, dynamic> payload;
     try {
       final plain = jsonEncode(innerPayload);
       final envelope = await SignalService().encryptMessage(target.databaseId, plain);
-      // groupId left unencrypted so receiver can route without decrypting
-      payload = {'e2ee': envelope, 'groupId': group.id};
+      payload = {'e2ee': envelope, '_g': token};
     } catch (_) {
-      payload = innerPayload;
+      payload = {'_g': token, 'data': data}; // unencrypted fallback (no groupId in clear)
     }
 
     if (target.provider == 'Firebase') {

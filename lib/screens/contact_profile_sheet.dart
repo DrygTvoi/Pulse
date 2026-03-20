@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
@@ -245,6 +246,8 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
     await context.read<IContactRepository>().updateContact(updated);
     setState(() => _contact = updated);
     widget.onContactUpdated?.call(updated);
+    // Notify remaining members of the new member list
+    unawaited(context.read<ChatController>().broadcastGroupUpdate(updated));
   }
 
   void _showAddMembersSheet() {
@@ -300,6 +303,8 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
                           if (mounted) {
                             setState(() => _contact = updated);
                             widget.onContactUpdated?.call(updated);
+                            // Notify all members (including newly added) of the updated list
+                            unawaited(context.read<ChatController>().broadcastGroupUpdate(updated));
                           }
                         },
                         child: Text(context.l10n.profileAddCount(selected.length),
