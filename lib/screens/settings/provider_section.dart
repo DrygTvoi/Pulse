@@ -375,7 +375,9 @@ class _ProviderSectionState extends State<ProviderSection> {
     if (privkey.isNotEmpty) {
       try {
         pubkey = deriveNostrPubkeyHex(privkey);
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('[Provider] Could not derive Nostr pubkey: $e');
+      }
     }
 
     // Resolve active relay: adaptive → probe → configured → default

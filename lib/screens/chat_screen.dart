@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import '../services/local_storage_service.dart';
 import '../theme/app_theme.dart';
 import '../theme/design_tokens.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -90,8 +90,7 @@ class _ChatScreenState extends State<ChatScreen> {
       if (mounted) setState(() => _chatMuted = muted);
       _scrollToBottom(animated: false);
       // Restore draft
-      final prefs = await SharedPreferences.getInstance();
-      final draft = prefs.getString('draft_${_contact.id}') ?? '';
+      final draft = await LocalStorageService().loadDraft(_contact.id) ?? '';
       if (draft.isNotEmpty && mounted) {
         _controller.text = draft;
         _controller.selection = TextSelection.collapsed(offset: draft.length);
@@ -170,13 +169,12 @@ class _ChatScreenState extends State<ChatScreen> {
   void dispose() {
     // Save draft
     final draft = _controller.text.trim();
-    SharedPreferences.getInstance().then((prefs) {
-      if (draft.isNotEmpty) {
-        prefs.setString('draft_${_contact.id}', draft);
-      } else {
-        prefs.remove('draft_${_contact.id}');
-      }
-    });
+    final storage = LocalStorageService();
+    if (draft.isNotEmpty) {
+      unawaited(storage.saveDraft(_contact.id, draft));
+    } else {
+      unawaited(storage.deleteDraft(_contact.id));
+    }
     _typingDebounce?.cancel();
     _typingSub?.cancel();
     _keyChangeSub?.cancel();
@@ -233,7 +231,7 @@ class _ChatScreenState extends State<ChatScreen> {
     HapticFeedback.lightImpact();
     final text = _controller.text.trim();
     _controller.clear();
-    SharedPreferences.getInstance().then((p) => p.remove('draft_${_contact.id}'));
+    unawaited(LocalStorageService().deleteDraft(_contact.id));
     final ctrl = context.read<ChatController>();
     if (_editingMessageId != null) {
       final editId = _editingMessageId!;
@@ -403,7 +401,7 @@ class _ChatScreenState extends State<ChatScreen> {
       return;
     }
     _controller.clear();
-    SharedPreferences.getInstance().then((p) => p.remove('draft_${_contact.id}'));
+    unawaited(LocalStorageService().deleteDraft(_contact.id));
     await context.read<ChatController>().scheduleMessage(_contact, text, scheduledAt);
     WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
   }

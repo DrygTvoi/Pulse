@@ -275,7 +275,9 @@ class SignalService {
         try {
           await _store.removeSignedPreKey(id);
           await _storage.delete(key: 'signal_signed_prekey_$id');
-        } catch (_) {}
+        } catch (e) {
+          debugPrint('[Signal] Failed to remove old signed prekey $id: $e');
+        }
       }
 
       // Trigger bundle republish so contacts get the new signed prekey.
@@ -481,6 +483,9 @@ class SignalService {
       for (int i = 0; i < pubBytes.length; i++) { pubBytes[i] = 0; }
       final privBytes = _identityKeyPair.serialize();
       for (int i = 0; i < privBytes.length; i++) { privBytes[i] = 0; }
-    } catch (_) {}
+    } catch (e) {
+      // Best-effort: Dart byte arrays may be read-only; log but don't crash.
+      debugPrint('[Signal] Key zeroization incomplete: $e');
+    }
   }
 }

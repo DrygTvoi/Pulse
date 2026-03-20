@@ -57,7 +57,7 @@ class LocalStorageService {
     _db = await databaseFactory.openDatabase(
       path,
       options: OpenDatabaseOptions(
-        version: 5,
+        version: 6,
         onConfigure: (db) async {
           if (dbKey != null) {
             await db.rawQuery("PRAGMA KEY=\"x'$dbKey'\"");
@@ -88,6 +88,7 @@ class LocalStorageService {
           await _createReactionsTable(db);
           await _createContactsTable(db);
           await _createAvatarsTable(db);
+          await _createDraftsTable(db);
         },
         onUpgrade: (db, oldVersion, newVersion) async {
           if (oldVersion < 2) {
@@ -108,6 +109,9 @@ class LocalStorageService {
           }
           if (oldVersion < 5) {
             await _createAvatarsTable(db, ifNotExists: true);
+          }
+          if (oldVersion < 6) {
+            await _createDraftsTable(db, ifNotExists: true);
           }
         },
       ),
@@ -166,6 +170,19 @@ class LocalStorageService {
       CREATE TABLE ${q}avatars (
         contact_id TEXT NOT NULL PRIMARY KEY,
         data       TEXT NOT NULL
+      )
+    ''');
+  }
+
+  /// Create the drafts table inside [db].
+  /// Pass [ifNotExists] = true for upgrade/migration paths that must be idempotent.
+  static Future<void> _createDraftsTable(Database db,
+      {bool ifNotExists = false}) async {
+    final q = ifNotExists ? 'IF NOT EXISTS ' : '';
+    await db.execute('''
+      CREATE TABLE ${q}drafts (
+        contact_id TEXT NOT NULL PRIMARY KEY,
+        text       TEXT NOT NULL
       )
     ''');
   }
@@ -298,7 +315,7 @@ class LocalStorageService {
       // Create encrypted DB
       final encDb = await databaseFactory.openDatabase(path,
           options: OpenDatabaseOptions(
-            version: 5,
+            version: 6,
             onConfigure: (db) async {
               if (dbKey != null) {
                 await db.rawQuery("PRAGMA KEY=\"x'$dbKey'\"");
@@ -328,6 +345,7 @@ class LocalStorageService {
               await _createReactionsTable(db);
               await _createContactsTable(db);
               await _createAvatarsTable(db);
+              await _createDraftsTable(db);
             },
           ));
 
@@ -966,6 +984,39 @@ class LocalStorageService {
     );
   }
 
+  // ── Drafts public CRUD ──────────────────────────────────────────────────────
+
+  /// Load the saved draft for [contactId], or null if none.
+  Future<String?> loadDraft(String contactId) async {
+    final rows = await _database.query(
+      'drafts',
+      columns: ['text'],
+      where: 'contact_id = ?',
+      whereArgs: [contactId],
+      limit: 1,
+    );
+    if (rows.isEmpty) return null;
+    return rows.first['text'] as String?;
+  }
+
+  /// Upsert a draft for [contactId].
+  Future<void> saveDraft(String contactId, String text) async {
+    await _database.insert(
+      'drafts',
+      {'contact_id': contactId, 'text': text},
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  /// Delete the draft for [contactId].
+  Future<void> deleteDraft(String contactId) async {
+    await _database.delete(
+      'drafts',
+      where: 'contact_id = ?',
+      whereArgs: [contactId],
+    );
+  }
+
   /// Delete all messages for a room.
   Future<void> clearHistory(String roomId) async {
     await _database.delete(
@@ -993,6 +1044,7 @@ class LocalStorageService {
     await _database.delete('reactions');
     await _database.delete('contacts');
     await _database.delete('avatars');
+    await _database.delete('drafts');
   }
 
   // ── Encrypted Backup / Restore ──────────────────────────────────────────────
