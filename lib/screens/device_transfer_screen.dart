@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../services/device_transfer_service.dart';
 import '../theme/app_theme.dart';
 import '../theme/design_tokens.dart';
+import '../l10n/l10n_ext.dart';
 
 enum _Role { none, sender, receiver }
 
@@ -69,7 +70,7 @@ class _DeviceTransferScreenState extends State<DeviceTransferScreen> {
   Future<void> _startNostrSend() async {
     final relay = _relayController.text.trim();
     if (relay.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(_snackBar('Enter a relay URL first'));
+      ScaffoldMessenger.of(context).showSnackBar(_snackBar(context.l10n.transferEnterRelayFirst));
       return;
     }
     setState(() {
@@ -102,7 +103,7 @@ class _DeviceTransferScreenState extends State<DeviceTransferScreen> {
   Future<void> _connect() async {
     final code = _codeController.text.trim();
     if (code.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(_snackBar('Paste the transfer code from the sender'));
+      ScaffoldMessenger.of(context).showSnackBar(_snackBar(context.l10n.transferPasteCodeFromSender));
       return;
     }
     setState(() {
@@ -167,7 +168,7 @@ class _DeviceTransferScreenState extends State<DeviceTransferScreen> {
     return Scaffold(
       backgroundColor: AppTheme.background,
       appBar: AppBar(
-        title: Text('Transfer to Another Device',
+        title: Text(context.l10n.transferTitle,
             style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
         backgroundColor: AppTheme.surface,
         elevation: 0,
@@ -204,16 +205,13 @@ class _DeviceTransferScreenState extends State<DeviceTransferScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _infoBox(
-          'Move your Signal identity and Nostr keys to a new device.\n'
-          'Chat sessions are NOT transferred — forward secrecy is preserved.',
-        ),
+        _infoBox(context.l10n.transferInfoBox),
         const SizedBox(height: DesignTokens.spacing28),
         _roleCard(
           icon: Icons.upload_rounded,
           iconColor: const Color(0xFF3498DB),
-          title: 'Send from this device',
-          subtitle: 'This device has the keys. Share a code with the new device.',
+          title: context.l10n.transferSendFromThis,
+          subtitle: context.l10n.transferSendSubtitle,
           onTap: () => setState(() {
             _role = _Role.sender;
             _step = _Step.config;
@@ -223,8 +221,8 @@ class _DeviceTransferScreenState extends State<DeviceTransferScreen> {
         _roleCard(
           icon: Icons.download_rounded,
           iconColor: const Color(0xFF2ECC71),
-          title: 'Receive on this device',
-          subtitle: 'This is the new device. Enter the code from the old device.',
+          title: context.l10n.transferReceiveOnThis,
+          subtitle: context.l10n.transferReceiveSubtitle,
           onTap: () => setState(() {
             _role = _Role.receiver;
             _step = _Step.config;
@@ -292,25 +290,25 @@ class _DeviceTransferScreenState extends State<DeviceTransferScreen> {
       children: [
         _backButton(),
         const SizedBox(height: DesignTokens.spacing20),
-        _sectionLabel('Choose Transfer Method'),
+        _sectionLabel(context.l10n.transferChooseMethod),
         const SizedBox(height: DesignTokens.spacing16),
         _methodCard(
           icon: Icons.wifi_rounded,
           iconColor: const Color(0xFF3498DB),
-          title: 'LAN (Same Network)',
-          subtitle: 'Fast, direct. Both devices must be on the same Wi-Fi.',
+          title: context.l10n.transferLan,
+          subtitle: context.l10n.transferLanSubtitle,
           onTap: _startLanSend,
         ),
         const SizedBox(height: DesignTokens.spacing14),
-        _sectionLabel('Nostr Relay'),
+        _sectionLabel(context.l10n.transferNostrRelay),
         const SizedBox(height: DesignTokens.spacing10),
         _relayField(),
         const SizedBox(height: DesignTokens.spacing12),
         _methodCard(
           icon: Icons.bolt_rounded,
           iconColor: const Color(0xFF9B59B6),
-          title: 'Nostr Relay',
-          subtitle: 'Works over any network using an existing Nostr relay.',
+          title: context.l10n.transferNostrRelay,
+          subtitle: context.l10n.transferNostrRelaySubtitle,
           onTap: _startNostrSend,
         ),
       ],
@@ -323,7 +321,7 @@ class _DeviceTransferScreenState extends State<DeviceTransferScreen> {
       children: [
         _backButton(),
         const SizedBox(height: DesignTokens.spacing20),
-        _sectionLabel('Enter Transfer Code'),
+        _sectionLabel(context.l10n.transferEnterCode),
         const SizedBox(height: DesignTokens.spacing12),
         TextField(
           controller: _codeController,
@@ -331,7 +329,7 @@ class _DeviceTransferScreenState extends State<DeviceTransferScreen> {
               color: AppTheme.textPrimary, fontSize: DesignTokens.fontBody),
           maxLines: 3,
           decoration: InputDecoration(
-            hintText: 'Paste the LAN:... or NOS:... code here',
+            hintText: context.l10n.transferPasteCode,
             hintStyle:
                 GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: DesignTokens.fontBody),
             filled: true,
@@ -354,7 +352,7 @@ class _DeviceTransferScreenState extends State<DeviceTransferScreen> {
           child: ElevatedButton.icon(
             onPressed: _connect,
             icon: const Icon(Icons.link_rounded, color: Colors.white),
-            label: Text('Connect',
+            label: Text(context.l10n.transferConnect,
                 style: GoogleFonts.inter(
                     fontWeight: FontWeight.w700,
                     fontSize: DesignTokens.fontInput,
@@ -428,7 +426,7 @@ class _DeviceTransferScreenState extends State<DeviceTransferScreen> {
       style: GoogleFonts.inter(color: AppTheme.textPrimary, fontSize: DesignTokens.fontMd),
       decoration: InputDecoration(
         hintText: 'wss://relay.damus.io',
-        labelText: 'Relay URL',
+        labelText: context.l10n.transferRelayUrl,
         labelStyle:
             GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: DesignTokens.fontBody),
         prefixIcon:
@@ -459,11 +457,11 @@ class _DeviceTransferScreenState extends State<DeviceTransferScreen> {
           if (_code.isEmpty) ...[
             const CircularProgressIndicator(),
             const SizedBox(height: DesignTokens.spacing16),
-            Text('Generating transfer code…',
+            Text(context.l10n.transferGenerating,
                 style: GoogleFonts.inter(
                     color: AppTheme.textSecondary, fontSize: DesignTokens.fontLg)),
           ] else ...[
-            Text('Share this code with the receiver:',
+            Text(context.l10n.transferShareCode,
                 style: GoogleFonts.inter(
                     color: AppTheme.textSecondary, fontSize: DesignTokens.fontMd)),
             const SizedBox(height: DesignTokens.spacing16),
@@ -485,11 +483,11 @@ class _DeviceTransferScreenState extends State<DeviceTransferScreen> {
               onPressed: () {
                 Clipboard.setData(ClipboardData(text: _code));
                 ScaffoldMessenger.of(context)
-                    .showSnackBar(_snackBar('Code copied to clipboard'));
+                    .showSnackBar(_snackBar(context.l10n.transferCodeCopied));
               },
               icon: Icon(Icons.copy_rounded,
                   size: DesignTokens.iconSm, color: AppTheme.primary),
-              label: Text('Copy Code',
+              label: Text(context.l10n.transferCopyCode,
                   style: GoogleFonts.inter(
                       color: AppTheme.primary, fontWeight: FontWeight.w600)),
               style: OutlinedButton.styleFrom(
@@ -501,7 +499,7 @@ class _DeviceTransferScreenState extends State<DeviceTransferScreen> {
             const SizedBox(height: DesignTokens.spacing28),
             const CircularProgressIndicator(),
             const SizedBox(height: DesignTokens.spacing14),
-            Text('Waiting for receiver to connect…',
+            Text(context.l10n.transferWaitingReceiver,
                 style: GoogleFonts.inter(
                     color: AppTheme.textSecondary, fontSize: DesignTokens.fontMd)),
           ],
@@ -514,7 +512,7 @@ class _DeviceTransferScreenState extends State<DeviceTransferScreen> {
           const SizedBox(height: 60),
           const CircularProgressIndicator(),
           const SizedBox(height: DesignTokens.spacing20),
-          Text('Connecting to sender…',
+          Text(context.l10n.transferConnectingSender,
               style: GoogleFonts.inter(
                   color: AppTheme.textSecondary, fontSize: DesignTokens.fontLg)),
         ],
@@ -551,7 +549,7 @@ class _DeviceTransferScreenState extends State<DeviceTransferScreen> {
               ),
               const SizedBox(height: DesignTokens.spacing16),
               Text(
-                'Compare this code on both devices.\nIf they match, the transfer is secure.',
+                context.l10n.transferVerifyBoth,
                 textAlign: TextAlign.center,
                 style: GoogleFonts.inter(
                     color: AppTheme.textSecondary, fontSize: DesignTokens.fontMd, height: 1.5),
@@ -566,7 +564,7 @@ class _DeviceTransferScreenState extends State<DeviceTransferScreen> {
               child: OutlinedButton.icon(
                 onPressed: _cancel,
                 icon: const Icon(Icons.close_rounded, size: DesignTokens.fontHeading, color: Colors.red),
-                label: Text('Cancel',
+                label: Text(context.l10n.cancel,
                     style: GoogleFonts.inter(
                         color: Colors.red, fontWeight: FontWeight.w600)),
                 style: OutlinedButton.styleFrom(
@@ -583,7 +581,7 @@ class _DeviceTransferScreenState extends State<DeviceTransferScreen> {
                 onPressed: _confirm,
                 icon: const Icon(Icons.check_rounded,
                     size: DesignTokens.fontHeading, color: Colors.white),
-                label: Text('Confirm',
+                label: Text(context.l10n.confirm,
                     style: GoogleFonts.inter(
                         color: Colors.white, fontWeight: FontWeight.w700)),
                 style: ElevatedButton.styleFrom(
@@ -620,7 +618,7 @@ class _DeviceTransferScreenState extends State<DeviceTransferScreen> {
         ),
         const SizedBox(height: DesignTokens.spacing24),
         Text(
-          isSender ? 'Transfer Complete' : 'Keys Imported',
+          isSender ? context.l10n.transferComplete : context.l10n.transferKeysImported,
           style: GoogleFonts.inter(
               color: AppTheme.textPrimary,
               fontWeight: FontWeight.w700,
@@ -629,8 +627,8 @@ class _DeviceTransferScreenState extends State<DeviceTransferScreen> {
         const SizedBox(height: DesignTokens.spacing12),
         Text(
           isSender
-              ? 'Your keys remain active on this device.\nThe receiver can now use your identity.'
-              : 'Keys imported successfully.\nRestart the app to apply the new identity.',
+              ? context.l10n.transferCompleteSenderBody
+              : context.l10n.transferCompleteReceiverBody,
           textAlign: TextAlign.center,
           style: GoogleFonts.inter(
               color: AppTheme.textSecondary, fontSize: DesignTokens.fontMd, height: 1.6),
@@ -648,7 +646,7 @@ class _DeviceTransferScreenState extends State<DeviceTransferScreen> {
                     borderRadius: BorderRadius.circular(DesignTokens.inputRadius)),
                 elevation: 0,
               ),
-              child: Text('Close',
+              child: Text(context.l10n.close,
                   style: GoogleFonts.inter(
                       color: Colors.white,
                       fontWeight: FontWeight.w700,
@@ -663,7 +661,7 @@ class _DeviceTransferScreenState extends State<DeviceTransferScreen> {
               onPressed: () => exit(0),
               icon: const Icon(Icons.restart_alt_rounded,
                   color: Colors.white),
-              label: Text('Restart App',
+              label: Text(context.l10n.transferRestartApp,
                   style: GoogleFonts.inter(
                       color: Colors.white,
                       fontWeight: FontWeight.w700,
@@ -690,7 +688,7 @@ class _DeviceTransferScreenState extends State<DeviceTransferScreen> {
         const SizedBox(height: DesignTokens.spacing40),
         const Icon(Icons.error_outline_rounded, color: Colors.red, size: 56),
         const SizedBox(height: DesignTokens.spacing20),
-        Text('Transfer Failed',
+        Text(context.l10n.transferFailed,
             style: GoogleFonts.inter(
                 color: AppTheme.textPrimary,
                 fontWeight: FontWeight.w700,
@@ -712,7 +710,7 @@ class _DeviceTransferScreenState extends State<DeviceTransferScreen> {
                   borderRadius: BorderRadius.circular(DesignTokens.inputRadius)),
               elevation: 0,
             ),
-            child: Text('Try Again',
+            child: Text(context.l10n.transferTryAgain,
                 style: GoogleFonts.inter(
                     color: Colors.white,
                     fontWeight: FontWeight.w700,
@@ -769,7 +767,7 @@ class _DeviceTransferScreenState extends State<DeviceTransferScreen> {
           Icon(Icons.arrow_back_rounded,
               size: DesignTokens.fontHeading, color: AppTheme.textSecondary),
           const SizedBox(width: DesignTokens.spacing6),
-          Text('Back',
+          Text(context.l10n.back,
               style: GoogleFonts.inter(
                   color: AppTheme.textSecondary, fontSize: DesignTokens.fontMd)),
         ],

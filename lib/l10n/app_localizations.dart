@@ -2713,6 +2713,492 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Later'**
   String get settingsLater;
+
+  /// Badge label shown for group contacts in profile sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Group'**
+  String get profileGroupLabel;
+
+  /// Button to add members to a group
+  ///
+  /// In en, this message translates to:
+  /// **'Add'**
+  String get profileAddButton;
+
+  /// Button to kick a member from the group
+  ///
+  /// In en, this message translates to:
+  /// **'Kick'**
+  String get profileKickButton;
+
+  /// Section divider label for Data section
+  ///
+  /// In en, this message translates to:
+  /// **'Data'**
+  String get dataSectionTitle;
+
+  /// Title of backup messages dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Backup Messages'**
+  String get dataBackupMessages;
+
+  /// Subtitle in backup messages password dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a password to encrypt your message backup.'**
+  String get dataBackupPasswordSubtitle;
+
+  /// Confirm button in backup messages dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Create Backup'**
+  String get dataBackupConfirmLabel;
+
+  /// Progress dialog title when creating backup
+  ///
+  /// In en, this message translates to:
+  /// **'Creating Backup'**
+  String get dataCreatingBackup;
+
+  /// Initial status in backup progress dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Preparing...'**
+  String get dataBackupPreparing;
+
+  /// Progress status while exporting messages
+  ///
+  /// In en, this message translates to:
+  /// **'Exporting message {done} of {total}...'**
+  String dataBackupExporting(int done, int total);
+
+  /// Status when saving the backup file
+  ///
+  /// In en, this message translates to:
+  /// **'Saving file...'**
+  String get dataBackupSavingFile;
+
+  /// FilePicker dialog title for saving backup
+  ///
+  /// In en, this message translates to:
+  /// **'Save Message Backup'**
+  String get dataSaveMessageBackupDialog;
+
+  /// Snackbar after successful backup
+  ///
+  /// In en, this message translates to:
+  /// **'Backup saved ({count} messages)\n{path}'**
+  String dataBackupSaved(int count, String path);
+
+  /// Snackbar when backup has no data
+  ///
+  /// In en, this message translates to:
+  /// **'Backup failed — no data exported'**
+  String get dataBackupFailed;
+
+  /// Snackbar when backup throws an error
+  ///
+  /// In en, this message translates to:
+  /// **'Backup failed: {error}'**
+  String dataBackupFailedError(String error);
+
+  /// FilePicker dialog title for selecting backup
+  ///
+  /// In en, this message translates to:
+  /// **'Select Message Backup'**
+  String get dataSelectMessageBackupDialog;
+
+  /// Snackbar when backup file is too small
+  ///
+  /// In en, this message translates to:
+  /// **'Invalid backup file (too small)'**
+  String get dataInvalidBackupFile;
+
+  /// Snackbar when backup file magic bytes are wrong
+  ///
+  /// In en, this message translates to:
+  /// **'Not a valid Pulse backup file'**
+  String get dataNotValidBackupFile;
+
+  /// Title of restore messages password dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Restore Messages'**
+  String get dataRestoreMessages;
+
+  /// Subtitle in restore messages password dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Enter the password used to create this backup.'**
+  String get dataRestorePasswordSubtitle;
+
+  /// Confirm button in restore dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Restore'**
+  String get dataRestoreConfirmLabel;
+
+  /// Progress dialog title when restoring
+  ///
+  /// In en, this message translates to:
+  /// **'Restoring Messages'**
+  String get dataRestoringMessages;
+
+  /// Initial status in restore progress dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Decrypting...'**
+  String get dataRestoreDecrypting;
+
+  /// Progress status while importing messages
+  ///
+  /// In en, this message translates to:
+  /// **'Importing message {done} of {total}...'**
+  String dataRestoreImporting(int done, int total);
+
+  /// Snackbar when restore fails due to wrong password
+  ///
+  /// In en, this message translates to:
+  /// **'Restore failed — wrong password or corrupt file'**
+  String get dataRestoreFailed;
+
+  /// Snackbar after successful restore with new messages
+  ///
+  /// In en, this message translates to:
+  /// **'Restored {count} new messages'**
+  String dataRestoreSuccess(int count);
+
+  /// Snackbar when restore finds no new messages
+  ///
+  /// In en, this message translates to:
+  /// **'No new messages to import (all already exist)'**
+  String get dataRestoreNothingNew;
+
+  /// Snackbar when restore throws an error
+  ///
+  /// In en, this message translates to:
+  /// **'Restore failed: {error}'**
+  String dataRestoreFailedError(String error);
+
+  /// FilePicker dialog title for selecting key export
+  ///
+  /// In en, this message translates to:
+  /// **'Select Key Export'**
+  String get dataSelectKeyExportDialog;
+
+  /// Snackbar when key file is invalid
+  ///
+  /// In en, this message translates to:
+  /// **'Not a valid Pulse key export file'**
+  String get dataNotValidKeyFile;
+
+  /// Title of export keys password dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Export Keys'**
+  String get dataExportKeys;
+
+  /// Subtitle in export keys password dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a password to encrypt your key export.'**
+  String get dataExportKeysPasswordSubtitle;
+
+  /// Confirm button in export keys dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Export'**
+  String get dataExportKeysConfirmLabel;
+
+  /// Progress dialog title when exporting keys
+  ///
+  /// In en, this message translates to:
+  /// **'Exporting Keys'**
+  String get dataExportingKeys;
+
+  /// Initial status in export keys progress dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Encrypting identity keys...'**
+  String get dataExportingKeysStatus;
+
+  /// FilePicker dialog title for saving key export
+  ///
+  /// In en, this message translates to:
+  /// **'Save Key Export'**
+  String get dataSaveKeyExportDialog;
+
+  /// Snackbar after successful key export
+  ///
+  /// In en, this message translates to:
+  /// **'Keys exported to:\n{path}'**
+  String dataKeysExportedTo(String path);
+
+  /// Snackbar when key export finds no keys
+  ///
+  /// In en, this message translates to:
+  /// **'Export failed — no keys found'**
+  String get dataExportFailed;
+
+  /// Snackbar when key export throws an error
+  ///
+  /// In en, this message translates to:
+  /// **'Export failed: {error}'**
+  String dataExportFailedError(String error);
+
+  /// Title of import keys password dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Import Keys'**
+  String get dataImportKeys;
+
+  /// Subtitle in import keys password dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Enter the password used to encrypt this key export.'**
+  String get dataImportKeysPasswordSubtitle;
+
+  /// Confirm button in import keys dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Import'**
+  String get dataImportKeysConfirmLabel;
+
+  /// Progress dialog title when importing keys
+  ///
+  /// In en, this message translates to:
+  /// **'Importing Keys'**
+  String get dataImportingKeys;
+
+  /// Initial status in import keys progress dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Decrypting identity keys...'**
+  String get dataImportingKeysStatus;
+
+  /// Snackbar when import fails due to wrong password
+  ///
+  /// In en, this message translates to:
+  /// **'Import failed — wrong password or corrupt file'**
+  String get dataImportFailed;
+
+  /// Snackbar when key import throws an error
+  ///
+  /// In en, this message translates to:
+  /// **'Import failed: {error}'**
+  String dataImportFailedError(String error);
+
+  /// Section divider label for Security section
+  ///
+  /// In en, this message translates to:
+  /// **'Security'**
+  String get securitySectionTitle;
+
+  /// Error shown in confirm password dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Incorrect password'**
+  String get securityIncorrectPassword;
+
+  /// Snackbar after password change
+  ///
+  /// In en, this message translates to:
+  /// **'Password updated'**
+  String get securityPasswordUpdated;
+
+  /// Section divider label for Appearance section
+  ///
+  /// In en, this message translates to:
+  /// **'Appearance'**
+  String get appearanceSectionTitle;
+
+  /// Snackbar when identity export throws an error
+  ///
+  /// In en, this message translates to:
+  /// **'Export failed: {error}'**
+  String appearanceExportFailed(String error);
+
+  /// Snackbar after saving identity backup file
+  ///
+  /// In en, this message translates to:
+  /// **'Saved to {path}'**
+  String appearanceSavedTo(String path);
+
+  /// Snackbar when saving identity backup file fails
+  ///
+  /// In en, this message translates to:
+  /// **'Save failed: {error}'**
+  String appearanceSaveFailed(String error);
+
+  /// Snackbar when identity import throws an error
+  ///
+  /// In en, this message translates to:
+  /// **'Import failed: {error}'**
+  String appearanceImportFailed(String error);
+
+  /// Section divider label for About section
+  ///
+  /// In en, this message translates to:
+  /// **'About'**
+  String get aboutSectionTitle;
+
+  /// Label for public key in Nostr info card
+  ///
+  /// In en, this message translates to:
+  /// **'Public Key'**
+  String get providerPublicKey;
+
+  /// Label for relay in Nostr info card
+  ///
+  /// In en, this message translates to:
+  /// **'Relay'**
+  String get providerRelay;
+
+  /// Info text for Nostr auto configuration
+  ///
+  /// In en, this message translates to:
+  /// **'Auto-configured from your recovery password. Relay auto-discovered.'**
+  String get providerAutoConfigured;
+
+  /// Info text about key storage for Nostr
+  ///
+  /// In en, this message translates to:
+  /// **'Your key is stored locally in secure storage — never sent to any server.'**
+  String get providerKeyStoredLocally;
+
+  /// Info text for Waku auto discovery
+  ///
+  /// In en, this message translates to:
+  /// **'Leave URL empty to auto-discover the fastest public node. Or run nwaku locally (port 8645) for maximum privacy.'**
+  String get providerWakuAutoDiscovery;
+
+  /// Tooltip on Waku discover button
+  ///
+  /// In en, this message translates to:
+  /// **'Probe all known public nodes'**
+  String get providerWakuProbeTooltip;
+
+  /// Info text for Oxen provider
+  ///
+  /// In en, this message translates to:
+  /// **'Oxen/Session network — onion-routed E2EE. Your Session ID is auto-generated and stored securely. Nodes auto-discovered from built-in seed nodes.'**
+  String get providerOxenInfo;
+
+  /// Expandable advanced label in provider config
+  ///
+  /// In en, this message translates to:
+  /// **'Advanced'**
+  String get providerAdvanced;
+
+  /// Main save button text in provider section
+  ///
+  /// In en, this message translates to:
+  /// **'Save & Connect'**
+  String get providerSaveAndConnect;
+
+  /// Button and dialog title for secondary inbox
+  ///
+  /// In en, this message translates to:
+  /// **'Add Secondary Inbox'**
+  String get providerAddSecondaryInbox;
+
+  /// Section label for secondary inboxes
+  ///
+  /// In en, this message translates to:
+  /// **'Secondary Inboxes'**
+  String get providerSecondaryInboxes;
+
+  /// Section label for inbox provider
+  ///
+  /// In en, this message translates to:
+  /// **'Your Inbox Provider'**
+  String get providerYourInboxProvider;
+
+  /// Section label for connection details
+  ///
+  /// In en, this message translates to:
+  /// **'Connection Details'**
+  String get providerConnectionDetails;
+
+  /// Title of the Add Contact dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Add Contact'**
+  String get addContactTitle;
+
+  /// Label above paste area in add contact dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Invite Link or Address'**
+  String get addContactInviteLinkLabel;
+
+  /// Placeholder text in paste area
+  ///
+  /// In en, this message translates to:
+  /// **'Tap to paste invite link'**
+  String get addContactTapToPaste;
+
+  /// Tooltip on paste button
+  ///
+  /// In en, this message translates to:
+  /// **'Paste from clipboard'**
+  String get addContactPasteTooltip;
+
+  /// Status when single address is detected
+  ///
+  /// In en, this message translates to:
+  /// **'Contact address detected'**
+  String get addContactAddressDetected;
+
+  /// Status when multiple routes are detected
+  ///
+  /// In en, this message translates to:
+  /// **'{count} routes detected — SmartRouter picks the fastest'**
+  String addContactRoutesDetected(int count);
+
+  /// Status while fetching Nostr profile
+  ///
+  /// In en, this message translates to:
+  /// **'Fetching profile…'**
+  String get addContactFetchingProfile;
+
+  /// Status when Nostr profile is found
+  ///
+  /// In en, this message translates to:
+  /// **'Found: {name}'**
+  String addContactProfileFound(String name);
+
+  /// Status when no Nostr profile is found
+  ///
+  /// In en, this message translates to:
+  /// **'No profile found'**
+  String get addContactNoProfileFound;
+
+  /// Label above name field in add contact dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Display Name'**
+  String get addContactDisplayNameLabel;
+
+  /// Hint text in name field
+  ///
+  /// In en, this message translates to:
+  /// **'What do you want to call them?'**
+  String get addContactDisplayNameHint;
+
+  /// Toggle to show manual address entry
+  ///
+  /// In en, this message translates to:
+  /// **'Add address manually'**
+  String get addContactAddManually;
+
+  /// Submit button text in add contact dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Add Contact'**
+  String get addContactButton;
 }
 
 class _AppLocalizationsDelegate

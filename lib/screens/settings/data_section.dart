@@ -9,6 +9,7 @@ import '../../services/key_export_service.dart';
 import '../../services/local_storage_service.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/design_tokens.dart';
+import '../../l10n/l10n_ext.dart';
 import 'settings_widgets.dart';
 
 class DataSection extends StatelessWidget {
@@ -59,7 +60,7 @@ class DataSection extends StatelessWidget {
                 style: GoogleFonts.inter(
                     color: AppTheme.textPrimary, fontSize: 15),
                 decoration: InputDecoration(
-                  hintText: 'Backup password',
+                  hintText: context.l10n.settingsBackupPassword,
                   hintStyle: GoogleFonts.inter(
                       color: AppTheme.textSecondary, fontSize: 14),
                   filled: true,
@@ -98,7 +99,7 @@ class DataSection extends StatelessWidget {
                   style: GoogleFonts.inter(
                       color: AppTheme.textPrimary, fontSize: 15),
                   decoration: InputDecoration(
-                    hintText: 'Confirm password',
+                    hintText: context.l10n.passwordConfirmHint,
                     hintStyle: GoogleFonts.inter(
                         color: AppTheme.textSecondary, fontSize: 14),
                     filled: true,
@@ -133,7 +134,7 @@ class DataSection extends StatelessWidget {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(ctx).pop(null),
-              child: Text('Cancel',
+              child: Text(context.l10n.cancel,
                   style:
                       GoogleFonts.inter(color: AppTheme.textSecondary)),
             ),
@@ -141,16 +142,16 @@ class DataSection extends StatelessWidget {
               onPressed: () {
                 final pw = passCtrl.text;
                 if (pw.isEmpty) {
-                  setS(() => error = 'Password cannot be empty');
+                  setS(() => error = context.l10n.settingsPasswordCannotBeEmpty);
                   return;
                 }
                 if (pw.length < 4) {
                   setS(() =>
-                      error = 'Password must be at least 4 characters');
+                      error = context.l10n.settingsPasswordMin4Chars);
                   return;
                 }
                 if (requireConfirm && pw != confirmCtrl.text) {
-                  setS(() => error = 'Passwords do not match');
+                  setS(() => error = context.l10n.passwordsDoNotMatch);
                   return;
                 }
                 Navigator.of(ctx).pop(pw);
@@ -181,9 +182,9 @@ class DataSection extends StatelessWidget {
   Future<void> _backupMessages(BuildContext context) async {
     final password = await _showBackupPasswordDialog(
       context,
-      title: 'Backup Messages',
-      subtitle: 'Choose a password to encrypt your message backup.',
-      confirmLabel: 'Create Backup',
+      title: context.l10n.dataBackupMessages,
+      subtitle: context.l10n.dataBackupPasswordSubtitle,
+      confirmLabel: context.l10n.dataBackupConfirmLabel,
       requireConfirm: true,
     );
     if (password == null || password.isEmpty) return;
@@ -197,8 +198,8 @@ class DataSection extends StatelessWidget {
       barrierDismissible: false,
       builder: (_) => BackupProgressDialog(
         key: progressKey,
-        title: 'Creating Backup',
-        initialStatus: 'Preparing...',
+        title: context.l10n.dataCreatingBackup,
+        initialStatus: context.l10n.dataBackupPreparing,
       ),
     );
 
@@ -209,7 +210,7 @@ class DataSection extends StatelessWidget {
         onProgress: (done, total) {
           progressTotal = total;
           progressKey.currentState?.updateProgress(
-            'Exporting message $done of $total...',
+            context.l10n.dataBackupExporting(done, total),
             total > 0 ? done / total : 0,
           );
         },
@@ -220,7 +221,7 @@ class DataSection extends StatelessWidget {
       if (bytes == null) {
         Navigator.of(context).pop();
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Backup failed — no data exported',
+          content: Text(context.l10n.dataBackupFailed,
               style: GoogleFonts.inter()),
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
@@ -230,7 +231,7 @@ class DataSection extends StatelessWidget {
         return;
       }
 
-      progressKey.currentState?.updateProgress('Saving file...', 1.0);
+      progressKey.currentState?.updateProgress(context.l10n.dataBackupSavingFile, 1.0);
 
       final timestamp = DateTime.now()
           .toIso8601String()
@@ -242,7 +243,7 @@ class DataSection extends StatelessWidget {
       String? savePath;
       try {
         savePath = await FilePicker.platform.saveFile(
-          dialogTitle: 'Save Message Backup',
+          dialogTitle: context.l10n.dataSaveMessageBackupDialog,
           fileName: defaultName,
           type: FileType.any,
         );
@@ -262,7 +263,7 @@ class DataSection extends StatelessWidget {
 
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text(
-          'Backup saved ($progressTotal messages)\n$savePath',
+          context.l10n.dataBackupSaved(progressTotal, savePath),
           style: GoogleFonts.inter(),
         ),
         backgroundColor: AppTheme.primary,
@@ -275,7 +276,7 @@ class DataSection extends StatelessWidget {
       if (context.mounted) {
         Navigator.of(context).pop();
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Backup failed: $e', style: GoogleFonts.inter()),
+          content: Text(context.l10n.dataBackupFailedError(e.toString()), style: GoogleFonts.inter()),
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
           shape:
@@ -289,7 +290,7 @@ class DataSection extends StatelessWidget {
 
   Future<void> _restoreMessages(BuildContext context) async {
     final result = await FilePicker.platform.pickFiles(
-      dialogTitle: 'Select Message Backup',
+      dialogTitle: context.l10n.dataSelectMessageBackupDialog,
       type: FileType.any,
       withData: true,
     );
@@ -316,7 +317,7 @@ class DataSection extends StatelessWidget {
     if (fileBytes.length < 34) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Invalid backup file (too small)',
+          content: Text(context.l10n.dataInvalidBackupFile,
               style: GoogleFonts.inter()),
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
@@ -332,7 +333,7 @@ class DataSection extends StatelessWidget {
       if (fileBytes[i] != magic[i]) {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text('Not a valid Pulse backup file',
+            content: Text(context.l10n.dataNotValidBackupFile,
                 style: GoogleFonts.inter()),
             backgroundColor: Colors.red,
             behavior: SnackBarBehavior.floating,
@@ -347,9 +348,9 @@ class DataSection extends StatelessWidget {
     if (!context.mounted) return;
     final password = await _showBackupPasswordDialog(
       context,
-      title: 'Restore Messages',
-      subtitle: 'Enter the password used to create this backup.',
-      confirmLabel: 'Restore',
+      title: context.l10n.dataRestoreMessages,
+      subtitle: context.l10n.dataRestorePasswordSubtitle,
+      confirmLabel: context.l10n.dataRestoreConfirmLabel,
       requireConfirm: false,
     );
     if (password == null || password.isEmpty) return;
@@ -361,8 +362,8 @@ class DataSection extends StatelessWidget {
       barrierDismissible: false,
       builder: (_) => BackupProgressDialog(
         key: progressKey,
-        title: 'Restoring Messages',
-        initialStatus: 'Decrypting...',
+        title: context.l10n.dataRestoringMessages,
+        initialStatus: context.l10n.dataRestoreDecrypting,
       ),
     );
 
@@ -373,7 +374,7 @@ class DataSection extends StatelessWidget {
         password,
         onProgress: (done, total) {
           progressKey.currentState?.updateProgress(
-            'Importing message $done of $total...',
+            context.l10n.dataRestoreImporting(done, total),
             total > 0 ? done / total : 0,
           );
         },
@@ -384,8 +385,7 @@ class DataSection extends StatelessWidget {
 
       if (imported < 0) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(
-              'Restore failed — wrong password or corrupt file',
+          content: Text(context.l10n.dataRestoreFailed,
               style: GoogleFonts.inter()),
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
@@ -396,8 +396,8 @@ class DataSection extends StatelessWidget {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text(
             imported > 0
-                ? 'Restored $imported new messages'
-                : 'No new messages to import (all already exist)',
+                ? context.l10n.dataRestoreSuccess(imported)
+                : context.l10n.dataRestoreNothingNew,
             style: GoogleFonts.inter(),
           ),
           backgroundColor: AppTheme.primary,
@@ -411,7 +411,7 @@ class DataSection extends StatelessWidget {
       if (context.mounted) {
         Navigator.of(context).pop();
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Restore failed: $e', style: GoogleFonts.inter()),
+          content: Text(context.l10n.dataRestoreFailedError(e.toString()), style: GoogleFonts.inter()),
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
           shape:
@@ -436,7 +436,7 @@ class DataSection extends StatelessWidget {
             const SizedBox(width: 10),
             Expanded(
               child: Text(
-                'Sensitive Operation',
+                context.l10n.settingsSensitiveOperation,
                 style: GoogleFonts.inter(
                   color: AppTheme.textPrimary,
                   fontWeight: FontWeight.w700,
@@ -447,15 +447,14 @@ class DataSection extends StatelessWidget {
           ],
         ),
         content: Text(
-          'These keys are your identity. Anyone with this file can '
-          'impersonate you. Store it securely and delete it after transfer.',
+          context.l10n.settingsSensitiveOperationBody,
           style: GoogleFonts.inter(
               color: AppTheme.textSecondary, fontSize: 13, height: 1.5),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: Text('Cancel',
+            child: Text(context.l10n.cancel,
                 style: GoogleFonts.inter(color: AppTheme.textSecondary)),
           ),
           ElevatedButton(
@@ -466,7 +465,7 @@ class DataSection extends StatelessWidget {
                   borderRadius: BorderRadius.circular(DesignTokens.spacing10)),
             ),
             child: Text(
-              'I Understand, Continue',
+              context.l10n.settingsIUnderstandContinue,
               style: GoogleFonts.inter(
                   color: Colors.white, fontWeight: FontWeight.w700),
             ),
@@ -478,9 +477,9 @@ class DataSection extends StatelessWidget {
 
     final password = await _showBackupPasswordDialog(
       context,
-      title: 'Export Keys',
-      subtitle: 'Choose a password to encrypt your key export.',
-      confirmLabel: 'Export',
+      title: context.l10n.dataExportKeys,
+      subtitle: context.l10n.dataExportKeysPasswordSubtitle,
+      confirmLabel: context.l10n.dataExportKeysConfirmLabel,
       requireConfirm: true,
     );
     if (password == null || password.isEmpty) return;
@@ -489,9 +488,9 @@ class DataSection extends StatelessWidget {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (_) => const BackupProgressDialog(
-        title: 'Exporting Keys',
-        initialStatus: 'Encrypting identity keys...',
+      builder: (_) => BackupProgressDialog(
+        title: context.l10n.dataExportingKeys,
+        initialStatus: context.l10n.dataExportingKeysStatus,
       ),
     );
 
@@ -502,7 +501,7 @@ class DataSection extends StatelessWidget {
 
       if (bytes == null) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Export failed — no keys found',
+          content: Text(context.l10n.dataExportFailed,
               style: GoogleFonts.inter()),
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
@@ -518,7 +517,7 @@ class DataSection extends StatelessWidget {
 
       try {
         final savePath = await FilePicker.platform.saveFile(
-          dialogTitle: 'Save Key Export',
+          dialogTitle: context.l10n.dataSaveKeyExportDialog,
           fileName: defaultName,
           bytes: bytes,
         );
@@ -529,7 +528,7 @@ class DataSection extends StatelessWidget {
           }
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-              content: Text('Keys exported to:\n$savePath',
+              content: Text(context.l10n.dataKeysExportedTo(savePath),
                   style: GoogleFonts.inter()),
               backgroundColor: AppTheme.primary,
               behavior: SnackBarBehavior.floating,
@@ -546,7 +545,7 @@ class DataSection extends StatelessWidget {
       if (context.mounted) {
         Navigator.of(context).pop();
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Export failed: $e', style: GoogleFonts.inter()),
+          content: Text(context.l10n.dataExportFailedError(e.toString()), style: GoogleFonts.inter()),
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
           shape:
@@ -560,7 +559,7 @@ class DataSection extends StatelessWidget {
 
   Future<void> _importKeysFromFile(BuildContext context) async {
     final result = await FilePicker.platform.pickFiles(
-      dialogTitle: 'Select Key Export',
+      dialogTitle: context.l10n.dataSelectKeyExportDialog,
       type: FileType.any,
       withData: true,
     );
@@ -581,7 +580,7 @@ class DataSection extends StatelessWidget {
 
     if (!KeyExportService.isValidExportFile(fileBytes)) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Not a valid Pulse key export file',
+        content: Text(context.l10n.dataNotValidKeyFile,
             style: GoogleFonts.inter()),
         backgroundColor: Colors.red,
         behavior: SnackBarBehavior.floating,
@@ -603,7 +602,7 @@ class DataSection extends StatelessWidget {
             const SizedBox(width: 10),
             Expanded(
               child: Text(
-                'Replace Identity?',
+                context.l10n.settingsReplaceIdentity,
                 style: GoogleFonts.inter(
                   color: AppTheme.textPrimary,
                   fontWeight: FontWeight.w700,
@@ -614,16 +613,14 @@ class DataSection extends StatelessWidget {
           ],
         ),
         content: Text(
-          'This will overwrite your current identity keys. '
-          'Your existing Signal sessions will be invalidated and contacts '
-          'will need to re-establish encryption. The app will need to restart.',
+          context.l10n.settingsReplaceIdentityBody,
           style: GoogleFonts.inter(
               color: AppTheme.textSecondary, fontSize: 13, height: 1.5),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: Text('Cancel',
+            child: Text(context.l10n.cancel,
                 style: GoogleFonts.inter(color: AppTheme.textSecondary)),
           ),
           ElevatedButton(
@@ -634,7 +631,7 @@ class DataSection extends StatelessWidget {
                   borderRadius: BorderRadius.circular(DesignTokens.spacing10)),
             ),
             child: Text(
-              'Replace Keys',
+              context.l10n.settingsReplaceKeys,
               style: GoogleFonts.inter(
                   color: Colors.white, fontWeight: FontWeight.w700),
             ),
@@ -646,9 +643,9 @@ class DataSection extends StatelessWidget {
 
     final password = await _showBackupPasswordDialog(
       context,
-      title: 'Import Keys',
-      subtitle: 'Enter the password used to encrypt this key export.',
-      confirmLabel: 'Import',
+      title: context.l10n.dataImportKeys,
+      subtitle: context.l10n.dataImportKeysPasswordSubtitle,
+      confirmLabel: context.l10n.dataImportKeysConfirmLabel,
       requireConfirm: false,
     );
     if (password == null || password.isEmpty) return;
@@ -657,9 +654,9 @@ class DataSection extends StatelessWidget {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (_) => const BackupProgressDialog(
-        title: 'Importing Keys',
-        initialStatus: 'Decrypting identity keys...',
+      builder: (_) => BackupProgressDialog(
+        title: context.l10n.dataImportingKeys,
+        initialStatus: context.l10n.dataImportingKeysStatus,
       ),
     );
 
@@ -670,8 +667,7 @@ class DataSection extends StatelessWidget {
 
       if (imported < 0) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(
-              'Import failed — wrong password or corrupt file',
+          content: Text(context.l10n.dataImportFailed,
               style: GoogleFonts.inter()),
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
@@ -687,13 +683,12 @@ class DataSection extends StatelessWidget {
             shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(DesignTokens.dialogRadius)),
             title: Text(
-              'Keys Imported',
+              context.l10n.settingsKeysImported,
               style: GoogleFonts.inter(
                   color: AppTheme.textPrimary, fontWeight: FontWeight.w700),
             ),
             content: Text(
-              '$imported keys imported successfully. '
-              'Please restart the app to reinitialize with the new identity.',
+              context.l10n.settingsKeysImportedBody(imported),
               style: GoogleFonts.inter(
                   color: AppTheme.textSecondary, fontSize: 13, height: 1.5),
             ),
@@ -709,7 +704,7 @@ class DataSection extends StatelessWidget {
                       borderRadius: BorderRadius.circular(DesignTokens.spacing10)),
                 ),
                 child: Text(
-                  'Restart Now',
+                  context.l10n.settingsRestartNow,
                   style: GoogleFonts.inter(
                       color: Colors.white, fontWeight: FontWeight.w700),
                 ),
@@ -717,7 +712,7 @@ class DataSection extends StatelessWidget {
               TextButton(
                 onPressed: () => Navigator.pop(ctx),
                 child: Text(
-                  'Later',
+                  context.l10n.settingsLater,
                   style: GoogleFonts.inter(color: AppTheme.textSecondary),
                 ),
               ),
@@ -729,7 +724,7 @@ class DataSection extends StatelessWidget {
       if (context.mounted) {
         Navigator.of(context).pop();
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Import failed: $e', style: GoogleFonts.inter()),
+          content: Text(context.l10n.dataImportFailedError(e.toString()), style: GoogleFonts.inter()),
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
           shape:
@@ -744,37 +739,37 @@ class DataSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        settingsSectionDivider('Data'),
+        settingsSectionDivider(context.l10n.settingsData),
         const SizedBox(height: 14),
         settingsRow(
           icon: Icons.cloud_download_rounded,
           iconColor: const Color(0xFF3498DB),
-          title: 'Backup Messages',
-          subtitle: 'Export encrypted message history to a file',
+          title: context.l10n.settingsBackupMessages,
+          subtitle: context.l10n.settingsBackupMessagesSubtitle,
           onTap: () => _backupMessages(context),
         ),
         const SizedBox(height: 12),
         settingsRow(
           icon: Icons.cloud_upload_rounded,
           iconColor: const Color(0xFF2ECC71),
-          title: 'Restore Messages',
-          subtitle: 'Import messages from a backup file',
+          title: context.l10n.settingsRestoreMessages,
+          subtitle: context.l10n.settingsRestoreMessagesSubtitle,
           onTap: () => _restoreMessages(context),
         ),
         const SizedBox(height: 12),
         settingsRow(
           icon: Icons.key_rounded,
           iconColor: const Color(0xFFE67E22),
-          title: 'Export Keys',
-          subtitle: 'Save identity keys to an encrypted file',
+          title: context.l10n.settingsExportKeys,
+          subtitle: context.l10n.settingsExportKeysSubtitle,
           onTap: () => _exportKeysToFile(context),
         ),
         const SizedBox(height: 12),
         settingsRow(
           icon: Icons.key_off_rounded,
           iconColor: const Color(0xFF9B59B6),
-          title: 'Import Keys',
-          subtitle: 'Restore identity keys from an exported file',
+          title: context.l10n.settingsImportKeys,
+          subtitle: context.l10n.settingsImportKeysSubtitle,
           onTap: () => _importKeysFromFile(context),
         ),
       ],

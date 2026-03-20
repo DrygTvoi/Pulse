@@ -1451,4 +1451,291 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get settingsLater => 'Позже';
+
+  @override
+  String get profileGroupLabel => 'Группа';
+
+  @override
+  String get profileAddButton => 'Добавить';
+
+  @override
+  String get profileKickButton => 'Исключить';
+
+  @override
+  String get dataSectionTitle => 'Данные';
+
+  @override
+  String get dataBackupMessages => 'Резервная копия сообщений';
+
+  @override
+  String get dataBackupPasswordSubtitle =>
+      'Выберите пароль для шифрования резервной копии.';
+
+  @override
+  String get dataBackupConfirmLabel => 'Создать копию';
+
+  @override
+  String get dataCreatingBackup => 'Создание копии';
+
+  @override
+  String get dataBackupPreparing => 'Подготовка...';
+
+  @override
+  String dataBackupExporting(int done, int total) {
+    return 'Экспорт сообщения $done из $total...';
+  }
+
+  @override
+  String get dataBackupSavingFile => 'Сохранение файла...';
+
+  @override
+  String get dataSaveMessageBackupDialog => 'Сохранить резервную копию';
+
+  @override
+  String dataBackupSaved(int count, String path) {
+    return 'Копия сохранена ($count сообщений)\n$path';
+  }
+
+  @override
+  String get dataBackupFailed =>
+      'Ошибка резервной копии — данные не экспортированы';
+
+  @override
+  String dataBackupFailedError(String error) {
+    return 'Ошибка резервной копии: $error';
+  }
+
+  @override
+  String get dataSelectMessageBackupDialog => 'Выбрать резервную копию';
+
+  @override
+  String get dataInvalidBackupFile =>
+      'Неверный файл резервной копии (слишком маленький)';
+
+  @override
+  String get dataNotValidBackupFile => 'Это не файл резервной копии Pulse';
+
+  @override
+  String get dataRestoreMessages => 'Восстановить сообщения';
+
+  @override
+  String get dataRestorePasswordSubtitle =>
+      'Введите пароль, использованный при создании копии.';
+
+  @override
+  String get dataRestoreConfirmLabel => 'Восстановить';
+
+  @override
+  String get dataRestoringMessages => 'Восстановление сообщений';
+
+  @override
+  String get dataRestoreDecrypting => 'Расшифровка...';
+
+  @override
+  String dataRestoreImporting(int done, int total) {
+    return 'Импорт сообщения $done из $total...';
+  }
+
+  @override
+  String get dataRestoreFailed =>
+      'Восстановление не удалось — неверный пароль или повреждённый файл';
+
+  @override
+  String dataRestoreSuccess(int count) {
+    return 'Восстановлено $count новых сообщений';
+  }
+
+  @override
+  String get dataRestoreNothingNew =>
+      'Новых сообщений нет (все уже существуют)';
+
+  @override
+  String dataRestoreFailedError(String error) {
+    return 'Ошибка восстановления: $error';
+  }
+
+  @override
+  String get dataSelectKeyExportDialog => 'Выбрать экспорт ключей';
+
+  @override
+  String get dataNotValidKeyFile => 'Это не файл экспорта ключей Pulse';
+
+  @override
+  String get dataExportKeys => 'Экспорт ключей';
+
+  @override
+  String get dataExportKeysPasswordSubtitle =>
+      'Выберите пароль для шифрования ключей.';
+
+  @override
+  String get dataExportKeysConfirmLabel => 'Экспорт';
+
+  @override
+  String get dataExportingKeys => 'Экспорт ключей';
+
+  @override
+  String get dataExportingKeysStatus => 'Шифрование ключей...';
+
+  @override
+  String get dataSaveKeyExportDialog => 'Сохранить экспорт ключей';
+
+  @override
+  String dataKeysExportedTo(String path) {
+    return 'Ключи экспортированы:\n$path';
+  }
+
+  @override
+  String get dataExportFailed => 'Экспорт не удался — ключи не найдены';
+
+  @override
+  String dataExportFailedError(String error) {
+    return 'Ошибка экспорта: $error';
+  }
+
+  @override
+  String get dataImportKeys => 'Импорт ключей';
+
+  @override
+  String get dataImportKeysPasswordSubtitle =>
+      'Введите пароль, использованный при экспорте ключей.';
+
+  @override
+  String get dataImportKeysConfirmLabel => 'Импорт';
+
+  @override
+  String get dataImportingKeys => 'Импорт ключей';
+
+  @override
+  String get dataImportingKeysStatus => 'Расшифровка ключей...';
+
+  @override
+  String get dataImportFailed =>
+      'Импорт не удался — неверный пароль или повреждённый файл';
+
+  @override
+  String dataImportFailedError(String error) {
+    return 'Ошибка импорта: $error';
+  }
+
+  @override
+  String get securitySectionTitle => 'Безопасность';
+
+  @override
+  String get securityIncorrectPassword => 'Неверный пароль';
+
+  @override
+  String get securityPasswordUpdated => 'Пароль обновлён';
+
+  @override
+  String get appearanceSectionTitle => 'Внешний вид';
+
+  @override
+  String appearanceExportFailed(String error) {
+    return 'Ошибка экспорта: $error';
+  }
+
+  @override
+  String appearanceSavedTo(String path) {
+    return 'Сохранено в $path';
+  }
+
+  @override
+  String appearanceSaveFailed(String error) {
+    return 'Ошибка сохранения: $error';
+  }
+
+  @override
+  String appearanceImportFailed(String error) {
+    return 'Ошибка импорта: $error';
+  }
+
+  @override
+  String get aboutSectionTitle => 'О приложении';
+
+  @override
+  String get providerPublicKey => 'Публичный ключ';
+
+  @override
+  String get providerRelay => 'Реле';
+
+  @override
+  String get providerAutoConfigured =>
+      'Настроено автоматически из пароля восстановления. Реле обнаруживается автоматически.';
+
+  @override
+  String get providerKeyStoredLocally =>
+      'Ваш ключ хранится локально в защищённом хранилище — никогда не отправляется на сервер.';
+
+  @override
+  String get providerWakuAutoDiscovery =>
+      'Оставьте URL пустым для автоматического обнаружения ближайшего узла. Или запустите nwaku локально (порт 8645) для максимальной конфиденциальности.';
+
+  @override
+  String get providerWakuProbeTooltip =>
+      'Проверить все известные публичные узлы';
+
+  @override
+  String get providerOxenInfo =>
+      'Сеть Oxen/Session — E2EE с луковой маршрутизацией. Session ID генерируется и хранится автоматически. Узлы обнаруживаются из встроенных.';
+
+  @override
+  String get providerAdvanced => 'Дополнительно';
+
+  @override
+  String get providerSaveAndConnect => 'Сохранить и подключиться';
+
+  @override
+  String get providerAddSecondaryInbox => 'Добавить дополнительный ящик';
+
+  @override
+  String get providerSecondaryInboxes => 'Дополнительные ящики';
+
+  @override
+  String get providerYourInboxProvider => 'Ваш провайдер входящих';
+
+  @override
+  String get providerConnectionDetails => 'Параметры подключения';
+
+  @override
+  String get addContactTitle => 'Добавить контакт';
+
+  @override
+  String get addContactInviteLinkLabel => 'Ссылка-приглашение или адрес';
+
+  @override
+  String get addContactTapToPaste => 'Нажмите, чтобы вставить ссылку';
+
+  @override
+  String get addContactPasteTooltip => 'Вставить из буфера обмена';
+
+  @override
+  String get addContactAddressDetected => 'Адрес контакта обнаружен';
+
+  @override
+  String addContactRoutesDetected(int count) {
+    return '$count маршрутов обнаружено — SmartRouter выберет быстрейший';
+  }
+
+  @override
+  String get addContactFetchingProfile => 'Загрузка профиля…';
+
+  @override
+  String addContactProfileFound(String name) {
+    return 'Найдено: $name';
+  }
+
+  @override
+  String get addContactNoProfileFound => 'Профиль не найден';
+
+  @override
+  String get addContactDisplayNameLabel => 'Отображаемое имя';
+
+  @override
+  String get addContactDisplayNameHint => 'Как вы хотите назвать этот контакт?';
+
+  @override
+  String get addContactAddManually => 'Добавить адрес вручную';
+
+  @override
+  String get addContactButton => 'Добавить контакт';
 }

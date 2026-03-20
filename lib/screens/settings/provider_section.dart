@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../constants.dart';
 import '../../adapters/nostr_adapter.dart';
 import '../../controllers/chat_controller.dart';
+import '../../l10n/l10n_ext.dart';
 import '../../services/waku_discovery_service.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/design_tokens.dart';
@@ -121,7 +122,7 @@ class _ProviderSectionState extends State<ProviderSection> {
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.dialogRadius)),
           title: Text(
-            'Add Secondary Inbox',
+            context.l10n.providerAddSecondaryInbox,
             style: GoogleFonts.inter(
                 color: AppTheme.textPrimary, fontWeight: FontWeight.w700),
           ),
@@ -205,7 +206,7 @@ class _ProviderSectionState extends State<ProviderSection> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: Text('Cancel',
+              child: Text(context.l10n.cancel,
                   style: GoogleFonts.inter(color: AppTheme.textSecondary)),
             ),
             ElevatedButton(
@@ -284,7 +285,7 @@ class _ProviderSectionState extends State<ProviderSection> {
                     borderRadius: BorderRadius.circular(DesignTokens.spacing10)),
               ),
               child: Text(
-                'Add',
+                context.l10n.add,
                 style: GoogleFonts.inter(
                     color: Colors.white, fontWeight: FontWeight.w700),
               ),
@@ -398,7 +399,7 @@ class _ProviderSectionState extends State<ProviderSection> {
               const Icon(Icons.vpn_key_rounded,
                   size: 13, color: Color(0xFF9B59B6)),
               const SizedBox(width: 8),
-              Text('Public Key',
+              Text(context.l10n.providerPublicKey,
                   style: GoogleFonts.inter(
                       color: AppTheme.textSecondary,
                       fontSize: 11,
@@ -418,7 +419,7 @@ class _ProviderSectionState extends State<ProviderSection> {
             const Icon(Icons.bolt_rounded,
                 size: 13, color: Color(0xFF9B59B6)),
             const SizedBox(width: 8),
-            Text('Relay',
+            Text(context.l10n.providerRelay,
                 style: GoogleFonts.inter(
                     color: AppTheme.textSecondary,
                     fontSize: 11,
@@ -469,7 +470,7 @@ class _ProviderSectionState extends State<ProviderSection> {
             const SizedBox(width: 6),
             Expanded(
               child: Text(
-                'Auto-configured from your recovery password. Relay auto-discovered.',
+                context.l10n.providerAutoConfigured,
                 style: GoogleFonts.inter(
                     color: AppTheme.textSecondary, fontSize: 11),
               ),
@@ -489,7 +490,7 @@ class _ProviderSectionState extends State<ProviderSection> {
                 ),
                 const SizedBox(width: 4),
                 Text(
-                  'Advanced',
+                  context.l10n.providerAdvanced,
                   style: GoogleFonts.inter(
                     color: AppTheme.textSecondary,
                     fontSize: 12,
@@ -522,7 +523,7 @@ class _ProviderSectionState extends State<ProviderSection> {
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
-                  'Your key is stored locally in secure storage — never sent to any server.',
+                  context.l10n.providerKeyStoredLocally,
                   style: GoogleFonts.inter(
                       color: AppTheme.textSecondary, fontSize: 11),
                 ),
@@ -546,7 +547,7 @@ class _ProviderSectionState extends State<ProviderSection> {
               ),
               const SizedBox(width: 8),
               Tooltip(
-                message: 'Probe all known public nodes',
+                message: context.l10n.providerWakuProbeTooltip,
                 child: SizedBox(
                   height: 48,
                   child: FilledButton.tonal(
@@ -575,7 +576,7 @@ class _ProviderSectionState extends State<ProviderSection> {
                                   size: 16, color: Color(0xFF00BCD4)),
                               const SizedBox(width: 6),
                               Text(
-                                'Discover',
+                                context.l10n.settingsDiscover,
                                 style: GoogleFonts.inter(
                                   color: const Color(0xFF00BCD4),
                                   fontSize: 13,
@@ -660,8 +661,7 @@ class _ProviderSectionState extends State<ProviderSection> {
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
-                  'Leave URL empty to auto-discover the fastest public node. '
-                  'Or run nwaku locally (port 8645) for maximum privacy.',
+                  context.l10n.providerWakuAutoDiscovery,
                   style: GoogleFonts.inter(
                       color: AppTheme.textSecondary, fontSize: 11),
                 ),
@@ -678,9 +678,7 @@ class _ProviderSectionState extends State<ProviderSection> {
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
-                  'Oxen/Session network — onion-routed E2EE. '
-                  'Your Session ID is auto-generated and stored securely. '
-                  'Nodes auto-discovered from built-in seed nodes.',
+                  context.l10n.providerOxenInfo,
                   style: GoogleFonts.inter(
                       color: AppTheme.textSecondary, fontSize: 11),
                 ),
@@ -731,7 +729,7 @@ class _ProviderSectionState extends State<ProviderSection> {
                   ),
                   const SizedBox(width: 4),
                   Text(
-                    'Advanced',
+                    context.l10n.providerAdvanced,
                     style: GoogleFonts.inter(
                       color: AppTheme.textSecondary,
                       fontSize: 12,
@@ -843,7 +841,7 @@ class _ProviderSectionState extends State<ProviderSection> {
                     size: 16, color: AppTheme.primary),
                 const SizedBox(width: 8),
                 Text(
-                  'Add Secondary Inbox',
+                  context.l10n.providerAddSecondaryInbox,
                   style: GoogleFonts.inter(
                     color: AppTheme.primary,
                     fontWeight: FontWeight.w600,
@@ -864,13 +862,13 @@ class _ProviderSectionState extends State<ProviderSection> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // ─── Provider selection ───────────────────────────────
-        settingsSectionLabel('Your Inbox Provider'),
+        settingsSectionLabel(context.l10n.providerYourInboxProvider),
         const SizedBox(height: 12),
         _buildProviderChips(),
         const SizedBox(height: 28),
 
         // ─── Provider-specific config ─────────────────────────
-        settingsSectionLabel('Connection Details'),
+        settingsSectionLabel(context.l10n.providerConnectionDetails),
         const SizedBox(height: 12),
         _buildProviderConfig(),
 
@@ -895,7 +893,7 @@ class _ProviderSectionState extends State<ProviderSection> {
                     child: CircularProgressIndicator(
                         color: Colors.white, strokeWidth: 2.5))
                 : Text(
-                    'Save & Connect',
+                    context.l10n.providerSaveAndConnect,
                     style: GoogleFonts.inter(
                         fontWeight: FontWeight.w700,
                         fontSize: 16,
@@ -907,7 +905,7 @@ class _ProviderSectionState extends State<ProviderSection> {
         const SizedBox(height: 32),
 
         // ─── Secondary Inboxes ────────────────────────────────
-        settingsSectionLabel('Secondary Inboxes'),
+        settingsSectionLabel(context.l10n.providerSecondaryInboxes),
         const SizedBox(height: 10),
         _buildSecondaryInboxesSection(),
       ],

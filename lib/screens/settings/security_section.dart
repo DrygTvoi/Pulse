@@ -8,6 +8,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../services/password_hasher.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/design_tokens.dart';
+import '../../l10n/l10n_ext.dart';
 import '../../widgets/password_setup_dialog.dart';
 import '../../widgets/panic_key_dialog.dart';
 import 'settings_widgets.dart';
@@ -75,7 +76,7 @@ class _SecuritySectionState extends State<SecuritySection> {
                 style: GoogleFonts.inter(
                     color: AppTheme.textPrimary, fontSize: 15),
                 decoration: InputDecoration(
-                  hintText: 'Current password',
+                  hintText: context.l10n.settingsCurrentPassword,
                   hintStyle: GoogleFonts.inter(
                       color: AppTheme.textSecondary, fontSize: 14),
                   filled: true,
@@ -119,7 +120,7 @@ class _SecuritySectionState extends State<SecuritySection> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(ctx).pop(false),
-              child: Text('Cancel',
+              child: Text(context.l10n.cancel,
                   style:
                       GoogleFonts.inter(color: AppTheme.textSecondary)),
             ),
@@ -137,11 +138,11 @@ class _SecuritySectionState extends State<SecuritySection> {
                     controller.text, salt, hash)) {
                   if (ctx.mounted) Navigator.of(ctx).pop(true);
                 } else {
-                  setS(() => error = 'Incorrect password');
+                  setS(() => error = context.l10n.securityIncorrectPassword);
                 }
               },
               child: Text(
-                'Confirm',
+                context.l10n.confirm,
                 style: GoogleFonts.inter(
                     color: const Color(0xFF60A5FA),
                     fontWeight: FontWeight.w600),
@@ -180,8 +181,8 @@ class _SecuritySectionState extends State<SecuritySection> {
 
   Future<void> _disablePassword() async {
     final confirmed = await _showConfirmPasswordDialog(
-        title: 'Disable App Password',
-        subtitle: 'Enter your current password to confirm');
+        title: context.l10n.settingsDisableAppPassword,
+        subtitle: context.l10n.settingsEnterCurrentPassword);
     if (!confirmed) return;
 
     await _secureStorage.delete(key: 'app_password_hash');
@@ -195,8 +196,8 @@ class _SecuritySectionState extends State<SecuritySection> {
 
   Future<void> _changePassword() async {
     final confirmed = await _showConfirmPasswordDialog(
-        title: 'Change Password',
-        subtitle: 'Enter your current password to proceed');
+        title: context.l10n.settingsChangePassword,
+        subtitle: context.l10n.settingsChangePasswordProceed);
     if (!confirmed) return;
     if (!mounted) return;
 
@@ -217,7 +218,7 @@ class _SecuritySectionState extends State<SecuritySection> {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Password updated',
+          content: Text(context.l10n.securityPasswordUpdated,
               style: GoogleFonts.inter(color: Colors.white)),
           backgroundColor: const Color(0xFF34D399),
           duration: const Duration(seconds: 2),
@@ -252,27 +253,26 @@ class _SecuritySectionState extends State<SecuritySection> {
       builder: (ctx) => AlertDialog(
         backgroundColor: AppTheme.surface,
         title: Text(
-          'Remove Panic Key',
+          context.l10n.settingsRemovePanicKey,
           style: GoogleFonts.inter(
               color: AppTheme.textPrimary, fontWeight: FontWeight.w700),
         ),
         content: Text(
-          'Emergency self-destruct will be disabled. '
-          'You can re-enable it at any time.',
+          context.l10n.settingsRemovePanicKeyBody,
           style: GoogleFonts.inter(
               color: AppTheme.textSecondary, fontSize: 14),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: Text('Cancel',
+            child: Text(context.l10n.cancel,
                 style:
                     GoogleFonts.inter(color: AppTheme.textSecondary)),
           ),
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(true),
             child: Text(
-              'Remove',
+              context.l10n.remove,
               style: GoogleFonts.inter(
                   color: const Color(0xFFF87171),
                   fontWeight: FontWeight.w600),
@@ -292,7 +292,7 @@ class _SecuritySectionState extends State<SecuritySection> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        settingsSectionDivider('Security'),
+        settingsSectionDivider(context.l10n.settingsSecurity),
         const SizedBox(height: 14),
 
         // App Password row
@@ -321,7 +321,7 @@ class _SecuritySectionState extends State<SecuritySection> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'App Password',
+                      context.l10n.settingsAppPassword,
                       style: GoogleFonts.inter(
                         color: AppTheme.textPrimary,
                         fontSize: 14,
@@ -330,8 +330,8 @@ class _SecuritySectionState extends State<SecuritySection> {
                     ),
                     Text(
                       widget.passwordEnabled
-                          ? 'Enabled — required on every launch'
-                          : 'Disabled — app opens without password',
+                          ? context.l10n.settingsPasswordEnabled
+                          : context.l10n.settingsPasswordDisabled,
                       style: GoogleFonts.inter(
                           color: AppTheme.textSecondary, fontSize: 12),
                     ),
@@ -353,8 +353,8 @@ class _SecuritySectionState extends State<SecuritySection> {
           settingsRow(
             icon: Icons.password_rounded,
             iconColor: const Color(0xFF34D399),
-            title: 'Change Password',
-            subtitle: 'Update your app lock password',
+            title: context.l10n.settingsChangePassword,
+            subtitle: context.l10n.settingsChangePasswordSubtitle,
             onTap: _changePassword,
           ),
           const SizedBox(height: 10),
@@ -362,11 +362,11 @@ class _SecuritySectionState extends State<SecuritySection> {
             icon: Icons.warning_amber_rounded,
             iconColor: const Color(0xFFF87171),
             title: widget.panicKeyEnabled
-                ? 'Change Panic Key'
-                : 'Set Panic Key',
+                ? context.l10n.settingsChangePanicKey
+                : context.l10n.settingsSetPanicKey,
             subtitle: widget.panicKeyEnabled
-                ? 'Update emergency wipe key'
-                : 'One key that instantly erases all data',
+                ? context.l10n.settingsPanicKeySetSubtitle
+                : context.l10n.settingsPanicKeyUnsetSubtitle,
             onTap: _managePanicKey,
           ),
           if (widget.panicKeyEnabled) ...[
@@ -374,8 +374,8 @@ class _SecuritySectionState extends State<SecuritySection> {
             settingsRow(
               icon: Icons.remove_circle_outline_rounded,
               iconColor: AppTheme.textSecondary,
-              title: 'Remove Panic Key',
-              subtitle: 'Disable emergency self-destruct',
+              title: context.l10n.settingsRemovePanicKey,
+              subtitle: context.l10n.settingsRemovePanicKeySubtitle,
               onTap: _removePanicKey,
             ),
           ],

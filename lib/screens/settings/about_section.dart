@@ -1,6 +1,7 @@
 // Settings — About section: privacy policy link + crash reporting opt-in.
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../l10n/l10n_ext.dart';
 import '../privacy_policy_screen.dart';
 import 'settings_widgets.dart';
 
@@ -32,8 +33,8 @@ class _AboutSectionState extends State<AboutSection> {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text(value
-            ? 'Crash reporting enabled — restart app to apply'
-            : 'Crash reporting disabled — restart app to apply'),
+            ? context.l10n.settingsCrashReportingEnabled
+            : context.l10n.settingsCrashReportingDisabled),
         duration: const Duration(seconds: 3),
       ));
     }
@@ -44,13 +45,13 @@ class _AboutSectionState extends State<AboutSection> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        settingsSectionDivider('About'),
+        settingsSectionDivider(context.l10n.settingsAbout),
         const SizedBox(height: 14),
         settingsRow(
           icon: Icons.privacy_tip_outlined,
           iconColor: const Color(0xFF1ABC9C),
-          title: 'Privacy Policy',
-          subtitle: 'How Pulse protects your data',
+          title: context.l10n.settingsPrivacyPolicy,
+          subtitle: context.l10n.settingsPrivacyPolicySubtitle,
           onTap: () => Navigator.push(
             context,
             MaterialPageRoute(builder: (_) => const PrivacyPolicyScreen()),
@@ -58,10 +59,10 @@ class _AboutSectionState extends State<AboutSection> {
         ),
         SwitchListTile(
           secondary: const Icon(Icons.bug_report_outlined, color: Colors.grey),
-          title: const Text('Crash reporting', style: TextStyle(color: Colors.white, fontSize: 14)),
-          subtitle: const Text(
-            'Send anonymous crash reports to help improve Pulse. No message content or contacts are ever sent.',
-            style: TextStyle(color: Colors.white54, fontSize: 11),
+          title: Text(context.l10n.settingsCrashReporting, style: const TextStyle(color: Colors.white, fontSize: 14)),
+          subtitle: Text(
+            context.l10n.settingsCrashReportingSubtitle,
+            style: const TextStyle(color: Colors.white54, fontSize: 11),
           ),
           value: _sentryOptIn,
           onChanged: _toggle,

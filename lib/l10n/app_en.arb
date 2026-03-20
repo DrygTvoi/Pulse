@@ -872,5 +872,252 @@
   "settingsRestartNow": "Restart Now",
   "@settingsRestartNow": { "description": "Button to restart app now" },
   "settingsLater": "Later",
-  "@settingsLater": { "description": "Button to restart later" }
+  "@settingsLater": { "description": "Button to restart later" },
+
+  "profileGroupLabel": "Group",
+  "@profileGroupLabel": { "description": "Badge label shown for group contacts in profile sheet" },
+  "profileAddButton": "Add",
+  "@profileAddButton": { "description": "Button to add members to a group" },
+  "profileKickButton": "Kick",
+  "@profileKickButton": { "description": "Button to kick a member from the group" },
+
+  "dataSectionTitle": "Data",
+  "@dataSectionTitle": { "description": "Section divider label for Data section" },
+  "dataBackupMessages": "Backup Messages",
+  "@dataBackupMessages": { "description": "Title of backup messages dialog" },
+  "dataBackupPasswordSubtitle": "Choose a password to encrypt your message backup.",
+  "@dataBackupPasswordSubtitle": { "description": "Subtitle in backup messages password dialog" },
+  "dataBackupConfirmLabel": "Create Backup",
+  "@dataBackupConfirmLabel": { "description": "Confirm button in backup messages dialog" },
+  "dataCreatingBackup": "Creating Backup",
+  "@dataCreatingBackup": { "description": "Progress dialog title when creating backup" },
+  "dataBackupPreparing": "Preparing...",
+  "@dataBackupPreparing": { "description": "Initial status in backup progress dialog" },
+  "dataBackupExporting": "Exporting message {done} of {total}...",
+  "@dataBackupExporting": {
+    "description": "Progress status while exporting messages",
+    "placeholders": {
+      "done": { "type": "int" },
+      "total": { "type": "int" }
+    }
+  },
+  "dataBackupSavingFile": "Saving file...",
+  "@dataBackupSavingFile": { "description": "Status when saving the backup file" },
+  "dataSaveMessageBackupDialog": "Save Message Backup",
+  "@dataSaveMessageBackupDialog": { "description": "FilePicker dialog title for saving backup" },
+  "dataBackupSaved": "Backup saved ({count} messages)\n{path}",
+  "@dataBackupSaved": {
+    "description": "Snackbar after successful backup",
+    "placeholders": {
+      "count": { "type": "int" },
+      "path": { "type": "String" }
+    }
+  },
+  "dataBackupFailed": "Backup failed — no data exported",
+  "@dataBackupFailed": { "description": "Snackbar when backup has no data" },
+  "dataBackupFailedError": "Backup failed: {error}",
+  "@dataBackupFailedError": {
+    "description": "Snackbar when backup throws an error",
+    "placeholders": {
+      "error": { "type": "String" }
+    }
+  },
+  "dataSelectMessageBackupDialog": "Select Message Backup",
+  "@dataSelectMessageBackupDialog": { "description": "FilePicker dialog title for selecting backup" },
+  "dataInvalidBackupFile": "Invalid backup file (too small)",
+  "@dataInvalidBackupFile": { "description": "Snackbar when backup file is too small" },
+  "dataNotValidBackupFile": "Not a valid Pulse backup file",
+  "@dataNotValidBackupFile": { "description": "Snackbar when backup file magic bytes are wrong" },
+  "dataRestoreMessages": "Restore Messages",
+  "@dataRestoreMessages": { "description": "Title of restore messages password dialog" },
+  "dataRestorePasswordSubtitle": "Enter the password used to create this backup.",
+  "@dataRestorePasswordSubtitle": { "description": "Subtitle in restore messages password dialog" },
+  "dataRestoreConfirmLabel": "Restore",
+  "@dataRestoreConfirmLabel": { "description": "Confirm button in restore dialog" },
+  "dataRestoringMessages": "Restoring Messages",
+  "@dataRestoringMessages": { "description": "Progress dialog title when restoring" },
+  "dataRestoreDecrypting": "Decrypting...",
+  "@dataRestoreDecrypting": { "description": "Initial status in restore progress dialog" },
+  "dataRestoreImporting": "Importing message {done} of {total}...",
+  "@dataRestoreImporting": {
+    "description": "Progress status while importing messages",
+    "placeholders": {
+      "done": { "type": "int" },
+      "total": { "type": "int" }
+    }
+  },
+  "dataRestoreFailed": "Restore failed — wrong password or corrupt file",
+  "@dataRestoreFailed": { "description": "Snackbar when restore fails due to wrong password" },
+  "dataRestoreSuccess": "Restored {count} new messages",
+  "@dataRestoreSuccess": {
+    "description": "Snackbar after successful restore with new messages",
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "dataRestoreNothingNew": "No new messages to import (all already exist)",
+  "@dataRestoreNothingNew": { "description": "Snackbar when restore finds no new messages" },
+  "dataRestoreFailedError": "Restore failed: {error}",
+  "@dataRestoreFailedError": {
+    "description": "Snackbar when restore throws an error",
+    "placeholders": {
+      "error": { "type": "String" }
+    }
+  },
+  "dataSelectKeyExportDialog": "Select Key Export",
+  "@dataSelectKeyExportDialog": { "description": "FilePicker dialog title for selecting key export" },
+  "dataNotValidKeyFile": "Not a valid Pulse key export file",
+  "@dataNotValidKeyFile": { "description": "Snackbar when key file is invalid" },
+  "dataExportKeys": "Export Keys",
+  "@dataExportKeys": { "description": "Title of export keys password dialog" },
+  "dataExportKeysPasswordSubtitle": "Choose a password to encrypt your key export.",
+  "@dataExportKeysPasswordSubtitle": { "description": "Subtitle in export keys password dialog" },
+  "dataExportKeysConfirmLabel": "Export",
+  "@dataExportKeysConfirmLabel": { "description": "Confirm button in export keys dialog" },
+  "dataExportingKeys": "Exporting Keys",
+  "@dataExportingKeys": { "description": "Progress dialog title when exporting keys" },
+  "dataExportingKeysStatus": "Encrypting identity keys...",
+  "@dataExportingKeysStatus": { "description": "Initial status in export keys progress dialog" },
+  "dataSaveKeyExportDialog": "Save Key Export",
+  "@dataSaveKeyExportDialog": { "description": "FilePicker dialog title for saving key export" },
+  "dataKeysExportedTo": "Keys exported to:\n{path}",
+  "@dataKeysExportedTo": {
+    "description": "Snackbar after successful key export",
+    "placeholders": {
+      "path": { "type": "String" }
+    }
+  },
+  "dataExportFailed": "Export failed — no keys found",
+  "@dataExportFailed": { "description": "Snackbar when key export finds no keys" },
+  "dataExportFailedError": "Export failed: {error}",
+  "@dataExportFailedError": {
+    "description": "Snackbar when key export throws an error",
+    "placeholders": {
+      "error": { "type": "String" }
+    }
+  },
+  "dataImportKeys": "Import Keys",
+  "@dataImportKeys": { "description": "Title of import keys password dialog" },
+  "dataImportKeysPasswordSubtitle": "Enter the password used to encrypt this key export.",
+  "@dataImportKeysPasswordSubtitle": { "description": "Subtitle in import keys password dialog" },
+  "dataImportKeysConfirmLabel": "Import",
+  "@dataImportKeysConfirmLabel": { "description": "Confirm button in import keys dialog" },
+  "dataImportingKeys": "Importing Keys",
+  "@dataImportingKeys": { "description": "Progress dialog title when importing keys" },
+  "dataImportingKeysStatus": "Decrypting identity keys...",
+  "@dataImportingKeysStatus": { "description": "Initial status in import keys progress dialog" },
+  "dataImportFailed": "Import failed — wrong password or corrupt file",
+  "@dataImportFailed": { "description": "Snackbar when import fails due to wrong password" },
+  "dataImportFailedError": "Import failed: {error}",
+  "@dataImportFailedError": {
+    "description": "Snackbar when key import throws an error",
+    "placeholders": {
+      "error": { "type": "String" }
+    }
+  },
+
+  "securitySectionTitle": "Security",
+  "@securitySectionTitle": { "description": "Section divider label for Security section" },
+  "securityIncorrectPassword": "Incorrect password",
+  "@securityIncorrectPassword": { "description": "Error shown in confirm password dialog" },
+  "securityPasswordUpdated": "Password updated",
+  "@securityPasswordUpdated": { "description": "Snackbar after password change" },
+
+  "appearanceSectionTitle": "Appearance",
+  "@appearanceSectionTitle": { "description": "Section divider label for Appearance section" },
+  "appearanceExportFailed": "Export failed: {error}",
+  "@appearanceExportFailed": {
+    "description": "Snackbar when identity export throws an error",
+    "placeholders": {
+      "error": { "type": "String" }
+    }
+  },
+  "appearanceSavedTo": "Saved to {path}",
+  "@appearanceSavedTo": {
+    "description": "Snackbar after saving identity backup file",
+    "placeholders": {
+      "path": { "type": "String" }
+    }
+  },
+  "appearanceSaveFailed": "Save failed: {error}",
+  "@appearanceSaveFailed": {
+    "description": "Snackbar when saving identity backup file fails",
+    "placeholders": {
+      "error": { "type": "String" }
+    }
+  },
+  "appearanceImportFailed": "Import failed: {error}",
+  "@appearanceImportFailed": {
+    "description": "Snackbar when identity import throws an error",
+    "placeholders": {
+      "error": { "type": "String" }
+    }
+  },
+
+  "aboutSectionTitle": "About",
+  "@aboutSectionTitle": { "description": "Section divider label for About section" },
+
+  "providerPublicKey": "Public Key",
+  "@providerPublicKey": { "description": "Label for public key in Nostr info card" },
+  "providerRelay": "Relay",
+  "@providerRelay": { "description": "Label for relay in Nostr info card" },
+  "providerAutoConfigured": "Auto-configured from your recovery password. Relay auto-discovered.",
+  "@providerAutoConfigured": { "description": "Info text for Nostr auto configuration" },
+  "providerKeyStoredLocally": "Your key is stored locally in secure storage — never sent to any server.",
+  "@providerKeyStoredLocally": { "description": "Info text about key storage for Nostr" },
+  "providerWakuAutoDiscovery": "Leave URL empty to auto-discover the fastest public node. Or run nwaku locally (port 8645) for maximum privacy.",
+  "@providerWakuAutoDiscovery": { "description": "Info text for Waku auto discovery" },
+  "providerWakuProbeTooltip": "Probe all known public nodes",
+  "@providerWakuProbeTooltip": { "description": "Tooltip on Waku discover button" },
+  "providerOxenInfo": "Oxen/Session network — onion-routed E2EE. Your Session ID is auto-generated and stored securely. Nodes auto-discovered from built-in seed nodes.",
+  "@providerOxenInfo": { "description": "Info text for Oxen provider" },
+  "providerAdvanced": "Advanced",
+  "@providerAdvanced": { "description": "Expandable advanced label in provider config" },
+  "providerSaveAndConnect": "Save & Connect",
+  "@providerSaveAndConnect": { "description": "Main save button text in provider section" },
+  "providerAddSecondaryInbox": "Add Secondary Inbox",
+  "@providerAddSecondaryInbox": { "description": "Button and dialog title for secondary inbox" },
+  "providerSecondaryInboxes": "Secondary Inboxes",
+  "@providerSecondaryInboxes": { "description": "Section label for secondary inboxes" },
+  "providerYourInboxProvider": "Your Inbox Provider",
+  "@providerYourInboxProvider": { "description": "Section label for inbox provider" },
+  "providerConnectionDetails": "Connection Details",
+  "@providerConnectionDetails": { "description": "Section label for connection details" },
+
+  "addContactTitle": "Add Contact",
+  "@addContactTitle": { "description": "Title of the Add Contact dialog" },
+  "addContactInviteLinkLabel": "Invite Link or Address",
+  "@addContactInviteLinkLabel": { "description": "Label above paste area in add contact dialog" },
+  "addContactTapToPaste": "Tap to paste invite link",
+  "@addContactTapToPaste": { "description": "Placeholder text in paste area" },
+  "addContactPasteTooltip": "Paste from clipboard",
+  "@addContactPasteTooltip": { "description": "Tooltip on paste button" },
+  "addContactAddressDetected": "Contact address detected",
+  "@addContactAddressDetected": { "description": "Status when single address is detected" },
+  "addContactRoutesDetected": "{count} routes detected — SmartRouter picks the fastest",
+  "@addContactRoutesDetected": {
+    "description": "Status when multiple routes are detected",
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "addContactFetchingProfile": "Fetching profile\u2026",
+  "@addContactFetchingProfile": { "description": "Status while fetching Nostr profile" },
+  "addContactProfileFound": "Found: {name}",
+  "@addContactProfileFound": {
+    "description": "Status when Nostr profile is found",
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "addContactNoProfileFound": "No profile found",
+  "@addContactNoProfileFound": { "description": "Status when no Nostr profile is found" },
+  "addContactDisplayNameLabel": "Display Name",
+  "@addContactDisplayNameLabel": { "description": "Label above name field in add contact dialog" },
+  "addContactDisplayNameHint": "What do you want to call them?",
+  "@addContactDisplayNameHint": { "description": "Hint text in name field" },
+  "addContactAddManually": "Add address manually",
+  "@addContactAddManually": { "description": "Toggle to show manual address entry" },
+  "addContactButton": "Add Contact",
+  "@addContactButton": { "description": "Submit button text in add contact dialog" }
 }

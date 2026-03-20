@@ -10,6 +10,7 @@ import '../theme/app_theme.dart';
 import '../theme/design_tokens.dart';
 import '../services/signal_service.dart';
 import '../controllers/chat_controller.dart';
+import '../l10n/l10n_ext.dart';
 import 'verify_identity_screen.dart';
 
 /// Bottom sheet showing contact or group profile.
@@ -118,7 +119,7 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
         title: Row(children: [
           Icon(Icons.verified_user_rounded, color: AppTheme.primary, size: DesignTokens.iconMd),
           const SizedBox(width: DesignTokens.spacing8),
-          Text('Verify Identity',
+          Text(context.l10n.profileVerifyIdentity,
               style: GoogleFonts.inter(color: AppTheme.textPrimary, fontWeight: FontWeight.w700)),
         ]),
         content: SizedBox(
@@ -128,21 +129,20 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Compare these fingerprints with ${_contact.name} over a voice call or in person. '
-                'If both values match on both devices, tap "Mark as Verified".',
+                context.l10n.profileVerifyInstructions(_contact.name),
                 style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: DesignTokens.fontMd),
               ),
               const SizedBox(height: DesignTokens.spacing14),
-              _dialogFpRow('Their key', _contactFingerprint ?? '—'),
+              _dialogFpRow(context.l10n.profileTheirKey, _contactFingerprint ?? '—'),
               const SizedBox(height: DesignTokens.spacing6),
-              _dialogFpRow('Your key', _ownFingerprint.isEmpty ? '—' : _ownFingerprint),
+              _dialogFpRow(context.l10n.profileYourKey, _ownFingerprint.isEmpty ? '—' : _ownFingerprint),
             ],
           ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: Text('Cancel', style: GoogleFonts.inter(color: AppTheme.textSecondary)),
+            child: Text(context.l10n.cancel, style: GoogleFonts.inter(color: AppTheme.textSecondary)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -155,7 +155,7 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
               await _toggleVerified();
             },
             child: Text(
-              _isVerified ? 'Remove Verification' : 'Mark as Verified',
+              _isVerified ? context.l10n.profileRemoveVerification : context.l10n.profileMarkAsVerified,
               style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w600),
             ),
           ),
@@ -220,16 +220,16 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
             onPressed: () {
               Clipboard.setData(ClipboardData(text: data));
               Navigator.pop(ctx);
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                content: Text('Address copied'),
-                duration: Duration(seconds: 1),
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                content: Text(context.l10n.profileAddressCopied),
+                duration: const Duration(seconds: 1),
               ));
             },
-            child: Text('Copy', style: GoogleFonts.inter(color: AppTheme.primary)),
+            child: Text(context.l10n.copy, style: GoogleFonts.inter(color: AppTheme.primary)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: Text('Close', style: GoogleFonts.inter(color: AppTheme.textSecondary)),
+            child: Text(context.l10n.close, style: GoogleFonts.inter(color: AppTheme.textSecondary)),
           ),
         ],
       ),
@@ -251,9 +251,9 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
         .where((c) => !c.isGroup && !currentMemberIds.contains(c.id))
         .toList();
     if (candidates.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('No contacts to add — all are already members'),
-        duration: Duration(seconds: 2),
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(context.l10n.profileNoContactsToAdd),
+        duration: const Duration(seconds: 2),
       ));
       return;
     }
@@ -282,7 +282,7 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
                 padding: const EdgeInsets.fromLTRB(DesignTokens.spacing20, 0, DesignTokens.spacing20, DesignTokens.spacing8),
                 child: Row(
                   children: [
-                    Text('Add Members',
+                    Text(context.l10n.profileAddMembers,
                         style: GoogleFonts.inter(
                             color: AppTheme.textPrimary,
                             fontSize: DesignTokens.fontXl, fontWeight: FontWeight.w700)),
@@ -300,7 +300,7 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
                             widget.onContactUpdated?.call(updated);
                           }
                         },
-                        child: Text('Add (${selected.length})',
+                        child: Text(context.l10n.profileAddCount(selected.length),
                             style: GoogleFonts.inter(
                                 color: AppTheme.primary, fontWeight: FontWeight.w700)),
                       ),
@@ -348,7 +348,7 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
       builder: (ctx) => AlertDialog(
         backgroundColor: AppTheme.surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.buttonRadius)),
-        title: Text('Rename Group',
+        title: Text(context.l10n.profileRenameGroup,
             style: GoogleFonts.inter(
                 color: AppTheme.textPrimary, fontWeight: FontWeight.w700)),
         content: TextField(
@@ -356,7 +356,7 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
           autofocus: true,
           style: GoogleFonts.inter(color: AppTheme.textPrimary),
           decoration: InputDecoration(
-            hintText: 'Group name',
+            hintText: context.l10n.groupGroupName,
             hintStyle: GoogleFonts.inter(color: AppTheme.textSecondary),
             filled: true,
             fillColor: AppTheme.background,
@@ -369,7 +369,7 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: Text('Cancel', style: GoogleFonts.inter(color: AppTheme.textSecondary)),
+            child: Text(context.l10n.cancel, style: GoogleFonts.inter(color: AppTheme.textSecondary)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -388,7 +388,7 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
                 widget.onContactUpdated?.call(updated);
               }
             },
-            child: Text('Rename',
+            child: Text(context.l10n.profileRename,
                 style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w600)),
           ),
         ],
@@ -525,7 +525,7 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
       'group': const Color(0xFF26A69A),
     };
     final color = providerColors[_contact.provider] ?? AppTheme.textSecondary;
-    final label = _contact.isGroup ? 'Group' : _contact.provider;
+    final label = _contact.isGroup ? context.l10n.profileGroupLabel : _contact.provider;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: DesignTokens.spacing10, vertical: DesignTokens.spacing4),
       decoration: BoxDecoration(
@@ -565,9 +565,9 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
             onTap: () {
               Clipboard.setData(ClipboardData(text: addr));
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Address copied'),
-                  duration: Duration(seconds: 1),
+                SnackBar(
+                  content: Text(context.l10n.profileAddressCopied),
+                  duration: const Duration(seconds: 1),
                 ),
               );
             },
@@ -600,7 +600,7 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
                 size: DesignTokens.fontMd,
                 color: _isVerified ? verifiedColor : AppTheme.primary),
             const SizedBox(width: DesignTokens.spacing6),
-            Text('Signal Fingerprints',
+            Text(context.l10n.profileSignalFingerprints,
                 style: GoogleFonts.inter(
                     color: _isVerified ? verifiedColor : AppTheme.primary,
                     fontSize: DesignTokens.fontSm, fontWeight: FontWeight.w700)),
@@ -612,7 +612,7 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
                   color: verifiedColor.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(5),
                 ),
-                child: Text('VERIFIED',
+                child: Text(context.l10n.profileVerified,
                     style: GoogleFonts.inter(
                         color: verifiedColor, fontSize: DesignTokens.fontXxs, fontWeight: FontWeight.w700)),
               ),
@@ -626,7 +626,7 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
                     color: AppTheme.primary.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(DesignTokens.spacing6),
                   ),
-                  child: Text(_isVerified ? 'Edit' : 'Verify',
+                  child: Text(_isVerified ? context.l10n.profileEdit : context.l10n.profileVerify,
                       style: GoogleFonts.inter(
                           color: AppTheme.primary, fontSize: DesignTokens.fontXs, fontWeight: FontWeight.w600)),
                 ),
@@ -634,15 +634,15 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
           ]),
           const SizedBox(height: DesignTokens.spacing10),
           if (_contactFingerprint != null)
-            _fingerprintRow('Their key', _contactFingerprint!),
+            _fingerprintRow(context.l10n.profileTheirKey, _contactFingerprint!),
           if (_ownFingerprint.isNotEmpty) ...[
             if (_contactFingerprint != null) const SizedBox(height: DesignTokens.spacing6),
-            _fingerprintRow('Your key', _ownFingerprint),
+            _fingerprintRow(context.l10n.profileYourKey, _ownFingerprint),
           ],
           if (_contactFingerprint == null)
             Padding(
               padding: const EdgeInsets.only(top: 4),
-              child: Text('No session established yet — send a message first.',
+              child: Text(context.l10n.profileNoSession,
                   style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: 11)),
             ),
         ],
@@ -654,9 +654,9 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
     return GestureDetector(
       onTap: () {
         Clipboard.setData(ClipboardData(text: fp));
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Fingerprint copied'),
-          duration: Duration(seconds: 1),
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(context.l10n.profileFingerprintCopied),
+          duration: const Duration(seconds: 1),
         ));
       },
       child: Row(children: [
@@ -684,7 +684,7 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
           Icon(Icons.group_rounded, size: DesignTokens.fontLg, color: AppTheme.textSecondary),
           const SizedBox(width: DesignTokens.spacing6),
           Text(
-            '${members.length} member${members.length == 1 ? '' : 's'}',
+            context.l10n.profileMemberCount(members.length),
             style: GoogleFonts.inter(
                 color: AppTheme.textSecondary,
                 fontSize: DesignTokens.fontBody,
@@ -703,7 +703,7 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
                 child: Row(mainAxisSize: MainAxisSize.min, children: [
                   Icon(Icons.person_add_rounded, size: DesignTokens.fontBody, color: AppTheme.primary),
                   const SizedBox(width: DesignTokens.spacing4),
-                  Text('Add',
+                  Text(context.l10n.profileAddButton,
                       style: GoogleFonts.inter(
                           color: AppTheme.primary, fontSize: DesignTokens.fontSm, fontWeight: FontWeight.w600)),
                 ]),
@@ -758,7 +758,7 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
                   color: AppTheme.error.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(DesignTokens.radiusSmall),
                 ),
-                child: Text('Kick',
+                child: Text(context.l10n.profileKickButton,
                     style: GoogleFonts.inter(
                         color: AppTheme.error,
                         fontSize: DesignTokens.fontBody,
@@ -775,21 +775,21 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: AppTheme.surface,
-        title: Text('Remove member?',
+        title: Text(context.l10n.profileRemoveMember,
             style: GoogleFonts.inter(color: AppTheme.textPrimary, fontWeight: FontWeight.w700)),
-        content: Text('Remove $name from this group?',
+        content: Text(context.l10n.profileRemoveMemberBody(name),
             style: GoogleFonts.inter(color: AppTheme.textSecondary)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: Text('Cancel', style: GoogleFonts.inter(color: AppTheme.textSecondary)),
+            child: Text(context.l10n.cancel, style: GoogleFonts.inter(color: AppTheme.textSecondary)),
           ),
           TextButton(
             onPressed: () {
               Navigator.pop(ctx);
               _kickMember(memberId);
             },
-            child: Text('Remove',
+            child: Text(context.l10n.remove,
                 style: GoogleFonts.inter(color: AppTheme.error, fontWeight: FontWeight.w700)),
           ),
         ],
@@ -803,7 +803,7 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
         if (!_contact.isGroup)
           _actionButton(
             icon: Icons.verified_user_rounded,
-            label: 'Verify Safety Number',
+            label: context.l10n.profileVerifySafetyNumber,
             color: _isVerified ? const Color(0xFF4CAF50) : AppTheme.primary,
             onTap: () {
               Navigator.pop(context);
@@ -819,20 +819,20 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
         if (!_contact.isGroup)
           _actionButton(
             icon: Icons.qr_code_rounded,
-            label: 'Show Contact QR',
+            label: context.l10n.profileShowContactQr,
             color: const Color(0xFF9B59B6),
-            onTap: () => _showQrDialog("${_contact.name}'s Address", _contact.databaseId),
+            onTap: () => _showQrDialog(context.l10n.profileContactAddress(_contact.name), _contact.databaseId),
           ),
         if (!_contact.isGroup) const SizedBox(height: DesignTokens.spacing10),
         _actionButton(
           icon: Icons.download_rounded,
-          label: 'Export Chat History',
+          label: context.l10n.profileExportChatHistory,
           color: const Color(0xFF2196F3),
           onTap: () async {
             final path = await ChatController().exportHistory(_contact);
             if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                content: Text(path != null ? 'Saved to $path' : 'Export failed'),
+                content: Text(path != null ? context.l10n.profileSavedTo(path) : context.l10n.profileExportFailed),
                 duration: const Duration(seconds: 4),
               ));
             }
@@ -841,7 +841,7 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
         const SizedBox(height: DesignTokens.spacing10),
         _actionButton(
           icon: Icons.delete_sweep_rounded,
-          label: 'Clear chat history',
+          label: context.l10n.profileClearChatHistory,
           color: AppTheme.textSecondary,
           onTap: () {
             Navigator.pop(context);
@@ -851,7 +851,7 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
         const SizedBox(height: DesignTokens.spacing10),
         _actionButton(
           icon: Icons.person_remove_rounded,
-          label: _contact.isGroup ? 'Delete group' : 'Delete contact',
+          label: _contact.isGroup ? context.l10n.profileDeleteGroup : context.l10n.profileDeleteContact,
           color: AppTheme.error,
           onTap: () {
             Navigator.pop(context);

@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:uuid/uuid.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import '../constants.dart';
+import '../l10n/l10n_ext.dart';
 import '../models/contact.dart';
 import '../theme/app_theme.dart';
 
@@ -26,6 +27,7 @@ class _AddContactDialogState extends State<AddContactDialog> {
   bool _showManual = false;
   bool _fetchingProfile = false;
   String? _profileFetchStatus;
+  bool _profileFound = false;
   Timer? _debounceTimer;
 
   @override
@@ -113,7 +115,7 @@ class _AddContactDialogState extends State<AddContactDialog> {
 
   Future<void> _fetchNostrProfile(String pubkey, String relayWs) async {
     if (!mounted) return;
-    setState(() { _fetchingProfile = true; _profileFetchStatus = 'Fetching profile…'; });
+    setState(() { _fetchingProfile = true; _profileFound = false; _profileFetchStatus = context.l10n.addContactFetchingProfile; });
     WebSocketChannel? channel;
     try {
       channel = WebSocketChannel.connect(Uri.parse(relayWs));
@@ -144,14 +146,14 @@ class _AddContactDialogState extends State<AddContactDialog> {
       }
       if (!mounted) return;
       if (foundName != null) {
-        setState(() { _fetchingProfile = false; _profileFetchStatus = 'Found: $foundName'; });
+        setState(() { _fetchingProfile = false; _profileFound = true; _profileFetchStatus = context.l10n.addContactProfileFound(foundName!); });
         if (_nameController.text.isEmpty) _nameController.text = foundName;
       } else {
-        setState(() { _fetchingProfile = false; _profileFetchStatus = 'No profile found'; });
+        setState(() { _fetchingProfile = false; _profileFound = false; _profileFetchStatus = context.l10n.addContactNoProfileFound; });
       }
     } catch (e) {
       debugPrint('[AddContact] Profile fetch failed: $e');
-      if (mounted) setState(() { _fetchingProfile = false; _profileFetchStatus = null; });
+      if (mounted) setState(() { _fetchingProfile = false; _profileFound = false; _profileFetchStatus = null; });
     } finally {
       channel?.sink.close();
     }
@@ -214,7 +216,7 @@ class _AddContactDialogState extends State<AddContactDialog> {
                   child: Icon(Icons.person_add_rounded, color: AppTheme.primary, size: 20),
                 ),
                 const SizedBox(width: 12),
-                Text('Add Contact', style: GoogleFonts.inter(
+                Text(context.l10n.addContactTitle, style: GoogleFonts.inter(
                     color: AppTheme.textPrimary, fontSize: 18, fontWeight: FontWeight.w700)),
                 const Spacer(),
                 IconButton(
@@ -227,7 +229,7 @@ class _AddContactDialogState extends State<AddContactDialog> {
               const SizedBox(height: 20),
 
               // ── Paste area ───────────────────────────────────
-              _label('Invite Link or Address'),
+              _label(context.l10n.addContactInviteLinkLabel),
               const SizedBox(height: 8),
               Row(children: [
                 Expanded(
@@ -258,7 +260,7 @@ class _AddContactDialogState extends State<AddContactDialog> {
                           : Row(children: [
                               Icon(Icons.link_rounded, color: AppTheme.textSecondary, size: 16),
                               const SizedBox(width: 8),
-                              Text('Tap to paste invite link',
+                              Text(context.l10n.addContactTapToPaste,
                                   style: GoogleFonts.inter(
                                       color: AppTheme.textSecondary.withValues(alpha: 0.6),
                                       fontSize: 13)),
@@ -268,7 +270,7 @@ class _AddContactDialogState extends State<AddContactDialog> {
                 ),
                 const SizedBox(width: 8),
                 Tooltip(
-                  message: 'Paste from clipboard',
+                  message: context.l10n.addContactPasteTooltip,
                   child: InkWell(
                     onTap: () async {
                       final data = await Clipboard.getData(Clipboard.kTextPlain);
@@ -304,8 +306,8 @@ class _AddContactDialogState extends State<AddContactDialog> {
                     Expanded(
                       child: Text(
                         _detectedAddresses.length == 1
-                            ? 'Contact address detected'
-                            : '${_detectedAddresses.length} routes detected — SmartRouter picks the fastest',
+                            ? context.l10n.addContactAddressDetected
+                            : context.l10n.addContactRoutesDetected(_detectedAddresses.length),
                         style: GoogleFonts.inter(
                             color: AppTheme.primary, fontSize: 11, fontWeight: FontWeight.w600),
                       ),
@@ -324,11 +326,11 @@ class _AddContactDialogState extends State<AddContactDialog> {
                         child: CircularProgressIndicator(strokeWidth: 1.5, color: AppTheme.primary))
                   else
                     Icon(
-                      _profileFetchStatus!.startsWith('Found')
+                      _profileFound
                           ? Icons.check_circle_outline_rounded
                           : Icons.info_outline_rounded,
                       size: 13,
-                      color: _profileFetchStatus!.startsWith('Found')
+                      color: _profileFound
                           ? const Color(0xFF4CAF50)
                           : AppTheme.textSecondary,
                     ),
@@ -336,7 +338,7 @@ class _AddContactDialogState extends State<AddContactDialog> {
                   Text(_profileFetchStatus!,
                       style: GoogleFonts.inter(
                           fontSize: 11,
-                          color: _profileFetchStatus!.startsWith('Found')
+                          color: _profileFound
                               ? const Color(0xFF4CAF50)
                               : AppTheme.textSecondary)),
                 ]),
@@ -344,13 +346,13 @@ class _AddContactDialogState extends State<AddContactDialog> {
               const SizedBox(height: 16),
 
               // ── Name field ───────────────────────────────────
-              _label('Display Name'),
+              _label(context.l10n.addContactDisplayNameLabel),
               const SizedBox(height: 8),
               TextField(
                 controller: _nameController,
                 style: GoogleFonts.inter(color: AppTheme.textPrimary, fontSize: 14),
                 decoration: InputDecoration(
-                  hintText: 'What do you want to call them?',
+                  hintText: context.l10n.addContactDisplayNameHint,
                   hintStyle: GoogleFonts.inter(
                       color: AppTheme.textSecondary.withValues(alpha: 0.5), fontSize: 12),
                   filled: true, fillColor: AppTheme.surfaceVariant,
@@ -375,7 +377,7 @@ class _AddContactDialogState extends State<AddContactDialog> {
                   Icon(_showManual ? Icons.expand_less : Icons.expand_more,
                       size: 16, color: AppTheme.textSecondary),
                   const SizedBox(width: 4),
-                  Text('Add address manually',
+                  Text(context.l10n.addContactAddManually,
                       style: GoogleFonts.inter(
                           color: AppTheme.textSecondary, fontSize: 12)),
                 ]),
@@ -437,7 +439,7 @@ class _AddContactDialogState extends State<AddContactDialog> {
                         borderRadius: BorderRadius.circular(12)),
                   ),
                   onPressed: hasAddresses ? _submit : null,
-                  child: Text('Add Contact',
+                  child: Text(context.l10n.addContactButton,
                       style: GoogleFonts.inter(
                           fontWeight: FontWeight.w700,
                           fontSize: 15,

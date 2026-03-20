@@ -9,6 +9,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/design_tokens.dart';
+import '../../l10n/l10n_ext.dart';
 import '../../widgets/theme_picker_widget.dart';
 import '../dynamic_theme_screen.dart';
 import '../device_transfer_screen.dart';
@@ -27,12 +28,12 @@ class AppearanceIdentitySection extends StatelessWidget {
         shape:
             RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.dialogRadius)),
         title: Text(
-          'Identity Backup',
+          context.l10n.settingsIdentityBackup,
           style: GoogleFonts.inter(
               color: AppTheme.textPrimary, fontWeight: FontWeight.w700),
         ),
         content: Text(
-          'Export your Signal identity keys to a backup code, or restore from an existing one.',
+          context.l10n.settingsIdentityBackupBody,
           style:
               GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: DesignTokens.fontMd),
         ),
@@ -43,7 +44,7 @@ class AppearanceIdentitySection extends StatelessWidget {
               _exportIdentity(ctx);
             },
             child: Text(
-              'Export',
+              context.l10n.export,
               style: GoogleFonts.inter(
                   color: AppTheme.primary, fontWeight: FontWeight.w600),
             ),
@@ -54,7 +55,7 @@ class AppearanceIdentitySection extends StatelessWidget {
               _importIdentity(ctx);
             },
             child: Text(
-              'Import',
+              context.l10n.import,
               style: GoogleFonts.inter(
                   color: AppTheme.primary, fontWeight: FontWeight.w600),
             ),
@@ -62,7 +63,7 @@ class AppearanceIdentitySection extends StatelessWidget {
           TextButton(
             onPressed: () => Navigator.pop(ctx),
             child: Text(
-              'Cancel',
+              context.l10n.cancel,
               style: GoogleFonts.inter(color: AppTheme.textSecondary),
             ),
           ),
@@ -100,7 +101,7 @@ class AppearanceIdentitySection extends StatelessWidget {
           shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(DesignTokens.dialogRadius)),
           title: Text(
-            'Export Identity',
+            context.l10n.settingsExportIdentity,
             style: GoogleFonts.inter(
                 color: AppTheme.textPrimary, fontWeight: FontWeight.w700),
           ),
@@ -108,7 +109,7 @@ class AppearanceIdentitySection extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                'Copy this backup code and store it safely:',
+                context.l10n.settingsExportIdentityBody,
                 style: GoogleFonts.inter(
                     color: AppTheme.textSecondary, fontSize: DesignTokens.fontMd),
               ),
@@ -134,7 +135,7 @@ class AppearanceIdentitySection extends StatelessWidget {
                 // keep using context here
               },
               child: Text(
-                'Copy',
+                context.l10n.copy,
                 style: GoogleFonts.inter(
                     color: AppTheme.primary, fontWeight: FontWeight.w600),
               ),
@@ -149,7 +150,7 @@ class AppearanceIdentitySection extends StatelessWidget {
                   if (ctx.mounted) {
                     ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(
                       content:
-                          Text('Saved to $path', style: GoogleFonts.inter()),
+                          Text(ctx.l10n.appearanceSavedTo(path), style: GoogleFonts.inter()),
                       backgroundColor: AppTheme.primary,
                       behavior: SnackBarBehavior.floating,
                       duration: const Duration(seconds: 3),
@@ -160,7 +161,7 @@ class AppearanceIdentitySection extends StatelessWidget {
                 } catch (e) {
                   if (ctx.mounted) {
                     ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(
-                      content: Text('Save failed: $e',
+                      content: Text(ctx.l10n.appearanceSaveFailed(e.toString()),
                           style: GoogleFonts.inter()),
                       backgroundColor: Colors.red,
                       behavior: SnackBarBehavior.floating,
@@ -172,7 +173,7 @@ class AppearanceIdentitySection extends StatelessWidget {
                 }
               },
               child: Text(
-                'Save File',
+                context.l10n.settingsSaveFile,
                 style: GoogleFonts.inter(
                     color: AppTheme.primary, fontWeight: FontWeight.w600),
               ),
@@ -180,7 +181,7 @@ class AppearanceIdentitySection extends StatelessWidget {
             TextButton(
               onPressed: () => Navigator.pop(ctx),
               child: Text(
-                'Done',
+                context.l10n.done,
                 style: GoogleFonts.inter(color: AppTheme.textSecondary),
               ),
             ),
@@ -190,7 +191,7 @@ class AppearanceIdentitySection extends StatelessWidget {
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Export failed: $e', style: GoogleFonts.inter()),
+          content: Text(context.l10n.appearanceExportFailed(e.toString()), style: GoogleFonts.inter()),
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
           duration: const Duration(seconds: 3),
@@ -210,7 +211,7 @@ class AppearanceIdentitySection extends StatelessWidget {
         shape:
             RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.dialogRadius)),
         title: Text(
-          'Import Identity',
+          context.l10n.settingsImportIdentity,
           style: GoogleFonts.inter(
               color: AppTheme.textPrimary, fontWeight: FontWeight.w700),
         ),
@@ -218,7 +219,7 @@ class AppearanceIdentitySection extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              'Paste your backup code below. This will overwrite your current identity.',
+              context.l10n.settingsImportIdentityBody,
               style: GoogleFonts.inter(
                   color: AppTheme.textSecondary, fontSize: DesignTokens.fontMd),
             ),
@@ -229,7 +230,7 @@ class AppearanceIdentitySection extends StatelessWidget {
               style: GoogleFonts.jetBrainsMono(
                   color: AppTheme.textPrimary, fontSize: 10),
               decoration: InputDecoration(
-                hintText: 'Paste backup code here\u2026',
+                hintText: context.l10n.settingsPasteBackupCode,
                 hintStyle: GoogleFonts.inter(
                     color: AppTheme.textSecondary, fontSize: 12),
                 filled: true,
@@ -245,7 +246,7 @@ class AppearanceIdentitySection extends StatelessWidget {
           TextButton(
             onPressed: () => Navigator.pop(ctx),
             child: Text(
-              'Cancel',
+              context.l10n.cancel,
               style: GoogleFonts.inter(color: AppTheme.textSecondary),
             ),
           ),
@@ -281,7 +282,7 @@ class AppearanceIdentitySection extends StatelessWidget {
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                     content: Text(
-                      'Identity + contacts imported! Restart the app to apply.',
+                      context.l10n.settingsIdentityImported,
                       style: GoogleFonts.inter(),
                     ),
                     backgroundColor: AppTheme.primary,
@@ -295,7 +296,7 @@ class AppearanceIdentitySection extends StatelessWidget {
                 if (ctx.mounted) Navigator.pop(ctx);
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                    content: Text('Import failed: $e',
+                    content: Text(context.l10n.appearanceImportFailed(e.toString()),
                         style: GoogleFonts.inter()),
                     backgroundColor: Colors.red,
                     behavior: SnackBarBehavior.floating,
@@ -312,7 +313,7 @@ class AppearanceIdentitySection extends StatelessWidget {
                   borderRadius: BorderRadius.circular(DesignTokens.spacing10)),
             ),
             child: Text(
-              'Apply',
+              context.l10n.apply,
               style: GoogleFonts.inter(
                   color: Colors.white, fontWeight: FontWeight.w700),
             ),
@@ -329,7 +330,7 @@ class AppearanceIdentitySection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // ─── Appearance ───────────────────────────────────────
-        settingsSectionDivider('Appearance'),
+        settingsSectionDivider(context.l10n.settingsAppearance),
         const SizedBox(height: 14),
         Container(
           padding: const EdgeInsets.all(16),
@@ -343,8 +344,8 @@ class AppearanceIdentitySection extends StatelessWidget {
         settingsRow(
           icon: Icons.palette_rounded,
           iconColor: const Color(0xFF9B59B6),
-          title: 'Theme Engine',
-          subtitle: 'Customize colors & fonts',
+          title: context.l10n.settingsThemeEngine,
+          subtitle: context.l10n.settingsThemeEngineSubtitle,
           onTap: () => Navigator.push(
             context,
             MaterialPageRoute(builder: (_) => const DynamicThemeScreen()),
@@ -354,8 +355,8 @@ class AppearanceIdentitySection extends StatelessWidget {
         settingsRow(
           icon: Icons.shield_rounded,
           iconColor: AppTheme.primary,
-          title: 'Signal Protocol',
-          subtitle: 'E2EE keys are stored securely',
+          title: context.l10n.settingsSignalProtocol,
+          subtitle: context.l10n.settingsSignalProtocolSubtitle,
           trailing: Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
             decoration: BoxDecoration(
@@ -363,7 +364,7 @@ class AppearanceIdentitySection extends StatelessWidget {
               borderRadius: BorderRadius.circular(DesignTokens.spacing6),
             ),
             child: Text(
-              'ACTIVE',
+              context.l10n.settingsActive,
               style: GoogleFonts.inter(
                 color: AppTheme.primary,
                 fontSize: 11,
@@ -376,16 +377,16 @@ class AppearanceIdentitySection extends StatelessWidget {
         settingsRow(
           icon: Icons.backup_rounded,
           iconColor: const Color(0xFF2ECC71),
-          title: 'Identity Backup',
-          subtitle: 'Export or import your Signal identity',
+          title: context.l10n.settingsIdentityBackup,
+          subtitle: context.l10n.settingsIdentityBackupSubtitle,
           onTap: () => _showBackupOptions(context),
         ),
         const SizedBox(height: 12),
         settingsRow(
           icon: Icons.phonelink_rounded,
           iconColor: const Color(0xFF3498DB),
-          title: 'Transfer to Another Device',
-          subtitle: 'Move your identity via LAN or Nostr relay',
+          title: context.l10n.settingsTransferDevice,
+          subtitle: context.l10n.settingsTransferDeviceSubtitle,
           onTap: () => Navigator.push(
             context,
             MaterialPageRoute(builder: (_) => const DeviceTransferScreen()),

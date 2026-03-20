@@ -1469,4 +1469,288 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsLater => 'Later';
+
+  @override
+  String get profileGroupLabel => 'Group';
+
+  @override
+  String get profileAddButton => 'Add';
+
+  @override
+  String get profileKickButton => 'Kick';
+
+  @override
+  String get dataSectionTitle => 'Data';
+
+  @override
+  String get dataBackupMessages => 'Backup Messages';
+
+  @override
+  String get dataBackupPasswordSubtitle =>
+      'Choose a password to encrypt your message backup.';
+
+  @override
+  String get dataBackupConfirmLabel => 'Create Backup';
+
+  @override
+  String get dataCreatingBackup => 'Creating Backup';
+
+  @override
+  String get dataBackupPreparing => 'Preparing...';
+
+  @override
+  String dataBackupExporting(int done, int total) {
+    return 'Exporting message $done of $total...';
+  }
+
+  @override
+  String get dataBackupSavingFile => 'Saving file...';
+
+  @override
+  String get dataSaveMessageBackupDialog => 'Save Message Backup';
+
+  @override
+  String dataBackupSaved(int count, String path) {
+    return 'Backup saved ($count messages)\n$path';
+  }
+
+  @override
+  String get dataBackupFailed => 'Backup failed — no data exported';
+
+  @override
+  String dataBackupFailedError(String error) {
+    return 'Backup failed: $error';
+  }
+
+  @override
+  String get dataSelectMessageBackupDialog => 'Select Message Backup';
+
+  @override
+  String get dataInvalidBackupFile => 'Invalid backup file (too small)';
+
+  @override
+  String get dataNotValidBackupFile => 'Not a valid Pulse backup file';
+
+  @override
+  String get dataRestoreMessages => 'Restore Messages';
+
+  @override
+  String get dataRestorePasswordSubtitle =>
+      'Enter the password used to create this backup.';
+
+  @override
+  String get dataRestoreConfirmLabel => 'Restore';
+
+  @override
+  String get dataRestoringMessages => 'Restoring Messages';
+
+  @override
+  String get dataRestoreDecrypting => 'Decrypting...';
+
+  @override
+  String dataRestoreImporting(int done, int total) {
+    return 'Importing message $done of $total...';
+  }
+
+  @override
+  String get dataRestoreFailed =>
+      'Restore failed — wrong password or corrupt file';
+
+  @override
+  String dataRestoreSuccess(int count) {
+    return 'Restored $count new messages';
+  }
+
+  @override
+  String get dataRestoreNothingNew =>
+      'No new messages to import (all already exist)';
+
+  @override
+  String dataRestoreFailedError(String error) {
+    return 'Restore failed: $error';
+  }
+
+  @override
+  String get dataSelectKeyExportDialog => 'Select Key Export';
+
+  @override
+  String get dataNotValidKeyFile => 'Not a valid Pulse key export file';
+
+  @override
+  String get dataExportKeys => 'Export Keys';
+
+  @override
+  String get dataExportKeysPasswordSubtitle =>
+      'Choose a password to encrypt your key export.';
+
+  @override
+  String get dataExportKeysConfirmLabel => 'Export';
+
+  @override
+  String get dataExportingKeys => 'Exporting Keys';
+
+  @override
+  String get dataExportingKeysStatus => 'Encrypting identity keys...';
+
+  @override
+  String get dataSaveKeyExportDialog => 'Save Key Export';
+
+  @override
+  String dataKeysExportedTo(String path) {
+    return 'Keys exported to:\n$path';
+  }
+
+  @override
+  String get dataExportFailed => 'Export failed — no keys found';
+
+  @override
+  String dataExportFailedError(String error) {
+    return 'Export failed: $error';
+  }
+
+  @override
+  String get dataImportKeys => 'Import Keys';
+
+  @override
+  String get dataImportKeysPasswordSubtitle =>
+      'Enter the password used to encrypt this key export.';
+
+  @override
+  String get dataImportKeysConfirmLabel => 'Import';
+
+  @override
+  String get dataImportingKeys => 'Importing Keys';
+
+  @override
+  String get dataImportingKeysStatus => 'Decrypting identity keys...';
+
+  @override
+  String get dataImportFailed =>
+      'Import failed — wrong password or corrupt file';
+
+  @override
+  String dataImportFailedError(String error) {
+    return 'Import failed: $error';
+  }
+
+  @override
+  String get securitySectionTitle => 'Security';
+
+  @override
+  String get securityIncorrectPassword => 'Incorrect password';
+
+  @override
+  String get securityPasswordUpdated => 'Password updated';
+
+  @override
+  String get appearanceSectionTitle => 'Appearance';
+
+  @override
+  String appearanceExportFailed(String error) {
+    return 'Export failed: $error';
+  }
+
+  @override
+  String appearanceSavedTo(String path) {
+    return 'Saved to $path';
+  }
+
+  @override
+  String appearanceSaveFailed(String error) {
+    return 'Save failed: $error';
+  }
+
+  @override
+  String appearanceImportFailed(String error) {
+    return 'Import failed: $error';
+  }
+
+  @override
+  String get aboutSectionTitle => 'About';
+
+  @override
+  String get providerPublicKey => 'Public Key';
+
+  @override
+  String get providerRelay => 'Relay';
+
+  @override
+  String get providerAutoConfigured =>
+      'Auto-configured from your recovery password. Relay auto-discovered.';
+
+  @override
+  String get providerKeyStoredLocally =>
+      'Your key is stored locally in secure storage — never sent to any server.';
+
+  @override
+  String get providerWakuAutoDiscovery =>
+      'Leave URL empty to auto-discover the fastest public node. Or run nwaku locally (port 8645) for maximum privacy.';
+
+  @override
+  String get providerWakuProbeTooltip => 'Probe all known public nodes';
+
+  @override
+  String get providerOxenInfo =>
+      'Oxen/Session network — onion-routed E2EE. Your Session ID is auto-generated and stored securely. Nodes auto-discovered from built-in seed nodes.';
+
+  @override
+  String get providerAdvanced => 'Advanced';
+
+  @override
+  String get providerSaveAndConnect => 'Save & Connect';
+
+  @override
+  String get providerAddSecondaryInbox => 'Add Secondary Inbox';
+
+  @override
+  String get providerSecondaryInboxes => 'Secondary Inboxes';
+
+  @override
+  String get providerYourInboxProvider => 'Your Inbox Provider';
+
+  @override
+  String get providerConnectionDetails => 'Connection Details';
+
+  @override
+  String get addContactTitle => 'Add Contact';
+
+  @override
+  String get addContactInviteLinkLabel => 'Invite Link or Address';
+
+  @override
+  String get addContactTapToPaste => 'Tap to paste invite link';
+
+  @override
+  String get addContactPasteTooltip => 'Paste from clipboard';
+
+  @override
+  String get addContactAddressDetected => 'Contact address detected';
+
+  @override
+  String addContactRoutesDetected(int count) {
+    return '$count routes detected — SmartRouter picks the fastest';
+  }
+
+  @override
+  String get addContactFetchingProfile => 'Fetching profile…';
+
+  @override
+  String addContactProfileFound(String name) {
+    return 'Found: $name';
+  }
+
+  @override
+  String get addContactNoProfileFound => 'No profile found';
+
+  @override
+  String get addContactDisplayNameLabel => 'Display Name';
+
+  @override
+  String get addContactDisplayNameHint => 'What do you want to call them?';
+
+  @override
+  String get addContactAddManually => 'Add address manually';
+
+  @override
+  String get addContactButton => 'Add Contact';
 }
