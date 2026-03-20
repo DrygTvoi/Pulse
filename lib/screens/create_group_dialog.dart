@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 import '../theme/app_theme.dart';
 import '../theme/design_tokens.dart';
 import '../models/contact.dart';
+import '../models/contact_repository.dart';
 import '../l10n/l10n_ext.dart';
 
 class CreateGroupDialog extends StatefulWidget {
@@ -17,7 +19,13 @@ class CreateGroupDialog extends StatefulWidget {
 class _CreateGroupDialogState extends State<CreateGroupDialog> {
   final _nameController = TextEditingController();
   final Set<String> _selectedIds = {};
-  final _contacts = ContactManager().contacts.where((c) => !c.isGroup).toList();
+  late List<Contact> _contacts;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _contacts = context.read<IContactRepository>().contacts.where((c) => !c.isGroup).toList();
+  }
 
   @override
   void dispose() {

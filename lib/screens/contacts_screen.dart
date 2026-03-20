@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
 import '../models/contact.dart';
+import '../models/contact_repository.dart';
 import 'add_contact_dialog.dart';
 import 'create_group_dialog.dart';
 import 'chat_screen.dart';
@@ -38,7 +40,7 @@ class _ContactsScreenState extends State<ContactsScreen> {
   }
 
   Future<void> _loadData() async {
-    await ContactManager().loadContacts();
+    await context.read<IContactRepository>().loadContacts();
     if (mounted) setState(() {});
   }
 
@@ -47,7 +49,7 @@ class _ContactsScreenState extends State<ContactsScreen> {
       context: context,
       builder: (context) => AddContactDialog(
         onAdd: (newContact) async {
-          await ContactManager().addContact(newContact);
+          await context.read<IContactRepository>().addContact(newContact);
           if (mounted) _loadData();
         },
       ),
@@ -59,7 +61,7 @@ class _ContactsScreenState extends State<ContactsScreen> {
       context: context,
       builder: (context) => CreateGroupDialog(
         onCreate: (group) async {
-          await ContactManager().addContact(group);
+          await context.read<IContactRepository>().addContact(group);
           if (!context.mounted) return;
           _loadData();
           // Open the group chat immediately after creation
@@ -72,8 +74,8 @@ class _ContactsScreenState extends State<ContactsScreen> {
     );
   }
 
-  List<Contact> get _filtered {
-    final contacts = ContactManager().contacts;
+  List<Contact> _getFiltered(BuildContext context) {
+    final contacts = context.read<IContactRepository>().contacts;
     if (_searchQuery.isEmpty) return contacts;
     return contacts.where((c) =>
         c.name.toLowerCase().contains(_searchQuery) ||
@@ -88,8 +90,8 @@ class _ContactsScreenState extends State<ContactsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final contacts = ContactManager().contacts;
-    final filtered = _filtered;
+    final contacts = context.read<IContactRepository>().contacts;
+    final filtered = _getFiltered(context);
 
     return Scaffold(
       backgroundColor: AppTheme.background,
@@ -209,7 +211,7 @@ class _ContactsScreenState extends State<ContactsScreen> {
                       ),
                     ),
                     onDismissed: (_) async {
-                      await ContactManager().removeContact(c.id);
+                      await context.read<IContactRepository>().removeContact(c.id);
                       if (mounted) _loadData();
                     },
                     child: ContactTile(

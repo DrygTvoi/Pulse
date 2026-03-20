@@ -14,6 +14,8 @@ import 'dart:async';
 import 'package:app_links/app_links.dart';
 import 'dart:convert';
 import 'controllers/chat_controller.dart';
+import 'models/contact.dart';
+import 'models/contact_repository.dart';
 import 'services/notification_service.dart';
 import 'services/connectivity_probe_service.dart';
 import 'services/utls_service.dart';
@@ -103,6 +105,7 @@ Future<void> main() async {
       runApp(
         MultiProvider(
           providers: [
+            Provider<IContactRepository>.value(value: ContactManager()),
             ChangeNotifierProvider.value(value: ThemeNotifier.instance),
             ChangeNotifierProvider.value(value: chatController),
           ],

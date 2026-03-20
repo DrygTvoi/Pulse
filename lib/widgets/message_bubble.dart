@@ -4,10 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../theme/app_theme.dart';
 import '../theme/design_tokens.dart';
 import '../models/contact.dart';
+import '../models/contact_repository.dart';
 import '../services/media_service.dart';
 import '../services/voice_service.dart';
 import '../screens/image_viewer_screen.dart';
@@ -166,7 +168,7 @@ class MessageBubble extends StatelessWidget {
   Widget _buildReadByRow(BuildContext context) {
     // Resolve contactIds to names
     final names = readBy.map((id) {
-      final c = ContactManager().contacts.cast<Contact?>()
+      final c = context.read<IContactRepository>().contacts.cast<Contact?>()
           .firstWhere((c) => c?.id == id, orElse: () => null);
       return c?.name ?? id.substring(0, id.length.clamp(0, 8));
     }).toList();

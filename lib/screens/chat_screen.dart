@@ -22,6 +22,7 @@ import '../widgets/swipeable_bubble.dart';
 import '../widgets/chat_app_bar.dart';
 import '../widgets/connection_banner.dart';
 import '../l10n/l10n_ext.dart';
+import '../models/contact_repository.dart';
 
 class ChatScreen extends StatefulWidget {
   final Contact contact;
@@ -419,7 +420,7 @@ class _ChatScreenState extends State<ChatScreen> {
         context.read<ChatController>().clearRoomHistory(_contact);
       },
       onDeleteContact: () async {
-        await ContactManager().removeContact(_contact.id);
+        await context.read<IContactRepository>().removeContact(_contact.id);
         if (mounted) {
           if (widget.embedded) {
             widget.onCloseEmbedded?.call();
@@ -582,7 +583,7 @@ class _ChatScreenState extends State<ChatScreen> {
                         final isMe = msg.senderId == myId;
                         String? senderName;
                         if (_contact.isGroup && !isMe && !entry.isGrouped) {
-                          final sender = ContactManager().contacts.cast<Contact?>().firstWhere(
+                          final sender = context.read<IContactRepository>().contacts.cast<Contact?>().firstWhere(
                             (c) => c?.databaseId == msg.senderId || c?.databaseId.split('@').first == msg.senderId,
                             orElse: () => null,
                           );
@@ -593,7 +594,7 @@ class _ChatScreenState extends State<ChatScreen> {
                           if (msg.replyToSender == myId) {
                             replyFromName = context.l10n.chatYou;
                           } else {
-                            final rs = ContactManager().contacts.cast<Contact?>().firstWhere(
+                            final rs = context.read<IContactRepository>().contacts.cast<Contact?>().firstWhere(
                               (c) => c?.databaseId == msg.replyToSender ||
                                   c?.databaseId.split('@').first == msg.replyToSender,
                               orElse: () => null,

@@ -31,6 +31,7 @@ import '../services/connectivity_probe_service.dart';
 import '../services/tor_service.dart';
 import '../services/utls_service.dart';
 import '../l10n/l10n_ext.dart';
+import '../models/contact_repository.dart';
 
 PageRoute _slideRoute(Widget page) => PageRouteBuilder(
   pageBuilder: (context, animation, secondaryAnimation) => page,
@@ -104,7 +105,8 @@ class _HomeScreenState extends State<HomeScreen> {
     }, onError: (e) => debugPrint('[HomeScreen] probe stream error: $e'));
 
     _newMsgSubscription = ChatController().newMessages.listen((event) {
-      final contact = ContactManager().contacts.cast<Contact?>().firstWhere(
+      if (!mounted) return;
+      final contact = context.read<IContactRepository>().contacts.cast<Contact?>().firstWhere(
         (c) => c?.id == event.contactId,
         orElse: () => null,
       );
@@ -193,7 +195,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _loadStatuses() async {
-    final contacts = ContactManager().contacts.where((c) => !c.isGroup).toList();
+    final contacts = context.read<IContactRepository>().contacts.where((c) => !c.isGroup).toList();
     final own = await StatusService.instance.getOwnStatus();
     final contactStatuses = await StatusService.instance
         .getAllActiveStatuses(contacts.map((c) => c.id).toList());
@@ -206,9 +208,10 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _loadContactAvatars() async {
+    final contactList = context.read<IContactRepository>().contacts.toList();
     final prefs = await SharedPreferences.getInstance();
     final avatars = <String, Uint8List>{};
-    for (final c in ContactManager().contacts) {
+    for (final c in contactList) {
       final b64 = prefs.getString('contact_avatar_${c.id}');
       if (b64 != null && b64.isNotEmpty) {
         try { avatars[c.id] = base64Decode(b64); } catch (e) {
@@ -220,19 +223,21 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _loadMutedChats() async {
+    final contactList = context.read<IContactRepository>().contacts.toList();
     final prefs = await SharedPreferences.getInstance();
     final muted = <String>{};
-    for (final c in ContactManager().contacts) {
+    for (final c in contactList) {
       if (prefs.getBool('chat_mute_${c.id}') == true) muted.add(c.id);
     }
     if (mounted) setState(() => _mutedContactIds = muted);
   }
 
   Future<void> _loadAll() async {
-    await ContactManager().loadContacts();
+    final contactRepo = context.read<IContactRepository>();
+    await contactRepo.loadContacts();
     // Pre-load room histories so last-message preview works on HomeScreen
     final ctrl = ChatController();
-    for (final c in ContactManager().contacts) {
+    for (final c in contactRepo.contacts) {
       await ctrl.loadRoomHistory(c);
     }
     if (mounted) setState(() => _loading = false);
@@ -296,7 +301,8 @@ class _HomeScreenState extends State<HomeScreen> {
   void _listenForIncomingCalls() {
     _signalSubscription = ChatController().incomingCalls.listen((sig) async {
       if (sig['type'] != 'webrtc_offer') return;
-      final callerContact = ContactManager().contacts.cast<Contact?>().firstWhere(
+      if (!mounted) return;
+      final callerContact = context.read<IContactRepository>().contacts.cast<Contact?>().firstWhere(
         (c) => c?.databaseId == sig['senderId'] || c?.id == sig['roomId'],
         orElse: () => null,
       );
@@ -349,7 +355,8 @@ class _HomeScreenState extends State<HomeScreen> {
     _groupCallSubscription = ChatController().incomingGroupCalls.listen((sig) async {
       final groupId = sig['groupId'] as String?;
       if (groupId == null) return;
-      final groupContact = ContactManager().contacts.cast<Contact?>().firstWhere(
+      if (!mounted) return;
+      final groupContact = context.read<IContactRepository>().contacts.cast<Contact?>().firstWhere(
         (c) => c?.isGroup == true && c?.id == groupId,
         orElse: () => null,
       );
@@ -498,7 +505,7 @@ class _HomeScreenState extends State<HomeScreen> {
   // ---- Left panel (shared between wide & narrow) ----
 
   Widget _buildLeftPanel(ChatController chatCtrl, {required bool isWide}) {
-    final contacts = ContactManager().contacts;
+    final contacts = context.read<IContactRepository>().contacts;
     final myId = chatCtrl.identity?.id ?? '';
 
     final filtered = _searchQuery.isEmpty

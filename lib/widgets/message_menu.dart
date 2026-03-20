@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
 import '../models/message.dart';
 import '../models/contact.dart';
+import '../models/contact_repository.dart';
 import '../controllers/chat_controller.dart';
 import '../services/media_service.dart';
 import '../l10n/l10n_ext.dart';
@@ -124,7 +125,7 @@ void showForwardPicker({
   required Contact currentContact,
   required Widget Function(String name, double size) avatarBuilder,
 }) {
-  final contacts = ContactManager().contacts
+  final contacts = context.read<IContactRepository>().contacts
       .where((c) => c.id != currentContact.id)
       .toList();
   showModalBottomSheet(
@@ -228,7 +229,7 @@ void showReactionDetails({
   final myId = context.read<ChatController>().identity?.id ?? '';
   final names = senderIds.map((id) {
     if (id == myId) return context.l10n.chatYou;
-    final c = ContactManager().contacts.cast<Contact?>().firstWhere(
+    final c = context.read<IContactRepository>().contacts.cast<Contact?>().firstWhere(
       (c) => c?.databaseId == id || c?.databaseId.split('@').first == id,
       orElse: () => null,
     );

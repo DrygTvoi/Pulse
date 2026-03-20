@@ -11,6 +11,8 @@ import '../theme/design_tokens.dart';
 import '../services/signal_service.dart';
 import '../controllers/chat_controller.dart';
 import '../l10n/l10n_ext.dart';
+import 'package:provider/provider.dart';
+import '../models/contact_repository.dart';
 import 'verify_identity_screen.dart';
 
 /// Bottom sheet showing contact or group profile.
@@ -240,14 +242,14 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
     final updated = _contact.copyWith(
       members: _contact.members.where((id) => id != memberId).toList(),
     );
-    await ContactManager().updateContact(updated);
+    await context.read<IContactRepository>().updateContact(updated);
     setState(() => _contact = updated);
     widget.onContactUpdated?.call(updated);
   }
 
   void _showAddMembersSheet() {
     final currentMemberIds = Set<String>.from(_contact.members);
-    final candidates = ContactManager().contacts
+    final candidates = context.read<IContactRepository>().contacts
         .where((c) => !c.isGroup && !currentMemberIds.contains(c.id))
         .toList();
     if (candidates.isEmpty) {
@@ -294,7 +296,7 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
                           final updated = _contact.copyWith(
                             members: [..._contact.members, ...selected],
                           );
-                          await ContactManager().updateContact(updated);
+                          await context.read<IContactRepository>().updateContact(updated);
                           if (mounted) {
                             setState(() => _contact = updated);
                             widget.onContactUpdated?.call(updated);
@@ -382,7 +384,7 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
               if (name.isEmpty) return;
               Navigator.pop(ctx);
               final updated = _contact.copyWith(name: name);
-              await ContactManager().updateContact(updated);
+              await context.read<IContactRepository>().updateContact(updated);
               if (mounted) {
                 setState(() => _contact = updated);
                 widget.onContactUpdated?.call(updated);
@@ -717,7 +719,7 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
   }
 
   Widget _buildMemberTile(String memberId) {
-    final contact = ContactManager().contacts.cast<Contact?>()
+    final contact = context.read<IContactRepository>().contacts.cast<Contact?>()
         .firstWhere((c) => c?.id == memberId, orElse: () => null);
     final name = contact?.name ?? memberId.substring(0, memberId.length.clamp(0, 12));
     final initial = name.isNotEmpty ? name[0].toUpperCase() : '?';

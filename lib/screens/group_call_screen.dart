@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:uuid/uuid.dart';
 import '../models/contact.dart';
+import '../models/contact_repository.dart';
 import '../services/group_signaling_service.dart';
 import '../services/call_transport.dart';
 import '../controllers/chat_controller.dart';
@@ -64,7 +65,7 @@ class _GroupCallScreenState extends State<GroupCallScreen> {
   }
 
   Future<void> _startCall() async {
-    final memberContacts = ContactManager()
+    final memberContacts = context.read<IContactRepository>()
         .contacts
         .where((c) => widget.group.members.contains(c.id))
         .toList();
@@ -209,7 +210,8 @@ class _GroupCallScreenState extends State<GroupCallScreen> {
     _peerStates.clear();
 
     // Restart with restricted profile (callers re-send offers after init)
-    final memberContacts = ContactManager()
+    if (!mounted) return;
+    final memberContacts = context.read<IContactRepository>()
         .contacts
         .where((c) => widget.group.members.contains(c.id))
         .toList();
@@ -522,7 +524,7 @@ class _GroupCallScreenState extends State<GroupCallScreen> {
         final state = _peerStates[memberId];
         final connected = state == RTCIceConnectionState.RTCIceConnectionStateConnected ||
             state == RTCIceConnectionState.RTCIceConnectionStateCompleted;
-        final memberContact = ContactManager()
+        final memberContact = context.read<IContactRepository>()
             .contacts
             .cast<Contact?>()
             .firstWhere((c) => c?.id == memberId, orElse: () => null);
