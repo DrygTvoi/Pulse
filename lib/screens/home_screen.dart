@@ -56,6 +56,7 @@ class _HomeScreenState extends State<HomeScreen> {
   StreamSubscription? _signalSubscription;
   StreamSubscription? _groupCallSubscription;
   StreamSubscription? _groupInviteSubscription;
+  StreamSubscription? _groupInviteDeclineSubscription;
   StreamSubscription? _newMsgSubscription;
   StreamSubscription? _probeSubscription;
   StreamSubscription? _statusUpdatesSubscription;
@@ -90,6 +91,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _listenForIncomingCalls();
     _listenForIncomingGroupCalls();
     _listenForGroupInvites();
+    _listenForGroupInviteDeclines();
     _searchController.addListener(_onSearchChanged);
     _probeSubscription = ConnectivityProbeService.instance.status.listen((s) {
       if (!mounted) return;
@@ -186,6 +188,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _signalSubscription?.cancel();
     _groupCallSubscription?.cancel();
     _groupInviteSubscription?.cancel();
+    _groupInviteDeclineSubscription?.cancel();
     _newMsgSubscription?.cancel();
     _probeSubscription?.cancel();
     _statusUpdatesSubscription?.cancel();
@@ -431,6 +434,27 @@ class _HomeScreenState extends State<HomeScreen> {
     }, onError: (e) => debugPrint('[HomeScreen] groupInvites stream error: $e'));
   }
 
+  void _listenForGroupInviteDeclines() {
+    _groupInviteDeclineSubscription =
+        ChatController().groupInviteDeclines.listen((e) {
+      if (!mounted) return;
+      // Find the group name from local contacts for a human-readable snackbar.
+      final group = context
+          .read<IContactRepository>()
+          .contacts
+          .cast<Contact?>()
+          .firstWhere((c) => c?.isGroup == true && c?.id == e.groupId,
+              orElse: () => null);
+      final groupName = group?.name ?? e.groupId;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(context.l10n.groupInviteDeclinedSnackbar(
+            e.fromContact.name, groupName)),
+        duration: const Duration(seconds: 3),
+      ));
+    }, onError: (err) =>
+            debugPrint('[HomeScreen] groupInviteDeclines error: $err'));
+  }
+
   void _showGroupInviteDialog(SignalGroupInviteEvent invite) {
     showDialog(
       context: context,
@@ -445,7 +469,10 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () async {
+              Navigator.pop(context);
+              await ChatController().declineGroupInvite(invite);
+            },
             style: TextButton.styleFrom(foregroundColor: AppTheme.textSecondary),
             child: Text(context.l10n.groupInviteDecline, style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
           ),

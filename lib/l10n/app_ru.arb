@@ -279,6 +279,7 @@
   "groupMemberLimitTitle": "Слишком много участников",
   "groupMemberLimitBody": "В группе будет {count} участников. Зашифрованные mesh-звонки поддерживают до 6. Большие группы переключаются на Jitsi (без E2EE).",
   "groupMemberLimitContinue": "Добавить всё равно",
+  "groupInviteDeclinedSnackbar": "{name} отклонил приглашение в \"{group}\"",
 
   "transferTitle": "Перенос на другое устройство",
   "transferInfoBox": "Перенесите свою Signal-личность и ключи Nostr на новое устройство.\nСессии чатов НЕ переносятся — прямая секретность сохраняется.",

@@ -424,6 +424,7 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
                                   .firstWhere((c) => c?.id == newId, orElse: () => null);
                               if (newContact != null) {
                                 unawaited(ctrl.sendGroupInvite(newContact, updated));
+                                unawaited(ctrl.sendGroupHistory(newContact, updated));
                               }
                             }
                           }

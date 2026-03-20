@@ -890,6 +890,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get groupMemberLimitContinue => 'Add anyway';
 
   @override
+  String groupInviteDeclinedSnackbar(String name, String group) {
+    return '$name declined to join \"$group\"';
+  }
+
+  @override
   String get transferTitle => 'Transfer to Another Device';
 
   @override

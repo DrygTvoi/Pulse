@@ -185,6 +185,11 @@ class ChatController extends ChangeNotifier {
       StreamController.broadcast();
   Stream<SignalGroupInviteEvent> get groupInvites => _groupInviteCtrl.stream;
 
+  final StreamController<SignalGroupInviteDeclineEvent> _groupInviteDeclineCtrl =
+      StreamController.broadcast();
+  Stream<SignalGroupInviteDeclineEvent> get groupInviteDeclines =>
+      _groupInviteDeclineCtrl.stream;
+
   // Emits a contactId when that contact's status is updated.
   final StreamController<String> _statusUpdatesCtrl = StreamController.broadcast();
   Stream<String> get statusUpdates => _statusUpdatesCtrl.stream;
@@ -890,6 +895,43 @@ class ChatController extends ChangeNotifier {
     debugPrint('[Group] Sent invite to ${target.name} for "${group.name}"');
   }
 
+  /// Decline a group invite — notify the inviter.
+  Future<void> declineGroupInvite(SignalGroupInviteEvent invite) async {
+    if (_identity == null || _selfId.isEmpty) return;
+    await _sendSignalTo(invite.fromContact, 'group_invite_decline', {
+      'groupId': invite.groupId,
+      'from': _selfId,
+    });
+    debugPrint('[Group] Declined invite from ${invite.fromContact.name} for "${invite.groupName}"');
+  }
+
+  /// Send the last [limit] messages from a group room to a newly added member.
+  Future<void> sendGroupHistory(Contact target, Contact group,
+      {int limit = 50}) async {
+    if (_identity == null || _selfId.isEmpty) return;
+    final storageKey = group.storageKey;
+    final stored = await LocalStorageService()
+        .loadMessagesPage(storageKey, pageSize: limit);
+    if (stored.isEmpty) return;
+    for (final raw in stored) {
+      try {
+        final data = raw['data'] is String
+            ? jsonDecode(raw['data'] as String) as Map<String, dynamic>
+            : raw;
+        final text = data['encryptedPayload'] as String? ?? '';
+        if (text.isEmpty) continue;
+        // Skip binary/media payloads (base64 content starts with data: or is very long)
+        if (text.startsWith('data:') || text.length > 4096) continue;
+        await _sendSignalTo(target, 'msg', {
+          '_group': group.id,
+          'text': text,
+          '_history': true,
+        });
+      } catch (_) {}
+    }
+    debugPrint('[Group] Sent history to ${target.name} (up to $limit messages)');
+  }
+
   /// Accept a group invite — create the group contact locally.
   Future<void> acceptGroupInvite(SignalGroupInviteEvent invite) async {
     final existing = _contacts.contacts.cast<Contact?>()
@@ -1098,7 +1140,7 @@ class ChatController extends ChangeNotifier {
 
     // Delivery ACKs
     _dispatcherSubs.add(d.deliveryAcks.listen((e) {
-      _handleDeliveryAck(e.fromId, e.msgId);
+      _handleDeliveryAck(e.fromId, e.msgId, groupId: e.groupId);
     }));
 
     // TTL updates
@@ -1123,11 +1165,14 @@ class ChatController extends ChangeNotifier {
 
     // Edits
     _dispatcherSubs.add(d.edits.listen((e) {
-      final room = _chatRooms[e.contact.id];
+      // For group edits use groupId to find the room; fallback to 1-on-1
+      final room = e.groupId != null
+          ? (_chatRooms[e.groupId] ?? _chatRooms[e.contact.id])
+          : _chatRooms[e.contact.id];
       if (room != null) {
         final idx = room.messages.indexWhere((m) => m.id == e.msgId);
         if (idx != -1) {
-          final storageKey = e.contact.storageKey;
+          final storageKey = room.contact.storageKey;
           final updated = room.messages[idx].copyWith(encryptedPayload: e.text, isEdited: true);
           room.messages[idx] = updated;
           unawaited(LocalStorageService().saveMessage(storageKey, updated.toJson()));
@@ -1224,6 +1269,11 @@ class ChatController extends ChangeNotifier {
     // Group invites
     _dispatcherSubs.add(d.groupInvites.listen((e) {
       if (!_groupInviteCtrl.isClosed) _groupInviteCtrl.add(e);
+    }));
+
+    // Group invite declines
+    _dispatcherSubs.add(d.groupInviteDeclines.listen((e) {
+      if (!_groupInviteDeclineCtrl.isClosed) _groupInviteDeclineCtrl.add(e);
     }));
 
     // Group membership updates from admin
@@ -1462,9 +1512,11 @@ class ChatController extends ChangeNotifier {
                    _newMsgController.add((contactId: targetContact.id, message: decryptedMsg));
                  }
                  // Send delivery ACK back to the actual sender (not the group).
+                 // Include groupId so the sender can update the group room status.
                  unawaited(_sendSignalTo(senderContact, 'msg_ack', {
                    'msgId': msg.id,
                    'from': _selfId,
+                   if (targetContact.isGroup) 'groupId': targetContact.id,
                  }));
                  // Auto read receipt if this group chat is currently open
                  if (targetContact.isGroup && _activeRoomId == targetContact.id) {
@@ -2087,16 +2139,22 @@ class ChatController extends ChangeNotifier {
   Future<void> _sendReadReceipt(Contact contact) =>
       _sendSignalTo(contact, 'msg_read', {'from': _selfId});
 
-  void _handleDeliveryAck(String fromId, String msgId) {
+  void _handleDeliveryAck(String fromId, String msgId, {String? groupId}) {
     bool changed = false;
-    for (final room in _chatRooms.values) {
-      final contactId = room.contact.databaseId;
-      if (contactId != fromId && contactId.split('@').first != fromId) continue;
+    // For group acks, search only the group room; for 1-on-1 search by sender.
+    final roomsToSearch = groupId != null
+        ? [if (_chatRooms[groupId] != null) _chatRooms[groupId]!]
+        : _chatRooms.values.where((r) {
+            final cId = r.contact.databaseId;
+            return cId == fromId || cId.split('@').first == fromId;
+          }).toList();
+    for (final room in roomsToSearch) {
       for (int i = 0; i < room.messages.length; i++) {
         final m = room.messages[i];
         if (m.id == msgId && m.status == 'sent') {
           room.messages[i] = m.copyWith(status: 'delivered');
-          unawaited(LocalStorageService().saveMessage(room.contact.storageKey, room.messages[i].toJson()));
+          unawaited(LocalStorageService().saveMessage(
+              room.contact.storageKey, room.messages[i].toJson()));
           changed = true;
           break;
         }
@@ -2421,11 +2479,28 @@ class ChatController extends ChangeNotifier {
     room.messages[idx] = updated;
     await LocalStorageService().saveMessage(storageKey, updated.toJson());
     notifyListeners();
-    unawaited(_sendEditSignal(contact, msgId, newText));
+    if (contact.isGroup) {
+      unawaited(_sendGroupEditSignal(contact, msgId, newText));
+    } else {
+      unawaited(_sendEditSignal(contact, msgId, newText));
+    }
   }
 
   Future<void> _sendEditSignal(Contact contact, String msgId, String text) =>
       _sendSignalTo(contact, 'edit', {'msgId': msgId, 'text': text, 'from': _selfId});
+
+  Future<void> _sendGroupEditSignal(
+      Contact group, String msgId, String text) async {
+    final memberContacts = _contacts.contacts
+        .where((c) => !c.isGroup && group.members.contains(c.id))
+        .toList();
+    await Future.wait(memberContacts.map((c) => _sendSignalTo(c, 'edit', {
+          'msgId': msgId,
+          'text': text,
+          'from': _selfId,
+          'groupId': group.id,
+        })));
+  }
 
   // ─── Online Status ────────────────────────────────────────────────────────
 
@@ -2766,6 +2841,7 @@ class ChatController extends ChangeNotifier {
     _tamperWarningCtrl.close();
     _failoverCtrl.close();
     _groupInviteCtrl.close();
+    _groupInviteDeclineCtrl.close();
     _groupUpdatePublicCtrl.close();
     _msgRateLimiter.clear();
     unawaited(VoiceService().dispose());

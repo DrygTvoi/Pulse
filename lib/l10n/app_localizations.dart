@@ -1646,6 +1646,12 @@ abstract class AppLocalizations {
   /// **'Add anyway'**
   String get groupMemberLimitContinue;
 
+  /// Snackbar shown to inviter when someone declines a group invite
+  ///
+  /// In en, this message translates to:
+  /// **'{name} declined to join \"{group}\"'**
+  String groupInviteDeclinedSnackbar(String name, String group);
+
   /// Title for the device transfer screen
   ///
   /// In en, this message translates to:

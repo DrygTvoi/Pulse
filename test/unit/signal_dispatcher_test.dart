@@ -746,6 +746,131 @@ void main() {
     });
   });
 
+  group('SignalDispatcher group_invite_decline', () {
+    test('emits decline event from known sender', () async {
+      final d = _dispatcher();
+      final events = <SignalGroupInviteDeclineEvent>[];
+      d.groupInviteDeclines.listen(events.add);
+
+      await d.dispatch([
+        {
+          'type': 'group_invite_decline',
+          'senderId': 'alice@wss://relay',
+          'payload': {'groupId': 'g99', 'from': 'alice@wss://relay'},
+        },
+      ]);
+      await Future.delayed(Duration.zero);
+
+      expect(events, hasLength(1));
+      expect(events.first.groupId, 'g99');
+      expect(events.first.fromContact.name, 'Alice');
+    });
+
+    test('drops decline from unknown sender', () async {
+      final d = _dispatcher();
+      final events = <SignalGroupInviteDeclineEvent>[];
+      d.groupInviteDeclines.listen(events.add);
+
+      await d.dispatch([
+        {
+          'type': 'group_invite_decline',
+          'senderId': 'nobody@wss://relay',
+          'payload': {'groupId': 'g99'},
+        },
+      ]);
+      await Future.delayed(Duration.zero);
+
+      expect(events, isEmpty);
+    });
+  });
+
+  group('SignalDispatcher delivery ack with groupId', () {
+    test('carries groupId in ack event', () async {
+      final d = _dispatcher();
+      final events = <SignalDeliveryAckEvent>[];
+      d.deliveryAcks.listen(events.add);
+
+      await d.dispatch([
+        {
+          'type': 'msg_ack',
+          'senderId': 'alice@wss://relay',
+          'payload': {
+            'msgId': 'msg123',
+            'from': 'alice@wss://relay',
+            'groupId': 'g5',
+          },
+        },
+      ]);
+      await Future.delayed(Duration.zero);
+
+      expect(events, hasLength(1));
+      expect(events.first.msgId, 'msg123');
+      expect(events.first.groupId, 'g5');
+    });
+
+    test('groupId is null for 1-on-1 ack', () async {
+      final d = _dispatcher();
+      final events = <SignalDeliveryAckEvent>[];
+      d.deliveryAcks.listen(events.add);
+
+      await d.dispatch([
+        {
+          'type': 'msg_ack',
+          'senderId': 'alice@wss://relay',
+          'payload': {'msgId': 'msg456', 'from': 'alice@wss://relay'},
+        },
+      ]);
+      await Future.delayed(Duration.zero);
+
+      expect(events, hasLength(1));
+      expect(events.first.groupId, isNull);
+    });
+  });
+
+  group('SignalDispatcher edit with groupId', () {
+    test('carries groupId in edit event', () async {
+      final d = _dispatcher();
+      final events = <SignalEditEvent>[];
+      d.edits.listen(events.add);
+
+      await d.dispatch([
+        {
+          'type': 'edit',
+          'senderId': 'alice@wss://relay',
+          'payload': {
+            'msgId': 'msg1',
+            'text': 'corrected',
+            'from': 'alice@wss://relay',
+            'groupId': 'g3',
+          },
+        },
+      ]);
+      await Future.delayed(Duration.zero);
+
+      expect(events, hasLength(1));
+      expect(events.first.groupId, 'g3');
+      expect(events.first.text, 'corrected');
+    });
+
+    test('groupId is null for 1-on-1 edit', () async {
+      final d = _dispatcher();
+      final events = <SignalEditEvent>[];
+      d.edits.listen(events.add);
+
+      await d.dispatch([
+        {
+          'type': 'edit',
+          'senderId': 'alice@wss://relay',
+          'payload': {'msgId': 'msg2', 'text': 'updated', 'from': 'alice@wss://relay'},
+        },
+      ]);
+      await Future.delayed(Duration.zero);
+
+      expect(events, hasLength(1));
+      expect(events.first.groupId, isNull);
+    });
+  });
+
   group('SignalDispatcher dispose', () {
     test('dispose closes all streams', () async {
       final d = _dispatcher();

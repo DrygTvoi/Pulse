@@ -161,6 +161,13 @@ void showForwardPicker({
                 return ListTile(
                   leading: avatarBuilder(c.name, 36),
                   title: Text(c.name, style: GoogleFonts.inter(color: AppTheme.textPrimary)),
+                  subtitle: c.isGroup
+                      ? Text(context.l10n.profileGroupLabel,
+                          style: GoogleFonts.inter(
+                              color: AppTheme.primary,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600))
+                      : null,
                   onTap: () async {
                     Navigator.pop(ctx);
                     await context.read<ChatController>().sendMessage(c, message.encryptedPayload);

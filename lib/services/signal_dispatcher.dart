@@ -50,7 +50,8 @@ class SignalGroupReadReceiptEvent {
 class SignalDeliveryAckEvent {
   final String fromId;
   final String msgId;
-  SignalDeliveryAckEvent(this.fromId, this.msgId);
+  final String? groupId;
+  SignalDeliveryAckEvent(this.fromId, this.msgId, {this.groupId});
 }
 
 /// TTL update from contact.
@@ -81,7 +82,15 @@ class SignalEditEvent {
   final Contact contact;
   final String msgId;
   final String text;
-  SignalEditEvent(this.contact, this.msgId, this.text);
+  final String? groupId;
+  SignalEditEvent(this.contact, this.msgId, this.text, {this.groupId});
+}
+
+/// Group invite was declined by the recipient.
+class SignalGroupInviteDeclineEvent {
+  final Contact fromContact;
+  final String groupId;
+  SignalGroupInviteDeclineEvent(this.fromContact, this.groupId);
 }
 
 /// Heartbeat (online status).
@@ -222,6 +231,8 @@ class SignalDispatcher {
   final _chunkReqCtrl = StreamController<SignalChunkReqEvent>.broadcast();
   final _groupUpdateCtrl = StreamController<SignalGroupUpdateEvent>.broadcast();
   final _groupInviteCtrl = StreamController<SignalGroupInviteEvent>.broadcast();
+  final _groupInviteDeclineCtrl =
+      StreamController<SignalGroupInviteDeclineEvent>.broadcast();
 
   Stream<SignalRawEvent> get rawSignals => _rawCtrl.stream;
   Stream<SignalIncomingCallEvent> get incomingCalls => _incomingCallCtrl.stream;
@@ -243,6 +254,8 @@ class SignalDispatcher {
   Stream<SignalChunkReqEvent> get chunkRequests => _chunkReqCtrl.stream;
   Stream<SignalGroupUpdateEvent> get groupUpdates => _groupUpdateCtrl.stream;
   Stream<SignalGroupInviteEvent> get groupInvites => _groupInviteCtrl.stream;
+  Stream<SignalGroupInviteDeclineEvent> get groupInviteDeclines =>
+      _groupInviteDeclineCtrl.stream;
 
   // ── Constants ────────────────────────────────────────────────────────────
 
@@ -372,9 +385,12 @@ class SignalDispatcher {
           final msgId = payload is Map ? payload['msgId'] as String? : null;
           final from =
               (payload is Map ? payload['from'] as String? : null) ?? '';
+          final ackGroupId =
+              payload is Map ? payload['groupId'] as String? : null;
           if (msgId != null && from.isNotEmpty) {
             if (!_deliveryAckCtrl.isClosed) {
-              _deliveryAckCtrl.add(SignalDeliveryAckEvent(from, msgId));
+              _deliveryAckCtrl.add(
+                  SignalDeliveryAckEvent(from, msgId, groupId: ackGroupId));
             }
           }
         } else if (sigType == 'ttl_update') {
@@ -425,10 +441,12 @@ class SignalDispatcher {
             final from = payload['from'] as String? ??
                 sig['senderId'] as String? ??
                 '';
+            final editGroupId = payload['groupId'] as String?;
             if (msgId.isNotEmpty && text.isNotEmpty) {
               final editContact = _resolveContact(from, contactByDbId);
               if (editContact != null && !_editCtrl.isClosed) {
-                _editCtrl.add(SignalEditEvent(editContact, msgId, text));
+                _editCtrl.add(SignalEditEvent(editContact, msgId, text,
+                    groupId: editGroupId));
               }
             }
           }
@@ -554,6 +572,18 @@ class SignalDispatcher {
                   creatorId: creatorId));
             }
           }
+        } else if (sigType == 'group_invite_decline') {
+          final payload = sig['payload'];
+          if (payload is Map) {
+            final groupId = payload['groupId'] as String?;
+            final senderId = sig['senderId'] as String? ?? '';
+            final decliner = _resolveContact(senderId, contactByDbId);
+            if (groupId != null && decliner != null &&
+                !_groupInviteDeclineCtrl.isClosed) {
+              _groupInviteDeclineCtrl
+                  .add(SignalGroupInviteDeclineEvent(decliner, groupId));
+            }
+          }
         } else if (sigType == 'chunk_req') {
           final payload = sig['payload'];
           if (payload is Map) {
@@ -594,6 +624,7 @@ class SignalDispatcher {
     _chunkReqCtrl.close();
     _groupUpdateCtrl.close();
     _groupInviteCtrl.close();
+    _groupInviteDeclineCtrl.close();
     _sigRateLimiter.clear();
   }
 }

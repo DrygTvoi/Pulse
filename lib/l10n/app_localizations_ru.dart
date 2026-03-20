@@ -870,6 +870,11 @@ class AppLocalizationsRu extends AppLocalizations {
   String get groupMemberLimitContinue => 'Добавить всё равно';
 
   @override
+  String groupInviteDeclinedSnackbar(String name, String group) {
+    return '$name отклонил приглашение в \"$group\"';
+  }
+
+  @override
   String get transferTitle => 'Перенос на другое устройство';
 
   @override

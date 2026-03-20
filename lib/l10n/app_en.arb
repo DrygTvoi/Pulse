@@ -480,6 +480,15 @@
   "groupMemberLimitContinue": "Add anyway",
   "@groupMemberLimitContinue": { "description": "Button to add members despite the call limit warning" },
 
+  "groupInviteDeclinedSnackbar": "{name} declined to join \"{group}\"",
+  "@groupInviteDeclinedSnackbar": {
+    "description": "Snackbar shown to inviter when someone declines a group invite",
+    "placeholders": {
+      "name": { "type": "String" },
+      "group": { "type": "String" }
+    }
+  },
+
   "transferTitle": "Transfer to Another Device",
   "@transferTitle": { "description": "Title for the device transfer screen" },
   "transferInfoBox": "Move your Signal identity and Nostr keys to a new device.\nChat sessions are NOT transferred \u2014 forward secrecy is preserved.",
