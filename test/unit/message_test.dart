@@ -77,6 +77,26 @@ void main() {
       expect(Message.fromJson(json).status, equals(''));
     });
 
+    test('uses epoch sentinel when timestamp key is absent', () {
+      final json = makeMsg().toJson()..remove('timestamp');
+      final msg = Message.fromJson(json);
+      expect(msg.timestamp, equals(DateTime.fromMillisecondsSinceEpoch(0, isUtc: true)));
+    });
+
+    test('uses epoch sentinel when timestamp value is corrupt', () {
+      final json = makeMsg().toJson();
+      json['timestamp'] = 'not-a-date';
+      final msg = Message.fromJson(json);
+      expect(msg.timestamp, equals(DateTime.fromMillisecondsSinceEpoch(0, isUtc: true)));
+    });
+
+    test('epoch sentinel is in the past, not close to now', () {
+      final json = makeMsg().toJson()..remove('timestamp');
+      final msg = Message.fromJson(json);
+      // Must be far in the past — not within 1 minute of now.
+      expect(msg.timestamp.isBefore(DateTime.now().subtract(const Duration(days: 365 * 10))), isTrue);
+    });
+
     test('round-trip toJson → fromJson is lossless', () {
       final msg = makeMsg(
           id: 'abc', senderId: 'u1', receiverId: 'u2',
