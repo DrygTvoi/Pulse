@@ -151,6 +151,43 @@ void main() {
       expect(restored.alternateAddresses[1], 'pk@wss://relay3');
     });
 
+    test('creatorId preserved through serialization', () {
+      final group = Contact(
+        id: 'g1', name: 'Team', provider: 'group',
+        databaseId: '', publicKey: '', isGroup: true,
+        members: ['c1', 'c2'], creatorId: 'c1',
+      );
+      final restored = Contact.fromMap(group.toMap());
+      expect(restored.creatorId, equals('c1'));
+    });
+
+    test('creatorId is null when absent in map', () {
+      final contact = Contact.fromMap({
+        'id': 'c1', 'name': 'Alice',
+        'provider': 'Nostr', 'databaseId': 'pk@wss://r',
+      });
+      expect(contact.creatorId, isNull);
+    });
+
+    test('copyWith updates creatorId (admin transfer)', () {
+      final group = Contact(
+        id: 'g1', name: 'Team', provider: 'group',
+        databaseId: '', publicKey: '', isGroup: true,
+        members: ['c1', 'c2'], creatorId: 'c1',
+      );
+      final transferred = group.copyWith(creatorId: 'c2');
+      expect(transferred.creatorId, equals('c2'));
+      expect(group.creatorId, equals('c1')); // original unchanged
+    });
+
+    test('toMap omits creatorId when null', () {
+      final contact = Contact(
+        id: 'c1', name: 'Alice', provider: 'Nostr',
+        databaseId: 'pk@wss://r', publicKey: '',
+      );
+      expect(contact.toMap().containsKey('creatorId'), isFalse);
+    });
+
     test('group members preserved through serialization', () {
       final group = Contact(
         id: 'g1',

@@ -107,6 +107,87 @@ void main() {
     });
   });
 
+  group('Message group status fields (readBy / deliveredTo)', () {
+    test('readBy defaults to empty list', () {
+      expect(makeMsg().readBy, isEmpty);
+    });
+
+    test('deliveredTo defaults to empty list', () {
+      expect(makeMsg().deliveredTo, isEmpty);
+    });
+
+    test('readBy persists through toJson / fromJson', () {
+      final msg = Message(
+        id: 'm1', senderId: 'me', receiverId: 'grp',
+        encryptedPayload: 'x', timestamp: baseTime,
+        adapterType: 'group', readBy: ['alice', 'bob'],
+      );
+      final restored = Message.fromJson(msg.toJson());
+      expect(restored.readBy, equals(['alice', 'bob']));
+    });
+
+    test('deliveredTo persists through toJson / fromJson', () {
+      final msg = Message(
+        id: 'm1', senderId: 'me', receiverId: 'grp',
+        encryptedPayload: 'x', timestamp: baseTime,
+        adapterType: 'group', deliveredTo: ['carol'],
+      );
+      final restored = Message.fromJson(msg.toJson());
+      expect(restored.deliveredTo, equals(['carol']));
+    });
+
+    test('empty readBy is omitted from toJson', () {
+      final json = makeMsg().toJson();
+      expect(json.containsKey('readBy'), isFalse);
+    });
+
+    test('empty deliveredTo is omitted from toJson', () {
+      final json = makeMsg().toJson();
+      expect(json.containsKey('deliveredTo'), isFalse);
+    });
+
+    test('copyWith appends new readBy correctly', () {
+      final msg = makeMsg();
+      final updated = msg.copyWith(readBy: ['alice']);
+      expect(updated.readBy, equals(['alice']));
+      expect(msg.readBy, isEmpty); // original unchanged
+    });
+
+    test('copyWith appends new deliveredTo correctly', () {
+      final msg = makeMsg();
+      final updated = msg.copyWith(deliveredTo: ['bob', 'carol']);
+      expect(updated.deliveredTo, equals(['bob', 'carol']));
+    });
+
+    test('member in deliveredTo but not readBy represents delivered state', () {
+      final msg = Message(
+        id: 'm1', senderId: 'me', receiverId: 'grp',
+        encryptedPayload: 'x', timestamp: baseTime,
+        adapterType: 'group',
+        readBy: ['alice'],
+        deliveredTo: ['alice', 'bob'],
+      );
+      // bob is delivered but not read
+      expect(msg.deliveredTo.contains('bob'), isTrue);
+      expect(msg.readBy.contains('bob'), isFalse);
+      // alice is both delivered and read
+      expect(msg.readBy.contains('alice'), isTrue);
+      expect(msg.deliveredTo.contains('alice'), isTrue);
+    });
+
+    test('missing readBy in JSON restores to empty list', () {
+      final json = makeMsg().toJson();
+      json.remove('readBy');
+      expect(Message.fromJson(json).readBy, isEmpty);
+    });
+
+    test('missing deliveredTo in JSON restores to empty list', () {
+      final json = makeMsg().toJson();
+      json.remove('deliveredTo');
+      expect(Message.fromJson(json).deliveredTo, isEmpty);
+    });
+  });
+
   group('Message.copyWith()', () {
     test('changes only status', () {
       final msg = makeMsg(status: 'sending');
