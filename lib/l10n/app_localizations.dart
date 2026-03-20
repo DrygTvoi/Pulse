@@ -3481,6 +3481,78 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{label} fingerprint copied'**
   String verifyFingerprintCopied(String label);
+
+  /// Label for Firebase database URL field
+  ///
+  /// In en, this message translates to:
+  /// **'Database URL'**
+  String get providerDatabaseUrlLabel;
+
+  /// Hint for optional fields
+  ///
+  /// In en, this message translates to:
+  /// **'Optional'**
+  String get providerOptionalHint;
+
+  /// Label for Firebase web API key field
+  ///
+  /// In en, this message translates to:
+  /// **'Web API Key'**
+  String get providerWebApiKeyLabel;
+
+  /// Hint for optional Firebase API key field
+  ///
+  /// In en, this message translates to:
+  /// **'Optional for public DB'**
+  String get providerOptionalForPublicDb;
+
+  /// Label for Nostr relay URL field in provider config
+  ///
+  /// In en, this message translates to:
+  /// **'Relay URL'**
+  String get providerRelayUrlLabel;
+
+  /// Label for Nostr private key field
+  ///
+  /// In en, this message translates to:
+  /// **'Private Key'**
+  String get providerPrivateKeyLabel;
+
+  /// Label for Nostr private key (nsec) field in advanced config
+  ///
+  /// In en, this message translates to:
+  /// **'Private Key (nsec)'**
+  String get providerPrivateKeyNsecLabel;
+
+  /// Label for Waku node URL field
+  ///
+  /// In en, this message translates to:
+  /// **'nwaku Node URL (optional)'**
+  String get providerWakuUrlLabel;
+
+  /// Hint for Waku node URL field
+  ///
+  /// In en, this message translates to:
+  /// **'Leave empty for auto-discovery'**
+  String get providerWakuUrlHint;
+
+  /// Label for Oxen storage node URL field
+  ///
+  /// In en, this message translates to:
+  /// **'Storage Node URL (optional)'**
+  String get providerStorageNodeLabel;
+
+  /// Hint for Oxen storage node URL field
+  ///
+  /// In en, this message translates to:
+  /// **'Leave empty for built-in seed nodes'**
+  String get providerStorageNodeHint;
+
+  /// Error when transfer code format is not recognised
+  ///
+  /// In en, this message translates to:
+  /// **'Unrecognised code format — must start with LAN: or NOS:'**
+  String get transferInvalidCodeFormat;
 }
 
 class _AppLocalizationsDelegate

@@ -610,5 +610,19 @@
   "verifyOnlyMarkAfterCompare": "Отмечайте как проверенный только после сравнения номеров с {name} по голосовому звонку или лично.",
   "verifyNoSession": "Сеанс шифрования ещё не установлен. Сначала отправьте сообщение, чтобы сгенерировать номера безопасности.",
   "verifyNoKeyAvailable": "Ключ недоступен",
-  "verifyFingerprintCopied": "Отпечаток {label} скопирован"
+  "verifyFingerprintCopied": "Отпечаток {label} скопирован",
+
+  "providerDatabaseUrlLabel": "URL базы данных",
+  "providerOptionalHint": "Необязательно",
+  "providerWebApiKeyLabel": "Web API-ключ",
+  "providerOptionalForPublicDb": "Необязательно для публичной БД",
+  "providerRelayUrlLabel": "URL реле",
+  "providerPrivateKeyLabel": "Приватный ключ",
+  "providerPrivateKeyNsecLabel": "Приватный ключ (nsec)",
+  "providerWakuUrlLabel": "URL узла nwaku (необязательно)",
+  "providerWakuUrlHint": "Оставьте пустым для автообнаружения",
+  "providerStorageNodeLabel": "URL узла хранения (необязательно)",
+  "providerStorageNodeHint": "Оставьте пустым для встроенных узлов",
+
+  "transferInvalidCodeFormat": "Нераспознанный формат кода — должен начинаться с LAN: или NOS:"
 }

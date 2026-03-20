@@ -1908,4 +1908,41 @@ class AppLocalizationsRu extends AppLocalizations {
   String verifyFingerprintCopied(String label) {
     return 'Отпечаток $label скопирован';
   }
+
+  @override
+  String get providerDatabaseUrlLabel => 'URL базы данных';
+
+  @override
+  String get providerOptionalHint => 'Необязательно';
+
+  @override
+  String get providerWebApiKeyLabel => 'Web API-ключ';
+
+  @override
+  String get providerOptionalForPublicDb => 'Необязательно для публичной БД';
+
+  @override
+  String get providerRelayUrlLabel => 'URL реле';
+
+  @override
+  String get providerPrivateKeyLabel => 'Приватный ключ';
+
+  @override
+  String get providerPrivateKeyNsecLabel => 'Приватный ключ (nsec)';
+
+  @override
+  String get providerWakuUrlLabel => 'URL узла nwaku (необязательно)';
+
+  @override
+  String get providerWakuUrlHint => 'Оставьте пустым для автообнаружения';
+
+  @override
+  String get providerStorageNodeLabel => 'URL узла хранения (необязательно)';
+
+  @override
+  String get providerStorageNodeHint => 'Оставьте пустым для встроенных узлов';
+
+  @override
+  String get transferInvalidCodeFormat =>
+      'Нераспознанный формат кода — должен начинаться с LAN: или NOS:';
 }

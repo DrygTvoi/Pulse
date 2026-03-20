@@ -1282,5 +1282,31 @@
     "placeholders": {
       "label": { "type": "String" }
     }
-  }
+  },
+
+  "providerDatabaseUrlLabel": "Database URL",
+  "@providerDatabaseUrlLabel": { "description": "Label for Firebase database URL field" },
+  "providerOptionalHint": "Optional",
+  "@providerOptionalHint": { "description": "Hint for optional fields" },
+  "providerWebApiKeyLabel": "Web API Key",
+  "@providerWebApiKeyLabel": { "description": "Label for Firebase web API key field" },
+  "providerOptionalForPublicDb": "Optional for public DB",
+  "@providerOptionalForPublicDb": { "description": "Hint for optional Firebase API key field" },
+  "providerRelayUrlLabel": "Relay URL",
+  "@providerRelayUrlLabel": { "description": "Label for Nostr relay URL field in provider config" },
+  "providerPrivateKeyLabel": "Private Key",
+  "@providerPrivateKeyLabel": { "description": "Label for Nostr private key field" },
+  "providerPrivateKeyNsecLabel": "Private Key (nsec)",
+  "@providerPrivateKeyNsecLabel": { "description": "Label for Nostr private key (nsec) field in advanced config" },
+  "providerWakuUrlLabel": "nwaku Node URL (optional)",
+  "@providerWakuUrlLabel": { "description": "Label for Waku node URL field" },
+  "providerWakuUrlHint": "Leave empty for auto-discovery",
+  "@providerWakuUrlHint": { "description": "Hint for Waku node URL field" },
+  "providerStorageNodeLabel": "Storage Node URL (optional)",
+  "@providerStorageNodeLabel": { "description": "Label for Oxen storage node URL field" },
+  "providerStorageNodeHint": "Leave empty for built-in seed nodes",
+  "@providerStorageNodeHint": { "description": "Hint for Oxen storage node URL field" },
+
+  "transferInvalidCodeFormat": "Unrecognised code format \u2014 must start with LAN: or NOS:",
+  "@transferInvalidCodeFormat": { "description": "Error when transfer code format is not recognised" }
 }

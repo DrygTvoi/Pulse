@@ -119,7 +119,7 @@ class _DeviceTransferScreenState extends State<DeviceTransferScreen> {
       } else if (code.startsWith('NOS:')) {
         await svc.receiveNostrTransfer(code);
       } else {
-        throw FormatException('Unrecognised code format — must start with LAN: or NOS:');
+        throw FormatException(context.l10n.transferInvalidCodeFormat);
       }
       if (!mounted) return;
       setState(() {

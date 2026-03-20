@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../controllers/chat_controller.dart';
+import '../../l10n/l10n_ext.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/design_tokens.dart';
 import '../../widgets/profile_card.dart';
@@ -25,9 +26,9 @@ class ProfileSection extends StatelessWidget {
     final dbId = identity?.adapterConfig['dbId'];
     final selfId = (dbId is String ? dbId : null) ?? identity?.id ?? '';
     if (selfId.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('No address yet — save settings first'),
-        duration: Duration(seconds: 2),
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(context.l10n.settingsNoAddressYet),
+        duration: const Duration(seconds: 2),
       ));
       return;
     }
@@ -52,7 +53,7 @@ class ProfileSection extends StatelessWidget {
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.dialogRadius)),
           title: Text(
-            'Share My Address',
+            context.l10n.settingsShareMyAddress,
             style: GoogleFonts.inter(
               color: AppTheme.textPrimary,
               fontWeight: FontWeight.w700,
@@ -80,7 +81,7 @@ class ProfileSection extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Invite Link',
+                        ctx.l10n.settingsInviteLink,
                         style: GoogleFonts.inter(
                           color: AppTheme.textSecondary,
                           fontSize: 10,
@@ -109,7 +110,7 @@ class ProfileSection extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Raw Address',
+                        ctx.l10n.settingsRawAddress,
                         style: GoogleFonts.inter(
                           color: AppTheme.textSecondary,
                           fontSize: 10,
@@ -135,14 +136,14 @@ class ProfileSection extends StatelessWidget {
               onPressed: () {
                 Clipboard.setData(ClipboardData(text: inviteLink));
                 ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                  content: Text('Invite link copied',
+                  content: Text(context.l10n.settingsInviteLinkCopied,
                       style: GoogleFonts.inter(color: Colors.white)),
                   backgroundColor: AppTheme.primary,
                   duration: const Duration(seconds: 2),
                 ));
               },
               child: Text(
-                'Copy Link',
+                context.l10n.settingsCopyLink,
                 style: GoogleFonts.inter(
                   color: AppTheme.primary,
                   fontWeight: FontWeight.w600,
@@ -153,21 +154,21 @@ class ProfileSection extends StatelessWidget {
               onPressed: () {
                 Clipboard.setData(ClipboardData(text: selfId));
                 ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                  content: Text('Address copied',
+                  content: Text(context.l10n.profileAddressCopied,
                       style: GoogleFonts.inter(color: Colors.white)),
                   backgroundColor: AppTheme.primary,
                   duration: const Duration(seconds: 2),
                 ));
               },
               child: Text(
-                'Copy Address',
+                context.l10n.settingsCopyAddress,
                 style: GoogleFonts.inter(color: AppTheme.textSecondary),
               ),
             ),
             TextButton(
               onPressed: () => Navigator.pop(ctx),
               child: Text(
-                'Close',
+                context.l10n.close,
                 style: GoogleFonts.inter(color: AppTheme.textSecondary),
               ),
             ),
@@ -183,21 +184,21 @@ class ProfileSection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // ─── My Profile ───────────────────────────────────────
-        settingsSectionLabel('My Profile'),
+        settingsSectionLabel(context.l10n.settingsMyProfile),
         const SizedBox(height: 12),
         const ProfileCard(showAddressCard: false),
         const SizedBox(height: 28),
 
         // ─── Active inbox address ──────────────────────────────
-        settingsSectionLabel('Your Inbox Address'),
+        settingsSectionLabel(context.l10n.settingsYourInboxAddress),
         const SizedBox(height: 10),
         const InboxAddressCard(),
         const SizedBox(height: 10),
         settingsRow(
           icon: Icons.qr_code_rounded,
           iconColor: const Color(0xFF9B59B6),
-          title: 'My QR Code',
-          subtitle: 'Share your address as a scannable QR',
+          title: context.l10n.settingsMyQrCode,
+          subtitle: context.l10n.settingsMyQrSubtitle,
           onTap: () => _showMyQrDialog(context),
         ),
       ],

@@ -1923,4 +1923,41 @@ class AppLocalizationsEn extends AppLocalizations {
   String verifyFingerprintCopied(String label) {
     return '$label fingerprint copied';
   }
+
+  @override
+  String get providerDatabaseUrlLabel => 'Database URL';
+
+  @override
+  String get providerOptionalHint => 'Optional';
+
+  @override
+  String get providerWebApiKeyLabel => 'Web API Key';
+
+  @override
+  String get providerOptionalForPublicDb => 'Optional for public DB';
+
+  @override
+  String get providerRelayUrlLabel => 'Relay URL';
+
+  @override
+  String get providerPrivateKeyLabel => 'Private Key';
+
+  @override
+  String get providerPrivateKeyNsecLabel => 'Private Key (nsec)';
+
+  @override
+  String get providerWakuUrlLabel => 'nwaku Node URL (optional)';
+
+  @override
+  String get providerWakuUrlHint => 'Leave empty for auto-discovery';
+
+  @override
+  String get providerStorageNodeLabel => 'Storage Node URL (optional)';
+
+  @override
+  String get providerStorageNodeHint => 'Leave empty for built-in seed nodes';
+
+  @override
+  String get transferInvalidCodeFormat =>
+      'Unrecognised code format — must start with LAN: or NOS:';
 }
