@@ -420,7 +420,9 @@ class ChatController extends ChangeNotifier {
           if (!firebaseUrl.startsWith('https://')) {
             debugPrint('[ChatController] Stale/invalid Firebase config detected ("$firebaseUrl"). '
                 'Clearing token — please re-enter your Firebase URL in Settings.');
-            _identity!.adapterConfig.remove('token');
+            _identity = _identity!.copyWith(
+              adapterConfig: Map.from(_identity!.adapterConfig)..remove('token'),
+            );
             final prefs2 = await SharedPreferences.getInstance();
             await prefs2.setString('user_identity', jsonEncode(_identity!.toJson()));
             _connectionStatus = ConnectionStatus.disconnected;
@@ -1122,6 +1124,13 @@ class ChatController extends ChangeNotifier {
       _isTypingMap[targetId] = true;
       if (!_typingStreamCtrl.isClosed) _typingStreamCtrl.add(targetId);
       _typingTimers[targetId]?.cancel();
+      // Evict oldest entries when the map grows too large (e.g. spam/fuzzing).
+      if (_typingTimers.length >= 200) {
+        final oldest = _typingTimers.keys.first;
+        _typingTimers[oldest]?.cancel();
+        _typingTimers.remove(oldest);
+        _isTypingMap.remove(oldest);
+      }
       _typingTimers[targetId] = Timer(const Duration(seconds: 4), () {
         _isTypingMap.remove(targetId);
         if (!_typingStreamCtrl.isClosed) _typingStreamCtrl.add(targetId);
@@ -1329,14 +1338,7 @@ class ChatController extends ChangeNotifier {
 
     // Build a per-batch index for O(1) contact lookup by databaseId / id-prefix.
     // Avoids O(n) contact scans for every message in the batch.
-    final contactByDbId = <String, Contact>{};
-    for (final c in _contacts.contacts) {
-      contactByDbId[c.databaseId] = c;
-      final idPart = c.databaseId.split('@').first;
-      if (idPart.isNotEmpty && idPart != c.databaseId) {
-        contactByDbId.putIfAbsent(idPart, () => c);
-      }
-    }
+    final contactByDbId = _buildContactIndex();
 
     for (var msg in newMessages) {
       try {
@@ -2902,6 +2904,8 @@ class ChatController extends ChangeNotifier {
     _bundleRefreshSub?.cancel();
     for (final s in _messageSubs) { s.cancel(); }
     for (final s in _signalSubs) { s.cancel(); }
+    for (final s in _healthSubs) { s.cancel(); }
+    _healthSubs.clear();
     for (final s in _dispatcherSubs) { s.cancel(); }
     _dispatcherSubs.clear();
     _signalDispatcher?.dispose();

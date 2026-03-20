@@ -24,6 +24,19 @@ class Identity {
     };
   }
 
+  Identity copyWith({
+    String? preferredAdapter,
+    Map<String, String>? adapterConfig,
+  }) {
+    return Identity(
+      id: id,
+      publicKey: publicKey,
+      privateKey: privateKey,
+      preferredAdapter: preferredAdapter ?? this.preferredAdapter,
+      adapterConfig: adapterConfig ?? this.adapterConfig,
+    );
+  }
+
   factory Identity.fromJson(Map<String, dynamic> json) {
     return Identity(
       id: json['id'],
