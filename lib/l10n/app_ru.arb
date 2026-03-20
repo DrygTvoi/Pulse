@@ -340,6 +340,8 @@
   "statusPhotoAttached": "Фото прикреплено",
   "statusAttachPhoto": "Прикрепить фото (необязательно)",
   "statusEnterText": "Введите текст для вашего статуса.",
+  "statusPickPhotoFailed": "Не удалось выбрать фото: {error}",
+  "statusPublishFailed": "Не удалось опубликовать: {error}",
 
   "panicSetPanicKey": "Установить паник-ключ",
   "panicEmergencySelfDestruct": "Экстренное самоуничтожение",
@@ -559,5 +561,37 @@
   "addContactDisplayNameLabel": "Отображаемое имя",
   "addContactDisplayNameHint": "Как вы хотите назвать этот контакт?",
   "addContactAddManually": "Добавить адрес вручную",
-  "addContactButton": "Добавить контакт"
+  "addContactButton": "Добавить контакт",
+
+  "networkDiagnosticsTitle": "Диагностика сети",
+  "networkDiagnosticsNostrRelays": "Nostr-реле",
+  "networkDiagnosticsDirect": "Прямые",
+  "networkDiagnosticsTorOnly": "Только через Tor",
+  "networkDiagnosticsBest": "Лучшее",
+  "networkDiagnosticsNone": "нет",
+  "networkDiagnosticsTor": "Tor",
+  "networkDiagnosticsStatus": "Статус",
+  "networkDiagnosticsConnected": "Подключён",
+  "networkDiagnosticsConnecting": "Подключение {percent}%",
+  "networkDiagnosticsOff": "Выкл",
+  "networkDiagnosticsTransport": "Транспорт",
+  "networkDiagnosticsInfrastructure": "Инфраструктура",
+  "networkDiagnosticsOxenNodes": "Узлы Oxen",
+  "networkDiagnosticsTurnServers": "TURN-серверы",
+  "networkDiagnosticsLastProbe": "Последняя проверка",
+  "networkDiagnosticsRunning": "Выполняется...",
+  "networkDiagnosticsRunDiagnostics": "Запустить диагностику",
+  "networkDiagnosticsForceReprobe": "Принудительная перепроверка",
+  "networkDiagnosticsJustNow": "только что",
+  "networkDiagnosticsMinutesAgo": "{minutes} мин. назад",
+  "networkDiagnosticsHoursAgo": "{hours} ч. назад",
+  "networkDiagnosticsDaysAgo": "{days} д. назад",
+
+  "homeNoEch": "Нет ECH",
+  "homeNoEchTooltip": "uTLS-прокси недоступен \u2014 ECH отключён.\nTLS-отпечаток виден DPI.",
+
+  "settingsTitle": "Настройки",
+  "settingsSavedConnectedTo": "Сохранено и подключено к {provider}",
+  "settingsTorFailedToStart": "Встроенный Tor не запустился",
+  "settingsPsiphonFailedToStart": "Psiphon не запустился"
 }

@@ -44,7 +44,7 @@ class _StatusCreatorScreenState extends State<StatusCreatorScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to pick photo: $e'),
+          SnackBar(content: Text(context.l10n.statusPickPhotoFailed('$e')),
               backgroundColor: AppTheme.error),
         );
       }
@@ -77,7 +77,7 @@ class _StatusCreatorScreenState extends State<StatusCreatorScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to publish: $e'),
+          SnackBar(content: Text(context.l10n.statusPublishFailed('$e')),
               backgroundColor: AppTheme.error),
         );
         setState(() => _publishing = false);

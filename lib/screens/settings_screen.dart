@@ -14,6 +14,7 @@ import '../services/ice_server_config.dart';
 import '../services/psiphon_service.dart';
 import '../services/psiphon_turn_proxy.dart';
 import '../services/tor_service.dart';
+import '../l10n/l10n_ext.dart';
 import 'settings/profile_section.dart';
 import 'settings/provider_section.dart';
 import 'settings/network_section.dart';
@@ -337,7 +338,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text(
-          'Saved & connected to $_selectedProvider 🔐',
+          context.l10n.settingsSavedConnectedTo(_selectedProvider),
           style: GoogleFonts.inter(),
         ),
         backgroundColor: AppTheme.primary,
@@ -375,8 +376,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
         setState(() => _bundledTorLoading = false);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-                content: Text('Built-in Tor failed to start')),
+            SnackBar(
+                content: Text(context.l10n.settingsTorFailedToStart)),
           );
         }
       }
@@ -406,7 +407,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         setState(() => _psiphonLoading = false);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Psiphon failed to start')),
+            SnackBar(content: Text(context.l10n.settingsPsiphonFailedToStart)),
           );
         }
       }
@@ -419,7 +420,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return Scaffold(
       backgroundColor: AppTheme.background,
       appBar: AppBar(
-        title: Text('Settings',
+        title: Text(context.l10n.settingsTitle,
             style:
                 GoogleFonts.inter(fontWeight: FontWeight.w700)),
         backgroundColor: AppTheme.surface,

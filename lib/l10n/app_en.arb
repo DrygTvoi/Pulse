@@ -610,6 +610,20 @@
   "@statusAttachPhoto": { "description": "Button to attach photo to status" },
   "statusEnterText": "Please enter some text for your status.",
   "@statusEnterText": { "description": "Validation message when status text is empty" },
+  "statusPickPhotoFailed": "Failed to pick photo: {error}",
+  "@statusPickPhotoFailed": {
+    "description": "Snackbar when picking a photo fails",
+    "placeholders": {
+      "error": { "type": "String" }
+    }
+  },
+  "statusPublishFailed": "Failed to publish: {error}",
+  "@statusPublishFailed": {
+    "description": "Snackbar when publishing a status fails",
+    "placeholders": {
+      "error": { "type": "String" }
+    }
+  },
 
   "panicSetPanicKey": "Set Panic Key",
   "@panicSetPanicKey": { "description": "Title and button for panic key setup" },
@@ -1119,5 +1133,91 @@
   "addContactAddManually": "Add address manually",
   "@addContactAddManually": { "description": "Toggle to show manual address entry" },
   "addContactButton": "Add Contact",
-  "@addContactButton": { "description": "Submit button text in add contact dialog" }
+  "@addContactButton": { "description": "Submit button text in add contact dialog" },
+
+  "networkDiagnosticsTitle": "Network Diagnostics",
+  "@networkDiagnosticsTitle": { "description": "AppBar title for network diagnostics screen" },
+  "networkDiagnosticsNostrRelays": "Nostr Relays",
+  "@networkDiagnosticsNostrRelays": { "description": "Card title for Nostr relays section" },
+  "networkDiagnosticsDirect": "Direct",
+  "@networkDiagnosticsDirect": { "description": "Label for direct relay count" },
+  "networkDiagnosticsTorOnly": "Tor-only",
+  "@networkDiagnosticsTorOnly": { "description": "Label for Tor-only relay count" },
+  "networkDiagnosticsBest": "Best",
+  "@networkDiagnosticsBest": { "description": "Label for best relay" },
+  "networkDiagnosticsNone": "none",
+  "@networkDiagnosticsNone": { "description": "Fallback value when no relay/transport is active" },
+  "networkDiagnosticsTor": "Tor",
+  "@networkDiagnosticsTor": { "description": "Card title for Tor section" },
+  "networkDiagnosticsStatus": "Status",
+  "@networkDiagnosticsStatus": { "description": "Label for Tor connection status" },
+  "networkDiagnosticsConnected": "Connected",
+  "@networkDiagnosticsConnected": { "description": "Tor status: connected" },
+  "networkDiagnosticsConnecting": "Connecting {percent}%",
+  "@networkDiagnosticsConnecting": {
+    "description": "Tor status: connecting with bootstrap percent",
+    "placeholders": {
+      "percent": { "type": "int" }
+    }
+  },
+  "networkDiagnosticsOff": "Off",
+  "@networkDiagnosticsOff": { "description": "Tor status: off" },
+  "networkDiagnosticsTransport": "Transport",
+  "@networkDiagnosticsTransport": { "description": "Label for pluggable transport" },
+  "networkDiagnosticsInfrastructure": "Infrastructure",
+  "@networkDiagnosticsInfrastructure": { "description": "Card title for infrastructure section" },
+  "networkDiagnosticsOxenNodes": "Oxen nodes",
+  "@networkDiagnosticsOxenNodes": { "description": "Label for Oxen node count" },
+  "networkDiagnosticsTurnServers": "TURN servers",
+  "@networkDiagnosticsTurnServers": { "description": "Label for TURN server count" },
+  "networkDiagnosticsLastProbe": "Last probe",
+  "@networkDiagnosticsLastProbe": { "description": "Label for last probe timestamp" },
+  "networkDiagnosticsRunning": "Running...",
+  "@networkDiagnosticsRunning": { "description": "Button label while diagnostics are running" },
+  "networkDiagnosticsRunDiagnostics": "Run Diagnostics",
+  "@networkDiagnosticsRunDiagnostics": { "description": "Button to run network diagnostics" },
+  "networkDiagnosticsForceReprobe": "Force Full Re-probe",
+  "@networkDiagnosticsForceReprobe": { "description": "Button to force a full relay re-probe" },
+  "networkDiagnosticsJustNow": "just now",
+  "@networkDiagnosticsJustNow": { "description": "Age label when probe was just completed" },
+  "networkDiagnosticsMinutesAgo": "{minutes}m ago",
+  "@networkDiagnosticsMinutesAgo": {
+    "description": "Age label in minutes",
+    "placeholders": {
+      "minutes": { "type": "int" }
+    }
+  },
+  "networkDiagnosticsHoursAgo": "{hours}h ago",
+  "@networkDiagnosticsHoursAgo": {
+    "description": "Age label in hours",
+    "placeholders": {
+      "hours": { "type": "int" }
+    }
+  },
+  "networkDiagnosticsDaysAgo": "{days}d ago",
+  "@networkDiagnosticsDaysAgo": {
+    "description": "Age label in days",
+    "placeholders": {
+      "days": { "type": "int" }
+    }
+  },
+
+  "homeNoEch": "No ECH",
+  "@homeNoEch": { "description": "Chip label when uTLS proxy is unavailable (ECH disabled)" },
+  "homeNoEchTooltip": "uTLS proxy unavailable \u2014 ECH disabled.\nTLS fingerprint is visible to DPI.",
+  "@homeNoEchTooltip": { "description": "Tooltip for the No ECH chip" },
+
+  "settingsTitle": "Settings",
+  "@settingsTitle": { "description": "AppBar title for the settings screen" },
+  "settingsSavedConnectedTo": "Saved & connected to {provider}",
+  "@settingsSavedConnectedTo": {
+    "description": "Snackbar after saving settings and connecting",
+    "placeholders": {
+      "provider": { "type": "String" }
+    }
+  },
+  "settingsTorFailedToStart": "Built-in Tor failed to start",
+  "@settingsTorFailedToStart": { "description": "Snackbar when bundled Tor fails to start" },
+  "settingsPsiphonFailedToStart": "Psiphon failed to start",
+  "@settingsPsiphonFailedToStart": { "description": "Snackbar when Psiphon fails to start" }
 }

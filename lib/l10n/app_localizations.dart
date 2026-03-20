@@ -1988,6 +1988,18 @@ abstract class AppLocalizations {
   /// **'Please enter some text for your status.'**
   String get statusEnterText;
 
+  /// Snackbar when picking a photo fails
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to pick photo: {error}'**
+  String statusPickPhotoFailed(String error);
+
+  /// Snackbar when publishing a status fails
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to publish: {error}'**
+  String statusPublishFailed(String error);
+
   /// Title and button for panic key setup
   ///
   /// In en, this message translates to:
@@ -3199,6 +3211,180 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Add Contact'**
   String get addContactButton;
+
+  /// AppBar title for network diagnostics screen
+  ///
+  /// In en, this message translates to:
+  /// **'Network Diagnostics'**
+  String get networkDiagnosticsTitle;
+
+  /// Card title for Nostr relays section
+  ///
+  /// In en, this message translates to:
+  /// **'Nostr Relays'**
+  String get networkDiagnosticsNostrRelays;
+
+  /// Label for direct relay count
+  ///
+  /// In en, this message translates to:
+  /// **'Direct'**
+  String get networkDiagnosticsDirect;
+
+  /// Label for Tor-only relay count
+  ///
+  /// In en, this message translates to:
+  /// **'Tor-only'**
+  String get networkDiagnosticsTorOnly;
+
+  /// Label for best relay
+  ///
+  /// In en, this message translates to:
+  /// **'Best'**
+  String get networkDiagnosticsBest;
+
+  /// Fallback value when no relay/transport is active
+  ///
+  /// In en, this message translates to:
+  /// **'none'**
+  String get networkDiagnosticsNone;
+
+  /// Card title for Tor section
+  ///
+  /// In en, this message translates to:
+  /// **'Tor'**
+  String get networkDiagnosticsTor;
+
+  /// Label for Tor connection status
+  ///
+  /// In en, this message translates to:
+  /// **'Status'**
+  String get networkDiagnosticsStatus;
+
+  /// Tor status: connected
+  ///
+  /// In en, this message translates to:
+  /// **'Connected'**
+  String get networkDiagnosticsConnected;
+
+  /// Tor status: connecting with bootstrap percent
+  ///
+  /// In en, this message translates to:
+  /// **'Connecting {percent}%'**
+  String networkDiagnosticsConnecting(int percent);
+
+  /// Tor status: off
+  ///
+  /// In en, this message translates to:
+  /// **'Off'**
+  String get networkDiagnosticsOff;
+
+  /// Label for pluggable transport
+  ///
+  /// In en, this message translates to:
+  /// **'Transport'**
+  String get networkDiagnosticsTransport;
+
+  /// Card title for infrastructure section
+  ///
+  /// In en, this message translates to:
+  /// **'Infrastructure'**
+  String get networkDiagnosticsInfrastructure;
+
+  /// Label for Oxen node count
+  ///
+  /// In en, this message translates to:
+  /// **'Oxen nodes'**
+  String get networkDiagnosticsOxenNodes;
+
+  /// Label for TURN server count
+  ///
+  /// In en, this message translates to:
+  /// **'TURN servers'**
+  String get networkDiagnosticsTurnServers;
+
+  /// Label for last probe timestamp
+  ///
+  /// In en, this message translates to:
+  /// **'Last probe'**
+  String get networkDiagnosticsLastProbe;
+
+  /// Button label while diagnostics are running
+  ///
+  /// In en, this message translates to:
+  /// **'Running...'**
+  String get networkDiagnosticsRunning;
+
+  /// Button to run network diagnostics
+  ///
+  /// In en, this message translates to:
+  /// **'Run Diagnostics'**
+  String get networkDiagnosticsRunDiagnostics;
+
+  /// Button to force a full relay re-probe
+  ///
+  /// In en, this message translates to:
+  /// **'Force Full Re-probe'**
+  String get networkDiagnosticsForceReprobe;
+
+  /// Age label when probe was just completed
+  ///
+  /// In en, this message translates to:
+  /// **'just now'**
+  String get networkDiagnosticsJustNow;
+
+  /// Age label in minutes
+  ///
+  /// In en, this message translates to:
+  /// **'{minutes}m ago'**
+  String networkDiagnosticsMinutesAgo(int minutes);
+
+  /// Age label in hours
+  ///
+  /// In en, this message translates to:
+  /// **'{hours}h ago'**
+  String networkDiagnosticsHoursAgo(int hours);
+
+  /// Age label in days
+  ///
+  /// In en, this message translates to:
+  /// **'{days}d ago'**
+  String networkDiagnosticsDaysAgo(int days);
+
+  /// Chip label when uTLS proxy is unavailable (ECH disabled)
+  ///
+  /// In en, this message translates to:
+  /// **'No ECH'**
+  String get homeNoEch;
+
+  /// Tooltip for the No ECH chip
+  ///
+  /// In en, this message translates to:
+  /// **'uTLS proxy unavailable — ECH disabled.\nTLS fingerprint is visible to DPI.'**
+  String get homeNoEchTooltip;
+
+  /// AppBar title for the settings screen
+  ///
+  /// In en, this message translates to:
+  /// **'Settings'**
+  String get settingsTitle;
+
+  /// Snackbar after saving settings and connecting
+  ///
+  /// In en, this message translates to:
+  /// **'Saved & connected to {provider}'**
+  String settingsSavedConnectedTo(String provider);
+
+  /// Snackbar when bundled Tor fails to start
+  ///
+  /// In en, this message translates to:
+  /// **'Built-in Tor failed to start'**
+  String get settingsTorFailedToStart;
+
+  /// Snackbar when Psiphon fails to start
+  ///
+  /// In en, this message translates to:
+  /// **'Psiphon failed to start'**
+  String get settingsPsiphonFailedToStart;
 }
 
 class _AppLocalizationsDelegate

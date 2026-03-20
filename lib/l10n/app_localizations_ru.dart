@@ -1738,4 +1738,112 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get addContactButton => 'Добавить контакт';
+
+  @override
+  String statusPickPhotoFailed(String error) {
+    return 'Не удалось выбрать фото: $error';
+  }
+
+  @override
+  String statusPublishFailed(String error) {
+    return 'Не удалось опубликовать: $error';
+  }
+
+  @override
+  String get networkDiagnosticsTitle => 'Диагностика сети';
+
+  @override
+  String get networkDiagnosticsNostrRelays => 'Nostr-реле';
+
+  @override
+  String get networkDiagnosticsDirect => 'Прямые';
+
+  @override
+  String get networkDiagnosticsTorOnly => 'Только через Tor';
+
+  @override
+  String get networkDiagnosticsBest => 'Лучшее';
+
+  @override
+  String get networkDiagnosticsNone => 'нет';
+
+  @override
+  String get networkDiagnosticsTor => 'Tor';
+
+  @override
+  String get networkDiagnosticsStatus => 'Статус';
+
+  @override
+  String get networkDiagnosticsConnected => 'Подключён';
+
+  @override
+  String networkDiagnosticsConnecting(int percent) {
+    return 'Подключение $percent%';
+  }
+
+  @override
+  String get networkDiagnosticsOff => 'Выкл';
+
+  @override
+  String get networkDiagnosticsTransport => 'Транспорт';
+
+  @override
+  String get networkDiagnosticsInfrastructure => 'Инфраструктура';
+
+  @override
+  String get networkDiagnosticsOxenNodes => 'Узлы Oxen';
+
+  @override
+  String get networkDiagnosticsTurnServers => 'TURN-серверы';
+
+  @override
+  String get networkDiagnosticsLastProbe => 'Последняя проверка';
+
+  @override
+  String get networkDiagnosticsRunning => 'Выполняется...';
+
+  @override
+  String get networkDiagnosticsRunDiagnostics => 'Запустить диагностику';
+
+  @override
+  String get networkDiagnosticsForceReprobe => 'Принудительная перепроверка';
+
+  @override
+  String get networkDiagnosticsJustNow => 'только что';
+
+  @override
+  String networkDiagnosticsMinutesAgo(int minutes) {
+    return '$minutes мин. назад';
+  }
+
+  @override
+  String networkDiagnosticsHoursAgo(int hours) {
+    return '$hours ч. назад';
+  }
+
+  @override
+  String networkDiagnosticsDaysAgo(int days) {
+    return '$days д. назад';
+  }
+
+  @override
+  String get homeNoEch => 'Нет ECH';
+
+  @override
+  String get homeNoEchTooltip =>
+      'uTLS-прокси недоступен \u2014 ECH отключён.\nTLS-отпечаток виден DPI.';
+
+  @override
+  String get settingsTitle => 'Настройки';
+
+  @override
+  String settingsSavedConnectedTo(String provider) {
+    return 'Сохранено и подключено к $provider';
+  }
+
+  @override
+  String get settingsTorFailedToStart => 'Встроенный Tor не запустился';
+
+  @override
+  String get settingsPsiphonFailedToStart => 'Psiphon не запустился';
 }

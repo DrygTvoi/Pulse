@@ -537,13 +537,12 @@ class _HomeScreenState extends State<HomeScreen> {
                 // Tor/Psiphon is active (censored network detected).
                 if (!_utlsAvailable && _torRunning)
                   Tooltip(
-                    message: 'uTLS proxy unavailable — ECH disabled.\n'
-                        'TLS fingerprint is visible to DPI.',
+                    message: context.l10n.homeNoEchTooltip,
                     child: Padding(
                       padding: const EdgeInsets.only(right: DesignTokens.spacing4),
                       child: Chip(
-                        label: const Text('No ECH',
-                            style: TextStyle(fontSize: DesignTokens.fontSm, fontWeight: FontWeight.w600)),
+                        label: Text(context.l10n.homeNoEch,
+                            style: const TextStyle(fontSize: DesignTokens.fontSm, fontWeight: FontWeight.w600)),
                         backgroundColor: Colors.amber.shade700,
                         labelStyle: const TextStyle(color: Colors.black87),
                         padding: const EdgeInsets.symmetric(horizontal: DesignTokens.spacing4),

@@ -1753,4 +1753,112 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get addContactButton => 'Add Contact';
+
+  @override
+  String statusPickPhotoFailed(String error) {
+    return 'Failed to pick photo: $error';
+  }
+
+  @override
+  String statusPublishFailed(String error) {
+    return 'Failed to publish: $error';
+  }
+
+  @override
+  String get networkDiagnosticsTitle => 'Network Diagnostics';
+
+  @override
+  String get networkDiagnosticsNostrRelays => 'Nostr Relays';
+
+  @override
+  String get networkDiagnosticsDirect => 'Direct';
+
+  @override
+  String get networkDiagnosticsTorOnly => 'Tor-only';
+
+  @override
+  String get networkDiagnosticsBest => 'Best';
+
+  @override
+  String get networkDiagnosticsNone => 'none';
+
+  @override
+  String get networkDiagnosticsTor => 'Tor';
+
+  @override
+  String get networkDiagnosticsStatus => 'Status';
+
+  @override
+  String get networkDiagnosticsConnected => 'Connected';
+
+  @override
+  String networkDiagnosticsConnecting(int percent) {
+    return 'Connecting $percent%';
+  }
+
+  @override
+  String get networkDiagnosticsOff => 'Off';
+
+  @override
+  String get networkDiagnosticsTransport => 'Transport';
+
+  @override
+  String get networkDiagnosticsInfrastructure => 'Infrastructure';
+
+  @override
+  String get networkDiagnosticsOxenNodes => 'Oxen nodes';
+
+  @override
+  String get networkDiagnosticsTurnServers => 'TURN servers';
+
+  @override
+  String get networkDiagnosticsLastProbe => 'Last probe';
+
+  @override
+  String get networkDiagnosticsRunning => 'Running...';
+
+  @override
+  String get networkDiagnosticsRunDiagnostics => 'Run Diagnostics';
+
+  @override
+  String get networkDiagnosticsForceReprobe => 'Force Full Re-probe';
+
+  @override
+  String get networkDiagnosticsJustNow => 'just now';
+
+  @override
+  String networkDiagnosticsMinutesAgo(int minutes) {
+    return '${minutes}m ago';
+  }
+
+  @override
+  String networkDiagnosticsHoursAgo(int hours) {
+    return '${hours}h ago';
+  }
+
+  @override
+  String networkDiagnosticsDaysAgo(int days) {
+    return '${days}d ago';
+  }
+
+  @override
+  String get homeNoEch => 'No ECH';
+
+  @override
+  String get homeNoEchTooltip =>
+      'uTLS proxy unavailable \u2014 ECH disabled.\nTLS fingerprint is visible to DPI.';
+
+  @override
+  String get settingsTitle => 'Settings';
+
+  @override
+  String settingsSavedConnectedTo(String provider) {
+    return 'Saved & connected to $provider';
+  }
+
+  @override
+  String get settingsTorFailedToStart => 'Built-in Tor failed to start';
+
+  @override
+  String get settingsPsiphonFailedToStart => 'Psiphon failed to start';
 }

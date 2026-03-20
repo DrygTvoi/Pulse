@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'contact_repository.dart';
 
 class Contact {
   final String id;
@@ -92,7 +93,7 @@ class Contact {
   }
 }
 
-class ContactManager {
+class ContactManager implements IContactRepository {
   static final ContactManager _instance = ContactManager._internal();
   factory ContactManager() => _instance;
   ContactManager._internal();

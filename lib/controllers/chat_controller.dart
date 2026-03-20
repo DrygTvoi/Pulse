@@ -35,13 +35,21 @@ import '../services/chunk_assembler.dart';
 import '../services/sentry_service.dart';
 import '../services/voice_service.dart';
 import '../services/signal_dispatcher.dart';
+import '../models/contact_repository.dart';
 
 enum ConnectionStatus { disconnected, connecting, connected }
 
 class ChatController extends ChangeNotifier {
-  static final ChatController _instance = ChatController._internal();
+  static final ChatController _instance = ChatController._create(ContactManager());
   factory ChatController() => _instance;
-  ChatController._internal();
+  ChatController._create(this._contacts);
+
+  /// Constructor for unit testing — pass a [MockContactRepository].
+  @visibleForTesting
+  factory ChatController.forTesting(IContactRepository contacts) =>
+      ChatController._create(contacts);
+
+  final IContactRepository _contacts;
 
   Identity? _identity;
   String _selfId = ''; // adapter-specific ID used as senderId in outgoing messages
@@ -577,7 +585,7 @@ class ChatController extends ChangeNotifier {
     // Signaling goes over the contact's normal adapter (Firebase/Nostr/Waku).
     // Once the DataChannel opens, all subsequent messages bypass any server.
     P2PTransportService.instance.onSendSignal = (contactId, type, payload) {
-      final contact = ContactManager().contacts.cast<Contact?>()
+      final contact = _contacts.contacts.cast<Contact?>()
           .firstWhere((c) => c?.id == contactId, orElse: () => null);
       if (contact != null) unawaited(_sendP2PSignal(contact, type, payload));
     };
@@ -749,7 +757,7 @@ class ChatController extends ChangeNotifier {
     // 64-hex pubkey standalone
     if (RegExp(r'^[0-9a-f]{64}$').hasMatch(databaseId)) return databaseId;
     // Look up stored contact Nostr pubkey
-    final contact = ContactManager().contacts.firstWhere(
+    final contact = _contacts.contacts.firstWhere(
       (c) => c.databaseId == databaseId,
       orElse: () => Contact(id: '', name: '', databaseId: '', provider: '', publicKey: ''),
     );
@@ -789,7 +797,7 @@ class ChatController extends ChangeNotifier {
   /// Broadcast our own status to all non-group contacts.
   Future<void> broadcastStatus(UserStatus status) async {
     if (_identity == null || _selfId.isEmpty) return;
-    for (final contact in ContactManager().contacts) {
+    for (final contact in _contacts.contacts) {
       if (contact.isGroup) continue;
       await _sendSignalTo(contact, 'status_update', status.toJson());
     }
@@ -827,7 +835,7 @@ class ChatController extends ChangeNotifier {
     final probe  = ConnectivityProbeService.instance.lastResult;
     final relays = [...probe.nostrRelays, ...probe.torNostrRelays];
     if (relays.isEmpty) return;
-    final targets = ContactManager().contacts
+    final targets = _contacts.contacts
         .where((c) => !c.isGroup && (c.provider == 'Nostr' || c.provider == 'Oxen'))
         .toList();
     await Future.wait(targets.map((c) => _sendSignalTo(c, 'relay_exchange', {'relays': relays})));
@@ -839,7 +847,7 @@ class ChatController extends ChangeNotifier {
     if (_identity == null || _selfId.isEmpty) return;
     final payload = <String, dynamic>{'name': name, 'about': about};
     if (avatarB64.isNotEmpty) payload['avatar'] = avatarB64;
-    final targets = ContactManager().contacts.where((c) => !c.isGroup).toList();
+    final targets = _contacts.contacts.where((c) => !c.isGroup).toList();
     await Future.wait(targets.map((c) => _sendSignalTo(c, 'profile_update', payload)));
   }
 
@@ -848,7 +856,7 @@ class ChatController extends ChangeNotifier {
   Future<void> broadcastAddressUpdate() async {
     if (_identity == null || _selfId.isEmpty || _allAddresses.isEmpty) return;
     final payload = <String, dynamic>{'primary': _selfId, 'all': _allAddresses};
-    final targets = ContactManager().contacts.where((c) => !c.isGroup).toList();
+    final targets = _contacts.contacts.where((c) => !c.isGroup).toList();
     await Future.wait(targets.map((c) => _sendSignalTo(c, 'addr_update', payload)));
   }
 
@@ -894,7 +902,7 @@ class ChatController extends ChangeNotifier {
       if (msg.senderId == _selfId || msg.senderId.isEmpty) continue;
       // Find sender contact
       Contact? senderContact;
-      for (final c in ContactManager().contacts) {
+      for (final c in _contacts.contacts) {
         if (c.databaseId == msg.senderId ||
             c.databaseId.split('@').first == msg.senderId) {
           senderContact = c;
@@ -939,7 +947,7 @@ class ChatController extends ChangeNotifier {
   /// Build the contact-by-databaseId index used by SignalDispatcher.
   Map<String, Contact> _buildContactIndex() {
     final contactByDbId = <String, Contact>{};
-    for (final c in ContactManager().contacts) {
+    for (final c in _contacts.contacts) {
       contactByDbId[c.databaseId] = c;
       final idPart = c.databaseId.split('@').first;
       if (idPart.isNotEmpty && idPart != c.databaseId) {
@@ -960,7 +968,7 @@ class ChatController extends ChangeNotifier {
       selfIdGetter: () => _selfId,
       contactIndexBuilder: _buildContactIndex,
       signatureVerifier: _verifySignalSignature,
-      groupContactResolver: (id) => ContactManager()
+      groupContactResolver: (id) => _contacts
           .contacts
           .cast<Contact?>()
           .firstWhere(
@@ -1106,7 +1114,7 @@ class ChatController extends ChangeNotifier {
         databaseId: primary,
         alternateAddresses: alts.toList(),
       );
-      await ContactManager().updateContact(updated);
+      await _contacts.updateContact(updated);
       debugPrint('[ChatController] addr_update: ${addrContact.name} → $primary');
       notifyListeners();
     }));
@@ -1127,7 +1135,7 @@ class ChatController extends ChangeNotifier {
         changed = true;
       }
       if (changed) {
-        await ContactManager().updateContact(updated);
+        await _contacts.updateContact(updated);
         notifyListeners();
       }
     }));
@@ -1139,7 +1147,7 @@ class ChatController extends ChangeNotifier {
   }
 
   void _handleGroupReadReceipt(String fromId, String groupId, String msgId) {
-    final groupContact = ContactManager().contacts.cast<Contact?>()
+    final groupContact = _contacts.contacts.cast<Contact?>()
         .firstWhere((c) => c?.isGroup == true && c?.id == groupId, orElse: () => null);
     if (groupContact == null) return;
     final room = _chatRooms[groupContact.id];
@@ -1149,7 +1157,7 @@ class ChatController extends ChangeNotifier {
     final msg = room.messages[idx];
     // Resolve fromId (transport databaseId) to contactId (UUID)
     Contact? reader;
-    for (final c in ContactManager().contacts) {
+    for (final c in _contacts.contacts) {
       if (c.databaseId == fromId || c.databaseId.split('@').first == fromId) {
         reader = c;
         break;
@@ -1170,7 +1178,7 @@ class ChatController extends ChangeNotifier {
     // Build a per-batch index for O(1) contact lookup by databaseId / id-prefix.
     // Avoids O(n) contact scans for every message in the batch.
     final contactByDbId = <String, Contact>{};
-    for (final c in ContactManager().contacts) {
+    for (final c in _contacts.contacts) {
       contactByDbId[c.databaseId] = c;
       final idPart = c.databaseId.split('@').first;
       if (idPart.isNotEmpty && idPart != c.databaseId) {
@@ -1235,7 +1243,7 @@ class ChatController extends ChangeNotifier {
         // We do NOT brute-force all contacts — that can corrupt Signal ratchet state.
         if (decryptedRaw == rawPayload) {
           final senderPubPrefix = msg.senderId.split('@').first;
-          for (final c in ContactManager().contacts) {
+          for (final c in _contacts.contacts) {
             // Only try contacts whose alternate addresses match the sender.
             if (c.alternateAddresses.any((a) => a.startsWith(senderPubPrefix))) {
               try {
@@ -1291,7 +1299,7 @@ class ChatController extends ChangeNotifier {
                final parsed = jsonDecode(displayText) as Map<String, dynamic>;
                final groupId = parsed['_group'] as String?;
                if (groupId != null) {
-                 final groupContact = ContactManager().contacts.cast<Contact?>()
+                 final groupContact = _contacts.contacts.cast<Contact?>()
                      .firstWhere((c) => c?.isGroup == true && c?.id == groupId,
                          orElse: () => null);
                  if (groupContact != null) {
@@ -1421,7 +1429,7 @@ class ChatController extends ChangeNotifier {
 
       int sent = 0;
       for (final memberId in contact.members) {
-        final memberContact = ContactManager().contacts.cast<Contact?>()
+        final memberContact = _contacts.contacts.cast<Contact?>()
             .firstWhere((c) => c?.id == memberId, orElse: () => null);
         if (memberContact == null) continue;
         await _sendToContact(memberContact, groupPayload, noAutoRetry: noAutoRetry);
@@ -1857,7 +1865,7 @@ class ChatController extends ChangeNotifier {
     final groupPayload = jsonEncode({'_group': group.id, 'text': chunkPayload});
     int sent = 0;
     for (final memberId in group.members) {
-      final memberContact = ContactManager().contacts.cast<Contact?>()
+      final memberContact = _contacts.contacts.cast<Contact?>()
           .firstWhere((c) => c?.id == memberId, orElse: () => null);
       if (memberContact == null) continue;
       final ok = await _sendToContact(memberContact, groupPayload);
@@ -2037,7 +2045,7 @@ class ChatController extends ChangeNotifier {
   /// Deliver a P2P-received (Signal-encrypted) payload as if it arrived
   /// from the contact's normal adapter.
   void _handleP2PMessage(String contactId, String encryptedPayload) {
-    final contact = ContactManager().contacts.cast<Contact?>()
+    final contact = _contacts.contacts.cast<Contact?>()
         .firstWhere((c) => c?.id == contactId, orElse: () => null);
     if (contact == null) return;
     _handleIncomingMessages([
@@ -2261,7 +2269,7 @@ class ChatController extends ChangeNotifier {
     if (contact.isGroup) {
       // Send reaction signal to each group member individually with groupId
       for (final memberId in contact.members) {
-        final memberContact = ContactManager().contacts.cast<Contact?>()
+        final memberContact = _contacts.contacts.cast<Contact?>()
             .firstWhere((c) => c?.id == memberId, orElse: () => null);
         if (memberContact == null) continue;
         unawaited(_sendReactionSignal(memberContact, msgId, emoji,
@@ -2334,7 +2342,7 @@ class ChatController extends ChangeNotifier {
 
   Future<void> _sendHeartbeats() async {
     if (_identity == null || _selfId.isEmpty) return;
-    for (final contact in ContactManager().contacts) {
+    for (final contact in _contacts.contacts) {
       if (contact.isGroup) continue;
       await _sendSignalTo(contact, 'heartbeat',
           {'from': _selfId, 'ts': DateTime.now().millisecondsSinceEpoch});
@@ -2476,7 +2484,7 @@ class ChatController extends ChangeNotifier {
   /// Restore scheduled messages after app restart — called from initialize().
   Future<void> _restoreScheduledMessages() async {
     final prefs = await SharedPreferences.getInstance();
-    for (final contact in ContactManager().contacts) {
+    for (final contact in _contacts.contacts) {
       final storageKey = 'scheduled_${contact.id}';
       final raw = prefs.getString(storageKey);
       if (raw == null) continue;
@@ -2549,7 +2557,7 @@ class ChatController extends ChangeNotifier {
         if (missing == null || missing.isEmpty) continue;
         // Find which contact this transfer came from (by matching fid in pending sends).
         // If we're the receiver, send chunk_req to all contacts (sender will recognise fid).
-        for (final contact in ContactManager().contacts) {
+        for (final contact in _contacts.contacts) {
           unawaited(_sendSignalTo(contact, 'chunk_req', {
             'fid': fid,
             'missing': missing,

@@ -6,6 +6,8 @@ import '../services/connectivity_probe_service.dart';
 import '../services/tor_service.dart';
 import '../services/adaptive_relay_service.dart';
 import '../services/cloudflare_ip_service.dart';
+import '../constants.dart';
+import '../l10n/l10n_ext.dart';
 import 'dart:async';
 
 class NetworkDiagnosticsScreen extends StatefulWidget {
@@ -53,7 +55,8 @@ class _NetworkDiagnosticsScreenState extends State<NetworkDiagnosticsScreen> {
 
     // 1. DoH providers
     log('--- DoH Resolution Test ---');
-    for (final host in ['relay.damus.io', 'nos.lol', 'google.com']) {
+    final defaultRelayHost = Uri.parse(kDefaultNostrRelay).host;
+    for (final host in [defaultRelayHost, 'nos.lol', 'google.com']) {
       try {
         final (isCf, ips) = await CloudflareIpService.instance
             .resolveAndCheck(host)
@@ -115,7 +118,7 @@ class _NetworkDiagnosticsScreenState extends State<NetworkDiagnosticsScreen> {
       backgroundColor: AppTheme.background,
       appBar: AppBar(
         backgroundColor: AppTheme.surface,
-        title: Text('Network Diagnostics',
+        title: Text(context.l10n.networkDiagnosticsTitle,
             style: GoogleFonts.inter(
                 color: AppTheme.textPrimary,
                 fontWeight: FontWeight.w600,
@@ -126,27 +129,27 @@ class _NetworkDiagnosticsScreenState extends State<NetworkDiagnosticsScreen> {
         padding: const EdgeInsets.all(DesignTokens.spacing16),
         children: [
           // Summary cards
-          _card('Nostr Relays', [
-            _kv('Direct', '${probe.nostrRelays.length}'),
-            _kv('Tor-only', '${probe.torNostrRelays.length}'),
-            _kv('Best', probe.bestNostrRelay ?? 'none'),
+          _card(context.l10n.networkDiagnosticsNostrRelays, [
+            _kv(context.l10n.networkDiagnosticsDirect, '${probe.nostrRelays.length}'),
+            _kv(context.l10n.networkDiagnosticsTorOnly, '${probe.torNostrRelays.length}'),
+            _kv(context.l10n.networkDiagnosticsBest, probe.bestNostrRelay ?? context.l10n.networkDiagnosticsNone),
           ]),
           const SizedBox(height: DesignTokens.spacing10),
-          _card('Tor', [
-            _kv('Status', tor.isBootstrapped
-                ? 'Connected'
+          _card(context.l10n.networkDiagnosticsTor, [
+            _kv(context.l10n.networkDiagnosticsStatus, tor.isBootstrapped
+                ? context.l10n.networkDiagnosticsConnected
                 : tor.isRunning
-                    ? 'Connecting ${tor.bootstrapPercent}%'
-                    : 'Off'),
-            _kv('Transport', tor.activePtLabel.isEmpty
-                ? 'none'
+                    ? context.l10n.networkDiagnosticsConnecting(tor.bootstrapPercent)
+                    : context.l10n.networkDiagnosticsOff),
+            _kv(context.l10n.networkDiagnosticsTransport, tor.activePtLabel.isEmpty
+                ? context.l10n.networkDiagnosticsNone
                 : tor.activePtLabel),
           ]),
           const SizedBox(height: DesignTokens.spacing10),
-          _card('Infrastructure', [
-            _kv('Oxen nodes', '${probe.oxenNodes.length}'),
-            _kv('TURN servers', '${probe.turnServers.length}'),
-            _kv('Last probe', _formatAge(probe.timestamp)),
+          _card(context.l10n.networkDiagnosticsInfrastructure, [
+            _kv(context.l10n.networkDiagnosticsOxenNodes, '${probe.oxenNodes.length}'),
+            _kv(context.l10n.networkDiagnosticsTurnServers, '${probe.turnServers.length}'),
+            _kv(context.l10n.networkDiagnosticsLastProbe, _formatAge(context, probe.timestamp)),
           ]),
           const SizedBox(height: DesignTokens.spacing16),
 
@@ -160,7 +163,7 @@ class _NetworkDiagnosticsScreenState extends State<NetworkDiagnosticsScreen> {
                       width: 16, height: 16,
                       child: CircularProgressIndicator(strokeWidth: 2))
                   : const Icon(Icons.speed_rounded, size: 18),
-              label: Text(_probing ? 'Running...' : 'Run Diagnostics'),
+              label: Text(_probing ? context.l10n.networkDiagnosticsRunning : context.l10n.networkDiagnosticsRunDiagnostics),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.primary,
                 foregroundColor: Colors.white,
@@ -180,7 +183,7 @@ class _NetworkDiagnosticsScreenState extends State<NetworkDiagnosticsScreen> {
                 if (mounted) setState(() => _probing = false);
               },
               icon: const Icon(Icons.refresh_rounded, size: 18),
-              label: const Text('Force Full Re-probe'),
+              label: Text(context.l10n.networkDiagnosticsForceReprobe),
               style: OutlinedButton.styleFrom(
                 foregroundColor: AppTheme.textSecondary,
                 side: BorderSide(color: AppTheme.surfaceVariant),
@@ -256,11 +259,11 @@ class _NetworkDiagnosticsScreenState extends State<NetworkDiagnosticsScreen> {
     );
   }
 
-  String _formatAge(DateTime ts) {
+  String _formatAge(BuildContext context, DateTime ts) {
     final diff = DateTime.now().difference(ts);
-    if (diff.inMinutes < 1) return 'just now';
-    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
-    if (diff.inHours < 24) return '${diff.inHours}h ago';
-    return '${diff.inDays}d ago';
+    if (diff.inMinutes < 1) return context.l10n.networkDiagnosticsJustNow;
+    if (diff.inMinutes < 60) return context.l10n.networkDiagnosticsMinutesAgo(diff.inMinutes);
+    if (diff.inHours < 24) return context.l10n.networkDiagnosticsHoursAgo(diff.inHours);
+    return context.l10n.networkDiagnosticsDaysAgo(diff.inDays);
   }
 }

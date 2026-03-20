@@ -7,6 +7,7 @@ import '../services/device_transfer_service.dart';
 import '../theme/app_theme.dart';
 import '../theme/design_tokens.dart';
 import '../l10n/l10n_ext.dart';
+import '../constants.dart';
 
 enum _Role { none, sender, receiver }
 
@@ -29,7 +30,7 @@ class _DeviceTransferScreenState extends State<DeviceTransferScreen> {
   String _errorMessage = '';
 
   final _codeController = TextEditingController();
-  final _relayController = TextEditingController(text: 'wss://relay.damus.io');
+  final _relayController = TextEditingController(text: kDefaultNostrRelay);
 
   @override
   void dispose() {
@@ -425,7 +426,7 @@ class _DeviceTransferScreenState extends State<DeviceTransferScreen> {
       controller: _relayController,
       style: GoogleFonts.inter(color: AppTheme.textPrimary, fontSize: DesignTokens.fontMd),
       decoration: InputDecoration(
-        hintText: 'wss://relay.damus.io',
+        hintText: kDefaultNostrRelay,
         labelText: context.l10n.transferRelayUrl,
         labelStyle:
             GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: DesignTokens.fontBody),

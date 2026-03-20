@@ -15,6 +15,7 @@ import '../../widgets/custom_proxy_section.dart';
 import '../../widgets/psiphon_config_section.dart';
 import '../network_diagnostics_screen.dart';
 import 'settings_widgets.dart';
+import '../../l10n/l10n_ext.dart';
 
 class NetworkSection extends StatelessWidget {
   final List<String> enabledPresets;
@@ -105,7 +106,7 @@ class NetworkSection extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'LAN Fallback',
+                  context.l10n.settingsLanFallback,
                   style: GoogleFonts.inter(
                     color: AppTheme.textPrimary,
                     fontWeight: FontWeight.w600,
@@ -114,8 +115,7 @@ class NetworkSection extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  'Broadcast presence and deliver messages on the local network when internet is unavailable. '
-                  'Disable on untrusted networks (public Wi-Fi).',
+                  context.l10n.settingsLanFallbackSubtitle,
                   style: GoogleFonts.inter(
                       color: AppTheme.textSecondary,
                       fontSize: 11,
@@ -155,7 +155,7 @@ class NetworkSection extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Background Delivery',
+                  context.l10n.settingsBgDelivery,
                   style: GoogleFonts.inter(
                     color: AppTheme.textPrimary,
                     fontWeight: FontWeight.w600,
@@ -164,8 +164,7 @@ class NetworkSection extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  'Keep receiving messages when the app is minimized. '
-                  'Shows a persistent notification.',
+                  context.l10n.settingsBgDeliverySubtitle,
                   style: GoogleFonts.inter(
                       color: AppTheme.textSecondary,
                       fontSize: 11,
@@ -194,7 +193,7 @@ class NetworkSection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // ─── Calls & TURN ─────────────────────────────────────
-        settingsSectionDivider('Calls & TURN'),
+        settingsSectionDivider(context.l10n.settingsCallsTurn),
         const SizedBox(height: 6),
         TurnConfigSection(
           enabledPresets: enabledPresets,
@@ -207,7 +206,7 @@ class NetworkSection extends StatelessWidget {
         const SizedBox(height: 32),
 
         // ─── Local Network ────────────────────────────────────
-        settingsSectionDivider('Local Network'),
+        settingsSectionDivider(context.l10n.settingsLocalNetwork),
         const SizedBox(height: 10),
         _buildLanToggle(context),
         if (Platform.isAndroid) ...[
@@ -218,7 +217,7 @@ class NetworkSection extends StatelessWidget {
         const SizedBox(height: 32),
 
         // ─── Censorship Resistance ────────────────────────────
-        settingsSectionDivider('Censorship Resistance'),
+        settingsSectionDivider(context.l10n.settingsCensorshipResistance),
         const SizedBox(height: 6),
         TorConfigSection(
           torEnabled: torEnabled,
