@@ -568,6 +568,8 @@
 
   "mediaTitle": "Media",
   "@mediaTitle": { "description": "Title for media gallery screen" },
+  "mediaFileLabel": "FILE",
+  "@mediaFileLabel": { "description": "Fallback file type label when extension is unavailable" },
   "mediaPhotosTab": "Photos ({count})",
   "@mediaPhotosTab": {
     "description": "Tab label for photos with count",
@@ -1219,5 +1221,66 @@
   "settingsTorFailedToStart": "Built-in Tor failed to start",
   "@settingsTorFailedToStart": { "description": "Snackbar when bundled Tor fails to start" },
   "settingsPsiphonFailedToStart": "Psiphon failed to start",
-  "@settingsPsiphonFailedToStart": { "description": "Snackbar when Psiphon fails to start" }
+  "@settingsPsiphonFailedToStart": { "description": "Snackbar when Psiphon fails to start" },
+
+  "verifyTitle": "Verify Safety Number",
+  "@verifyTitle": { "description": "AppBar title for verify identity screen" },
+  "verifyIdentityVerified": "Identity Verified",
+  "@verifyIdentityVerified": { "description": "Status label when identity is verified" },
+  "verifyNotYetVerified": "Not Yet Verified",
+  "@verifyNotYetVerified": { "description": "Status label when identity is not yet verified" },
+  "verifyVerifiedDescription": "You have verified {name}'s safety number.",
+  "@verifyVerifiedDescription": {
+    "description": "Description shown when identity is verified",
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "verifyUnverifiedDescription": "Compare these numbers with {name} in person or over a trusted channel.",
+  "@verifyUnverifiedDescription": {
+    "description": "Description shown when identity is not yet verified",
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "verifyExplanation": "Each conversation has a unique safety number. If both of you see the same numbers on your devices, your connection is verified end-to-end.",
+  "@verifyExplanation": { "description": "Explanation paragraph on verify identity screen" },
+  "verifyContactKey": "{name}'s Key",
+  "@verifyContactKey": {
+    "description": "Label for contact's fingerprint card",
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "verifyYourKey": "Your Key",
+  "@verifyYourKey": { "description": "Label for own fingerprint card on verify screen" },
+  "verifyRemoveVerification": "Remove Verification",
+  "@verifyRemoveVerification": { "description": "Button to remove identity verification on verify screen" },
+  "verifyMarkAsVerified": "Mark as Verified",
+  "@verifyMarkAsVerified": { "description": "Button to mark identity as verified on verify screen" },
+  "verifyAfterReinstall": "If {name} reinstalls the app, the safety number will change and verification will be removed automatically.",
+  "@verifyAfterReinstall": {
+    "description": "Hint shown after verifying, warning about reinstall",
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "verifyOnlyMarkAfterCompare": "Only mark as verified after comparing numbers with {name} over a voice call or in person.",
+  "@verifyOnlyMarkAfterCompare": {
+    "description": "Hint shown before verifying, instruction to compare",
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "verifyNoSession": "No encryption session established yet. Send a message first to generate safety numbers.",
+  "@verifyNoSession": { "description": "Shown when no Signal session exists on verify screen" },
+  "verifyNoKeyAvailable": "No key available",
+  "@verifyNoKeyAvailable": { "description": "Shown in fingerprint card when key is absent" },
+  "verifyFingerprintCopied": "{label} fingerprint copied",
+  "@verifyFingerprintCopied": {
+    "description": "Snackbar when a fingerprint is copied",
+    "placeholders": {
+      "label": { "type": "String" }
+    }
+  }
 }

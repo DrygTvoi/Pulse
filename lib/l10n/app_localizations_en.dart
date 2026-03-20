@@ -1031,6 +1031,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get mediaTitle => 'Media';
 
   @override
+  String get mediaFileLabel => 'FILE';
+
+  @override
   String mediaPhotosTab(int count) {
     return 'Photos ($count)';
   }
@@ -1074,6 +1077,16 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get statusEnterText => 'Please enter some text for your status.';
+
+  @override
+  String statusPickPhotoFailed(String error) {
+    return 'Failed to pick photo: $error';
+  }
+
+  @override
+  String statusPublishFailed(String error) {
+    return 'Failed to publish: $error';
+  }
 
   @override
   String get panicSetPanicKey => 'Set Panic Key';
@@ -1755,16 +1768,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get addContactButton => 'Add Contact';
 
   @override
-  String statusPickPhotoFailed(String error) {
-    return 'Failed to pick photo: $error';
-  }
-
-  @override
-  String statusPublishFailed(String error) {
-    return 'Failed to publish: $error';
-  }
-
-  @override
   String get networkDiagnosticsTitle => 'Network Diagnostics';
 
   @override
@@ -1846,7 +1849,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get homeNoEchTooltip =>
-      'uTLS proxy unavailable \u2014 ECH disabled.\nTLS fingerprint is visible to DPI.';
+      'uTLS proxy unavailable — ECH disabled.\nTLS fingerprint is visible to DPI.';
 
   @override
   String get settingsTitle => 'Settings';
@@ -1861,4 +1864,63 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsPsiphonFailedToStart => 'Psiphon failed to start';
+
+  @override
+  String get verifyTitle => 'Verify Safety Number';
+
+  @override
+  String get verifyIdentityVerified => 'Identity Verified';
+
+  @override
+  String get verifyNotYetVerified => 'Not Yet Verified';
+
+  @override
+  String verifyVerifiedDescription(String name) {
+    return 'You have verified $name\'s safety number.';
+  }
+
+  @override
+  String verifyUnverifiedDescription(String name) {
+    return 'Compare these numbers with $name in person or over a trusted channel.';
+  }
+
+  @override
+  String get verifyExplanation =>
+      'Each conversation has a unique safety number. If both of you see the same numbers on your devices, your connection is verified end-to-end.';
+
+  @override
+  String verifyContactKey(String name) {
+    return '$name\'s Key';
+  }
+
+  @override
+  String get verifyYourKey => 'Your Key';
+
+  @override
+  String get verifyRemoveVerification => 'Remove Verification';
+
+  @override
+  String get verifyMarkAsVerified => 'Mark as Verified';
+
+  @override
+  String verifyAfterReinstall(String name) {
+    return 'If $name reinstalls the app, the safety number will change and verification will be removed automatically.';
+  }
+
+  @override
+  String verifyOnlyMarkAfterCompare(String name) {
+    return 'Only mark as verified after comparing numbers with $name over a voice call or in person.';
+  }
+
+  @override
+  String get verifyNoSession =>
+      'No encryption session established yet. Send a message first to generate safety numbers.';
+
+  @override
+  String get verifyNoKeyAvailable => 'No key available';
+
+  @override
+  String verifyFingerprintCopied(String label) {
+    return '$label fingerprint copied';
+  }
 }

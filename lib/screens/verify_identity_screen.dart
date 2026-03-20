@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../theme/app_theme.dart';
 import '../services/signal_service.dart';
+import '../l10n/l10n_ext.dart';
 
 /// Full-screen safety number verification.
 /// Shows both users' fingerprints side-by-side for out-of-band comparison.
@@ -83,7 +84,7 @@ class _VerifyIdentityScreenState extends State<VerifyIdentityScreen> {
   void _copyFingerprint(String label, String fp) {
     Clipboard.setData(ClipboardData(text: fp));
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text('$label fingerprint copied', style: GoogleFonts.inter(fontSize: 13)),
+      content: Text(context.l10n.verifyFingerprintCopied(label), style: GoogleFonts.inter(fontSize: 13)),
       backgroundColor: AppTheme.surfaceVariant,
       duration: const Duration(seconds: 2),
       behavior: SnackBarBehavior.floating,
@@ -111,7 +112,7 @@ class _VerifyIdentityScreenState extends State<VerifyIdentityScreen> {
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
-          'Verify Safety Number',
+          context.l10n.verifyTitle,
           style: GoogleFonts.inter(
             color: AppTheme.textPrimary,
             fontSize: 18,
@@ -157,7 +158,7 @@ class _VerifyIdentityScreenState extends State<VerifyIdentityScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                _isVerified ? 'Identity Verified' : 'Not Yet Verified',
+                                _isVerified ? context.l10n.verifyIdentityVerified : context.l10n.verifyNotYetVerified,
                                 style: GoogleFonts.inter(
                                   color: _isVerified ? verifiedColor : warningColor,
                                   fontSize: 16,
@@ -167,8 +168,8 @@ class _VerifyIdentityScreenState extends State<VerifyIdentityScreen> {
                               const SizedBox(height: 2),
                               Text(
                                 _isVerified
-                                    ? 'You have verified ${widget.contactName}\'s safety number.'
-                                    : 'Compare these numbers with ${widget.contactName} in person or over a trusted channel.',
+                                    ? context.l10n.verifyVerifiedDescription(widget.contactName)
+                                    : context.l10n.verifyUnverifiedDescription(widget.contactName),
                                 style: GoogleFonts.inter(
                                   color: AppTheme.textSecondary,
                                   fontSize: 12,
@@ -185,7 +186,7 @@ class _VerifyIdentityScreenState extends State<VerifyIdentityScreen> {
 
                   // Explanation text
                   Text(
-                    'Each conversation has a unique safety number. If both of you see the same numbers on your devices, your connection is verified end-to-end.',
+                    context.l10n.verifyExplanation,
                     style: GoogleFonts.inter(
                       color: AppTheme.textSecondary,
                       fontSize: 13,
@@ -197,7 +198,7 @@ class _VerifyIdentityScreenState extends State<VerifyIdentityScreen> {
 
                   // Contact's fingerprint
                   _buildFingerprintCard(
-                    label: '${widget.contactName}\'s Key',
+                    label: context.l10n.verifyContactKey(widget.contactName),
                     fingerprint: _contactFingerprint,
                     icon: Icons.person_rounded,
                     onCopy: _contactFingerprint != null
@@ -209,11 +210,11 @@ class _VerifyIdentityScreenState extends State<VerifyIdentityScreen> {
 
                   // Own fingerprint
                   _buildFingerprintCard(
-                    label: 'Your Key',
+                    label: context.l10n.verifyYourKey,
                     fingerprint: _ownFingerprint.isNotEmpty ? _ownFingerprint : null,
                     icon: Icons.person_outline_rounded,
                     onCopy: _ownFingerprint.isNotEmpty
-                        ? () => _copyFingerprint('Your', _ownFingerprint)
+                        ? () => _copyFingerprint(context.l10n.verifyYourKey, _ownFingerprint)
                         : null,
                   ),
 
@@ -232,7 +233,7 @@ class _VerifyIdentityScreenState extends State<VerifyIdentityScreen> {
                           size: 20,
                         ),
                         label: Text(
-                          _isVerified ? 'Remove Verification' : 'Mark as Verified',
+                          _isVerified ? context.l10n.verifyRemoveVerification : context.l10n.verifyMarkAsVerified,
                           style: GoogleFonts.inter(
                             color: Colors.white,
                             fontSize: 15,
@@ -251,8 +252,8 @@ class _VerifyIdentityScreenState extends State<VerifyIdentityScreen> {
                     const SizedBox(height: 16),
                     Text(
                       _isVerified
-                          ? 'If ${widget.contactName} reinstalls the app, the safety number will change and verification will be removed automatically.'
-                          : 'Only mark as verified after comparing numbers with ${widget.contactName} over a voice call or in person.',
+                          ? context.l10n.verifyAfterReinstall(widget.contactName)
+                          : context.l10n.verifyOnlyMarkAfterCompare(widget.contactName),
                       style: GoogleFonts.inter(
                         color: AppTheme.textSecondary,
                         fontSize: 11,
@@ -274,7 +275,7 @@ class _VerifyIdentityScreenState extends State<VerifyIdentityScreen> {
                           const SizedBox(width: 10),
                           Expanded(
                             child: Text(
-                              'No encryption session established yet. Send a message first to generate safety numbers.',
+                              context.l10n.verifyNoSession,
                               style: GoogleFonts.inter(
                                 color: AppTheme.textSecondary,
                                 fontSize: 12,
@@ -339,7 +340,7 @@ class _VerifyIdentityScreenState extends State<VerifyIdentityScreen> {
                         Icon(Icons.copy_rounded, size: 12, color: AppTheme.primary),
                         const SizedBox(width: 4),
                         Text(
-                          'Copy',
+                          context.l10n.copy,
                           style: GoogleFonts.inter(
                             color: AppTheme.primary,
                             fontSize: 10,
@@ -365,7 +366,7 @@ class _VerifyIdentityScreenState extends State<VerifyIdentityScreen> {
             )
           else
             Text(
-              'No key available',
+              context.l10n.verifyNoKeyAvailable,
               style: GoogleFonts.inter(
                 color: AppTheme.textSecondary,
                 fontSize: 13,

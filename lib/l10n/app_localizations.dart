@@ -1910,6 +1910,12 @@ abstract class AppLocalizations {
   /// **'Media'**
   String get mediaTitle;
 
+  /// Fallback file type label when extension is unavailable
+  ///
+  /// In en, this message translates to:
+  /// **'FILE'**
+  String get mediaFileLabel;
+
   /// Tab label for photos with count
   ///
   /// In en, this message translates to:
@@ -3385,6 +3391,96 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Psiphon failed to start'**
   String get settingsPsiphonFailedToStart;
+
+  /// AppBar title for verify identity screen
+  ///
+  /// In en, this message translates to:
+  /// **'Verify Safety Number'**
+  String get verifyTitle;
+
+  /// Status label when identity is verified
+  ///
+  /// In en, this message translates to:
+  /// **'Identity Verified'**
+  String get verifyIdentityVerified;
+
+  /// Status label when identity is not yet verified
+  ///
+  /// In en, this message translates to:
+  /// **'Not Yet Verified'**
+  String get verifyNotYetVerified;
+
+  /// Description shown when identity is verified
+  ///
+  /// In en, this message translates to:
+  /// **'You have verified {name}\'s safety number.'**
+  String verifyVerifiedDescription(String name);
+
+  /// Description shown when identity is not yet verified
+  ///
+  /// In en, this message translates to:
+  /// **'Compare these numbers with {name} in person or over a trusted channel.'**
+  String verifyUnverifiedDescription(String name);
+
+  /// Explanation paragraph on verify identity screen
+  ///
+  /// In en, this message translates to:
+  /// **'Each conversation has a unique safety number. If both of you see the same numbers on your devices, your connection is verified end-to-end.'**
+  String get verifyExplanation;
+
+  /// Label for contact's fingerprint card
+  ///
+  /// In en, this message translates to:
+  /// **'{name}\'s Key'**
+  String verifyContactKey(String name);
+
+  /// Label for own fingerprint card on verify screen
+  ///
+  /// In en, this message translates to:
+  /// **'Your Key'**
+  String get verifyYourKey;
+
+  /// Button to remove identity verification on verify screen
+  ///
+  /// In en, this message translates to:
+  /// **'Remove Verification'**
+  String get verifyRemoveVerification;
+
+  /// Button to mark identity as verified on verify screen
+  ///
+  /// In en, this message translates to:
+  /// **'Mark as Verified'**
+  String get verifyMarkAsVerified;
+
+  /// Hint shown after verifying, warning about reinstall
+  ///
+  /// In en, this message translates to:
+  /// **'If {name} reinstalls the app, the safety number will change and verification will be removed automatically.'**
+  String verifyAfterReinstall(String name);
+
+  /// Hint shown before verifying, instruction to compare
+  ///
+  /// In en, this message translates to:
+  /// **'Only mark as verified after comparing numbers with {name} over a voice call or in person.'**
+  String verifyOnlyMarkAfterCompare(String name);
+
+  /// Shown when no Signal session exists on verify screen
+  ///
+  /// In en, this message translates to:
+  /// **'No encryption session established yet. Send a message first to generate safety numbers.'**
+  String get verifyNoSession;
+
+  /// Shown in fingerprint card when key is absent
+  ///
+  /// In en, this message translates to:
+  /// **'No key available'**
+  String get verifyNoKeyAvailable;
+
+  /// Snackbar when a fingerprint is copied
+  ///
+  /// In en, this message translates to:
+  /// **'{label} fingerprint copied'**
+  String verifyFingerprintCopied(String label);
 }
 
 class _AppLocalizationsDelegate

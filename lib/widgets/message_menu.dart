@@ -7,6 +7,7 @@ import '../models/message.dart';
 import '../models/contact.dart';
 import '../controllers/chat_controller.dart';
 import '../services/media_service.dart';
+import '../l10n/l10n_ext.dart';
 
 /// Shows the long-press context menu for a message (reply, forward, react,
 /// copy, edit, retry, cancel scheduled, delete).
@@ -44,7 +45,7 @@ void showMessageMenu({
           ),
           ListTile(
             leading: Icon(Icons.reply_rounded, color: AppTheme.textSecondary),
-            title: Text('Reply', style: GoogleFonts.inter(color: AppTheme.textPrimary)),
+            title: Text(context.l10n.menuReply, style: GoogleFonts.inter(color: AppTheme.textPrimary)),
             onTap: () {
               Navigator.pop(context);
               onReply();
@@ -52,7 +53,7 @@ void showMessageMenu({
           ),
           ListTile(
             leading: Icon(Icons.forward_rounded, color: AppTheme.textSecondary),
-            title: Text('Forward', style: GoogleFonts.inter(color: AppTheme.textPrimary)),
+            title: Text(context.l10n.menuForward, style: GoogleFonts.inter(color: AppTheme.textPrimary)),
             onTap: () {
               Navigator.pop(context);
               onForward(message);
@@ -60,7 +61,7 @@ void showMessageMenu({
           ),
           ListTile(
             leading: Icon(Icons.add_reaction_outlined, color: AppTheme.textSecondary),
-            title: Text('React', style: GoogleFonts.inter(color: AppTheme.textPrimary)),
+            title: Text(context.l10n.menuReact, style: GoogleFonts.inter(color: AppTheme.textPrimary)),
             onTap: () {
               Navigator.pop(context);
               onShowEmojiPicker(message.id);
@@ -68,7 +69,7 @@ void showMessageMenu({
           ),
           ListTile(
             leading: Icon(Icons.copy_rounded, color: AppTheme.textSecondary),
-            title: Text('Copy', style: GoogleFonts.inter(color: AppTheme.textPrimary)),
+            title: Text(context.l10n.menuCopy, style: GoogleFonts.inter(color: AppTheme.textPrimary)),
             onTap: () {
               Navigator.pop(context);
               Clipboard.setData(ClipboardData(text: message.encryptedPayload));
@@ -77,7 +78,7 @@ void showMessageMenu({
           if (isMe && !MediaService.isMediaPayload(message.encryptedPayload))
             ListTile(
               leading: Icon(Icons.edit_outlined, color: AppTheme.primary),
-              title: Text('Edit', style: GoogleFonts.inter(color: AppTheme.primary)),
+              title: Text(context.l10n.menuEdit, style: GoogleFonts.inter(color: AppTheme.primary)),
               onTap: () {
                 Navigator.pop(context);
                 onEdit(message.id, message.encryptedPayload);
@@ -86,7 +87,7 @@ void showMessageMenu({
           if (message.status == 'failed')
             ListTile(
               leading: Icon(Icons.refresh_rounded, color: AppTheme.primary),
-              title: Text('Retry', style: GoogleFonts.inter(color: AppTheme.primary)),
+              title: Text(context.l10n.menuRetry, style: GoogleFonts.inter(color: AppTheme.primary)),
               onTap: () {
                 Navigator.pop(context);
                 chatController.retryMessage(contact, message);
@@ -95,7 +96,7 @@ void showMessageMenu({
           if (message.status == 'scheduled')
             ListTile(
               leading: const Icon(Icons.cancel_rounded, color: Colors.redAccent),
-              title: Text('Cancel scheduled', style: GoogleFonts.inter(color: Colors.redAccent)),
+              title: Text(context.l10n.menuCancelScheduled, style: GoogleFonts.inter(color: Colors.redAccent)),
               onTap: () {
                 Navigator.pop(context);
                 chatController.cancelScheduledMessage(contact, message.id);
@@ -103,7 +104,7 @@ void showMessageMenu({
             ),
           ListTile(
             leading: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent),
-            title: Text('Delete', style: GoogleFonts.inter(color: Colors.redAccent)),
+            title: Text(context.l10n.menuDelete, style: GoogleFonts.inter(color: Colors.redAccent)),
             onTap: () {
               Navigator.pop(context);
               onDelete(message);
@@ -146,7 +147,7 @@ void showForwardPicker({
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-            child: Text('Forward to…',
+            child: Text(context.l10n.menuForwardTo,
                 style: GoogleFonts.inter(
                     color: AppTheme.textPrimary, fontSize: 16, fontWeight: FontWeight.w700)),
           ),
@@ -164,7 +165,7 @@ void showForwardPicker({
                     await context.read<ChatController>().sendMessage(c, message.encryptedPayload);
                     if (context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                        content: Text('Forwarded to ${c.name}'),
+                        content: Text(context.l10n.menuForwardedTo(c.name)),
                         duration: const Duration(seconds: 2),
                       ));
                     }
@@ -226,7 +227,7 @@ void showReactionDetails({
 }) {
   final myId = context.read<ChatController>().identity?.id ?? '';
   final names = senderIds.map((id) {
-    if (id == myId) return 'You';
+    if (id == myId) return context.l10n.chatYou;
     final c = ContactManager().contacts.cast<Contact?>().firstWhere(
       (c) => c?.databaseId == id || c?.databaseId.split('@').first == id,
       orElse: () => null,
@@ -304,7 +305,7 @@ void showScheduledPanel({
                 child: Row(children: [
                   const Icon(Icons.schedule_rounded, size: 18, color: Colors.amber),
                   const SizedBox(width: 8),
-                  Text('Scheduled messages',
+                  Text(ctx.l10n.menuScheduledMessages,
                       style: GoogleFonts.inter(
                           color: AppTheme.textPrimary,
                           fontSize: 16,
@@ -314,7 +315,7 @@ void showScheduledPanel({
               if (items.isEmpty)
                 Padding(
                   padding: const EdgeInsets.all(20),
-                  child: Text('No scheduled messages',
+                  child: Text(ctx.l10n.menuNoScheduledMessages,
                       style: GoogleFonts.inter(color: AppTheme.textSecondary)),
                 )
               else
@@ -339,14 +340,14 @@ void showScheduledPanel({
                               color: AppTheme.textPrimary, fontSize: 14),
                         ),
                         subtitle: label.isNotEmpty
-                            ? Text('Sends on $label',
+                            ? Text(ctx.l10n.menuSendsOn(label),
                                 style: GoogleFonts.inter(
                                     color: Colors.amber, fontSize: 12))
                             : null,
                         trailing: IconButton(
                           icon: const Icon(Icons.cancel_rounded,
                               color: Colors.redAccent, size: 20),
-                          tooltip: 'Cancel',
+                          tooltip: ctx.l10n.cancel,
                           onPressed: () async {
                             await context
                                 .read<ChatController>()
@@ -387,13 +388,13 @@ void showAttachMenu({
           children: [
             _AttachOption(
               icon: Icons.image_rounded,
-              label: 'Photo',
+              label: context.l10n.menuAttachPhoto,
               color: const Color(0xFF4CAF50),
               onTap: () { Navigator.pop(context); onPickImage(); },
             ),
             _AttachOption(
               icon: Icons.insert_drive_file_rounded,
-              label: 'File',
+              label: context.l10n.menuAttachFile,
               color: const Color(0xFF2196F3),
               onTap: () { Navigator.pop(context); onPickFile(); },
             ),
@@ -441,12 +442,6 @@ void showTtlDialog({
   required Contact contact,
   required void Function(int seconds) onTtlChanged,
 }) {
-  const options = [
-    (label: 'Off', seconds: 0),
-    (label: '1 hour', seconds: 3600),
-    (label: '24 hours', seconds: 86400),
-    (label: '7 days', seconds: 604800),
-  ];
   final ctrl = context.read<ChatController>();
   showModalBottomSheet(
     context: context,
@@ -454,7 +449,14 @@ void showTtlDialog({
     shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
     builder: (_) => StatefulBuilder(
-      builder: (ctx, setLocal) => SafeArea(
+      builder: (ctx, setLocal) {
+        final options = [
+          (label: ctx.l10n.menuTtlOff, seconds: 0),
+          (label: ctx.l10n.menuTtl1h, seconds: 3600),
+          (label: ctx.l10n.menuTtl24h, seconds: 86400),
+          (label: ctx.l10n.menuTtl7d, seconds: 604800),
+        ];
+        return SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -471,13 +473,13 @@ void showTtlDialog({
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 4),
-              child: Text('Disappearing Messages',
+              child: Text(ctx.l10n.menuDisappearingMessages,
                   style: GoogleFonts.inter(
                       color: AppTheme.textPrimary, fontSize: 16, fontWeight: FontWeight.w700)),
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-              child: Text('Messages delete automatically after the selected time.',
+              child: Text(ctx.l10n.menuDisappearingSubtitle,
                   style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: 13)),
             ),
             ...options.map((opt) => ListTile(
@@ -495,7 +497,8 @@ void showTtlDialog({
             const SizedBox(height: 8),
           ],
         ),
-      ),
+        );
+      },
     ),
   );
 }

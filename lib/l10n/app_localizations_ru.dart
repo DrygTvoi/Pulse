@@ -1011,6 +1011,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get mediaTitle => 'Медиа';
 
   @override
+  String get mediaFileLabel => 'ФАЙЛ';
+
+  @override
   String mediaPhotosTab(int count) {
     return 'Фото ($count)';
   }
@@ -1054,6 +1057,16 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get statusEnterText => 'Введите текст для вашего статуса.';
+
+  @override
+  String statusPickPhotoFailed(String error) {
+    return 'Не удалось выбрать фото: $error';
+  }
+
+  @override
+  String statusPublishFailed(String error) {
+    return 'Не удалось опубликовать: $error';
+  }
 
   @override
   String get panicSetPanicKey => 'Установить паник-ключ';
@@ -1740,16 +1753,6 @@ class AppLocalizationsRu extends AppLocalizations {
   String get addContactButton => 'Добавить контакт';
 
   @override
-  String statusPickPhotoFailed(String error) {
-    return 'Не удалось выбрать фото: $error';
-  }
-
-  @override
-  String statusPublishFailed(String error) {
-    return 'Не удалось опубликовать: $error';
-  }
-
-  @override
   String get networkDiagnosticsTitle => 'Диагностика сети';
 
   @override
@@ -1831,7 +1834,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get homeNoEchTooltip =>
-      'uTLS-прокси недоступен \u2014 ECH отключён.\nTLS-отпечаток виден DPI.';
+      'uTLS-прокси недоступен — ECH отключён.\nTLS-отпечаток виден DPI.';
 
   @override
   String get settingsTitle => 'Настройки';
@@ -1846,4 +1849,63 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get settingsPsiphonFailedToStart => 'Psiphon не запустился';
+
+  @override
+  String get verifyTitle => 'Проверка номера безопасности';
+
+  @override
+  String get verifyIdentityVerified => 'Личность подтверждена';
+
+  @override
+  String get verifyNotYetVerified => 'Ещё не подтверждено';
+
+  @override
+  String verifyVerifiedDescription(String name) {
+    return 'Вы подтвердили номер безопасности $name.';
+  }
+
+  @override
+  String verifyUnverifiedDescription(String name) {
+    return 'Сравните эти номера с $name лично или по надёжному каналу.';
+  }
+
+  @override
+  String get verifyExplanation =>
+      'У каждого разговора есть уникальный номер безопасности. Если вы оба видите одинаковые номера на своих устройствах, соединение подтверждено сквозным шифрованием.';
+
+  @override
+  String verifyContactKey(String name) {
+    return 'Ключ $name';
+  }
+
+  @override
+  String get verifyYourKey => 'Ваш ключ';
+
+  @override
+  String get verifyRemoveVerification => 'Снять подтверждение';
+
+  @override
+  String get verifyMarkAsVerified => 'Отметить как проверенный';
+
+  @override
+  String verifyAfterReinstall(String name) {
+    return 'Если $name переустановит приложение, номер безопасности изменится и подтверждение будет снято автоматически.';
+  }
+
+  @override
+  String verifyOnlyMarkAfterCompare(String name) {
+    return 'Отмечайте как проверенный только после сравнения номеров с $name по голосовому звонку или лично.';
+  }
+
+  @override
+  String get verifyNoSession =>
+      'Сеанс шифрования ещё не установлен. Сначала отправьте сообщение, чтобы сгенерировать номера безопасности.';
+
+  @override
+  String get verifyNoKeyAvailable => 'Ключ недоступен';
+
+  @override
+  String verifyFingerprintCopied(String label) {
+    return 'Отпечаток $label скопирован';
+  }
 }

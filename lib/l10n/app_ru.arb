@@ -326,6 +326,7 @@
   "menuAttachFile": "Файл",
 
   "mediaTitle": "Медиа",
+  "mediaFileLabel": "ФАЙЛ",
   "mediaPhotosTab": "Фото ({count})",
   "mediaFilesTab": "Файлы ({count})",
   "mediaNoPhotos": "Нет фотографий",
@@ -593,5 +594,21 @@
   "settingsTitle": "Настройки",
   "settingsSavedConnectedTo": "Сохранено и подключено к {provider}",
   "settingsTorFailedToStart": "Встроенный Tor не запустился",
-  "settingsPsiphonFailedToStart": "Psiphon не запустился"
+  "settingsPsiphonFailedToStart": "Psiphon не запустился",
+
+  "verifyTitle": "Проверка номера безопасности",
+  "verifyIdentityVerified": "Личность подтверждена",
+  "verifyNotYetVerified": "Ещё не подтверждено",
+  "verifyVerifiedDescription": "Вы подтвердили номер безопасности {name}.",
+  "verifyUnverifiedDescription": "Сравните эти номера с {name} лично или по надёжному каналу.",
+  "verifyExplanation": "У каждого разговора есть уникальный номер безопасности. Если вы оба видите одинаковые номера на своих устройствах, соединение подтверждено сквозным шифрованием.",
+  "verifyContactKey": "Ключ {name}",
+  "verifyYourKey": "Ваш ключ",
+  "verifyRemoveVerification": "Снять подтверждение",
+  "verifyMarkAsVerified": "Отметить как проверенный",
+  "verifyAfterReinstall": "Если {name} переустановит приложение, номер безопасности изменится и подтверждение будет снято автоматически.",
+  "verifyOnlyMarkAfterCompare": "Отмечайте как проверенный только после сравнения номеров с {name} по голосовому звонку или лично.",
+  "verifyNoSession": "Сеанс шифрования ещё не установлен. Сначала отправьте сообщение, чтобы сгенерировать номера безопасности.",
+  "verifyNoKeyAvailable": "Ключ недоступен",
+  "verifyFingerprintCopied": "Отпечаток {label} скопирован"
 }

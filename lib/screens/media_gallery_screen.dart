@@ -149,7 +149,7 @@ class _FilesList extends StatelessWidget {
         final media = MediaService.parse(msg.encryptedPayload)!;
         final ext = media.name.contains('.')
             ? media.name.split('.').last.toUpperCase()
-            : 'FILE';
+            : ctx.l10n.mediaFileLabel;
         return ListTile(
           leading: Container(
             width: 44,
