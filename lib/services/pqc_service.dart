@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:pqcrypto/pqcrypto.dart';
 
@@ -79,7 +80,8 @@ class PqcService {
     try {
       final ss = _kem.decapsulate(_sk!, ciphertext);
       return Uint8List.fromList(ss);
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[PQC] Current key decapsulation failed (key rotation in progress?): $e');
       if (_skPrev != null) {
         final ss = _kem.decapsulate(_skPrev!, ciphertext);
         return Uint8List.fromList(ss);
