@@ -7,6 +7,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../controllers/chat_controller.dart';
 import '../../theme/app_theme.dart';
+import '../../theme/design_tokens.dart';
 import '../../widgets/profile_card.dart';
 import 'settings_widgets.dart';
 
@@ -49,7 +50,7 @@ class ProfileSection extends StatelessWidget {
         return AlertDialog(
           backgroundColor: AppTheme.surface,
           shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.dialogRadius)),
           title: Text(
             'Share My Address',
             style: GoogleFonts.inter(
@@ -73,7 +74,7 @@ class ProfileSection extends StatelessWidget {
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: AppTheme.surfaceVariant,
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(DesignTokens.spacing10),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -102,7 +103,7 @@ class ProfileSection extends StatelessWidget {
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: AppTheme.surfaceVariant,
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(DesignTokens.spacing10),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,

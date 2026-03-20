@@ -17,6 +17,7 @@ import 'package:convert/convert.dart';
 import '../adapters/nostr_adapter.dart' show deriveNostrPubkeyHex;
 import 'home_screen.dart';
 import 'restore_account_screen.dart';
+import '../l10n/l10n_ext.dart';
 
 const _avatarColors = [
   Color(0xFF25D366),
@@ -59,7 +60,7 @@ class _SetupIdentityScreenState extends State<SetupIdentityScreen> {
   String? get _passwordError {
     final p = _passwordController.text;
     if (p.isEmpty) return null;
-    if (p.length < 16) return 'Минимум 16 символов';
+    if (p.length < 16) return null; // validated via _canSubmit; label shown via entropy
     return null;
   }
 
@@ -91,12 +92,13 @@ class _SetupIdentityScreenState extends State<SetupIdentityScreen> {
     return classes >= 3;
   }
 
-  String get _entropyLabel {
-    if (!_hasVariety && _passwordController.text.length >= 16) return 'Слабый (нужно 3 типа символов)';
+  String _entropyLabel(BuildContext context) {
+    final l = context.l10n;
+    if (!_hasVariety && _passwordController.text.length >= 16) return l.setupEntropyWeakNeedsVariety;
     final bits = _entropyBits;
-    if (bits < 50) return 'Слабый';
-    if (bits < 80) return 'Средний';
-    return 'Сильный';
+    if (bits < 50) return l.setupEntropyWeak;
+    if (bits < 80) return l.setupEntropyOk;
+    return l.setupEntropyStrong;
   }
 
   Color get _entropyColor {
@@ -110,7 +112,7 @@ class _SetupIdentityScreenState extends State<SetupIdentityScreen> {
   String? get _confirmError {
     final c = _confirmController.text;
     if (c.isEmpty) return null;
-    if (c != _passwordController.text) return 'Пароли не совпадают';
+    if (c != _passwordController.text) return null; // validated via _canSubmit; error shown when context available
     return null;
   }
 
@@ -240,7 +242,7 @@ class _SetupIdentityScreenState extends State<SetupIdentityScreen> {
                       fontWeight: FontWeight.bold,
                       color: AppTheme.textPrimary)),
               const SizedBox(height: 6),
-              Text('Создайте анонимный аккаунт',
+              Text(context.l10n.setupCreateAnonymousAccount,
                   style: GoogleFonts.inter(
                       fontSize: 13, color: AppTheme.textSecondary)),
               const SizedBox(height: 40),
@@ -283,7 +285,7 @@ class _SetupIdentityScreenState extends State<SetupIdentityScreen> {
                 ),
               ),
               const SizedBox(height: 6),
-              Text('Нажмите чтобы сменить цвет',
+              Text(context.l10n.setupTapToChangeColor,
                   style: GoogleFonts.inter(
                       color: AppTheme.textSecondary, fontSize: 11)),
               const SizedBox(height: 28),
@@ -291,7 +293,7 @@ class _SetupIdentityScreenState extends State<SetupIdentityScreen> {
               // Name field
               _buildField(
                 controller: _nameController,
-                hint: 'Ваш псевдоним',
+                hint: context.l10n.setupYourNickname,
                 icon: Icons.person_outline_rounded,
                 onChanged: (_) => setState(() {}),
               ),
@@ -300,7 +302,7 @@ class _SetupIdentityScreenState extends State<SetupIdentityScreen> {
               // Password field
               _buildField(
                 controller: _passwordController,
-                hint: 'Пароль восстановления (мин. 16)',
+                hint: context.l10n.setupRecoveryPassword,
                 icon: Icons.lock_outline_rounded,
                 obscure: !_showPassword,
                 errorText: _passwordError,
@@ -330,7 +332,7 @@ class _SetupIdentityScreenState extends State<SetupIdentityScreen> {
                       ),
                       const SizedBox(width: 6),
                       Text(
-                        '$_entropyLabel (${_entropyBits.round()} бит)',
+                        context.l10n.setupEntropyBits(_entropyLabel(context), _entropyBits.round()),
                         style: GoogleFonts.inter(
                           fontSize: 11,
                           color: _entropyColor,
@@ -344,7 +346,7 @@ class _SetupIdentityScreenState extends State<SetupIdentityScreen> {
               // Confirm field
               _buildField(
                 controller: _confirmController,
-                hint: 'Повторите пароль',
+                hint: context.l10n.setupConfirmPassword,
                 icon: Icons.lock_outline_rounded,
                 obscure: !_showConfirm,
                 errorText: _confirmError,
@@ -379,9 +381,7 @@ class _SetupIdentityScreenState extends State<SetupIdentityScreen> {
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        'Этот пароль — единственный способ восстановить аккаунт. '
-                        'Нет сервера — нет сброса пароля. '
-                        'Запомните или запишите его.',
+                        context.l10n.setupPasswordWarning,
                         style: GoogleFonts.inter(
                             color: AppTheme.textSecondary,
                             fontSize: 12,
@@ -410,7 +410,7 @@ class _SetupIdentityScreenState extends State<SetupIdentityScreen> {
                           width: 22, height: 22,
                           child: CircularProgressIndicator(
                               color: Colors.white, strokeWidth: 2.5))
-                      : Text('Создать аккаунт',
+                      : Text(context.l10n.setupCreateAccount,
                           style: GoogleFonts.inter(
                               fontSize: 16,
                               fontWeight: FontWeight.w700,
@@ -427,12 +427,12 @@ class _SetupIdentityScreenState extends State<SetupIdentityScreen> {
                 ),
                 child: Text.rich(
                   TextSpan(
-                    text: 'Уже есть аккаунт? ',
+                    text: context.l10n.setupAlreadyHaveAccount,
                     style: GoogleFonts.inter(
                         color: AppTheme.textSecondary, fontSize: 14),
                     children: [
                       TextSpan(
-                        text: 'Восстановить →',
+                        text: context.l10n.setupRestore,
                         style: GoogleFonts.inter(
                             color: purple, fontWeight: FontWeight.w600),
                       ),

@@ -7,6 +7,7 @@ import '../models/message.dart';
 import '../services/psiphon_service.dart' as psiphon;
 import '../services/tor_service.dart' as tor;
 import '../services/waku_discovery_service.dart';
+import '../services/waku_signal_crypto.dart';
 import 'inbox_manager.dart';
 
 // Sentinel: no URL was explicitly configured — trigger auto-discovery.
@@ -245,7 +246,7 @@ class WakuInboxReader implements InboxReader {
     }
   }
 
-  void _dispatchSignal(Map<String, dynamic> msg) {
+  void _dispatchSignal(Map<String, dynamic> msg) async {
     try {
       final payloadB64 = msg['payload'] as String? ?? '';
       if (payloadB64.isEmpty) return;
@@ -254,7 +255,23 @@ class WakuInboxReader implements InboxReader {
         return;
       }
       final payloadBytes = base64.decode(payloadB64);
-      final data = jsonDecode(utf8.decode(payloadBytes)) as Map<String, dynamic>;
+      final outer = jsonDecode(utf8.decode(payloadBytes)) as Map<String, dynamic>;
+
+      Map<String, dynamic> data;
+      if (outer.containsKey('enc')) {
+        // Encrypted signal envelope
+        final senderId = outer['from'] as String? ?? '';
+        final decrypted = await decryptWakuSignal(outer['enc'] as String, senderId, _userId);
+        if (decrypted == null) {
+          debugPrint('[Waku] Failed to decrypt signal from $senderId');
+          return;
+        }
+        data = jsonDecode(decrypted) as Map<String, dynamic>;
+      } else {
+        // Legacy unencrypted signal (backward compat)
+        data = outer;
+      }
+
       _sigCtrl.add([{
         'type': data['type'],
         'senderId': data['senderId'],
@@ -416,14 +433,16 @@ class WakuMessageSender implements MessageSender {
       return _publish(_keysTopic(_userId), jsonEncode(payload));
     }
     final recipientId = _recipientId(targetDatabaseId);
+    final plainJson = jsonEncode({
+      'type': type,
+      'roomId': roomId,
+      'senderId': senderId,
+      'payload': payload,
+    });
+    final encrypted = await encryptWakuSignal(plainJson, _userId, recipientId);
     return _publish(
       _sigTopic(recipientId),
-      jsonEncode({
-        'type': type,
-        'roomId': roomId,
-        'senderId': senderId,
-        'payload': payload,
-      }),
+      jsonEncode({'enc': encrypted, 'from': _userId}),
     );
   }
 }

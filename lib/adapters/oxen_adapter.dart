@@ -18,6 +18,9 @@ const _seedNodes = [
 
 const _ttlMs = 14 * 24 * 60 * 60 * 1000; // 14-day TTL (Session standard)
 
+// Standard TLS client for seed nodes (CA-signed certificates).
+http.Client _newSeedClient() => http.Client();
+
 // Snodes use self-signed certificates — accepted because payload is already
 // Signal-encrypted E2E.  Session has built-in onion routing (multi-hop via
 // snodes), so we never tunnel snode traffic through external proxies (Tor,
@@ -31,7 +34,7 @@ http.Client _newSnodeClient() {
 /// Returns a list of "https://ip:port" strings, or empty on failure.
 /// Always uses direct clearnet — Session snodes have built-in onion routing.
 Future<List<String>> _discoverSnodes() async {
-  final client = _newSnodeClient();
+  final client = _newSeedClient();
   try {
   for (final seed in _seedNodes) {
     try {

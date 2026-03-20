@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
@@ -33,6 +34,7 @@ import '../services/rate_limiter.dart';
 import '../services/chunk_assembler.dart';
 import '../services/sentry_service.dart';
 import '../services/voice_service.dart';
+import '../services/signal_dispatcher.dart';
 
 enum ConnectionStatus { disconnected, connecting, connected }
 
@@ -49,8 +51,10 @@ class ChatController extends ChangeNotifier {
   final List<StreamSubscription> _messageSubs = [];
   final List<StreamSubscription> _signalSubs = [];
   final List<StreamSubscription> _healthSubs = [];
+  final List<StreamSubscription> _dispatcherSubs = [];
   final Map<String, bool> _adapterHealth = {}; // addr → isHealthy
   List<String> _allAddresses = [];
+  SignalDispatcher? _signalDispatcher;
 
   // Emits (from: oldAddr, to: newAddr) when automatic failover occurs.
   final StreamController<({String from, String to})> _failoverCtrl =
@@ -146,7 +150,9 @@ class ChatController extends ChangeNotifier {
   // Global dedup: prevents the same message ID from being processed twice
   // across different transports (e.g. LAN + Nostr delivering same message).
   // Capped at 10k entries to bound memory; oldest cleared on overflow.
-  final _seenMsgIds = <String>{};
+  // LinkedHashSet preserves insertion order for FIFO sliding window dedup.
+  // ignore: prefer_collection_literals
+  final _seenMsgIds = LinkedHashSet<String>();
 
   // Per-sender rate limiters to prevent spam flooding.
   // Messages: 30 burst, 1 per 2s sustained. Signals: 20 burst, 1 per 3s sustained.
@@ -333,17 +339,29 @@ class ChatController extends ChangeNotifier {
     }
   }
 
+  bool _reconnecting = false;
+
   Future<void> reconnectInbox() async {
-    _connectionStatus = ConnectionStatus.connecting;
-    notifyListeners();
-    for (final s in _messageSubs) { s.cancel(); }
-    _messageSubs.clear();
-    for (final s in _signalSubs) { s.cancel(); }
-    _signalSubs.clear();
-    for (final s in _healthSubs) { s.cancel(); }
-    _healthSubs.clear();
-    _adapterHealth.clear();
-    await _initInbox();
+    if (_reconnecting) return;
+    _reconnecting = true;
+    try {
+      _connectionStatus = ConnectionStatus.connecting;
+      notifyListeners();
+      for (final s in _messageSubs) { s.cancel(); }
+      _messageSubs.clear();
+      for (final s in _signalSubs) { s.cancel(); }
+      _signalSubs.clear();
+      for (final s in _healthSubs) { s.cancel(); }
+      _healthSubs.clear();
+      for (final s in _dispatcherSubs) { s.cancel(); }
+      _dispatcherSubs.clear();
+      _signalDispatcher?.dispose();
+      _signalDispatcher = null;
+      _adapterHealth.clear();
+      await _initInbox();
+    } finally {
+      _reconnecting = false;
+    }
   }
 
   static const _secureStorage = FlutterSecureStorage();
@@ -483,10 +501,13 @@ class ChatController extends ChangeNotifier {
     for (final s in _healthSubs) { s.cancel(); }
     _healthSubs.clear();
 
+    // Initialize (or re-initialize) the signal dispatcher.
+    _initSignalDispatcher();
+
     if (InboxManager().reader != null) {
       final r = InboxManager().reader!;
       _messageSubs.add(r.listenForMessages().listen(_handleIncomingMessages));
-      _signalSubs.add(r.listenForSignals().listen(_handleIncomingSignals));
+      _signalSubs.add(r.listenForSignals().listen(_signalDispatcher!.dispatch));
       _adapterHealth[myAddress] = true;
       _healthSubs.add(r.healthChanges.listen((h) => _onAdapterHealthChange(myAddress, h)));
     }
@@ -506,7 +527,7 @@ class ChatController extends ChangeNotifier {
           cfg['provider']!, cfg['apiKey']!, cfg['databaseId']!);
       if (reader == null) continue;
       _messageSubs.add(reader.listenForMessages().listen(_handleIncomingMessages));
-      _signalSubs.add(reader.listenForSignals().listen(_handleIncomingSignals));
+      _signalSubs.add(reader.listenForSignals().listen(_signalDispatcher!.dispatch));
       final addr = cfg['selfId'] ?? '';
       if (addr.isNotEmpty) {
         _allAddresses.add(addr);
@@ -528,7 +549,7 @@ class ChatController extends ChangeNotifier {
       await _lanReader!.initializeReader('', _selfId);
       await _lanSender!.initializeSender(_selfId);
       _messageSubs.add(_lanReader!.listenForMessages().listen(_handleIncomingMessages));
-      _signalSubs.add(_lanReader!.listenForSignals().listen(_handleIncomingSignals));
+      _signalSubs.add(_lanReader!.listenForSignals().listen(_signalDispatcher!.dispatch));
     }
 
     // Monitor internet; flip lanModeActive flag when status changes.
@@ -806,13 +827,11 @@ class ChatController extends ChangeNotifier {
     final probe  = ConnectivityProbeService.instance.lastResult;
     final relays = [...probe.nostrRelays, ...probe.torNostrRelays];
     if (relays.isEmpty) return;
-    for (final contact in ContactManager().contacts) {
-      if (contact.isGroup) continue;
-      // Only Nostr/Oxen contacts benefit from relay exchange
-      if (contact.provider != 'Nostr' && contact.provider != 'Oxen') continue;
-      await _sendSignalTo(contact, 'relay_exchange', {'relays': relays});
-    }
-    debugPrint('[P2P] Shared ${relays.length} relay(s) with contacts');
+    final targets = ContactManager().contacts
+        .where((c) => !c.isGroup && (c.provider == 'Nostr' || c.provider == 'Oxen'))
+        .toList();
+    await Future.wait(targets.map((c) => _sendSignalTo(c, 'relay_exchange', {'relays': relays})));
+    debugPrint('[P2P] Shared ${relays.length} relay(s) with ${targets.length} contact(s)');
   }
 
   /// Broadcast own profile (name + about) to all non-group contacts.
@@ -820,10 +839,8 @@ class ChatController extends ChangeNotifier {
     if (_identity == null || _selfId.isEmpty) return;
     final payload = <String, dynamic>{'name': name, 'about': about};
     if (avatarB64.isNotEmpty) payload['avatar'] = avatarB64;
-    for (final contact in ContactManager().contacts) {
-      if (contact.isGroup) continue;
-      await _sendSignalTo(contact, 'profile_update', payload);
-    }
+    final targets = ContactManager().contacts.where((c) => !c.isGroup).toList();
+    await Future.wait(targets.map((c) => _sendSignalTo(c, 'profile_update', payload)));
   }
 
   /// Broadcast our current addresses to all non-group contacts.
@@ -831,10 +848,8 @@ class ChatController extends ChangeNotifier {
   Future<void> broadcastAddressUpdate() async {
     if (_identity == null || _selfId.isEmpty || _allAddresses.isEmpty) return;
     final payload = <String, dynamic>{'primary': _selfId, 'all': _allAddresses};
-    for (final contact in ContactManager().contacts) {
-      if (contact.isGroup) continue;
-      await _sendSignalTo(contact, 'addr_update', payload);
-    }
+    final targets = ContactManager().contacts.where((c) => !c.isGroup).toList();
+    await Future.wait(targets.map((c) => _sendSignalTo(c, 'addr_update', payload)));
   }
 
   /// Called when an adapter reports a health change (healthy=true/false).
@@ -903,14 +918,6 @@ class ChatController extends ChangeNotifier {
   final StreamController<Map<String, dynamic>> _signalStreamController = StreamController.broadcast();
   Stream<Map<String, dynamic>> get signalStream => _signalStreamController.stream;
 
-  // Signal types that require HMAC signature verification (anti-forgery).
-  static const _signatureRequiredSignals = <String>{
-    'addr_update',      // address migration — forgery redirects messages
-    'sys_keys',         // key bundle — forgery enables MITM
-    'relay_exchange',   // relay list — forgery isolates contact
-    'profile_update',   // profile data — forgery impersonates contact
-  };
-
   /// Verify HMAC-SHA256 signature on an incoming signal payload.
   Future<bool> _verifySignalSignature(
       String type, Map<String, dynamic> payload, String hmac, String senderPub) async {
@@ -929,357 +936,206 @@ class ChatController extends ChangeNotifier {
     }
   }
 
-  // Signal types exempt from rate limiting (system-critical).
-  static const _rateLimitExemptSignals = <String>{
-    'sys_keys',       // key bundle exchange
-    'addr_update',    // address migration
-    'webrtc_offer',   // call signaling
-    'webrtc_answer',
-    'webrtc_candidate',
-    'webrtc2_offer',  // secondary call signaling
-    'webrtc2_answer',
-    'webrtc2_candidate',
-  };
-
-  Future<void> _handleIncomingSignals(List<Map<String, dynamic>> signals) async {
-    for (var sig in signals) {
-      try {
-       // Per-sender rate limiting for non-system signals.
-       final sigType = sig['type'] as String? ?? '';
-       final sigSender = sig['senderId'] as String? ?? '';
-       if (sigSender.isNotEmpty &&
-           !_allAddresses.contains(sigSender) &&
-           sigSender != _selfId &&
-           !_rateLimitExemptSignals.contains(sigType) &&
-           !sigType.startsWith('p2p_') &&
-           !_sigRateLimiter.allow(sigSender)) {
-         debugPrint('[Chat] Rate limited signal ($sigType) from: $sigSender');
-         continue;
-       }
-
-       // Verify HMAC signature on security-critical signals.
-       // Nostr signs natively (Schnorr) — skip HMAC for Nostr-originated signals.
-       // For Firebase/Waku/Oxen: require _sig + _spk, reject unsigned.
-       if (_signatureRequiredSignals.contains(sigType)) {
-         final isNostrOrigin = sigSender.contains('@wss://') || sigSender.contains('@ws://');
-         if (!isNostrOrigin) {
-           final payload = sig['payload'];
-           if (payload is Map<String, dynamic>) {
-             final hmac = payload['_sig'] as String?;
-             final senderPub = payload['_spk'] as String?;
-             if (hmac == null || senderPub == null) {
-               debugPrint('[Chat] REJECTED unsigned signal ($sigType) from $sigSender');
-               continue;
-             }
-             if (!await _verifySignalSignature(sigType, payload, hmac, senderPub)) {
-               debugPrint('[Chat] REJECTED forged signal ($sigType) — HMAC invalid');
-               continue;
-             }
-           }
-         }
-       }
-
-       _signalStreamController.add(sig); // Broadcast to active calls
-       if (sig['type'] == 'webrtc_offer') {
-          final rawPayload = sig['payload'];
-          final groupId = rawPayload is Map ? rawPayload['groupId'] as String? : null;
-          if (groupId != null) {
-            _incomingGroupCallController.add({...sig, 'groupId': groupId});
-          } else {
-            _incomingCallController.add(sig);
-          }
-       } else if (sig['type'] == 'typing') {
-          final fromId = sig['senderId'] as String? ?? '';
-          Contact? typingContact;
-          for (final c in ContactManager().contacts) {
-            if (c.databaseId == fromId || c.databaseId.split('@').first == fromId) {
-              typingContact = c;
-              break;
-            }
-          }
-          if (typingContact != null) {
-            final cid = typingContact.id;
-            _isTypingMap[cid] = true;
-            if (!_typingStreamCtrl.isClosed) _typingStreamCtrl.add(cid);
-            _typingTimers[cid]?.cancel();
-            _typingTimers[cid] = Timer(const Duration(seconds: 4), () {
-              _isTypingMap.remove(cid);
-              if (!_typingStreamCtrl.isClosed) _typingStreamCtrl.add(cid);
-            });
-          }
-       } else if (sig['type'] == 'msg_read') {
-          final payload = sig['payload'];
-          final from = (payload is Map ? payload['from'] as String? : null)
-              ?? sig['from'] as String? ?? '';
-          final groupId = payload is Map ? payload['groupId'] as String? : null;
-          final msgId = payload is Map ? payload['msgId'] as String? : null;
-          if (groupId != null && msgId != null && from.isNotEmpty) {
-            _handleGroupReadReceipt(from, groupId, msgId);
-          } else if (from.isNotEmpty) {
-            _handleReadReceipt(from);
-          }
-       } else if (sig['type'] == 'msg_ack') {
-          // Delivery acknowledgment — update message status from 'sent' to 'delivered'.
-          final payload = sig['payload'];
-          final msgId = payload is Map ? payload['msgId'] as String? : null;
-          final from = (payload is Map ? payload['from'] as String? : null) ?? '';
-          if (msgId != null && from.isNotEmpty) {
-            _handleDeliveryAck(from, msgId);
-          }
-       } else if (sig['type'] == 'ttl_update') {
-          final payload = sig['payload'];
-          final seconds = (payload is Map ? payload['seconds'] : null) as int? ?? 0;
-          final fromId = sig['senderId'] as String? ?? '';
-          Contact? sender;
-          for (final c in ContactManager().contacts) {
-            if (c.databaseId == fromId || c.databaseId.split('@').first == fromId) {
-              sender = c;
-              break;
-            }
-          }
-          if (sender != null) {
-            unawaited(setChatTtlSeconds(sender, seconds, sendSignal: false));
-          }
-       } else if (sig['type'] == 'reaction') {
-          final payload = sig['payload'];
-          if (payload is Map) {
-            final msgId = payload['msgId'] as String? ?? '';
-            final emoji = payload['emoji'] as String? ?? '';
-            final from = payload['from'] as String? ?? sig['senderId'] as String? ?? '';
-            final remove = payload['remove'] == true;
-            final groupId = payload['groupId'] as String?;
-            if (msgId.isNotEmpty && emoji.isNotEmpty && from.isNotEmpty) {
-              // Route to group room if groupId present
-              String storageKey;
-              if (groupId != null) {
-                final groupContact = ContactManager().contacts.cast<Contact?>()
-                    .firstWhere((c) => c?.isGroup == true && c?.id == groupId, orElse: () => null);
-                storageKey = groupContact?.storageKey ?? groupId;
-              } else {
-                Contact? reactionContact;
-                for (final c in ContactManager().contacts) {
-                  if (c.databaseId == from || c.databaseId.split('@').first == from) {
-                    reactionContact = c; break;
-                  }
-                }
-                storageKey = reactionContact?.storageKey ?? '';
-              }
-              if (storageKey.isNotEmpty) {
-                _reactions[storageKey] ??= {};
-                _reactions[storageKey]![msgId] ??= {};
-                final key = '${emoji}_$from';
-                if (remove) {
-                  _reactions[storageKey]![msgId]!.remove(key);
-                } else {
-                  _reactions[storageKey]![msgId]!.add(key);
-                }
-                unawaited(_persistReactions(storageKey));
-                notifyListeners();
-              }
-            }
-          }
-       } else if (sig['type'] == 'edit') {
-          final payload = sig['payload'];
-          if (payload is Map) {
-            final msgId = payload['msgId'] as String? ?? '';
-            final text = payload['text'] as String? ?? '';
-            final from = payload['from'] as String? ?? sig['senderId'] as String? ?? '';
-            if (msgId.isNotEmpty && text.isNotEmpty) {
-              Contact? editContact;
-              for (final c in ContactManager().contacts) {
-                if (c.databaseId == from || c.databaseId.split('@').first == from) {
-                  editContact = c; break;
-                }
-              }
-              if (editContact != null) {
-                final room = _chatRooms[editContact.id];
-                if (room != null) {
-                  final idx = room.messages.indexWhere((m) => m.id == msgId);
-                  if (idx != -1) {
-                    final storageKey = editContact.storageKey;
-                    final updated = room.messages[idx].copyWith(encryptedPayload: text, isEdited: true);
-                    room.messages[idx] = updated;
-                    unawaited(LocalStorageService().saveMessage(storageKey, updated.toJson()));
-                    notifyListeners();
-                  }
-                }
-              }
-            }
-          }
-       } else if (sig['type'] == 'heartbeat') {
-          final payload = sig['payload'];
-          final from = (payload is Map ? payload['from'] as String? : null)
-              ?? sig['senderId'] as String? ?? '';
-          Contact? hbContact;
-          for (final c in ContactManager().contacts) {
-            if (c.databaseId == from || c.databaseId.split('@').first == from) {
-              hbContact = c; break;
-            }
-          }
-          if (hbContact != null) {
-            _lastSeen[hbContact.id] = DateTime.now();
-            notifyListeners();
-          }
-       } else if (sig['type'] == 'sys_keys') {
-          // Reactive session build: contact pushed their key bundle to us.
-          final senderId = sig['senderId'] as String? ?? '';
-          final payload = sig['payload'];
-          if (payload is Map<String, dynamic> && senderId.isNotEmpty) {
-            Contact? keyContact;
-            for (final c in ContactManager().contacts) {
-              if (c.databaseId == senderId ||
-                  c.databaseId.split('@').first == senderId) {
-                keyContact = c; break;
-              }
-            }
-            if (keyContact != null) {
-              final keyChanged = await _signalService.buildSession(
-                  keyContact.databaseId, Map<String, dynamic>.from(payload));
-              _cacheContactKyberPk(keyContact.databaseId, Map<String, dynamic>.from(payload));
-              if (keyChanged && !_keyChangeCtrl.isClosed) {
-                _keyChangeCtrl.add((contactName: keyContact.name, contactId: keyContact.databaseId));
-              }
-              // For Oxen contacts: respond with our own keys (in-band key exchange)
-              if (keyContact.provider == 'Oxen') {
-                unawaited(_publishOxenKeysTo(keyContact));
-              }
-            }
-          }
-       } else if ((sig['type'] as String? ?? '').startsWith('p2p_')) {
-          // WebRTC DataChannel signaling — route to P2PTransportService
-          final senderId = sig['senderId'] as String? ?? '';
-          Contact? p2pContact;
-          for (final c in ContactManager().contacts) {
-            if (c.databaseId == senderId ||
-                c.databaseId.split('@').first == senderId) {
-              p2pContact = c;
-              break;
-            }
-          }
-          if (p2pContact != null) {
-            final rawPayload = sig['payload'];
-            if (rawPayload is Map<String, dynamic>) {
-              unawaited(P2PTransportService.instance.handleSignal(
-                  p2pContact.id, sig['type'] as String, rawPayload));
-            }
-          }
-       } else if (sig['type'] == 'relay_exchange') {
-          final payload = sig['payload'];
-          final rawRelays = payload is Map ? payload['relays'] : payload;
-          final relays = rawRelays is List
-              ? List<String>.from(rawRelays.whereType<String>())
-              : <String>[];
-          if (relays.isNotEmpty) {
-            await savePeerRelays(relays);
-          }
-       } else if (sig['type'] == 'status_update') {
-          final rawPayload = sig['payload'];
-          final statusJson = rawPayload is Map<String, dynamic> ? rawPayload : null;
-          final senderId = sig['senderId'] as String? ?? '';
-          if (statusJson is Map<String, dynamic>) {
-            Contact? senderContact;
-            for (final c in ContactManager().contacts) {
-              if (c.databaseId == senderId ||
-                  c.databaseId.split('@').first == senderId) {
-                senderContact = c;
-                break;
-              }
-            }
-            if (senderContact != null) {
-              try {
-                final status = UserStatus.fromJson(statusJson);
-                if (!status.isExpired) {
-                  await StatusService.instance.saveContactStatus(senderContact.id, status);
-                  if (!_statusUpdatesCtrl.isClosed) {
-                    _statusUpdatesCtrl.add(senderContact.id);
-                  }
-                }
-              } catch (e) {
-                debugPrint('[ChatController] status_update parse error: $e');
-              }
-            }
-          }
-       } else if (sig['type'] == 'addr_update') {
-          final payload = sig['payload'];
-          if (payload is Map) {
-            final senderId = sig['senderId'] as String? ?? '';
-            final primary = payload['primary'] as String? ?? '';
-            final all = (payload['all'] as List?)?.cast<String>() ?? <String>[];
-            Contact? addrContact;
-            for (final c in ContactManager().contacts) {
-              if (c.databaseId == senderId ||
-                  c.databaseId.split('@').first == senderId ||
-                  (all.isNotEmpty && all.any((a) => c.databaseId == a || c.databaseId.split('@').first == a))) {
-                addrContact = c;
-                break;
-              }
-            }
-            if (addrContact != null && primary.isNotEmpty) {
-              // Build updated alternate addresses (old primary + existing alts, deduped)
-              final alts = <String>{...addrContact.alternateAddresses};
-              if (addrContact.databaseId.isNotEmpty && addrContact.databaseId != primary) {
-                alts.add(addrContact.databaseId);
-              }
-              alts.addAll(all.where((a) => a != primary));
-              alts.remove(primary);
-              final updated = addrContact.copyWith(
-                databaseId: primary,
-                alternateAddresses: alts.toList(),
-              );
-              await ContactManager().updateContact(updated);
-              debugPrint('[ChatController] addr_update: ${addrContact.name} → $primary');
-              notifyListeners();
-            }
-          }
-       } else if (sig['type'] == 'profile_update') {
-          final payload = sig['payload'];
-          if (payload is Map) {
-            final senderId = sig['senderId'] as String? ?? '';
-            final about = payload['about'] as String? ?? '';
-            final avatarB64 = payload['avatar'] as String? ?? '';
-            Contact? profileContact;
-            for (final c in ContactManager().contacts) {
-              if (c.databaseId == senderId ||
-                  c.databaseId.split('@').first == senderId) {
-                profileContact = c;
-                break;
-              }
-            }
-            if (profileContact != null) {
-              bool changed = false;
-              Contact updated = profileContact;
-              if (about != profileContact.bio) {
-                updated = updated.copyWith(bio: about);
-                changed = true;
-              }
-              if (avatarB64.isNotEmpty) {
-                // Store avatar separately to keep contacts JSON small
-                final prefs = await SharedPreferences.getInstance();
-                await prefs.setString('contact_avatar_${profileContact.id}', avatarB64);
-                changed = true;
-              }
-              if (changed) {
-                await ContactManager().updateContact(updated);
-                notifyListeners();
-              }
-            }
-          }
-       } else if (sig['type'] == 'chunk_req') {
-          // Receiver is requesting specific missing chunks for a stalled transfer.
-          final payload = sig['payload'];
-          if (payload is Map) {
-            final fid = payload['fid'] as String?;
-            final missing = payload['missing'];
-            final senderId = sig['senderId'] as String? ?? '';
-            if (fid != null && missing is List) {
-              unawaited(_resendMissingChunks(fid, List<int>.from(missing), senderId));
-            }
-          }
-       }
-      } catch (e) {
-        debugPrint('[ChatController] Skipping malformed signal: $e');
+  /// Build the contact-by-databaseId index used by SignalDispatcher.
+  Map<String, Contact> _buildContactIndex() {
+    final contactByDbId = <String, Contact>{};
+    for (final c in ContactManager().contacts) {
+      contactByDbId[c.databaseId] = c;
+      final idPart = c.databaseId.split('@').first;
+      if (idPart.isNotEmpty && idPart != c.databaseId) {
+        contactByDbId.putIfAbsent(idPart, () => c);
       }
     }
+    return contactByDbId;
+  }
+
+  /// Create the SignalDispatcher and subscribe to its typed event streams.
+  void _initSignalDispatcher() {
+    _signalDispatcher?.dispose();
+    for (final s in _dispatcherSubs) { s.cancel(); }
+    _dispatcherSubs.clear();
+
+    _signalDispatcher = SignalDispatcher(
+      allAddressesGetter: () => _allAddresses,
+      selfIdGetter: () => _selfId,
+      contactIndexBuilder: _buildContactIndex,
+      signatureVerifier: _verifySignalSignature,
+      groupContactResolver: (id) => ContactManager()
+          .contacts
+          .cast<Contact?>()
+          .firstWhere(
+            (c) => c?.isGroup == true && c?.id == id,
+            orElse: () => null,
+          ),
+      rateLimiter: _sigRateLimiter,
+    );
+
+    final d = _signalDispatcher!;
+
+    // Raw signal → broadcast to active calls
+    _dispatcherSubs.add(d.rawSignals.listen((e) {
+      if (!_signalStreamController.isClosed) _signalStreamController.add(e.signal);
+    }));
+
+    // Incoming 1-on-1 call
+    _dispatcherSubs.add(d.incomingCalls.listen((e) {
+      if (!_incomingCallController.isClosed) _incomingCallController.add(e.signal);
+    }));
+
+    // Incoming group call
+    _dispatcherSubs.add(d.incomingGroupCalls.listen((e) {
+      if (!_incomingGroupCallController.isClosed) {
+        _incomingGroupCallController.add({...e.signal, 'groupId': e.groupId});
+      }
+    }));
+
+    // Typing indicator
+    _dispatcherSubs.add(d.typingEvents.listen((e) {
+      final cid = e.contact.id;
+      _isTypingMap[cid] = true;
+      if (!_typingStreamCtrl.isClosed) _typingStreamCtrl.add(cid);
+      _typingTimers[cid]?.cancel();
+      _typingTimers[cid] = Timer(const Duration(seconds: 4), () {
+        _isTypingMap.remove(cid);
+        if (!_typingStreamCtrl.isClosed) _typingStreamCtrl.add(cid);
+      });
+    }));
+
+    // Read receipts (1-on-1)
+    _dispatcherSubs.add(d.readReceipts.listen((e) {
+      _handleReadReceipt(e.fromId);
+    }));
+
+    // Group read receipts
+    _dispatcherSubs.add(d.groupReadReceipts.listen((e) {
+      _handleGroupReadReceipt(e.fromId, e.groupId, e.msgId);
+    }));
+
+    // Delivery ACKs
+    _dispatcherSubs.add(d.deliveryAcks.listen((e) {
+      _handleDeliveryAck(e.fromId, e.msgId);
+    }));
+
+    // TTL updates
+    _dispatcherSubs.add(d.ttlUpdates.listen((e) {
+      unawaited(setChatTtlSeconds(e.contact, e.seconds, sendSignal: false));
+    }));
+
+    // Reactions
+    _dispatcherSubs.add(d.reactions.listen((e) {
+      _reactions[e.storageKey] ??= {};
+      _reactions[e.storageKey]![e.msgId] ??= {};
+      final key = '${e.emoji}_${e.from}';
+      if (e.remove) {
+        _reactions[e.storageKey]![e.msgId]!.remove(key);
+        unawaited(LocalStorageService().removeReaction(e.storageKey, e.msgId, e.emoji, e.from));
+      } else {
+        _reactions[e.storageKey]![e.msgId]!.add(key);
+        unawaited(LocalStorageService().addReaction(e.storageKey, e.msgId, e.emoji, e.from));
+      }
+      notifyListeners();
+    }));
+
+    // Edits
+    _dispatcherSubs.add(d.edits.listen((e) {
+      final room = _chatRooms[e.contact.id];
+      if (room != null) {
+        final idx = room.messages.indexWhere((m) => m.id == e.msgId);
+        if (idx != -1) {
+          final storageKey = e.contact.storageKey;
+          final updated = room.messages[idx].copyWith(encryptedPayload: e.text, isEdited: true);
+          room.messages[idx] = updated;
+          unawaited(LocalStorageService().saveMessage(storageKey, updated.toJson()));
+          notifyListeners();
+        }
+      }
+    }));
+
+    // Heartbeats (online status)
+    _dispatcherSubs.add(d.heartbeats.listen((e) {
+      _lastSeen[e.contact.id] = DateTime.now();
+      notifyListeners();
+    }));
+
+    // Key bundles (sys_keys)
+    _dispatcherSubs.add(d.keysEvents.listen((e) async {
+      final keyChanged = await _signalService.buildSession(
+          e.contact.databaseId, e.payload);
+      _cacheContactKyberPk(e.contact.databaseId, e.payload);
+      if (keyChanged && !_keyChangeCtrl.isClosed) {
+        _keyChangeCtrl.add((contactName: e.contact.name, contactId: e.contact.databaseId));
+      }
+      // For Oxen contacts: respond with our own keys (in-band key exchange)
+      if (e.contact.provider == 'Oxen') {
+        unawaited(_publishOxenKeysTo(e.contact));
+      }
+    }));
+
+    // P2P signaling
+    _dispatcherSubs.add(d.p2pEvents.listen((e) {
+      unawaited(P2PTransportService.instance.handleSignal(
+          e.contact.id, e.type, e.payload));
+    }));
+
+    // Relay exchange
+    _dispatcherSubs.add(d.relayExchanges.listen((e) async {
+      await savePeerRelays(e.relays);
+    }));
+
+    // Status updates
+    _dispatcherSubs.add(d.statusUpdates.listen((e) async {
+      await StatusService.instance.saveContactStatus(e.contact.id, e.status);
+      if (!_statusUpdatesCtrl.isClosed) {
+        _statusUpdatesCtrl.add(e.contact.id);
+      }
+    }));
+
+    // Address updates
+    _dispatcherSubs.add(d.addrUpdates.listen((e) async {
+      final addrContact = e.contact;
+      final primary = e.primary;
+      final all = e.all;
+      // Build updated alternate addresses (old primary + existing alts, deduped)
+      final alts = <String>{...addrContact.alternateAddresses};
+      if (addrContact.databaseId.isNotEmpty && addrContact.databaseId != primary) {
+        alts.add(addrContact.databaseId);
+      }
+      alts.addAll(all.where((a) => a != primary));
+      alts.remove(primary);
+      final updated = addrContact.copyWith(
+        databaseId: primary,
+        alternateAddresses: alts.toList(),
+      );
+      await ContactManager().updateContact(updated);
+      debugPrint('[ChatController] addr_update: ${addrContact.name} → $primary');
+      notifyListeners();
+    }));
+
+    // Profile updates
+    _dispatcherSubs.add(d.profileUpdates.listen((e) async {
+      final profileContact = e.contact;
+      bool changed = false;
+      Contact updated = profileContact;
+      if (e.about != profileContact.bio) {
+        updated = updated.copyWith(bio: e.about);
+        changed = true;
+      }
+      if (e.avatarB64.isNotEmpty) {
+        // Store avatar separately to keep contacts JSON small
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('contact_avatar_${profileContact.id}', e.avatarB64);
+        changed = true;
+      }
+      if (changed) {
+        await ContactManager().updateContact(updated);
+        notifyListeners();
+      }
+    }));
+
+    // Chunk re-requests
+    _dispatcherSubs.add(d.chunkRequests.listen((e) {
+      unawaited(_resendMissingChunks(e.fid, e.missing, e.senderId));
+    }));
   }
 
   void _handleGroupReadReceipt(String fromId, String groupId, String msgId) {
@@ -1327,9 +1183,15 @@ class ChatController extends ChangeNotifier {
       // Global dedup: skip messages we've already processed (cross-transport duplicates).
       if (_seenMsgIds.contains(msg.id)) continue;
       if (_seenMsgIds.length >= 10000) {
-        // Sliding window: remove oldest half instead of clearing all (prevents dedup gap).
-        final oldest = _seenMsgIds.take(5000).toList();
-        oldest.forEach(_seenMsgIds.remove);
+        // Sliding window: remove oldest half (LinkedHashSet preserves insertion order).
+        final it = _seenMsgIds.iterator;
+        int removed = 0;
+        final toRemove = <String>[];
+        while (it.moveNext() && removed < 5000) {
+          toRemove.add(it.current);
+          removed++;
+        }
+        toRemove.forEach(_seenMsgIds.remove);
       }
       _seenMsgIds.add(msg.id);
 
@@ -2390,10 +2252,11 @@ class ChatController extends ChangeNotifier {
     if (set.contains(key)) {
       set.remove(key);
       remove = true;
+      unawaited(LocalStorageService().removeReaction(storageKey, msgId, emoji, _selfId));
     } else {
       set.add(key);
+      unawaited(LocalStorageService().addReaction(storageKey, msgId, emoji, _selfId));
     }
-    await _persistReactions(storageKey);
     notifyListeners();
     if (contact.isGroup) {
       // Send reaction signal to each group member individually with groupId
@@ -2410,34 +2273,16 @@ class ChatController extends ChangeNotifier {
   }
 
   Future<void> _loadReactions(String storageKey) async {
-    final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString('reactions_$storageKey');
-    if (raw == null) return;
     try {
-      final decoded = jsonDecode(raw) as Map<String, dynamic>;
-      _reactions[storageKey] ??= {};
-      for (final entry in decoded.entries) {
-        final list = (entry.value as List).cast<String>();
-        _reactions[storageKey]![entry.key] = Set<String>.from(list);
+      final data = await LocalStorageService().loadReactions(storageKey);
+      if (data.isNotEmpty) {
+        _reactions[storageKey] ??= {};
+        _reactions[storageKey]!.addAll(data);
       }
     } catch (e) {
       debugPrint('[Chat] Failed to load reactions for $storageKey: $e');
       sentryBreadcrumb('Reactions load failed', category: 'storage');
     }
-  }
-
-  Future<void> _persistReactions(String storageKey) async {
-    final prefs = await SharedPreferences.getInstance();
-    final room = _reactions[storageKey];
-    if (room == null || room.isEmpty) {
-      await prefs.remove('reactions_$storageKey');
-      return;
-    }
-    final encoded = <String, dynamic>{};
-    for (final entry in room.entries) {
-      if (entry.value.isNotEmpty) encoded[entry.key] = entry.value.toList();
-    }
-    await prefs.setString('reactions_$storageKey', jsonEncode(encoded));
   }
 
   Future<void> _sendReactionSignal(Contact contact, String msgId, String emoji, {
@@ -2481,8 +2326,8 @@ class ChatController extends ChangeNotifier {
     final last = _lastSeen[contactId];
     if (last == null) return '';
     final diff = DateTime.now().difference(last);
-    if (diff.inSeconds < 90) return 'online';
-    if (diff.inSeconds < 60) return 'just now';
+    if (diff.inSeconds < 60) return 'online';
+    if (diff.inSeconds < 90) return 'just now';
     if (diff.inMinutes < 60) return 'last seen ${diff.inMinutes}m ago';
     return 'last seen ${diff.inHours}h ago';
   }
@@ -2778,6 +2623,11 @@ class ChatController extends ChangeNotifier {
     _bundleRefreshSub?.cancel();
     for (final s in _messageSubs) { s.cancel(); }
     for (final s in _signalSubs) { s.cancel(); }
+    for (final s in _dispatcherSubs) { s.cancel(); }
+    _dispatcherSubs.clear();
+    _signalDispatcher?.dispose();
+    _signalDispatcher = null;
+    _sigRateLimiter.clear(); // safe fallback if dispatcher was never initialized
     for (final t in _typingTimers.values) { t.cancel(); }
     _typingTimers.clear();
     for (final t in _retryTimers.values) { t.cancel(); }
@@ -2798,7 +2648,6 @@ class ChatController extends ChangeNotifier {
     _tamperWarningCtrl.close();
     _failoverCtrl.close();
     _msgRateLimiter.clear();
-    _sigRateLimiter.clear();
     unawaited(VoiceService().dispose());
     // Zeroize key material from memory.
     _signalService.zeroize();

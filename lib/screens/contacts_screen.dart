@@ -6,6 +6,7 @@ import 'add_contact_dialog.dart';
 import 'create_group_dialog.dart';
 import 'chat_screen.dart';
 import '../widgets/contact_tile.dart';
+import '../l10n/l10n_ext.dart';
 
 class ContactsScreen extends StatefulWidget {
   /// When true, immediately opens the Create Group dialog on launch.
@@ -95,14 +96,14 @@ class _ContactsScreenState extends State<ContactsScreen> {
       appBar: AppBar(
         backgroundColor: AppTheme.surface,
         elevation: 0,
-        title: Text('New chat',
+        title: Text(context.l10n.contactsNewChat,
             style: GoogleFonts.inter(
                 color: AppTheme.textPrimary, fontWeight: FontWeight.w700, fontSize: 18)),
         actions: [
           IconButton(
             icon: Icon(Icons.person_add_rounded, color: AppTheme.primary),
             onPressed: _showAddDialog,
-            tooltip: 'Add contact',
+            tooltip: context.l10n.contactsAddContact,
           ),
           const SizedBox(width: 4),
         ],
@@ -117,7 +118,7 @@ class _ContactsScreenState extends State<ContactsScreen> {
               style: GoogleFonts.inter(color: AppTheme.textPrimary, fontSize: 14),
               onChanged: (v) => setState(() => _searchQuery = v.toLowerCase()),
               decoration: InputDecoration(
-                hintText: 'Search...',
+                hintText: context.l10n.contactsSearchHint,
                 hintStyle: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: 14),
                 prefixIcon: Icon(Icons.search_rounded, color: AppTheme.textSecondary, size: 20),
                 suffixIcon: _searchQuery.isNotEmpty
@@ -153,7 +154,7 @@ class _ContactsScreenState extends State<ContactsScreen> {
                 _ActionTile(
                   icon: Icons.group_add_rounded,
                   color: AppTheme.primary,
-                  label: 'New group',
+                  label: context.l10n.contactsNewGroup,
                   onTap: _showCreateGroupDialog,
                 ),
 
@@ -165,7 +166,7 @@ class _ContactsScreenState extends State<ContactsScreen> {
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
                     child: Text(
-                      '${filtered.length} contact${filtered.length == 1 ? '' : 's'}',
+                      context.l10n.contactsCount(filtered.length),
                       style: GoogleFonts.inter(
                           color: AppTheme.textSecondary,
                           fontSize: 12,
@@ -186,21 +187,21 @@ class _ContactsScreenState extends State<ContactsScreen> {
                       context: context,
                       builder: (_) => AlertDialog(
                         backgroundColor: AppTheme.surface,
-                        title: Text('Remove contact',
+                        title: Text(context.l10n.contactsRemoveTitle,
                             style: GoogleFonts.inter(
                                 color: AppTheme.textPrimary,
                                 fontWeight: FontWeight.w700)),
-                        content: Text('Remove ${c.name}?',
+                        content: Text(context.l10n.contactsRemoveMessage(c.name),
                             style: GoogleFonts.inter(color: AppTheme.textSecondary)),
                         actions: [
                           TextButton(
                             onPressed: () => Navigator.pop(context, false),
-                            child: Text('Cancel',
+                            child: Text(context.l10n.chatCancel,
                                 style: GoogleFonts.inter(color: AppTheme.textSecondary)),
                           ),
                           TextButton(
                             onPressed: () => Navigator.pop(context, true),
-                            child: Text('Remove',
+                            child: Text(context.l10n.contactsRemove,
                                 style: GoogleFonts.inter(
                                     color: Colors.redAccent, fontWeight: FontWeight.w600)),
                           ),
@@ -233,13 +234,13 @@ class _ContactsScreenState extends State<ContactsScreen> {
           Icon(Icons.people_outline_rounded,
               size: 48, color: AppTheme.textSecondary.withValues(alpha: 0.3)),
           const SizedBox(height: 14),
-          Text('No contacts yet',
+          Text(context.l10n.contactsNoContactsYet,
               style: GoogleFonts.inter(
                   color: AppTheme.textSecondary,
                   fontSize: 16,
                   fontWeight: FontWeight.w600)),
           const SizedBox(height: 6),
-          Text("Tap + to add someone's address",
+          Text(context.l10n.contactsAddHint,
               style: GoogleFonts.inter(
                   color: AppTheme.textSecondary.withValues(alpha: 0.7), fontSize: 13)),
         ]),
@@ -255,7 +256,7 @@ class _ContactsScreenState extends State<ContactsScreen> {
           Icon(Icons.search_off_rounded,
               size: 36, color: AppTheme.textSecondary.withValues(alpha: 0.3)),
           const SizedBox(height: 12),
-          Text('No contacts match',
+          Text(context.l10n.contactsNoMatch,
               style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: 14)),
         ]),
       ),

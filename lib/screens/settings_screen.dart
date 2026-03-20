@@ -4,8 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:provider/provider.dart';
 import '../constants.dart';
 import '../theme/app_theme.dart';
+import '../theme/theme_manager.dart';
 import '../controllers/chat_controller.dart';
 import '../services/background_service.dart';
 import '../services/ice_server_config.dart';
@@ -413,6 +415,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    context.watch<ThemeNotifier>(); // rebuild when theme changes
     return Scaffold(
       backgroundColor: AppTheme.background,
       appBar: AppBar(
@@ -426,7 +429,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         padding: const EdgeInsets.fromLTRB(20, 24, 20, 40),
         children: [
           // ─── Profile + Inbox Address + QR ────────────────────
-          const ProfileSection(),
+          ProfileSection(),
           const SizedBox(height: 28),
 
           // ─── Provider + Connection Details + Secondary Inboxes
@@ -487,11 +490,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const SizedBox(height: 32),
 
           // ─── Appearance + Identity ────────────────────────────
-          const AppearanceIdentitySection(),
+          AppearanceIdentitySection(),
           const SizedBox(height: 32),
 
           // ─── Data ─────────────────────────────────────────────
-          const DataSection(),
+          DataSection(),
           const SizedBox(height: 32),
 
           // ─── Security ─────────────────────────────────────────
@@ -506,7 +509,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const SizedBox(height: 32),
 
           // ─── About ────────────────────────────────────────────
-          const AboutSection(),
+          AboutSection(),
           const SizedBox(height: 12),
         ],
       ),

@@ -7,6 +7,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../services/password_hasher.dart';
 import '../../theme/app_theme.dart';
+import '../../theme/design_tokens.dart';
 import '../../widgets/password_setup_dialog.dart';
 import '../../widgets/panic_key_dialog.dart';
 import 'settings_widgets.dart';
@@ -80,13 +81,13 @@ class _SecuritySectionState extends State<SecuritySection> {
                   filled: true,
                   fillColor: AppTheme.surfaceVariant,
                   border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
                       borderSide: BorderSide.none),
                   enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
                       borderSide: BorderSide.none),
                   focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
                     borderSide: const BorderSide(
                         color: Color(0xFF60A5FA), width: 1.5),
                   ),
@@ -301,7 +302,7 @@ class _SecuritySectionState extends State<SecuritySection> {
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
               color: AppTheme.surface,
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(DesignTokens.radiusLarge),
             ),
             child: Row(children: [
               Container(
@@ -309,7 +310,7 @@ class _SecuritySectionState extends State<SecuritySection> {
                 height: 36,
                 decoration: BoxDecoration(
                   color: const Color(0xFF60A5FA).withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(DesignTokens.spacing10),
                 ),
                 child: const Icon(Icons.lock_rounded,
                     color: Color(0xFF60A5FA), size: 18),

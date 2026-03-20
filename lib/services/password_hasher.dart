@@ -44,15 +44,26 @@ class PasswordHasher {
 
   /// Verify [entered] against [storedHash] (with [salt]).
   /// Handles both PBKDF2 (new) and legacy SHA-256 hashes transparently.
+  /// Uses constant-time comparison to prevent timing side-channels.
   static Future<bool> verify(
       String entered, String salt, String storedHash) async {
+    final String computed;
     if (storedHash.startsWith(_kPrefix)) {
-      // Modern PBKDF2 path
-      final computed = await hash(entered, salt);
-      return computed == storedHash;
+      computed = await hash(entered, salt);
+    } else {
+      computed = _legacySha256(entered, salt);
     }
-    // Legacy SHA-256 path — compare without upgrading
-    return _legacySha256(entered, salt) == storedHash;
+    return _constantTimeEquals(computed, storedHash);
+  }
+
+  /// Constant-time string comparison to prevent timing attacks.
+  static bool _constantTimeEquals(String a, String b) {
+    if (a.length != b.length) return false;
+    int result = 0;
+    for (int i = 0; i < a.length; i++) {
+      result |= a.codeUnitAt(i) ^ b.codeUnitAt(i);
+    }
+    return result == 0;
   }
 
   /// Returns true if [storedHash] was produced with the legacy SHA-256 scheme.

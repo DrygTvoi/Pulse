@@ -33,36 +33,18 @@ Future<void> main() async {
   // Use bundled fonts from google_fonts/ — no runtime fetching from Google servers.
   GoogleFonts.config.allowRuntimeFetching = false;
 
-  await SentryFlutter.init(
-    (options) {
-      options.dsn = const String.fromEnvironment('SENTRY_DSN', defaultValue: '');
-      options.tracesSampleRate = 0.2;
-      options.environment = kDebugMode ? 'debug' : 'release';
-      options.sendDefaultPii = false; // privacy: never send PII
-      options.attachScreenshot = false; // privacy
-      options.beforeSend = (event, hint) {
-        // Strip any message content from breadcrumbs for privacy
-        final sanitized = event.copyWith(
-          breadcrumbs: event.breadcrumbs?.map((b) {
-            // Keep category and timestamp but ensure no PII leaks through data map
-            return Breadcrumb(
-              message: b.message,
-              category: b.category,
-              timestamp: b.timestamp,
-              level: b.level,
-              type: b.type,
-            );
-          }).toList(),
-        );
-        return sanitized;
-      };
-    },
-    appRunner: () async {
-      // Catch Flutter framework errors
-      FlutterError.onError = (details) {
-        FlutterError.presentError(details);
+  // Sentry crash reporting is opt-in for privacy. User enables in Settings → About.
+  final prefsForSentry = await SharedPreferences.getInstance();
+  final sentryEnabled = prefsForSentry.getBool('sentry_opt_in') ?? false;
+
+  Future<void> appMain() async {
+    // Catch Flutter framework errors
+    FlutterError.onError = (details) {
+      FlutterError.presentError(details);
+      if (sentryEnabled) {
         Sentry.captureException(details.exception, stackTrace: details.stack);
-      };
+      }
+    };
 
       final prefs = await SharedPreferences.getInstance();
       // Clear legacy auto-saved theme keys so new design defaults apply cleanly.
@@ -131,8 +113,31 @@ Future<void> main() async {
           ),
         ),
       );
-    },
-  );
+  }
+
+  if (sentryEnabled) {
+    await SentryFlutter.init(
+      (options) {
+        options.dsn = const String.fromEnvironment('SENTRY_DSN', defaultValue: '');
+        options.tracesSampleRate = 0.2;
+        options.environment = kDebugMode ? 'debug' : 'release';
+        options.sendDefaultPii = false;
+        options.attachScreenshot = false;
+        options.beforeSend = (event, hint) {
+          final sanitized = event.copyWith(
+            breadcrumbs: event.breadcrumbs?.map((b) => Breadcrumb(
+              message: b.message, category: b.category,
+              timestamp: b.timestamp, level: b.level, type: b.type,
+            )).toList(),
+          );
+          return sanitized;
+        };
+      },
+      appRunner: () => appMain(),
+    );
+  } else {
+    await appMain();
+  }
 }
 
 class PulseApp extends StatefulWidget {

@@ -8,6 +8,7 @@ import '../models/contact.dart';
 import '../models/message.dart';
 import '../services/media_service.dart';
 import '../theme/app_theme.dart';
+import '../l10n/l10n_ext.dart';
 import 'image_viewer_screen.dart';
 
 class MediaGalleryScreen extends StatelessWidget {
@@ -16,8 +17,11 @@ class MediaGalleryScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Select on message count so we only rebuild when messages change for this contact.
+    context.select<ChatController, int>(
+        (c) => c.getRoomForContact(contact.id)?.messages.length ?? 0);
     final messages =
-        context.watch<ChatController>().getRoomForContact(contact.id)?.messages ?? [];
+        context.read<ChatController>().getRoomForContact(contact.id)?.messages ?? [];
 
     final images = <Message>[];
     final files = <Message>[];
@@ -42,7 +46,7 @@ class MediaGalleryScreen extends StatelessWidget {
           backgroundColor: AppTheme.surface,
           elevation: 0,
           iconTheme: IconThemeData(color: AppTheme.textSecondary),
-          title: Text('Media',
+          title: Text(context.l10n.mediaTitle,
               style: GoogleFonts.inter(
                   color: AppTheme.textPrimary, fontWeight: FontWeight.w700)),
           bottom: TabBar(
@@ -51,8 +55,8 @@ class MediaGalleryScreen extends StatelessWidget {
             unselectedLabelColor: AppTheme.textSecondary,
             labelStyle: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 13),
             tabs: [
-              Tab(text: 'Photos (${images.length})'),
-              Tab(text: 'Files (${files.length})'),
+              Tab(text: context.l10n.mediaPhotosTab(images.length)),
+              Tab(text: context.l10n.mediaFilesTab(files.length)),
             ],
           ),
         ),
@@ -79,7 +83,7 @@ class _PhotosGrid extends StatelessWidget {
           Icon(Icons.photo_library_outlined,
               size: 56, color: AppTheme.textSecondary.withValues(alpha: 0.25)),
           const SizedBox(height: 14),
-          Text('No photos yet',
+          Text(context.l10n.mediaNoPhotos,
               style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: 14)),
         ]),
       );
@@ -129,7 +133,7 @@ class _FilesList extends StatelessWidget {
           Icon(Icons.folder_open_rounded,
               size: 56, color: AppTheme.textSecondary.withValues(alpha: 0.25)),
           const SizedBox(height: 14),
-          Text('No files yet',
+          Text(context.l10n.mediaNoFiles,
               style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: 14)),
         ]),
       );
@@ -182,7 +186,7 @@ class _FilesList extends StatelessWidget {
           ),
           trailing: IconButton(
             icon: Icon(Icons.download_rounded, color: AppTheme.textSecondary),
-            tooltip: 'Save',
+            tooltip: context.l10n.save,
             onPressed: () => _saveFile(ctx, media),
           ),
         );
@@ -206,7 +210,7 @@ class _FilesList extends StatelessWidget {
       if (ctx.mounted) {
         ScaffoldMessenger.of(ctx).showSnackBar(
           SnackBar(
-            content: Text('Saved to Downloads/${media.name}'),
+            content: Text(ctx.l10n.mediaSavedToDownloads(media.name)),
             duration: const Duration(seconds: 2),
           ),
         );
@@ -214,7 +218,7 @@ class _FilesList extends StatelessWidget {
     } catch (_) {
       if (ctx.mounted) {
         ScaffoldMessenger.of(ctx).showSnackBar(
-          const SnackBar(content: Text('Failed to save file')),
+          SnackBar(content: Text(ctx.l10n.mediaFailedToSave)),
         );
       }
     }

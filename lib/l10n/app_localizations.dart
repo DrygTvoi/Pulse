@@ -140,6 +140,78 @@ abstract class AppLocalizations {
   /// **'Back'**
   String get back;
 
+  /// No description provided for @cancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get cancel;
+
+  /// No description provided for @close.
+  ///
+  /// In en, this message translates to:
+  /// **'Close'**
+  String get close;
+
+  /// No description provided for @confirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm'**
+  String get confirm;
+
+  /// No description provided for @remove.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove'**
+  String get remove;
+
+  /// No description provided for @save.
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get save;
+
+  /// No description provided for @add.
+  ///
+  /// In en, this message translates to:
+  /// **'Add'**
+  String get add;
+
+  /// No description provided for @copy.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy'**
+  String get copy;
+
+  /// No description provided for @skip.
+  ///
+  /// In en, this message translates to:
+  /// **'Skip'**
+  String get skip;
+
+  /// No description provided for @done.
+  ///
+  /// In en, this message translates to:
+  /// **'Done'**
+  String get done;
+
+  /// No description provided for @apply.
+  ///
+  /// In en, this message translates to:
+  /// **'Apply'**
+  String get apply;
+
+  /// No description provided for @export.
+  ///
+  /// In en, this message translates to:
+  /// **'Export'**
+  String get export;
+
+  /// No description provided for @import.
+  ///
+  /// In en, this message translates to:
+  /// **'Import'**
+  String get import;
+
   /// No description provided for @homeNewGroup.
   ///
   /// In en, this message translates to:
@@ -199,6 +271,84 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Load earlier messages'**
   String get homeLoadEarlier;
+
+  /// No description provided for @homeChats.
+  ///
+  /// In en, this message translates to:
+  /// **'Chats'**
+  String get homeChats;
+
+  /// No description provided for @homeSelectConversation.
+  ///
+  /// In en, this message translates to:
+  /// **'Select a conversation'**
+  String get homeSelectConversation;
+
+  /// No description provided for @homeNoChatsYet.
+  ///
+  /// In en, this message translates to:
+  /// **'No chats yet'**
+  String get homeNoChatsYet;
+
+  /// No description provided for @homeAddContactToStart.
+  ///
+  /// In en, this message translates to:
+  /// **'Add a contact to start chatting'**
+  String get homeAddContactToStart;
+
+  /// No description provided for @homeNewChat.
+  ///
+  /// In en, this message translates to:
+  /// **'New Chat'**
+  String get homeNewChat;
+
+  /// No description provided for @homeNewChatTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'New chat'**
+  String get homeNewChatTooltip;
+
+  /// No description provided for @homeIncomingCallTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Incoming Call'**
+  String get homeIncomingCallTitle;
+
+  /// No description provided for @homeIncomingGroupCallTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Incoming Group Call'**
+  String get homeIncomingGroupCallTitle;
+
+  /// No description provided for @homeGroupCallIncoming.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} — group call incoming'**
+  String homeGroupCallIncoming(String name);
+
+  /// No description provided for @homeNoChatsMatchingQuery.
+  ///
+  /// In en, this message translates to:
+  /// **'No chats matching \"{query}\"'**
+  String homeNoChatsMatchingQuery(String query);
+
+  /// No description provided for @homeSectionChats.
+  ///
+  /// In en, this message translates to:
+  /// **'Chats'**
+  String get homeSectionChats;
+
+  /// No description provided for @homeSectionMessages.
+  ///
+  /// In en, this message translates to:
+  /// **'Messages'**
+  String get homeSectionMessages;
+
+  /// No description provided for @homeDbEncryptionUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Database encryption unavailable — install SQLCipher for full protection'**
+  String get homeDbEncryptionUnavailable;
 
   /// No description provided for @chatFileTooLargeGroup.
   ///
@@ -271,6 +421,48 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'You'**
   String get chatYou;
+
+  /// No description provided for @chatLargeFileSizeWarning.
+  ///
+  /// In en, this message translates to:
+  /// **'This file is {size} MB. Sending large files may be slow on some networks. Continue?'**
+  String chatLargeFileSizeWarning(String size);
+
+  /// No description provided for @chatKeyChangedSnackbar.
+  ///
+  /// In en, this message translates to:
+  /// **'{name}\'s security key changed. Tap to verify.'**
+  String chatKeyChangedSnackbar(String name);
+
+  /// No description provided for @chatEncryptionFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not encrypt message to {name} — message not sent.'**
+  String chatEncryptionFailed(String name);
+
+  /// No description provided for @chatSafetyNumberChanged.
+  ///
+  /// In en, this message translates to:
+  /// **'Safety number changed for {name}. Tap to verify.'**
+  String chatSafetyNumberChanged(String name);
+
+  /// No description provided for @chatNoMessagesFound.
+  ///
+  /// In en, this message translates to:
+  /// **'No messages found'**
+  String get chatNoMessagesFound;
+
+  /// No description provided for @chatMessagesE2ee.
+  ///
+  /// In en, this message translates to:
+  /// **'Messages are end-to-end encrypted'**
+  String get chatMessagesE2ee;
+
+  /// No description provided for @chatSayHello.
+  ///
+  /// In en, this message translates to:
+  /// **'Say hello'**
+  String get chatSayHello;
 
   /// No description provided for @appBarOnline.
   ///
@@ -572,6 +764,72 @@ abstract class AppLocalizations {
   /// **'Relay mode active (restricted network)'**
   String get callRelayMode;
 
+  /// No description provided for @callStarting.
+  ///
+  /// In en, this message translates to:
+  /// **'Starting call…'**
+  String get callStarting;
+
+  /// No description provided for @callConnectingToGroup.
+  ///
+  /// In en, this message translates to:
+  /// **'Connecting to group…'**
+  String get callConnectingToGroup;
+
+  /// No description provided for @callGroupOpenedInBrowser.
+  ///
+  /// In en, this message translates to:
+  /// **'Group call opened in browser'**
+  String get callGroupOpenedInBrowser;
+
+  /// No description provided for @callCouldNotOpenBrowser.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not open browser'**
+  String get callCouldNotOpenBrowser;
+
+  /// No description provided for @callInviteLinkSent.
+  ///
+  /// In en, this message translates to:
+  /// **'Invite link sent to all group members.'**
+  String get callInviteLinkSent;
+
+  /// No description provided for @callOpenLinkManually.
+  ///
+  /// In en, this message translates to:
+  /// **'Open the link above manually or tap to retry.'**
+  String get callOpenLinkManually;
+
+  /// No description provided for @callJitsiNotE2ee.
+  ///
+  /// In en, this message translates to:
+  /// **'Jitsi calls are NOT end-to-end encrypted'**
+  String get callJitsiNotE2ee;
+
+  /// No description provided for @callRetryOpenBrowser.
+  ///
+  /// In en, this message translates to:
+  /// **'Retry open browser'**
+  String get callRetryOpenBrowser;
+
+  /// No description provided for @callClose.
+  ///
+  /// In en, this message translates to:
+  /// **'Close'**
+  String get callClose;
+
+  /// No description provided for @callCamOn.
+  ///
+  /// In en, this message translates to:
+  /// **'Cam on'**
+  String get callCamOn;
+
+  /// No description provided for @callCamOff.
+  ///
+  /// In en, this message translates to:
+  /// **'Cam off'**
+  String get callCamOff;
+
   /// No description provided for @noConnection.
   ///
   /// In en, this message translates to:
@@ -596,6 +854,54 @@ abstract class AppLocalizations {
   /// **'Disconnected'**
   String get disconnected;
 
+  /// No description provided for @offlineBanner.
+  ///
+  /// In en, this message translates to:
+  /// **'No connection — messages will queue and send when back online'**
+  String get offlineBanner;
+
+  /// No description provided for @lanModeBanner.
+  ///
+  /// In en, this message translates to:
+  /// **'LAN Mode — No internet · Local network only'**
+  String get lanModeBanner;
+
+  /// No description provided for @probeCheckingNetwork.
+  ///
+  /// In en, this message translates to:
+  /// **'Checking network connectivity…'**
+  String get probeCheckingNetwork;
+
+  /// No description provided for @probeDiscoveringRelays.
+  ///
+  /// In en, this message translates to:
+  /// **'Discovering relays via community directories…'**
+  String get probeDiscoveringRelays;
+
+  /// No description provided for @probeStartingTor.
+  ///
+  /// In en, this message translates to:
+  /// **'Starting Tor for bootstrap…'**
+  String get probeStartingTor;
+
+  /// No description provided for @probeFindingRelaysTor.
+  ///
+  /// In en, this message translates to:
+  /// **'Finding reachable relays via Tor…'**
+  String get probeFindingRelaysTor;
+
+  /// No description provided for @probeNetworkReady.
+  ///
+  /// In en, this message translates to:
+  /// **'Network ready — {count} relay{count, plural, =1{} other{s}} found'**
+  String probeNetworkReady(int count);
+
+  /// No description provided for @probeNoRelaysFound.
+  ///
+  /// In en, this message translates to:
+  /// **'No reachable relays found — messages may be delayed'**
+  String get probeNoRelaysFound;
+
   /// No description provided for @jitsiWarningTitle.
   ///
   /// In en, this message translates to:
@@ -614,11 +920,1799 @@ abstract class AppLocalizations {
   /// **'Join anyway'**
   String get jitsiConfirm;
 
+  /// No description provided for @jitsiGroupWarningTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Not end-to-end encrypted'**
+  String get jitsiGroupWarningTitle;
+
+  /// No description provided for @jitsiGroupWarningBody.
+  ///
+  /// In en, this message translates to:
+  /// **'This call has too many participants for the built-in encrypted mesh.\n\nA Jitsi Meet link will be opened in your browser. Jitsi is NOT end-to-end encrypted — the server can see your call.'**
+  String get jitsiGroupWarningBody;
+
+  /// No description provided for @jitsiContinueAnyway.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue anyway'**
+  String get jitsiContinueAnyway;
+
   /// No description provided for @retry.
   ///
   /// In en, this message translates to:
   /// **'Retry'**
   String get retry;
+
+  /// No description provided for @setupCreateAnonymousAccount.
+  ///
+  /// In en, this message translates to:
+  /// **'Create an anonymous account'**
+  String get setupCreateAnonymousAccount;
+
+  /// No description provided for @setupTapToChangeColor.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap to change color'**
+  String get setupTapToChangeColor;
+
+  /// No description provided for @setupYourNickname.
+  ///
+  /// In en, this message translates to:
+  /// **'Your nickname'**
+  String get setupYourNickname;
+
+  /// No description provided for @setupRecoveryPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Recovery password (min. 16)'**
+  String get setupRecoveryPassword;
+
+  /// No description provided for @setupConfirmPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm password'**
+  String get setupConfirmPassword;
+
+  /// No description provided for @setupMin16Chars.
+  ///
+  /// In en, this message translates to:
+  /// **'Minimum 16 characters'**
+  String get setupMin16Chars;
+
+  /// No description provided for @setupPasswordsDoNotMatch.
+  ///
+  /// In en, this message translates to:
+  /// **'Passwords do not match'**
+  String get setupPasswordsDoNotMatch;
+
+  /// No description provided for @setupEntropyWeak.
+  ///
+  /// In en, this message translates to:
+  /// **'Weak'**
+  String get setupEntropyWeak;
+
+  /// No description provided for @setupEntropyOk.
+  ///
+  /// In en, this message translates to:
+  /// **'OK'**
+  String get setupEntropyOk;
+
+  /// No description provided for @setupEntropyStrong.
+  ///
+  /// In en, this message translates to:
+  /// **'Strong'**
+  String get setupEntropyStrong;
+
+  /// No description provided for @setupEntropyWeakNeedsVariety.
+  ///
+  /// In en, this message translates to:
+  /// **'Weak (need 3 char types)'**
+  String get setupEntropyWeakNeedsVariety;
+
+  /// No description provided for @setupEntropyBits.
+  ///
+  /// In en, this message translates to:
+  /// **'{label} ({bits} bits)'**
+  String setupEntropyBits(String label, int bits);
+
+  /// No description provided for @setupPasswordWarning.
+  ///
+  /// In en, this message translates to:
+  /// **'This password is the only way to restore your account. There is no server — no password reset. Remember it or write it down.'**
+  String get setupPasswordWarning;
+
+  /// No description provided for @setupCreateAccount.
+  ///
+  /// In en, this message translates to:
+  /// **'Create account'**
+  String get setupCreateAccount;
+
+  /// No description provided for @setupAlreadyHaveAccount.
+  ///
+  /// In en, this message translates to:
+  /// **'Already have an account? '**
+  String get setupAlreadyHaveAccount;
+
+  /// No description provided for @setupRestore.
+  ///
+  /// In en, this message translates to:
+  /// **'Restore →'**
+  String get setupRestore;
+
+  /// No description provided for @restoreTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Restore account'**
+  String get restoreTitle;
+
+  /// No description provided for @restoreInfoBanner.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter your recovery password — your address (Nostr + Session) will be restored automatically. Contacts and messages were stored locally only.'**
+  String get restoreInfoBanner;
+
+  /// No description provided for @restoreNewNickname.
+  ///
+  /// In en, this message translates to:
+  /// **'New nickname (can change later)'**
+  String get restoreNewNickname;
+
+  /// No description provided for @restoreButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Restore account'**
+  String get restoreButton;
+
+  /// No description provided for @lockTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Pulse is locked'**
+  String get lockTitle;
+
+  /// No description provided for @lockSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter your password to continue'**
+  String get lockSubtitle;
+
+  /// No description provided for @lockPasswordHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Password'**
+  String get lockPasswordHint;
+
+  /// No description provided for @lockUnlock.
+  ///
+  /// In en, this message translates to:
+  /// **'Unlock'**
+  String get lockUnlock;
+
+  /// No description provided for @lockPanicHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Forgot your password? Enter your panic key to wipe all data.'**
+  String get lockPanicHint;
+
+  /// No description provided for @lockTooManyAttempts.
+  ///
+  /// In en, this message translates to:
+  /// **'Too many attempts. Erasing all data…'**
+  String get lockTooManyAttempts;
+
+  /// No description provided for @lockWrongPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Wrong password'**
+  String get lockWrongPassword;
+
+  /// No description provided for @lockWrongPasswordAttempts.
+  ///
+  /// In en, this message translates to:
+  /// **'Wrong password — {attempts}/{max} attempts'**
+  String lockWrongPasswordAttempts(int attempts, int max);
+
+  /// No description provided for @onboardingSkip.
+  ///
+  /// In en, this message translates to:
+  /// **'Skip'**
+  String get onboardingSkip;
+
+  /// No description provided for @onboardingNext.
+  ///
+  /// In en, this message translates to:
+  /// **'Next'**
+  String get onboardingNext;
+
+  /// No description provided for @onboardingGetStarted.
+  ///
+  /// In en, this message translates to:
+  /// **'Get Started'**
+  String get onboardingGetStarted;
+
+  /// No description provided for @onboardingWelcomeTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Welcome to Pulse'**
+  String get onboardingWelcomeTitle;
+
+  /// No description provided for @onboardingWelcomeBody.
+  ///
+  /// In en, this message translates to:
+  /// **'A decentralized, end-to-end encrypted messenger.\n\nNo central servers. No data collection. No backdoors.\nYour conversations belong only to you.'**
+  String get onboardingWelcomeBody;
+
+  /// No description provided for @onboardingTransportTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Transport-Agnostic'**
+  String get onboardingTransportTitle;
+
+  /// No description provided for @onboardingTransportBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Use Firebase, Nostr, or both at the same time.\n\nMessages route across networks automatically. Built-in Tor and I2P support for censorship resistance.'**
+  String get onboardingTransportBody;
+
+  /// No description provided for @onboardingSignalTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Signal + Post-Quantum'**
+  String get onboardingSignalTitle;
+
+  /// No description provided for @onboardingSignalBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Every message is encrypted with the Signal Protocol (Double Ratchet + X3DH) for forward secrecy.\n\nAdditionally wrapped with Kyber-1024 — a NIST-standard post-quantum algorithm — protecting against future quantum computers.'**
+  String get onboardingSignalBody;
+
+  /// No description provided for @onboardingKeysTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'You Own Your Keys'**
+  String get onboardingKeysTitle;
+
+  /// No description provided for @onboardingKeysBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Your identity keys never leave your device.\n\nSignal fingerprints let you verify contacts out-of-band. TOFU (Trust On First Use) detects key changes automatically.'**
+  String get onboardingKeysBody;
+
+  /// No description provided for @onboardingThemeTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose Your Look'**
+  String get onboardingThemeTitle;
+
+  /// No description provided for @onboardingThemeBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Pick a theme and accent colour. You can always change this later in Settings.'**
+  String get onboardingThemeBody;
+
+  /// No description provided for @contactsNewChat.
+  ///
+  /// In en, this message translates to:
+  /// **'New chat'**
+  String get contactsNewChat;
+
+  /// No description provided for @contactsAddContact.
+  ///
+  /// In en, this message translates to:
+  /// **'Add contact'**
+  String get contactsAddContact;
+
+  /// No description provided for @contactsSearchHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search...'**
+  String get contactsSearchHint;
+
+  /// No description provided for @contactsNewGroup.
+  ///
+  /// In en, this message translates to:
+  /// **'New group'**
+  String get contactsNewGroup;
+
+  /// No description provided for @contactsNoContactsYet.
+  ///
+  /// In en, this message translates to:
+  /// **'No contacts yet'**
+  String get contactsNoContactsYet;
+
+  /// No description provided for @contactsAddHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap + to add someone\'s address'**
+  String get contactsAddHint;
+
+  /// No description provided for @contactsNoMatch.
+  ///
+  /// In en, this message translates to:
+  /// **'No contacts match'**
+  String get contactsNoMatch;
+
+  /// No description provided for @contactsRemoveTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove contact'**
+  String get contactsRemoveTitle;
+
+  /// No description provided for @contactsRemoveMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove {name}?'**
+  String contactsRemoveMessage(String name);
+
+  /// No description provided for @contactsRemove.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove'**
+  String get contactsRemove;
+
+  /// No description provided for @contactsCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} contact{count, plural, =1{} other{s}}'**
+  String contactsCount(int count);
+
+  /// No description provided for @bubbleOpenLink.
+  ///
+  /// In en, this message translates to:
+  /// **'Open Link'**
+  String get bubbleOpenLink;
+
+  /// No description provided for @bubbleOpenLinkBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Open this URL in your browser?\n\n{url}'**
+  String bubbleOpenLinkBody(String url);
+
+  /// No description provided for @bubbleOpen.
+  ///
+  /// In en, this message translates to:
+  /// **'Open'**
+  String get bubbleOpen;
+
+  /// No description provided for @bubbleSecurityWarning.
+  ///
+  /// In en, this message translates to:
+  /// **'Security Warning'**
+  String get bubbleSecurityWarning;
+
+  /// No description provided for @bubbleExecutableWarning.
+  ///
+  /// In en, this message translates to:
+  /// **'\"{name}\" is an executable file type. Saving and running it could harm your device. Save anyway?'**
+  String bubbleExecutableWarning(String name);
+
+  /// No description provided for @bubbleSaveAnyway.
+  ///
+  /// In en, this message translates to:
+  /// **'Save Anyway'**
+  String get bubbleSaveAnyway;
+
+  /// No description provided for @bubbleSavedTo.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved to {path}'**
+  String bubbleSavedTo(String path);
+
+  /// No description provided for @bubbleSaveFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Save failed: {error}'**
+  String bubbleSaveFailed(String error);
+
+  /// No description provided for @bubbleNotEncrypted.
+  ///
+  /// In en, this message translates to:
+  /// **'NOT ENCRYPTED'**
+  String get bubbleNotEncrypted;
+
+  /// No description provided for @bubbleCorruptedImage.
+  ///
+  /// In en, this message translates to:
+  /// **'[Corrupted image]'**
+  String get bubbleCorruptedImage;
+
+  /// No description provided for @bubbleReplyPhoto.
+  ///
+  /// In en, this message translates to:
+  /// **'Photo'**
+  String get bubbleReplyPhoto;
+
+  /// No description provided for @bubbleReplyVoice.
+  ///
+  /// In en, this message translates to:
+  /// **'Voice message'**
+  String get bubbleReplyVoice;
+
+  /// No description provided for @bubbleReadBy.
+  ///
+  /// In en, this message translates to:
+  /// **'Read by {names}'**
+  String bubbleReadBy(String names);
+
+  /// No description provided for @bubbleReadByCount.
+  ///
+  /// In en, this message translates to:
+  /// **'Read by {count}'**
+  String bubbleReadByCount(int count);
+
+  /// No description provided for @chatTileTapToStart.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap to start chatting'**
+  String get chatTileTapToStart;
+
+  /// No description provided for @chatTileMessageSent.
+  ///
+  /// In en, this message translates to:
+  /// **'Message sent'**
+  String get chatTileMessageSent;
+
+  /// No description provided for @chatTileEncryptedMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Encrypted message'**
+  String get chatTileEncryptedMessage;
+
+  /// No description provided for @chatTileYouPrefix.
+  ///
+  /// In en, this message translates to:
+  /// **'You: {text}'**
+  String chatTileYouPrefix(String text);
+
+  /// No description provided for @bannerEncryptedMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Encrypted message'**
+  String get bannerEncryptedMessage;
+
+  /// Title for the create group dialog
+  ///
+  /// In en, this message translates to:
+  /// **'New Group'**
+  String get groupNewGroup;
+
+  /// Hint text for group name input
+  ///
+  /// In en, this message translates to:
+  /// **'Group name'**
+  String get groupGroupName;
+
+  /// Label above member selection list
+  ///
+  /// In en, this message translates to:
+  /// **'Select members (min 2)'**
+  String get groupSelectMembers;
+
+  /// Shown when no contacts available for group creation
+  ///
+  /// In en, this message translates to:
+  /// **'No contacts yet. Add contacts first.'**
+  String get groupNoContactsYet;
+
+  /// Create group button text
+  ///
+  /// In en, this message translates to:
+  /// **'Create'**
+  String get groupCreate;
+
+  /// Badge label for group contacts
+  ///
+  /// In en, this message translates to:
+  /// **'Group'**
+  String get groupLabel;
+
+  /// Title for the verify identity dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Verify Identity'**
+  String get profileVerifyIdentity;
+
+  /// Instructions in the verify identity dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Compare these fingerprints with {name} over a voice call or in person. If both values match on both devices, tap \"Mark as Verified\".'**
+  String profileVerifyInstructions(String name);
+
+  /// Label for contact's fingerprint
+  ///
+  /// In en, this message translates to:
+  /// **'Their key'**
+  String get profileTheirKey;
+
+  /// Label for own fingerprint
+  ///
+  /// In en, this message translates to:
+  /// **'Your key'**
+  String get profileYourKey;
+
+  /// Button to remove identity verification
+  ///
+  /// In en, this message translates to:
+  /// **'Remove Verification'**
+  String get profileRemoveVerification;
+
+  /// Button to mark identity as verified
+  ///
+  /// In en, this message translates to:
+  /// **'Mark as Verified'**
+  String get profileMarkAsVerified;
+
+  /// Snackbar text when address is copied
+  ///
+  /// In en, this message translates to:
+  /// **'Address copied'**
+  String get profileAddressCopied;
+
+  /// Snackbar when all contacts are already group members
+  ///
+  /// In en, this message translates to:
+  /// **'No contacts to add — all are already members'**
+  String get profileNoContactsToAdd;
+
+  /// Title for the add members bottom sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Add Members'**
+  String get profileAddMembers;
+
+  /// Button text for adding selected members
+  ///
+  /// In en, this message translates to:
+  /// **'Add ({count})'**
+  String profileAddCount(int count);
+
+  /// Title for the rename group dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Rename Group'**
+  String get profileRenameGroup;
+
+  /// Rename button text
+  ///
+  /// In en, this message translates to:
+  /// **'Rename'**
+  String get profileRename;
+
+  /// Title for the kick member confirmation dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Remove member?'**
+  String get profileRemoveMember;
+
+  /// Body for the kick member confirmation dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Remove {name} from this group?'**
+  String profileRemoveMemberBody(String name);
+
+  /// Button to remove a member from group
+  ///
+  /// In en, this message translates to:
+  /// **'Kick'**
+  String get profileKick;
+
+  /// Label for Signal fingerprints section
+  ///
+  /// In en, this message translates to:
+  /// **'Signal Fingerprints'**
+  String get profileSignalFingerprints;
+
+  /// Badge text for verified identity
+  ///
+  /// In en, this message translates to:
+  /// **'VERIFIED'**
+  String get profileVerified;
+
+  /// Button to open verify dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Verify'**
+  String get profileVerify;
+
+  /// Button to edit verification
+  ///
+  /// In en, this message translates to:
+  /// **'Edit'**
+  String get profileEdit;
+
+  /// Shown when no Signal session exists
+  ///
+  /// In en, this message translates to:
+  /// **'No session established yet — send a message first.'**
+  String get profileNoSession;
+
+  /// Snackbar when fingerprint is copied
+  ///
+  /// In en, this message translates to:
+  /// **'Fingerprint copied'**
+  String get profileFingerprintCopied;
+
+  /// Shows the number of group members
+  ///
+  /// In en, this message translates to:
+  /// **'{count} member{count, plural, =1{} other{s}}'**
+  String profileMemberCount(int count);
+
+  /// Button to verify safety number
+  ///
+  /// In en, this message translates to:
+  /// **'Verify Safety Number'**
+  String get profileVerifySafetyNumber;
+
+  /// Button to show contact QR code
+  ///
+  /// In en, this message translates to:
+  /// **'Show Contact QR'**
+  String get profileShowContactQr;
+
+  /// QR dialog title showing contact address
+  ///
+  /// In en, this message translates to:
+  /// **'{name}\'s Address'**
+  String profileContactAddress(String name);
+
+  /// Button to export chat history
+  ///
+  /// In en, this message translates to:
+  /// **'Export Chat History'**
+  String get profileExportChatHistory;
+
+  /// Snackbar text after successful export
+  ///
+  /// In en, this message translates to:
+  /// **'Saved to {path}'**
+  String profileSavedTo(String path);
+
+  /// Snackbar text when export fails
+  ///
+  /// In en, this message translates to:
+  /// **'Export failed'**
+  String get profileExportFailed;
+
+  /// Button to clear chat history
+  ///
+  /// In en, this message translates to:
+  /// **'Clear chat history'**
+  String get profileClearChatHistory;
+
+  /// Button to delete a group
+  ///
+  /// In en, this message translates to:
+  /// **'Delete group'**
+  String get profileDeleteGroup;
+
+  /// Button to delete a contact
+  ///
+  /// In en, this message translates to:
+  /// **'Delete contact'**
+  String get profileDeleteContact;
+
+  /// Title for the device transfer screen
+  ///
+  /// In en, this message translates to:
+  /// **'Transfer to Another Device'**
+  String get transferTitle;
+
+  /// Info box explaining transfer
+  ///
+  /// In en, this message translates to:
+  /// **'Move your Signal identity and Nostr keys to a new device.\nChat sessions are NOT transferred — forward secrecy is preserved.'**
+  String get transferInfoBox;
+
+  /// Role card title for sender
+  ///
+  /// In en, this message translates to:
+  /// **'Send from this device'**
+  String get transferSendFromThis;
+
+  /// Role card subtitle for sender
+  ///
+  /// In en, this message translates to:
+  /// **'This device has the keys. Share a code with the new device.'**
+  String get transferSendSubtitle;
+
+  /// Role card title for receiver
+  ///
+  /// In en, this message translates to:
+  /// **'Receive on this device'**
+  String get transferReceiveOnThis;
+
+  /// Role card subtitle for receiver
+  ///
+  /// In en, this message translates to:
+  /// **'This is the new device. Enter the code from the old device.'**
+  String get transferReceiveSubtitle;
+
+  /// Section label for transfer method selection
+  ///
+  /// In en, this message translates to:
+  /// **'Choose Transfer Method'**
+  String get transferChooseMethod;
+
+  /// LAN transfer method title
+  ///
+  /// In en, this message translates to:
+  /// **'LAN (Same Network)'**
+  String get transferLan;
+
+  /// LAN transfer method subtitle
+  ///
+  /// In en, this message translates to:
+  /// **'Fast, direct. Both devices must be on the same Wi-Fi.'**
+  String get transferLanSubtitle;
+
+  /// Nostr relay transfer method title
+  ///
+  /// In en, this message translates to:
+  /// **'Nostr Relay'**
+  String get transferNostrRelay;
+
+  /// Nostr relay transfer subtitle
+  ///
+  /// In en, this message translates to:
+  /// **'Works over any network using an existing Nostr relay.'**
+  String get transferNostrRelaySubtitle;
+
+  /// Label for relay URL field
+  ///
+  /// In en, this message translates to:
+  /// **'Relay URL'**
+  String get transferRelayUrl;
+
+  /// Section label for receiver code input
+  ///
+  /// In en, this message translates to:
+  /// **'Enter Transfer Code'**
+  String get transferEnterCode;
+
+  /// Hint for code input field
+  ///
+  /// In en, this message translates to:
+  /// **'Paste the LAN:... or NOS:... code here'**
+  String get transferPasteCode;
+
+  /// Connect button text
+  ///
+  /// In en, this message translates to:
+  /// **'Connect'**
+  String get transferConnect;
+
+  /// Shown while generating transfer code
+  ///
+  /// In en, this message translates to:
+  /// **'Generating transfer code…'**
+  String get transferGenerating;
+
+  /// Label above the transfer code
+  ///
+  /// In en, this message translates to:
+  /// **'Share this code with the receiver:'**
+  String get transferShareCode;
+
+  /// Button to copy transfer code
+  ///
+  /// In en, this message translates to:
+  /// **'Copy Code'**
+  String get transferCopyCode;
+
+  /// Snackbar when code is copied
+  ///
+  /// In en, this message translates to:
+  /// **'Code copied to clipboard'**
+  String get transferCodeCopied;
+
+  /// Status while waiting for receiver
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting for receiver to connect…'**
+  String get transferWaitingReceiver;
+
+  /// Status while connecting to sender
+  ///
+  /// In en, this message translates to:
+  /// **'Connecting to sender…'**
+  String get transferConnectingSender;
+
+  /// Verification instructions
+  ///
+  /// In en, this message translates to:
+  /// **'Compare this code on both devices.\nIf they match, the transfer is secure.'**
+  String get transferVerifyBoth;
+
+  /// Title when transfer is done (sender)
+  ///
+  /// In en, this message translates to:
+  /// **'Transfer Complete'**
+  String get transferComplete;
+
+  /// Title when keys are imported (receiver)
+  ///
+  /// In en, this message translates to:
+  /// **'Keys Imported'**
+  String get transferKeysImported;
+
+  /// Body text for sender after transfer
+  ///
+  /// In en, this message translates to:
+  /// **'Your keys remain active on this device.\nThe receiver can now use your identity.'**
+  String get transferCompleteSenderBody;
+
+  /// Body text for receiver after transfer
+  ///
+  /// In en, this message translates to:
+  /// **'Keys imported successfully.\nRestart the app to apply the new identity.'**
+  String get transferCompleteReceiverBody;
+
+  /// Button to restart the app
+  ///
+  /// In en, this message translates to:
+  /// **'Restart App'**
+  String get transferRestartApp;
+
+  /// Title when transfer fails
+  ///
+  /// In en, this message translates to:
+  /// **'Transfer Failed'**
+  String get transferFailed;
+
+  /// Button to retry transfer
+  ///
+  /// In en, this message translates to:
+  /// **'Try Again'**
+  String get transferTryAgain;
+
+  /// Snackbar when relay URL is empty
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a relay URL first'**
+  String get transferEnterRelayFirst;
+
+  /// Snackbar when code field is empty
+  ///
+  /// In en, this message translates to:
+  /// **'Paste the transfer code from the sender'**
+  String get transferPasteCodeFromSender;
+
+  /// Message menu item to reply
+  ///
+  /// In en, this message translates to:
+  /// **'Reply'**
+  String get menuReply;
+
+  /// Message menu item to forward
+  ///
+  /// In en, this message translates to:
+  /// **'Forward'**
+  String get menuForward;
+
+  /// Message menu item to react
+  ///
+  /// In en, this message translates to:
+  /// **'React'**
+  String get menuReact;
+
+  /// Message menu item to copy
+  ///
+  /// In en, this message translates to:
+  /// **'Copy'**
+  String get menuCopy;
+
+  /// Message menu item to edit
+  ///
+  /// In en, this message translates to:
+  /// **'Edit'**
+  String get menuEdit;
+
+  /// Message menu item to retry sending
+  ///
+  /// In en, this message translates to:
+  /// **'Retry'**
+  String get menuRetry;
+
+  /// Message menu item to cancel scheduled message
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel scheduled'**
+  String get menuCancelScheduled;
+
+  /// Message menu item to delete
+  ///
+  /// In en, this message translates to:
+  /// **'Delete'**
+  String get menuDelete;
+
+  /// Title for forward picker sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Forward to…'**
+  String get menuForwardTo;
+
+  /// Snackbar after forwarding a message
+  ///
+  /// In en, this message translates to:
+  /// **'Forwarded to {name}'**
+  String menuForwardedTo(String name);
+
+  /// Title for the scheduled messages panel
+  ///
+  /// In en, this message translates to:
+  /// **'Scheduled messages'**
+  String get menuScheduledMessages;
+
+  /// Shown when no scheduled messages exist
+  ///
+  /// In en, this message translates to:
+  /// **'No scheduled messages'**
+  String get menuNoScheduledMessages;
+
+  /// Subtitle showing scheduled send time
+  ///
+  /// In en, this message translates to:
+  /// **'Sends on {date}'**
+  String menuSendsOn(String date);
+
+  /// Title for disappearing messages dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Disappearing Messages'**
+  String get menuDisappearingMessages;
+
+  /// Subtitle for disappearing messages dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Messages delete automatically after the selected time.'**
+  String get menuDisappearingSubtitle;
+
+  /// TTL option: disabled
+  ///
+  /// In en, this message translates to:
+  /// **'Off'**
+  String get menuTtlOff;
+
+  /// TTL option: 1 hour
+  ///
+  /// In en, this message translates to:
+  /// **'1 hour'**
+  String get menuTtl1h;
+
+  /// TTL option: 24 hours
+  ///
+  /// In en, this message translates to:
+  /// **'24 hours'**
+  String get menuTtl24h;
+
+  /// TTL option: 7 days
+  ///
+  /// In en, this message translates to:
+  /// **'7 days'**
+  String get menuTtl7d;
+
+  /// Attach menu photo option
+  ///
+  /// In en, this message translates to:
+  /// **'Photo'**
+  String get menuAttachPhoto;
+
+  /// Attach menu file option
+  ///
+  /// In en, this message translates to:
+  /// **'File'**
+  String get menuAttachFile;
+
+  /// Title for media gallery screen
+  ///
+  /// In en, this message translates to:
+  /// **'Media'**
+  String get mediaTitle;
+
+  /// Tab label for photos with count
+  ///
+  /// In en, this message translates to:
+  /// **'Photos ({count})'**
+  String mediaPhotosTab(int count);
+
+  /// Tab label for files with count
+  ///
+  /// In en, this message translates to:
+  /// **'Files ({count})'**
+  String mediaFilesTab(int count);
+
+  /// Empty state for photos tab
+  ///
+  /// In en, this message translates to:
+  /// **'No photos yet'**
+  String get mediaNoPhotos;
+
+  /// Empty state for files tab
+  ///
+  /// In en, this message translates to:
+  /// **'No files yet'**
+  String get mediaNoFiles;
+
+  /// Snackbar after saving a file
+  ///
+  /// In en, this message translates to:
+  /// **'Saved to Downloads/{name}'**
+  String mediaSavedToDownloads(String name);
+
+  /// Snackbar when file save fails
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to save file'**
+  String get mediaFailedToSave;
+
+  /// Title for status creator screen
+  ///
+  /// In en, this message translates to:
+  /// **'New Status'**
+  String get statusNewStatus;
+
+  /// Button to publish a status
+  ///
+  /// In en, this message translates to:
+  /// **'Publish'**
+  String get statusPublish;
+
+  /// Info text about status expiry
+  ///
+  /// In en, this message translates to:
+  /// **'Status expires in 24 hours'**
+  String get statusExpiresIn24h;
+
+  /// Hint text for status text input
+  ///
+  /// In en, this message translates to:
+  /// **'What\'s on your mind?'**
+  String get statusWhatsOnYourMind;
+
+  /// Label when photo is attached to status
+  ///
+  /// In en, this message translates to:
+  /// **'Photo attached'**
+  String get statusPhotoAttached;
+
+  /// Button to attach photo to status
+  ///
+  /// In en, this message translates to:
+  /// **'Attach photo (optional)'**
+  String get statusAttachPhoto;
+
+  /// Validation message when status text is empty
+  ///
+  /// In en, this message translates to:
+  /// **'Please enter some text for your status.'**
+  String get statusEnterText;
+
+  /// Title and button for panic key setup
+  ///
+  /// In en, this message translates to:
+  /// **'Set Panic Key'**
+  String get panicSetPanicKey;
+
+  /// Subtitle for panic key dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Emergency self-destruct'**
+  String get panicEmergencySelfDestruct;
+
+  /// Warning label in panic key dialog
+  ///
+  /// In en, this message translates to:
+  /// **'This action is irreversible'**
+  String get panicIrreversible;
+
+  /// Warning body text in panic key dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Entering this key at the lock screen instantly wipes ALL data — messages, contacts, keys, identity. Use a key different from your regular password.'**
+  String get panicWarningBody;
+
+  /// Hint for panic key input field
+  ///
+  /// In en, this message translates to:
+  /// **'Panic key'**
+  String get panicKeyHint;
+
+  /// Hint for panic key confirmation field
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm panic key'**
+  String get panicConfirmHint;
+
+  /// Validation: key too short
+  ///
+  /// In en, this message translates to:
+  /// **'Panic key must be at least 4 characters'**
+  String get panicMinChars;
+
+  /// Validation: keys don't match
+  ///
+  /// In en, this message translates to:
+  /// **'Keys do not match'**
+  String get panicKeysDoNotMatch;
+
+  /// Title for password setup dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Set App Password'**
+  String get passwordSetAppPassword;
+
+  /// Subtitle for password setup
+  ///
+  /// In en, this message translates to:
+  /// **'Protects your messages at rest'**
+  String get passwordProtectsMessages;
+
+  /// Info banner in password setup
+  ///
+  /// In en, this message translates to:
+  /// **'Required every time you open Pulse. If forgotten, your data cannot be recovered.'**
+  String get passwordInfoBanner;
+
+  /// Hint for password input
+  ///
+  /// In en, this message translates to:
+  /// **'Password'**
+  String get passwordHint;
+
+  /// Hint for password confirmation
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm password'**
+  String get passwordConfirmHint;
+
+  /// Button to set the password
+  ///
+  /// In en, this message translates to:
+  /// **'Set Password'**
+  String get passwordSetButton;
+
+  /// Button to skip password setup
+  ///
+  /// In en, this message translates to:
+  /// **'Skip for now'**
+  String get passwordSkipForNow;
+
+  /// Validation: password too short
+  ///
+  /// In en, this message translates to:
+  /// **'Password must be at least 6 characters'**
+  String get passwordMinChars;
+
+  /// Validation: passwords don't match
+  ///
+  /// In en, this message translates to:
+  /// **'Passwords do not match'**
+  String get passwordsDoNotMatch;
+
+  /// Snackbar after saving profile
+  ///
+  /// In en, this message translates to:
+  /// **'Profile saved!'**
+  String get profileCardSaved;
+
+  /// Badge text for E2EE identity
+  ///
+  /// In en, this message translates to:
+  /// **'E2EE Identity'**
+  String get profileCardE2eeIdentity;
+
+  /// Label for display name field
+  ///
+  /// In en, this message translates to:
+  /// **'Display Name'**
+  String get profileCardDisplayName;
+
+  /// Hint for display name field
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. Ivan Ivanov'**
+  String get profileCardDisplayNameHint;
+
+  /// Label for about field
+  ///
+  /// In en, this message translates to:
+  /// **'About'**
+  String get profileCardAbout;
+
+  /// Button to save profile
+  ///
+  /// In en, this message translates to:
+  /// **'Save Profile'**
+  String get profileCardSaveProfile;
+
+  /// Placeholder when name is empty
+  ///
+  /// In en, this message translates to:
+  /// **'Your Name'**
+  String get profileCardYourName;
+
+  /// Snackbar when inbox address is copied
+  ///
+  /// In en, this message translates to:
+  /// **'Address copied!'**
+  String get profileCardAddressCopied;
+
+  /// Label for single inbox address
+  ///
+  /// In en, this message translates to:
+  /// **'Your Inbox Address'**
+  String get profileCardInboxAddress;
+
+  /// Label for multiple inbox addresses
+  ///
+  /// In en, this message translates to:
+  /// **'Your Inbox Addresses'**
+  String get profileCardInboxAddresses;
+
+  /// Button to share all addresses
+  ///
+  /// In en, this message translates to:
+  /// **'Share All Addresses (SmartRouter)'**
+  String get profileCardShareAllAddresses;
+
+  /// Hint text below address card
+  ///
+  /// In en, this message translates to:
+  /// **'Share with contacts so they can message you.'**
+  String get profileCardShareHint;
+
+  /// Snackbar after copying all addresses
+  ///
+  /// In en, this message translates to:
+  /// **'All {count} addresses copied as one link!'**
+  String profileCardAllAddressesCopied(int count);
+
+  /// Settings section label
+  ///
+  /// In en, this message translates to:
+  /// **'My Profile'**
+  String get settingsMyProfile;
+
+  /// Settings section label
+  ///
+  /// In en, this message translates to:
+  /// **'Your Inbox Address'**
+  String get settingsYourInboxAddress;
+
+  /// Settings row title
+  ///
+  /// In en, this message translates to:
+  /// **'My QR Code'**
+  String get settingsMyQrCode;
+
+  /// Settings row subtitle
+  ///
+  /// In en, this message translates to:
+  /// **'Share your address as a scannable QR'**
+  String get settingsMyQrSubtitle;
+
+  /// QR dialog title
+  ///
+  /// In en, this message translates to:
+  /// **'Share My Address'**
+  String get settingsShareMyAddress;
+
+  /// Snackbar when no address available
+  ///
+  /// In en, this message translates to:
+  /// **'No address yet — save settings first'**
+  String get settingsNoAddressYet;
+
+  /// Label in QR dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Invite Link'**
+  String get settingsInviteLink;
+
+  /// Label in QR dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Raw Address'**
+  String get settingsRawAddress;
+
+  /// Button to copy invite link
+  ///
+  /// In en, this message translates to:
+  /// **'Copy Link'**
+  String get settingsCopyLink;
+
+  /// Button to copy raw address
+  ///
+  /// In en, this message translates to:
+  /// **'Copy Address'**
+  String get settingsCopyAddress;
+
+  /// Snackbar after copying invite link
+  ///
+  /// In en, this message translates to:
+  /// **'Invite link copied'**
+  String get settingsInviteLinkCopied;
+
+  /// Settings section label
+  ///
+  /// In en, this message translates to:
+  /// **'Appearance'**
+  String get settingsAppearance;
+
+  /// Settings row title
+  ///
+  /// In en, this message translates to:
+  /// **'Theme Engine'**
+  String get settingsThemeEngine;
+
+  /// Settings row subtitle
+  ///
+  /// In en, this message translates to:
+  /// **'Customize colors & fonts'**
+  String get settingsThemeEngineSubtitle;
+
+  /// Settings row title
+  ///
+  /// In en, this message translates to:
+  /// **'Signal Protocol'**
+  String get settingsSignalProtocol;
+
+  /// Settings row subtitle
+  ///
+  /// In en, this message translates to:
+  /// **'E2EE keys are stored securely'**
+  String get settingsSignalProtocolSubtitle;
+
+  /// Badge text for active protocol
+  ///
+  /// In en, this message translates to:
+  /// **'ACTIVE'**
+  String get settingsActive;
+
+  /// Settings row and dialog title
+  ///
+  /// In en, this message translates to:
+  /// **'Identity Backup'**
+  String get settingsIdentityBackup;
+
+  /// Settings row subtitle
+  ///
+  /// In en, this message translates to:
+  /// **'Export or import your Signal identity'**
+  String get settingsIdentityBackupSubtitle;
+
+  /// Identity backup dialog body
+  ///
+  /// In en, this message translates to:
+  /// **'Export your Signal identity keys to a backup code, or restore from an existing one.'**
+  String get settingsIdentityBackupBody;
+
+  /// Settings row title
+  ///
+  /// In en, this message translates to:
+  /// **'Transfer to Another Device'**
+  String get settingsTransferDevice;
+
+  /// Settings row subtitle
+  ///
+  /// In en, this message translates to:
+  /// **'Move your identity via LAN or Nostr relay'**
+  String get settingsTransferDeviceSubtitle;
+
+  /// Dialog title
+  ///
+  /// In en, this message translates to:
+  /// **'Export Identity'**
+  String get settingsExportIdentity;
+
+  /// Dialog body for export
+  ///
+  /// In en, this message translates to:
+  /// **'Copy this backup code and store it safely:'**
+  String get settingsExportIdentityBody;
+
+  /// Button to save file
+  ///
+  /// In en, this message translates to:
+  /// **'Save File'**
+  String get settingsSaveFile;
+
+  /// Dialog title
+  ///
+  /// In en, this message translates to:
+  /// **'Import Identity'**
+  String get settingsImportIdentity;
+
+  /// Dialog body for import
+  ///
+  /// In en, this message translates to:
+  /// **'Paste your backup code below. This will overwrite your current identity.'**
+  String get settingsImportIdentityBody;
+
+  /// Hint for import field
+  ///
+  /// In en, this message translates to:
+  /// **'Paste backup code here…'**
+  String get settingsPasteBackupCode;
+
+  /// Snackbar after successful import
+  ///
+  /// In en, this message translates to:
+  /// **'Identity + contacts imported! Restart the app to apply.'**
+  String get settingsIdentityImported;
+
+  /// Settings section label
+  ///
+  /// In en, this message translates to:
+  /// **'Security'**
+  String get settingsSecurity;
+
+  /// Settings row title
+  ///
+  /// In en, this message translates to:
+  /// **'App Password'**
+  String get settingsAppPassword;
+
+  /// Subtitle when password is enabled
+  ///
+  /// In en, this message translates to:
+  /// **'Enabled — required on every launch'**
+  String get settingsPasswordEnabled;
+
+  /// Subtitle when password is disabled
+  ///
+  /// In en, this message translates to:
+  /// **'Disabled — app opens without password'**
+  String get settingsPasswordDisabled;
+
+  /// Settings row title
+  ///
+  /// In en, this message translates to:
+  /// **'Change Password'**
+  String get settingsChangePassword;
+
+  /// Settings row subtitle
+  ///
+  /// In en, this message translates to:
+  /// **'Update your app lock password'**
+  String get settingsChangePasswordSubtitle;
+
+  /// Settings row title
+  ///
+  /// In en, this message translates to:
+  /// **'Set Panic Key'**
+  String get settingsSetPanicKey;
+
+  /// Settings row title
+  ///
+  /// In en, this message translates to:
+  /// **'Change Panic Key'**
+  String get settingsChangePanicKey;
+
+  /// Subtitle when panic key is set
+  ///
+  /// In en, this message translates to:
+  /// **'Update emergency wipe key'**
+  String get settingsPanicKeySetSubtitle;
+
+  /// Subtitle when panic key is not set
+  ///
+  /// In en, this message translates to:
+  /// **'One key that instantly erases all data'**
+  String get settingsPanicKeyUnsetSubtitle;
+
+  /// Settings row title
+  ///
+  /// In en, this message translates to:
+  /// **'Remove Panic Key'**
+  String get settingsRemovePanicKey;
+
+  /// Settings row subtitle
+  ///
+  /// In en, this message translates to:
+  /// **'Disable emergency self-destruct'**
+  String get settingsRemovePanicKeySubtitle;
+
+  /// Confirmation dialog body
+  ///
+  /// In en, this message translates to:
+  /// **'Emergency self-destruct will be disabled. You can re-enable it at any time.'**
+  String get settingsRemovePanicKeyBody;
+
+  /// Dialog title
+  ///
+  /// In en, this message translates to:
+  /// **'Disable App Password'**
+  String get settingsDisableAppPassword;
+
+  /// Dialog subtitle
+  ///
+  /// In en, this message translates to:
+  /// **'Enter your current password to confirm'**
+  String get settingsEnterCurrentPassword;
+
+  /// Hint for current password field
+  ///
+  /// In en, this message translates to:
+  /// **'Current password'**
+  String get settingsCurrentPassword;
+
+  /// Error when password is wrong
+  ///
+  /// In en, this message translates to:
+  /// **'Incorrect password'**
+  String get settingsIncorrectPassword;
+
+  /// Snackbar after password change
+  ///
+  /// In en, this message translates to:
+  /// **'Password updated'**
+  String get settingsPasswordUpdated;
+
+  /// Dialog subtitle for password change
+  ///
+  /// In en, this message translates to:
+  /// **'Enter your current password to proceed'**
+  String get settingsChangePasswordProceed;
+
+  /// Settings section label
+  ///
+  /// In en, this message translates to:
+  /// **'Data'**
+  String get settingsData;
+
+  /// Settings row title
+  ///
+  /// In en, this message translates to:
+  /// **'Backup Messages'**
+  String get settingsBackupMessages;
+
+  /// Settings row subtitle
+  ///
+  /// In en, this message translates to:
+  /// **'Export encrypted message history to a file'**
+  String get settingsBackupMessagesSubtitle;
+
+  /// Settings row title
+  ///
+  /// In en, this message translates to:
+  /// **'Restore Messages'**
+  String get settingsRestoreMessages;
+
+  /// Settings row subtitle
+  ///
+  /// In en, this message translates to:
+  /// **'Import messages from a backup file'**
+  String get settingsRestoreMessagesSubtitle;
+
+  /// Settings row title
+  ///
+  /// In en, this message translates to:
+  /// **'Export Keys'**
+  String get settingsExportKeys;
+
+  /// Settings row subtitle
+  ///
+  /// In en, this message translates to:
+  /// **'Save identity keys to an encrypted file'**
+  String get settingsExportKeysSubtitle;
+
+  /// Settings row title
+  ///
+  /// In en, this message translates to:
+  /// **'Import Keys'**
+  String get settingsImportKeys;
+
+  /// Settings row subtitle
+  ///
+  /// In en, this message translates to:
+  /// **'Restore identity keys from an exported file'**
+  String get settingsImportKeysSubtitle;
+
+  /// Hint for backup password field
+  ///
+  /// In en, this message translates to:
+  /// **'Backup password'**
+  String get settingsBackupPassword;
+
+  /// Validation error
+  ///
+  /// In en, this message translates to:
+  /// **'Password cannot be empty'**
+  String get settingsPasswordCannotBeEmpty;
+
+  /// Validation error
+  ///
+  /// In en, this message translates to:
+  /// **'Password must be at least 4 characters'**
+  String get settingsPasswordMin4Chars;
+
+  /// Settings section label
+  ///
+  /// In en, this message translates to:
+  /// **'Calls & TURN'**
+  String get settingsCallsTurn;
+
+  /// Settings section label
+  ///
+  /// In en, this message translates to:
+  /// **'Local Network'**
+  String get settingsLocalNetwork;
+
+  /// Settings section label
+  ///
+  /// In en, this message translates to:
+  /// **'Censorship Resistance'**
+  String get settingsCensorshipResistance;
+
+  /// Settings toggle title
+  ///
+  /// In en, this message translates to:
+  /// **'LAN Fallback'**
+  String get settingsLanFallback;
+
+  /// Settings toggle subtitle
+  ///
+  /// In en, this message translates to:
+  /// **'Broadcast presence and deliver messages on the local network when internet is unavailable. Disable on untrusted networks (public Wi-Fi).'**
+  String get settingsLanFallbackSubtitle;
+
+  /// Settings toggle title
+  ///
+  /// In en, this message translates to:
+  /// **'Background Delivery'**
+  String get settingsBgDelivery;
+
+  /// Settings toggle subtitle
+  ///
+  /// In en, this message translates to:
+  /// **'Keep receiving messages when the app is minimized. Shows a persistent notification.'**
+  String get settingsBgDeliverySubtitle;
+
+  /// Settings section label
+  ///
+  /// In en, this message translates to:
+  /// **'Your Inbox Provider'**
+  String get settingsYourInboxProvider;
+
+  /// Settings section label
+  ///
+  /// In en, this message translates to:
+  /// **'Connection Details'**
+  String get settingsConnectionDetails;
+
+  /// Main save button text
+  ///
+  /// In en, this message translates to:
+  /// **'Save & Connect'**
+  String get settingsSaveAndConnect;
+
+  /// Settings section label
+  ///
+  /// In en, this message translates to:
+  /// **'Secondary Inboxes'**
+  String get settingsSecondaryInboxes;
+
+  /// Button and dialog title
+  ///
+  /// In en, this message translates to:
+  /// **'Add Secondary Inbox'**
+  String get settingsAddSecondaryInbox;
+
+  /// Expandable advanced section label
+  ///
+  /// In en, this message translates to:
+  /// **'Advanced'**
+  String get settingsAdvanced;
+
+  /// Button to discover Waku nodes
+  ///
+  /// In en, this message translates to:
+  /// **'Discover'**
+  String get settingsDiscover;
+
+  /// Settings section label
+  ///
+  /// In en, this message translates to:
+  /// **'About'**
+  String get settingsAbout;
+
+  /// Settings row title
+  ///
+  /// In en, this message translates to:
+  /// **'Privacy Policy'**
+  String get settingsPrivacyPolicy;
+
+  /// Settings row subtitle
+  ///
+  /// In en, this message translates to:
+  /// **'How Pulse protects your data'**
+  String get settingsPrivacyPolicySubtitle;
+
+  /// Settings toggle title
+  ///
+  /// In en, this message translates to:
+  /// **'Crash reporting'**
+  String get settingsCrashReporting;
+
+  /// Settings toggle subtitle
+  ///
+  /// In en, this message translates to:
+  /// **'Send anonymous crash reports to help improve Pulse. No message content or contacts are ever sent.'**
+  String get settingsCrashReportingSubtitle;
+
+  /// Snackbar when enabled
+  ///
+  /// In en, this message translates to:
+  /// **'Crash reporting enabled — restart app to apply'**
+  String get settingsCrashReportingEnabled;
+
+  /// Snackbar when disabled
+  ///
+  /// In en, this message translates to:
+  /// **'Crash reporting disabled — restart app to apply'**
+  String get settingsCrashReportingDisabled;
+
+  /// Dialog title for key export warning
+  ///
+  /// In en, this message translates to:
+  /// **'Sensitive Operation'**
+  String get settingsSensitiveOperation;
+
+  /// Dialog body for key export warning
+  ///
+  /// In en, this message translates to:
+  /// **'These keys are your identity. Anyone with this file can impersonate you. Store it securely and delete it after transfer.'**
+  String get settingsSensitiveOperationBody;
+
+  /// Confirmation button for sensitive operation
+  ///
+  /// In en, this message translates to:
+  /// **'I Understand, Continue'**
+  String get settingsIUnderstandContinue;
+
+  /// Dialog title for key import
+  ///
+  /// In en, this message translates to:
+  /// **'Replace Identity?'**
+  String get settingsReplaceIdentity;
+
+  /// Dialog body for key import
+  ///
+  /// In en, this message translates to:
+  /// **'This will overwrite your current identity keys. Your existing Signal sessions will be invalidated and contacts will need to re-establish encryption. The app will need to restart.'**
+  String get settingsReplaceIdentityBody;
+
+  /// Button to confirm key replacement
+  ///
+  /// In en, this message translates to:
+  /// **'Replace Keys'**
+  String get settingsReplaceKeys;
+
+  /// Dialog title after successful import
+  ///
+  /// In en, this message translates to:
+  /// **'Keys Imported'**
+  String get settingsKeysImported;
+
+  /// Dialog body after successful import
+  ///
+  /// In en, this message translates to:
+  /// **'{count} keys imported successfully. Please restart the app to reinitialize with the new identity.'**
+  String settingsKeysImportedBody(int count);
+
+  /// Button to restart app now
+  ///
+  /// In en, this message translates to:
+  /// **'Restart Now'**
+  String get settingsRestartNow;
+
+  /// Button to restart later
+  ///
+  /// In en, this message translates to:
+  /// **'Later'**
+  String get settingsLater;
 }
 
 class _AppLocalizationsDelegate

@@ -10,6 +10,7 @@ import '../services/group_signaling_service.dart';
 import '../services/call_transport.dart';
 import '../controllers/chat_controller.dart';
 import '../theme/app_theme.dart';
+import '../l10n/l10n_ext.dart';
 
 /// Group video/audio call screen.
 /// Video: ≤4 participants → WebRTC mesh (E2EE). 5+ → Jitsi fallback (NOT E2EE).
@@ -79,15 +80,11 @@ class _GroupCallScreenState extends State<GroupCallScreen> {
         final confirmed = await showDialog<bool>(
           context: context,
           builder: (ctx) => AlertDialog(
-            title: const Text('⚠️ Not end-to-end encrypted'),
-            content: const Text(
-              'This call has too many participants for the built-in encrypted mesh.\n\n'
-              'A Jitsi Meet link will be opened in your browser. '
-              'Jitsi is NOT end-to-end encrypted — the server can see your call.',
-            ),
+            title: Text(context.l10n.jitsiGroupWarningTitle),
+            content: Text(context.l10n.jitsiGroupWarningBody),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-              TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Continue anyway')),
+              TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(context.l10n.chatCancel)),
+              TextButton(onPressed: () => Navigator.pop(ctx, true), child: Text(context.l10n.jitsiContinueAnyway)),
             ],
           ),
         );
@@ -294,7 +291,7 @@ class _GroupCallScreenState extends State<GroupCallScreen> {
         child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
           const CircularProgressIndicator(color: Colors.white54),
           const SizedBox(height: 20),
-          Text('Starting call…',
+          Text(context.l10n.callStarting,
               style: GoogleFonts.inter(color: Colors.white54, fontSize: 15)),
         ]),
       ),
@@ -339,8 +336,8 @@ class _GroupCallScreenState extends State<GroupCallScreen> {
               const SizedBox(height: 28),
               Text(
                 _jitsiBrowserOpened
-                    ? 'Group call opened in browser'
-                    : 'Could not open browser',
+                    ? context.l10n.callGroupOpenedInBrowser
+                    : context.l10n.callCouldNotOpenBrowser,
                 textAlign: TextAlign.center,
                 style: GoogleFonts.inter(
                     color: Colors.white, fontSize: 20, fontWeight: FontWeight.w700),
@@ -367,8 +364,8 @@ class _GroupCallScreenState extends State<GroupCallScreen> {
               const SizedBox(height: 10),
               Text(
                 _jitsiBrowserOpened
-                    ? 'Invite link sent to all group members.'
-                    : 'Open the link above manually or tap to retry.',
+                    ? context.l10n.callInviteLinkSent
+                    : context.l10n.callOpenLinkManually,
                 textAlign: TextAlign.center,
                 style: GoogleFonts.inter(color: Colors.white38, fontSize: 13),
               ),
@@ -385,7 +382,7 @@ class _GroupCallScreenState extends State<GroupCallScreen> {
                   const SizedBox(width: 6),
                   Flexible(
                     child: Text(
-                      'Jitsi calls are NOT end-to-end encrypted',
+                      context.l10n.callJitsiNotE2ee,
                       style: GoogleFonts.inter(color: Colors.orangeAccent, fontSize: 12),
                     ),
                   ),
@@ -401,7 +398,7 @@ class _GroupCallScreenState extends State<GroupCallScreen> {
                     padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                   ),
                   icon: const Icon(Icons.open_in_browser_rounded, size: 18),
-                  label: Text('Retry open browser',
+                  label: Text(context.l10n.callRetryOpenBrowser,
                       style: GoogleFonts.inter(fontSize: 14)),
                   onPressed: _reopenJitsiBrowser,
                 ),
@@ -413,7 +410,7 @@ class _GroupCallScreenState extends State<GroupCallScreen> {
                   shape: const StadiumBorder(),
                 ),
                 icon: const Icon(Icons.call_end_rounded, color: Colors.white),
-                label: Text('Close',
+                label: Text(context.l10n.callClose,
                     style: GoogleFonts.inter(
                         color: Colors.white, fontWeight: FontWeight.w700, fontSize: 15)),
                 onPressed: () => Navigator.pop(context),
@@ -475,8 +472,8 @@ class _GroupCallScreenState extends State<GroupCallScreen> {
                   Expanded(
                     child: Text(
                       _turnFailed
-                          ? 'TURN servers unreachable. Add a custom TURN in Settings → Advanced.'
-                          : 'Relay mode active (restricted network)',
+                          ? context.l10n.callTurnUnreachable
+                          : context.l10n.callRelayMode,
                       style: GoogleFonts.inter(
                         color: Colors.white,
                         fontSize: 11,
@@ -511,7 +508,7 @@ class _GroupCallScreenState extends State<GroupCallScreen> {
         child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
           Icon(Icons.group_rounded, size: 64, color: AppTheme.primary.withValues(alpha: 0.5)),
           const SizedBox(height: 16),
-          Text('Connecting to group…',
+          Text(context.l10n.callConnectingToGroup,
               style: GoogleFonts.inter(color: Colors.white54, fontSize: 16)),
         ]),
       );
@@ -603,7 +600,7 @@ class _GroupCallScreenState extends State<GroupCallScreen> {
       final s = _callDuration.inSeconds.remainder(60).toString().padLeft(2, '0');
       statusText = h > 0 ? '$h:$m:$s' : '$m:$s';
     } else {
-      statusText = 'Connecting…';
+      statusText = context.l10n.callConnecting;
     }
 
     return Container(
@@ -633,7 +630,7 @@ class _GroupCallScreenState extends State<GroupCallScreen> {
               color: Colors.green,
               borderRadius: BorderRadius.circular(10),
             ),
-            child: Text('Live',
+            child: Text(context.l10n.callLive,
                 style: GoogleFonts.inter(
                     color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700)),
           ),
@@ -654,7 +651,7 @@ class _GroupCallScreenState extends State<GroupCallScreen> {
       child: Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
         _controlBtn(
           icon: _isMuted ? Icons.mic_off_rounded : Icons.mic_rounded,
-          label: _isMuted ? 'Unmute' : 'Mute',
+          label: _isMuted ? context.l10n.callUnmute : context.l10n.callMute,
           active: _isMuted,
           onTap: () {
             setState(() => _isMuted = !_isMuted);
@@ -679,7 +676,7 @@ class _GroupCallScreenState extends State<GroupCallScreen> {
             icon: _isCameraOff
                 ? Icons.videocam_off_rounded
                 : Icons.videocam_rounded,
-            label: _isCameraOff ? 'Cam off' : 'Cam on',
+            label: _isCameraOff ? context.l10n.callCamOff : context.l10n.callCamOn,
             active: _isCameraOff,
             onTap: () {
               setState(() => _isCameraOff = !_isCameraOff);
@@ -691,7 +688,7 @@ class _GroupCallScreenState extends State<GroupCallScreen> {
         else
           _controlBtn(
             icon: Icons.speaker_phone_rounded,
-            label: 'Speaker',
+            label: context.l10n.callSpeaker,
             active: false,
             onTap: () {},
           ),

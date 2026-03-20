@@ -91,13 +91,13 @@ void main() {
   });
 
   group('NIP-44 message keys', () {
-    test('derives 3 parts (32+12+32 bytes)', () {
+    test('derives 3 parts (32+24+32 bytes for XChaCha20)', () {
       final keys = deriveMessageKeys(
         Uint8List.fromList(List.generate(32, (i) => i)),
         Uint8List.fromList(List.generate(32, (i) => i + 100)),
       );
       expect(keys.chachaKey.length, equals(32));
-      expect(keys.chachaNonce.length, equals(12));
+      expect(keys.chachaNonce.length, equals(24));
       expect(keys.hmacKey.length, equals(32));
     });
 

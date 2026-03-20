@@ -82,10 +82,10 @@ class ThemeNotifier extends ChangeNotifier {
   }
 
   // ── Public setters ────────────────────────────────────────────────────────
-  Future<void> setThemeMode(ThemeMode mode) async {
+  void setThemeMode(ThemeMode mode) {
     _mode = mode;
-    await _save();
-    notifyListeners();
+    notifyListeners(); // update UI immediately
+    _save();           // persist in background (fire-and-forget)
   }
 
   void updateColors({Color? primary, Color? accent}) {

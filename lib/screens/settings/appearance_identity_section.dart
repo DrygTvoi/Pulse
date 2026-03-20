@@ -8,6 +8,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../theme/app_theme.dart';
+import '../../theme/design_tokens.dart';
 import '../../widgets/theme_picker_widget.dart';
 import '../dynamic_theme_screen.dart';
 import '../device_transfer_screen.dart';
@@ -24,7 +25,7 @@ class AppearanceIdentitySection extends StatelessWidget {
       builder: (ctx) => AlertDialog(
         backgroundColor: AppTheme.surface,
         shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.dialogRadius)),
         title: Text(
           'Identity Backup',
           style: GoogleFonts.inter(
@@ -33,7 +34,7 @@ class AppearanceIdentitySection extends StatelessWidget {
         content: Text(
           'Export your Signal identity keys to a backup code, or restore from an existing one.',
           style:
-              GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: 13),
+              GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: DesignTokens.fontMd),
         ),
         actions: [
           TextButton(
@@ -97,7 +98,7 @@ class AppearanceIdentitySection extends StatelessWidget {
         builder: (ctx) => AlertDialog(
           backgroundColor: AppTheme.surface,
           shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20)),
+              borderRadius: BorderRadius.circular(DesignTokens.dialogRadius)),
           title: Text(
             'Export Identity',
             style: GoogleFonts.inter(
@@ -109,19 +110,19 @@ class AppearanceIdentitySection extends StatelessWidget {
               Text(
                 'Copy this backup code and store it safely:',
                 style: GoogleFonts.inter(
-                    color: AppTheme.textSecondary, fontSize: 13),
+                    color: AppTheme.textSecondary, fontSize: DesignTokens.fontMd),
               ),
               const SizedBox(height: 12),
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   color: AppTheme.surfaceVariant,
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(DesignTokens.spacing10),
                 ),
                 child: SelectableText(
                   b64,
                   style: GoogleFonts.jetBrainsMono(
-                      color: AppTheme.textPrimary, fontSize: 9),
+                      color: AppTheme.textPrimary, fontSize: DesignTokens.fontXxs),
                 ),
               ),
             ],
@@ -153,7 +154,7 @@ class AppearanceIdentitySection extends StatelessWidget {
                       behavior: SnackBarBehavior.floating,
                       duration: const Duration(seconds: 3),
                       shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10)),
+                          borderRadius: BorderRadius.circular(DesignTokens.spacing10)),
                     ));
                   }
                 } catch (e) {
@@ -165,7 +166,7 @@ class AppearanceIdentitySection extends StatelessWidget {
                       behavior: SnackBarBehavior.floating,
                       duration: const Duration(seconds: 3),
                       shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10)),
+                          borderRadius: BorderRadius.circular(DesignTokens.spacing10)),
                     ));
                   }
                 }
@@ -194,7 +195,7 @@ class AppearanceIdentitySection extends StatelessWidget {
           behavior: SnackBarBehavior.floating,
           duration: const Duration(seconds: 3),
           shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.spacing10)),
         ));
       }
     }
@@ -207,7 +208,7 @@ class AppearanceIdentitySection extends StatelessWidget {
       builder: (ctx) => AlertDialog(
         backgroundColor: AppTheme.surface,
         shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.dialogRadius)),
         title: Text(
           'Import Identity',
           style: GoogleFonts.inter(
@@ -219,7 +220,7 @@ class AppearanceIdentitySection extends StatelessWidget {
             Text(
               'Paste your backup code below. This will overwrite your current identity.',
               style: GoogleFonts.inter(
-                  color: AppTheme.textSecondary, fontSize: 13),
+                  color: AppTheme.textSecondary, fontSize: DesignTokens.fontMd),
             ),
             const SizedBox(height: 12),
             TextField(
@@ -234,7 +235,7 @@ class AppearanceIdentitySection extends StatelessWidget {
                 filled: true,
                 fillColor: AppTheme.surfaceVariant,
                 border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(DesignTokens.spacing10),
                     borderSide: BorderSide.none),
               ),
             ),
@@ -287,7 +288,7 @@ class AppearanceIdentitySection extends StatelessWidget {
                     behavior: SnackBarBehavior.floating,
                     duration: const Duration(seconds: 4),
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10)),
+                        borderRadius: BorderRadius.circular(DesignTokens.spacing10)),
                   ));
                 }
               } catch (e) {
@@ -300,7 +301,7 @@ class AppearanceIdentitySection extends StatelessWidget {
                     behavior: SnackBarBehavior.floating,
                     duration: const Duration(seconds: 3),
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10)),
+                        borderRadius: BorderRadius.circular(DesignTokens.spacing10)),
                   ));
                 }
               }
@@ -308,7 +309,7 @@ class AppearanceIdentitySection extends StatelessWidget {
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.orange,
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10)),
+                  borderRadius: BorderRadius.circular(DesignTokens.spacing10)),
             ),
             child: Text(
               'Apply',
@@ -334,7 +335,7 @@ class AppearanceIdentitySection extends StatelessWidget {
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: AppTheme.surface,
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(DesignTokens.radiusLarge),
           ),
           child: const ThemePickerWidget(),
         ),
@@ -359,7 +360,7 @@ class AppearanceIdentitySection extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
             decoration: BoxDecoration(
               color: AppTheme.primary.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(6),
+              borderRadius: BorderRadius.circular(DesignTokens.spacing6),
             ),
             child: Text(
               'ACTIVE',

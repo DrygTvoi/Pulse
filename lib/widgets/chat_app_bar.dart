@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
+import '../theme/design_tokens.dart';
 import '../models/contact.dart';
 import '../controllers/chat_controller.dart';
 import '../screens/call_screen.dart';
@@ -24,7 +25,13 @@ PreferredSizeWidget buildChatAppBar({
   required void Function(int seconds) onTtlChanged,
   bool embedded = false,
 }) {
-  final chatController = context.watch<ChatController>();
+  // Granular selectors — only rebuild when THIS contact's status changes,
+  // not on every ChatController notification.
+  final isTyping = context.select<ChatController, bool>((c) => c.isContactTyping(contact.id));
+  final isOnline = context.select<ChatController, bool>((c) => c.isOnline(contact.id));
+  final lastSeen = context.select<ChatController, String>((c) => c.lastSeenLabel(contact.id));
+  final hasPqc = context.select<ChatController, bool>((c) => c.hasPqcKey(contact.databaseId));
+
   return AppBar(
     backgroundColor: AppTheme.surface,
     elevation: 0,
@@ -41,46 +48,46 @@ PreferredSizeWidget buildChatAppBar({
       onTap: onOpenProfile,
       child: Row(children: [
         Hero(tag: 'contact_avatar_${contact.id}', child: buildChatAvatar(contact.name, 38)),
-        const SizedBox(width: 10),
+        const SizedBox(width: DesignTokens.spacing10),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Text(contact.name,
-                  style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w700, color: AppTheme.textPrimary)),
-              chatController.isContactTyping(contact.id)
+                  style: GoogleFonts.inter(fontSize: DesignTokens.fontXl, fontWeight: FontWeight.w700, color: AppTheme.textPrimary)),
+              isTyping
                   ? _buildTypingIndicator(context)
-                  : chatController.isOnline(contact.id)
+                  : isOnline
                       ? Row(mainAxisSize: MainAxisSize.min, children: [
-                          Container(width: 8, height: 8,
+                          Container(width: DesignTokens.spacing8, height: DesignTokens.spacing8,
                               decoration: const BoxDecoration(
                                   color: Color(0xFF4CAF50), shape: BoxShape.circle)),
-                          const SizedBox(width: 4),
+                          const SizedBox(width: DesignTokens.spacing4),
                           Text(context.l10n.appBarOnline,
-                              style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF4CAF50))),
+                              style: GoogleFonts.inter(fontSize: DesignTokens.fontSm, color: const Color(0xFF4CAF50))),
                         ])
-                      : chatController.lastSeenLabel(contact.id).isNotEmpty
-                          ? Text(chatController.lastSeenLabel(contact.id),
-                              style: GoogleFonts.inter(fontSize: 11, color: AppTheme.textSecondary))
+                      : lastSeen.isNotEmpty
+                          ? Text(lastSeen,
+                              style: GoogleFonts.inter(fontSize: DesignTokens.fontSm, color: AppTheme.textSecondary))
                           : Row(children: [
-                              Icon(Icons.lock_rounded, size: 10, color: AppTheme.primary),
+                              Icon(Icons.lock_rounded, size: DesignTokens.fontXs, color: AppTheme.primary),
                               const SizedBox(width: 3),
                               Text(context.l10n.appBarSignalE2ee,
-                                  style: GoogleFonts.inter(fontSize: 11, color: AppTheme.primary, fontWeight: FontWeight.w500)),
-                              if (chatController.hasPqcKey(contact.databaseId)) ...[
-                                const SizedBox(width: 4),
+                                  style: GoogleFonts.inter(fontSize: DesignTokens.fontSm, color: AppTheme.primary, fontWeight: FontWeight.w500)),
+                              if (hasPqc) ...[
+                                const SizedBox(width: DesignTokens.spacing4),
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                                   decoration: BoxDecoration(
                                     color: const Color(0xFF1A6B3C),
-                                    borderRadius: BorderRadius.circular(4),
+                                    borderRadius: BorderRadius.circular(DesignTokens.spacing4),
                                   ),
                                   child: Text(context.l10n.appBarKyber,
-                                      style: GoogleFonts.inter(fontSize: 9, color: const Color(0xFF4ADE80), fontWeight: FontWeight.w700)),
+                                      style: GoogleFonts.inter(fontSize: DesignTokens.fontXxs, color: const Color(0xFF4ADE80), fontWeight: FontWeight.w700)),
                                 ),
                               ],
-                              const SizedBox(width: 6),
+                              const SizedBox(width: DesignTokens.spacing6),
                               _buildProviderBadge(contact.provider),
                             ]),
             ],
@@ -116,7 +123,7 @@ PreferredSizeWidget buildChatAppBar({
         icon: Icon(Icons.more_vert_rounded, color: AppTheme.textSecondary),
         tooltip: context.l10n.moreOptions,
         color: AppTheme.surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.radiusLarge)),
         onSelected: (value) async {
           if (value == 'search') onSearchActivate();
           if (value == 'timer') {
@@ -146,9 +153,9 @@ PreferredSizeWidget buildChatAppBar({
               Icon(
                 chatMuted ? Icons.notifications_rounded : Icons.notifications_off_rounded,
                 color: chatMuted ? AppTheme.primary : AppTheme.textSecondary,
-                size: 20,
+                size: DesignTokens.iconMd,
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: DesignTokens.spacing12),
               Text(
                 chatMuted ? context.l10n.appBarUnmute : context.l10n.appBarMute,
                 style: GoogleFonts.inter(color: AppTheme.textPrimary),
@@ -160,7 +167,7 @@ PreferredSizeWidget buildChatAppBar({
             child: Row(children: [
               Icon(Icons.photo_library_outlined,
                   color: AppTheme.textSecondary, size: 20),
-              const SizedBox(width: 12),
+              const SizedBox(width: DesignTokens.spacing12),
               Text(context.l10n.appBarMedia, style: GoogleFonts.inter(color: AppTheme.textPrimary)),
             ]),
           ),
@@ -170,9 +177,9 @@ PreferredSizeWidget buildChatAppBar({
               Icon(
                 Icons.timer_outlined,
                 color: chatTtlSeconds > 0 ? AppTheme.primary : AppTheme.textSecondary,
-                size: 20,
+                size: DesignTokens.iconMd,
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: DesignTokens.spacing12),
               Text(
                 chatTtlSeconds > 0 ? context.l10n.appBarDisappearingOn : context.l10n.appBarDisappearing,
                 style: GoogleFonts.inter(color: AppTheme.textPrimary),
@@ -185,13 +192,13 @@ PreferredSizeWidget buildChatAppBar({
               child: Row(children: [
                 Icon(Icons.admin_panel_settings_rounded,
                     color: AppTheme.textSecondary, size: 20),
-                const SizedBox(width: 12),
+                const SizedBox(width: DesignTokens.spacing12),
                 Text(context.l10n.appBarGroupSettings, style: GoogleFonts.inter(color: AppTheme.textPrimary)),
               ]),
             ),
         ],
       ),
-      const SizedBox(width: 4),
+      const SizedBox(width: DesignTokens.spacing4),
     ],
   );
 }
@@ -217,11 +224,11 @@ PreferredSizeWidget buildSearchAppBar({
     title: TextField(
       controller: searchController,
       autofocus: true,
-      style: GoogleFonts.inter(color: AppTheme.textPrimary, fontSize: 16),
+      style: GoogleFonts.inter(color: AppTheme.textPrimary, fontSize: DesignTokens.fontXl),
       onChanged: onSearchChanged,
       decoration: InputDecoration(
         hintText: context.l10n.searchMessages,
-        hintStyle: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: 16),
+        hintStyle: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: DesignTokens.fontXl),
         border: InputBorder.none,
         enabledBorder: InputBorder.none,
         focusedBorder: InputBorder.none,
@@ -257,7 +264,7 @@ Widget _buildTypingIndicator(BuildContext context) {
   return Row(mainAxisSize: MainAxisSize.min, children: [
     Text(context.l10n.appBarTyping,
         style: GoogleFonts.inter(
-            fontSize: 11, color: AppTheme.primary, fontWeight: FontWeight.w500)),
+            fontSize: DesignTokens.fontSm, color: AppTheme.primary, fontWeight: FontWeight.w500)),
     const SizedBox(width: 3),
     TypingDots(),
   ]);
@@ -273,10 +280,10 @@ Widget _buildProviderBadge(String provider) {
   if (m == null) return const SizedBox.shrink();
   final label = provider == 'group' ? 'Group' : provider;
   return Row(mainAxisSize: MainAxisSize.min, children: [
-    Icon(m.icon, size: 10, color: m.color),
-    const SizedBox(width: 2),
+    Icon(m.icon, size: DesignTokens.fontXs, color: m.color),
+    const SizedBox(width: DesignTokens.spacing2),
     Text(label,
-        style: GoogleFonts.inter(color: m.color, fontSize: 10, fontWeight: FontWeight.w600)),
+        style: GoogleFonts.inter(color: m.color, fontSize: DesignTokens.fontXs, fontWeight: FontWeight.w600)),
   ]);
 }
 
@@ -312,11 +319,11 @@ class _TypingDotsState extends State<TypingDots> with SingleTickerProviderStateM
         final t = _ctrl.value;
         return Row(mainAxisSize: MainAxisSize.min, children: [
           for (int i = 0; i < 3; i++) ...[
-            if (i > 0) const SizedBox(width: 2),
+            if (i > 0) const SizedBox(width: DesignTokens.spacing2),
             Opacity(
               opacity: ((t * 3 - i) % 1.0).clamp(0.2, 1.0),
               child: Container(
-                width: 4, height: 4,
+                width: DesignTokens.spacing4, height: DesignTokens.spacing4,
                 decoration: BoxDecoration(color: AppTheme.primary, shape: BoxShape.circle),
               ),
             ),

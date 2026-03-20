@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_theme.dart';
+import '../theme/design_tokens.dart';
 import '../services/connectivity_probe_service.dart';
 import '../services/tor_service.dart';
 import '../services/adaptive_relay_service.dart';
@@ -118,11 +119,11 @@ class _NetworkDiagnosticsScreenState extends State<NetworkDiagnosticsScreen> {
             style: GoogleFonts.inter(
                 color: AppTheme.textPrimary,
                 fontWeight: FontWeight.w600,
-                fontSize: 18)),
+                fontSize: DesignTokens.fontHeading)),
         iconTheme: IconThemeData(color: AppTheme.textPrimary),
       ),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(DesignTokens.spacing16),
         children: [
           // Summary cards
           _card('Nostr Relays', [
@@ -130,7 +131,7 @@ class _NetworkDiagnosticsScreenState extends State<NetworkDiagnosticsScreen> {
             _kv('Tor-only', '${probe.torNostrRelays.length}'),
             _kv('Best', probe.bestNostrRelay ?? 'none'),
           ]),
-          const SizedBox(height: 10),
+          const SizedBox(height: DesignTokens.spacing10),
           _card('Tor', [
             _kv('Status', tor.isBootstrapped
                 ? 'Connected'
@@ -141,13 +142,13 @@ class _NetworkDiagnosticsScreenState extends State<NetworkDiagnosticsScreen> {
                 ? 'none'
                 : tor.activePtLabel),
           ]),
-          const SizedBox(height: 10),
+          const SizedBox(height: DesignTokens.spacing10),
           _card('Infrastructure', [
             _kv('Oxen nodes', '${probe.oxenNodes.length}'),
             _kv('TURN servers', '${probe.turnServers.length}'),
             _kv('Last probe', _formatAge(probe.timestamp)),
           ]),
-          const SizedBox(height: 16),
+          const SizedBox(height: DesignTokens.spacing16),
 
           // Run diagnostics button
           SizedBox(
@@ -163,13 +164,13 @@ class _NetworkDiagnosticsScreenState extends State<NetworkDiagnosticsScreen> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.primary,
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 12),
+                padding: const EdgeInsets.symmetric(vertical: DesignTokens.spacing12),
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10)),
+                    borderRadius: BorderRadius.circular(DesignTokens.spacing10)),
               ),
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: DesignTokens.spacing8),
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
@@ -183,26 +184,26 @@ class _NetworkDiagnosticsScreenState extends State<NetworkDiagnosticsScreen> {
               style: OutlinedButton.styleFrom(
                 foregroundColor: AppTheme.textSecondary,
                 side: BorderSide(color: AppTheme.surfaceVariant),
-                padding: const EdgeInsets.symmetric(vertical: 12),
+                padding: const EdgeInsets.symmetric(vertical: DesignTokens.spacing12),
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10)),
+                    borderRadius: BorderRadius.circular(DesignTokens.spacing10)),
               ),
             ),
           ),
 
           // Log output
           if (_log.isNotEmpty) ...[
-            const SizedBox(height: 16),
+            const SizedBox(height: DesignTokens.spacing16),
             Container(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(DesignTokens.spacing12),
               decoration: BoxDecoration(
                 color: Colors.black87,
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(DesignTokens.spacing10),
               ),
               child: SelectableText(
                 _log.join('\n'),
                 style: GoogleFonts.jetBrainsMono(
-                    color: Colors.greenAccent, fontSize: 11, height: 1.5),
+                    color: Colors.greenAccent, fontSize: DesignTokens.fontSm, height: 1.5),
               ),
             ),
           ],
@@ -213,10 +214,10 @@ class _NetworkDiagnosticsScreenState extends State<NetworkDiagnosticsScreen> {
 
   Widget _card(String title, List<Widget> children) {
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(DesignTokens.cardPadding),
       decoration: BoxDecoration(
         color: AppTheme.surface,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(DesignTokens.cardRadius),
         border: Border.all(color: AppTheme.surfaceVariant),
       ),
       child: Column(
@@ -226,8 +227,8 @@ class _NetworkDiagnosticsScreenState extends State<NetworkDiagnosticsScreen> {
               style: GoogleFonts.inter(
                   color: AppTheme.textPrimary,
                   fontWeight: FontWeight.w600,
-                  fontSize: 14)),
-          const SizedBox(height: 8),
+                  fontSize: DesignTokens.fontLg)),
+          const SizedBox(height: DesignTokens.spacing8),
           ...children,
         ],
       ),
@@ -236,19 +237,19 @@ class _NetworkDiagnosticsScreenState extends State<NetworkDiagnosticsScreen> {
 
   Widget _kv(String key, String value) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
+      padding: const EdgeInsets.only(bottom: DesignTokens.spacing4),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(key,
               style: GoogleFonts.inter(
-                  color: AppTheme.textSecondary, fontSize: 12)),
+                  color: AppTheme.textSecondary, fontSize: DesignTokens.fontBody)),
           Flexible(
             child: Text(value,
                 textAlign: TextAlign.end,
                 overflow: TextOverflow.ellipsis,
                 style: GoogleFonts.inter(
-                    color: AppTheme.textPrimary, fontSize: 12)),
+                    color: AppTheme.textPrimary, fontSize: DesignTokens.fontBody)),
           ),
         ],
       ),

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_theme.dart';
+import '../theme/design_tokens.dart';
+import '../l10n/l10n_ext.dart';
 
 /// Dialog shown after account creation to set an app-level password.
 /// The password hash + salt are stored by the caller via [onSet].
@@ -38,11 +40,11 @@ class _PasswordSetupDialogState extends State<PasswordSetupDialog> {
     final confirm = _confirmController.text;
 
     if (pass.length < 6) {
-      setState(() => _error = 'Password must be at least 6 characters');
+      setState(() => _error = context.l10n.passwordMinChars);
       return;
     }
     if (pass != confirm) {
-      setState(() => _error = 'Passwords do not match');
+      setState(() => _error = context.l10n.passwordsDoNotMatch);
       return;
     }
 
@@ -61,9 +63,9 @@ class _PasswordSetupDialogState extends State<PasswordSetupDialog> {
   Widget build(BuildContext context) {
     return Dialog(
       backgroundColor: AppTheme.surface,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.dialogRadius)),
       child: SingleChildScrollView(
-        padding: const EdgeInsets.all(28),
+        padding: const EdgeInsets.all(DesignTokens.spacing28),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -71,64 +73,63 @@ class _PasswordSetupDialogState extends State<PasswordSetupDialog> {
             // Header
             Row(children: [
               Container(
-                width: 44,
-                height: 44,
+                width: DesignTokens.avatarSm + DesignTokens.spacing4,
+                height: DesignTokens.avatarSm + DesignTokens.spacing4,
                 decoration: BoxDecoration(
                   color: const Color(0xFF60A5FA).withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
                 ),
                 child: const Icon(Icons.lock_rounded,
-                    color: Color(0xFF60A5FA), size: 22),
+                    color: Color(0xFF60A5FA), size: DesignTokens.fontDisplay),
               ),
-              const SizedBox(width: 14),
+              const SizedBox(width: DesignTokens.spacing14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Set App Password',
+                    Text(context.l10n.passwordSetAppPassword,
                         style: GoogleFonts.inter(
                             color: AppTheme.textPrimary,
-                            fontSize: 17,
+                            fontSize: DesignTokens.fontTitle,
                             fontWeight: FontWeight.w700)),
-                    Text('Protects your messages at rest',
+                    Text(context.l10n.passwordProtectsMessages,
                         style: GoogleFonts.inter(
-                            color: AppTheme.textSecondary, fontSize: 12)),
+                            color: AppTheme.textSecondary, fontSize: DesignTokens.fontBody)),
                   ],
                 ),
               ),
             ]),
-            const SizedBox(height: 20),
+            const SizedBox(height: DesignTokens.spacing20),
 
             // Info banner
             Container(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(DesignTokens.spacing12),
               decoration: BoxDecoration(
                 color: const Color(0xFF60A5FA).withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(DesignTokens.spacing10),
               ),
               child: Text(
-                'Required every time you open Pulse. '
-                'If forgotten, your data cannot be recovered.',
+                context.l10n.passwordInfoBanner,
                 style: GoogleFonts.inter(
                     color: AppTheme.textSecondary,
-                    fontSize: 12,
+                    fontSize: DesignTokens.fontBody,
                     height: 1.5),
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: DesignTokens.spacing20),
 
             _PasswordField(
               controller: _passController,
-              hint: 'Password',
+              hint: context.l10n.passwordHint,
               visible: _showPass,
               accentColor: const Color(0xFF60A5FA),
               onToggle: () => setState(() => _showPass = !_showPass),
               onChanged: (_) => setState(() => _error = null),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: DesignTokens.spacing12),
             _PasswordField(
               controller: _confirmController,
-              hint: 'Confirm password',
+              hint: context.l10n.passwordConfirmHint,
               visible: _showConfirm,
               accentColor: const Color(0xFF60A5FA),
               onToggle: () => setState(() => _showConfirm = !_showConfirm),
@@ -136,12 +137,12 @@ class _PasswordSetupDialogState extends State<PasswordSetupDialog> {
             ),
 
             if (_error != null) ...[
-              const SizedBox(height: 10),
+              const SizedBox(height: DesignTokens.spacing10),
               Text(_error!,
                   style: GoogleFonts.inter(
-                      color: const Color(0xFFF87171), fontSize: 12)),
+                      color: const Color(0xFFF87171), fontSize: DesignTokens.fontBody)),
             ],
-            const SizedBox(height: 24),
+            const SizedBox(height: DesignTokens.spacing24),
 
             // Set button
             SizedBox(
@@ -151,7 +152,7 @@ class _PasswordSetupDialogState extends State<PasswordSetupDialog> {
                 style: FilledButton.styleFrom(
                   backgroundColor: const Color(0xFF60A5FA),
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
+                      borderRadius: BorderRadius.circular(DesignTokens.radiusMedium)),
                 ),
                 onPressed: _loading ? null : _submit,
                 child: _loading
@@ -160,14 +161,14 @@ class _PasswordSetupDialogState extends State<PasswordSetupDialog> {
                         height: 20,
                         child: CircularProgressIndicator(
                             color: Colors.white, strokeWidth: 2))
-                    : Text('Set Password',
+                    : Text(context.l10n.passwordSetButton,
                         style: GoogleFonts.inter(
                             fontWeight: FontWeight.w700,
-                            fontSize: 15,
+                            fontSize: DesignTokens.fontInput,
                             color: Colors.white)),
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: DesignTokens.spacing8),
 
             // Skip
             SizedBox(
@@ -175,9 +176,9 @@ class _PasswordSetupDialogState extends State<PasswordSetupDialog> {
               height: 40,
               child: TextButton(
                 onPressed: _loading ? null : widget.onSkip,
-                child: Text('Skip for now',
+                child: Text(context.l10n.passwordSkipForNow,
                     style: GoogleFonts.inter(
-                        color: AppTheme.textSecondary, fontSize: 14)),
+                        color: AppTheme.textSecondary, fontSize: DesignTokens.fontLg)),
               ),
             ),
           ],
@@ -212,32 +213,32 @@ class _PasswordField extends StatelessWidget {
       controller: controller,
       obscureText: !visible,
       onChanged: onChanged,
-      style: GoogleFonts.inter(color: AppTheme.textPrimary, fontSize: 15),
+      style: GoogleFonts.inter(color: AppTheme.textPrimary, fontSize: DesignTokens.fontInput),
       decoration: InputDecoration(
         hintText: hint,
         hintStyle:
-            GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: 14),
+            GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: DesignTokens.fontLg),
         filled: true,
         fillColor: AppTheme.surfaceVariant,
         border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
             borderSide: BorderSide.none),
         enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
             borderSide: BorderSide.none),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
           borderSide: BorderSide(color: accentColor, width: 1.5),
         ),
         contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            const EdgeInsets.symmetric(horizontal: DesignTokens.inputContentPaddingH, vertical: DesignTokens.inputContentPaddingV),
         suffixIcon: IconButton(
           icon: Icon(
               visible
                   ? Icons.visibility_off_rounded
                   : Icons.visibility_rounded,
               color: AppTheme.textSecondary,
-              size: 18),
+              size: DesignTokens.fontHeading),
           onPressed: onToggle,
         ),
       ),

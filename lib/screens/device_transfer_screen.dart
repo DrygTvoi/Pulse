@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../services/device_transfer_service.dart';
 import '../theme/app_theme.dart';
+import '../theme/design_tokens.dart';
 
 enum _Role { none, sender, receiver }
 
@@ -156,7 +157,7 @@ class _DeviceTransferScreenState extends State<DeviceTransferScreen> {
         content: Text(msg, style: GoogleFonts.inter()),
         backgroundColor: error ? Colors.red : AppTheme.primary,
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.spacing10)),
       );
 
   // ─── Build ─────────────────────────────────────────────────────────────────
@@ -173,7 +174,7 @@ class _DeviceTransferScreenState extends State<DeviceTransferScreen> {
       ),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 24, 20, 40),
+          padding: const EdgeInsets.fromLTRB(DesignTokens.spacing20, DesignTokens.spacing24, DesignTokens.spacing20, DesignTokens.spacing40),
           child: _buildStep(),
         ),
       ),
@@ -207,7 +208,7 @@ class _DeviceTransferScreenState extends State<DeviceTransferScreen> {
           'Move your Signal identity and Nostr keys to a new device.\n'
           'Chat sessions are NOT transferred — forward secrecy is preserved.',
         ),
-        const SizedBox(height: 28),
+        const SizedBox(height: DesignTokens.spacing28),
         _roleCard(
           icon: Icons.upload_rounded,
           iconColor: const Color(0xFF3498DB),
@@ -218,7 +219,7 @@ class _DeviceTransferScreenState extends State<DeviceTransferScreen> {
             _step = _Step.config;
           }),
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: DesignTokens.spacing14),
         _roleCard(
           icon: Icons.download_rounded,
           iconColor: const Color(0xFF2ECC71),
@@ -243,22 +244,22 @@ class _DeviceTransferScreenState extends State<DeviceTransferScreen> {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.all(18),
+        padding: const EdgeInsets.all(DesignTokens.fontHeading),
         decoration: BoxDecoration(
           color: AppTheme.surface,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(DesignTokens.radiusLarge),
         ),
         child: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(10),
+              padding: const EdgeInsets.all(DesignTokens.spacing10),
               decoration: BoxDecoration(
                 color: iconColor.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
               ),
-              child: Icon(icon, color: iconColor, size: 24),
+              child: Icon(icon, color: iconColor, size: DesignTokens.iconLg),
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: DesignTokens.spacing16),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -267,16 +268,16 @@ class _DeviceTransferScreenState extends State<DeviceTransferScreen> {
                       style: GoogleFonts.inter(
                           color: AppTheme.textPrimary,
                           fontWeight: FontWeight.w700,
-                          fontSize: 15)),
-                  const SizedBox(height: 4),
+                          fontSize: DesignTokens.fontInput)),
+                  const SizedBox(height: DesignTokens.spacing4),
                   Text(subtitle,
                       style: GoogleFonts.inter(
-                          color: AppTheme.textSecondary, fontSize: 12)),
+                          color: AppTheme.textSecondary, fontSize: DesignTokens.fontBody)),
                 ],
               ),
             ),
             Icon(Icons.chevron_right_rounded,
-                color: AppTheme.textSecondary, size: 20),
+                color: AppTheme.textSecondary, size: DesignTokens.iconMd),
           ],
         ),
       ),
@@ -290,9 +291,9 @@ class _DeviceTransferScreenState extends State<DeviceTransferScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _backButton(),
-        const SizedBox(height: 20),
+        const SizedBox(height: DesignTokens.spacing20),
         _sectionLabel('Choose Transfer Method'),
-        const SizedBox(height: 16),
+        const SizedBox(height: DesignTokens.spacing16),
         _methodCard(
           icon: Icons.wifi_rounded,
           iconColor: const Color(0xFF3498DB),
@@ -300,11 +301,11 @@ class _DeviceTransferScreenState extends State<DeviceTransferScreen> {
           subtitle: 'Fast, direct. Both devices must be on the same Wi-Fi.',
           onTap: _startLanSend,
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: DesignTokens.spacing14),
         _sectionLabel('Nostr Relay'),
-        const SizedBox(height: 10),
+        const SizedBox(height: DesignTokens.spacing10),
         _relayField(),
-        const SizedBox(height: 12),
+        const SizedBox(height: DesignTokens.spacing12),
         _methodCard(
           icon: Icons.bolt_rounded,
           iconColor: const Color(0xFF9B59B6),
@@ -321,32 +322,32 @@ class _DeviceTransferScreenState extends State<DeviceTransferScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _backButton(),
-        const SizedBox(height: 20),
+        const SizedBox(height: DesignTokens.spacing20),
         _sectionLabel('Enter Transfer Code'),
-        const SizedBox(height: 12),
+        const SizedBox(height: DesignTokens.spacing12),
         TextField(
           controller: _codeController,
           style: GoogleFonts.jetBrainsMono(
-              color: AppTheme.textPrimary, fontSize: 12),
+              color: AppTheme.textPrimary, fontSize: DesignTokens.fontBody),
           maxLines: 3,
           decoration: InputDecoration(
             hintText: 'Paste the LAN:... or NOS:... code here',
             hintStyle:
-                GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: 12),
+                GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: DesignTokens.fontBody),
             filled: true,
             fillColor: AppTheme.surface,
             border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
+                borderRadius: BorderRadius.circular(DesignTokens.inputRadius),
                 borderSide: BorderSide.none),
             focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(DesignTokens.inputRadius),
               borderSide: BorderSide(color: AppTheme.primary, width: 1.5),
             ),
             contentPadding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                const EdgeInsets.symmetric(horizontal: DesignTokens.inputContentPaddingH, vertical: DesignTokens.inputContentPaddingV),
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: DesignTokens.spacing16),
         SizedBox(
           width: double.infinity,
           height: 50,
@@ -356,12 +357,12 @@ class _DeviceTransferScreenState extends State<DeviceTransferScreen> {
             label: Text('Connect',
                 style: GoogleFonts.inter(
                     fontWeight: FontWeight.w700,
-                    fontSize: 15,
+                    fontSize: DesignTokens.fontInput,
                     color: Colors.white)),
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF2ECC71),
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14)),
+                  borderRadius: BorderRadius.circular(DesignTokens.inputRadius)),
               elevation: 0,
             ),
           ),
@@ -380,24 +381,24 @@ class _DeviceTransferScreenState extends State<DeviceTransferScreen> {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(DesignTokens.spacing16),
         decoration: BoxDecoration(
           color: AppTheme.surface,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(DesignTokens.radiusLarge),
           border: Border.all(
               color: iconColor.withValues(alpha: 0.25), width: 1.2),
         ),
         child: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(8),
+              padding: const EdgeInsets.all(DesignTokens.spacing8),
               decoration: BoxDecoration(
                 color: iconColor.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(DesignTokens.spacing10),
               ),
-              child: Icon(icon, color: iconColor, size: 20),
+              child: Icon(icon, color: iconColor, size: DesignTokens.iconMd),
             ),
-            const SizedBox(width: 14),
+            const SizedBox(width: DesignTokens.spacing14),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -406,15 +407,15 @@ class _DeviceTransferScreenState extends State<DeviceTransferScreen> {
                       style: GoogleFonts.inter(
                           color: AppTheme.textPrimary,
                           fontWeight: FontWeight.w600,
-                          fontSize: 14)),
+                          fontSize: DesignTokens.fontLg)),
                   Text(subtitle,
                       style: GoogleFonts.inter(
-                          color: AppTheme.textSecondary, fontSize: 12)),
+                          color: AppTheme.textSecondary, fontSize: DesignTokens.fontBody)),
                 ],
               ),
             ),
             Icon(Icons.arrow_forward_rounded,
-                color: iconColor, size: 18),
+                color: iconColor, size: DesignTokens.fontHeading),
           ],
         ),
       ),
@@ -424,25 +425,25 @@ class _DeviceTransferScreenState extends State<DeviceTransferScreen> {
   Widget _relayField() {
     return TextField(
       controller: _relayController,
-      style: GoogleFonts.inter(color: AppTheme.textPrimary, fontSize: 13),
+      style: GoogleFonts.inter(color: AppTheme.textPrimary, fontSize: DesignTokens.fontMd),
       decoration: InputDecoration(
         hintText: 'wss://relay.damus.io',
         labelText: 'Relay URL',
         labelStyle:
-            GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: 12),
+            GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: DesignTokens.fontBody),
         prefixIcon:
-            Icon(Icons.bolt_rounded, color: AppTheme.textSecondary, size: 18),
+            Icon(Icons.bolt_rounded, color: AppTheme.textSecondary, size: DesignTokens.fontHeading),
         filled: true,
         fillColor: AppTheme.surface,
         border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(DesignTokens.inputRadius),
             borderSide: BorderSide.none),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(DesignTokens.inputRadius),
           borderSide: BorderSide(color: AppTheme.primary, width: 1.5),
         ),
         contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            const EdgeInsets.symmetric(horizontal: DesignTokens.inputContentPaddingH, vertical: DesignTokens.inputContentPaddingV),
       ),
     );
   }
@@ -454,32 +455,32 @@ class _DeviceTransferScreenState extends State<DeviceTransferScreen> {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          const SizedBox(height: 20),
+          const SizedBox(height: DesignTokens.spacing20),
           if (_code.isEmpty) ...[
             const CircularProgressIndicator(),
-            const SizedBox(height: 16),
+            const SizedBox(height: DesignTokens.spacing16),
             Text('Generating transfer code…',
                 style: GoogleFonts.inter(
-                    color: AppTheme.textSecondary, fontSize: 14)),
+                    color: AppTheme.textSecondary, fontSize: DesignTokens.fontLg)),
           ] else ...[
             Text('Share this code with the receiver:',
                 style: GoogleFonts.inter(
-                    color: AppTheme.textSecondary, fontSize: 13)),
-            const SizedBox(height: 16),
+                    color: AppTheme.textSecondary, fontSize: DesignTokens.fontMd)),
+            const SizedBox(height: DesignTokens.spacing16),
             Container(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(DesignTokens.spacing16),
               width: double.infinity,
               decoration: BoxDecoration(
                 color: AppTheme.surface,
-                borderRadius: BorderRadius.circular(14),
+                borderRadius: BorderRadius.circular(DesignTokens.radiusLarge),
               ),
               child: SelectableText(
                 _code,
                 style: GoogleFonts.jetBrainsMono(
-                    color: AppTheme.textPrimary, fontSize: 11),
+                    color: AppTheme.textPrimary, fontSize: DesignTokens.fontSm),
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: DesignTokens.spacing12),
             OutlinedButton.icon(
               onPressed: () {
                 Clipboard.setData(ClipboardData(text: _code));
@@ -487,22 +488,22 @@ class _DeviceTransferScreenState extends State<DeviceTransferScreen> {
                     .showSnackBar(_snackBar('Code copied to clipboard'));
               },
               icon: Icon(Icons.copy_rounded,
-                  size: 16, color: AppTheme.primary),
+                  size: DesignTokens.iconSm, color: AppTheme.primary),
               label: Text('Copy Code',
                   style: GoogleFonts.inter(
                       color: AppTheme.primary, fontWeight: FontWeight.w600)),
               style: OutlinedButton.styleFrom(
                 side: BorderSide(color: AppTheme.primary),
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10)),
+                    borderRadius: BorderRadius.circular(DesignTokens.spacing10)),
               ),
             ),
-            const SizedBox(height: 28),
+            const SizedBox(height: DesignTokens.spacing28),
             const CircularProgressIndicator(),
-            const SizedBox(height: 14),
+            const SizedBox(height: DesignTokens.spacing14),
             Text('Waiting for receiver to connect…',
                 style: GoogleFonts.inter(
-                    color: AppTheme.textSecondary, fontSize: 13)),
+                    color: AppTheme.textSecondary, fontSize: DesignTokens.fontMd)),
           ],
         ],
       );
@@ -512,10 +513,10 @@ class _DeviceTransferScreenState extends State<DeviceTransferScreen> {
         children: [
           const SizedBox(height: 60),
           const CircularProgressIndicator(),
-          const SizedBox(height: 20),
+          const SizedBox(height: DesignTokens.spacing20),
           Text('Connecting to sender…',
               style: GoogleFonts.inter(
-                  color: AppTheme.textSecondary, fontSize: 14)),
+                  color: AppTheme.textSecondary, fontSize: DesignTokens.fontLg)),
         ],
       );
     }
@@ -527,18 +528,18 @@ class _DeviceTransferScreenState extends State<DeviceTransferScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        const SizedBox(height: 20),
+        const SizedBox(height: DesignTokens.spacing20),
         Container(
-          padding: const EdgeInsets.all(28),
+          padding: const EdgeInsets.all(DesignTokens.spacing28),
           decoration: BoxDecoration(
             color: AppTheme.surface,
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(DesignTokens.dialogRadius),
           ),
           child: Column(
             children: [
               Icon(Icons.security_rounded,
                   color: AppTheme.primary, size: 36),
-              const SizedBox(height: 16),
+              const SizedBox(height: DesignTokens.spacing16),
               Text(
                 _verificationCode,
                 style: GoogleFonts.jetBrainsMono(
@@ -548,48 +549,48 @@ class _DeviceTransferScreenState extends State<DeviceTransferScreen> {
                   letterSpacing: 8,
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: DesignTokens.spacing16),
               Text(
                 'Compare this code on both devices.\nIf they match, the transfer is secure.',
                 textAlign: TextAlign.center,
                 style: GoogleFonts.inter(
-                    color: AppTheme.textSecondary, fontSize: 13, height: 1.5),
+                    color: AppTheme.textSecondary, fontSize: DesignTokens.fontMd, height: 1.5),
               ),
             ],
           ),
         ),
-        const SizedBox(height: 28),
+        const SizedBox(height: DesignTokens.spacing28),
         Row(
           children: [
             Expanded(
               child: OutlinedButton.icon(
                 onPressed: _cancel,
-                icon: const Icon(Icons.close_rounded, size: 18, color: Colors.red),
+                icon: const Icon(Icons.close_rounded, size: DesignTokens.fontHeading, color: Colors.red),
                 label: Text('Cancel',
                     style: GoogleFonts.inter(
                         color: Colors.red, fontWeight: FontWeight.w600)),
                 style: OutlinedButton.styleFrom(
                   side: const BorderSide(color: Colors.red),
-                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  padding: const EdgeInsets.symmetric(vertical: DesignTokens.buttonPaddingV),
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
+                      borderRadius: BorderRadius.circular(DesignTokens.radiusMedium)),
                 ),
               ),
             ),
-            const SizedBox(width: 14),
+            const SizedBox(width: DesignTokens.spacing14),
             Expanded(
               child: ElevatedButton.icon(
                 onPressed: _confirm,
                 icon: const Icon(Icons.check_rounded,
-                    size: 18, color: Colors.white),
+                    size: DesignTokens.fontHeading, color: Colors.white),
                 label: Text('Confirm',
                     style: GoogleFonts.inter(
                         color: Colors.white, fontWeight: FontWeight.w700)),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF2ECC71),
-                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  padding: const EdgeInsets.symmetric(vertical: DesignTokens.buttonPaddingV),
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
+                      borderRadius: BorderRadius.circular(DesignTokens.radiusMedium)),
                   elevation: 0,
                 ),
               ),
@@ -607,9 +608,9 @@ class _DeviceTransferScreenState extends State<DeviceTransferScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        const SizedBox(height: 40),
+        const SizedBox(height: DesignTokens.spacing40),
         Container(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.all(DesignTokens.spacing20),
           decoration: BoxDecoration(
             color: const Color(0xFF2ECC71).withValues(alpha: 0.12),
             shape: BoxShape.circle,
@@ -617,22 +618,22 @@ class _DeviceTransferScreenState extends State<DeviceTransferScreen> {
           child: const Icon(Icons.check_circle_rounded,
               color: Color(0xFF2ECC71), size: 56),
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: DesignTokens.spacing24),
         Text(
           isSender ? 'Transfer Complete' : 'Keys Imported',
           style: GoogleFonts.inter(
               color: AppTheme.textPrimary,
               fontWeight: FontWeight.w700,
-              fontSize: 22),
+              fontSize: DesignTokens.fontDisplay),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: DesignTokens.spacing12),
         Text(
           isSender
               ? 'Your keys remain active on this device.\nThe receiver can now use your identity.'
               : 'Keys imported successfully.\nRestart the app to apply the new identity.',
           textAlign: TextAlign.center,
           style: GoogleFonts.inter(
-              color: AppTheme.textSecondary, fontSize: 13, height: 1.6),
+              color: AppTheme.textSecondary, fontSize: DesignTokens.fontMd, height: 1.6),
         ),
         const SizedBox(height: 36),
         if (isSender)
@@ -644,14 +645,14 @@ class _DeviceTransferScreenState extends State<DeviceTransferScreen> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.primary,
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14)),
+                    borderRadius: BorderRadius.circular(DesignTokens.inputRadius)),
                 elevation: 0,
               ),
               child: Text('Close',
                   style: GoogleFonts.inter(
                       color: Colors.white,
                       fontWeight: FontWeight.w700,
-                      fontSize: 15)),
+                      fontSize: DesignTokens.fontInput)),
             ),
           )
         else ...[
@@ -666,11 +667,11 @@ class _DeviceTransferScreenState extends State<DeviceTransferScreen> {
                   style: GoogleFonts.inter(
                       color: Colors.white,
                       fontWeight: FontWeight.w700,
-                      fontSize: 15)),
+                      fontSize: DesignTokens.fontInput)),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF2ECC71),
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14)),
+                    borderRadius: BorderRadius.circular(DesignTokens.inputRadius)),
                 elevation: 0,
               ),
             ),
@@ -686,20 +687,20 @@ class _DeviceTransferScreenState extends State<DeviceTransferScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        const SizedBox(height: 40),
+        const SizedBox(height: DesignTokens.spacing40),
         const Icon(Icons.error_outline_rounded, color: Colors.red, size: 56),
-        const SizedBox(height: 20),
+        const SizedBox(height: DesignTokens.spacing20),
         Text('Transfer Failed',
             style: GoogleFonts.inter(
                 color: AppTheme.textPrimary,
                 fontWeight: FontWeight.w700,
-                fontSize: 20)),
-        const SizedBox(height: 12),
+                fontSize: DesignTokens.fontXxl)),
+        const SizedBox(height: DesignTokens.spacing12),
         Text(_errorMessage,
             textAlign: TextAlign.center,
             style: GoogleFonts.inter(
-                color: AppTheme.textSecondary, fontSize: 13)),
-        const SizedBox(height: 32),
+                color: AppTheme.textSecondary, fontSize: DesignTokens.fontMd)),
+        const SizedBox(height: DesignTokens.spacing32),
         SizedBox(
           width: double.infinity,
           height: 50,
@@ -708,14 +709,14 @@ class _DeviceTransferScreenState extends State<DeviceTransferScreen> {
             style: ElevatedButton.styleFrom(
               backgroundColor: AppTheme.primary,
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14)),
+                  borderRadius: BorderRadius.circular(DesignTokens.inputRadius)),
               elevation: 0,
             ),
             child: Text('Try Again',
                 style: GoogleFonts.inter(
                     color: Colors.white,
                     fontWeight: FontWeight.w700,
-                    fontSize: 15)),
+                    fontSize: DesignTokens.fontInput)),
           ),
         ),
       ],
@@ -726,21 +727,21 @@ class _DeviceTransferScreenState extends State<DeviceTransferScreen> {
 
   Widget _infoBox(String text) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: DesignTokens.cardPadding, vertical: DesignTokens.spacing12),
       decoration: BoxDecoration(
         color: AppTheme.primary.withValues(alpha: 0.07),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
         border: Border.all(color: AppTheme.primary.withValues(alpha: 0.2)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.info_outline_rounded, size: 15, color: AppTheme.primary),
-          const SizedBox(width: 10),
+          Icon(Icons.info_outline_rounded, size: DesignTokens.fontInput, color: AppTheme.primary),
+          const SizedBox(width: DesignTokens.spacing10),
           Expanded(
             child: Text(text,
                 style: GoogleFonts.inter(
-                    color: AppTheme.textSecondary, fontSize: 12, height: 1.5)),
+                    color: AppTheme.textSecondary, fontSize: DesignTokens.fontBody, height: 1.5)),
           ),
         ],
       ),
@@ -751,7 +752,7 @@ class _DeviceTransferScreenState extends State<DeviceTransferScreen> {
     return Text(text.toUpperCase(),
         style: GoogleFonts.inter(
             color: AppTheme.textSecondary,
-            fontSize: 11,
+            fontSize: DesignTokens.fontSm,
             fontWeight: FontWeight.w700,
             letterSpacing: 0.8));
   }
@@ -766,11 +767,11 @@ class _DeviceTransferScreenState extends State<DeviceTransferScreen> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(Icons.arrow_back_rounded,
-              size: 18, color: AppTheme.textSecondary),
-          const SizedBox(width: 6),
+              size: DesignTokens.fontHeading, color: AppTheme.textSecondary),
+          const SizedBox(width: DesignTokens.spacing6),
           Text('Back',
               style: GoogleFonts.inter(
-                  color: AppTheme.textSecondary, fontSize: 13)),
+                  color: AppTheme.textSecondary, fontSize: DesignTokens.fontMd)),
         ],
       ),
     );

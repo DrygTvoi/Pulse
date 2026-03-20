@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import '../models/contact.dart';
 import '../theme/app_theme.dart';
+import '../theme/design_tokens.dart';
 import '../services/signal_service.dart';
 import '../controllers/chat_controller.dart';
 import 'verify_identity_screen.dart';
@@ -113,10 +114,10 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: AppTheme.surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.buttonRadius)),
         title: Row(children: [
-          Icon(Icons.verified_user_rounded, color: AppTheme.primary, size: 20),
-          const SizedBox(width: 8),
+          Icon(Icons.verified_user_rounded, color: AppTheme.primary, size: DesignTokens.iconMd),
+          const SizedBox(width: DesignTokens.spacing8),
           Text('Verify Identity',
               style: GoogleFonts.inter(color: AppTheme.textPrimary, fontWeight: FontWeight.w700)),
         ]),
@@ -129,11 +130,11 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
               Text(
                 'Compare these fingerprints with ${_contact.name} over a voice call or in person. '
                 'If both values match on both devices, tap "Mark as Verified".',
-                style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: 13),
+                style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: DesignTokens.fontMd),
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: DesignTokens.spacing14),
               _dialogFpRow('Their key', _contactFingerprint ?? '—'),
-              const SizedBox(height: 6),
+              const SizedBox(height: DesignTokens.spacing6),
               _dialogFpRow('Your key', _ownFingerprint.isEmpty ? '—' : _ownFingerprint),
             ],
           ),
@@ -146,7 +147,7 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: _isVerified ? AppTheme.error : const Color(0xFF4CAF50),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.spacing10)),
               elevation: 0,
             ),
             onPressed: () async {
@@ -165,21 +166,21 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
 
   Widget _dialogFpRow(String label, String fp) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: DesignTokens.spacing10, vertical: DesignTokens.spacing8),
       decoration: BoxDecoration(
         color: AppTheme.background,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(DesignTokens.radiusSmall),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(label,
               style: GoogleFonts.inter(
-                  color: AppTheme.textSecondary, fontSize: 10, fontWeight: FontWeight.w600)),
+                  color: AppTheme.textSecondary, fontSize: DesignTokens.fontXs, fontWeight: FontWeight.w600)),
           const SizedBox(height: 3),
           SelectableText(fp,
               style: GoogleFonts.jetBrainsMono(
-                  color: AppTheme.textPrimary, fontSize: 12, fontWeight: FontWeight.w600)),
+                  color: AppTheme.textPrimary, fontSize: DesignTokens.fontBody, fontWeight: FontWeight.w600)),
         ],
       ),
     );
@@ -191,7 +192,7 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: AppTheme.surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.buttonRadius)),
         title: Text(title,
             style: GoogleFonts.inter(color: AppTheme.textPrimary, fontWeight: FontWeight.w700)),
         content: SizedBox(
@@ -201,13 +202,13 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
             children: [
               Container(
                 color: Colors.white,
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(DesignTokens.spacing12),
                 child: QrImageView(data: data, size: 220),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: DesignTokens.spacing12),
               Text(data,
                   style: GoogleFonts.jetBrainsMono(
-                      color: AppTheme.textSecondary, fontSize: 10),
+                      color: AppTheme.textSecondary, fontSize: DesignTokens.fontXs),
                   textAlign: TextAlign.center,
                   overflow: TextOverflow.ellipsis,
                   maxLines: 3),
@@ -261,8 +262,8 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
       context: context,
       backgroundColor: AppTheme.surface,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(DesignTokens.radiusXl)),
       ),
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setLocal) => SafeArea(
@@ -270,21 +271,21 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
-                width: 40, height: 4,
-                margin: const EdgeInsets.only(top: 12, bottom: 8),
+                width: DesignTokens.spacing40, height: 4,
+                margin: const EdgeInsets.only(top: DesignTokens.spacing12, bottom: DesignTokens.spacing8),
                 decoration: BoxDecoration(
                   color: AppTheme.textSecondary.withValues(alpha: 0.3),
-                  borderRadius: BorderRadius.circular(2),
+                  borderRadius: BorderRadius.circular(DesignTokens.radiusXs),
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                padding: const EdgeInsets.fromLTRB(DesignTokens.spacing20, 0, DesignTokens.spacing20, DesignTokens.spacing8),
                 child: Row(
                   children: [
                     Text('Add Members',
                         style: GoogleFonts.inter(
                             color: AppTheme.textPrimary,
-                            fontSize: 16, fontWeight: FontWeight.w700)),
+                            fontSize: DesignTokens.fontXl, fontWeight: FontWeight.w700)),
                     const Spacer(),
                     if (selected.isNotEmpty)
                       TextButton(
@@ -325,14 +326,14 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
                           style: GoogleFonts.inter(color: AppTheme.textPrimary)),
                       subtitle: Text(c.provider,
                           style: GoogleFonts.inter(
-                              color: AppTheme.textSecondary, fontSize: 11)),
+                              color: AppTheme.textSecondary, fontSize: DesignTokens.fontSm)),
                       activeColor: AppTheme.primary,
                       checkColor: Colors.white,
                     );
                   },
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: DesignTokens.spacing8),
             ],
           ),
         ),
@@ -346,7 +347,7 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: AppTheme.surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.buttonRadius)),
         title: Text('Rename Group',
             style: GoogleFonts.inter(
                 color: AppTheme.textPrimary, fontWeight: FontWeight.w700)),
@@ -360,7 +361,7 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
             filled: true,
             fillColor: AppTheme.background,
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(DesignTokens.spacing10),
               borderSide: BorderSide.none,
             ),
           ),
@@ -373,7 +374,7 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: AppTheme.primary,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.spacing10)),
               elevation: 0,
             ),
             onPressed: () async {
@@ -402,29 +403,29 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
       constraints: BoxConstraints(maxHeight: screenH * 0.85),
       decoration: BoxDecoration(
         color: AppTheme.surface,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(DesignTokens.dialogPadding)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           // Drag handle
           Container(
-            margin: const EdgeInsets.only(top: 12),
-            width: 36,
+            margin: const EdgeInsets.only(top: DesignTokens.spacing12),
+            width: DesignTokens.avatarXs,
             height: 4,
             decoration: BoxDecoration(
               color: AppTheme.textSecondary.withValues(alpha: 0.3),
-              borderRadius: BorderRadius.circular(2),
+              borderRadius: BorderRadius.circular(DesignTokens.radiusXs),
             ),
           ),
           Flexible(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+              padding: const EdgeInsets.fromLTRB(DesignTokens.spacing20, DesignTokens.spacing20, DesignTokens.spacing20, DesignTokens.spacing32),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   _buildAvatar(),
-                  const SizedBox(height: 14),
+                  const SizedBox(height: DesignTokens.spacing14),
                   GestureDetector(
                     onTap: _contact.isGroup && widget.isAdmin ? _showRenameDialog : null,
                     child: Row(
@@ -436,42 +437,42 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
                             _contact.name,
                             style: GoogleFonts.inter(
                               color: AppTheme.textPrimary,
-                              fontSize: 22,
+                              fontSize: DesignTokens.fontDisplay,
                               fontWeight: FontWeight.w700,
                             ),
                             textAlign: TextAlign.center,
                           ),
                         ),
                         if (_contact.isGroup && widget.isAdmin) ...[
-                          const SizedBox(width: 6),
+                          const SizedBox(width: DesignTokens.spacing6),
                           Icon(Icons.edit_rounded,
-                              size: 14, color: AppTheme.textSecondary),
+                              size: DesignTokens.fontLg, color: AppTheme.textSecondary),
                         ],
                       ],
                     ),
                   ),
                   if (_contact.bio.isNotEmpty) ...[
-                    const SizedBox(height: 8),
+                    const SizedBox(height: DesignTokens.spacing8),
                     Text(
                       _contact.bio,
                       textAlign: TextAlign.center,
                       style: GoogleFonts.inter(
-                          color: AppTheme.textSecondary, fontSize: 13),
+                          color: AppTheme.textSecondary, fontSize: DesignTokens.fontMd),
                     ),
                   ],
-                  const SizedBox(height: 6),
+                  const SizedBox(height: DesignTokens.spacing6),
                   _buildProviderBadge(),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: DesignTokens.spacing20),
                   _buildAddressRow(),
                   if (!_contact.isGroup && (_contactFingerprint != null || _ownFingerprint.isNotEmpty)) ...[
-                    const SizedBox(height: 12),
+                    const SizedBox(height: DesignTokens.spacing12),
                     _buildFingerprintSection(),
                   ],
                   if (_contact.isGroup) ...[
-                    const SizedBox(height: 20),
+                    const SizedBox(height: DesignTokens.spacing20),
                     _buildMembersSection(),
                   ],
-                  const SizedBox(height: 24),
+                  const SizedBox(height: DesignTokens.spacing24),
                   _buildActions(context),
                 ],
               ),
@@ -526,14 +527,14 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
     final color = providerColors[_contact.provider] ?? AppTheme.textSecondary;
     final label = _contact.isGroup ? 'Group' : _contact.provider;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: DesignTokens.spacing10, vertical: DesignTokens.spacing4),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(DesignTokens.radiusSmall),
       ),
       child: Text(label,
           style: GoogleFonts.inter(
-              color: color, fontSize: 12, fontWeight: FontWeight.w700)),
+              color: color, fontSize: DesignTokens.fontBody, fontWeight: FontWeight.w700)),
     );
   }
 
@@ -541,25 +542,25 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
     final addr = _contact.databaseId;
     if (addr.isEmpty) return const SizedBox.shrink();
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: DesignTokens.cardPadding, vertical: DesignTokens.tilePaddingV),
       decoration: BoxDecoration(
         color: AppTheme.background,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
       ),
       child: Row(
         children: [
-          Icon(Icons.inbox_rounded, size: 16, color: AppTheme.textSecondary),
-          const SizedBox(width: 8),
+          Icon(Icons.inbox_rounded, size: DesignTokens.iconSm, color: AppTheme.textSecondary),
+          const SizedBox(width: DesignTokens.spacing8),
           Expanded(
             child: Text(
               addr,
               style: GoogleFonts.jetBrainsMono(
-                  color: AppTheme.textSecondary, fontSize: 11),
+                  color: AppTheme.textSecondary, fontSize: DesignTokens.fontSm),
               overflow: TextOverflow.ellipsis,
               maxLines: 2,
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: DesignTokens.spacing8),
           GestureDetector(
             onTap: () {
               Clipboard.setData(ClipboardData(text: addr));
@@ -570,7 +571,7 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
                 ),
               );
             },
-            child: Icon(Icons.copy_rounded, size: 16, color: AppTheme.primary),
+            child: Icon(Icons.copy_rounded, size: DesignTokens.iconSm, color: AppTheme.primary),
           ),
         ],
       ),
@@ -581,10 +582,10 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
     final verifiedColor = const Color(0xFF4CAF50);
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(DesignTokens.cardPadding),
       decoration: BoxDecoration(
         color: AppTheme.background,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
         border: Border.all(
           color: _isVerified
               ? verifiedColor.withValues(alpha: 0.4)
@@ -596,46 +597,46 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
         children: [
           Row(children: [
             Icon(Icons.verified_user_rounded,
-                size: 13,
+                size: DesignTokens.fontMd,
                 color: _isVerified ? verifiedColor : AppTheme.primary),
-            const SizedBox(width: 6),
+            const SizedBox(width: DesignTokens.spacing6),
             Text('Signal Fingerprints',
                 style: GoogleFonts.inter(
                     color: _isVerified ? verifiedColor : AppTheme.primary,
-                    fontSize: 11, fontWeight: FontWeight.w700)),
-            const SizedBox(width: 6),
+                    fontSize: DesignTokens.fontSm, fontWeight: FontWeight.w700)),
+            const SizedBox(width: DesignTokens.spacing6),
             if (_isVerified)
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: DesignTokens.spacing6, vertical: DesignTokens.spacing2),
                 decoration: BoxDecoration(
                   color: verifiedColor.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(5),
                 ),
                 child: Text('VERIFIED',
                     style: GoogleFonts.inter(
-                        color: verifiedColor, fontSize: 9, fontWeight: FontWeight.w700)),
+                        color: verifiedColor, fontSize: DesignTokens.fontXxs, fontWeight: FontWeight.w700)),
               ),
             const Spacer(),
             if (_contactFingerprint != null)
               GestureDetector(
                 onTap: _showVerifyDialog,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  padding: const EdgeInsets.symmetric(horizontal: DesignTokens.spacing8, vertical: 3),
                   decoration: BoxDecoration(
                     color: AppTheme.primary.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(6),
+                    borderRadius: BorderRadius.circular(DesignTokens.spacing6),
                   ),
                   child: Text(_isVerified ? 'Edit' : 'Verify',
                       style: GoogleFonts.inter(
-                          color: AppTheme.primary, fontSize: 10, fontWeight: FontWeight.w600)),
+                          color: AppTheme.primary, fontSize: DesignTokens.fontXs, fontWeight: FontWeight.w600)),
                 ),
               ),
           ]),
-          const SizedBox(height: 10),
+          const SizedBox(height: DesignTokens.spacing10),
           if (_contactFingerprint != null)
             _fingerprintRow('Their key', _contactFingerprint!),
           if (_ownFingerprint.isNotEmpty) ...[
-            if (_contactFingerprint != null) const SizedBox(height: 6),
+            if (_contactFingerprint != null) const SizedBox(height: DesignTokens.spacing6),
             _fingerprintRow('Your key', _ownFingerprint),
           ],
           if (_contactFingerprint == null)
@@ -662,14 +663,14 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
         SizedBox(
           width: 64,
           child: Text(label,
-              style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: 11)),
+              style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: DesignTokens.fontSm)),
         ),
         Expanded(
           child: Text(fp,
               style: GoogleFonts.jetBrainsMono(
-                  color: AppTheme.textPrimary, fontSize: 11, fontWeight: FontWeight.w600)),
+                  color: AppTheme.textPrimary, fontSize: DesignTokens.fontSm, fontWeight: FontWeight.w600)),
         ),
-        Icon(Icons.copy_rounded, size: 12, color: AppTheme.textSecondary),
+        Icon(Icons.copy_rounded, size: DesignTokens.fontBody, color: AppTheme.textSecondary),
       ]),
     );
   }
@@ -680,13 +681,13 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(children: [
-          Icon(Icons.group_rounded, size: 14, color: AppTheme.textSecondary),
-          const SizedBox(width: 6),
+          Icon(Icons.group_rounded, size: DesignTokens.fontLg, color: AppTheme.textSecondary),
+          const SizedBox(width: DesignTokens.spacing6),
           Text(
             '${members.length} member${members.length == 1 ? '' : 's'}',
             style: GoogleFonts.inter(
                 color: AppTheme.textSecondary,
-                fontSize: 12,
+                fontSize: DesignTokens.fontBody,
                 fontWeight: FontWeight.w600),
           ),
           const Spacer(),
@@ -694,22 +695,22 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
             GestureDetector(
               onTap: _showAddMembersSheet,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: DesignTokens.spacing10, vertical: DesignTokens.spacing4),
                 decoration: BoxDecoration(
                   color: AppTheme.primary.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(DesignTokens.radiusSmall),
                 ),
                 child: Row(mainAxisSize: MainAxisSize.min, children: [
-                  Icon(Icons.person_add_rounded, size: 12, color: AppTheme.primary),
-                  const SizedBox(width: 4),
+                  Icon(Icons.person_add_rounded, size: DesignTokens.fontBody, color: AppTheme.primary),
+                  const SizedBox(width: DesignTokens.spacing4),
                   Text('Add',
                       style: GoogleFonts.inter(
-                          color: AppTheme.primary, fontSize: 11, fontWeight: FontWeight.w600)),
+                          color: AppTheme.primary, fontSize: DesignTokens.fontSm, fontWeight: FontWeight.w600)),
                 ]),
               ),
             ),
         ]),
-        const SizedBox(height: 10),
+        const SizedBox(height: DesignTokens.spacing10),
         ...members.map((memberId) => _buildMemberTile(memberId)),
       ],
     );
@@ -724,25 +725,25 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
     final avatarColor = HSLColor.fromAHSL(1, hue.toDouble(), 0.5, 0.35).toColor();
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 6),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      margin: const EdgeInsets.only(bottom: DesignTokens.spacing6),
+      padding: const EdgeInsets.symmetric(horizontal: DesignTokens.spacing12, vertical: DesignTokens.tilePaddingV),
       decoration: BoxDecoration(
         color: AppTheme.background,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
       ),
       child: Row(
         children: [
           Container(
-            width: 36,
-            height: 36,
+            width: DesignTokens.avatarXs,
+            height: DesignTokens.avatarXs,
             decoration: BoxDecoration(color: avatarColor, shape: BoxShape.circle),
             child: Center(
               child: Text(initial,
                   style: GoogleFonts.inter(
-                      color: Colors.white, fontSize: 15, fontWeight: FontWeight.w700)),
+                      color: Colors.white, fontSize: DesignTokens.fontInput, fontWeight: FontWeight.w700)),
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: DesignTokens.spacing12),
           Expanded(
             child: Text(name,
                 style: GoogleFonts.inter(
@@ -752,15 +753,15 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
             GestureDetector(
               onTap: () => _showKickConfirm(memberId, name),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                padding: const EdgeInsets.symmetric(horizontal: DesignTokens.spacing10, vertical: 5),
                 decoration: BoxDecoration(
                   color: AppTheme.error.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(DesignTokens.radiusSmall),
                 ),
                 child: Text('Kick',
                     style: GoogleFonts.inter(
                         color: AppTheme.error,
-                        fontSize: 12,
+                        fontSize: DesignTokens.fontBody,
                         fontWeight: FontWeight.w600)),
               ),
             ),
@@ -814,7 +815,7 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
               ));
             },
           ),
-        if (!_contact.isGroup) const SizedBox(height: 10),
+        if (!_contact.isGroup) const SizedBox(height: DesignTokens.spacing10),
         if (!_contact.isGroup)
           _actionButton(
             icon: Icons.qr_code_rounded,
@@ -822,7 +823,7 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
             color: const Color(0xFF9B59B6),
             onTap: () => _showQrDialog("${_contact.name}'s Address", _contact.databaseId),
           ),
-        if (!_contact.isGroup) const SizedBox(height: 10),
+        if (!_contact.isGroup) const SizedBox(height: DesignTokens.spacing10),
         _actionButton(
           icon: Icons.download_rounded,
           label: 'Export Chat History',
@@ -837,7 +838,7 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
             }
           },
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: DesignTokens.spacing10),
         _actionButton(
           icon: Icons.delete_sweep_rounded,
           label: 'Clear chat history',
@@ -847,7 +848,7 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
             widget.onClearHistory?.call();
           },
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: DesignTokens.spacing10),
         _actionButton(
           icon: Icons.person_remove_rounded,
           label: _contact.isGroup ? 'Delete group' : 'Delete contact',
@@ -871,19 +872,19 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
       onTap: onTap,
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 14),
+        padding: const EdgeInsets.symmetric(vertical: DesignTokens.cardPadding),
         decoration: BoxDecoration(
           color: color.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(DesignTokens.radiusLarge),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, color: color, size: 18),
-            const SizedBox(width: 8),
+            Icon(icon, color: color, size: DesignTokens.fontHeading),
+            const SizedBox(width: DesignTokens.spacing8),
             Text(label,
                 style: GoogleFonts.inter(
-                    color: color, fontWeight: FontWeight.w600, fontSize: 14)),
+                    color: color, fontWeight: FontWeight.w600, fontSize: DesignTokens.fontLg)),
           ],
         ),
       ),

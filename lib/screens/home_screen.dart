@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
+import '../theme/design_tokens.dart';
 import '../models/contact.dart';
 import '../models/user_status.dart';
 import '../services/status_service.dart';
@@ -151,6 +152,28 @@ class _HomeScreenState extends State<HomeScreen> {
     _loadStatuses();
     _loadMutedChats();
     _loadContactAvatars();
+
+    // Warn if SQLCipher is not available (DB metadata unencrypted).
+    // Show only once — the user can't act on it every launch.
+    if (!LocalStorageService().isSqlcipherAvailable) {
+      SharedPreferences.getInstance().then((prefs) {
+        const key = 'sqlcipher_warn_shown';
+        if (prefs.getBool(key) == true) return;
+        prefs.setBool(key, true);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(
+              context.l10n.homeDbEncryptionUnavailable,
+              style: GoogleFonts.inter(fontSize: DesignTokens.fontBody),
+            ),
+            backgroundColor: Colors.orange.shade900,
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 8),
+          ));
+        });
+      });
+    }
   }
 
   @override
@@ -291,13 +314,13 @@ class _HomeScreenState extends State<HomeScreen> {
       barrierDismissible: false,
       builder: (context) => AlertDialog(
         backgroundColor: AppTheme.surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text('Incoming Call', style: GoogleFonts.inter(color: AppTheme.textPrimary, fontWeight: FontWeight.w700)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.dialogRadius)),
+        title: Text(context.l10n.homeIncomingCallTitle, style: GoogleFonts.inter(color: AppTheme.textPrimary, fontWeight: FontWeight.w700)),
         content: Row(children: [
-          AvatarWidget(name: caller.name, size: 48, fontSize: 20),
-          const SizedBox(width: 14),
+          AvatarWidget(name: caller.name, size: 48, fontSize: DesignTokens.fontXxl),
+          const SizedBox(width: DesignTokens.spacing14),
           Expanded(child: Text(context.l10n.homeIncomingCall(caller.name),
-              style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: 14))),
+              style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: DesignTokens.fontLg))),
         ]),
         actions: [
           TextButton(
@@ -306,10 +329,10 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Text(context.l10n.homeDecline, style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
           ),
           ElevatedButton.icon(
-            icon: const Icon(Icons.call, size: 16),
+            icon: const Icon(Icons.call, size: DesignTokens.iconSm),
             label: Text(context.l10n.homeAccept, style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
             style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primary,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.radiusMedium))),
             onPressed: () {
               Navigator.pop(context);
               Navigator.push(context, MaterialPageRoute(
@@ -342,8 +365,8 @@ class _HomeScreenState extends State<HomeScreen> {
       barrierDismissible: false,
       builder: (context) => AlertDialog(
         backgroundColor: AppTheme.surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text('Incoming Group Call',
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.dialogRadius)),
+        title: Text(context.l10n.homeIncomingGroupCallTitle,
             style: GoogleFonts.inter(color: AppTheme.textPrimary, fontWeight: FontWeight.w700)),
         content: Row(children: [
           Container(
@@ -352,12 +375,12 @@ class _HomeScreenState extends State<HomeScreen> {
               color: const Color(0xFF26A69A).withValues(alpha: 0.15),
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.group_rounded, color: Color(0xFF26A69A), size: 24),
+            child: const Icon(Icons.group_rounded, color: Color(0xFF26A69A), size: DesignTokens.iconLg),
           ),
-          const SizedBox(width: 14),
+          const SizedBox(width: DesignTokens.spacing14),
           Expanded(
-            child: Text('${group.name} \u2014 group call incoming',
-                style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: 14)),
+            child: Text(context.l10n.homeGroupCallIncoming(group.name),
+                style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: DesignTokens.fontLg)),
           ),
         ]),
         actions: [
@@ -367,11 +390,11 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Text(context.l10n.homeDecline, style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
           ),
           ElevatedButton.icon(
-            icon: const Icon(Icons.video_call_rounded, size: 16),
+            icon: const Icon(Icons.video_call_rounded, size: DesignTokens.iconSm),
             label: Text(context.l10n.homeAccept, style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF26A69A),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.radiusMedium)),
             ),
             onPressed: () {
               Navigator.pop(context);
@@ -503,9 +526,9 @@ class _HomeScreenState extends State<HomeScreen> {
               title: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text('Chats',
-                      style: GoogleFonts.inter(color: AppTheme.textPrimary, fontSize: 22, fontWeight: FontWeight.w700)),
-                  const SizedBox(width: 8),
+                  Text(context.l10n.homeChats,
+                      style: GoogleFonts.inter(color: AppTheme.textPrimary, fontSize: DesignTokens.fontDisplay, fontWeight: FontWeight.w700)),
+                  const SizedBox(width: DesignTokens.spacing8),
                   _buildConnectionDot(chatCtrl.connectionStatus),
                 ],
               ),
@@ -517,13 +540,13 @@ class _HomeScreenState extends State<HomeScreen> {
                     message: 'uTLS proxy unavailable — ECH disabled.\n'
                         'TLS fingerprint is visible to DPI.',
                     child: Padding(
-                      padding: const EdgeInsets.only(right: 4),
+                      padding: const EdgeInsets.only(right: DesignTokens.spacing4),
                       child: Chip(
                         label: const Text('No ECH',
-                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                            style: TextStyle(fontSize: DesignTokens.fontSm, fontWeight: FontWeight.w600)),
                         backgroundColor: Colors.amber.shade700,
                         labelStyle: const TextStyle(color: Colors.black87),
-                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        padding: const EdgeInsets.symmetric(horizontal: DesignTokens.spacing4),
                         materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                         visualDensity: VisualDensity.compact,
                       ),
@@ -543,7 +566,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   icon: Icon(Icons.more_vert_rounded, color: AppTheme.textSecondary),
                   tooltip: context.l10n.moreOptions,
                   color: AppTheme.surface,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.radiusLarge)),
                   onSelected: (value) async {
                     if (value == 'settings') {
                       await Navigator.push(context, _slideRoute(const SettingsScreen()));
@@ -557,16 +580,16 @@ class _HomeScreenState extends State<HomeScreen> {
                     PopupMenuItem(
                       value: 'new_group',
                       child: Row(children: [
-                        Icon(Icons.group_add_rounded, color: AppTheme.textSecondary, size: 20),
-                        const SizedBox(width: 12),
+                        Icon(Icons.group_add_rounded, color: AppTheme.textSecondary, size: DesignTokens.iconMd),
+                        const SizedBox(width: DesignTokens.spacing12),
                         Text(context.l10n.homeNewGroup, style: GoogleFonts.inter(color: AppTheme.textPrimary)),
                       ]),
                     ),
                     PopupMenuItem(
                       value: 'settings',
                       child: Row(children: [
-                        Icon(Icons.settings_rounded, color: AppTheme.textSecondary, size: 20),
-                        const SizedBox(width: 12),
+                        Icon(Icons.settings_rounded, color: AppTheme.textSecondary, size: DesignTokens.iconMd),
+                        const SizedBox(width: DesignTokens.spacing12),
                         Text(context.l10n.homeSettings, style: GoogleFonts.inter(color: AppTheme.textPrimary)),
                       ]),
                     ),
@@ -685,8 +708,8 @@ class _HomeScreenState extends State<HomeScreen> {
         backgroundColor: AppTheme.primary,
         elevation: 3,
         shape: const CircleBorder(),
-        tooltip: 'New chat',
-        child: const Icon(Icons.chat_rounded, color: Colors.white, size: 22),
+        tooltip: context.l10n.homeNewChatTooltip,
+        child: const Icon(Icons.chat_rounded, color: Colors.white, size: DesignTokens.fontDisplay),
         onPressed: () => Navigator.push(
           context, _slideRoute(const ContactsScreen()),
         ).then((_) => _loadAll()),
@@ -705,9 +728,9 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             Icon(Icons.chat_bubble_outline_rounded, size: 64,
                 color: AppTheme.textSecondary.withValues(alpha: 0.3)),
-            const SizedBox(height: 16),
-            Text('Select a conversation',
-                style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: 16)),
+            const SizedBox(height: DesignTokens.spacing16),
+            Text(context.l10n.homeSelectConversation,
+                style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: DesignTokens.fontXl)),
           ],
         ),
       ),
@@ -734,10 +757,10 @@ class _HomeScreenState extends State<HomeScreen> {
       title: TextField(
         controller: _searchController,
         autofocus: true,
-        style: GoogleFonts.inter(color: AppTheme.textPrimary, fontSize: 16),
+        style: GoogleFonts.inter(color: AppTheme.textPrimary, fontSize: DesignTokens.fontXl),
         decoration: InputDecoration(
           hintText: context.l10n.searchMessages,
-          hintStyle: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: 16),
+          hintStyle: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: DesignTokens.fontXl),
           border: InputBorder.none,
           enabledBorder: InputBorder.none,
           focusedBorder: InputBorder.none,
@@ -748,7 +771,7 @@ class _HomeScreenState extends State<HomeScreen> {
       actions: [
         if (_searchController.text.isNotEmpty)
           IconButton(
-            icon: Icon(Icons.close_rounded, color: AppTheme.textSecondary, size: 20),
+            icon: Icon(Icons.close_rounded, color: AppTheme.textSecondary, size: DesignTokens.iconMd),
             tooltip: context.l10n.clearSearch,
             onPressed: () {
               _searchController.clear();
@@ -760,9 +783,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildConnectionDot(ConnectionStatus status) {
     final label = switch (status) {
-      ConnectionStatus.connected   => 'Connected',
-      ConnectionStatus.connecting  => 'Connecting…',
-      ConnectionStatus.disconnected => 'Disconnected',
+      ConnectionStatus.connected   => context.l10n.connected,
+      ConnectionStatus.connecting  => context.l10n.connecting,
+      ConnectionStatus.disconnected => context.l10n.disconnected,
     };
     if (status == ConnectionStatus.connecting) {
       return Tooltip(
@@ -776,7 +799,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return Tooltip(
       message: label,
       child: Container(
-        width: 8, height: 8,
+        width: DesignTokens.spacing8, height: DesignTokens.spacing8,
         decoration: BoxDecoration(
           color: status == ConnectionStatus.connected ? AppTheme.primary : AppTheme.textSecondary,
           shape: BoxShape.circle,
@@ -798,22 +821,22 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             child: Icon(Icons.chat_bubble_outline_rounded, size: 42, color: AppTheme.primary.withValues(alpha: 0.6)),
           ).animate().scale(duration: 500.ms, curve: Curves.easeOutBack),
-          const SizedBox(height: 20),
-          Text('No chats yet',
-              style: GoogleFonts.inter(color: AppTheme.textPrimary, fontSize: 20, fontWeight: FontWeight.w700))
+          const SizedBox(height: DesignTokens.spacing20),
+          Text(context.l10n.homeNoChatsYet,
+              style: GoogleFonts.inter(color: AppTheme.textPrimary, fontSize: DesignTokens.fontXxl, fontWeight: FontWeight.w700))
               .animate().fadeIn(delay: 150.ms),
-          const SizedBox(height: 6),
-          Text('Add a contact to start chatting',
-              style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: 14))
+          const SizedBox(height: DesignTokens.spacing6),
+          Text(context.l10n.homeAddContactToStart,
+              style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: DesignTokens.fontLg))
               .animate().fadeIn(delay: 250.ms),
-          const SizedBox(height: 28),
+          const SizedBox(height: DesignTokens.spacing28),
           ElevatedButton.icon(
-            icon: const Icon(Icons.person_add_rounded, size: 18),
-            label: Text('New Chat', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+            icon: const Icon(Icons.person_add_rounded, size: DesignTokens.fontHeading),
+            label: Text(context.l10n.homeNewChat, style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppTheme.primary,
-              padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              padding: const EdgeInsets.symmetric(horizontal: DesignTokens.spacing28, vertical: DesignTokens.buttonPaddingV),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.radiusLarge)),
             ),
             onPressed: () => Navigator.push(
               context, _slideRoute(const ContactsScreen()),
@@ -856,21 +879,21 @@ class _HomeScreenState extends State<HomeScreen> {
         // Loading indicator.
         if (_globalSearching)
           Padding(
-            padding: const EdgeInsets.symmetric(vertical: 16),
+            padding: const EdgeInsets.symmetric(vertical: DesignTokens.spacing16),
             child: Center(
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   SizedBox(
-                    width: 16, height: 16,
+                    width: DesignTokens.iconSm, height: DesignTokens.iconSm,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
                       color: AppTheme.primary,
                     ),
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: DesignTokens.spacing10),
                   Text(context.l10n.homeSearching,
-                      style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: 13)),
+                      style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: DesignTokens.fontMd)),
                 ],
               ),
             ),
@@ -878,7 +901,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
         // Contact name matches section.
         if (hasContactSection) ...[
-          _buildSectionHeader('Chats'),
+          _buildSectionHeader(context.l10n.homeSectionChats),
           ...contactMatches.map((c) {
             final room = chatCtrl.getRoomForContact(c.id);
             final messages = room?.messages ?? [];
@@ -901,7 +924,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
         // Message search results section.
         if (hasMessageSection) ...[
-          _buildSectionHeader('Messages'),
+          _buildSectionHeader(context.l10n.homeSectionMessages),
           ...groupedMessages.entries.expand((entry) {
             final contact = contactByStorageKey[entry.key];
             if (contact == null) return <Widget>[];
@@ -919,9 +942,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 children: [
                   Icon(Icons.search_off_rounded, size: 48,
                       color: AppTheme.textSecondary.withValues(alpha: 0.4)),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: DesignTokens.spacing12),
                   Text(context.l10n.homeNoResults,
-                      style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: 14)),
+                      style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: DesignTokens.fontLg)),
                 ],
               ),
             ),
@@ -932,11 +955,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildSectionHeader(String title) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
+      padding: const EdgeInsets.fromLTRB(DesignTokens.spacing16, DesignTokens.spacing14, DesignTokens.spacing16, DesignTokens.spacing6),
       child: Text(title,
           style: GoogleFonts.inter(
             color: AppTheme.primary,
-            fontSize: 13,
+            fontSize: DesignTokens.fontMd,
             fontWeight: FontWeight.w700,
             letterSpacing: 0.5,
           )),
@@ -965,16 +988,16 @@ class _HomeScreenState extends State<HomeScreen> {
         splashColor: AppTheme.primary.withValues(alpha: 0.07),
         highlightColor: AppTheme.primary.withValues(alpha: 0.04),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: DesignTokens.spacing12, vertical: DesignTokens.spacing10),
           child: Row(
             children: [
               AvatarWidget(
                 name: contact.name,
                 size: 44,
                 imageBytes: _contactAvatars[contact.id],
-                fontSize: 18,
+                fontSize: DesignTokens.fontHeading,
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: DesignTokens.spacing12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -987,14 +1010,14 @@ class _HomeScreenState extends State<HomeScreen> {
                               overflow: TextOverflow.ellipsis,
                               style: GoogleFonts.inter(
                                 color: AppTheme.textPrimary,
-                                fontSize: 14,
+                                fontSize: DesignTokens.fontLg,
                                 fontWeight: FontWeight.w600,
                               )),
                         ),
                         Text(timeStr,
                             style: GoogleFonts.inter(
                               color: AppTheme.textSecondary,
-                              fontSize: 11,
+                              fontSize: DesignTokens.fontSm,
                             )),
                       ],
                     ),
@@ -1022,7 +1045,7 @@ class _HomeScreenState extends State<HomeScreen> {
       // Shouldn't happen, but safety fallback.
       return TextSpan(
         text: text.length > 100 ? '${text.substring(0, 100)}...' : text,
-        style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: 13),
+        style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: DesignTokens.fontMd),
       );
     }
 
@@ -1040,20 +1063,20 @@ class _HomeScreenState extends State<HomeScreen> {
       children: [
         TextSpan(
           text: '$prefix$before',
-          style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: 13),
+          style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: DesignTokens.fontMd),
         ),
         TextSpan(
           text: match,
           style: GoogleFonts.inter(
             color: AppTheme.textPrimary,
-            fontSize: 13,
+            fontSize: DesignTokens.fontMd,
             fontWeight: FontWeight.w700,
             backgroundColor: AppTheme.primary.withValues(alpha: 0.15),
           ),
         ),
         TextSpan(
           text: '$after$suffix',
-          style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: 13),
+          style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: DesignTokens.fontMd),
         ),
       ],
     );
@@ -1065,15 +1088,15 @@ class _HomeScreenState extends State<HomeScreen> {
     final yesterday = today.subtract(const Duration(days: 1));
     final msgDay = DateTime(t.year, t.month, t.day);
     if (msgDay == today) return '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
-    if (msgDay == yesterday) return 'Yesterday';
+    if (msgDay == yesterday) return context.l10n.chatYesterday;
     if (now.year == t.year) return '${t.day}/${t.month}';
     return '${t.day}/${t.month}/${t.year % 100}';
   }
 
   Widget _buildNoResults() {
     return Center(
-      child: Text('No chats matching "$_searchQuery"',
-          style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: 14)),
+      child: Text(context.l10n.homeNoChatsMatchingQuery(_searchQuery),
+          style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: DesignTokens.fontLg)),
     );
   }
 }

@@ -7,6 +7,7 @@ import '../services/status_service.dart';
 import '../services/media_service.dart';
 import '../controllers/chat_controller.dart';
 import '../theme/app_theme.dart';
+import '../l10n/l10n_ext.dart';
 
 class StatusCreatorScreen extends StatefulWidget {
   const StatusCreatorScreen({super.key});
@@ -55,7 +56,7 @@ class _StatusCreatorScreenState extends State<StatusCreatorScreen> {
     if (text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Please enter some text for your status.',
+          content: Text(context.l10n.statusEnterText,
               style: GoogleFonts.inter(color: Colors.white)),
           backgroundColor: AppTheme.error,
         ),
@@ -95,7 +96,7 @@ class _StatusCreatorScreenState extends State<StatusCreatorScreen> {
           icon: Icon(Icons.close_rounded, color: AppTheme.textSecondary),
           onPressed: () => Navigator.pop(context),
         ),
-        title: Text('New Status',
+        title: Text(context.l10n.statusNewStatus,
             style: GoogleFonts.inter(
                 color: AppTheme.textPrimary,
                 fontSize: 18,
@@ -111,7 +112,7 @@ class _StatusCreatorScreenState extends State<StatusCreatorScreen> {
                 )
               : TextButton(
                   onPressed: _publish,
-                  child: Text('Publish',
+                  child: Text(context.l10n.statusPublish,
                       style: GoogleFonts.inter(
                           color: AppTheme.primary,
                           fontWeight: FontWeight.w700,
@@ -136,7 +137,7 @@ class _StatusCreatorScreenState extends State<StatusCreatorScreen> {
                 maxLength: 280,
                 style: GoogleFonts.inter(color: AppTheme.textPrimary, fontSize: 16),
                 decoration: InputDecoration(
-                  hintText: 'What\'s on your mind?',
+                  hintText: context.l10n.statusWhatsOnYourMind,
                   hintStyle: GoogleFonts.inter(color: AppTheme.textSecondary),
                   contentPadding: const EdgeInsets.all(16),
                   border: InputBorder.none,
@@ -159,7 +160,7 @@ class _StatusCreatorScreenState extends State<StatusCreatorScreen> {
                 size: 20,
               ),
               label: Text(
-                _mediaPayload != null ? 'Photo attached' : 'Attach photo (optional)',
+                _mediaPayload != null ? context.l10n.statusPhotoAttached : context.l10n.statusAttachPhoto,
                 style: GoogleFonts.inter(color: AppTheme.primary, fontWeight: FontWeight.w500),
               ),
               style: OutlinedButton.styleFrom(
@@ -209,7 +210,7 @@ class _StatusCreatorScreenState extends State<StatusCreatorScreen> {
             Row(children: [
               Icon(Icons.access_time_rounded, size: 14, color: AppTheme.textSecondary),
               const SizedBox(width: 6),
-              Text('Status expires in 24 hours',
+              Text(context.l10n.statusExpiresIn24h,
                   style: GoogleFonts.inter(
                       color: AppTheme.textSecondary, fontSize: 12)),
             ]),

@@ -157,7 +157,7 @@ class AdaptiveRelayService {
           ? uri.port
           : (uri.scheme == 'wss' ? 443 : 80);
       final normalized = (!uri.hasPort || uri.port == 0)
-          ? uri.replace(port: port).toString()
+          ? '${uri.scheme}://${uri.host}:$port${uri.path}'
           : url;
 
       // Resolve via DoH — these are CF relays, system DNS may be poisoned.

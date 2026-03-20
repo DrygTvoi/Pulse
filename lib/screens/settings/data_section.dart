@@ -8,6 +8,7 @@ import 'package:path_provider/path_provider.dart';
 import '../../services/key_export_service.dart';
 import '../../services/local_storage_service.dart';
 import '../../theme/app_theme.dart';
+import '../../theme/design_tokens.dart';
 import 'settings_widgets.dart';
 
 class DataSection extends StatelessWidget {
@@ -34,7 +35,7 @@ class DataSection extends StatelessWidget {
         builder: (ctx, setS) => AlertDialog(
           backgroundColor: AppTheme.surface,
           shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20)),
+              borderRadius: BorderRadius.circular(DesignTokens.dialogRadius)),
           title: Text(
             title,
             style: GoogleFonts.inter(
@@ -64,13 +65,13 @@ class DataSection extends StatelessWidget {
                   filled: true,
                   fillColor: AppTheme.surfaceVariant,
                   border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
                       borderSide: BorderSide.none),
                   enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
                       borderSide: BorderSide.none),
                   focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
                     borderSide: const BorderSide(
                         color: Color(0xFF3498DB), width: 1.5),
                   ),
@@ -103,13 +104,13 @@ class DataSection extends StatelessWidget {
                     filled: true,
                     fillColor: AppTheme.surfaceVariant,
                     border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
                         borderSide: BorderSide.none),
                     enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
                         borderSide: BorderSide.none),
                     focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
                       borderSide: const BorderSide(
                           color: Color(0xFF3498DB), width: 1.5),
                     ),
@@ -157,7 +158,7 @@ class DataSection extends StatelessWidget {
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF3498DB),
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10)),
+                    borderRadius: BorderRadius.circular(DesignTokens.spacing10)),
               ),
               child: Text(
                 confirmLabel,
@@ -224,7 +225,7 @@ class DataSection extends StatelessWidget {
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
           shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.spacing10)),
         ));
         return;
       }
@@ -268,7 +269,7 @@ class DataSection extends StatelessWidget {
         behavior: SnackBarBehavior.floating,
         duration: const Duration(seconds: 4),
         shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.spacing10)),
       ));
     } catch (e) {
       if (context.mounted) {
@@ -278,7 +279,7 @@ class DataSection extends StatelessWidget {
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
           shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.spacing10)),
         ));
       }
     }
@@ -320,7 +321,7 @@ class DataSection extends StatelessWidget {
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
           shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.spacing10)),
         ));
       }
       return;
@@ -336,7 +337,7 @@ class DataSection extends StatelessWidget {
             backgroundColor: Colors.red,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10)),
+                borderRadius: BorderRadius.circular(DesignTokens.spacing10)),
           ));
         }
         return;
@@ -389,7 +390,7 @@ class DataSection extends StatelessWidget {
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
           shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.spacing10)),
         ));
       } else {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -403,7 +404,7 @@ class DataSection extends StatelessWidget {
           behavior: SnackBarBehavior.floating,
           duration: const Duration(seconds: 3),
           shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.spacing10)),
         ));
       }
     } catch (e) {
@@ -414,7 +415,7 @@ class DataSection extends StatelessWidget {
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
           shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.spacing10)),
         ));
       }
     }
@@ -427,7 +428,7 @@ class DataSection extends StatelessWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: AppTheme.surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.dialogRadius)),
         title: Row(
           children: [
             const Icon(Icons.warning_amber_rounded,
@@ -462,7 +463,7 @@ class DataSection extends StatelessWidget {
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFFE67E22),
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10)),
+                  borderRadius: BorderRadius.circular(DesignTokens.spacing10)),
             ),
             child: Text(
               'I Understand, Continue',
@@ -506,7 +507,7 @@ class DataSection extends StatelessWidget {
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
           shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.spacing10)),
         ));
         return;
       }
@@ -534,7 +535,7 @@ class DataSection extends StatelessWidget {
               behavior: SnackBarBehavior.floating,
               duration: const Duration(seconds: 4),
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10)),
+                  borderRadius: BorderRadius.circular(DesignTokens.spacing10)),
             ));
           }
         }
@@ -549,7 +550,7 @@ class DataSection extends StatelessWidget {
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
           shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.spacing10)),
         ));
       }
     }
@@ -585,7 +586,7 @@ class DataSection extends StatelessWidget {
         backgroundColor: Colors.red,
         behavior: SnackBarBehavior.floating,
         shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.spacing10)),
       ));
       return;
     }
@@ -594,7 +595,7 @@ class DataSection extends StatelessWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: AppTheme.surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.dialogRadius)),
         title: Row(
           children: [
             const Icon(Icons.warning_amber_rounded,
@@ -630,7 +631,7 @@ class DataSection extends StatelessWidget {
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFFE74C3C),
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10)),
+                  borderRadius: BorderRadius.circular(DesignTokens.spacing10)),
             ),
             child: Text(
               'Replace Keys',
@@ -675,7 +676,7 @@ class DataSection extends StatelessWidget {
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
           shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.spacing10)),
         ));
       } else {
         await showDialog(
@@ -684,7 +685,7 @@ class DataSection extends StatelessWidget {
           builder: (ctx) => AlertDialog(
             backgroundColor: AppTheme.surface,
             shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20)),
+                borderRadius: BorderRadius.circular(DesignTokens.dialogRadius)),
             title: Text(
               'Keys Imported',
               style: GoogleFonts.inter(
@@ -705,7 +706,7 @@ class DataSection extends StatelessWidget {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.primary,
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10)),
+                      borderRadius: BorderRadius.circular(DesignTokens.spacing10)),
                 ),
                 child: Text(
                   'Restart Now',
@@ -732,7 +733,7 @@ class DataSection extends StatelessWidget {
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
           shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.spacing10)),
         ));
       }
     }

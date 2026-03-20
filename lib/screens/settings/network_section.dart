@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../controllers/chat_controller.dart';
 import '../../services/background_service.dart';
 import '../../theme/app_theme.dart';
+import '../../theme/design_tokens.dart';
 import '../../widgets/turn_config_section.dart';
 import '../../widgets/tor_config_section.dart';
 import '../../widgets/i2p_config_section.dart';
@@ -92,7 +93,7 @@ class NetworkSection extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         color: AppTheme.surface,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(DesignTokens.radiusLarge),
       ),
       child: Row(
         children: [
@@ -142,7 +143,7 @@ class NetworkSection extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         color: AppTheme.surface,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(DesignTokens.radiusLarge),
       ),
       child: Row(
         children: [

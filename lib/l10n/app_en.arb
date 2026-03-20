@@ -9,6 +9,18 @@
   "closeSearch": "Close search",
   "moreOptions": "More options",
   "back": "Back",
+  "cancel": "Cancel",
+  "close": "Close",
+  "confirm": "Confirm",
+  "remove": "Remove",
+  "save": "Save",
+  "add": "Add",
+  "copy": "Copy",
+  "skip": "Skip",
+  "done": "Done",
+  "apply": "Apply",
+  "export": "Export",
+  "import": "Import",
 
   "homeNewGroup": "New group",
   "homeSettings": "Settings",
@@ -30,6 +42,29 @@
   "homeAccept": "Accept",
   "homeDecline": "Decline",
   "homeLoadEarlier": "Load earlier messages",
+  "homeChats": "Chats",
+  "homeSelectConversation": "Select a conversation",
+  "homeNoChatsYet": "No chats yet",
+  "homeAddContactToStart": "Add a contact to start chatting",
+  "homeNewChat": "New Chat",
+  "homeNewChatTooltip": "New chat",
+  "homeIncomingCallTitle": "Incoming Call",
+  "homeIncomingGroupCallTitle": "Incoming Group Call",
+  "homeGroupCallIncoming": "{name} \u2014 group call incoming",
+  "@homeGroupCallIncoming": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "homeNoChatsMatchingQuery": "No chats matching \"{query}\"",
+  "@homeNoChatsMatchingQuery": {
+    "placeholders": {
+      "query": { "type": "String" }
+    }
+  },
+  "homeSectionChats": "Chats",
+  "homeSectionMessages": "Messages",
+  "homeDbEncryptionUnavailable": "Database encryption unavailable \u2014 install SQLCipher for full protection",
 
   "chatFileTooLargeGroup": "Files over 512 KB are not supported in group chats",
   "chatLargeFile": "Large File",
@@ -43,6 +78,33 @@
   "chatYesterday": "Yesterday",
   "chatEdited": "edited",
   "chatYou": "You",
+  "chatLargeFileSizeWarning": "This file is {size} MB. Sending large files may be slow on some networks. Continue?",
+  "@chatLargeFileSizeWarning": {
+    "placeholders": {
+      "size": { "type": "String" }
+    }
+  },
+  "chatKeyChangedSnackbar": "{name}'s security key changed. Tap to verify.",
+  "@chatKeyChangedSnackbar": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "chatEncryptionFailed": "Could not encrypt message to {name} \u2014 message not sent.",
+  "@chatEncryptionFailed": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "chatSafetyNumberChanged": "Safety number changed for {name}. Tap to verify.",
+  "@chatSafetyNumberChanged": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "chatNoMessagesFound": "No messages found",
+  "chatMessagesE2ee": "Messages are end-to-end encrypted",
+  "chatSayHello": "Say hello",
 
   "appBarOnline": "online",
   "appBarSignalE2ee": "Signal E2EE",
@@ -106,15 +168,709 @@
   "callDirectFailed": "Direct connection failed \u2014 switching to relay mode\u2026",
   "callTurnUnreachable": "TURN servers unreachable. Add a custom TURN in Settings \u2192 Advanced.",
   "callRelayMode": "Relay mode active (restricted network)",
+  "callStarting": "Starting call\u2026",
+  "callConnectingToGroup": "Connecting to group\u2026",
+  "callGroupOpenedInBrowser": "Group call opened in browser",
+  "callCouldNotOpenBrowser": "Could not open browser",
+  "callInviteLinkSent": "Invite link sent to all group members.",
+  "callOpenLinkManually": "Open the link above manually or tap to retry.",
+  "callJitsiNotE2ee": "Jitsi calls are NOT end-to-end encrypted",
+  "callRetryOpenBrowser": "Retry open browser",
+  "callClose": "Close",
+  "callCamOn": "Cam on",
+  "callCamOff": "Cam off",
 
   "noConnection": "No connection \u2014 messages will queue",
   "connected": "Connected",
   "connecting": "Connecting\u2026",
   "disconnected": "Disconnected",
+  "offlineBanner": "No connection \u2014 messages will queue and send when back online",
+  "lanModeBanner": "LAN Mode \u2014 No internet \u00b7 Local network only",
+
+  "probeCheckingNetwork": "Checking network connectivity\u2026",
+  "probeDiscoveringRelays": "Discovering relays via community directories\u2026",
+  "probeStartingTor": "Starting Tor for bootstrap\u2026",
+  "probeFindingRelaysTor": "Finding reachable relays via Tor\u2026",
+  "probeNetworkReady": "Network ready \u2014 {count} relay{count, plural, =1{} other{s}} found",
+  "@probeNetworkReady": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "probeNoRelaysFound": "No reachable relays found \u2014 messages may be delayed",
 
   "jitsiWarningTitle": "Not end-to-end encrypted",
   "jitsiWarningBody": "Jitsi Meet calls are not encrypted by Pulse. Only use for non-sensitive conversations.",
   "jitsiConfirm": "Join anyway",
+  "jitsiGroupWarningTitle": "Not end-to-end encrypted",
+  "jitsiGroupWarningBody": "This call has too many participants for the built-in encrypted mesh.\n\nA Jitsi Meet link will be opened in your browser. Jitsi is NOT end-to-end encrypted \u2014 the server can see your call.",
+  "jitsiContinueAnyway": "Continue anyway",
 
-  "retry": "Retry"
+  "retry": "Retry",
+
+  "setupCreateAnonymousAccount": "Create an anonymous account",
+  "setupTapToChangeColor": "Tap to change color",
+  "setupYourNickname": "Your nickname",
+  "setupRecoveryPassword": "Recovery password (min. 16)",
+  "setupConfirmPassword": "Confirm password",
+  "setupMin16Chars": "Minimum 16 characters",
+  "setupPasswordsDoNotMatch": "Passwords do not match",
+  "setupEntropyWeak": "Weak",
+  "setupEntropyOk": "OK",
+  "setupEntropyStrong": "Strong",
+  "setupEntropyWeakNeedsVariety": "Weak (need 3 char types)",
+  "setupEntropyBits": "{label} ({bits} bits)",
+  "@setupEntropyBits": {
+    "placeholders": {
+      "label": { "type": "String" },
+      "bits": { "type": "int" }
+    }
+  },
+  "setupPasswordWarning": "This password is the only way to restore your account. There is no server \u2014 no password reset. Remember it or write it down.",
+  "setupCreateAccount": "Create account",
+  "setupAlreadyHaveAccount": "Already have an account? ",
+  "setupRestore": "Restore \u2192",
+
+  "restoreTitle": "Restore account",
+  "restoreInfoBanner": "Enter your recovery password \u2014 your address (Nostr + Session) will be restored automatically. Contacts and messages were stored locally only.",
+  "restoreNewNickname": "New nickname (can change later)",
+  "restoreButton": "Restore account",
+
+  "lockTitle": "Pulse is locked",
+  "lockSubtitle": "Enter your password to continue",
+  "lockPasswordHint": "Password",
+  "lockUnlock": "Unlock",
+  "lockPanicHint": "Forgot your password? Enter your panic key to wipe all data.",
+  "lockTooManyAttempts": "Too many attempts. Erasing all data\u2026",
+  "lockWrongPassword": "Wrong password",
+  "lockWrongPasswordAttempts": "Wrong password \u2014 {attempts}/{max} attempts",
+  "@lockWrongPasswordAttempts": {
+    "placeholders": {
+      "attempts": { "type": "int" },
+      "max": { "type": "int" }
+    }
+  },
+
+  "onboardingSkip": "Skip",
+  "onboardingNext": "Next",
+  "onboardingGetStarted": "Get Started",
+  "onboardingWelcomeTitle": "Welcome to Pulse",
+  "onboardingWelcomeBody": "A decentralized, end-to-end encrypted messenger.\n\nNo central servers. No data collection. No backdoors.\nYour conversations belong only to you.",
+  "onboardingTransportTitle": "Transport-Agnostic",
+  "onboardingTransportBody": "Use Firebase, Nostr, or both at the same time.\n\nMessages route across networks automatically. Built-in Tor and I2P support for censorship resistance.",
+  "onboardingSignalTitle": "Signal + Post-Quantum",
+  "onboardingSignalBody": "Every message is encrypted with the Signal Protocol (Double Ratchet + X3DH) for forward secrecy.\n\nAdditionally wrapped with Kyber-1024 \u2014 a NIST-standard post-quantum algorithm \u2014 protecting against future quantum computers.",
+  "onboardingKeysTitle": "You Own Your Keys",
+  "onboardingKeysBody": "Your identity keys never leave your device.\n\nSignal fingerprints let you verify contacts out-of-band. TOFU (Trust On First Use) detects key changes automatically.",
+  "onboardingThemeTitle": "Choose Your Look",
+  "onboardingThemeBody": "Pick a theme and accent colour. You can always change this later in Settings.",
+
+  "contactsNewChat": "New chat",
+  "contactsAddContact": "Add contact",
+  "contactsSearchHint": "Search...",
+  "contactsNewGroup": "New group",
+  "contactsNoContactsYet": "No contacts yet",
+  "contactsAddHint": "Tap + to add someone's address",
+  "contactsNoMatch": "No contacts match",
+  "contactsRemoveTitle": "Remove contact",
+  "contactsRemoveMessage": "Remove {name}?",
+  "@contactsRemoveMessage": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "contactsRemove": "Remove",
+  "contactsCount": "{count} contact{count, plural, =1{} other{s}}",
+  "@contactsCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+
+  "bubbleOpenLink": "Open Link",
+  "bubbleOpenLinkBody": "Open this URL in your browser?\n\n{url}",
+  "@bubbleOpenLinkBody": {
+    "placeholders": {
+      "url": { "type": "String" }
+    }
+  },
+  "bubbleOpen": "Open",
+  "bubbleSecurityWarning": "Security Warning",
+  "bubbleExecutableWarning": "\"{name}\" is an executable file type. Saving and running it could harm your device. Save anyway?",
+  "@bubbleExecutableWarning": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "bubbleSaveAnyway": "Save Anyway",
+  "bubbleSavedTo": "Saved to {path}",
+  "@bubbleSavedTo": {
+    "placeholders": {
+      "path": { "type": "String" }
+    }
+  },
+  "bubbleSaveFailed": "Save failed: {error}",
+  "@bubbleSaveFailed": {
+    "placeholders": {
+      "error": { "type": "String" }
+    }
+  },
+  "bubbleNotEncrypted": "NOT ENCRYPTED",
+  "bubbleCorruptedImage": "[Corrupted image]",
+  "bubbleReplyPhoto": "Photo",
+  "bubbleReplyVoice": "Voice message",
+  "bubbleReadBy": "Read by {names}",
+  "@bubbleReadBy": {
+    "placeholders": {
+      "names": { "type": "String" }
+    }
+  },
+  "bubbleReadByCount": "Read by {count}",
+  "@bubbleReadByCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+
+  "chatTileTapToStart": "Tap to start chatting",
+  "chatTileMessageSent": "Message sent",
+  "chatTileEncryptedMessage": "Encrypted message",
+  "chatTileYouPrefix": "You: {text}",
+  "@chatTileYouPrefix": {
+    "placeholders": {
+      "text": { "type": "String" }
+    }
+  },
+
+  "bannerEncryptedMessage": "Encrypted message",
+
+  "groupNewGroup": "New Group",
+  "@groupNewGroup": { "description": "Title for the create group dialog" },
+  "groupGroupName": "Group name",
+  "@groupGroupName": { "description": "Hint text for group name input" },
+  "groupSelectMembers": "Select members (min 2)",
+  "@groupSelectMembers": { "description": "Label above member selection list" },
+  "groupNoContactsYet": "No contacts yet. Add contacts first.",
+  "@groupNoContactsYet": { "description": "Shown when no contacts available for group creation" },
+  "groupCreate": "Create",
+  "@groupCreate": { "description": "Create group button text" },
+  "groupLabel": "Group",
+  "@groupLabel": { "description": "Badge label for group contacts" },
+
+  "profileVerifyIdentity": "Verify Identity",
+  "@profileVerifyIdentity": { "description": "Title for the verify identity dialog" },
+  "profileVerifyInstructions": "Compare these fingerprints with {name} over a voice call or in person. If both values match on both devices, tap \"Mark as Verified\".",
+  "@profileVerifyInstructions": {
+    "description": "Instructions in the verify identity dialog",
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "profileTheirKey": "Their key",
+  "@profileTheirKey": { "description": "Label for contact's fingerprint" },
+  "profileYourKey": "Your key",
+  "@profileYourKey": { "description": "Label for own fingerprint" },
+  "profileRemoveVerification": "Remove Verification",
+  "@profileRemoveVerification": { "description": "Button to remove identity verification" },
+  "profileMarkAsVerified": "Mark as Verified",
+  "@profileMarkAsVerified": { "description": "Button to mark identity as verified" },
+  "profileAddressCopied": "Address copied",
+  "@profileAddressCopied": { "description": "Snackbar text when address is copied" },
+  "profileNoContactsToAdd": "No contacts to add \u2014 all are already members",
+  "@profileNoContactsToAdd": { "description": "Snackbar when all contacts are already group members" },
+  "profileAddMembers": "Add Members",
+  "@profileAddMembers": { "description": "Title for the add members bottom sheet" },
+  "profileAddCount": "Add ({count})",
+  "@profileAddCount": {
+    "description": "Button text for adding selected members",
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "profileRenameGroup": "Rename Group",
+  "@profileRenameGroup": { "description": "Title for the rename group dialog" },
+  "profileRename": "Rename",
+  "@profileRename": { "description": "Rename button text" },
+  "profileRemoveMember": "Remove member?",
+  "@profileRemoveMember": { "description": "Title for the kick member confirmation dialog" },
+  "profileRemoveMemberBody": "Remove {name} from this group?",
+  "@profileRemoveMemberBody": {
+    "description": "Body for the kick member confirmation dialog",
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "profileKick": "Kick",
+  "@profileKick": { "description": "Button to remove a member from group" },
+  "profileSignalFingerprints": "Signal Fingerprints",
+  "@profileSignalFingerprints": { "description": "Label for Signal fingerprints section" },
+  "profileVerified": "VERIFIED",
+  "@profileVerified": { "description": "Badge text for verified identity" },
+  "profileVerify": "Verify",
+  "@profileVerify": { "description": "Button to open verify dialog" },
+  "profileEdit": "Edit",
+  "@profileEdit": { "description": "Button to edit verification" },
+  "profileNoSession": "No session established yet \u2014 send a message first.",
+  "@profileNoSession": { "description": "Shown when no Signal session exists" },
+  "profileFingerprintCopied": "Fingerprint copied",
+  "@profileFingerprintCopied": { "description": "Snackbar when fingerprint is copied" },
+  "profileMemberCount": "{count} member{count, plural, =1{} other{s}}",
+  "@profileMemberCount": {
+    "description": "Shows the number of group members",
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "profileVerifySafetyNumber": "Verify Safety Number",
+  "@profileVerifySafetyNumber": { "description": "Button to verify safety number" },
+  "profileShowContactQr": "Show Contact QR",
+  "@profileShowContactQr": { "description": "Button to show contact QR code" },
+  "profileContactAddress": "{name}'s Address",
+  "@profileContactAddress": {
+    "description": "QR dialog title showing contact address",
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "profileExportChatHistory": "Export Chat History",
+  "@profileExportChatHistory": { "description": "Button to export chat history" },
+  "profileSavedTo": "Saved to {path}",
+  "@profileSavedTo": {
+    "description": "Snackbar text after successful export",
+    "placeholders": {
+      "path": { "type": "String" }
+    }
+  },
+  "profileExportFailed": "Export failed",
+  "@profileExportFailed": { "description": "Snackbar text when export fails" },
+  "profileClearChatHistory": "Clear chat history",
+  "@profileClearChatHistory": { "description": "Button to clear chat history" },
+  "profileDeleteGroup": "Delete group",
+  "@profileDeleteGroup": { "description": "Button to delete a group" },
+  "profileDeleteContact": "Delete contact",
+  "@profileDeleteContact": { "description": "Button to delete a contact" },
+
+  "transferTitle": "Transfer to Another Device",
+  "@transferTitle": { "description": "Title for the device transfer screen" },
+  "transferInfoBox": "Move your Signal identity and Nostr keys to a new device.\nChat sessions are NOT transferred \u2014 forward secrecy is preserved.",
+  "@transferInfoBox": { "description": "Info box explaining transfer" },
+  "transferSendFromThis": "Send from this device",
+  "@transferSendFromThis": { "description": "Role card title for sender" },
+  "transferSendSubtitle": "This device has the keys. Share a code with the new device.",
+  "@transferSendSubtitle": { "description": "Role card subtitle for sender" },
+  "transferReceiveOnThis": "Receive on this device",
+  "@transferReceiveOnThis": { "description": "Role card title for receiver" },
+  "transferReceiveSubtitle": "This is the new device. Enter the code from the old device.",
+  "@transferReceiveSubtitle": { "description": "Role card subtitle for receiver" },
+  "transferChooseMethod": "Choose Transfer Method",
+  "@transferChooseMethod": { "description": "Section label for transfer method selection" },
+  "transferLan": "LAN (Same Network)",
+  "@transferLan": { "description": "LAN transfer method title" },
+  "transferLanSubtitle": "Fast, direct. Both devices must be on the same Wi-Fi.",
+  "@transferLanSubtitle": { "description": "LAN transfer method subtitle" },
+  "transferNostrRelay": "Nostr Relay",
+  "@transferNostrRelay": { "description": "Nostr relay transfer method title" },
+  "transferNostrRelaySubtitle": "Works over any network using an existing Nostr relay.",
+  "@transferNostrRelaySubtitle": { "description": "Nostr relay transfer subtitle" },
+  "transferRelayUrl": "Relay URL",
+  "@transferRelayUrl": { "description": "Label for relay URL field" },
+  "transferEnterCode": "Enter Transfer Code",
+  "@transferEnterCode": { "description": "Section label for receiver code input" },
+  "transferPasteCode": "Paste the LAN:... or NOS:... code here",
+  "@transferPasteCode": { "description": "Hint for code input field" },
+  "transferConnect": "Connect",
+  "@transferConnect": { "description": "Connect button text" },
+  "transferGenerating": "Generating transfer code\u2026",
+  "@transferGenerating": { "description": "Shown while generating transfer code" },
+  "transferShareCode": "Share this code with the receiver:",
+  "@transferShareCode": { "description": "Label above the transfer code" },
+  "transferCopyCode": "Copy Code",
+  "@transferCopyCode": { "description": "Button to copy transfer code" },
+  "transferCodeCopied": "Code copied to clipboard",
+  "@transferCodeCopied": { "description": "Snackbar when code is copied" },
+  "transferWaitingReceiver": "Waiting for receiver to connect\u2026",
+  "@transferWaitingReceiver": { "description": "Status while waiting for receiver" },
+  "transferConnectingSender": "Connecting to sender\u2026",
+  "@transferConnectingSender": { "description": "Status while connecting to sender" },
+  "transferVerifyBoth": "Compare this code on both devices.\nIf they match, the transfer is secure.",
+  "@transferVerifyBoth": { "description": "Verification instructions" },
+  "transferComplete": "Transfer Complete",
+  "@transferComplete": { "description": "Title when transfer is done (sender)" },
+  "transferKeysImported": "Keys Imported",
+  "@transferKeysImported": { "description": "Title when keys are imported (receiver)" },
+  "transferCompleteSenderBody": "Your keys remain active on this device.\nThe receiver can now use your identity.",
+  "@transferCompleteSenderBody": { "description": "Body text for sender after transfer" },
+  "transferCompleteReceiverBody": "Keys imported successfully.\nRestart the app to apply the new identity.",
+  "@transferCompleteReceiverBody": { "description": "Body text for receiver after transfer" },
+  "transferRestartApp": "Restart App",
+  "@transferRestartApp": { "description": "Button to restart the app" },
+  "transferFailed": "Transfer Failed",
+  "@transferFailed": { "description": "Title when transfer fails" },
+  "transferTryAgain": "Try Again",
+  "@transferTryAgain": { "description": "Button to retry transfer" },
+  "transferEnterRelayFirst": "Enter a relay URL first",
+  "@transferEnterRelayFirst": { "description": "Snackbar when relay URL is empty" },
+  "transferPasteCodeFromSender": "Paste the transfer code from the sender",
+  "@transferPasteCodeFromSender": { "description": "Snackbar when code field is empty" },
+
+  "menuReply": "Reply",
+  "@menuReply": { "description": "Message menu item to reply" },
+  "menuForward": "Forward",
+  "@menuForward": { "description": "Message menu item to forward" },
+  "menuReact": "React",
+  "@menuReact": { "description": "Message menu item to react" },
+  "menuCopy": "Copy",
+  "@menuCopy": { "description": "Message menu item to copy" },
+  "menuEdit": "Edit",
+  "@menuEdit": { "description": "Message menu item to edit" },
+  "menuRetry": "Retry",
+  "@menuRetry": { "description": "Message menu item to retry sending" },
+  "menuCancelScheduled": "Cancel scheduled",
+  "@menuCancelScheduled": { "description": "Message menu item to cancel scheduled message" },
+  "menuDelete": "Delete",
+  "@menuDelete": { "description": "Message menu item to delete" },
+  "menuForwardTo": "Forward to\u2026",
+  "@menuForwardTo": { "description": "Title for forward picker sheet" },
+  "menuForwardedTo": "Forwarded to {name}",
+  "@menuForwardedTo": {
+    "description": "Snackbar after forwarding a message",
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "menuScheduledMessages": "Scheduled messages",
+  "@menuScheduledMessages": { "description": "Title for the scheduled messages panel" },
+  "menuNoScheduledMessages": "No scheduled messages",
+  "@menuNoScheduledMessages": { "description": "Shown when no scheduled messages exist" },
+  "menuSendsOn": "Sends on {date}",
+  "@menuSendsOn": {
+    "description": "Subtitle showing scheduled send time",
+    "placeholders": {
+      "date": { "type": "String" }
+    }
+  },
+  "menuDisappearingMessages": "Disappearing Messages",
+  "@menuDisappearingMessages": { "description": "Title for disappearing messages dialog" },
+  "menuDisappearingSubtitle": "Messages delete automatically after the selected time.",
+  "@menuDisappearingSubtitle": { "description": "Subtitle for disappearing messages dialog" },
+  "menuTtlOff": "Off",
+  "@menuTtlOff": { "description": "TTL option: disabled" },
+  "menuTtl1h": "1 hour",
+  "@menuTtl1h": { "description": "TTL option: 1 hour" },
+  "menuTtl24h": "24 hours",
+  "@menuTtl24h": { "description": "TTL option: 24 hours" },
+  "menuTtl7d": "7 days",
+  "@menuTtl7d": { "description": "TTL option: 7 days" },
+  "menuAttachPhoto": "Photo",
+  "@menuAttachPhoto": { "description": "Attach menu photo option" },
+  "menuAttachFile": "File",
+  "@menuAttachFile": { "description": "Attach menu file option" },
+
+  "mediaTitle": "Media",
+  "@mediaTitle": { "description": "Title for media gallery screen" },
+  "mediaPhotosTab": "Photos ({count})",
+  "@mediaPhotosTab": {
+    "description": "Tab label for photos with count",
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "mediaFilesTab": "Files ({count})",
+  "@mediaFilesTab": {
+    "description": "Tab label for files with count",
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "mediaNoPhotos": "No photos yet",
+  "@mediaNoPhotos": { "description": "Empty state for photos tab" },
+  "mediaNoFiles": "No files yet",
+  "@mediaNoFiles": { "description": "Empty state for files tab" },
+  "mediaSavedToDownloads": "Saved to Downloads/{name}",
+  "@mediaSavedToDownloads": {
+    "description": "Snackbar after saving a file",
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "mediaFailedToSave": "Failed to save file",
+  "@mediaFailedToSave": { "description": "Snackbar when file save fails" },
+
+  "statusNewStatus": "New Status",
+  "@statusNewStatus": { "description": "Title for status creator screen" },
+  "statusPublish": "Publish",
+  "@statusPublish": { "description": "Button to publish a status" },
+  "statusExpiresIn24h": "Status expires in 24 hours",
+  "@statusExpiresIn24h": { "description": "Info text about status expiry" },
+  "statusWhatsOnYourMind": "What's on your mind?",
+  "@statusWhatsOnYourMind": { "description": "Hint text for status text input" },
+  "statusPhotoAttached": "Photo attached",
+  "@statusPhotoAttached": { "description": "Label when photo is attached to status" },
+  "statusAttachPhoto": "Attach photo (optional)",
+  "@statusAttachPhoto": { "description": "Button to attach photo to status" },
+  "statusEnterText": "Please enter some text for your status.",
+  "@statusEnterText": { "description": "Validation message when status text is empty" },
+
+  "panicSetPanicKey": "Set Panic Key",
+  "@panicSetPanicKey": { "description": "Title and button for panic key setup" },
+  "panicEmergencySelfDestruct": "Emergency self-destruct",
+  "@panicEmergencySelfDestruct": { "description": "Subtitle for panic key dialog" },
+  "panicIrreversible": "This action is irreversible",
+  "@panicIrreversible": { "description": "Warning label in panic key dialog" },
+  "panicWarningBody": "Entering this key at the lock screen instantly wipes ALL data \u2014 messages, contacts, keys, identity. Use a key different from your regular password.",
+  "@panicWarningBody": { "description": "Warning body text in panic key dialog" },
+  "panicKeyHint": "Panic key",
+  "@panicKeyHint": { "description": "Hint for panic key input field" },
+  "panicConfirmHint": "Confirm panic key",
+  "@panicConfirmHint": { "description": "Hint for panic key confirmation field" },
+  "panicMinChars": "Panic key must be at least 4 characters",
+  "@panicMinChars": { "description": "Validation: key too short" },
+  "panicKeysDoNotMatch": "Keys do not match",
+  "@panicKeysDoNotMatch": { "description": "Validation: keys don't match" },
+
+  "passwordSetAppPassword": "Set App Password",
+  "@passwordSetAppPassword": { "description": "Title for password setup dialog" },
+  "passwordProtectsMessages": "Protects your messages at rest",
+  "@passwordProtectsMessages": { "description": "Subtitle for password setup" },
+  "passwordInfoBanner": "Required every time you open Pulse. If forgotten, your data cannot be recovered.",
+  "@passwordInfoBanner": { "description": "Info banner in password setup" },
+  "passwordHint": "Password",
+  "@passwordHint": { "description": "Hint for password input" },
+  "passwordConfirmHint": "Confirm password",
+  "@passwordConfirmHint": { "description": "Hint for password confirmation" },
+  "passwordSetButton": "Set Password",
+  "@passwordSetButton": { "description": "Button to set the password" },
+  "passwordSkipForNow": "Skip for now",
+  "@passwordSkipForNow": { "description": "Button to skip password setup" },
+  "passwordMinChars": "Password must be at least 6 characters",
+  "@passwordMinChars": { "description": "Validation: password too short" },
+  "passwordsDoNotMatch": "Passwords do not match",
+  "@passwordsDoNotMatch": { "description": "Validation: passwords don't match" },
+
+  "profileCardSaved": "Profile saved!",
+  "@profileCardSaved": { "description": "Snackbar after saving profile" },
+  "profileCardE2eeIdentity": "E2EE Identity",
+  "@profileCardE2eeIdentity": { "description": "Badge text for E2EE identity" },
+  "profileCardDisplayName": "Display Name",
+  "@profileCardDisplayName": { "description": "Label for display name field" },
+  "profileCardDisplayNameHint": "e.g. Ivan Ivanov",
+  "@profileCardDisplayNameHint": { "description": "Hint for display name field" },
+  "profileCardAbout": "About",
+  "@profileCardAbout": { "description": "Label for about field" },
+  "profileCardSaveProfile": "Save Profile",
+  "@profileCardSaveProfile": { "description": "Button to save profile" },
+  "profileCardYourName": "Your Name",
+  "@profileCardYourName": { "description": "Placeholder when name is empty" },
+  "profileCardAddressCopied": "Address copied!",
+  "@profileCardAddressCopied": { "description": "Snackbar when inbox address is copied" },
+  "profileCardInboxAddress": "Your Inbox Address",
+  "@profileCardInboxAddress": { "description": "Label for single inbox address" },
+  "profileCardInboxAddresses": "Your Inbox Addresses",
+  "@profileCardInboxAddresses": { "description": "Label for multiple inbox addresses" },
+  "profileCardShareAllAddresses": "Share All Addresses (SmartRouter)",
+  "@profileCardShareAllAddresses": { "description": "Button to share all addresses" },
+  "profileCardShareHint": "Share with contacts so they can message you.",
+  "@profileCardShareHint": { "description": "Hint text below address card" },
+  "profileCardAllAddressesCopied": "All {count} addresses copied as one link!",
+  "@profileCardAllAddressesCopied": {
+    "description": "Snackbar after copying all addresses",
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+
+  "settingsMyProfile": "My Profile",
+  "@settingsMyProfile": { "description": "Settings section label" },
+  "settingsYourInboxAddress": "Your Inbox Address",
+  "@settingsYourInboxAddress": { "description": "Settings section label" },
+  "settingsMyQrCode": "My QR Code",
+  "@settingsMyQrCode": { "description": "Settings row title" },
+  "settingsMyQrSubtitle": "Share your address as a scannable QR",
+  "@settingsMyQrSubtitle": { "description": "Settings row subtitle" },
+  "settingsShareMyAddress": "Share My Address",
+  "@settingsShareMyAddress": { "description": "QR dialog title" },
+  "settingsNoAddressYet": "No address yet \u2014 save settings first",
+  "@settingsNoAddressYet": { "description": "Snackbar when no address available" },
+  "settingsInviteLink": "Invite Link",
+  "@settingsInviteLink": { "description": "Label in QR dialog" },
+  "settingsRawAddress": "Raw Address",
+  "@settingsRawAddress": { "description": "Label in QR dialog" },
+  "settingsCopyLink": "Copy Link",
+  "@settingsCopyLink": { "description": "Button to copy invite link" },
+  "settingsCopyAddress": "Copy Address",
+  "@settingsCopyAddress": { "description": "Button to copy raw address" },
+  "settingsInviteLinkCopied": "Invite link copied",
+  "@settingsInviteLinkCopied": { "description": "Snackbar after copying invite link" },
+
+  "settingsAppearance": "Appearance",
+  "@settingsAppearance": { "description": "Settings section label" },
+  "settingsThemeEngine": "Theme Engine",
+  "@settingsThemeEngine": { "description": "Settings row title" },
+  "settingsThemeEngineSubtitle": "Customize colors & fonts",
+  "@settingsThemeEngineSubtitle": { "description": "Settings row subtitle" },
+  "settingsSignalProtocol": "Signal Protocol",
+  "@settingsSignalProtocol": { "description": "Settings row title" },
+  "settingsSignalProtocolSubtitle": "E2EE keys are stored securely",
+  "@settingsSignalProtocolSubtitle": { "description": "Settings row subtitle" },
+  "settingsActive": "ACTIVE",
+  "@settingsActive": { "description": "Badge text for active protocol" },
+  "settingsIdentityBackup": "Identity Backup",
+  "@settingsIdentityBackup": { "description": "Settings row and dialog title" },
+  "settingsIdentityBackupSubtitle": "Export or import your Signal identity",
+  "@settingsIdentityBackupSubtitle": { "description": "Settings row subtitle" },
+  "settingsIdentityBackupBody": "Export your Signal identity keys to a backup code, or restore from an existing one.",
+  "@settingsIdentityBackupBody": { "description": "Identity backup dialog body" },
+  "settingsTransferDevice": "Transfer to Another Device",
+  "@settingsTransferDevice": { "description": "Settings row title" },
+  "settingsTransferDeviceSubtitle": "Move your identity via LAN or Nostr relay",
+  "@settingsTransferDeviceSubtitle": { "description": "Settings row subtitle" },
+  "settingsExportIdentity": "Export Identity",
+  "@settingsExportIdentity": { "description": "Dialog title" },
+  "settingsExportIdentityBody": "Copy this backup code and store it safely:",
+  "@settingsExportIdentityBody": { "description": "Dialog body for export" },
+  "settingsSaveFile": "Save File",
+  "@settingsSaveFile": { "description": "Button to save file" },
+  "settingsImportIdentity": "Import Identity",
+  "@settingsImportIdentity": { "description": "Dialog title" },
+  "settingsImportIdentityBody": "Paste your backup code below. This will overwrite your current identity.",
+  "@settingsImportIdentityBody": { "description": "Dialog body for import" },
+  "settingsPasteBackupCode": "Paste backup code here\u2026",
+  "@settingsPasteBackupCode": { "description": "Hint for import field" },
+  "settingsIdentityImported": "Identity + contacts imported! Restart the app to apply.",
+  "@settingsIdentityImported": { "description": "Snackbar after successful import" },
+
+  "settingsSecurity": "Security",
+  "@settingsSecurity": { "description": "Settings section label" },
+  "settingsAppPassword": "App Password",
+  "@settingsAppPassword": { "description": "Settings row title" },
+  "settingsPasswordEnabled": "Enabled \u2014 required on every launch",
+  "@settingsPasswordEnabled": { "description": "Subtitle when password is enabled" },
+  "settingsPasswordDisabled": "Disabled \u2014 app opens without password",
+  "@settingsPasswordDisabled": { "description": "Subtitle when password is disabled" },
+  "settingsChangePassword": "Change Password",
+  "@settingsChangePassword": { "description": "Settings row title" },
+  "settingsChangePasswordSubtitle": "Update your app lock password",
+  "@settingsChangePasswordSubtitle": { "description": "Settings row subtitle" },
+  "settingsSetPanicKey": "Set Panic Key",
+  "@settingsSetPanicKey": { "description": "Settings row title" },
+  "settingsChangePanicKey": "Change Panic Key",
+  "@settingsChangePanicKey": { "description": "Settings row title" },
+  "settingsPanicKeySetSubtitle": "Update emergency wipe key",
+  "@settingsPanicKeySetSubtitle": { "description": "Subtitle when panic key is set" },
+  "settingsPanicKeyUnsetSubtitle": "One key that instantly erases all data",
+  "@settingsPanicKeyUnsetSubtitle": { "description": "Subtitle when panic key is not set" },
+  "settingsRemovePanicKey": "Remove Panic Key",
+  "@settingsRemovePanicKey": { "description": "Settings row title" },
+  "settingsRemovePanicKeySubtitle": "Disable emergency self-destruct",
+  "@settingsRemovePanicKeySubtitle": { "description": "Settings row subtitle" },
+  "settingsRemovePanicKeyBody": "Emergency self-destruct will be disabled. You can re-enable it at any time.",
+  "@settingsRemovePanicKeyBody": { "description": "Confirmation dialog body" },
+  "settingsDisableAppPassword": "Disable App Password",
+  "@settingsDisableAppPassword": { "description": "Dialog title" },
+  "settingsEnterCurrentPassword": "Enter your current password to confirm",
+  "@settingsEnterCurrentPassword": { "description": "Dialog subtitle" },
+  "settingsCurrentPassword": "Current password",
+  "@settingsCurrentPassword": { "description": "Hint for current password field" },
+  "settingsIncorrectPassword": "Incorrect password",
+  "@settingsIncorrectPassword": { "description": "Error when password is wrong" },
+  "settingsPasswordUpdated": "Password updated",
+  "@settingsPasswordUpdated": { "description": "Snackbar after password change" },
+  "settingsChangePasswordProceed": "Enter your current password to proceed",
+  "@settingsChangePasswordProceed": { "description": "Dialog subtitle for password change" },
+
+  "settingsData": "Data",
+  "@settingsData": { "description": "Settings section label" },
+  "settingsBackupMessages": "Backup Messages",
+  "@settingsBackupMessages": { "description": "Settings row title" },
+  "settingsBackupMessagesSubtitle": "Export encrypted message history to a file",
+  "@settingsBackupMessagesSubtitle": { "description": "Settings row subtitle" },
+  "settingsRestoreMessages": "Restore Messages",
+  "@settingsRestoreMessages": { "description": "Settings row title" },
+  "settingsRestoreMessagesSubtitle": "Import messages from a backup file",
+  "@settingsRestoreMessagesSubtitle": { "description": "Settings row subtitle" },
+  "settingsExportKeys": "Export Keys",
+  "@settingsExportKeys": { "description": "Settings row title" },
+  "settingsExportKeysSubtitle": "Save identity keys to an encrypted file",
+  "@settingsExportKeysSubtitle": { "description": "Settings row subtitle" },
+  "settingsImportKeys": "Import Keys",
+  "@settingsImportKeys": { "description": "Settings row title" },
+  "settingsImportKeysSubtitle": "Restore identity keys from an exported file",
+  "@settingsImportKeysSubtitle": { "description": "Settings row subtitle" },
+  "settingsBackupPassword": "Backup password",
+  "@settingsBackupPassword": { "description": "Hint for backup password field" },
+  "settingsPasswordCannotBeEmpty": "Password cannot be empty",
+  "@settingsPasswordCannotBeEmpty": { "description": "Validation error" },
+  "settingsPasswordMin4Chars": "Password must be at least 4 characters",
+  "@settingsPasswordMin4Chars": { "description": "Validation error" },
+
+  "settingsCallsTurn": "Calls & TURN",
+  "@settingsCallsTurn": { "description": "Settings section label" },
+  "settingsLocalNetwork": "Local Network",
+  "@settingsLocalNetwork": { "description": "Settings section label" },
+  "settingsCensorshipResistance": "Censorship Resistance",
+  "@settingsCensorshipResistance": { "description": "Settings section label" },
+  "settingsLanFallback": "LAN Fallback",
+  "@settingsLanFallback": { "description": "Settings toggle title" },
+  "settingsLanFallbackSubtitle": "Broadcast presence and deliver messages on the local network when internet is unavailable. Disable on untrusted networks (public Wi-Fi).",
+  "@settingsLanFallbackSubtitle": { "description": "Settings toggle subtitle" },
+  "settingsBgDelivery": "Background Delivery",
+  "@settingsBgDelivery": { "description": "Settings toggle title" },
+  "settingsBgDeliverySubtitle": "Keep receiving messages when the app is minimized. Shows a persistent notification.",
+  "@settingsBgDeliverySubtitle": { "description": "Settings toggle subtitle" },
+
+  "settingsYourInboxProvider": "Your Inbox Provider",
+  "@settingsYourInboxProvider": { "description": "Settings section label" },
+  "settingsConnectionDetails": "Connection Details",
+  "@settingsConnectionDetails": { "description": "Settings section label" },
+  "settingsSaveAndConnect": "Save & Connect",
+  "@settingsSaveAndConnect": { "description": "Main save button text" },
+  "settingsSecondaryInboxes": "Secondary Inboxes",
+  "@settingsSecondaryInboxes": { "description": "Settings section label" },
+  "settingsAddSecondaryInbox": "Add Secondary Inbox",
+  "@settingsAddSecondaryInbox": { "description": "Button and dialog title" },
+  "settingsAdvanced": "Advanced",
+  "@settingsAdvanced": { "description": "Expandable advanced section label" },
+  "settingsDiscover": "Discover",
+  "@settingsDiscover": { "description": "Button to discover Waku nodes" },
+
+  "settingsAbout": "About",
+  "@settingsAbout": { "description": "Settings section label" },
+  "settingsPrivacyPolicy": "Privacy Policy",
+  "@settingsPrivacyPolicy": { "description": "Settings row title" },
+  "settingsPrivacyPolicySubtitle": "How Pulse protects your data",
+  "@settingsPrivacyPolicySubtitle": { "description": "Settings row subtitle" },
+  "settingsCrashReporting": "Crash reporting",
+  "@settingsCrashReporting": { "description": "Settings toggle title" },
+  "settingsCrashReportingSubtitle": "Send anonymous crash reports to help improve Pulse. No message content or contacts are ever sent.",
+  "@settingsCrashReportingSubtitle": { "description": "Settings toggle subtitle" },
+  "settingsCrashReportingEnabled": "Crash reporting enabled \u2014 restart app to apply",
+  "@settingsCrashReportingEnabled": { "description": "Snackbar when enabled" },
+  "settingsCrashReportingDisabled": "Crash reporting disabled \u2014 restart app to apply",
+  "@settingsCrashReportingDisabled": { "description": "Snackbar when disabled" },
+
+  "settingsSensitiveOperation": "Sensitive Operation",
+  "@settingsSensitiveOperation": { "description": "Dialog title for key export warning" },
+  "settingsSensitiveOperationBody": "These keys are your identity. Anyone with this file can impersonate you. Store it securely and delete it after transfer.",
+  "@settingsSensitiveOperationBody": { "description": "Dialog body for key export warning" },
+  "settingsIUnderstandContinue": "I Understand, Continue",
+  "@settingsIUnderstandContinue": { "description": "Confirmation button for sensitive operation" },
+  "settingsReplaceIdentity": "Replace Identity?",
+  "@settingsReplaceIdentity": { "description": "Dialog title for key import" },
+  "settingsReplaceIdentityBody": "This will overwrite your current identity keys. Your existing Signal sessions will be invalidated and contacts will need to re-establish encryption. The app will need to restart.",
+  "@settingsReplaceIdentityBody": { "description": "Dialog body for key import" },
+  "settingsReplaceKeys": "Replace Keys",
+  "@settingsReplaceKeys": { "description": "Button to confirm key replacement" },
+  "settingsKeysImported": "Keys Imported",
+  "@settingsKeysImported": { "description": "Dialog title after successful import" },
+  "settingsKeysImportedBody": "{count} keys imported successfully. Please restart the app to reinitialize with the new identity.",
+  "@settingsKeysImportedBody": {
+    "description": "Dialog body after successful import",
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "settingsRestartNow": "Restart Now",
+  "@settingsRestartNow": { "description": "Button to restart app now" },
+  "settingsLater": "Later",
+  "@settingsLater": { "description": "Button to restart later" }
 }

@@ -6,10 +6,12 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../theme/app_theme.dart';
+import '../theme/design_tokens.dart';
 import '../models/contact.dart';
 import '../services/media_service.dart';
 import '../services/voice_service.dart';
 import '../screens/image_viewer_screen.dart';
+import '../l10n/l10n_ext.dart';
 
 final _urlRegex = RegExp(r'https?://[^\s<>"]+[^\s<>".!?,)]', caseSensitive: false);
 
@@ -66,10 +68,10 @@ class MessageBubble extends StatelessWidget {
         : (isMe ? AppTheme.primary : AppTheme.surfaceVariant);
 
     final radius = BorderRadius.only(
-      topLeft: const Radius.circular(18),
-      topRight: const Radius.circular(18),
-      bottomRight: Radius.circular(isMe && showTail ? 4 : 18),
-      bottomLeft: Radius.circular(!isMe && showTail ? 4 : 18),
+      topLeft: const Radius.circular(DesignTokens.chatBubbleRadius),
+      topRight: const Radius.circular(DesignTokens.chatBubbleRadius),
+      bottomRight: Radius.circular(isMe && showTail ? DesignTokens.chatBubbleTailRadius : DesignTokens.chatBubbleRadius),
+      bottomLeft: Radius.circular(!isMe && showTail ? DesignTokens.chatBubbleTailRadius : DesignTokens.chatBubbleRadius),
     );
 
     final hasReactions = reactions != null && reactions!.isNotEmpty;
@@ -82,11 +84,11 @@ class MessageBubble extends StatelessWidget {
         children: [
           if (senderName != null && !isMe)
             Padding(
-              padding: const EdgeInsets.only(left: 4, bottom: 2),
+              padding: const EdgeInsets.only(left: DesignTokens.spacing4, bottom: DesignTokens.spacing2),
               child: Text(
                 senderName!,
                 style: GoogleFonts.inter(
-                  fontSize: 11,
+                  fontSize: DesignTokens.fontSm,
                   fontWeight: FontWeight.w700,
                   color: _nameColor(senderName!),
                 ),
@@ -94,13 +96,13 @@ class MessageBubble extends StatelessWidget {
             ),
           Container(
             margin: EdgeInsets.only(
-              left: isMe ? 60 : 0,
-              right: isMe ? 0 : 60,
+              left: isMe ? DesignTokens.chatBubbleMarginOpposite : 0,
+              right: isMe ? 0 : DesignTokens.chatBubbleMarginOpposite,
             ),
             // No padding for image bubbles — image fills the bubble
             padding: media?.isImage == true
                 ? EdgeInsets.zero
-                : const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                : const EdgeInsets.symmetric(horizontal: DesignTokens.chatBubblePaddingH, vertical: DesignTokens.chatBubblePaddingV),
             decoration: BoxDecoration(
               color: media?.isImage == true ? Colors.transparent : bgColor,
               borderRadius: radius,
@@ -119,13 +121,13 @@ class MessageBubble extends StatelessWidget {
           if (hasReactions)
             Padding(
               padding: EdgeInsets.only(
-                top: 4,
-                left: isMe ? 60 : 0,
-                right: isMe ? 0 : 60,
+                top: DesignTokens.spacing4,
+                left: isMe ? DesignTokens.chatBubbleMarginOpposite : 0,
+                right: isMe ? 0 : DesignTokens.chatBubbleMarginOpposite,
               ),
               child: Wrap(
-                spacing: 4,
-                runSpacing: 4,
+                spacing: DesignTokens.spacing4,
+                runSpacing: DesignTokens.spacing4,
                 children: reactions!.entries.map((entry) {
                   final emoji = entry.key;
                   final count = entry.value.length;
@@ -133,19 +135,19 @@ class MessageBubble extends StatelessWidget {
                     onTap: () => onReact?.call(emoji),
                     onLongPress: () => onReactLongPress?.call(emoji),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                      padding: const EdgeInsets.symmetric(horizontal: DesignTokens.spacing6, vertical: 3),
                       decoration: BoxDecoration(
                         color: AppTheme.surfaceVariant,
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Text(emoji, style: const TextStyle(fontSize: 14)),
-                          const SizedBox(width: 4),
+                          Text(emoji, style: const TextStyle(fontSize: DesignTokens.fontLg)),
+                          const SizedBox(width: DesignTokens.spacing4),
                           Text('$count',
                               style: GoogleFonts.inter(
-                                  fontSize: 11,
+                                  fontSize: DesignTokens.fontSm,
                                   color: Colors.white.withValues(alpha: 0.55))),
                         ],
                       ),
@@ -155,13 +157,13 @@ class MessageBubble extends StatelessWidget {
               ),
             ),
           if (isMe && readBy.isNotEmpty)
-            _buildReadByRow(),
+            _buildReadByRow(context),
         ],
       ),
     );
   }
 
-  Widget _buildReadByRow() {
+  Widget _buildReadByRow(BuildContext context) {
     // Resolve contactIds to names
     final names = readBy.map((id) {
       final c = ContactManager().contacts.cast<Contact?>()
@@ -169,24 +171,22 @@ class MessageBubble extends StatelessWidget {
       return c?.name ?? id.substring(0, id.length.clamp(0, 8));
     }).toList();
 
-    final label = names.length == 1
-        ? 'Read by ${names[0]}'
-        : names.length == 2
-            ? 'Read by ${names[0]} & ${names[1]}'
-            : 'Read by ${names.length}';
+    final label = names.length <= 2
+        ? context.l10n.bubbleReadBy(names.join(' & '))
+        : context.l10n.bubbleReadByCount(names.length);
 
     return Padding(
-      padding: const EdgeInsets.only(top: 2, right: 4),
+      padding: const EdgeInsets.only(top: DesignTokens.spacing2, right: DesignTokens.spacing4),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.done_all_rounded, size: 11, color: AppTheme.primary.withValues(alpha: 0.7)),
+          Icon(Icons.done_all_rounded, size: DesignTokens.fontSm, color: AppTheme.primary.withValues(alpha: 0.7)),
           const SizedBox(width: 3),
           Text(
             label,
             style: GoogleFonts.inter(
                 color: AppTheme.textSecondary,
-                fontSize: 10,
+                fontSize: DesignTokens.fontXs,
                 fontWeight: FontWeight.w500),
           ),
         ],
@@ -200,25 +200,25 @@ class MessageBubble extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         if (replyToText != null && replyToText!.isNotEmpty)
-          _buildReplyQuote(),
+          _buildReplyQuote(context),
         if (isUnencrypted)
           Padding(
-            padding: const EdgeInsets.only(bottom: 4),
+            padding: const EdgeInsets.only(bottom: DesignTokens.spacing4),
             child: Row(mainAxisSize: MainAxisSize.min, children: [
-              const Icon(Icons.lock_open_rounded, size: 12, color: Colors.orangeAccent),
-              const SizedBox(width: 4),
-              Text('NOT ENCRYPTED',
+              const Icon(Icons.lock_open_rounded, size: DesignTokens.fontBody, color: Colors.orangeAccent),
+              const SizedBox(width: DesignTokens.spacing4),
+              Text(context.l10n.bubbleNotEncrypted,
                   style: GoogleFonts.inter(
-                    color: Colors.orangeAccent, fontSize: 10,
+                    color: Colors.orangeAccent, fontSize: DesignTokens.fontXs,
                     fontWeight: FontWeight.w700, letterSpacing: 0.5,
                   )),
             ]),
           ),
         _buildLinkedText(context, displayText),
         if (isEdited)
-          Text('(edited)',
+          Text('(${context.l10n.chatEdited})',
               style: GoogleFonts.inter(
-                  fontSize: 10, color: Colors.white.withValues(alpha: 0.45))),
+                  fontSize: DesignTokens.fontXs, color: Colors.white.withValues(alpha: 0.45))),
         const SizedBox(height: 3),
         _buildTimestamp(),
       ],
@@ -226,32 +226,10 @@ class MessageBubble extends StatelessWidget {
   }
 
   Widget _buildLinkedText(BuildContext context, String text) {
-    final baseStyle = GoogleFonts.inter(color: Colors.white, fontSize: 15, height: 1.35);
+    final baseStyle = GoogleFonts.inter(color: Colors.white, fontSize: DesignTokens.fontInput, height: 1.35);
     final matches = _urlRegex.allMatches(text).toList();
     if (matches.isEmpty) return Text(text, style: baseStyle);
-
-    final spans = <InlineSpan>[];
-    int last = 0;
-    for (final m in matches) {
-      if (m.start > last) {
-        spans.add(TextSpan(text: text.substring(last, m.start)));
-      }
-      final url = m.group(0)!;
-      spans.add(TextSpan(
-        text: url,
-        style: baseStyle.copyWith(
-          color: Colors.lightBlueAccent,
-          decoration: TextDecoration.underline,
-          decorationColor: Colors.lightBlueAccent,
-        ),
-        recognizer: TapGestureRecognizer()
-          ..onTap = () => _confirmAndLaunchUrl(context, url),
-      ));
-      last = m.end;
-    }
-    if (last < text.length) spans.add(TextSpan(text: text.substring(last)));
-
-    return RichText(text: TextSpan(style: baseStyle, children: spans));
+    return _LinkedText(text: text, matches: matches, baseStyle: baseStyle);
   }
 
   static void _confirmAndLaunchUrl(BuildContext context, String url) {
@@ -259,16 +237,16 @@ class MessageBubble extends StatelessWidget {
     showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Open Link'),
-        content: Text('Open this URL in your browser?\n\n$display'),
+        title: Text(ctx.l10n.bubbleOpenLink),
+        content: Text(ctx.l10n.bubbleOpenLinkBody(display)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
+            child: Text(ctx.l10n.chatCancel),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Open'),
+            child: Text(ctx.l10n.bubbleOpen),
           ),
         ],
       ),
@@ -291,20 +269,17 @@ class MessageBubble extends StatelessWidget {
       final confirmed = await showDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(
-          title: const Text('Security Warning'),
-          content: Text(
-            '"${media.name}" is an executable file type. '
-            'Saving and running it could harm your device. Save anyway?',
-          ),
+          title: Text(ctx.l10n.bubbleSecurityWarning),
+          content: Text(ctx.l10n.bubbleExecutableWarning(media.name)),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel'),
+              child: Text(ctx.l10n.chatCancel),
             ),
             TextButton(
               onPressed: () => Navigator.pop(ctx, true),
               style: TextButton.styleFrom(foregroundColor: Colors.red),
-              child: const Text('Save Anyway'),
+              child: Text(ctx.l10n.bubbleSaveAnyway),
             ),
           ],
         ),
@@ -319,7 +294,7 @@ class MessageBubble extends StatelessWidget {
       await file.writeAsBytes(media.data);
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Saved to ${dir.path}', style: GoogleFonts.inter(fontSize: 13)),
+          content: Text(context.l10n.bubbleSavedTo(dir.path), style: GoogleFonts.inter(fontSize: DesignTokens.fontMd)),
           backgroundColor: AppTheme.surfaceVariant,
           duration: const Duration(seconds: 3),
         ));
@@ -327,30 +302,30 @@ class MessageBubble extends StatelessWidget {
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Save failed: $e', style: GoogleFonts.inter(fontSize: 13)),
+          content: Text(context.l10n.bubbleSaveFailed('$e'), style: GoogleFonts.inter(fontSize: DesignTokens.fontMd)),
           backgroundColor: Colors.red.shade900,
         ));
       }
     }
   }
 
-  Widget _buildReplyQuote() {
+  Widget _buildReplyQuote(BuildContext context) {
     // Resolve display text — friendly label for media payloads
     String displayText;
     final replyMedia = MediaService.parse(replyToText!);
     if (replyMedia != null) {
-      if (replyMedia.isImage) { displayText = '📷 Photo'; }
-      else if (replyMedia.isVoice) { displayText = '🎙 Voice message'; }
-      else { displayText = '📎 ${replyMedia.name}'; }
+      if (replyMedia.isImage) { displayText = '\u{1F4F7} ${context.l10n.bubbleReplyPhoto}'; }
+      else if (replyMedia.isVoice) { displayText = '\u{1F399} ${context.l10n.bubbleReplyVoice}'; }
+      else { displayText = '\u{1F4CE} ${replyMedia.name}'; }
     } else {
       displayText = replyToText!.length > 80 ? '${replyToText!.substring(0, 80)}…' : replyToText!;
     }
     return Container(
-      margin: const EdgeInsets.only(bottom: 6),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      margin: const EdgeInsets.only(bottom: DesignTokens.spacing6),
+      padding: const EdgeInsets.symmetric(horizontal: DesignTokens.spacing8, vertical: 5),
       decoration: BoxDecoration(
         color: Colors.black.withValues(alpha: 0.20),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(DesignTokens.radiusSmall),
         border: Border(
           left: BorderSide(
             color: Colors.white.withValues(alpha: 0.5),
@@ -368,14 +343,14 @@ class MessageBubble extends StatelessWidget {
                   ? replyToSender!.substring(0, 20)
                   : replyToSender!,
               style: GoogleFonts.inter(
-                  fontSize: 10,
+                  fontSize: DesignTokens.fontXs,
                   fontWeight: FontWeight.w700,
                   color: Colors.white.withValues(alpha: 0.85)),
             ),
           Text(
             displayText,
             style: GoogleFonts.inter(
-                fontSize: 11,
+                fontSize: DesignTokens.fontSm,
                 color: Colors.white.withValues(alpha: 0.65)),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
@@ -414,11 +389,11 @@ class MessageBubble extends StatelessWidget {
                     height: 120,
                     color: Colors.black26,
                     alignment: Alignment.center,
-                    child: const Column(mainAxisSize: MainAxisSize.min, children: [
-                      Icon(Icons.broken_image_rounded, color: Colors.white54, size: 32),
-                      SizedBox(height: 6),
-                      Text('[Corrupted image]',
-                          style: TextStyle(color: Colors.white54, fontSize: 12)),
+                    child: Column(mainAxisSize: MainAxisSize.min, children: [
+                      const Icon(Icons.broken_image_rounded, color: Colors.white54, size: DesignTokens.iconXl),
+                      const SizedBox(height: DesignTokens.spacing6),
+                      Text(context.l10n.bubbleCorruptedImage,
+                          style: const TextStyle(color: Colors.white54, fontSize: DesignTokens.fontBody)),
                     ]),
                   ),
                 ),
@@ -426,7 +401,7 @@ class MessageBubble extends StatelessWidget {
               // Timestamp bar over image
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: DesignTokens.spacing8, vertical: DesignTokens.spacing4),
                 color: Colors.black.withValues(alpha: 0.35),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -442,7 +417,7 @@ class MessageBubble extends StatelessWidget {
     // File attachment
     return Container(
       decoration: BoxDecoration(color: bgColor, borderRadius: radius),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: DesignTokens.chatBubblePaddingH, vertical: DesignTokens.spacing10),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -451,14 +426,14 @@ class MessageBubble extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
-                padding: const EdgeInsets.all(8),
+                padding: const EdgeInsets.all(DesignTokens.spacing8),
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(DesignTokens.spacing10),
                 ),
-                child: const Icon(Icons.insert_drive_file_rounded, color: Colors.white, size: 24),
+                child: const Icon(Icons.insert_drive_file_rounded, color: Colors.white, size: DesignTokens.iconLg),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: DesignTokens.spacing10),
               Flexible(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -467,39 +442,39 @@ class MessageBubble extends StatelessWidget {
                     Text(
                       media.name,
                       style: GoogleFonts.inter(
-                          color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13),
+                          color: Colors.white, fontWeight: FontWeight.w600, fontSize: DesignTokens.fontMd),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    const SizedBox(height: 2),
+                    const SizedBox(height: DesignTokens.spacing2),
                     Text(
                       media.sizeLabel,
                       style: GoogleFonts.inter(
-                          color: Colors.white.withValues(alpha: 0.65), fontSize: 11),
+                          color: Colors.white.withValues(alpha: 0.65), fontSize: DesignTokens.fontSm),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(width: 6),
+              const SizedBox(width: DesignTokens.spacing6),
               GestureDetector(
                 onTap: () => _saveFile(context, media),
                 child: Container(
-                  padding: const EdgeInsets.all(6),
+                  padding: const EdgeInsets.all(DesignTokens.spacing6),
                   decoration: BoxDecoration(
                     color: Colors.white.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(DesignTokens.radiusSmall),
                   ),
-                  child: const Icon(Icons.download_rounded, color: Colors.white70, size: 18),
+                  child: const Icon(Icons.download_rounded, color: Colors.white70, size: DesignTokens.fontHeading),
                 ),
               ),
-              const SizedBox(width: 6),
+              const SizedBox(width: DesignTokens.spacing6),
               _buildTimestamp(),
             ],
           ),
           if (uploadProgress != null) ...[
-            const SizedBox(height: 6),
+            const SizedBox(height: DesignTokens.spacing6),
             ClipRRect(
-              borderRadius: BorderRadius.circular(2),
+              borderRadius: BorderRadius.circular(DesignTokens.radiusXs),
               child: LinearProgressIndicator(
                 value: uploadProgress,
                 minHeight: 3,
@@ -517,10 +492,10 @@ class MessageBubble extends StatelessWidget {
     return Row(mainAxisSize: MainAxisSize.min, children: [
       Text(
         '${timestamp.hour.toString().padLeft(2, '0')}:${timestamp.minute.toString().padLeft(2, '0')}',
-        style: GoogleFonts.inter(color: Colors.white.withValues(alpha: 0.55), fontSize: 11),
+        style: GoogleFonts.inter(color: Colors.white.withValues(alpha: 0.55), fontSize: DesignTokens.fontSm),
       ),
       if (isMe && status.isNotEmpty) ...[
-        const SizedBox(width: 4),
+        const SizedBox(width: DesignTokens.spacing4),
         _buildStatusIcon(),
       ],
     ]);
@@ -559,6 +534,66 @@ class MessageBubble extends StatelessWidget {
       default:
         return const SizedBox.shrink();
     }
+  }
+}
+
+// ─── Linked text with proper gesture recognizer lifecycle ─────────────────────
+
+class _LinkedText extends StatefulWidget {
+  final String text;
+  final List<RegExpMatch> matches;
+  final TextStyle baseStyle;
+
+  const _LinkedText({required this.text, required this.matches, required this.baseStyle});
+
+  @override
+  State<_LinkedText> createState() => _LinkedTextState();
+}
+
+class _LinkedTextState extends State<_LinkedText> {
+  final List<TapGestureRecognizer> _recognizers = [];
+
+  @override
+  void dispose() {
+    for (final r in _recognizers) {
+      r.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    for (final r in _recognizers) {
+      r.dispose();
+    }
+    _recognizers.clear();
+
+    final spans = <InlineSpan>[];
+    int last = 0;
+    for (final m in widget.matches) {
+      if (m.start > last) {
+        spans.add(TextSpan(text: widget.text.substring(last, m.start)));
+      }
+      final url = m.group(0)!;
+      final recognizer = TapGestureRecognizer()
+        ..onTap = () => MessageBubble._confirmAndLaunchUrl(context, url);
+      _recognizers.add(recognizer);
+      spans.add(TextSpan(
+        text: url,
+        style: widget.baseStyle.copyWith(
+          color: Colors.lightBlueAccent,
+          decoration: TextDecoration.underline,
+          decorationColor: Colors.lightBlueAccent,
+        ),
+        recognizer: recognizer,
+      ));
+      last = m.end;
+    }
+    if (last < widget.text.length) {
+      spans.add(TextSpan(text: widget.text.substring(last)));
+    }
+
+    return RichText(text: TextSpan(style: widget.baseStyle, children: spans));
   }
 }
 
@@ -671,15 +706,15 @@ class _VoiceBubbleState extends State<_VoiceBubble> {
 
     return Container(
       decoration: BoxDecoration(color: widget.bgColor, borderRadius: widget.radius),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: DesignTokens.spacing10, vertical: DesignTokens.chatBubblePaddingV),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           GestureDetector(
             onTap: _togglePlay,
             child: Container(
-              width: 36,
-              height: 36,
+              width: DesignTokens.avatarXs,
+              height: DesignTokens.avatarXs,
               decoration: BoxDecoration(
                 color: Colors.white.withValues(alpha: 0.2),
                 shape: BoxShape.circle,
@@ -687,11 +722,11 @@ class _VoiceBubbleState extends State<_VoiceBubble> {
               child: Icon(
                 _isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
                 color: Colors.white,
-                size: 20,
+                size: DesignTokens.iconMd,
               ),
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: DesignTokens.spacing8),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
@@ -718,33 +753,33 @@ class _VoiceBubbleState extends State<_VoiceBubble> {
                   ],
                 ),
               ),
-              const SizedBox(height: 2),
+              const SizedBox(height: DesignTokens.spacing2),
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(durLabel,
                       style: GoogleFonts.inter(
                           color: Colors.white.withValues(alpha: 0.75),
-                          fontSize: 10)),
-                  const SizedBox(width: 6),
+                          fontSize: DesignTokens.fontXs)),
+                  const SizedBox(width: DesignTokens.spacing6),
                   GestureDetector(
                     onTap: _cycleSpeed,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: DesignTokens.spacing2),
                       decoration: BoxDecoration(
                         color: Colors.white.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(4),
+                        borderRadius: BorderRadius.circular(DesignTokens.spacing4),
                       ),
                       child: Text(
                         _speed == 1.0 ? '1×' : _speed == 1.5 ? '1.5×' : '2×',
                         style: GoogleFonts.inter(
                             color: Colors.white,
-                            fontSize: 9,
+                            fontSize: DesignTokens.fontXxs,
                             fontWeight: FontWeight.w700),
                       ),
                     ),
                   ),
-                  const SizedBox(width: 6),
+                  const SizedBox(width: DesignTokens.spacing6),
                   widget.buildTimestamp(),
                 ],
               ),
@@ -782,7 +817,7 @@ class _WaveformBars extends StatelessWidget {
         height: h,
         decoration: BoxDecoration(
           color: color,
-          borderRadius: BorderRadius.circular(2),
+          borderRadius: BorderRadius.circular(DesignTokens.radiusXs),
         ),
       )).toList(),
     );

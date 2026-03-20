@@ -2,9 +2,11 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_theme.dart';
+import '../theme/design_tokens.dart';
 import '../models/contact.dart';
 import '../models/message.dart';
 import 'avatar_widget.dart';
+import '../l10n/l10n_ext.dart';
 
 /// A single chat list tile showing avatar, name, last message preview,
 /// unread count, mute icon, and SmartRouter badge.
@@ -32,33 +34,33 @@ class ChatTile extends StatelessWidget {
     this.selected = false,
   });
 
-  String _formatTime(DateTime t) {
+  String _formatTime(BuildContext context, DateTime t) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final yesterday = today.subtract(const Duration(days: 1));
     final msgDay = DateTime(t.year, t.month, t.day);
     if (msgDay == today) return '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
-    if (msgDay == yesterday) return 'Yesterday';
+    if (msgDay == yesterday) return context.l10n.chatYesterday;
     if (now.year == t.year) return '${t.day}/${t.month}';
     return '${t.day}/${t.month}/${t.year % 100}';
   }
 
   @override
   Widget build(BuildContext context) {
-    String subtitle = 'Tap to start chatting';
+    String subtitle = context.l10n.chatTileTapToStart;
     String? timeStr;
     bool isMe = false;
 
     if (lastMsg != null) {
       isMe = lastMsg!.senderId == myId;
-      timeStr = _formatTime(lastMsg!.timestamp);
+      timeStr = _formatTime(context, lastMsg!.timestamp);
       final text = lastMsg!.encryptedPayload;
       if (text.startsWith('\u26A0\uFE0F UNENCRYPTED: ')) {
         subtitle = '\u26A0\uFE0F ${text.substring('\u26A0\uFE0F UNENCRYPTED: '.length)}';
       } else if (text.startsWith('E2EE||')) {
-        subtitle = isMe ? 'Message sent' : 'Encrypted message';
+        subtitle = isMe ? context.l10n.chatTileMessageSent : context.l10n.chatTileEncryptedMessage;
       } else {
-        subtitle = isMe ? 'You: $text' : text;
+        subtitle = isMe ? context.l10n.chatTileYouPrefix(text) : text;
       }
     }
 
@@ -69,7 +71,7 @@ class ChatTile extends StatelessWidget {
         splashColor: AppTheme.primary.withValues(alpha: 0.07),
         highlightColor: AppTheme.primary.withValues(alpha: 0.04),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: DesignTokens.spacing12, vertical: DesignTokens.spacing8),
           child: Row(
             children: [
               // Avatar
@@ -80,16 +82,16 @@ class ChatTile extends StatelessWidget {
                   children: [
                     AvatarWidget(
                       name: contact.name,
-                      size: 54,
+                      size: DesignTokens.avatarMd,
                       imageBytes: avatarBytes,
-                      fontSize: 22,
+                      fontSize: DesignTokens.fontDisplay,
                     ),
                     if (contact.isGroup)
                       Positioned(bottom: -1, right: -1,
                         child: Container(
-                          padding: const EdgeInsets.all(2),
+                          padding: const EdgeInsets.all(DesignTokens.spacing2),
                           decoration: BoxDecoration(color: AppTheme.surface, shape: BoxShape.circle),
-                          child: Icon(Icons.group_rounded, size: 13, color: AppTheme.primary),
+                          child: Icon(Icons.group_rounded, size: DesignTokens.fontMd, color: AppTheme.primary),
                         ),
                       ),
                     if (!contact.isGroup && isOnline)
@@ -107,7 +109,7 @@ class ChatTile extends StatelessWidget {
                   ],
                 ),
               ),
-              const SizedBox(width: 13),
+              const SizedBox(width: DesignTokens.spacing14),
               // Text info
               Expanded(
                 child: Column(
@@ -120,55 +122,55 @@ class ChatTile extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                             style: GoogleFonts.inter(
                               color: AppTheme.textPrimary,
-                              fontSize: 16,
+                              fontSize: DesignTokens.fontXl,
                               fontWeight: unreadCount > 0 ? FontWeight.w700 : FontWeight.w600,
                             )),
                       ),
                       if (isMuted) ...[
-                        Icon(Icons.notifications_off_rounded, size: 14, color: AppTheme.textSecondary),
-                        const SizedBox(width: 4),
+                        Icon(Icons.notifications_off_rounded, size: DesignTokens.fontLg, color: AppTheme.textSecondary),
+                        const SizedBox(width: DesignTokens.spacing4),
                       ],
                       if (timeStr != null)
                         Text(timeStr,
                             style: GoogleFonts.inter(
                               color: unreadCount > 0 ? AppTheme.primary : AppTheme.textSecondary,
-                              fontSize: 12,
+                              fontSize: DesignTokens.fontBody,
                               fontWeight: unreadCount > 0 ? FontWeight.w600 : FontWeight.normal,
                             )),
                     ]),
                     const SizedBox(height: 3),
                     Row(children: [
                       // E2EE lock
-                      Icon(Icons.lock_rounded, size: 11, color: AppTheme.primary.withValues(alpha: 0.7)),
-                      const SizedBox(width: 4),
+                      Icon(Icons.lock_rounded, size: DesignTokens.fontSm, color: AppTheme.primary.withValues(alpha: 0.7)),
+                      const SizedBox(width: DesignTokens.spacing4),
                       Expanded(
                         child: Text(subtitle,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: GoogleFonts.inter(
                               color: unreadCount > 0 ? AppTheme.textPrimary : AppTheme.textSecondary,
-                              fontSize: 13,
+                              fontSize: DesignTokens.fontMd,
                               fontWeight: unreadCount > 0 ? FontWeight.w500 : FontWeight.normal,
                             )),
                       ),
                       // Unread badge
                       if (unreadCount > 0) ...[
-                        const SizedBox(width: 6),
+                        const SizedBox(width: DesignTokens.spacing6),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: DesignTokens.spacing2),
                           decoration: BoxDecoration(
                             color: AppTheme.primary,
-                            borderRadius: BorderRadius.circular(10),
+                            borderRadius: BorderRadius.circular(DesignTokens.spacing10),
                           ),
                           child: Text('$unreadCount',
-                              style: GoogleFonts.inter(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700)),
+                              style: GoogleFonts.inter(color: Colors.white, fontSize: DesignTokens.fontSm, fontWeight: FontWeight.w700)),
                         ),
                       ],
                       // SmartRouter badge: show route count if contact has alternates
                       if (unreadCount == 0 && contact.alternateAddresses.isNotEmpty) ...[
-                        const SizedBox(width: 6),
+                        const SizedBox(width: DesignTokens.spacing6),
                         Container(
-                          width: 16, height: 16,
+                          width: DesignTokens.iconSm, height: DesignTokens.iconSm,
                           decoration: BoxDecoration(
                             color: AppTheme.primary.withValues(alpha: 0.15),
                             shape: BoxShape.circle,

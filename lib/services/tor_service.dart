@@ -637,7 +637,7 @@ Future<WebSocketChannel> connectWebSocket(String url,
   // so `wss://host` without port → port 0 → wrong Host header → 101 rejected.
   final wsUri = Uri.parse(url);
   final normalizedUrl = (!wsUri.hasPort || wsUri.port == 0)
-      ? wsUri.replace(port: wsUri.scheme == 'wss' ? 443 : 80).toString()
+      ? '${wsUri.scheme}://${wsUri.host}:${wsUri.scheme == 'wss' ? 443 : 80}${wsUri.path}'
       : url;
   try {
     final ws = await WebSocket.connect(normalizedUrl, customClient: httpClient);

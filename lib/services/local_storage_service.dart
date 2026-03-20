@@ -21,6 +21,10 @@ class LocalStorageService {
   SecretKey? _encKey;
   bool _sqlcipherAvailable = false;
 
+  /// Whether SQLCipher is loaded. False means DB metadata (timestamps, room IDs)
+  /// is stored in plain SQLite. Message content is still AES-GCM encrypted per-row.
+  bool get isSqlcipherAvailable => _sqlcipherAvailable;
+
   static const _kAesKeyPref = 'local_db_aes_key_v1';
   static const _kDbKeyPref = 'local_db_cipher_key_v1';
   static const _kDbKeyTsPref = 'local_db_cipher_key_created_at';
@@ -53,7 +57,7 @@ class LocalStorageService {
     _db = await databaseFactory.openDatabase(
       path,
       options: OpenDatabaseOptions(
-        version: 2,
+        version: 3,
         onConfigure: (db) async {
           if (dbKey != null) {
             await db.rawQuery("PRAGMA KEY=\"x'$dbKey'\"");
@@ -81,6 +85,7 @@ class LocalStorageService {
               PRIMARY KEY (msg_id, room_id)
             )
           ''');
+          await _createReactionsTable(db);
         },
         onUpgrade: (db, oldVersion, newVersion) async {
           if (oldVersion < 2) {
@@ -93,17 +98,40 @@ class LocalStorageService {
               )
             ''');
           }
+          if (oldVersion < 3) {
+            await _createReactionsTable(db, ifNotExists: true);
+          }
         },
       ),
     );
 
     await _migrateEncryption();
     await _migrateFromPrefs();
+    await migrateReactionsFromPrefs();
 
     // Rotate DB encryption key if overdue (SQLCipher only; per-row key is static for now).
     if (_sqlcipherAvailable) {
       unawaited(_rotateDbKeyIfNeeded());
     }
+  }
+
+  /// Create the reactions table (and its index) inside [db].
+  /// Pass [ifNotExists] = true for upgrade/migration paths that must be idempotent.
+  static Future<void> _createReactionsTable(Database db,
+      {bool ifNotExists = false}) async {
+    final q = ifNotExists ? 'IF NOT EXISTS ' : '';
+    await db.execute('''
+      CREATE TABLE ${q}reactions (
+        room_id   TEXT NOT NULL,
+        msg_id    TEXT NOT NULL,
+        emoji     TEXT NOT NULL,
+        sender_id TEXT NOT NULL,
+        PRIMARY KEY (room_id, msg_id, emoji, sender_id)
+      )
+    ''');
+    await db.execute(
+      'CREATE INDEX ${q}idx_reactions_room_msg ON reactions(room_id, msg_id)',
+    );
   }
 
   /// Try to load libsqlcipher.so; if available, override the sqlite3 library
@@ -234,7 +262,7 @@ class LocalStorageService {
       // Create encrypted DB
       final encDb = await databaseFactory.openDatabase(path,
           options: OpenDatabaseOptions(
-            version: 2,
+            version: 3,
             onConfigure: (db) async {
               if (dbKey != null) {
                 await db.rawQuery("PRAGMA KEY=\"x'$dbKey'\"");
@@ -261,6 +289,7 @@ class LocalStorageService {
                   PRIMARY KEY (msg_id, room_id)
                 )
               ''');
+              await _createReactionsTable(db);
             },
           ));
 
@@ -672,6 +701,83 @@ class LocalStorageService {
     return results;
   }
 
+  // ── Reactions ──────────────────────────────────────────────────────────────
+
+  /// Load all reactions for a room as {msgId: {emoji_senderId, ...}}.
+  Future<Map<String, Set<String>>> loadReactions(String roomId) async {
+    final rows = await _database.query(
+      'reactions',
+      columns: ['msg_id', 'emoji', 'sender_id'],
+      where: 'room_id = ?',
+      whereArgs: [roomId],
+    );
+    final result = <String, Set<String>>{};
+    for (final r in rows) {
+      final msgId = r['msg_id'] as String;
+      final emoji = r['emoji'] as String;
+      final senderId = r['sender_id'] as String;
+      result[msgId] ??= {};
+      result[msgId]!.add('${emoji}_$senderId');
+    }
+    return result;
+  }
+
+  /// Add a single reaction.
+  Future<void> addReaction(String roomId, String msgId, String emoji, String senderId) async {
+    await _database.insert(
+      'reactions',
+      {'room_id': roomId, 'msg_id': msgId, 'emoji': emoji, 'sender_id': senderId},
+      conflictAlgorithm: ConflictAlgorithm.ignore,
+    );
+  }
+
+  /// Remove a single reaction.
+  Future<void> removeReaction(String roomId, String msgId, String emoji, String senderId) async {
+    await _database.delete(
+      'reactions',
+      where: 'room_id = ? AND msg_id = ? AND emoji = ? AND sender_id = ?',
+      whereArgs: [roomId, msgId, emoji, senderId],
+    );
+  }
+
+  /// Migrate reactions from SharedPreferences to SQLite (one-time on upgrade to v3).
+  Future<void> migrateReactionsFromPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    final keys = prefs.getKeys().where((k) => k.startsWith('reactions_')).toList();
+    if (keys.isEmpty) return;
+
+    final db = _database;
+    for (final key in keys) {
+      final raw = prefs.getString(key);
+      if (raw == null) continue;
+      final roomId = key.substring('reactions_'.length);
+      try {
+        final decoded = jsonDecode(raw) as Map<String, dynamic>;
+        final batch = db.batch();
+        for (final entry in decoded.entries) {
+          final msgId = entry.key;
+          final items = (entry.value as List).cast<String>();
+          for (final item in items) {
+            final underscoreIdx = item.indexOf('_');
+            if (underscoreIdx == -1) continue;
+            final emoji = item.substring(0, underscoreIdx);
+            final senderId = item.substring(underscoreIdx + 1);
+            batch.insert(
+              'reactions',
+              {'room_id': roomId, 'msg_id': msgId, 'emoji': emoji, 'sender_id': senderId},
+              conflictAlgorithm: ConflictAlgorithm.ignore,
+            );
+          }
+        }
+        await batch.commit(noResult: true);
+        await prefs.remove(key);
+      } catch (e) {
+        debugPrint('[LocalStorage] Failed to migrate reactions for $key: $e');
+      }
+    }
+    debugPrint('[LocalStorage] Migrated reactions from ${keys.length} room(s) to SQLite');
+  }
+
   /// Delete all messages for a room.
   Future<void> clearHistory(String roomId) async {
     await _database.delete(
@@ -684,6 +790,11 @@ class LocalStorageService {
       where: 'room_id = ?',
       whereArgs: [roomId],
     );
+    await _database.delete(
+      'reactions',
+      where: 'room_id = ?',
+      whereArgs: [roomId],
+    );
   }
 
   /// Wipe the entire messages table (used by panic key / self-destruct).
@@ -691,6 +802,7 @@ class LocalStorageService {
     if (_db == null) return;
     await _database.delete('messages');
     await _database.delete('ttl_pending');
+    await _database.delete('reactions');
   }
 
   // ── Encrypted Backup / Restore ──────────────────────────────────────────────

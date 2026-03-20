@@ -122,12 +122,18 @@ class Nip65DiscoveryService {
       final port = (uri.hasPort && uri.port != 0)
           ? uri.port
           : (uri.scheme == 'wss' ? 443 : 80);
+      // Build wsUrl manually to avoid Dart's Uri.replace() adding a trailing
+      // '#' (empty fragment) that causes HTTP 400 on WebSocket upgrade.
       final wsUrl = (!uri.hasPort || uri.port == 0)
-          ? uri.replace(port: port).toString()
+          ? '${uri.scheme}://${uri.host}:$port${uri.path}'
           : relayUrl;
 
       // Try CF-direct with DoH-resolved IPs (bypasses GFW DNS poisoning)
       ws = await _connectWithDoh(uri.host, port, wsUrl);
+
+      // Await connection establishment so errors surface inside this try-catch
+      // rather than as unhandled exceptions on ws.ready or ws.sink.done.
+      await ws.ready;
 
       // NIP-01 REQ for kind:10002 — relay list metadata (NIP-65)
       // "since" set to 30 days ago so we get recent relay lists from active users.
@@ -169,7 +175,8 @@ class Nip65DiscoveryService {
     } catch (e) {
       debugPrint('[NIP-65] $relayUrl failed: $e');
     } finally {
-      try { ws?.sink.close(); } catch (_) {}
+      // Await close so its Future's error is handled here, not as unhandled.
+      try { await ws?.sink.close(); } catch (_) {}
     }
     return relays;
   }

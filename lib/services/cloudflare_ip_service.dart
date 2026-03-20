@@ -75,6 +75,10 @@ class CloudflareIpService {
   Future<(bool, List<String>)> resolveAndCheck(String host) async {
     // .onion addresses can only be resolved via Tor — skip DNS entirely.
     if (host.endsWith('.onion')) return (false, <String>[]);
+    // Loopback/localhost — definitely not Cloudflare, no DNS needed.
+    if (_isLoopbackHost(host)) return (false, <String>[]);
+    // Reject malformed hostnames (e.g. 'relay.primal.net)' from bad relay lists).
+    if (!_isValidHostname(host)) return (false, <String>[]);
     try {
       await _ensureBlocks();
 
@@ -282,6 +286,7 @@ class CloudflareIpService {
   Future<List<String>> _dohResolve(String host) async {
     // .onion addresses are Tor-only — DNS cannot resolve them.
     if (host.endsWith('.onion')) return [];
+    if (_isLoopbackHost(host) || !_isValidHostname(host)) return [];
     for (final (dohIp, sniHost, pathPrefix) in _dohProviders) {
       try {
         final httpClient = _pinnedDohClient(dohIp, sniHost);
@@ -442,6 +447,21 @@ class CloudflareIpService {
       final n = int.tryParse(p);
       return n != null && n >= 0 && n <= 255;
     });
+  }
+
+  /// Returns true if [host] is a loopback address or 'localhost'.
+  static bool _isLoopbackHost(String host) {
+    if (host == 'localhost' || host == '::1') return true;
+    // Raw IPv4 loopback: 127.x.x.x
+    final n = _ipToInt(host);
+    return n != null && (n >> 24) == 127;
+  }
+
+  /// Returns true if [host] is a syntactically valid DNS hostname.
+  /// Rejects raw IPs with non-dot/digit chars, parens, brackets, etc.
+  static bool _isValidHostname(String host) {
+    if (host.isEmpty || host.length > 253) return false;
+    return RegExp(r'^[a-zA-Z0-9][a-zA-Z0-9.\-]*$').hasMatch(host);
   }
 
   /// Returns false for RFC-1918, loopback, or link-local addresses.

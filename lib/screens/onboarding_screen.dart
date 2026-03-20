@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_theme.dart';
 import '../widgets/theme_picker_widget.dart';
 import 'setup_identity_screen.dart';
+import '../l10n/l10n_ext.dart';
 
 class OnboardingScreen extends StatefulWidget {
   final String? initialConfig;
@@ -17,49 +18,39 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   int _page = 0;
 
   // 4 info pages + 1 theme page
-  static const _infoPages = [
-    _OnboardingPage(
-      icon: Icons.shield_rounded,
-      iconColor: Color(0xFF4ADE80),
-      title: 'Welcome to Pulse',
-      body:
-          'A decentralized, end-to-end encrypted messenger.\n\n'
-          'No central servers. No data collection. No backdoors.\n'
-          'Your conversations belong only to you.',
-    ),
-    _OnboardingPage(
-      icon: Icons.hub_rounded,
-      iconColor: Color(0xFF60A5FA),
-      title: 'Transport-Agnostic',
-      body:
-          'Use Firebase, Nostr, or both at the same time.\n\n'
-          'Messages route across networks automatically. '
-          'Built-in Tor and I2P support for censorship resistance.',
-    ),
-    _OnboardingPage(
-      icon: Icons.lock_rounded,
-      iconColor: Color(0xFFA78BFA),
-      title: 'Signal + Post-Quantum',
-      body:
-          'Every message is encrypted with the Signal Protocol '
-          '(Double Ratchet + X3DH) for forward secrecy.\n\n'
-          'Additionally wrapped with Kyber-1024 — a NIST-standard '
-          'post-quantum algorithm — protecting against future quantum computers.',
-    ),
-    _OnboardingPage(
-      icon: Icons.key_rounded,
-      iconColor: Color(0xFFFBBF24),
-      title: 'You Own Your Keys',
-      body:
-          'Your identity keys never leave your device.\n\n'
-          'Signal fingerprints let you verify contacts out-of-band. '
-          'TOFU (Trust On First Use) detects key changes automatically.',
-    ),
-  ];
+  List<_OnboardingPage> _infoPages(BuildContext context) {
+    final l = context.l10n;
+    return [
+      _OnboardingPage(
+        icon: Icons.shield_rounded,
+        iconColor: const Color(0xFF4ADE80),
+        title: l.onboardingWelcomeTitle,
+        body: l.onboardingWelcomeBody,
+      ),
+      _OnboardingPage(
+        icon: Icons.hub_rounded,
+        iconColor: const Color(0xFF60A5FA),
+        title: l.onboardingTransportTitle,
+        body: l.onboardingTransportBody,
+      ),
+      _OnboardingPage(
+        icon: Icons.lock_rounded,
+        iconColor: const Color(0xFFA78BFA),
+        title: l.onboardingSignalTitle,
+        body: l.onboardingSignalBody,
+      ),
+      _OnboardingPage(
+        icon: Icons.key_rounded,
+        iconColor: const Color(0xFFFBBF24),
+        title: l.onboardingKeysTitle,
+        body: l.onboardingKeysBody,
+      ),
+    ];
+  }
 
-  // Total pages = info pages + theme picker
-  int get _totalPages => _infoPages.length + 1;
-  bool get _isThemePage => _page == _infoPages.length;
+  // Total pages = info pages (4) + theme picker
+  int get _totalPages => 5;
+  bool get _isThemePage => _page == 4;
 
   @override
   void dispose() {
@@ -98,7 +89,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               alignment: Alignment.centerRight,
               child: TextButton(
                 onPressed: _finish,
-                child: Text('Skip',
+                child: Text(context.l10n.onboardingSkip,
                     style: GoogleFonts.inter(
                         color: AppTheme.textSecondary, fontSize: 14)),
               ),
@@ -110,11 +101,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 controller: _controller,
                 onPageChanged: (i) => setState(() => _page = i),
                 itemCount: _totalPages,
-                itemBuilder: (_, i) {
-                  if (i < _infoPages.length) {
-                    return _InfoPageView(page: _infoPages[i]);
+                itemBuilder: (context, i) {
+                  final pages = _infoPages(context);
+                  if (i < pages.length) {
+                    return _InfoPageView(page: pages[i]);
                   }
-                  return const _ThemePageView();
+                  return _ThemePageView();
                 },
               ),
             ),
@@ -155,7 +147,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                           borderRadius: BorderRadius.circular(14)),
                     ),
                     child: Text(
-                      _isThemePage ? 'Get Started' : 'Next',
+                      _isThemePage ? context.l10n.onboardingGetStarted : context.l10n.onboardingNext,
                       style: GoogleFonts.inter(
                           fontWeight: FontWeight.w600, fontSize: 15),
                     ),
@@ -244,7 +236,7 @@ class _ThemePageView extends StatelessWidget {
           ),
           const SizedBox(height: 24),
           Text(
-            'Choose Your Look',
+            context.l10n.onboardingThemeTitle,
             style: GoogleFonts.inter(
               fontSize: 26,
               fontWeight: FontWeight.w700,
@@ -254,7 +246,7 @@ class _ThemePageView extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           Text(
-            'Pick a theme and accent colour. You can always change this later in Settings.',
+            context.l10n.onboardingThemeBody,
             style: GoogleFonts.inter(
               fontSize: 15,
               color: AppTheme.textSecondary,

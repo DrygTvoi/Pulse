@@ -16,6 +16,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:convert/convert.dart';
 import '../adapters/nostr_adapter.dart' show deriveNostrPubkeyHex;
 import 'home_screen.dart';
+import '../l10n/l10n_ext.dart';
 
 const _avatarColors = [
   Color(0xFF25D366),
@@ -81,12 +82,13 @@ class _RestoreAccountScreenState extends State<RestoreAccountScreen> {
     return p.length * (log(charset) / ln2) * uniqueRatio;
   }
 
-  String get _entropyLabel {
-    if (!_hasVariety && _passwordController.text.length >= 16) return 'Слабый (нужно 3 типа символов)';
+  String _entropyLabel(BuildContext context) {
+    final l = context.l10n;
+    if (!_hasVariety && _passwordController.text.length >= 16) return l.setupEntropyWeakNeedsVariety;
     final bits = _entropyBits;
-    if (bits < 50) return 'Слабый';
-    if (bits < 80) return 'Средний';
-    return 'Сильный';
+    if (bits < 50) return l.setupEntropyWeak;
+    if (bits < 80) return l.setupEntropyOk;
+    return l.setupEntropyStrong;
   }
 
   Color get _entropyColor {
@@ -193,7 +195,7 @@ class _RestoreAccountScreenState extends State<RestoreAccountScreen> {
           icon: const Icon(Icons.arrow_back_rounded, color: Colors.white70),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: Text('Восстановление аккаунта',
+        title: Text(context.l10n.restoreTitle,
             style: GoogleFonts.inter(
                 color: AppTheme.textPrimary,
                 fontSize: 17,
@@ -222,9 +224,7 @@ class _RestoreAccountScreenState extends State<RestoreAccountScreen> {
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        'Введите пароль восстановления — ваш адрес (Nostr + Session) '
-                        'будет восстановлен автоматически. '
-                        'Контакты и сообщения хранились только локально.',
+                        context.l10n.restoreInfoBanner,
                         style: GoogleFonts.inter(
                             color: AppTheme.textSecondary,
                             fontSize: 13,
@@ -274,7 +274,7 @@ class _RestoreAccountScreenState extends State<RestoreAccountScreen> {
                 ),
               ),
               const SizedBox(height: 6),
-              Text('Новый псевдоним (можно изменить)',
+              Text(context.l10n.restoreNewNickname,
                   style: GoogleFonts.inter(
                       color: AppTheme.textSecondary, fontSize: 11)),
               const SizedBox(height: 28),
@@ -282,7 +282,7 @@ class _RestoreAccountScreenState extends State<RestoreAccountScreen> {
               // Name
               _buildField(
                 controller: _nameController,
-                hint: 'Ваш псевдоним',
+                hint: context.l10n.setupYourNickname,
                 icon: Icons.person_outline_rounded,
                 onChanged: (_) => setState(() {}),
               ),
@@ -291,7 +291,7 @@ class _RestoreAccountScreenState extends State<RestoreAccountScreen> {
               // Password
               _buildField(
                 controller: _passwordController,
-                hint: 'Пароль восстановления (мин. 16)',
+                hint: context.l10n.setupRecoveryPassword,
                 icon: Icons.lock_outline_rounded,
                 obscure: !_showPassword,
                 onChanged: (_) => setState(() {}),
@@ -320,7 +320,7 @@ class _RestoreAccountScreenState extends State<RestoreAccountScreen> {
                       ),
                       const SizedBox(width: 6),
                       Text(
-                        '$_entropyLabel (${_entropyBits.round()} бит)',
+                        context.l10n.setupEntropyBits(_entropyLabel(context), _entropyBits.round()),
                         style: GoogleFonts.inter(
                           fontSize: 11,
                           color: _entropyColor,
@@ -347,7 +347,7 @@ class _RestoreAccountScreenState extends State<RestoreAccountScreen> {
                           width: 22, height: 22,
                           child: CircularProgressIndicator(
                               color: Colors.white, strokeWidth: 2.5))
-                      : Text('Восстановить аккаунт',
+                      : Text(context.l10n.restoreButton,
                           style: GoogleFonts.inter(
                               fontSize: 16,
                               fontWeight: FontWeight.w700,

@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../theme/app_theme.dart';
+import '../theme/design_tokens.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'contact_profile_sheet.dart';
 import 'verify_identity_screen.dart';
@@ -126,7 +127,7 @@ class _ChatScreenState extends State<ChatScreen> {
           const Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 18),
           const SizedBox(width: 8),
           Expanded(child: Text(
-            '${event.contactName}\'s security key changed. Tap to verify.',
+            context.l10n.chatKeyChangedSnackbar(event.contactName),
             style: const TextStyle(color: Colors.white),
           )),
         ]),
@@ -141,7 +142,7 @@ class _ChatScreenState extends State<ChatScreen> {
           const Icon(Icons.lock_open_rounded, color: Colors.orange, size: 18),
           const SizedBox(width: 8),
           Expanded(child: Text(
-            'Could not encrypt message to $contactName — message not sent.',
+            context.l10n.chatEncryptionFailed(contactName),
             style: const TextStyle(color: Colors.white),
           )),
         ]),
@@ -270,8 +271,7 @@ class _ChatScreenState extends State<ChatScreen> {
             builder: (ctx) => AlertDialog(
               title: Text(context.l10n.chatLargeFile),
               content: Text(
-                'This file is $sizeMB MB. Sending large files may be slow '
-                'on some networks. Continue?',
+                context.l10n.chatLargeFileSizeWarning(sizeMB),
               ),
               actions: [
                 TextButton(
@@ -433,15 +433,27 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final chatController = context.watch<ChatController>();
+    // Granular selectors — only rebuild when THIS contact's room changes,
+    // not on every ChatController notification (other contacts' messages, etc.).
+    final myId = context.select<ChatController, String>((c) => c.identity?.id ?? '');
+    final msgCount = context.select<ChatController, int>(
+        (c) => c.getRoomForContact(_contact.id)?.messages.length ?? 0);
+    final hasMore = context.select<ChatController, bool>(
+        (c) => c.hasMoreHistory(_contact.id)) && _searchQuery.isEmpty;
+    final loadingMore = context.select<ChatController, bool>(
+        (c) => c.isLoadingMoreHistory(_contact.id));
+    final connectionStatus = context.select<ChatController, ConnectionStatus>(
+        (c) => c.connectionStatus);
+
+    // Use read() for actual data access and method calls (non-reactive).
+    final chatController = context.read<ChatController>();
     final room = chatController.getRoomForContact(_contact.id);
     final messages = room?.messages ?? [];
-    final myId = chatController.identity?.id ?? '';
 
     // Auto-scroll and mark as read when new messages arrive
-    if (messages.length != _lastMessageCount) {
-      final delta = messages.length - _lastMessageCount;
-      _lastMessageCount = messages.length;
+    if (msgCount != _lastMessageCount) {
+      final delta = msgCount - _lastMessageCount;
+      _lastMessageCount = msgCount;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!_showScrollFab) {
           _scrollToBottom();
@@ -460,12 +472,9 @@ class _ChatScreenState extends State<ChatScreen> {
             return !text.startsWith('e2ee||') && text.contains(_searchQuery);
           }).toList();
     final items = _buildItemList(filtered);
-    final hasMore = chatController.hasMoreHistory(_contact.id) && _searchQuery.isEmpty;
-    final loadingMore = chatController.isLoadingMoreHistory(_contact.id);
 
     // Scheduled messages count for input bar
-    final allMessages = chatController.getRoomForContact(_contact.id)?.messages ?? [];
-    final scheduledMsgs = allMessages.where((m) => m.status == 'scheduled').toList();
+    final scheduledMsgs = messages.where((m) => m.status == 'scheduled').toList();
 
     return Scaffold(
       backgroundColor: AppTheme.background,
@@ -490,7 +499,7 @@ class _ChatScreenState extends State<ChatScreen> {
             ),
       body: Column(children: [
         // Offline indicator (hidden while probe is still running)
-        OfflineBanner(status: chatController.connectionStatus),
+        OfflineBanner(status: connectionStatus),
         // Key change warning banner
         if (_showKeyChangeBanner)
           GestureDetector(
@@ -505,30 +514,30 @@ class _ChatScreenState extends State<ChatScreen> {
             },
             child: Container(
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: DesignTokens.spacing14, vertical: DesignTokens.spacing10),
               decoration: const BoxDecoration(
                 color: Color(0xFFE65100),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.warning_amber_rounded, color: Colors.white, size: 18),
-                  const SizedBox(width: 10),
+                  const Icon(Icons.warning_amber_rounded, color: Colors.white, size: DesignTokens.fontHeading),
+                  const SizedBox(width: DesignTokens.spacing10),
                   Expanded(
                     child: Text(
-                      'Safety number changed for ${_contact.name}. Tap to verify.',
+                      context.l10n.chatSafetyNumberChanged(_contact.name),
                       style: GoogleFonts.inter(
                         color: Colors.white,
-                        fontSize: 13,
+                        fontSize: DesignTokens.fontMd,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  const Icon(Icons.chevron_right_rounded, color: Colors.white, size: 20),
-                  const SizedBox(width: 4),
+                  const SizedBox(width: DesignTokens.spacing8),
+                  const Icon(Icons.chevron_right_rounded, color: Colors.white, size: DesignTokens.iconMd),
+                  const SizedBox(width: DesignTokens.spacing4),
                   GestureDetector(
                     onTap: () => setState(() => _showKeyChangeBanner = false),
-                    child: const Icon(Icons.close_rounded, color: Colors.white70, size: 18),
+                    child: const Icon(Icons.close_rounded, color: Colors.white70, size: DesignTokens.fontHeading),
                   ),
                 ],
               ),
@@ -543,24 +552,24 @@ class _ChatScreenState extends State<ChatScreen> {
                   ? _buildEmptyConversation()
                   : ListView.builder(
                       controller: _scrollController,
-                      padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+                      padding: const EdgeInsets.fromLTRB(DesignTokens.spacing12, DesignTokens.spacing12, DesignTokens.spacing12, DesignTokens.spacing8),
                       itemCount: items.length + (hasMore ? 1 : 0),
                       itemBuilder: (context, index) {
                         if (hasMore && index == 0) {
                           return Padding(
-                            padding: const EdgeInsets.only(bottom: 8),
+                            padding: const EdgeInsets.only(bottom: DesignTokens.spacing8),
                             child: Center(
                               child: loadingMore
                                   ? const SizedBox(
-                                      width: 20, height: 20,
+                                      width: DesignTokens.iconMd, height: DesignTokens.iconMd,
                                       child: CircularProgressIndicator(strokeWidth: 2))
                                   : TextButton.icon(
                                       onPressed: () => chatController.loadMoreHistory(_contact),
-                                      icon: const Icon(Icons.expand_less_rounded, size: 16),
+                                      icon: const Icon(Icons.expand_less_rounded, size: DesignTokens.iconSm),
                                       label: Text(context.l10n.homeLoadEarlier),
                                       style: TextButton.styleFrom(
                                         foregroundColor: AppTheme.textSecondary,
-                                        textStyle: const TextStyle(fontSize: 12),
+                                        textStyle: const TextStyle(fontSize: DesignTokens.fontBody),
                                       ),
                                     ),
                             ),
@@ -582,7 +591,7 @@ class _ChatScreenState extends State<ChatScreen> {
                         String? replyFromName;
                         if (msg.replyToSender != null) {
                           if (msg.replyToSender == myId) {
-                            replyFromName = 'You';
+                            replyFromName = context.l10n.chatYou;
                           } else {
                             final rs = ContactManager().contacts.cast<Contact?>().firstWhere(
                               (c) => c?.databaseId == msg.replyToSender ||
@@ -670,8 +679,8 @@ class _ChatScreenState extends State<ChatScreen> {
                     ),
               if (_showScrollFab)
                 Positioned(
-                  right: 14,
-                  bottom: 14,
+                  right: DesignTokens.spacing14,
+                  bottom: DesignTokens.spacing14,
                   child: GestureDetector(
                     onTap: () {
                       HapticFeedback.lightImpact();
@@ -694,20 +703,20 @@ class _ChatScreenState extends State<ChatScreen> {
                             )],
                           ),
                           child: Icon(Icons.keyboard_arrow_down_rounded,
-                              color: AppTheme.textSecondary, size: 24),
+                              color: AppTheme.textSecondary, size: DesignTokens.iconLg),
                         ),
                         if (_unreadWhileScrolled > 0)
                           Positioned(
                             top: -4, right: -4,
                             child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: DesignTokens.spacing2),
                               decoration: BoxDecoration(
                                 color: AppTheme.primary,
-                                borderRadius: BorderRadius.circular(10),
+                                borderRadius: BorderRadius.circular(DesignTokens.spacing10),
                               ),
                               child: Text(
                                 _unreadWhileScrolled > 99 ? '99+' : '$_unreadWhileScrolled',
-                                style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700),
+                                style: const TextStyle(color: Colors.white, fontSize: DesignTokens.fontXs, fontWeight: FontWeight.w700),
                               ),
                             ),
                           ),
@@ -756,10 +765,10 @@ class _ChatScreenState extends State<ChatScreen> {
     return Center(
       child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
         Icon(Icons.search_off_rounded, size: 36, color: AppTheme.textSecondary.withValues(alpha: 0.4)),
-        const SizedBox(height: 12),
-        Text('No messages found', style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: 14)),
-        const SizedBox(height: 4),
-        Text('"$_searchQuery"', style: GoogleFonts.inter(color: AppTheme.textSecondary.withValues(alpha: 0.6), fontSize: 12)),
+        const SizedBox(height: DesignTokens.spacing12),
+        Text(context.l10n.chatNoMessagesFound, style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: DesignTokens.fontLg)),
+        const SizedBox(height: DesignTokens.spacing4),
+        Text('"$_searchQuery"', style: GoogleFonts.inter(color: AppTheme.textSecondary.withValues(alpha: 0.6), fontSize: DesignTokens.fontBody)),
       ]),
     );
   }
@@ -814,19 +823,19 @@ class _ChatScreenState extends State<ChatScreen> {
     }
 
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12),
+      padding: const EdgeInsets.symmetric(vertical: DesignTokens.spacing12),
       child: Row(children: [
         Expanded(child: Divider(color: AppTheme.textSecondary.withValues(alpha: 0.15), thickness: 0.5)),
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10),
+          padding: const EdgeInsets.symmetric(horizontal: DesignTokens.spacing10),
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            padding: const EdgeInsets.symmetric(horizontal: DesignTokens.spacing12, vertical: DesignTokens.spacing4),
             decoration: BoxDecoration(
               color: AppTheme.surfaceVariant,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(DesignTokens.chatDateChipRadius),
             ),
             child: Text(label,
-                style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: 12, fontWeight: FontWeight.w500)),
+                style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: DesignTokens.fontBody, fontWeight: FontWeight.w500)),
           ),
         ),
         Expanded(child: Divider(color: AppTheme.textSecondary.withValues(alpha: 0.15), thickness: 0.5)),
@@ -840,12 +849,12 @@ class _ChatScreenState extends State<ChatScreen> {
   Widget _buildEmptyConversation() {
     return Center(
       child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-        Icon(Icons.lock_rounded, size: 32, color: AppTheme.primary.withValues(alpha: 0.4)),
-        const SizedBox(height: 12),
-        Text('Messages are end-to-end encrypted',
-            style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: 13)),
-        const SizedBox(height: 4),
-        Text('Say hello 👋', style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: 13)),
+        Icon(Icons.lock_rounded, size: DesignTokens.iconXl, color: AppTheme.primary.withValues(alpha: 0.4)),
+        const SizedBox(height: DesignTokens.spacing12),
+        Text(context.l10n.chatMessagesE2ee,
+            style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: DesignTokens.fontMd)),
+        const SizedBox(height: DesignTokens.spacing4),
+        Text(context.l10n.chatSayHello, style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: DesignTokens.fontMd)),
       ]),
     );
   }

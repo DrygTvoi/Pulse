@@ -7,6 +7,7 @@ import '../models/message.dart';
 import '../services/connectivity_probe_service.dart';
 import '../controllers/chat_controller.dart';
 import 'avatar_widget.dart';
+import '../l10n/l10n_ext.dart';
 
 /// Toast-style banner showing a new message preview (slides in from top).
 class NewMessageBanner extends StatelessWidget {
@@ -27,7 +28,7 @@ class NewMessageBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     String preview = message.encryptedPayload;
     if (preview.startsWith('E2EE||')) {
-      preview = '\uD83D\uDD12 Encrypted message';
+      preview = '\uD83D\uDD12 ${context.l10n.bannerEncryptedMessage}';
     } else if (preview.startsWith('\u26A0\uFE0F UNENCRYPTED: ')) {
       preview = preview.substring('\u26A0\uFE0F UNENCRYPTED: '.length);
     }
@@ -91,33 +92,33 @@ class ProbeBanner extends StatelessWidget {
     final (icon, label, color) = switch (status.phase) {
       ProbePhase.directProbe => (
           Icons.wifi_find_rounded,
-          'Checking network connectivity\u2026',
+          context.l10n.probeCheckingNetwork,
           const Color(0xFF546E7A),
         ),
       ProbePhase.dohProbe => (
           Icons.travel_explore_rounded,
-          'Discovering relays via community directories\u2026',
+          context.l10n.probeDiscoveringRelays,
           const Color(0xFF455A64),
         ),
       ProbePhase.torBoot => (
           Icons.security_rounded,
-          'Starting Tor for bootstrap\u2026',
+          context.l10n.probeStartingTor,
           const Color(0xFF37474F),
         ),
       ProbePhase.torProbe => (
           Icons.vpn_lock_rounded,
-          'Finding reachable relays via Tor\u2026',
+          context.l10n.probeFindingRelaysTor,
           const Color(0xFF37474F),
         ),
       ProbePhase.done => status.found > 0
           ? (
               Icons.check_circle_outline_rounded,
-              'Network ready \u2014 ${status.found} relay${status.found == 1 ? '' : 's'} found',
+              context.l10n.probeNetworkReady(status.found),
               const Color(0xFF2E7D32),
             )
           : (
               Icons.warning_amber_rounded,
-              'No reachable relays found \u2014 messages may be delayed',
+              context.l10n.probeNoRelaysFound,
               const Color(0xFFB71C1C),
             ),
       _ => (Icons.wifi_find_rounded, '', const Color(0xFF546E7A)),
@@ -168,7 +169,7 @@ class OfflineBanner extends StatelessWidget {
           const Icon(Icons.cloud_off_rounded, size: 13, color: Colors.white70),
           const SizedBox(width: 6),
           Text(
-            'No connection \u2014 messages will queue and send when back online',
+            context.l10n.offlineBanner,
             style: GoogleFonts.inter(color: Colors.white70, fontSize: 11),
           ),
         ],
@@ -201,7 +202,7 @@ class LanBanner extends StatelessWidget {
           const Icon(Icons.wifi_off_rounded, size: 16, color: Colors.white),
           const SizedBox(width: 8),
           Text(
-            'LAN Mode \u2014 No internet \u00B7 Local network only',
+            context.l10n.lanModeBanner,
             style: GoogleFonts.inter(
               color: Colors.white,
               fontSize: 12,

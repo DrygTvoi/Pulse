@@ -391,7 +391,25 @@ class ConnectivityProbeService {
       //
       // All three run in parallel; results are TCP-probed and joined.
       // NOTE: Tor bootstrap is also running in background during this phase.
-      _emit(ProbePhase.dohProbe, found: directNostr.length);
+      //
+      // If phase 1 already found enough relays, emit early done so the UI
+      // stops showing the spinner.  Phase 1.5 continues silently in the
+      // background to discover additional relays for future reconnects.
+      final earlyDone = directNostr.length >= _enoughDirect;
+      if (earlyDone) {
+        _emit(ProbePhase.done, found: directNostr.length);
+        if (!_firstRunCompleter.isCompleted) {
+          _firstRunCompleter.complete(ProbeResult(
+            nostrRelays: List.of(directNostr),
+            oxenNodes: directOxen,
+            turnServers: directTurnHosts,
+            torNostrRelays: [],
+            timestamp: DateTime.now(),
+          ));
+        }
+      } else {
+        _emit(ProbePhase.dohProbe, found: directNostr.length);
+      }
       debugPrint('[Probe] Phase 1.5: autonomous relay discovery');
 
       final knownHosts1 = <String>{
@@ -581,8 +599,12 @@ class ConnectivityProbeService {
         debugPrint('[Probe] Saved ${directTurnConfigs.length} TURN server entries');
       }
 
-      _emit(ProbePhase.done,
-          found: directNostr.length + torNostr.length, torUsed: torUsed);
+      // Only emit final done if we didn't already emit an early done above.
+      // (earlyDone already signalled the UI; here we just update the counter.)
+      if (!earlyDone) {
+        _emit(ProbePhase.done,
+            found: directNostr.length + torNostr.length, torUsed: torUsed);
+      }
       debugPrint('[Probe] Done. Total reachable: '
           '${directNostr.length} direct + ${torNostr.length} tor-only');
 

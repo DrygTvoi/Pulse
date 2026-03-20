@@ -11,6 +11,7 @@ import '../../adapters/nostr_adapter.dart';
 import '../../controllers/chat_controller.dart';
 import '../../services/waku_discovery_service.dart';
 import '../../theme/app_theme.dart';
+import '../../theme/design_tokens.dart';
 import 'settings_widgets.dart';
 
 class ProviderSection extends StatefulWidget {
@@ -118,7 +119,7 @@ class _ProviderSectionState extends State<ProviderSection> {
         builder: (ctx, setDialogState) => AlertDialog(
           backgroundColor: AppTheme.surface,
           shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.dialogRadius)),
           title: Text(
             'Add Secondary Inbox',
             style: GoogleFonts.inter(
@@ -140,7 +141,7 @@ class _ProviderSectionState extends State<ProviderSection> {
                             color: provider == p
                                 ? AppTheme.primary.withValues(alpha: 0.15)
                                 : AppTheme.surfaceVariant,
-                            borderRadius: BorderRadius.circular(10),
+                            borderRadius: BorderRadius.circular(DesignTokens.spacing10),
                             border: Border.all(
                                 color: provider == p
                                     ? AppTheme.primary
@@ -280,7 +281,7 @@ class _ProviderSectionState extends State<ProviderSection> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.primary,
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10)),
+                    borderRadius: BorderRadius.circular(DesignTokens.spacing10)),
               ),
               child: Text(
                 'Add',
@@ -338,7 +339,7 @@ class _ProviderSectionState extends State<ProviderSection> {
           color: selected
               ? color.withValues(alpha: 0.12)
               : AppTheme.surface,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(DesignTokens.spacing10),
           border: Border.all(
             color: selected ? color : AppTheme.surfaceVariant,
             width: 1.5,
@@ -386,7 +387,7 @@ class _ProviderSectionState extends State<ProviderSection> {
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: const Color(0xFF9B59B6).withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(DesignTokens.radiusSmall),
         border: Border.all(
             color: const Color(0xFF9B59B6).withValues(alpha: 0.3)),
       ),
@@ -596,13 +597,13 @@ class _ProviderSectionState extends State<ProviderSection> {
                           ? () => setState(() =>
                               widget.wakuNodeUrlController.text = n.url)
                           : null,
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(DesignTokens.radiusSmall),
                       child: Container(
                         padding: const EdgeInsets.symmetric(
                             horizontal: 10, vertical: 7),
                         decoration: BoxDecoration(
                           color: AppTheme.surfaceVariant,
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(DesignTokens.radiusSmall),
                           border:
                               widget.wakuNodeUrlController.text == n.url
                                   ? Border.all(
@@ -695,7 +696,7 @@ class _ProviderSectionState extends State<ProviderSection> {
                       horizontal: 10, vertical: 8),
                   decoration: BoxDecoration(
                     color: const Color(0xFF00695C).withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(DesignTokens.radiusSmall),
                     border: Border.all(
                         color: const Color(0xFF00695C)
                             .withValues(alpha: 0.3)),
@@ -765,7 +766,7 @@ class _ProviderSectionState extends State<ProviderSection> {
                   const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
                 color: AppTheme.surface,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
               ),
               child: Row(
                 children: [
@@ -831,7 +832,7 @@ class _ProviderSectionState extends State<ProviderSection> {
                 const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             decoration: BoxDecoration(
               color: AppTheme.surface,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
               border: Border.all(
                   color: AppTheme.primary.withValues(alpha: 0.3), width: 1),
             ),
@@ -884,7 +885,7 @@ class _ProviderSectionState extends State<ProviderSection> {
             style: ElevatedButton.styleFrom(
               backgroundColor: AppTheme.primary,
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16)),
+                  borderRadius: BorderRadius.circular(DesignTokens.buttonRadius)),
               elevation: 0,
             ),
             child: widget.isSaving

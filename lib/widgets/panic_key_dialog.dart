@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_theme.dart';
+import '../theme/design_tokens.dart';
+import '../l10n/l10n_ext.dart';
 
 /// Dialog shown after password setup to configure an emergency panic key.
 /// Entering this key at the lock screen instantly wipes all app data.
@@ -38,11 +40,11 @@ class _PanicKeyDialogState extends State<PanicKeyDialog> {
     final confirm = _confirmController.text;
 
     if (key.length < 4) {
-      setState(() => _error = 'Panic key must be at least 4 characters');
+      setState(() => _error = context.l10n.panicMinChars);
       return;
     }
     if (key != confirm) {
-      setState(() => _error = 'Keys do not match');
+      setState(() => _error = context.l10n.panicKeysDoNotMatch);
       return;
     }
 
@@ -61,9 +63,9 @@ class _PanicKeyDialogState extends State<PanicKeyDialog> {
   Widget build(BuildContext context) {
     return Dialog(
       backgroundColor: AppTheme.surface,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.dialogRadius)),
       child: SingleChildScrollView(
-        padding: const EdgeInsets.all(28),
+        padding: const EdgeInsets.all(DesignTokens.spacing28),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -71,40 +73,40 @@ class _PanicKeyDialogState extends State<PanicKeyDialog> {
             // Header
             Row(children: [
               Container(
-                width: 44,
-                height: 44,
+                width: DesignTokens.avatarSm + DesignTokens.spacing4,
+                height: DesignTokens.avatarSm + DesignTokens.spacing4,
                 decoration: BoxDecoration(
                   color: const Color(0xFFF87171).withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
                 ),
                 child: const Icon(Icons.warning_amber_rounded,
-                    color: Color(0xFFF87171), size: 22),
+                    color: Color(0xFFF87171), size: DesignTokens.fontDisplay),
               ),
-              const SizedBox(width: 14),
+              const SizedBox(width: DesignTokens.spacing14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Set Panic Key',
+                    Text(context.l10n.panicSetPanicKey,
                         style: GoogleFonts.inter(
                             color: AppTheme.textPrimary,
-                            fontSize: 17,
+                            fontSize: DesignTokens.fontTitle,
                             fontWeight: FontWeight.w700)),
-                    Text('Emergency self-destruct',
+                    Text(context.l10n.panicEmergencySelfDestruct,
                         style: GoogleFonts.inter(
-                            color: const Color(0xFFF87171), fontSize: 12)),
+                            color: const Color(0xFFF87171), fontSize: DesignTokens.fontBody)),
                   ],
                 ),
               ),
             ]),
-            const SizedBox(height: 20),
+            const SizedBox(height: DesignTokens.spacing20),
 
             // Warning banner
             Container(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(DesignTokens.spacing12),
               decoration: BoxDecoration(
                 color: const Color(0xFFF87171).withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(DesignTokens.spacing10),
                 border: Border.all(
                     color: const Color(0xFFF87171).withValues(alpha: 0.3)),
               ),
@@ -113,52 +115,50 @@ class _PanicKeyDialogState extends State<PanicKeyDialog> {
                 children: [
                   Row(children: [
                     const Icon(Icons.dangerous_rounded,
-                        color: Color(0xFFF87171), size: 13),
-                    const SizedBox(width: 6),
-                    Text('This action is irreversible',
+                        color: Color(0xFFF87171), size: DesignTokens.fontMd),
+                    const SizedBox(width: DesignTokens.spacing6),
+                    Text(context.l10n.panicIrreversible,
                         style: GoogleFonts.inter(
                             color: const Color(0xFFF87171),
-                            fontSize: 12,
+                            fontSize: DesignTokens.fontBody,
                             fontWeight: FontWeight.w600)),
                   ]),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: DesignTokens.spacing6),
                   Text(
-                    'Entering this key at the lock screen instantly wipes ALL data — '
-                    'messages, contacts, keys, identity. '
-                    'Use a key different from your regular password.',
+                    context.l10n.panicWarningBody,
                     style: GoogleFonts.inter(
                         color: AppTheme.textSecondary,
-                        fontSize: 12,
+                        fontSize: DesignTokens.fontBody,
                         height: 1.5),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: DesignTokens.spacing20),
 
             _PanicField(
               controller: _keyController,
-              hint: 'Panic key',
+              hint: context.l10n.panicKeyHint,
               visible: _showKey,
               onToggle: () => setState(() => _showKey = !_showKey),
               onChanged: (_) => setState(() => _error = null),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: DesignTokens.spacing12),
             _PanicField(
               controller: _confirmController,
-              hint: 'Confirm panic key',
+              hint: context.l10n.panicConfirmHint,
               visible: _showConfirm,
               onToggle: () => setState(() => _showConfirm = !_showConfirm),
               onChanged: (_) => setState(() => _error = null),
             ),
 
             if (_error != null) ...[
-              const SizedBox(height: 10),
+              const SizedBox(height: DesignTokens.spacing10),
               Text(_error!,
                   style: GoogleFonts.inter(
-                      color: const Color(0xFFF87171), fontSize: 12)),
+                      color: const Color(0xFFF87171), fontSize: DesignTokens.fontBody)),
             ],
-            const SizedBox(height: 24),
+            const SizedBox(height: DesignTokens.spacing24),
 
             // Set button
             SizedBox(
@@ -168,7 +168,7 @@ class _PanicKeyDialogState extends State<PanicKeyDialog> {
                 style: FilledButton.styleFrom(
                   backgroundColor: const Color(0xFFF87171),
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
+                      borderRadius: BorderRadius.circular(DesignTokens.radiusMedium)),
                 ),
                 onPressed: _loading ? null : _submit,
                 child: _loading
@@ -177,14 +177,14 @@ class _PanicKeyDialogState extends State<PanicKeyDialog> {
                         height: 20,
                         child: CircularProgressIndicator(
                             color: Colors.white, strokeWidth: 2))
-                    : Text('Set Panic Key',
+                    : Text(context.l10n.panicSetPanicKey,
                         style: GoogleFonts.inter(
                             fontWeight: FontWeight.w700,
-                            fontSize: 15,
+                            fontSize: DesignTokens.fontInput,
                             color: Colors.white)),
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: DesignTokens.spacing8),
 
             // Skip
             SizedBox(
@@ -192,9 +192,9 @@ class _PanicKeyDialogState extends State<PanicKeyDialog> {
               height: 40,
               child: TextButton(
                 onPressed: _loading ? null : widget.onSkip,
-                child: Text('Skip',
+                child: Text(context.l10n.skip,
                     style: GoogleFonts.inter(
-                        color: AppTheme.textSecondary, fontSize: 14)),
+                        color: AppTheme.textSecondary, fontSize: DesignTokens.fontLg)),
               ),
             ),
           ],
@@ -227,32 +227,32 @@ class _PanicField extends StatelessWidget {
       controller: controller,
       obscureText: !visible,
       onChanged: onChanged,
-      style: GoogleFonts.inter(color: AppTheme.textPrimary, fontSize: 15),
+      style: GoogleFonts.inter(color: AppTheme.textPrimary, fontSize: DesignTokens.fontInput),
       decoration: InputDecoration(
         hintText: hint,
         hintStyle:
-            GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: 14),
+            GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: DesignTokens.fontLg),
         filled: true,
         fillColor: AppTheme.surfaceVariant,
         border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
             borderSide: BorderSide.none),
         enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
             borderSide: BorderSide.none),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
           borderSide: const BorderSide(color: Color(0xFFF87171), width: 1.5),
         ),
         contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            const EdgeInsets.symmetric(horizontal: DesignTokens.inputContentPaddingH, vertical: DesignTokens.inputContentPaddingV),
         suffixIcon: IconButton(
           icon: Icon(
               visible
                   ? Icons.visibility_off_rounded
                   : Icons.visibility_rounded,
               color: AppTheme.textSecondary,
-              size: 18),
+              size: DesignTokens.fontHeading),
           onPressed: onToggle,
         ),
       ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_theme.dart';
+import '../theme/design_tokens.dart';
 
 class PrivacyPolicyScreen extends StatelessWidget {
   const PrivacyPolicyScreen({super.key});
@@ -19,11 +20,11 @@ class PrivacyPolicyScreen extends StatelessWidget {
         title: Text('Privacy Policy',
             style: GoogleFonts.inter(
                 color: AppTheme.textPrimary,
-                fontSize: 17,
+                fontSize: DesignTokens.fontTitle,
                 fontWeight: FontWeight.w600)),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+        padding: const EdgeInsets.symmetric(horizontal: DesignTokens.spacing24, vertical: DesignTokens.spacing16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -103,15 +104,15 @@ class PrivacyPolicyScreen extends StatelessWidget {
             _body(
               'For privacy-related questions, open an issue on the project repository.',
             ),
-            const SizedBox(height: 32),
+            const SizedBox(height: DesignTokens.spacing32),
             Center(
               child: Text(
                 'Last updated: March 2026',
                 style: GoogleFonts.inter(
-                    color: AppTheme.textSecondary, fontSize: 11),
+                    color: AppTheme.textSecondary, fontSize: DesignTokens.fontSm),
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: DesignTokens.spacing16),
           ],
         ),
       ),
@@ -120,11 +121,11 @@ class PrivacyPolicyScreen extends StatelessWidget {
 
   Widget _heading(String text) {
     return Padding(
-      padding: const EdgeInsets.only(top: 24, bottom: 8),
+      padding: const EdgeInsets.only(top: DesignTokens.spacing24, bottom: DesignTokens.spacing8),
       child: Text(text,
           style: GoogleFonts.inter(
               color: AppTheme.textPrimary,
-              fontSize: 16,
+              fontSize: DesignTokens.fontXl,
               fontWeight: FontWeight.w700)),
     );
   }
@@ -133,7 +134,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
     return Text(text,
         style: GoogleFonts.inter(
             color: AppTheme.textSecondary,
-            fontSize: 13,
+            fontSize: DesignTokens.fontMd,
             height: 1.6));
   }
 }

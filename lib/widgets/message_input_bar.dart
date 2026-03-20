@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_theme.dart';
+import '../theme/design_tokens.dart';
 import '../models/message.dart';
 import '../services/media_service.dart';
 import '../l10n/l10n_ext.dart';
@@ -81,30 +82,30 @@ class MessageInputBar extends StatelessWidget {
               GestureDetector(
                 onTap: onShowScheduledPanel,
                 child: Container(
-                  padding: const EdgeInsets.fromLTRB(14, 6, 14, 0),
+                  padding: const EdgeInsets.fromLTRB(DesignTokens.spacing14, DesignTokens.spacing6, DesignTokens.spacing14, 0),
                   child: Row(children: [
-                    const Icon(Icons.schedule_rounded, size: 13, color: Colors.amber),
-                    const SizedBox(width: 6),
+                    const Icon(Icons.schedule_rounded, size: DesignTokens.fontMd, color: Colors.amber),
+                    const SizedBox(width: DesignTokens.spacing6),
                     Text(
                       context.l10n.inputScheduledMessages(scheduledCount),
-                      style: GoogleFonts.inter(color: Colors.amber, fontSize: 12),
+                      style: GoogleFonts.inter(color: Colors.amber, fontSize: DesignTokens.fontBody),
                     ),
                     const Spacer(),
-                    Icon(Icons.chevron_right_rounded, size: 14, color: Colors.amber.withValues(alpha: 0.7)),
+                    Icon(Icons.chevron_right_rounded, size: DesignTokens.fontLg, color: Colors.amber.withValues(alpha: 0.7)),
                   ]),
                 ),
               ),
             if (replyingTo != null)
               Container(
-                padding: const EdgeInsets.fromLTRB(14, 6, 14, 0),
+                padding: const EdgeInsets.fromLTRB(DesignTokens.spacing14, DesignTokens.spacing6, DesignTokens.spacing14, 0),
                 child: Row(
                   children: [
-                    Icon(Icons.reply_rounded, size: 14, color: AppTheme.primary),
-                    const SizedBox(width: 6),
+                    Icon(Icons.reply_rounded, size: DesignTokens.fontLg, color: AppTheme.primary),
+                    const SizedBox(width: DesignTokens.spacing6),
                     Expanded(
                       child: Text(
                         _replyPreview(),
-                        style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: 12),
+                        style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: DesignTokens.fontBody),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -114,7 +115,7 @@ class MessageInputBar extends StatelessWidget {
                       button: true,
                       child: GestureDetector(
                         onTap: onCancelReply,
-                        child: Icon(Icons.close_rounded, size: 14, color: AppTheme.textSecondary),
+                        child: Icon(Icons.close_rounded, size: DesignTokens.fontLg, color: AppTheme.textSecondary),
                       ),
                     ),
                   ],
@@ -122,29 +123,29 @@ class MessageInputBar extends StatelessWidget {
               ),
             if (editingMessageId != null)
               Container(
-                padding: const EdgeInsets.fromLTRB(14, 6, 14, 0),
+                padding: const EdgeInsets.fromLTRB(DesignTokens.spacing14, DesignTokens.spacing6, DesignTokens.spacing14, 0),
                 child: Row(
                   children: [
-                    const Icon(Icons.edit_rounded, size: 14, color: Colors.amber),
-                    const SizedBox(width: 6),
+                    const Icon(Icons.edit_rounded, size: DesignTokens.fontLg, color: Colors.amber),
+                    const SizedBox(width: DesignTokens.spacing6),
                     Expanded(
                       child: Text(context.l10n.inputEditingMessage,
                           style: GoogleFonts.inter(
-                              color: Colors.amber, fontSize: 12, fontWeight: FontWeight.w500)),
+                              color: Colors.amber, fontSize: DesignTokens.fontBody, fontWeight: FontWeight.w500)),
                     ),
                     Semantics(
                       label: context.l10n.inputCancelEdit,
                       button: true,
                       child: GestureDetector(
                         onTap: onCancelEdit,
-                        child: const Icon(Icons.close_rounded, size: 14, color: Colors.amber),
+                        child: const Icon(Icons.close_rounded, size: DesignTokens.fontLg, color: Colors.amber),
                       ),
                     ),
                   ],
                 ),
               ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(8, 6, 12, 12),
+              padding: const EdgeInsets.fromLTRB(DesignTokens.spacing8, DesignTokens.spacing6, DesignTokens.spacing12, DesignTokens.spacing12),
               child: isRecording ? _buildRecordingBar(context) : _buildNormalInputBar(context),
             ),
           ],
@@ -163,9 +164,9 @@ class MessageInputBar extends StatelessWidget {
           onTap: onAttach,
           child: Container(
             width: 42, height: 42,
-            margin: const EdgeInsets.only(left: 4, right: 4),
+            margin: const EdgeInsets.only(left: DesignTokens.spacing4, right: DesignTokens.spacing4),
             decoration: BoxDecoration(color: AppTheme.surfaceVariant, shape: BoxShape.circle),
-            child: Icon(Icons.attach_file_rounded, color: AppTheme.textSecondary, size: 20),
+            child: Icon(Icons.attach_file_rounded, color: AppTheme.textSecondary, size: DesignTokens.iconMd),
           ),
         ),
       ),
@@ -174,7 +175,7 @@ class MessageInputBar extends StatelessWidget {
           duration: const Duration(milliseconds: 200),
           decoration: BoxDecoration(
             color: AppTheme.surfaceVariant,
-            borderRadius: BorderRadius.circular(26),
+            borderRadius: BorderRadius.circular(DesignTokens.chatInputRadius),
             border: Border.all(
               color: inputFocused
                   ? AppTheme.primary.withValues(alpha: 0.5)
@@ -185,25 +186,25 @@ class MessageInputBar extends StatelessWidget {
           child: TextField(
             controller: controller,
             focusNode: focusNode,
-            style: GoogleFonts.inter(color: AppTheme.textPrimary, fontSize: 15),
+            style: GoogleFonts.inter(color: AppTheme.textPrimary, fontSize: DesignTokens.fontInput),
             textInputAction: TextInputAction.send,
             minLines: 1,
             maxLines: 5,
             onSubmitted: (_) => onSend(),
             decoration: InputDecoration(
               hintText: context.l10n.inputMessage,
-              hintStyle: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: 15),
+              hintStyle: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: DesignTokens.fontInput),
               border: InputBorder.none,
               enabledBorder: InputBorder.none,
               focusedBorder: InputBorder.none,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 11),
+              contentPadding: const EdgeInsets.symmetric(horizontal: DesignTokens.chatInputPaddingH, vertical: DesignTokens.chatInputPaddingV),
               fillColor: Colors.transparent,
               filled: true,
             ),
           ),
         ),
       ),
-      const SizedBox(width: 8),
+      const SizedBox(width: DesignTokens.spacing8),
       // Mic button (when text field empty) or Send button
       ListenableBuilder(
         listenable: controller,
@@ -230,7 +231,7 @@ class MessageInputBar extends StatelessWidget {
                           shape: BoxShape.circle,
                           boxShadow: [BoxShadow(color: AppTheme.primary.withValues(alpha: 0.4), blurRadius: 8, offset: const Offset(0, 3))],
                         ),
-                        child: const Icon(Icons.send_rounded, color: Colors.white, size: 20),
+                        child: const Icon(Icons.send_rounded, color: Colors.white, size: DesignTokens.iconMd),
                       ),
                     ),
                   )
@@ -246,7 +247,7 @@ class MessageInputBar extends StatelessWidget {
                           color: AppTheme.surfaceVariant,
                           shape: BoxShape.circle,
                         ),
-                        child: Icon(Icons.mic_rounded, color: AppTheme.textSecondary, size: 22),
+                        child: Icon(Icons.mic_rounded, color: AppTheme.textSecondary, size: DesignTokens.fontDisplay),
                       ),
                     ),
                   ),
@@ -266,12 +267,12 @@ class MessageInputBar extends StatelessWidget {
           onTap: onCancelRecording,
           child: Container(
             width: 42, height: 42,
-            margin: const EdgeInsets.only(left: 4, right: 8),
+            margin: const EdgeInsets.only(left: DesignTokens.spacing4, right: DesignTokens.spacing8),
             decoration: BoxDecoration(
               color: Colors.red.withValues(alpha: 0.12),
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.delete_outline_rounded, color: Colors.red, size: 20),
+            child: const Icon(Icons.delete_outline_rounded, color: Colors.red, size: DesignTokens.iconMd),
           ),
         ),
       ),
@@ -280,29 +281,29 @@ class MessageInputBar extends StatelessWidget {
           height: 46,
           decoration: BoxDecoration(
             color: Colors.red.withValues(alpha: 0.08),
-            borderRadius: BorderRadius.circular(26),
+            borderRadius: BorderRadius.circular(DesignTokens.chatInputRadius),
             border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
           ),
           child: Row(
             children: [
-              const SizedBox(width: 14),
+              const SizedBox(width: DesignTokens.spacing14),
               // Pulsing red dot
               _PulsingDot(),
-              const SizedBox(width: 10),
+              const SizedBox(width: DesignTokens.spacing10),
               Text(
                 _fmtRecording(recordingSeconds),
                 style: GoogleFonts.jetBrainsMono(
-                    color: Colors.red, fontSize: 16, fontWeight: FontWeight.w600),
+                    color: Colors.red, fontSize: DesignTokens.fontXl, fontWeight: FontWeight.w600),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: DesignTokens.spacing10),
               Text(context.l10n.inputRecording,
                   style: GoogleFonts.inter(
-                      color: AppTheme.textSecondary, fontSize: 13)),
+                      color: AppTheme.textSecondary, fontSize: DesignTokens.fontMd)),
             ],
           ),
         ),
       ),
-      const SizedBox(width: 8),
+      const SizedBox(width: DesignTokens.spacing8),
       // Send voice
       Semantics(
         label: context.l10n.inputSendVoice,
@@ -316,7 +317,7 @@ class MessageInputBar extends StatelessWidget {
               shape: BoxShape.circle,
               boxShadow: [BoxShadow(color: Colors.red.withValues(alpha: 0.4), blurRadius: 8, offset: const Offset(0, 3))],
             ),
-            child: const Icon(Icons.send_rounded, color: Colors.white, size: 20),
+            child: const Icon(Icons.send_rounded, color: Colors.white, size: DesignTokens.iconMd),
           ),
         ),
       ),
@@ -358,7 +359,7 @@ class _PulsingDotState extends State<_PulsingDot>
     return AnimatedBuilder(
       animation: _animation,
       builder: (_, _) => Container(
-        width: 8, height: 8,
+        width: DesignTokens.spacing8, height: DesignTokens.spacing8,
         decoration: BoxDecoration(
           color: Colors.red.withValues(alpha: _animation.value),
           shape: BoxShape.circle,

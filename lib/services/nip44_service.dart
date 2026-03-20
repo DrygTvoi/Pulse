@@ -44,14 +44,14 @@ Uint8List computeConversationKey(Uint8List sharedX) {
 }
 
 /// Step 2: Derive per-message keys from conversation key + nonce.
-/// Returns (chachaKey[32], chachaNonce[12], hmacKey[32]).
+/// Returns (chachaKey[32], chachaNonce[24], hmacKey[32]).
 ({Uint8List chachaKey, Uint8List chachaNonce, Uint8List hmacKey})
     deriveMessageKeys(Uint8List convKey, Uint8List nonce) {
-  final expanded = _hkdfExpand(convKey, nonce, 76);
+  final expanded = _hkdfExpand(convKey, nonce, 88);
   return (
     chachaKey: Uint8List.sublistView(expanded, 0, 32),
-    chachaNonce: Uint8List.sublistView(expanded, 32, 44),
-    hmacKey: Uint8List.sublistView(expanded, 44, 76),
+    chachaNonce: Uint8List.sublistView(expanded, 32, 56),
+    hmacKey: Uint8List.sublistView(expanded, 56, 88),
   );
 }
 
@@ -103,7 +103,7 @@ Future<String> nip44Encrypt(Uint8List sharedX, String plaintext) async {
   final padded = nip44Pad(plaintext);
 
   // XChaCha20 encrypt (no built-in MAC — we do HMAC separately)
-  final algo = cryptography.Chacha20(macAlgorithm: cryptography.MacAlgorithm.empty);
+  final algo = cryptography.Xchacha20(macAlgorithm: cryptography.MacAlgorithm.empty);
   final secretKey = cryptography.SecretKey(keys.chachaKey);
   final secretBox = await algo.encrypt(
     padded,
@@ -167,7 +167,7 @@ Future<String> nip44Decrypt(Uint8List sharedX, String payload) async {
   }
 
   // Decrypt
-  final algo = cryptography.Chacha20(macAlgorithm: cryptography.MacAlgorithm.empty);
+  final algo = cryptography.Xchacha20(macAlgorithm: cryptography.MacAlgorithm.empty);
   final secretKey = cryptography.SecretKey(keys.chachaKey);
   final secretBox = cryptography.SecretBox(
     ct,

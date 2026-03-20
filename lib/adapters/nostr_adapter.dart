@@ -160,7 +160,7 @@ Future<WebSocketChannel> _connectWebSocketViaUtls(
   // Explicitly set port 443 so the upgrade request carries the correct Host.
   final wsUri = Uri.parse(url);
   final normalizedUrl = (!wsUri.hasPort || wsUri.port == 0)
-      ? wsUri.replace(port: wsUri.scheme == 'wss' ? 443 : 80).toString()
+      ? '${wsUri.scheme}://${wsUri.host}:${wsUri.scheme == 'wss' ? 443 : 80}${wsUri.path}'
       : url;
   try {
     final ws = await WebSocket.connect(normalizedUrl, customClient: httpClient);
@@ -275,7 +275,7 @@ Future<WebSocketChannel> _nostrWsConnect(
   // 7. Plain WebSocket — normalize port so Dart doesn't produce an invalid URI.
   final wsUri = Uri.parse(url);
   final normalized = (!wsUri.hasPort || wsUri.port == 0)
-      ? wsUri.replace(port: wsUri.scheme == 'wss' ? 443 : 80).toString()
+      ? '${wsUri.scheme}://${wsUri.host}:${wsUri.scheme == 'wss' ? 443 : 80}${wsUri.path}'
       : url;
   return WebSocketChannel.connect(Uri.parse(normalized));
 }
