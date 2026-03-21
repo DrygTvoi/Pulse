@@ -9,28 +9,32 @@ class ThemeNotifier extends ChangeNotifier {
   ThemeMode _mode = ThemeMode.dark;
   ThemeMode get themeMode => _mode;
 
-  // ── Custom accent / style overrides (apply to both light & dark) ─────────
-  Color? _customPrimary;   // null = palette default
+  // ── Custom overrides ──────────────────────────────────────────────────────
+  Color? _customPrimary;
   Color? _customAccent;
+  Color? _customBg;
+  Color? _customSurf;
+  Color? _customSurfVar;
+  Color? _customTextPrimary;
+  Color? _customTextSecondary;
   double _borderRadius = 12.0;
   String _fontFamily = 'Inter';
 
   double get borderRadius => _borderRadius;
   String get fontFamily => _fontFamily;
-
-  // ── Convenience getters (match current effective palette) ─────────────────
   bool get isDark => _mode == ThemeMode.dark;
 
-  Color get primary     => _customPrimary ?? const Color(0xFF00A884);
-  Color get primaryLight => Color.lerp(primary, Colors.white, 0.3)!;
-  Color get accent      => _customAccent ?? (isDark ? const Color(0xFF53BDEB) : const Color(0xFF027EB5));
-  Color get error       => isDark ? const Color(0xFFFF2D55) : const Color(0xFFD93025);
+  // ── Effective palette getters ─────────────────────────────────────────────
+  Color get primary       => _customPrimary    ?? const Color(0xFF00A884);
+  Color get primaryLight  => Color.lerp(primary, Colors.white, 0.3)!;
+  Color get accent        => _customAccent     ?? (isDark ? const Color(0xFF53BDEB) : const Color(0xFF027EB5));
+  Color get error         => isDark ? const Color(0xFFFF2D55) : const Color(0xFFD93025);
 
-  Color get background  => isDark ? const Color(0xFF111B21) : const Color(0xFFF0F2F5);
-  Color get surface     => isDark ? const Color(0xFF202C33) : const Color(0xFFFFFFFF);
-  Color get surfaceVariant => isDark ? const Color(0xFF2A3942) : const Color(0xFFE9ECEF);
-  Color get textPrimary => isDark ? const Color(0xFFE9EDEF) : const Color(0xFF111B21);
-  Color get textSecondary => isDark ? const Color(0xFF8696A0) : const Color(0xFF667781);
+  Color get background    => _customBg         ?? (isDark ? const Color(0xFF111B21) : const Color(0xFFF0F2F5));
+  Color get surface       => _customSurf       ?? (isDark ? const Color(0xFF202C33) : const Color(0xFFFFFFFF));
+  Color get surfaceVariant=> _customSurfVar    ?? (isDark ? const Color(0xFF2A3942) : const Color(0xFFE9ECEF));
+  Color get textPrimary   => _customTextPrimary    ?? (isDark ? const Color(0xFFE9EDEF) : const Color(0xFF111B21));
+  Color get textSecondary => _customTextSecondary  ?? (isDark ? const Color(0xFF8696A0) : const Color(0xFF667781));
 
   ThemeNotifier._internal() {
     _loadFromPrefs();
@@ -39,18 +43,18 @@ class ThemeNotifier extends ChangeNotifier {
   // ── Persistence ───────────────────────────────────────────────────────────
   Future<void> _loadFromPrefs() async {
     final prefs = await SharedPreferences.getInstance();
-    final modeStr = prefs.getString('theme_mode') ?? 'dark';
-    _mode = _modeFromString(modeStr);
+    _mode = _modeFromString(prefs.getString('theme_mode') ?? 'dark');
 
     if (prefs.getBool('theme_user_customized') == true) {
-      if (prefs.containsKey('theme_primary')) {
-        _customPrimary = Color(prefs.getInt('theme_primary')!);
-      }
-      if (prefs.containsKey('theme_accent')) {
-        _customAccent = Color(prefs.getInt('theme_accent')!);
-      }
+      if (prefs.containsKey('theme_primary'))    _customPrimary    = Color(prefs.getInt('theme_primary')!);
+      if (prefs.containsKey('theme_accent'))     _customAccent     = Color(prefs.getInt('theme_accent')!);
+      if (prefs.containsKey('theme_bg'))         _customBg         = Color(prefs.getInt('theme_bg')!);
+      if (prefs.containsKey('theme_surf'))       _customSurf       = Color(prefs.getInt('theme_surf')!);
+      if (prefs.containsKey('theme_surfvar'))    _customSurfVar    = Color(prefs.getInt('theme_surfvar')!);
+      if (prefs.containsKey('theme_text_pri'))   _customTextPrimary    = Color(prefs.getInt('theme_text_pri')!);
+      if (prefs.containsKey('theme_text_sec'))   _customTextSecondary  = Color(prefs.getInt('theme_text_sec')!);
       _borderRadius = prefs.getDouble('theme_radius') ?? 12.0;
-      _fontFamily = prefs.getString('theme_font') ?? 'Inter';
+      _fontFamily   = prefs.getString('theme_font')   ?? 'Inter';
     }
     notifyListeners();
   }
@@ -61,6 +65,11 @@ class ThemeNotifier extends ChangeNotifier {
     await prefs.setBool('theme_user_customized', true);
     if (_customPrimary != null) await prefs.setInt('theme_primary', _customPrimary!.toARGB32());
     if (_customAccent  != null) await prefs.setInt('theme_accent',  _customAccent!.toARGB32());
+    if (_customBg      != null) await prefs.setInt('theme_bg',      _customBg!.toARGB32());
+    if (_customSurf    != null) await prefs.setInt('theme_surf',    _customSurf!.toARGB32());
+    if (_customSurfVar != null) await prefs.setInt('theme_surfvar', _customSurfVar!.toARGB32());
+    if (_customTextPrimary   != null) await prefs.setInt('theme_text_pri', _customTextPrimary!.toARGB32());
+    if (_customTextSecondary != null) await prefs.setInt('theme_text_sec', _customTextSecondary!.toARGB32());
     await prefs.setDouble('theme_radius', _borderRadius);
     await prefs.setString('theme_font', _fontFamily);
   }
@@ -84,8 +93,8 @@ class ThemeNotifier extends ChangeNotifier {
   // ── Public setters ────────────────────────────────────────────────────────
   void setThemeMode(ThemeMode mode) {
     _mode = mode;
-    notifyListeners(); // update UI immediately
-    _save();           // persist in background (fire-and-forget)
+    notifyListeners();
+    _save();
   }
 
   void updateColors({Color? primary, Color? accent}) {
@@ -107,72 +116,57 @@ class ThemeNotifier extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Reset custom overrides (called when switching to a preset).
   void resetCustom() {
-    _customPrimary = null;
-    _customAccent  = null;
-    _borderRadius  = 12.0;
-    _fontFamily    = 'Inter';
+    _customPrimary = _customAccent = null;
+    _customBg = _customSurf = _customSurfVar = null;
+    _customTextPrimary = _customTextSecondary = null;
+    _borderRadius = 12.0;
+    _fontFamily = 'Inter';
   }
 
   TextStyle getTextStyle(TextStyle baseStyle) {
-    if (_fontFamily == 'Roboto')    return GoogleFonts.roboto(textStyle: baseStyle);
-    if (_fontFamily == 'Fira Code') return GoogleFonts.firaCode(textStyle: baseStyle);
-    if (_fontFamily == 'Outfit')    return GoogleFonts.outfit(textStyle: baseStyle);
+    if (_fontFamily == 'Roboto') return GoogleFonts.roboto(textStyle: baseStyle);
     return GoogleFonts.inter(textStyle: baseStyle);
   }
 
   // ── ThemeData builders ────────────────────────────────────────────────────
-
-  /// Used by MaterialApp.theme (light branch).
   ThemeData get lightThemeData => _buildThemeData(isDark: false);
-
-  /// Used by MaterialApp.darkTheme (dark branch).
   ThemeData get darkThemeData  => _buildThemeData(isDark: true);
-
-  /// Legacy getter — returns the currently active theme data.
-  ThemeData get themeData => _buildThemeData(isDark: isDark);
+  ThemeData get themeData      => _buildThemeData(isDark: isDark);
 
   ThemeData _buildThemeData({required bool isDark}) {
-    final bg          = isDark ? const Color(0xFF111B21) : const Color(0xFFF0F2F5);
-    final surf        = isDark ? const Color(0xFF202C33) : const Color(0xFFFFFFFF);
-    final surfVar     = isDark ? const Color(0xFF2A3942) : const Color(0xFFE9ECEF);
-    final txtPrimary  = isDark ? const Color(0xFFE9EDEF) : const Color(0xFF111B21);
-    final txtSecondary= isDark ? const Color(0xFF8696A0) : const Color(0xFF667781);
-    final err         = isDark ? const Color(0xFFFF2D55) : const Color(0xFFD93025);
-    final pri         = _customPrimary ?? const Color(0xFF00A884);
-    final acc         = _customAccent  ?? (isDark ? const Color(0xFF53BDEB) : const Color(0xFF027EB5));
+    // Use custom overrides if set, otherwise use default dark/light palette.
+    final bg       = _customBg      ?? (isDark ? const Color(0xFF111B21) : const Color(0xFFF0F2F5));
+    final surf     = _customSurf    ?? (isDark ? const Color(0xFF202C33) : const Color(0xFFFFFFFF));
+    final surfVar  = _customSurfVar ?? (isDark ? const Color(0xFF2A3942) : const Color(0xFFE9ECEF));
+    final txtPri   = _customTextPrimary    ?? (isDark ? const Color(0xFFE9EDEF) : const Color(0xFF111B21));
+    final txtSec   = _customTextSecondary  ?? (isDark ? const Color(0xFF8696A0) : const Color(0xFF667781));
+    final err      = isDark ? const Color(0xFFFF2D55) : const Color(0xFFD93025);
+    final pri      = _customPrimary ?? const Color(0xFF00A884);
+    final acc      = _customAccent  ?? (isDark ? const Color(0xFF53BDEB) : const Color(0xFF027EB5));
 
     final base = isDark ? ThemeData.dark(useMaterial3: false) : ThemeData.light(useMaterial3: false);
+
     TextStyle Function({TextStyle? textStyle}) fontFn;
     TextTheme Function(TextTheme) themeFn;
-    switch (_fontFamily) {
-      case 'Roboto':
-        fontFn = ({TextStyle? textStyle}) => GoogleFonts.roboto(textStyle: textStyle);
-        themeFn = GoogleFonts.robotoTextTheme;
-        break;
-      case 'Fira Code':
-        fontFn = ({TextStyle? textStyle}) => GoogleFonts.firaCode(textStyle: textStyle);
-        themeFn = GoogleFonts.firaCodeTextTheme;
-        break;
-      case 'Outfit':
-        fontFn = ({TextStyle? textStyle}) => GoogleFonts.outfit(textStyle: textStyle);
-        themeFn = GoogleFonts.outfitTextTheme;
-        break;
-      default:
-        fontFn = ({TextStyle? textStyle}) => GoogleFonts.inter(textStyle: textStyle);
-        themeFn = GoogleFonts.interTextTheme;
+    if (_fontFamily == 'Roboto') {
+      fontFn  = ({TextStyle? textStyle}) => GoogleFonts.roboto(textStyle: textStyle);
+      themeFn = GoogleFonts.robotoTextTheme;
+    } else {
+      fontFn  = ({TextStyle? textStyle}) => GoogleFonts.inter(textStyle: textStyle);
+      themeFn = GoogleFonts.interTextTheme;
     }
+
     final textTheme = themeFn(base.textTheme).copyWith(
-      displayLarge:  fontFn(textStyle: TextStyle(color: txtPrimary,   fontWeight: FontWeight.bold, fontSize: 32)),
-      displayMedium: fontFn(textStyle: TextStyle(color: txtPrimary,   fontWeight: FontWeight.bold, fontSize: 26)),
-      titleLarge:    fontFn(textStyle: TextStyle(color: txtPrimary,   fontWeight: FontWeight.w600, fontSize: 20)),
-      titleMedium:   fontFn(textStyle: TextStyle(color: txtPrimary,   fontWeight: FontWeight.w500, fontSize: 17)),
-      titleSmall:    fontFn(textStyle: TextStyle(color: txtSecondary, fontWeight: FontWeight.w500, fontSize: 14)),
-      bodyLarge:     fontFn(textStyle: TextStyle(color: txtPrimary,   fontSize: 16, height: 1.4)),
-      bodyMedium:    fontFn(textStyle: TextStyle(color: txtSecondary, fontSize: 14, height: 1.4)),
-      bodySmall:     fontFn(textStyle: TextStyle(color: txtSecondary, fontSize: 12)),
-      labelLarge:    fontFn(textStyle: TextStyle(color: txtPrimary,   fontWeight: FontWeight.w600, fontSize: 16)),
+      displayLarge:  fontFn(textStyle: TextStyle(color: txtPri, fontWeight: FontWeight.bold, fontSize: 32)),
+      displayMedium: fontFn(textStyle: TextStyle(color: txtPri, fontWeight: FontWeight.bold, fontSize: 26)),
+      titleLarge:    fontFn(textStyle: TextStyle(color: txtPri, fontWeight: FontWeight.w600, fontSize: 20)),
+      titleMedium:   fontFn(textStyle: TextStyle(color: txtPri, fontWeight: FontWeight.w500, fontSize: 17)),
+      titleSmall:    fontFn(textStyle: TextStyle(color: txtSec, fontWeight: FontWeight.w500, fontSize: 14)),
+      bodyLarge:     fontFn(textStyle: TextStyle(color: txtPri, fontSize: 16, height: 1.4)),
+      bodyMedium:    fontFn(textStyle: TextStyle(color: txtSec, fontSize: 14, height: 1.4)),
+      bodySmall:     fontFn(textStyle: TextStyle(color: txtSec, fontSize: 12)),
+      labelLarge:    fontFn(textStyle: TextStyle(color: txtPri, fontWeight: FontWeight.w600, fontSize: 16)),
     );
 
     return ThemeData(
@@ -187,7 +181,7 @@ class ThemeNotifier extends ChangeNotifier {
         error: err,
         onPrimary: Colors.white,
         onSecondary: Colors.white,
-        onSurface: txtPrimary,
+        onSurface: txtPri,
       ),
       textTheme: textTheme,
       primaryTextTheme: textTheme,
@@ -195,8 +189,8 @@ class ThemeNotifier extends ChangeNotifier {
         backgroundColor: surf,
         elevation: 0,
         centerTitle: false,
-        iconTheme: IconThemeData(color: txtSecondary),
-        titleTextStyle: fontFn(textStyle: TextStyle(color: txtPrimary, fontSize: 19, fontWeight: FontWeight.w600)),
+        iconTheme: IconThemeData(color: txtSec),
+        titleTextStyle: fontFn(textStyle: TextStyle(color: txtPri, fontSize: 19, fontWeight: FontWeight.w600)),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
@@ -217,8 +211,8 @@ class ThemeNotifier extends ChangeNotifier {
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: surfVar,
-        hintStyle: fontFn(textStyle: TextStyle(color: txtSecondary, fontSize: 15)),
-        labelStyle: fontFn(textStyle: TextStyle(color: txtSecondary, fontSize: 15)),
+        hintStyle:  fontFn(textStyle: TextStyle(color: txtSec, fontSize: 15)),
+        labelStyle: fontFn(textStyle: TextStyle(color: txtSec, fontSize: 15)),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(_borderRadius),
           borderSide: BorderSide.none,
@@ -239,19 +233,29 @@ class ThemeNotifier extends ChangeNotifier {
     );
   }
 
-  // ── Preset helper (used by DynamicThemeScreen) ────────────────────────────
+  // ── Preset helper ─────────────────────────────────────────────────────────
   void applyPreset({
     required Color primary,
     Color? accent,
-    Color? background,
-    Color? surface,
+    Color? bg,
+    Color? surf,
+    Color? surfVar,
+    Color? textPrimary,
+    Color? textSecondary,
+    ThemeMode? mode,
     double? radius,
     String? font,
   }) {
     _customPrimary = primary;
-    if (accent != null) _customAccent = accent;
-    if (radius != null) _borderRadius = radius;
-    if (font   != null) _fontFamily   = font;
+    if (accent      != null) _customAccent      = accent;
+    if (bg          != null) _customBg          = bg;
+    if (surf        != null) _customSurf        = surf;
+    if (surfVar     != null) _customSurfVar     = surfVar;
+    if (textPrimary != null) _customTextPrimary = textPrimary;
+    if (textSecondary != null) _customTextSecondary = textSecondary;
+    if (mode        != null) _mode              = mode;
+    if (radius      != null) _borderRadius      = radius;
+    if (font        != null) _fontFamily        = font;
     _save();
     notifyListeners();
   }
