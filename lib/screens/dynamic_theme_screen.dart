@@ -191,6 +191,18 @@ class _DynamicThemeScreenState extends State<DynamicThemeScreen> {
           const SizedBox(height: 12),
           _buildModeToggle(theme),
 
+          const SizedBox(height: 24),
+          Divider(color: AppTheme.surfaceVariant, height: 1),
+          const SizedBox(height: 24),
+
+          // ── UI Style ───────────────────────────────────────────────────
+          _label('UI Style', theme),
+          const SizedBox(height: 4),
+          Text('Controls how dialogs, switches and indicators look.',
+              style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: 12)),
+          const SizedBox(height: 12),
+          _buildPlatformToggle(theme),
+
           const SizedBox(height: 32),
         ],
       ),
@@ -401,6 +413,55 @@ class _DynamicThemeScreenState extends State<DynamicThemeScreen> {
                         color: selected ? Colors.white : AppTheme.textSecondary),
                     const SizedBox(width: 5),
                     Text(m.$3,
+                        style: GoogleFonts.inter(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: selected ? Colors.white : AppTheme.textSecondary)),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  // ── Platform (UI style) toggle ────────────────────────────────────────────
+  Widget _buildPlatformToggle(ThemeNotifier theme) {
+    final options = [
+      (null,                   Icons.android_rounded,        'Auto'),
+      (TargetPlatform.android, Icons.smartphone_rounded,     'Android'),
+      (TargetPlatform.iOS,     Icons.phone_iphone_rounded,   'iOS'),
+    ];
+    return Container(
+      height: 48,
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceVariant,
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: Row(
+        children: options.map((o) {
+          final selected = theme.customPlatform == o.$1;
+          return Expanded(
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => ThemeNotifier.instance.updatePlatform(o.$1),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                margin: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: selected ? theme.primary : Colors.transparent,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(o.$2,
+                        size: 15,
+                        color: selected ? Colors.white : AppTheme.textSecondary),
+                    const SizedBox(width: 5),
+                    Text(o.$3,
                         style: GoogleFonts.inter(
                             fontSize: 12,
                             fontWeight: FontWeight.w500,
