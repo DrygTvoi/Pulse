@@ -381,15 +381,17 @@ class ConnectivityProbeService {
         });
       }
 
-      // ── Phase 1.5: Autonomous relay discovery ─────────────────────────────
+      // ── Phase 1.5: Autonomous relay + TURN discovery ──────────────────────
       //
-      // Three parallel sources — zero developer infrastructure required:
+      // Four parallel sources — zero developer infrastructure required:
       //   A. Community relay directories (nostr.watch, nostr.band)
       //   B. NIP-65 (kind:10002) events from any working Nostr relay
       //      → the Nostr network IS its own relay directory
       //   C. Peer relays shared by contacts via P2P exchange
+      //   D. NIP-117 (kind:10010) + peer TURN exchange — discovers community
+      //      TURN servers that self-announce on the Nostr network
       //
-      // All three run in parallel; results are TCP-probed and joined.
+      // All four run in parallel; results are TCP-probed and joined.
       // NOTE: Tor bootstrap is also running in background during this phase.
       //
       // If phase 1 already found enough relays, emit early done so the UI
@@ -410,7 +412,7 @@ class ConnectivityProbeService {
       } else {
         _emit(ProbePhase.dohProbe, found: directNostr.length);
       }
-      debugPrint('[Probe] Phase 1.5: autonomous relay discovery');
+      debugPrint('[Probe] Phase 1.5: autonomous relay + TURN discovery');
 
       final knownHosts1 = <String>{
         ..._kNostrCandidates.map((c) => c.$1),
@@ -735,4 +737,7 @@ class ConnectivityProbeService {
     }
     return candidates;
   }
+
+  /// Discovers additional TURN servers from Nostr kind:10010 + peer exchange,
+  /// probes them via TCP, and persists reachable ones to IceServerConfig.
 }

@@ -2064,4 +2064,95 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get profileAdminBadge => 'Admin';
+
+  @override
+  String get privacyPolicyTitle => 'Privacy Policy';
+
+  @override
+  String get privacyOverviewHeading => 'Overview';
+
+  @override
+  String get privacyOverviewBody =>
+      'Pulse is a serverless, end-to-end encrypted messenger. Your privacy is not just a feature — it is the architecture. There are no Pulse servers. No accounts are stored anywhere. No data is collected, transmitted to, or stored by the developers.';
+
+  @override
+  String get privacyDataCollectionHeading => 'Data Collection';
+
+  @override
+  String get privacyDataCollectionBody =>
+      'Pulse collects zero personal data. Specifically:\n\n- No email, phone number, or real name is required\n- No analytics, tracking, or telemetry\n- No advertising identifiers\n- No contact list access\n- No cloud backups (messages exist only on your device)\n- No metadata is sent to any Pulse server (there are none)';
+
+  @override
+  String get privacyEncryptionHeading => 'Encryption';
+
+  @override
+  String get privacyEncryptionBody =>
+      'All messages are encrypted using the Signal Protocol (Double Ratchet with X3DH key agreement). Encryption keys are generated and stored exclusively on your device. No one — including the developers — can read your messages.';
+
+  @override
+  String get privacyNetworkHeading => 'Network Architecture';
+
+  @override
+  String get privacyNetworkBody =>
+      'Pulse uses federated transport adapters (Nostr relays, Session/Oxen service nodes, Waku nodes, Firebase Realtime Database, LAN). These transports carry only encrypted ciphertext. Relay operators can see your IP address and traffic volume, but cannot decrypt message content.\n\nWhen Tor is enabled, your IP address is also hidden from relay operators.';
+
+  @override
+  String get privacyStunHeading => 'STUN/TURN Servers';
+
+  @override
+  String get privacyStunBody =>
+      'Voice and video calls use WebRTC with DTLS-SRTP encryption. STUN servers (used to discover your public IP for peer-to-peer connections) and TURN servers (used to relay media when direct connection fails) can see your IP address and call duration, but cannot decrypt call content.\n\nYou can configure your own TURN server in Settings for maximum privacy.';
+
+  @override
+  String get privacyCrashHeading => 'Crash Reporting';
+
+  @override
+  String get privacyCrashBody =>
+      'If Sentry crash reporting is enabled (via build-time SENTRY_DSN), anonymous crash reports may be sent. These contain no message content, no contact information, and no personally identifiable information. Crash reporting can be disabled at build time by omitting the DSN.';
+
+  @override
+  String get privacyPasswordHeading => 'Password & Keys';
+
+  @override
+  String get privacyPasswordBody =>
+      'Your recovery password is used to derive cryptographic keys via Argon2id (memory-hard KDF). The password is never transmitted anywhere. If you lose your password, your account cannot be recovered — there is no server to reset it.';
+
+  @override
+  String get privacyFontsHeading => 'Fonts';
+
+  @override
+  String get privacyFontsBody =>
+      'Pulse bundles all fonts locally. No requests are made to Google Fonts or any external font service.';
+
+  @override
+  String get privacyThirdPartyHeading => 'Third-Party Services';
+
+  @override
+  String get privacyThirdPartyBody =>
+      'Pulse does not integrate with any advertising networks, analytics providers, social media platforms, or data brokers. The only network connections are to the transport relays you configure.';
+
+  @override
+  String get privacyOpenSourceHeading => 'Open Source';
+
+  @override
+  String get privacyOpenSourceBody =>
+      'Pulse is open-source software. You can audit the complete source code to verify these privacy claims.';
+
+  @override
+  String get privacyContactHeading => 'Contact';
+
+  @override
+  String get privacyContactBody =>
+      'For privacy-related questions, open an issue on the project repository.';
+
+  @override
+  String get privacyLastUpdated => 'Last updated: March 2026';
+
+  @override
+  String imageSaveFailed(Object error) {
+    return 'Save failed: $error';
+  }
+
+  @override
+  String get themeEngineTitle => 'Theme Engine';
 }

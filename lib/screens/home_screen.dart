@@ -102,7 +102,7 @@ class _HomeScreenState extends State<HomeScreen> {
         _probeBannerTimer = Timer(const Duration(seconds: 4), () {
           if (mounted) setState(() => _probeStatus = null);
         });
-        // Share our working relays with all contacts (P2P relay exchange)
+        // Share our working relays + TURN servers with all contacts (P2P exchange)
         if (s.found > 0) {
           ChatController().broadcastWorkingRelays();
         }

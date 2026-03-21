@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../theme/theme_manager.dart';
 import '../theme/app_theme.dart';
+import '../l10n/l10n_ext.dart';
 import 'package:provider/provider.dart';
 
 class DynamicThemeScreen extends StatefulWidget {
@@ -43,7 +44,7 @@ class _DynamicThemeScreenState extends State<DynamicThemeScreen> {
     final theme = context.watch<ThemeNotifier>();
     return Scaffold(
       appBar: AppBar(
-        title: Text('Theme Engine', style: GoogleFonts.inter(
+        title: Text(context.l10n.themeEngineTitle, style: GoogleFonts.inter(
             color: theme.textPrimary, fontWeight: FontWeight.w600)),
       ),
       body: ListView(
