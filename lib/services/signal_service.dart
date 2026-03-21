@@ -212,15 +212,19 @@ class SignalService {
       await _store.restorePreKeys();
     }
 
-    final signedPreKeyB64 = await _storage.read(key: 'signal_signed_prekey_0');
+    // Load the current signed prekey by its persisted ID (not hardcoded 0).
+    // Hardcoding 0 caused InvalidKeyIdException after rotation when ID > 0.
+    final currentIdStr = await _storage.read(key: _kSignedPreKeyIdKey);
+    final currentSpkId = currentIdStr != null ? (int.tryParse(currentIdStr) ?? 0) : 0;
+    final signedPreKeyB64 = await _storage.read(key: 'signal_signed_prekey_$currentSpkId');
     if (signedPreKeyB64 != null) {
       final spk = SignedPreKeyRecord.fromSerialized(base64Decode(signedPreKeyB64));
       await _store.storeSignedPreKey(spk.id, spk);
     } else {
-      final signedPreKey = generateSignedPreKey(_identityKeyPair, 0);
+      final signedPreKey = generateSignedPreKey(_identityKeyPair, currentSpkId);
       await _store.storeSignedPreKey(signedPreKey.id, signedPreKey);
       await _storage.write(
-        key: 'signal_signed_prekey_0',
+        key: 'signal_signed_prekey_$currentSpkId',
         value: base64Encode(signedPreKey.serialize()),
       );
       // Record creation timestamp for rotation tracking.
