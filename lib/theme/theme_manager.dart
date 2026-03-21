@@ -19,9 +19,11 @@ class ThemeNotifier extends ChangeNotifier {
   Color? _customTextSecondary;
   double _borderRadius = 12.0;
   String _fontFamily = 'Inter';
+  TargetPlatform? _customPlatform; // null = use device platform
 
   double get borderRadius => _borderRadius;
   String get fontFamily => _fontFamily;
+  TargetPlatform? get customPlatform => _customPlatform;
   bool get isDark => _mode == ThemeMode.dark;
 
   // ── Effective palette getters ─────────────────────────────────────────────
@@ -55,6 +57,7 @@ class ThemeNotifier extends ChangeNotifier {
       if (prefs.containsKey('theme_text_sec'))   _customTextSecondary  = Color(prefs.getInt('theme_text_sec')!);
       _borderRadius = prefs.getDouble('theme_radius') ?? 12.0;
       _fontFamily   = prefs.getString('theme_font')   ?? 'Inter';
+      _customPlatform = _platformFromString(prefs.getString('theme_platform'));
     }
     notifyListeners();
   }
@@ -72,6 +75,11 @@ class ThemeNotifier extends ChangeNotifier {
     if (_customTextSecondary != null) await prefs.setInt('theme_text_sec', _customTextSecondary!.toARGB32());
     await prefs.setDouble('theme_radius', _borderRadius);
     await prefs.setString('theme_font', _fontFamily);
+    if (_customPlatform != null) {
+      await prefs.setString('theme_platform', _platformToString(_customPlatform!));
+    } else {
+      await prefs.remove('theme_platform');
+    }
   }
 
   static ThemeMode _modeFromString(String s) {
@@ -89,6 +97,17 @@ class ThemeNotifier extends ChangeNotifier {
       default:               return 'dark';
     }
   }
+
+  static TargetPlatform? _platformFromString(String? s) {
+    switch (s) {
+      case 'android': return TargetPlatform.android;
+      case 'ios':     return TargetPlatform.iOS;
+      default:        return null;
+    }
+  }
+
+  static String _platformToString(TargetPlatform p) =>
+      p == TargetPlatform.iOS ? 'ios' : 'android';
 
   // ── Public setters ────────────────────────────────────────────────────────
   void setThemeMode(ThemeMode mode) {
@@ -116,10 +135,17 @@ class ThemeNotifier extends ChangeNotifier {
     notifyListeners();
   }
 
+  void updatePlatform(TargetPlatform? platform) {
+    _customPlatform = platform;
+    _save();
+    notifyListeners();
+  }
+
   void resetCustom() {
     _customPrimary = _customAccent = null;
     _customBg = _customSurf = _customSurfVar = null;
     _customTextPrimary = _customTextSecondary = null;
+    _customPlatform = null;
     _borderRadius = 12.0;
     _fontFamily = 'Inter';
   }
@@ -164,6 +190,7 @@ class ThemeNotifier extends ChangeNotifier {
 
     return ThemeData(
       useMaterial3: false,
+      platform: _customPlatform,
       brightness: isDark ? Brightness.dark : Brightness.light,
       scaffoldBackgroundColor: bg,
       primaryColor: pri,
