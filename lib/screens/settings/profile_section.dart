@@ -183,15 +183,8 @@ class ProfileSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // ─── My Profile ───────────────────────────────────────
-        settingsSectionLabel(context.l10n.settingsMyProfile),
-        const SizedBox(height: 12),
         const ProfileCard(showAddressCard: false),
-        const SizedBox(height: 28),
-
-        // ─── Active inbox address ──────────────────────────────
-        settingsSectionLabel(context.l10n.settingsYourInboxAddress),
-        const SizedBox(height: 10),
+        const SizedBox(height: 12),
         const InboxAddressCard(),
         const SizedBox(height: 10),
         settingsRow(

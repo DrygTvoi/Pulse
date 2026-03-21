@@ -1024,6 +1024,7 @@ class DataSection extends StatelessWidget {
       children: [
         settingsSectionDivider(context.l10n.settingsData),
         const SizedBox(height: 14),
+        // ── Messages ──────────────────────────────────────────
         settingsRow(
           icon: Icons.cloud_download_rounded,
           iconColor: const Color(0xFF3498DB),
@@ -1040,22 +1041,7 @@ class DataSection extends StatelessWidget {
           onTap: () => _restoreMessages(context),
         ),
         const SizedBox(height: 12),
-        settingsRow(
-          icon: Icons.key_rounded,
-          iconColor: const Color(0xFFE67E22),
-          title: context.l10n.settingsExportKeys,
-          subtitle: context.l10n.settingsExportKeysSubtitle,
-          onTap: () => _exportKeysToFile(context),
-        ),
-        const SizedBox(height: 12),
-        settingsRow(
-          icon: Icons.key_off_rounded,
-          iconColor: const Color(0xFF9B59B6),
-          title: context.l10n.settingsImportKeys,
-          subtitle: context.l10n.settingsImportKeysSubtitle,
-          onTap: () => _importKeysFromFile(context),
-        ),
-        const SizedBox(height: 12),
+        // ── Identity ──────────────────────────────────────────
         settingsRow(
           icon: Icons.backup_rounded,
           iconColor: const Color(0xFF2ECC71),
@@ -1073,6 +1059,23 @@ class DataSection extends StatelessWidget {
             context,
             MaterialPageRoute(builder: (_) => const DeviceTransferScreen()),
           ),
+        ),
+        const SizedBox(height: 12),
+        // ── Keys ──────────────────────────────────────────────
+        settingsRow(
+          icon: Icons.key_rounded,
+          iconColor: const Color(0xFFE67E22),
+          title: context.l10n.settingsExportKeys,
+          subtitle: context.l10n.settingsExportKeysSubtitle,
+          onTap: () => _exportKeysToFile(context),
+        ),
+        const SizedBox(height: 12),
+        settingsRow(
+          icon: Icons.key_off_rounded,
+          iconColor: const Color(0xFF9B59B6),
+          title: context.l10n.settingsImportKeys,
+          subtitle: context.l10n.settingsImportKeysSubtitle,
+          onTap: () => _importKeysFromFile(context),
         ),
       ],
     );

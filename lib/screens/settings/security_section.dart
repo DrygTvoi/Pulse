@@ -380,6 +380,28 @@ class _SecuritySectionState extends State<SecuritySection> {
             ),
           ],
         ],
+        const SizedBox(height: 10),
+        settingsRow(
+          icon: Icons.shield_rounded,
+          iconColor: AppTheme.primary,
+          title: context.l10n.settingsSignalProtocol,
+          subtitle: context.l10n.settingsSignalProtocolSubtitle,
+          trailing: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: AppTheme.primary.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(DesignTokens.spacing6),
+            ),
+            child: Text(
+              context.l10n.settingsActive,
+              style: GoogleFonts.inter(
+                color: AppTheme.primary,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ),
       ],
     );
   }

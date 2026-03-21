@@ -40,7 +40,6 @@ class _ProviderScreenState extends State<ProviderScreen> {
   List<WakuNodeInfo>? _wakuNodes;
   bool _showNostrAdvanced = false;
   bool _showOxenAdvanced = false;
-  bool _showSecondaryAdvanced = false;
   String? _activeNostrRelay;
 
   @override
