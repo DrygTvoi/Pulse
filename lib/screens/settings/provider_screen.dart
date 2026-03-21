@@ -938,31 +938,10 @@ class _ProviderScreenState extends State<ProviderScreen> {
                           color: Colors.white)),
             ),
           ),
-          const SizedBox(height: 8),
-          // ── Advanced: Secondary Inboxes ───────────────────────
-          GestureDetector(
-            onTap: () => setState(
-                () => _showSecondaryAdvanced = !_showSecondaryAdvanced),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              child: Row(children: [
-                Icon(
-                  _showSecondaryAdvanced
-                      ? Icons.expand_less_rounded
-                      : Icons.expand_more_rounded,
-                  size: 16,
-                  color: AppTheme.textSecondary,
-                ),
-                const SizedBox(width: 6),
-                Text(context.l10n.providerSecondaryInboxes,
-                    style: GoogleFonts.inter(
-                        color: AppTheme.textSecondary,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600)),
-              ]),
-            ),
-          ),
-          if (_showSecondaryAdvanced) _buildSecondaryInboxes(),
+          const SizedBox(height: 32),
+          settingsSectionLabel(context.l10n.providerSecondaryInboxes),
+          const SizedBox(height: 10),
+          _buildSecondaryInboxes(),
         ],
       ),
     );
