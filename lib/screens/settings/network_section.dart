@@ -95,7 +95,7 @@ class _NetworkSectionState extends State<NetworkSection> {
         const SizedBox(width: 10),
         Switch.adaptive(
           value: value,
-          activeTrackColor: iconColor,
+          activeThumbColor: iconColor,
           onChanged: onChanged,
         ),
       ]),
