@@ -1414,6 +1414,18 @@ class AppLocalizationsRu extends AppLocalizations {
   String get settingsCensorshipResistance => 'Обход цензуры';
 
   @override
+  String get settingsNetwork => 'Сеть';
+
+  @override
+  String get settingsProxyTunnels => 'Прокси и туннели';
+
+  @override
+  String get settingsTurnServers => 'TURN-серверы';
+
+  @override
+  String get settingsProviderTitle => 'Провайдер';
+
+  @override
   String get settingsLanFallback => 'LAN-резерв';
 
   @override
