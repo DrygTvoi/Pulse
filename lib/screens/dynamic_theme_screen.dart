@@ -116,7 +116,7 @@ class DynamicThemeScreen extends StatefulWidget {
 }
 
 class _DynamicThemeScreenState extends State<DynamicThemeScreen> {
-  static const _fonts = ['Inter', 'Roboto'];
+  static const _fonts = ['Inter'];
 
   static const _paletteColors = [
     Color(0xFF00A884), Color(0xFF5288C1), Color(0xFF3A76F0),

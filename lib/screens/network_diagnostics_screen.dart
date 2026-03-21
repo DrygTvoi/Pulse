@@ -161,7 +161,7 @@ class _NetworkDiagnosticsScreenState extends State<NetworkDiagnosticsScreen> {
               icon: _probing
                   ? const SizedBox(
                       width: 16, height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2))
+                      child: CircularProgressIndicator.adaptive(strokeWidth: 2))
                   : const Icon(Icons.speed_rounded, size: 18),
               label: Text(_probing ? context.l10n.networkDiagnosticsRunning : context.l10n.networkDiagnosticsRunDiagnostics),
               style: ElevatedButton.styleFrom(

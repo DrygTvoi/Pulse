@@ -147,7 +147,7 @@ class _CustomProxySectionState extends State<CustomProxySection> {
                 ],
               ),
             ),
-            Switch(
+            Switch.adaptive(
               value: widget.proxyEnabled,
               onChanged: (v) => widget.onProxyEnabledChanged(v),
               activeThumbColor: _accent,

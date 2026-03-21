@@ -23,7 +23,7 @@ class AppearanceIdentitySection extends StatelessWidget {
   Future<void> _showBackupOptions(BuildContext context) async {
     await showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => AlertDialog.adaptive(
         backgroundColor: AppTheme.surface,
         shape:
             RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.dialogRadius)),
@@ -96,7 +96,7 @@ class AppearanceIdentitySection extends StatelessWidget {
       if (!context.mounted) return;
       await showDialog(
         context: context,
-        builder: (ctx) => AlertDialog(
+        builder: (ctx) => AlertDialog.adaptive(
           backgroundColor: AppTheme.surface,
           shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(DesignTokens.dialogRadius)),
@@ -206,7 +206,7 @@ class AppearanceIdentitySection extends StatelessWidget {
     final ctrl = TextEditingController();
     await showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => AlertDialog.adaptive(
         backgroundColor: AppTheme.surface,
         shape:
             RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.dialogRadius)),

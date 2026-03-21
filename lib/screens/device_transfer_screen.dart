@@ -456,7 +456,7 @@ class _DeviceTransferScreenState extends State<DeviceTransferScreen> {
         children: [
           const SizedBox(height: DesignTokens.spacing20),
           if (_code.isEmpty) ...[
-            const CircularProgressIndicator(),
+            const CircularProgressIndicator.adaptive(),
             const SizedBox(height: DesignTokens.spacing16),
             Text(context.l10n.transferGenerating,
                 style: GoogleFonts.inter(
@@ -498,7 +498,7 @@ class _DeviceTransferScreenState extends State<DeviceTransferScreen> {
               ),
             ),
             const SizedBox(height: DesignTokens.spacing28),
-            const CircularProgressIndicator(),
+            const CircularProgressIndicator.adaptive(),
             const SizedBox(height: DesignTokens.spacing14),
             Text(context.l10n.transferWaitingReceiver,
                 style: GoogleFonts.inter(
@@ -511,7 +511,7 @@ class _DeviceTransferScreenState extends State<DeviceTransferScreen> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           const SizedBox(height: 60),
-          const CircularProgressIndicator(),
+          const CircularProgressIndicator.adaptive(),
           const SizedBox(height: DesignTokens.spacing20),
           Text(context.l10n.transferConnectingSender,
               style: GoogleFonts.inter(

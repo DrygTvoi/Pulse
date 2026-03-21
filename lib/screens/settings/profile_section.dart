@@ -48,7 +48,7 @@ class ProfileSection extends StatelessWidget {
 
         final inviteLink = _buildInviteLink(selfId, myName ?? '');
 
-        return AlertDialog(
+        return AlertDialog.adaptive(
           backgroundColor: AppTheme.surface,
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.dialogRadius)),

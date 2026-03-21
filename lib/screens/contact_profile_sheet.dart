@@ -116,7 +116,7 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
   void _showVerifyDialog() {
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => AlertDialog.adaptive(
         backgroundColor: AppTheme.surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.buttonRadius)),
         title: Row(children: [
@@ -193,7 +193,7 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
     if (data.isEmpty) return;
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => AlertDialog.adaptive(
         backgroundColor: AppTheme.surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.buttonRadius)),
         title: Text(title,
@@ -242,7 +242,7 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
   void _leaveGroup() async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => AlertDialog.adaptive(
         backgroundColor: AppTheme.surface,
         title: Text(context.l10n.profileLeaveGroup,
             style: GoogleFonts.inter(color: AppTheme.textPrimary, fontWeight: FontWeight.w700)),
@@ -277,20 +277,22 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
   }
 
   void _kickMember(String memberId) async {
+    final repo = context.read<IContactRepository>();
+    final ctrl = context.read<ChatController>();
     final updated = _contact.copyWith(
       members: _contact.members.where((id) => id != memberId).toList(),
     );
-    await context.read<IContactRepository>().updateContact(updated);
+    await repo.updateContact(updated);
     setState(() => _contact = updated);
     widget.onContactUpdated?.call(updated);
     // Notify remaining members of the new member list
-    unawaited(context.read<ChatController>().broadcastGroupUpdate(updated));
+    unawaited(ctrl.broadcastGroupUpdate(updated));
   }
 
   void _showTransferAdminConfirm(String memberId, String name) {
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => AlertDialog.adaptive(
         backgroundColor: AppTheme.surface,
         shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(DesignTokens.dialogRadius)),
@@ -320,11 +322,13 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
   }
 
   void _transferAdmin(String memberId, String name) async {
+    final repo = context.read<IContactRepository>();
+    final ctrl = context.read<ChatController>();
     final updated = _contact.copyWith(creatorId: memberId);
-    await context.read<IContactRepository>().updateContact(updated);
+    await repo.updateContact(updated);
     setState(() => _contact = updated);
     widget.onContactUpdated?.call(updated);
-    unawaited(context.read<ChatController>().broadcastGroupUpdate(updated));
+    unawaited(ctrl.broadcastGroupUpdate(updated));
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text(context.l10n.profileTransferAdminDone(name)),
@@ -338,7 +342,7 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
     if (_contact.members.length >= meshMemberLimit) {
       showDialog(
         context: context,
-        builder: (ctx) => AlertDialog(
+        builder: (ctx) => AlertDialog.adaptive(
           backgroundColor: AppTheme.surface,
           shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(DesignTokens.dialogRadius)),
@@ -405,6 +409,9 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
                       TextButton(
                         onPressed: () async {
                           Navigator.pop(ctx);
+                          // Capture context-dependent objects before async gaps
+                          final repo = context.read<IContactRepository>();
+                          final ctrl = context.read<ChatController>();
                           // Dedup: filter out any IDs already in the group
                           final existingIds = Set<String>.from(_contact.members);
                           final uniqueNew = selected
@@ -416,7 +423,7 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
                           if (total > meshMemberLimit && mounted) {
                             final proceed = await showDialog<bool>(
                               context: context,
-                              builder: (dctx) => AlertDialog(
+                              builder: (dctx) => AlertDialog.adaptive(
                                 backgroundColor: AppTheme.surface,
                                 shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(
@@ -454,17 +461,15 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
                           final updated = _contact.copyWith(
                             members: [..._contact.members, ...uniqueNew],
                           );
-                          await context.read<IContactRepository>().updateContact(updated);
+                          await repo.updateContact(updated);
                           if (mounted) {
                             setState(() => _contact = updated);
                             widget.onContactUpdated?.call(updated);
                             // Notify existing members of new list
-                            unawaited(context.read<ChatController>().broadcastGroupUpdate(updated));
+                            unawaited(ctrl.broadcastGroupUpdate(updated));
                             // Invite each newly added member so they get the group
-                            final ctrl = context.read<ChatController>();
                             for (final newId in uniqueNew) {
-                              final newContact = context
-                                  .read<IContactRepository>()
+                              final newContact = repo
                                   .contacts
                                   .cast<Contact?>()
                                   .firstWhere((c) => c?.id == newId, orElse: () => null);
@@ -520,7 +525,7 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
     final ctrl = TextEditingController(text: _contact.name);
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => AlertDialog.adaptive(
         backgroundColor: AppTheme.surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.buttonRadius)),
         title: Text(context.l10n.profileRenameGroup,
@@ -978,7 +983,7 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
   void _showKickConfirm(String memberId, String name) {
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => AlertDialog.adaptive(
         backgroundColor: AppTheme.surface,
         title: Text(context.l10n.profileRemoveMember,
             style: GoogleFonts.inter(color: AppTheme.textPrimary, fontWeight: FontWeight.w700)),

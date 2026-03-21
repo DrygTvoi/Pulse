@@ -33,7 +33,7 @@ class DataSection extends StatelessWidget {
       context: context,
       barrierDismissible: false,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setS) => AlertDialog(
+        builder: (ctx, setS) => AlertDialog.adaptive(
           backgroundColor: AppTheme.surface,
           shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(DesignTokens.dialogRadius)),
@@ -426,7 +426,7 @@ class DataSection extends StatelessWidget {
   Future<void> _exportKeysToFile(BuildContext context) async {
     final proceed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => AlertDialog.adaptive(
         backgroundColor: AppTheme.surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.dialogRadius)),
         title: Row(
@@ -592,7 +592,7 @@ class DataSection extends StatelessWidget {
 
     final proceed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => AlertDialog.adaptive(
         backgroundColor: AppTheme.surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.dialogRadius)),
         title: Row(
@@ -678,7 +678,7 @@ class DataSection extends StatelessWidget {
         await showDialog(
           context: context,
           barrierDismissible: false,
-          builder: (ctx) => AlertDialog(
+          builder: (ctx) => AlertDialog.adaptive(
             backgroundColor: AppTheme.surface,
             shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(DesignTokens.dialogRadius)),

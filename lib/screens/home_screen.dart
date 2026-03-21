@@ -325,7 +325,7 @@ class _HomeScreenState extends State<HomeScreen> {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => AlertDialog(
+      builder: (context) => AlertDialog.adaptive(
         backgroundColor: AppTheme.surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.dialogRadius)),
         title: Text(context.l10n.homeIncomingCallTitle, style: GoogleFonts.inter(color: AppTheme.textPrimary, fontWeight: FontWeight.w700)),
@@ -378,7 +378,7 @@ class _HomeScreenState extends State<HomeScreen> {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => AlertDialog(
+      builder: (context) => AlertDialog.adaptive(
         backgroundColor: AppTheme.surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.dialogRadius)),
         title: Text(context.l10n.homeIncomingGroupCallTitle,
@@ -481,7 +481,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void _showGroupInviteDialog(SignalGroupInviteEvent invite) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (context) => AlertDialog.adaptive(
         backgroundColor: AppTheme.surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.dialogRadius)),
         title: Text(context.l10n.groupInviteTitle,

@@ -117,7 +117,7 @@ class _ProviderSectionState extends State<ProviderSection> {
     await showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
+        builder: (ctx, setDialogState) => AlertDialog.adaptive(
           backgroundColor: AppTheme.surface,
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.dialogRadius)),

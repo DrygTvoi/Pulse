@@ -19,11 +19,9 @@ class LocalStorageService {
 
   Database? _db;
   SecretKey? _encKey;
-  bool _sqlcipherAvailable = false;
 
-  /// Whether SQLCipher is loaded. False means DB metadata (timestamps, room IDs)
-  /// is stored in plain SQLite. Message content is still AES-GCM encrypted per-row.
-  bool get isSqlcipherAvailable => _sqlcipherAvailable;
+  /// SQLCipher is always available — bundled via sqlcipher_flutter_libs.
+  bool get isSqlcipherAvailable => true;
 
   static const _kAesKeyPref = 'local_db_aes_key_v1';
   static const _kDbKeyPref = 'local_db_cipher_key_v1';
@@ -35,34 +33,25 @@ class LocalStorageService {
     // Init encryption key before opening DB (needed for migration).
     _encKey = await _getOrCreateEncKey();
 
-    final String path;
-    if (!kIsWeb && (Platform.isLinux || Platform.isWindows || Platform.isMacOS)) {
-      _sqlcipherAvailable = _tryLoadSqlcipher();
-      sqfliteFfiInit();
-      databaseFactory = databaseFactoryFfi;
-      final dbDir = await databaseFactoryFfi.getDatabasesPath();
-      path = '$dbDir/messages.db';
-    } else {
-      final dbDir = await databaseFactory.getDatabasesPath();
-      path = '$dbDir/messages.db';
-    }
+    // Load SQLCipher on all platforms (bundled via sqlcipher_flutter_libs).
+    await _loadSqlcipher();
+    sqfliteFfiInit();
+    databaseFactory = databaseFactoryFfi;
+    final dbDir = await databaseFactoryFfi.getDatabasesPath();
+    final path = '$dbDir/messages.db';
 
-    // If SQLCipher is available, migrate plaintext DB → encrypted DB.
-    if (_sqlcipherAvailable) {
-      await _migratePlaintextToEncrypted(path);
-    }
+    // Migrate existing plaintext DB → encrypted DB (first-run only).
+    await _migratePlaintextToEncrypted(path);
 
-    final dbKey = _sqlcipherAvailable ? await _getOrCreateDbKey() : null;
+    final dbKey = await _getOrCreateDbKey();
 
     _db = await databaseFactory.openDatabase(
       path,
       options: OpenDatabaseOptions(
         version: 6,
         onConfigure: (db) async {
-          if (dbKey != null) {
-            await db.rawQuery("PRAGMA KEY=\"x'$dbKey'\"");
-            debugPrint('[LocalStorage] SQLCipher: full-DB encryption active');
-          }
+          await db.rawQuery("PRAGMA KEY=\"x'$dbKey'\"");
+          debugPrint('[LocalStorage] SQLCipher: full-DB encryption active');
         },
         onCreate: (db, _) async {
           await db.execute('''
@@ -123,10 +112,8 @@ class LocalStorageService {
     await _migrateContactsFromPrefs();
     await _migrateAvatarsFromPrefs();
 
-    // Rotate DB encryption key if overdue (SQLCipher only; per-row key is static for now).
-    if (_sqlcipherAvailable) {
-      unawaited(_rotateDbKeyIfNeeded());
-    }
+    // Rotate DB encryption key if overdue.
+    unawaited(_rotateDbKeyIfNeeded());
   }
 
   /// Create the reactions table (and its index) inside [db].
@@ -187,20 +174,33 @@ class LocalStorageService {
     ''');
   }
 
-  /// Try to load libsqlcipher.so; if available, override the sqlite3 library
-  /// so all DB operations use SQLCipher (transparent full-DB AES-256 encryption).
-  /// Returns true if SQLCipher was loaded successfully.
-  static bool _tryLoadSqlcipher() {
-    try {
-      final lib = DynamicLibrary.open('libsqlcipher.so');
-      sqlite3_open.open.overrideForAll(() => lib);
-      debugPrint('[LocalStorage] SQLCipher loaded successfully');
-      return true;
-    } catch (e) {
-      debugPrint('[LocalStorage] libsqlcipher.so not found — using plain SQLite '
-          '(install sqlcipher for full-DB encryption)');
-      return false;
+  /// Load the SQLCipher shared library and override the sqlite3 open hook.
+  ///
+  /// Android: libsqlcipher.so is bundled in the APK via the Gradle dependency
+  ///   `net.zetetic:android-database-sqlcipher` — DynamicLibrary.open finds it
+  ///   automatically (minSdk 24+, no extra workaround needed).
+  /// iOS: SQLCipher is statically linked via CocoaPods `pod 'SQLCipher'`;
+  ///   DynamicLibrary.process() exposes its symbols.
+  /// Linux/macOS/Windows: system-installed or app-bundled shared library.
+  static Future<void> _loadSqlcipher() async {
+    if (kIsWeb) return;
+    if (Platform.isIOS) {
+      sqlite3_open.open.overrideFor(
+          sqlite3_open.OperatingSystem.iOS, DynamicLibrary.process);
+    } else if (Platform.isMacOS) {
+      sqlite3_open.open.overrideFor(
+          sqlite3_open.OperatingSystem.macOS,
+          () => DynamicLibrary.open('libsqlcipher.dylib'));
+    } else if (Platform.isWindows) {
+      sqlite3_open.open.overrideFor(
+          sqlite3_open.OperatingSystem.windows,
+          () => DynamicLibrary.open('sqlcipher.dll'));
+    } else {
+      // Android (libsqlcipher.so bundled in APK) and Linux (system package).
+      sqlite3_open.open.overrideForAll(
+          () => DynamicLibrary.open('libsqlcipher.so'));
     }
+    debugPrint('[LocalStorage] SQLCipher loaded');
   }
 
   /// Validates that [s] is exactly 64 lowercase hex characters.

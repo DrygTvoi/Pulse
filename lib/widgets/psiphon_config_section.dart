@@ -86,10 +86,10 @@ class PsiphonConfigSection extends StatelessWidget {
                 height: 20,
                 child: CircularProgressIndicator(
                     strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation(teal)),
+                    color: teal),
               )
             else
-              Switch(
+              Switch.adaptive(
                 value: active,
                 onChanged: (_) => onToggle(),
                 activeThumbColor: teal,
