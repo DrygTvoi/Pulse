@@ -1414,5 +1414,34 @@
     "placeholders": { "name": { "type": "String" } }
   },
   "profileAdminBadge": "Admin",
-  "@profileAdminBadge": { "description": "Badge shown on the current group admin's tile" }
+  "@profileAdminBadge": { "description": "Badge shown on the current group admin's tile" },
+
+  "privacyPolicyTitle": "Privacy Policy",
+  "privacyOverviewHeading": "Overview",
+  "privacyOverviewBody": "Pulse is a serverless, end-to-end encrypted messenger. Your privacy is not just a feature — it is the architecture. There are no Pulse servers. No accounts are stored anywhere. No data is collected, transmitted to, or stored by the developers.",
+  "privacyDataCollectionHeading": "Data Collection",
+  "privacyDataCollectionBody": "Pulse collects zero personal data. Specifically:\n\n- No email, phone number, or real name is required\n- No analytics, tracking, or telemetry\n- No advertising identifiers\n- No contact list access\n- No cloud backups (messages exist only on your device)\n- No metadata is sent to any Pulse server (there are none)",
+  "privacyEncryptionHeading": "Encryption",
+  "privacyEncryptionBody": "All messages are encrypted using the Signal Protocol (Double Ratchet with X3DH key agreement). Encryption keys are generated and stored exclusively on your device. No one — including the developers — can read your messages.",
+  "privacyNetworkHeading": "Network Architecture",
+  "privacyNetworkBody": "Pulse uses federated transport adapters (Nostr relays, Session/Oxen service nodes, Waku nodes, Firebase Realtime Database, LAN). These transports carry only encrypted ciphertext. Relay operators can see your IP address and traffic volume, but cannot decrypt message content.\n\nWhen Tor is enabled, your IP address is also hidden from relay operators.",
+  "privacyStunHeading": "STUN/TURN Servers",
+  "privacyStunBody": "Voice and video calls use WebRTC with DTLS-SRTP encryption. STUN servers (used to discover your public IP for peer-to-peer connections) and TURN servers (used to relay media when direct connection fails) can see your IP address and call duration, but cannot decrypt call content.\n\nYou can configure your own TURN server in Settings for maximum privacy.",
+  "privacyCrashHeading": "Crash Reporting",
+  "privacyCrashBody": "If Sentry crash reporting is enabled (via build-time SENTRY_DSN), anonymous crash reports may be sent. These contain no message content, no contact information, and no personally identifiable information. Crash reporting can be disabled at build time by omitting the DSN.",
+  "privacyPasswordHeading": "Password & Keys",
+  "privacyPasswordBody": "Your recovery password is used to derive cryptographic keys via Argon2id (memory-hard KDF). The password is never transmitted anywhere. If you lose your password, your account cannot be recovered — there is no server to reset it.",
+  "privacyFontsHeading": "Fonts",
+  "privacyFontsBody": "Pulse bundles all fonts locally. No requests are made to Google Fonts or any external font service.",
+  "privacyThirdPartyHeading": "Third-Party Services",
+  "privacyThirdPartyBody": "Pulse does not integrate with any advertising networks, analytics providers, social media platforms, or data brokers. The only network connections are to the transport relays you configure.",
+  "privacyOpenSourceHeading": "Open Source",
+  "privacyOpenSourceBody": "Pulse is open-source software. You can audit the complete source code to verify these privacy claims.",
+  "privacyContactHeading": "Contact",
+  "privacyContactBody": "For privacy-related questions, open an issue on the project repository.",
+  "privacyLastUpdated": "Last updated: March 2026",
+
+  "imageSaveFailed": "Save failed: {error}",
+  "@imageSaveFailed": { "placeholders": { "error": { "type": "Object" } } },
+  "themeEngineTitle": "Theme Engine"
 }

@@ -325,12 +325,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
 
     await IceServerConfig.saveEnabledPresets(_enabledPresets);
+    final turnUrl = _turnUrlController.text.trim();
+    final turnUser = _turnUsernameController.text.trim();
+    final turnPass = _turnPasswordController.text.trim();
     await IceServerConfig.saveCustomTurn(
-      url: _turnUrlController.text.trim(),
-      username: _turnUsernameController.text.trim(),
-      password: _turnPasswordController.text.trim(),
+      url: turnUrl,
+      username: turnUser,
+      password: turnPass,
     );
-
     await chatCtrl.reconnectInbox();
     unawaited(chatCtrl.broadcastAddressUpdate());
 
@@ -488,7 +490,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             i2pPortController: _i2pPortController,
             onI2pEnabledChanged: (v) => setState(() => _i2pEnabled = v),
           ),
-          const SizedBox(height: 32),
+          const SizedBox(height: 12),
+
 
           // ─── Appearance + Identity ────────────────────────────
           AppearanceIdentitySection(),

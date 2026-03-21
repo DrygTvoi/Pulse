@@ -3727,6 +3727,162 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Admin'**
   String get profileAdminBadge;
+
+  /// No description provided for @privacyPolicyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Privacy Policy'**
+  String get privacyPolicyTitle;
+
+  /// No description provided for @privacyOverviewHeading.
+  ///
+  /// In en, this message translates to:
+  /// **'Overview'**
+  String get privacyOverviewHeading;
+
+  /// No description provided for @privacyOverviewBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Pulse is a serverless, end-to-end encrypted messenger. Your privacy is not just a feature — it is the architecture. There are no Pulse servers. No accounts are stored anywhere. No data is collected, transmitted to, or stored by the developers.'**
+  String get privacyOverviewBody;
+
+  /// No description provided for @privacyDataCollectionHeading.
+  ///
+  /// In en, this message translates to:
+  /// **'Data Collection'**
+  String get privacyDataCollectionHeading;
+
+  /// No description provided for @privacyDataCollectionBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Pulse collects zero personal data. Specifically:\n\n- No email, phone number, or real name is required\n- No analytics, tracking, or telemetry\n- No advertising identifiers\n- No contact list access\n- No cloud backups (messages exist only on your device)\n- No metadata is sent to any Pulse server (there are none)'**
+  String get privacyDataCollectionBody;
+
+  /// No description provided for @privacyEncryptionHeading.
+  ///
+  /// In en, this message translates to:
+  /// **'Encryption'**
+  String get privacyEncryptionHeading;
+
+  /// No description provided for @privacyEncryptionBody.
+  ///
+  /// In en, this message translates to:
+  /// **'All messages are encrypted using the Signal Protocol (Double Ratchet with X3DH key agreement). Encryption keys are generated and stored exclusively on your device. No one — including the developers — can read your messages.'**
+  String get privacyEncryptionBody;
+
+  /// No description provided for @privacyNetworkHeading.
+  ///
+  /// In en, this message translates to:
+  /// **'Network Architecture'**
+  String get privacyNetworkHeading;
+
+  /// No description provided for @privacyNetworkBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Pulse uses federated transport adapters (Nostr relays, Session/Oxen service nodes, Waku nodes, Firebase Realtime Database, LAN). These transports carry only encrypted ciphertext. Relay operators can see your IP address and traffic volume, but cannot decrypt message content.\n\nWhen Tor is enabled, your IP address is also hidden from relay operators.'**
+  String get privacyNetworkBody;
+
+  /// No description provided for @privacyStunHeading.
+  ///
+  /// In en, this message translates to:
+  /// **'STUN/TURN Servers'**
+  String get privacyStunHeading;
+
+  /// No description provided for @privacyStunBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Voice and video calls use WebRTC with DTLS-SRTP encryption. STUN servers (used to discover your public IP for peer-to-peer connections) and TURN servers (used to relay media when direct connection fails) can see your IP address and call duration, but cannot decrypt call content.\n\nYou can configure your own TURN server in Settings for maximum privacy.'**
+  String get privacyStunBody;
+
+  /// No description provided for @privacyCrashHeading.
+  ///
+  /// In en, this message translates to:
+  /// **'Crash Reporting'**
+  String get privacyCrashHeading;
+
+  /// No description provided for @privacyCrashBody.
+  ///
+  /// In en, this message translates to:
+  /// **'If Sentry crash reporting is enabled (via build-time SENTRY_DSN), anonymous crash reports may be sent. These contain no message content, no contact information, and no personally identifiable information. Crash reporting can be disabled at build time by omitting the DSN.'**
+  String get privacyCrashBody;
+
+  /// No description provided for @privacyPasswordHeading.
+  ///
+  /// In en, this message translates to:
+  /// **'Password & Keys'**
+  String get privacyPasswordHeading;
+
+  /// No description provided for @privacyPasswordBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Your recovery password is used to derive cryptographic keys via Argon2id (memory-hard KDF). The password is never transmitted anywhere. If you lose your password, your account cannot be recovered — there is no server to reset it.'**
+  String get privacyPasswordBody;
+
+  /// No description provided for @privacyFontsHeading.
+  ///
+  /// In en, this message translates to:
+  /// **'Fonts'**
+  String get privacyFontsHeading;
+
+  /// No description provided for @privacyFontsBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Pulse bundles all fonts locally. No requests are made to Google Fonts or any external font service.'**
+  String get privacyFontsBody;
+
+  /// No description provided for @privacyThirdPartyHeading.
+  ///
+  /// In en, this message translates to:
+  /// **'Third-Party Services'**
+  String get privacyThirdPartyHeading;
+
+  /// No description provided for @privacyThirdPartyBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Pulse does not integrate with any advertising networks, analytics providers, social media platforms, or data brokers. The only network connections are to the transport relays you configure.'**
+  String get privacyThirdPartyBody;
+
+  /// No description provided for @privacyOpenSourceHeading.
+  ///
+  /// In en, this message translates to:
+  /// **'Open Source'**
+  String get privacyOpenSourceHeading;
+
+  /// No description provided for @privacyOpenSourceBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Pulse is open-source software. You can audit the complete source code to verify these privacy claims.'**
+  String get privacyOpenSourceBody;
+
+  /// No description provided for @privacyContactHeading.
+  ///
+  /// In en, this message translates to:
+  /// **'Contact'**
+  String get privacyContactHeading;
+
+  /// No description provided for @privacyContactBody.
+  ///
+  /// In en, this message translates to:
+  /// **'For privacy-related questions, open an issue on the project repository.'**
+  String get privacyContactBody;
+
+  /// No description provided for @privacyLastUpdated.
+  ///
+  /// In en, this message translates to:
+  /// **'Last updated: March 2026'**
+  String get privacyLastUpdated;
+
+  /// No description provided for @imageSaveFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Save failed: {error}'**
+  String imageSaveFailed(Object error);
+
+  /// No description provided for @themeEngineTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Theme Engine'**
+  String get themeEngineTitle;
 }
 
 class _AppLocalizationsDelegate

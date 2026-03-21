@@ -1,0 +1,69 @@
+# Uncomment this line to define a global platform for your project
+platform :ios, '14.0'
+
+# CocoaPods analytics sends network stats synchronously affecting your library
+# installation, will not be included in builds on the CI.
+ENV['COCOAPODS_DISABLE_STATS'] = 'true'
+
+project 'Runner', {
+  'Debug' => :debug,
+  'Profile' => :release,
+  'Release' => :release,
+}
+
+def flutter_root
+  generated_xcode_build_settings_path = File.expand_path(File.join('..', 'Flutter', 'Generated.xcconfig'), __FILE__)
+  unless File.exist?(generated_xcode_build_settings_path)
+    raise "#{generated_xcode_build_settings_path} must exist. If you're running pod install manually, make sure flutter pub get is executed first"
+  end
+
+  File.foreach(generated_xcode_build_settings_path) do |line|
+    matches = line.match(/FLUTTER_ROOT\=(.*)/)
+    return matches[1].strip if matches
+  end
+  raise "FLUTTER_ROOT not found in #{generated_xcode_build_settings_path}. Try deleting Generated.xcconfig and running flutter pub get"
+end
+
+require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelper'), flutter_root)
+
+flutter_ios_podfile_setup
+
+target 'Runner' do
+  use_frameworks!
+  use_modular_headers!
+
+  flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
+
+  # SQLCipher — replaces system SQLite so DynamicLibrary.process() finds
+  # the encrypted SQLite symbols (same API, just adds PRAGMA key support).
+  # sqflite_common_ffi uses DynamicLibrary.process() on iOS which picks up
+  # these symbols from the static SQLCipher framework linked by this pod.
+  pod 'SQLCipher', '~> 4.5'
+
+  target 'RunnerTests' do
+    inherit! :search_paths
+  end
+end
+
+post_install do |installer|
+  installer.pods_project.targets.each do |target|
+    flutter_additional_ios_build_settings(target)
+    target.build_configurations.each do |config|
+      # Minimum iOS version required by Flutter 3.x + modern packages
+      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '14.0'
+      # Suppress warnings from pods that use deprecated APIs
+      config.build_settings['GCC_WARN_INHIBIT_ALL_WARNINGS'] = 'YES'
+    end
+  end
+
+  # Prevent duplicate symbol errors: SQLCipher replaces libsqlite3.
+  # Tell any pod that links against sqlite3 to use SQLCipher instead.
+  installer.pods_project.targets.each do |target|
+    target.build_configurations.each do |config|
+      # Remove explicit libsqlite3.tbd link if present — SQLCipher provides it
+      libs = config.build_settings['OTHER_LDFLAGS'] || ['$(inherited)']
+      libs = libs.reject { |f| f == '-lsqlite3' } if libs.is_a?(Array)
+      config.build_settings['OTHER_LDFLAGS'] = libs
+    end
+  end
+end

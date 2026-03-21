@@ -2050,4 +2050,95 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get profileAdminBadge => 'Admin';
+
+  @override
+  String get privacyPolicyTitle => 'Политика конфиденциальности';
+
+  @override
+  String get privacyOverviewHeading => 'Обзор';
+
+  @override
+  String get privacyOverviewBody =>
+      'Pulse — мессенджер без серверов с полным сквозным шифрованием. Конфиденциальность — это не функция, а архитектура. Серверов Pulse не существует. Ни аккаунты, ни сообщения нигде не хранятся. Разработчики не собирают, не передают и не хранят никаких данных.';
+
+  @override
+  String get privacyDataCollectionHeading => 'Сбор данных';
+
+  @override
+  String get privacyDataCollectionBody =>
+      'Pulse не собирает никаких личных данных:\n\n- Email, номер телефона и настоящее имя не требуются\n- Нет аналитики, трекинга или телеметрии\n- Нет рекламных идентификаторов\n- Нет доступа к списку контактов\n- Нет облачных резервных копий (сообщения существуют только на вашем устройстве)\n- Никакие метаданные не отправляются на серверы Pulse (их не существует)';
+
+  @override
+  String get privacyEncryptionHeading => 'Шифрование';
+
+  @override
+  String get privacyEncryptionBody =>
+      'Все сообщения шифруются по протоколу Signal (Double Ratchet с согласованием ключей X3DH). Ключи шифрования генерируются и хранятся исключительно на вашем устройстве. Никто — включая разработчиков — не может прочитать ваши сообщения.';
+
+  @override
+  String get privacyNetworkHeading => 'Сетевая архитектура';
+
+  @override
+  String get privacyNetworkBody =>
+      'Pulse использует федеративные транспортные адаптеры (Nostr-реле, узлы Session/Oxen, Waku, Firebase Realtime Database, LAN). Через эти транспорты передаётся только зашифрованный текст. Операторы реле видят ваш IP-адрес и объём трафика, но не могут расшифровать содержимое сообщений.\n\nПри включённом Tor ваш IP-адрес скрыт и от операторов реле.';
+
+  @override
+  String get privacyStunHeading => 'STUN/TURN серверы';
+
+  @override
+  String get privacyStunBody =>
+      'Голосовые и видеозвонки используют WebRTC с шифрованием DTLS-SRTP. STUN-серверы (для определения публичного IP при peer-to-peer соединении) и TURN-серверы (для ретрансляции медиа при невозможности прямого соединения) видят ваш IP-адрес и длительность звонка, но не могут расшифровать его содержимое.\n\nВ настройках можно указать собственный TURN-сервер для максимальной приватности.';
+
+  @override
+  String get privacyCrashHeading => 'Отчёты об ошибках';
+
+  @override
+  String get privacyCrashBody =>
+      'Если отчёты об ошибках Sentry включены (через SENTRY_DSN при сборке), могут отправляться анонимные отчёты. Они не содержат содержимого сообщений, контактных данных и личной информации. Отчёты об ошибках можно отключить при сборке, не указывая DSN.';
+
+  @override
+  String get privacyPasswordHeading => 'Пароль и ключи';
+
+  @override
+  String get privacyPasswordBody =>
+      'Пароль восстановления используется для генерации криптографических ключей через Argon2id (KDF с высокими требованиями к памяти). Пароль никогда никуда не передаётся. Если вы потеряете пароль, аккаунт не может быть восстановлен — серверов для сброса не существует.';
+
+  @override
+  String get privacyFontsHeading => 'Шрифты';
+
+  @override
+  String get privacyFontsBody =>
+      'Pulse поставляется со всеми шрифтами локально. Никакие запросы к Google Fonts или другим внешним сервисам шрифтов не выполняются.';
+
+  @override
+  String get privacyThirdPartyHeading => 'Сторонние сервисы';
+
+  @override
+  String get privacyThirdPartyBody =>
+      'Pulse не интегрируется с рекламными сетями, аналитическими провайдерами, социальными сетями или брокерами данных. Единственные сетевые подключения — к транспортным реле, которые вы настроили.';
+
+  @override
+  String get privacyOpenSourceHeading => 'Открытый исходный код';
+
+  @override
+  String get privacyOpenSourceBody =>
+      'Pulse — программа с открытым исходным кодом. Вы можете проверить полный исходный код, чтобы убедиться в соответствии заявлениям о конфиденциальности.';
+
+  @override
+  String get privacyContactHeading => 'Контакт';
+
+  @override
+  String get privacyContactBody =>
+      'По вопросам конфиденциальности создайте issue в репозитории проекта.';
+
+  @override
+  String get privacyLastUpdated => 'Последнее обновление: март 2026';
+
+  @override
+  String imageSaveFailed(Object error) {
+    return 'Ошибка сохранения: $error';
+  }
+
+  @override
+  String get themeEngineTitle => 'Движок тем';
 }

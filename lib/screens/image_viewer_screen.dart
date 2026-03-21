@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:path_provider/path_provider.dart';
 import '../theme/app_theme.dart';
+import '../l10n/l10n_ext.dart';
 
 /// Full-screen image viewer with pinch-to-zoom and save to Downloads.
 class ImageViewerScreen extends StatelessWidget {
@@ -69,7 +70,7 @@ class ImageViewerScreen extends StatelessWidget {
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Save failed: $e', style: GoogleFonts.inter(fontSize: 13)),
+          content: Text(context.l10n.imageSaveFailed(e), style: GoogleFonts.inter(fontSize: 13)),
           backgroundColor: Colors.red.shade900,
         ));
       }
