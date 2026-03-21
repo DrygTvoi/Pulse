@@ -40,6 +40,7 @@ class _ProviderScreenState extends State<ProviderScreen> {
   List<WakuNodeInfo>? _wakuNodes;
   bool _showNostrAdvanced = false;
   bool _showOxenAdvanced = false;
+  bool _showSecondaryAdvanced = false;
   String? _activeNostrRelay;
 
   @override
@@ -563,17 +564,6 @@ class _ProviderScreenState extends State<ProviderScreen> {
       return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         _buildNostrInfoCard(),
         const SizedBox(height: 8),
-        Row(children: [
-          Icon(Icons.info_outline_rounded,
-              size: 13, color: AppTheme.textSecondary),
-          const SizedBox(width: 6),
-          Expanded(
-            child: Text(context.l10n.providerAutoConfigured,
-                style: GoogleFonts.inter(
-                    color: AppTheme.textSecondary, fontSize: 11)),
-          ),
-        ]),
-        const SizedBox(height: 4),
         GestureDetector(
           onTap: () =>
               setState(() => _showNostrAdvanced = !_showNostrAdvanced),
@@ -919,14 +909,10 @@ class _ProviderScreenState extends State<ProviderScreen> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 24, 20, 40),
         children: [
-          settingsSectionLabel(context.l10n.providerYourInboxProvider),
-          const SizedBox(height: 12),
           _buildProviderChips(),
-          const SizedBox(height: 28),
-          settingsSectionLabel(context.l10n.providerConnectionDetails),
-          const SizedBox(height: 12),
+          const SizedBox(height: 20),
           _buildProviderConfig(),
-          const SizedBox(height: 32),
+          const SizedBox(height: 24),
           SizedBox(
             width: double.infinity,
             height: 54,
@@ -952,10 +938,31 @@ class _ProviderScreenState extends State<ProviderScreen> {
                           color: Colors.white)),
             ),
           ),
-          const SizedBox(height: 32),
-          settingsSectionLabel(context.l10n.providerSecondaryInboxes),
-          const SizedBox(height: 10),
-          _buildSecondaryInboxes(),
+          const SizedBox(height: 8),
+          // ── Advanced: Secondary Inboxes ───────────────────────
+          GestureDetector(
+            onTap: () => setState(
+                () => _showSecondaryAdvanced = !_showSecondaryAdvanced),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: Row(children: [
+                Icon(
+                  _showSecondaryAdvanced
+                      ? Icons.expand_less_rounded
+                      : Icons.expand_more_rounded,
+                  size: 16,
+                  color: AppTheme.textSecondary,
+                ),
+                const SizedBox(width: 6),
+                Text(context.l10n.providerSecondaryInboxes,
+                    style: GoogleFonts.inter(
+                        color: AppTheme.textSecondary,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600)),
+              ]),
+            ),
+          ),
+          if (_showSecondaryAdvanced) _buildSecondaryInboxes(),
         ],
       ),
     );
