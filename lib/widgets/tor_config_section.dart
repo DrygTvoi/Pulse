@@ -125,10 +125,10 @@ class TorConfigSection extends StatelessWidget {
                 height: 20,
                 child: CircularProgressIndicator(
                     strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation(purple)),
+                    color: purple),
               )
             else
-              Switch(
+              Switch.adaptive(
                 value: active,
                 onChanged: (_) => onToggleBundledTor(),
                 activeThumbColor: purple,
@@ -297,7 +297,7 @@ class TorConfigSection extends StatelessWidget {
                     ],
                   ),
                 ),
-                Switch(
+                Switch.adaptive(
                   value: torEnabled,
                   onChanged: managedByBundled ? null : (v) => onTorEnabledChanged(v),
                   activeThumbColor: purple,

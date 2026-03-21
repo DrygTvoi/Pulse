@@ -106,7 +106,7 @@ class I2pConfigSection extends StatelessWidget {
                     ],
                   ),
                 ),
-                Switch(
+                Switch.adaptive(
                   value: i2pEnabled,
                   onChanged: (v) => onI2pEnabledChanged(v),
                   activeThumbColor: teal,

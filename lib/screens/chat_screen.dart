@@ -269,7 +269,7 @@ class _ChatScreenState extends State<ChatScreen> {
           final sizeMB = (raw.bytes.length / (1024 * 1024)).toStringAsFixed(1);
           final confirmed = await showDialog<bool>(
             context: context,
-            builder: (ctx) => AlertDialog(
+            builder: (ctx) => AlertDialog.adaptive(
               title: Text(context.l10n.chatLargeFile),
               content: Text(
                 context.l10n.chatLargeFileSizeWarning(sizeMB),
@@ -416,7 +416,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => AlertDialog.adaptive(
         backgroundColor: AppTheme.surface,
         shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(DesignTokens.dialogRadius)),
@@ -652,7 +652,7 @@ class _ChatScreenState extends State<ChatScreen> {
                               child: loadingMore
                                   ? const SizedBox(
                                       width: DesignTokens.iconMd, height: DesignTokens.iconMd,
-                                      child: CircularProgressIndicator(strokeWidth: 2))
+                                      child: CircularProgressIndicator.adaptive(strokeWidth: 2))
                                   : TextButton.icon(
                                       onPressed: () => chatController.loadMoreHistory(_contact),
                                       icon: const Icon(Icons.expand_less_rounded, size: DesignTokens.iconSm),

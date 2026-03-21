@@ -51,7 +51,7 @@ class _SecuritySectionState extends State<SecuritySection> {
       context: context,
       barrierDismissible: false,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setS) => AlertDialog(
+        builder: (ctx, setS) => AlertDialog.adaptive(
           backgroundColor: AppTheme.surface,
           title: Text(
             title,
@@ -250,7 +250,7 @@ class _SecuritySectionState extends State<SecuritySection> {
   Future<void> _removePanicKey() async {
     final ok = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => AlertDialog.adaptive(
         backgroundColor: AppTheme.surface,
         title: Text(
           context.l10n.settingsRemovePanicKey,
@@ -338,7 +338,7 @@ class _SecuritySectionState extends State<SecuritySection> {
                   ],
                 ),
               ),
-              Switch(
+              Switch.adaptive(
                 value: widget.passwordEnabled,
                 onChanged: (val) =>
                     val ? _enablePassword() : _disablePassword(),

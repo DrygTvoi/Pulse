@@ -187,7 +187,7 @@ class _ContactsScreenState extends State<ContactsScreen> {
                     ),
                     confirmDismiss: (_) => showDialog<bool>(
                       context: context,
-                      builder: (_) => AlertDialog(
+                      builder: (_) => AlertDialog.adaptive(
                         backgroundColor: AppTheme.surface,
                         title: Text(context.l10n.contactsRemoveTitle,
                             style: GoogleFonts.inter(

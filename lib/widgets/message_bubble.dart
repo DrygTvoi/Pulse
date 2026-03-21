@@ -269,7 +269,7 @@ class MessageBubble extends StatelessWidget {
     final display = url.length > 70 ? '${url.substring(0, 70)}…' : url;
     showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => AlertDialog.adaptive(
         title: Text(ctx.l10n.bubbleOpenLink),
         content: Text(ctx.l10n.bubbleOpenLinkBody(display)),
         actions: [
@@ -301,7 +301,7 @@ class MessageBubble extends StatelessWidget {
     if (dangerousExts.contains(ext)) {
       final confirmed = await showDialog<bool>(
         context: context,
-        builder: (ctx) => AlertDialog(
+        builder: (ctx) => AlertDialog.adaptive(
           title: Text(ctx.l10n.bubbleSecurityWarning),
           content: Text(ctx.l10n.bubbleExecutableWarning(media.name)),
           actions: [

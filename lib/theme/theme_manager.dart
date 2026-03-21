@@ -124,10 +124,8 @@ class ThemeNotifier extends ChangeNotifier {
     _fontFamily = 'Inter';
   }
 
-  TextStyle getTextStyle(TextStyle baseStyle) {
-    if (_fontFamily == 'Roboto') return GoogleFonts.roboto(textStyle: baseStyle);
-    return GoogleFonts.inter(textStyle: baseStyle);
-  }
+  TextStyle getTextStyle(TextStyle baseStyle) =>
+      GoogleFonts.inter(textStyle: baseStyle);
 
   // ── ThemeData builders ────────────────────────────────────────────────────
   ThemeData get lightThemeData => _buildThemeData(isDark: false);
@@ -149,13 +147,8 @@ class ThemeNotifier extends ChangeNotifier {
 
     TextStyle Function({TextStyle? textStyle}) fontFn;
     TextTheme Function(TextTheme) themeFn;
-    if (_fontFamily == 'Roboto') {
-      fontFn  = ({TextStyle? textStyle}) => GoogleFonts.roboto(textStyle: textStyle);
-      themeFn = GoogleFonts.robotoTextTheme;
-    } else {
-      fontFn  = ({TextStyle? textStyle}) => GoogleFonts.inter(textStyle: textStyle);
-      themeFn = GoogleFonts.interTextTheme;
-    }
+    fontFn  = ({TextStyle? textStyle}) => GoogleFonts.inter(textStyle: textStyle);
+    themeFn = GoogleFonts.interTextTheme;
 
     final textTheme = themeFn(base.textTheme).copyWith(
       displayLarge:  fontFn(textStyle: TextStyle(color: txtPri, fontWeight: FontWeight.bold, fontSize: 32)),

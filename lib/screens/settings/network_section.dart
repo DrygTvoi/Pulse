@@ -125,7 +125,7 @@ class NetworkSection extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 10),
-          Switch(
+          Switch.adaptive(
             value: lanModeEnabled,
             activeThumbColor: const Color(0xFF25D366),
             onChanged: (v) async {
@@ -174,7 +174,7 @@ class NetworkSection extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 10),
-          Switch(
+          Switch.adaptive(
             value: bgServiceEnabled,
             activeThumbColor: const Color(0xFF3498DB),
             onChanged: (v) async {

@@ -72,7 +72,9 @@ class _GroupCallScreenState extends State<GroupCallScreen> {
   }
 
   Future<void> _startCall() async {
-    final memberContacts = context.read<IContactRepository>()
+    final contactRepo = context.read<IContactRepository>();
+    final chatCtrl = context.read<ChatController>();
+    final memberContacts = contactRepo
         .contacts
         .where((c) => widget.group.members.contains(c.id))
         .toList();
@@ -87,7 +89,7 @@ class _GroupCallScreenState extends State<GroupCallScreen> {
       if (mounted) {
         final confirmed = await showDialog<bool>(
           context: context,
-          builder: (ctx) => AlertDialog(
+          builder: (ctx) => AlertDialog.adaptive(
             title: Text(context.l10n.jitsiGroupWarningTitle),
             content: Text(context.l10n.jitsiGroupWarningBody),
             actions: [
@@ -187,7 +189,7 @@ class _GroupCallScreenState extends State<GroupCallScreen> {
     }
 
     // Subscribe to roster changes (kick/add during active call)
-    _groupUpdateSub = context.read<ChatController>().groupUpdates.listen((e) {
+    _groupUpdateSub = chatCtrl.groupUpdates.listen((e) {
       if (!mounted || _disposed) return;
       if (e.groupId != widget.group.id) return;
       _handleRosterChange(e.members);

@@ -107,7 +107,7 @@ class _StatusCreatorScreenState extends State<StatusCreatorScreen> {
                   padding: EdgeInsets.symmetric(horizontal: 16),
                   child: SizedBox(
                     width: 20, height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
+                    child: CircularProgressIndicator.adaptive(strokeWidth: 2),
                   ),
                 )
               : TextButton(
