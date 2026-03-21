@@ -26,16 +26,13 @@ class _NetworkSectionState extends State<NetworkSection> {
   bool _lanModeEnabled = true;
   bool _bgServiceEnabled = false;
   String _currentProvider = 'Firebase';
-  bool _torActive = false;
 
   @override
   void initState() {
     super.initState();
     _load();
     TorService.instance.stateChanges.listen((_) {
-      if (mounted) {
-        setState(() => _torActive = TorService.instance.isRunning);
-      }
+      if (mounted) setState(() {});
     });
   }
 
@@ -44,13 +41,11 @@ class _NetworkSectionState extends State<NetworkSection> {
     final lan = await ChatController.getLanModeEnabled();
     final bg = await BackgroundService.instance.isEnabled();
     final provider = prefs.getString('byod_provider') ?? 'Firebase';
-    final torEnabled = prefs.getBool('bundled_tor_enabled') ?? false;
     if (!mounted) return;
     setState(() {
       _lanModeEnabled = lan;
       _bgServiceEnabled = bg;
       _currentProvider = provider;
-      _torActive = torEnabled || TorService.instance.isRunning;
     });
   }
 

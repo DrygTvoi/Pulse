@@ -57,16 +57,17 @@ class _AboutSectionState extends State<AboutSection> {
             MaterialPageRoute(builder: (_) => const PrivacyPolicyScreen()),
           ),
         ),
-        SwitchListTile(
-          secondary: const Icon(Icons.bug_report_outlined, color: Colors.grey),
-          title: Text(context.l10n.settingsCrashReporting, style: const TextStyle(color: Colors.white, fontSize: 14)),
-          subtitle: Text(
-            context.l10n.settingsCrashReportingSubtitle,
-            style: const TextStyle(color: Colors.white54, fontSize: 11),
+        const SizedBox(height: 12),
+        settingsRow(
+          icon: Icons.bug_report_outlined,
+          iconColor: const Color(0xFF1ABC9C),
+          title: context.l10n.settingsCrashReporting,
+          subtitle: context.l10n.settingsCrashReportingSubtitle,
+          trailing: Switch.adaptive(
+            value: _sentryOptIn,
+            activeThumbColor: const Color(0xFF1ABC9C),
+            onChanged: _toggle,
           ),
-          value: _sentryOptIn,
-          onChanged: _toggle,
-          activeTrackColor: const Color(0xFF1ABC9C),
         ),
       ],
     );
