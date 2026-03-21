@@ -1,189 +1,104 @@
-// Settings — Network section: Calls/TURN, LAN, background service,
-// censorship resistance (Tor, custom proxy, I2P).
+// Settings — Network section: 3 tap-rows + 2 inline toggles.
+// All state is self-contained; no params needed from settings_screen.
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../controllers/chat_controller.dart';
+import '../../l10n/l10n_ext.dart';
 import '../../services/background_service.dart';
+import '../../services/tor_service.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/design_tokens.dart';
-import '../../widgets/turn_config_section.dart';
-import '../../widgets/tor_config_section.dart';
-import '../../widgets/i2p_config_section.dart';
-import '../../widgets/custom_proxy_section.dart';
-import '../../widgets/psiphon_config_section.dart';
-import '../network_diagnostics_screen.dart';
 import 'settings_widgets.dart';
-import '../../l10n/l10n_ext.dart';
+import 'provider_screen.dart';
+import 'proxy_tunnels_screen.dart';
+import 'turn_screen.dart';
 
-class NetworkSection extends StatelessWidget {
-  final List<String> enabledPresets;
-  final TextEditingController turnUrlController;
-  final TextEditingController turnUsernameController;
-  final TextEditingController turnPasswordController;
-  final ValueChanged<List<String>> onPresetsChanged;
+class NetworkSection extends StatefulWidget {
+  const NetworkSection({super.key});
 
-  final bool lanModeEnabled;
-  final ValueChanged<bool> onLanModeChanged;
+  @override
+  State<NetworkSection> createState() => _NetworkSectionState();
+}
 
-  final bool bgServiceEnabled;
-  final ValueChanged<bool> onBgServiceChanged;
+class _NetworkSectionState extends State<NetworkSection> {
+  bool _lanModeEnabled = true;
+  bool _bgServiceEnabled = false;
+  String _currentProvider = 'Firebase';
+  bool _torActive = false;
 
-  final bool torEnabled;
-  final bool bundledTorEnabled;
-  final bool bundledTorLoading;
-  final String preferredPt;
-  final TextEditingController torHostController;
-  final TextEditingController torPortController;
-  final ValueChanged<bool> onTorEnabledChanged;
-  final VoidCallback onToggleBundledTor;
-  final ValueChanged<String> onPreferredPtChanged;
-
-  final bool customProxyEnabled;
-  final TextEditingController customProxyHostController;
-  final TextEditingController customProxyPortController;
-  final ValueChanged<bool> onCustomProxyEnabledChanged;
-  final TextEditingController cfWorkerRelayController;
-
-  final bool psiphonEnabled;
-  final bool psiphonLoading;
-  final VoidCallback onTogglePsiphon;
-
-  final bool i2pEnabled;
-  final TextEditingController i2pHostController;
-  final TextEditingController i2pPortController;
-  final ValueChanged<bool> onI2pEnabledChanged;
-
-  const NetworkSection({
-    super.key,
-    required this.enabledPresets,
-    required this.turnUrlController,
-    required this.turnUsernameController,
-    required this.turnPasswordController,
-    required this.onPresetsChanged,
-    required this.lanModeEnabled,
-    required this.onLanModeChanged,
-    required this.bgServiceEnabled,
-    required this.onBgServiceChanged,
-    required this.torEnabled,
-    required this.bundledTorEnabled,
-    required this.bundledTorLoading,
-    required this.preferredPt,
-    required this.torHostController,
-    required this.torPortController,
-    required this.onTorEnabledChanged,
-    required this.onToggleBundledTor,
-    required this.onPreferredPtChanged,
-    required this.customProxyEnabled,
-    required this.customProxyHostController,
-    required this.customProxyPortController,
-    required this.onCustomProxyEnabledChanged,
-    required this.cfWorkerRelayController,
-    required this.psiphonEnabled,
-    required this.psiphonLoading,
-    required this.onTogglePsiphon,
-    required this.i2pEnabled,
-    required this.i2pHostController,
-    required this.i2pPortController,
-    required this.onI2pEnabledChanged,
-  });
-
-  Widget _buildLanToggle(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: AppTheme.surface,
-        borderRadius: BorderRadius.circular(DesignTokens.radiusLarge),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.wifi_rounded,
-              color: Color(0xFF25D366), size: 22),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  context.l10n.settingsLanFallback,
-                  style: GoogleFonts.inter(
-                    color: AppTheme.textPrimary,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  context.l10n.settingsLanFallbackSubtitle,
-                  style: GoogleFonts.inter(
-                      color: AppTheme.textSecondary,
-                      fontSize: 11,
-                      height: 1.4),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 10),
-          Switch.adaptive(
-            value: lanModeEnabled,
-            activeThumbColor: const Color(0xFF25D366),
-            onChanged: (v) async {
-              onLanModeChanged(v);
-              await ChatController().setLanModeEnabled(v);
-            },
-          ),
-        ],
-      ),
-    );
+  @override
+  void initState() {
+    super.initState();
+    _load();
+    TorService.instance.stateChanges.listen((_) {
+      if (mounted) {
+        setState(() => _torActive = TorService.instance.isRunning);
+      }
+    });
   }
 
-  Widget _buildBgServiceToggle(BuildContext context) {
+  Future<void> _load() async {
+    final prefs = await SharedPreferences.getInstance();
+    final lan = await ChatController.getLanModeEnabled();
+    final bg = await BackgroundService.instance.isEnabled();
+    final provider = prefs.getString('byod_provider') ?? 'Firebase';
+    final torEnabled = prefs.getBool('bundled_tor_enabled') ?? false;
+    if (!mounted) return;
+    setState(() {
+      _lanModeEnabled = lan;
+      _bgServiceEnabled = bg;
+      _currentProvider = provider;
+      _torActive = torEnabled || TorService.instance.isRunning;
+    });
+  }
+
+  String _proxySubtitle() {
+    if (TorService.instance.isRunning) return 'Tor';
+    return '';
+  }
+
+  Widget _buildToggle({
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    required String subtitle,
+    required bool value,
+    required ValueChanged<bool> onChanged,
+  }) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         color: AppTheme.surface,
         borderRadius: BorderRadius.circular(DesignTokens.radiusLarge),
       ),
-      child: Row(
-        children: [
-          const Icon(Icons.notifications_active_rounded,
-              color: Color(0xFF3498DB), size: 22),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  context.l10n.settingsBgDelivery,
-                  style: GoogleFonts.inter(
-                    color: AppTheme.textPrimary,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  context.l10n.settingsBgDeliverySubtitle,
-                  style: GoogleFonts.inter(
-                      color: AppTheme.textSecondary,
-                      fontSize: 11,
-                      height: 1.4),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 10),
-          Switch.adaptive(
-            value: bgServiceEnabled,
-            activeThumbColor: const Color(0xFF3498DB),
-            onChanged: (v) async {
-              onBgServiceChanged(v);
-              await BackgroundService.instance.setEnabled(v);
-            },
-          ),
-        ],
-      ),
+      child: Row(children: [
+        Icon(icon, color: iconColor, size: 22),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(title,
+                style: GoogleFonts.inter(
+                  color: AppTheme.textPrimary,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                )),
+            const SizedBox(height: 2),
+            Text(subtitle,
+                style: GoogleFonts.inter(
+                    color: AppTheme.textSecondary,
+                    fontSize: 11,
+                    height: 1.4)),
+          ]),
+        ),
+        const SizedBox(width: 10),
+        Switch.adaptive(
+          value: value,
+          activeTrackColor: iconColor,
+          onChanged: onChanged,
+        ),
+      ]),
     );
   }
 
@@ -192,74 +107,86 @@ class NetworkSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // ─── Calls & TURN ─────────────────────────────────────
-        settingsSectionDivider(context.l10n.settingsCallsTurn),
-        const SizedBox(height: 6),
-        TurnConfigSection(
-          enabledPresets: enabledPresets,
-          turnUrlController: turnUrlController,
-          turnUsernameController: turnUsernameController,
-          turnPasswordController: turnPasswordController,
-          onPresetsChanged: onPresetsChanged,
-        ),
+        settingsSectionDivider(context.l10n.settingsNetwork),
+        const SizedBox(height: 14),
 
-        const SizedBox(height: 32),
-
-        // ─── Local Network ────────────────────────────────────
-        settingsSectionDivider(context.l10n.settingsLocalNetwork),
-        const SizedBox(height: 10),
-        _buildLanToggle(context),
-        if (Platform.isAndroid) ...[
-          const SizedBox(height: 12),
-          _buildBgServiceToggle(context),
-        ],
-
-        const SizedBox(height: 32),
-
-        // ─── Censorship Resistance ────────────────────────────
-        settingsSectionDivider(context.l10n.settingsCensorshipResistance),
-        const SizedBox(height: 6),
-        TorConfigSection(
-          torEnabled: torEnabled,
-          bundledTorEnabled: bundledTorEnabled,
-          bundledTorLoading: bundledTorLoading,
-          preferredPt: preferredPt,
-          torHostController: torHostController,
-          torPortController: torPortController,
-          onTorEnabledChanged: onTorEnabledChanged,
-          onToggleBundledTor: onToggleBundledTor,
-          onPreferredPtChanged: (val) async {
-            onPreferredPtChanged(val);
+        // ── Provider ──────────────────────────────────────────
+        settingsRow(
+          icon: Icons.swap_horiz_rounded,
+          iconColor: const Color(0xFFFFAB00),
+          title: context.l10n.settingsProviderTitle,
+          subtitle: _currentProvider,
+          onTap: () async {
+            await Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const ProviderScreen()),
+            );
+            // Refresh provider label after returning
             final prefs = await SharedPreferences.getInstance();
-            await prefs.setString('preferred_pt', val);
+            if (mounted) {
+              setState(() => _currentProvider =
+                  prefs.getString('byod_provider') ?? 'Firebase');
+            }
           },
-          onOpenDiagnostics: () => Navigator.push(
+        ),
+        const SizedBox(height: 12),
+
+        // ── TURN ──────────────────────────────────────────────
+        settingsRow(
+          icon: Icons.phone_in_talk_rounded,
+          iconColor: const Color(0xFF3498DB),
+          title: context.l10n.settingsTurnServers,
+          subtitle: '',
+          onTap: () => Navigator.push(
             context,
-            MaterialPageRoute(
-                builder: (_) => const NetworkDiagnosticsScreen()),
+            MaterialPageRoute(builder: (_) => const TurnScreen()),
           ),
         ),
         const SizedBox(height: 12),
-        PsiphonConfigSection(
-          psiphonEnabled: psiphonEnabled,
-          psiphonLoading: psiphonLoading,
-          onToggle: onTogglePsiphon,
+
+        // ── Proxy & Tunnels ───────────────────────────────────
+        settingsRow(
+          icon: Icons.vpn_lock_rounded,
+          iconColor: const Color(0xFF9B59B6),
+          title: context.l10n.settingsProxyTunnels,
+          subtitle: _proxySubtitle(),
+          onTap: () async {
+            await Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (_) => const ProxyTunnelsScreen()),
+            );
+            if (mounted) setState(() {});
+          },
         ),
         const SizedBox(height: 12),
-        CustomProxySection(
-          proxyEnabled: customProxyEnabled,
-          proxyHostController: customProxyHostController,
-          proxyPortController: customProxyPortController,
-          onProxyEnabledChanged: onCustomProxyEnabledChanged,
-          workerRelayController: cfWorkerRelayController,
+
+        // ── LAN toggle ────────────────────────────────────────
+        _buildToggle(
+          icon: Icons.wifi_rounded,
+          iconColor: const Color(0xFF25D366),
+          title: context.l10n.settingsLanFallback,
+          subtitle: context.l10n.settingsLanFallbackSubtitle,
+          value: _lanModeEnabled,
+          onChanged: (v) async {
+            setState(() => _lanModeEnabled = v);
+            await ChatController().setLanModeEnabled(v);
+          },
         ),
-        if (!bundledTorEnabled) ...[
+
+        // ── Background service (Android only) ─────────────────
+        if (Platform.isAndroid) ...[
           const SizedBox(height: 12),
-          I2pConfigSection(
-            i2pEnabled: i2pEnabled,
-            i2pHostController: i2pHostController,
-            i2pPortController: i2pPortController,
-            onI2pEnabledChanged: onI2pEnabledChanged,
+          _buildToggle(
+            icon: Icons.notifications_active_rounded,
+            iconColor: const Color(0xFF3498DB),
+            title: context.l10n.settingsBgDelivery,
+            subtitle: context.l10n.settingsBgDeliverySubtitle,
+            value: _bgServiceEnabled,
+            onChanged: (v) async {
+              setState(() => _bgServiceEnabled = v);
+              await BackgroundService.instance.setEnabled(v);
+            },
           ),
         ],
       ],

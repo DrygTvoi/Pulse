@@ -63,4 +63,9 @@ flutter {
 
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
+    // SQLCipher: bundles libsqlcipher.so for arm64, arm32, x86, x86_64.
+    // Dart FFI loads it via DynamicLibrary.open('libsqlcipher.so').
+    implementation("net.zetetic:android-database-sqlcipher:4.5.4@aar") {
+        isTransitive = true
+    }
 }

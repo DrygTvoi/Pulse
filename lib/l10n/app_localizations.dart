@@ -2630,6 +2630,30 @@ abstract class AppLocalizations {
   /// **'Censorship Resistance'**
   String get settingsCensorshipResistance;
 
+  /// Settings section label
+  ///
+  /// In en, this message translates to:
+  /// **'Network'**
+  String get settingsNetwork;
+
+  /// Proxy/Tor/I2P screen title
+  ///
+  /// In en, this message translates to:
+  /// **'Proxy & Tunnels'**
+  String get settingsProxyTunnels;
+
+  /// TURN config screen title
+  ///
+  /// In en, this message translates to:
+  /// **'TURN Servers'**
+  String get settingsTurnServers;
+
+  /// Provider screen title
+  ///
+  /// In en, this message translates to:
+  /// **'Provider'**
+  String get settingsProviderTitle;
+
   /// Settings toggle title
   ///
   /// In en, this message translates to:

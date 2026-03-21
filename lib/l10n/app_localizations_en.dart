@@ -1431,6 +1431,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsCensorshipResistance => 'Censorship Resistance';
 
   @override
+  String get settingsNetwork => 'Network';
+
+  @override
+  String get settingsProxyTunnels => 'Proxy & Tunnels';
+
+  @override
+  String get settingsTurnServers => 'TURN Servers';
+
+  @override
+  String get settingsProviderTitle => 'Provider';
+
+  @override
   String get settingsLanFallback => 'LAN Fallback';
 
   @override

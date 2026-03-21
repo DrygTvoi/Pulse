@@ -121,6 +121,13 @@ install(CODE "
 install(DIRECTORY "${PROJECT_BUILD_DIR}/${FLUTTER_ASSET_DIR_NAME}"
   DESTINATION "${INSTALL_BUNDLE_DATA_DIR}" COMPONENT Runtime)
 
+# Bundle the SQLCipher shared library so users don't need to install sqlcipher.
+# The binary already has RPATH=$ORIGIN/lib, so DynamicLibrary.open('libsqlcipher.so')
+# finds it automatically at runtime.
+install(FILES "${CMAKE_SOURCE_DIR}/libs/libsqlcipher.so"
+  DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
+  COMPONENT Runtime)
+
 # Install the AOT library on non-Debug builds only.
 if(NOT CMAKE_BUILD_TYPE MATCHES "Debug")
   install(FILES "${AOT_LIBRARY}" DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
