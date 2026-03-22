@@ -105,6 +105,10 @@ class NotificationService {
           preview = '📷 Photo';
         } else if (m?.isVoice == true) {
           preview = '🎤 Voice message';
+        } else if (m?.isVideoNote == true) {
+          preview = '🎥 Video message';
+        } else if (m?.isGif == true) {
+          preview = 'GIF';
         } else {
           preview = '📎 ${m?.name ?? 'File'}';
         }

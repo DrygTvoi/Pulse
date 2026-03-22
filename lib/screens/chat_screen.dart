@@ -21,6 +21,8 @@ import '../widgets/message_menu.dart' as menu;
 import '../widgets/swipeable_bubble.dart';
 import '../widgets/chat_app_bar.dart';
 import '../widgets/connection_banner.dart';
+import '../widgets/emoji_picker_panel.dart';
+import '../services/video_service.dart';
 import '../l10n/l10n_ext.dart';
 import '../models/contact_repository.dart';
 
@@ -65,6 +67,7 @@ class _ChatScreenState extends State<ChatScreen> {
   Message? _replyingTo;
 
   bool _chatMuted = false;
+  bool _showEmojiPicker = false;
 
   // Cached reference for dispose() (context.read is unsafe in dispose)
   ChatController? _cachedController;
@@ -111,7 +114,12 @@ class _ChatScreenState extends State<ChatScreen> {
     _scrollController.addListener(_onScroll);
     _controller.addListener(_onTyping);
     _inputFocusNode.addListener(() {
-      if (mounted) setState(() => _inputFocused = _inputFocusNode.hasFocus);
+      if (mounted) {
+        setState(() {
+          _inputFocused = _inputFocusNode.hasFocus;
+          if (_inputFocusNode.hasFocus && _showEmojiPicker) _showEmojiPicker = false;
+        });
+      }
     });
     // Ctrl+Enter to send on desktop
     _inputFocusNode.onKeyEvent = (_, event) {
@@ -328,6 +336,46 @@ class _ChatScreenState extends State<ChatScreen> {
         );
       }
     }
+  }
+
+  Future<void> _sendVideo() async {
+    final payload = await VideoService().pickAndCreatePayload();
+    if (payload == null || !mounted) return;
+    await context.read<ChatController>().sendMessage(_contact, payload);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
+  }
+
+  void _toggleEmojiPicker() {
+    if (_showEmojiPicker) {
+      setState(() => _showEmojiPicker = false);
+      _inputFocusNode.requestFocus();
+    } else {
+      _inputFocusNode.unfocus();
+      setState(() => _showEmojiPicker = true);
+    }
+  }
+
+  void _onEmojiSelected(String emoji) {
+    final text = _controller.text;
+    final selection = _controller.selection;
+    final start = selection.baseOffset >= 0 ? selection.baseOffset : text.length;
+    final end = selection.extentOffset >= 0 ? selection.extentOffset : text.length;
+    final newText = text.replaceRange(start, end, emoji);
+    _controller.text = newText;
+    final newCursor = start + emoji.length;
+    _controller.selection = TextSelection.collapsed(offset: newCursor);
+  }
+
+  void _onEmojiBackspace() {
+    final text = _controller.text;
+    if (text.isEmpty) return;
+    final selection = _controller.selection;
+    final cursor = selection.baseOffset >= 0 ? selection.baseOffset : text.length;
+    if (cursor == 0) return;
+    // Remove last character (handles multi-byte characters)
+    final newText = text.substring(0, cursor - 1) + text.substring(cursor);
+    _controller.text = newText;
+    _controller.selection = TextSelection.collapsed(offset: cursor - 1);
   }
 
   Future<void> _startRecording() async {
@@ -857,11 +905,13 @@ class _ChatScreenState extends State<ChatScreen> {
           replyingTo: _replyingTo,
           editingMessageId: _editingMessageId,
           scheduledCount: scheduledMsgs.length,
+          showEmojiPicker: _showEmojiPicker,
           onSend: _sendMessage,
           onAttach: () => menu.showAttachMenu(
             context: context,
             onPickImage: () => _sendMedia(imageOnly: true),
             onPickFile: () => _sendMedia(),
+            onPickVideo: _sendVideo,
           ),
           onStartRecording: _startRecording,
           onStopRecording: _stopRecording,
@@ -877,7 +927,13 @@ class _ChatScreenState extends State<ChatScreen> {
             scheduled: scheduledMsgs,
             contact: _contact,
           ),
+          onToggleEmojiPicker: _toggleEmojiPicker,
         ),
+        if (_showEmojiPicker)
+          EmojiPickerPanel(
+            onEmojiSelected: _onEmojiSelected,
+            onBackspace: _onEmojiBackspace,
+          ),
       ]),
     );
   }

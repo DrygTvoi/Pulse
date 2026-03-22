@@ -59,11 +59,21 @@ class MediaService {
     final bytes = file.bytes;
     if (bytes == null) return null;
 
+    final safeName = MediaValidator.sanitizeFilename(file.name);
+
+    // Detect GIF — send as animated (no re-encoding)
+    if (_isGifBytes(bytes)) {
+      final gifCheck = MediaValidator.validateGif(bytes);
+      if (!gifCheck.isValid) throw MediaSecurityException(gifCheck.reason!);
+      final b64 = base64Encode(bytes);
+      final payload = jsonEncode({'t': 'gif', 'd': b64, 'n': safeName, 'sz': bytes.length});
+      return (payload: payload, name: safeName, size: bytes.length);
+    }
+
     // Security: validate before any processing
     final check = MediaValidator.validateImage(bytes);
     if (!check.isValid) throw MediaSecurityException(check.reason!);
 
-    final safeName = MediaValidator.sanitizeFilename(file.name);
     final processed = await compute(_compressImageIsolate, bytes);
     final b64 = base64Encode(processed);
     final payload = jsonEncode({'t': 'img', 'd': b64, 'n': safeName, 'sz': processed.length});
@@ -188,9 +198,11 @@ class MediaService {
       // Pre-decode size guard: estimate decoded bytes from base64 length before
       // actually allocating a potentially huge buffer.
       final estimatedBytes = (b64Field.length * 3 / 4).ceil();
-      final sizeLimit = type == 'img'   ? 20 * 1024 * 1024   // 20 MB
-                      : type == 'voice' ? 10 * 1024 * 1024   // 10 MB
-                      : _maxFileSizeBytes;                    // 100 MB
+      final sizeLimit = type == 'img'        ? 20 * 1024 * 1024   // 20 MB
+                      : type == 'voice'      ? 10 * 1024 * 1024   // 10 MB
+                      : type == 'video_note' ? 15 * 1024 * 1024   // 15 MB
+                      : type == 'gif'        ? 10 * 1024 * 1024   // 10 MB
+                      : _maxFileSizeBytes;                         // 100 MB
       if (estimatedBytes > sizeLimit) {
         debugPrint('[MediaService] Rejected: estimated size $estimatedBytes > $sizeLimit');
         return null;
@@ -221,6 +233,18 @@ class MediaService {
           debugPrint('[MediaService] Rejected audio: ${check.reason}');
           return null;
         }
+      } else if (type == 'video_note') {
+        final check = MediaValidator.validateVideo(rawData);
+        if (!check.isValid) {
+          debugPrint('[MediaService] Rejected video: ${check.reason}');
+          return null;
+        }
+      } else if (type == 'gif') {
+        final check = MediaValidator.validateGif(rawData);
+        if (!check.isValid) {
+          debugPrint('[MediaService] Rejected gif: ${check.reason}');
+          return null;
+        }
       } else if (type == 'file') {
         final name = MediaValidator.sanitizeFilename(map['n'] as String? ?? 'file');
         final check = MediaValidator.validateFile(rawData, name);
@@ -240,6 +264,11 @@ class MediaService {
 
       final safeName = MediaValidator.sanitizeFilename(map['n'] as String? ?? 'file');
 
+      Uint8List? thumbData;
+      if (type == 'video_note' && map['thumb'] is String) {
+        try { thumbData = base64Decode(map['thumb'] as String); } catch (_) {}
+      }
+
       return MediaPayload(
         type: type,
         data: rawData,
@@ -247,6 +276,7 @@ class MediaService {
         size: (map['sz'] as num?)?.toInt() ?? rawData.length,
         durationSeconds: (map['dur'] as num?)?.toInt() ?? 0,
         amplitudes: amplitudes,
+        thumbnailData: thumbData,
       );
     } catch (e) {
       debugPrint('[MediaService] Parse error: $e');
@@ -254,6 +284,10 @@ class MediaService {
     }
   }
 
+  static bool _isGifBytes(Uint8List b) =>
+      b.length >= 6 &&
+      b[0] == 0x47 && b[1] == 0x49 && b[2] == 0x46 &&
+      b[3] == 0x38 && (b[4] == 0x37 || b[4] == 0x39) && b[5] == 0x61;
 }
 
 class MediaTooLargeException implements Exception {
@@ -271,12 +305,13 @@ class MediaSecurityException implements Exception {
 }
 
 class MediaPayload {
-  final String type; // 'img', 'file', or 'voice'
+  final String type; // 'img', 'file', 'voice', 'video_note', 'gif'
   final Uint8List data;
   final String name;
   final int size;
   final int durationSeconds; // for voice messages
   final List<double>? amplitudes; // normalised 0..1, length == _waveformBars
+  final Uint8List? thumbnailData; // for video_note
 
   const MediaPayload({
     required this.type,
@@ -285,10 +320,13 @@ class MediaPayload {
     required this.size,
     this.durationSeconds = 0,
     this.amplitudes,
+    this.thumbnailData,
   });
 
   bool get isImage => type == 'img';
   bool get isVoice => type == 'voice';
+  bool get isVideoNote => type == 'video_note';
+  bool get isGif => type == 'gif';
 
   String get sizeLabel {
     if (size < 1024) return '${size}B';

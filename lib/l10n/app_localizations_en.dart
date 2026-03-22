@@ -700,6 +700,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get bubbleReplyVoice => 'Voice message';
 
   @override
+  String get bubbleReplyVideo => 'Video message';
+
+  @override
   String bubbleReadBy(String names) {
     return 'Read by $names';
   }
@@ -1063,6 +1066,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get menuAttachFile => 'File';
+
+  @override
+  String get menuAttachVideo => 'Video';
 
   @override
   String get mediaTitle => 'Media';

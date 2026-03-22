@@ -18,6 +18,7 @@ class MessageInputBar extends StatelessWidget {
   final Message? replyingTo;
   final String? editingMessageId;
   final int scheduledCount;
+  final bool showEmojiPicker;
 
   // Callbacks
   final VoidCallback onSend;
@@ -29,6 +30,7 @@ class MessageInputBar extends StatelessWidget {
   final VoidCallback onCancelEdit;
   final VoidCallback onSchedulePicker;
   final VoidCallback onShowScheduledPanel;
+  final VoidCallback onToggleEmojiPicker;
 
   const MessageInputBar({
     super.key,
@@ -40,6 +42,7 @@ class MessageInputBar extends StatelessWidget {
     required this.replyingTo,
     required this.editingMessageId,
     required this.scheduledCount,
+    this.showEmojiPicker = false,
     required this.onSend,
     required this.onAttach,
     required this.onStartRecording,
@@ -49,6 +52,7 @@ class MessageInputBar extends StatelessWidget {
     required this.onCancelEdit,
     required this.onSchedulePicker,
     required this.onShowScheduledPanel,
+    required this.onToggleEmojiPicker,
   });
 
   String _replyPreview() {
@@ -59,6 +63,8 @@ class MessageInputBar extends StatelessWidget {
       final parsed = MediaService.parse(payload);
       if (parsed?.isImage == true) return '📷 Photo';
       if (parsed?.isVoice == true) return '🎙 Voice message';
+      if (parsed?.isVideoNote == true) return '🎥 Video message';
+      if (parsed?.isGif == true) return 'GIF';
       return '📎 ${parsed?.name ?? 'File'}';
     }
     return payload.length > 60 ? '${payload.substring(0, 60)}…' : payload;
@@ -156,6 +162,23 @@ class MessageInputBar extends StatelessWidget {
 
   Widget _buildNormalInputBar(BuildContext context) {
     return Row(children: [
+      // Emoji toggle
+      Semantics(
+        label: 'Emoji picker',
+        button: true,
+        child: GestureDetector(
+          onTap: onToggleEmojiPicker,
+          child: Container(
+            width: 38, height: 38,
+            margin: const EdgeInsets.only(left: DesignTokens.spacing4),
+            decoration: BoxDecoration(color: AppTheme.surfaceVariant, shape: BoxShape.circle),
+            child: Icon(
+              showEmojiPicker ? Icons.keyboard_rounded : Icons.emoji_emotions_outlined,
+              color: AppTheme.textSecondary, size: DesignTokens.iconMd,
+            ),
+          ),
+        ),
+      ),
       // Attach button
       Semantics(
         label: context.l10n.inputAttachFile,
