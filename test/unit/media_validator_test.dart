@@ -624,4 +624,112 @@ void main() {
       expect(r.toString(), equals('rejected: too big'));
     });
   });
+
+  // ==========================================================================
+  // validateVideo
+  // ==========================================================================
+  group('validateVideo', () {
+    Uint8List _makeMp4({int size = 64}) {
+      final b = Uint8List(size);
+      // MP4 "ftyp" at offset 4
+      b[4] = 0x66; b[5] = 0x74; b[6] = 0x79; b[7] = 0x70;
+      return b;
+    }
+
+    Uint8List _makeWebM({int size = 64}) {
+      final b = Uint8List(size);
+      // EBML header 0x1A45DFA3
+      b[0] = 0x1A; b[1] = 0x45; b[2] = 0xDF; b[3] = 0xA3;
+      return b;
+    }
+
+    test('accepts valid MP4 bytes', () {
+      final result = MediaValidator.validateVideo(_makeMp4());
+      expect(result.isValid, isTrue);
+    });
+
+    test('accepts valid WebM bytes', () {
+      final result = MediaValidator.validateVideo(_makeWebM());
+      expect(result.isValid, isTrue);
+    });
+
+    test('rejects video exceeding 15 MB', () {
+      final big = _makeMp4(size: MediaValidator.maxVideoNoteBytes + 1);
+      final result = MediaValidator.validateVideo(big);
+      expect(result.isValid, isFalse);
+      expect(result.reason, contains('15 MB'));
+    });
+
+    test('rejects bytes without video magic', () {
+      final result = MediaValidator.validateVideo(Uint8List(64));
+      expect(result.isValid, isFalse);
+      expect(result.reason, contains('video format'));
+    });
+
+    test('rejects bytes too short for magic detection', () {
+      final result = MediaValidator.validateVideo(Uint8List(4));
+      expect(result.isValid, isFalse);
+    });
+
+    test('accepts MP4 at exactly 15 MB', () {
+      final exact = _makeMp4(size: MediaValidator.maxVideoNoteBytes);
+      final result = MediaValidator.validateVideo(exact);
+      expect(result.isValid, isTrue);
+    });
+  });
+
+  // ==========================================================================
+  // validateGif
+  // ==========================================================================
+  group('validateGif', () {
+    Uint8List _makeGif89a({int size = 64}) {
+      final b = Uint8List(size);
+      // GIF89a: 47 49 46 38 39 61
+      b[0] = 0x47; b[1] = 0x49; b[2] = 0x46;
+      b[3] = 0x38; b[4] = 0x39; b[5] = 0x61;
+      return b;
+    }
+
+    Uint8List _makeGif87a({int size = 64}) {
+      final b = Uint8List(size);
+      // GIF87a: 47 49 46 38 37 61
+      b[0] = 0x47; b[1] = 0x49; b[2] = 0x46;
+      b[3] = 0x38; b[4] = 0x37; b[5] = 0x61;
+      return b;
+    }
+
+    test('accepts valid GIF89a bytes', () {
+      final result = MediaValidator.validateGif(_makeGif89a());
+      expect(result.isValid, isTrue);
+    });
+
+    test('accepts valid GIF87a bytes', () {
+      final result = MediaValidator.validateGif(_makeGif87a());
+      expect(result.isValid, isTrue);
+    });
+
+    test('rejects GIF exceeding 10 MB', () {
+      final big = _makeGif89a(size: MediaValidator.maxGifBytes + 1);
+      final result = MediaValidator.validateGif(big);
+      expect(result.isValid, isFalse);
+      expect(result.reason, contains('10 MB'));
+    });
+
+    test('rejects bytes without GIF magic', () {
+      final result = MediaValidator.validateGif(Uint8List(64));
+      expect(result.isValid, isFalse);
+      expect(result.reason, contains('GIF'));
+    });
+
+    test('rejects bytes too short for magic detection', () {
+      final result = MediaValidator.validateGif(Uint8List(3));
+      expect(result.isValid, isFalse);
+    });
+
+    test('accepts GIF at exactly 10 MB', () {
+      final exact = _makeGif89a(size: MediaValidator.maxGifBytes);
+      final result = MediaValidator.validateGif(exact);
+      expect(result.isValid, isTrue);
+    });
+  });
 }

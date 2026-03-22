@@ -47,6 +47,7 @@ MessageInputBar _makeInputBar({
     onCancelEdit: () {},
     onSchedulePicker: () {},
     onShowScheduledPanel: () {},
+    onToggleEmojiPicker: () {},
   );
 }
 
@@ -130,6 +131,49 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(SafeArea), findsOneWidget);
+    });
+
+    // ── Test 8: Has emoji toggle button ──────────────────────────────────────
+
+    testWidgets('has emoji toggle button (smiley icon)',
+        (WidgetTester tester) async {
+      await tester.pumpWidget(buildTestableWidget(_makeInputBar()));
+      await tester.pumpAndSettle();
+
+      expect(find.byIcon(Icons.emoji_emotions_outlined), findsOneWidget);
+    });
+
+    // ── Test 9: Emoji button shows keyboard icon when picker is open ─────────
+
+    testWidgets('shows keyboard icon when emoji picker is open',
+        (WidgetTester tester) async {
+      await tester.pumpWidget(buildTestableWidget(
+        MessageInputBar(
+          controller: TextEditingController(),
+          focusNode: FocusNode(),
+          inputFocused: false,
+          isRecording: false,
+          recordingSeconds: 0,
+          replyingTo: null,
+          editingMessageId: null,
+          scheduledCount: 0,
+          showEmojiPicker: true,
+          onSend: () {},
+          onAttach: () {},
+          onStartRecording: () {},
+          onStopRecording: () {},
+          onCancelRecording: () {},
+          onCancelReply: () {},
+          onCancelEdit: () {},
+          onSchedulePicker: () {},
+          onShowScheduledPanel: () {},
+          onToggleEmojiPicker: () {},
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.byIcon(Icons.keyboard_rounded), findsOneWidget);
+      expect(find.byIcon(Icons.emoji_emotions_outlined), findsNothing);
     });
   });
 }
