@@ -15,9 +15,18 @@ import 'package:local_notifier/local_notifier.dart'
 import 'package:flutter_local_notifications/flutter_local_notifications.dart' as fln;
 
 class NotificationService {
-  static final NotificationService _instance = NotificationService._();
+  static NotificationService _instance = NotificationService._();
   factory NotificationService() => _instance;
   NotificationService._();
+
+  /// Protected constructor for test subclasses.
+  @visibleForTesting
+  NotificationService.forTesting();
+
+  /// Replace the singleton for testing.
+  @visibleForTesting
+  static void setInstanceForTesting(NotificationService inst) =>
+      _instance = inst;
 
   static const String _mutePrefix = 'chat_mute_';
 

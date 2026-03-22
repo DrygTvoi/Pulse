@@ -66,6 +66,9 @@ class _ChatScreenState extends State<ChatScreen> {
 
   bool _chatMuted = false;
 
+  // Cached reference for dispose() (context.read is unsafe in dispose)
+  ChatController? _cachedController;
+
   // Key change warning banner
   bool _showKeyChangeBanner = false;
 
@@ -167,8 +170,14 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _cachedController = context.read<ChatController>();
+  }
+
+  @override
   void dispose() {
-    context.read<ChatController>().setActiveRoom(null);
+    _cachedController?.setActiveRoom(null);
     // Save draft
     final draft = _controller.text.trim();
     final storage = LocalStorageService();

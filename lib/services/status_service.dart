@@ -1,9 +1,14 @@
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user_status.dart';
 
 class StatusService {
-  static final StatusService instance = StatusService._();
+  static StatusService instance = StatusService._();
   StatusService._();
+
+  /// Replace the singleton for testing.
+  @visibleForTesting
+  static void setInstanceForTesting(StatusService inst) => instance = inst;
 
   static const String _ownStatusKey = 'my_status';
   static String _contactKey(String contactId) => 'contact_status_$contactId';

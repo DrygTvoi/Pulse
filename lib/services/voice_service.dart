@@ -12,9 +12,17 @@ const _waveformBars = 30;
 /// Handles voice message recording.
 /// Playback is handled per-bubble via audioplayers (see message_bubble.dart).
 class VoiceService {
-  static final VoiceService _instance = VoiceService._();
+  static VoiceService _instance = VoiceService._();
   factory VoiceService() => _instance;
   VoiceService._();
+
+  /// Protected constructor for test subclasses.
+  @visibleForTesting
+  VoiceService.forTesting();
+
+  /// Replace the singleton for testing.
+  @visibleForTesting
+  static void setInstanceForTesting(VoiceService inst) => _instance = inst;
 
   final AudioRecorder _recorder = AudioRecorder();
   String? _currentPath;
