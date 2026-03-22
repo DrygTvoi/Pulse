@@ -304,13 +304,11 @@ Uint8List computeEcdhSecret(String ourPrivkeyHex, String theirPubkeyHex) {
   return _bigIntToBytes(xVal, 32);
 }
 
-/// Encrypt plaintext with NIP-04 (AES-CBC + HMAC-SHA256 MAC). Visible for testing.
-@visibleForTesting
+/// Encrypt plaintext with NIP-04 (AES-CBC + HMAC-SHA256 MAC).
 String nip04Encrypt(String senderPrivkeyHex, String recipientPubkeyHex, String plaintext) =>
     _nip04Encrypt(senderPrivkeyHex, recipientPubkeyHex, plaintext);
 
-/// Decrypt NIP-04 ciphertext. Requires MAC — throws if missing or invalid. Visible for testing.
-@visibleForTesting
+/// Decrypt NIP-04 ciphertext. Requires MAC — throws if missing or invalid.
 String nip04Decrypt(String recipientPrivkeyHex, String senderPubkeyHex, String ciphertext) =>
     _nip04Decrypt(recipientPrivkeyHex, senderPubkeyHex, ciphertext);
 
@@ -640,22 +638,35 @@ class NostrInboxReader implements InboxReader {
   bool _circuitBroken = false;
 
   bool _loopStarted = false;
+  bool _running = false;
+  WebSocketChannel? _activeChannel;
 
   @override
   Stream<bool> get healthChanges => _healthCtrl.stream;
 
+  /// Stop the event loop and close the active WebSocket.
+  void close() {
+    _running = false;
+    _loopStarted = false;
+    try { _activeChannel?.sink.close(); } catch (_) {}
+    _activeChannel = null;
+  }
+
   void _ensureLoop() {
     if (_loopStarted || _privateKeyHex.isEmpty) return;
     _loopStarted = true;
+    _running = true;
     unawaited(_runSharedLoop());
   }
 
   Future<void> _runSharedLoop() async {
-    while (true) {
+    while (_running) {
       WebSocketChannel? channel;
       bool cycleSuccess = false;
+      if (!_running) break;
       try {
         channel = await _wsConnect(_relayUrl);
+        _activeChannel = channel;
         await channel.ready;
         debugPrint('[Nostr] Connected to $_relayUrl');
 
@@ -731,15 +742,18 @@ class NostrInboxReader implements InboxReader {
             : 300);
         debugPrint('[Nostr] Reconnecting in ${delay.inSeconds}s (failure $_consecutiveFailures/$_maxConsecutiveFailures)…');
         await Future.delayed(delay);
+        if (!_running) break;
       } else {
         // Successful cycle — reconnect quickly (relay closed gracefully).
         debugPrint('[Nostr] Reconnecting in 2s…');
         await Future.delayed(const Duration(seconds: 2));
+        if (!_running) break;
       }
     }
+    _activeChannel = null;
   }
 
-  void _dispatchGiftWrap(Map<String, dynamic> event) async {
+  Future<void> _dispatchGiftWrap(Map<String, dynamic> event) async {
     try {
       final inner = await giftwrap.unwrapEvent(
         recipientPrivkey: _privateKeyHex,
@@ -784,7 +798,7 @@ class NostrInboxReader implements InboxReader {
     }
   }
 
-  void _dispatchSignal(Map<String, dynamic> event) async {
+  Future<void> _dispatchSignal(Map<String, dynamic> event) async {
     try {
       final senderPubkey = event['pubkey'] as String? ?? '';
       final content = event['content'] as String? ?? '';
@@ -901,8 +915,9 @@ class NostrInboxReader implements InboxReader {
   @override
   Future<String?> provisionGroup(String groupName) async => '$_publicKeyHex@$_relayUrl';
 
-  /// Clear private key from memory.
+  /// Stop event loop and clear private key from memory.
   void zeroize() {
+    close();
     _privateKeyHex = '';
     _publicKeyHex = '';
   }
@@ -1047,7 +1062,7 @@ class NostrMessageSender implements MessageSender {
           if (!completer.isCompleted) completer.complete(false);
         });
         final result = await completer.future.timeout(
-          const Duration(seconds: 10), onTimeout: () => true,
+          const Duration(seconds: 10), onTimeout: () => false,
         );
         sub.cancel();
         channel.sink.close();

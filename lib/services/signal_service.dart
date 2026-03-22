@@ -21,6 +21,17 @@ class _PersistentSignalStore extends InMemorySignalProtocolStore {
   /// ChatController hooks this to republish the bundle with the next available preKey.
   VoidCallback? onPreKeyConsumed;
 
+  /// Read only entries matching [prefix] from secure storage.
+  /// Avoids leaking unrelated secrets (nostr_privkey, oxen_seed, etc.) into callers.
+  Future<Map<String, String>> _readByPrefix(String prefix) async {
+    final all = await _storage.readAll();
+    final filtered = <String, String>{};
+    for (final entry in all.entries) {
+      if (entry.key.startsWith(prefix)) filtered[entry.key] = entry.value;
+    }
+    return filtered;
+  }
+
   _PersistentSignalStore(
     super.identityKeyPair,
     super.registrationId,
@@ -31,9 +42,8 @@ class _PersistentSignalStore extends InMemorySignalProtocolStore {
 
   Future<void> restoreSessions() async {
     try {
-      final all = await _storage.readAll();
+      final all = await _readByPrefix(_sessionPrefix);
       for (final entry in all.entries) {
-        if (!entry.key.startsWith(_sessionPrefix)) continue;
         try {
           final withoutPrefix = entry.key.substring(_sessionPrefix.length);
           final lastUnderscore = withoutPrefix.lastIndexOf('_');
@@ -70,13 +80,9 @@ class _PersistentSignalStore extends InMemorySignalProtocolStore {
   @override
   Future<void> deleteAllSessions(String name) async {
     await super.deleteAllSessions(name);
-    final all = await _storage.readAll();
-    // Key format: signal_session_<name>_<deviceId (int)>
-    // Use startsWith + int-parse to avoid false positives when one contact
-    // name is a suffix of another (e.g. "abc" matching "xyz_abc_1").
     final expectedPrefix = '$_sessionPrefix${name}_';
+    final all = await _readByPrefix(expectedPrefix);
     for (final k in all.keys) {
-      if (!k.startsWith(expectedPrefix)) continue;
       final suffix = k.substring(expectedPrefix.length);
       if (int.tryParse(suffix) != null) {
         await _storage.delete(key: k);
@@ -111,9 +117,8 @@ class _PersistentSignalStore extends InMemorySignalProtocolStore {
   /// Re-hydrate persisted prekeys after a restart.
   Future<void> restorePreKeys() async {
     try {
-      final all = await _storage.readAll();
+      final all = await _readByPrefix(_preKeyPrefix);
       for (final entry in all.entries) {
-        if (!entry.key.startsWith(_preKeyPrefix)) continue;
         try {
           final map = jsonDecode(entry.value) as Map<String, dynamic>;
           final id = map['id'] as int;
@@ -140,9 +145,14 @@ class _PersistentSignalStore extends InMemorySignalProtocolStore {
 // ─────────────────────────────────────────────────────────────────
 
 class SignalService {
-  static final SignalService _instance = SignalService._internal();
+  static SignalService _instance = SignalService._internal();
   factory SignalService() => _instance;
   SignalService._internal();
+
+  /// Replace the singleton for testing.
+  @visibleForTesting
+  static void setInstanceForTesting(SignalService instance) =>
+      _instance = instance;
 
   final _storage = const FlutterSecureStorage();
   late IdentityKeyPair _identityKeyPair;

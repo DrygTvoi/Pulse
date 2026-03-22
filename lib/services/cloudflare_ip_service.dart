@@ -48,7 +48,7 @@ class CloudflareIpService {
     '131.0.72.0/22',
   ];
 
-  List<_CidrBlock>? _blocks;
+  List<CidrBlock>? _blocks;
   DateTime? _loadedAt;
 
   // ECH config cache: host → (config_bytes, fetched_at)
@@ -358,7 +358,7 @@ class CloudflareIpService {
         if (cached != null) {
           try {
             final list = List<String>.from(jsonDecode(cached) as List);
-            _blocks = list.map(_parseCidr).whereType<_CidrBlock>().toList();
+            _blocks = list.map(_parseCidr).whereType<CidrBlock>().toList();
             _loadedAt = DateTime.fromMillisecondsSinceEpoch(ts);
             debugPrint('[CF] Loaded ${_blocks!.length} CIDR blocks from cache');
             return;
@@ -372,7 +372,7 @@ class CloudflareIpService {
     // Fetch fresh from Cloudflare
     final fetched = await _fetchRanges();
     final ranges = fetched.isNotEmpty ? fetched : _fallbackRanges;
-    _blocks = ranges.map(_parseCidr).whereType<_CidrBlock>().toList();
+    _blocks = ranges.map(_parseCidr).whereType<CidrBlock>().toList();
     _loadedAt = DateTime.now();
 
     await prefs.setString(_cacheKeyRanges, jsonEncode(ranges));
@@ -415,7 +415,25 @@ class CloudflareIpService {
     }
   }
 
-  static _CidrBlock? _parseCidr(String cidr) {
+  @visibleForTesting
+  static CidrBlock? parseCidr(String cidr) => _parseCidr(cidr);
+
+  @visibleForTesting
+  static int? ipToInt(String ip) => _ipToInt(ip);
+
+  @visibleForTesting
+  static bool isValidIpv4(String ip) => _isValidIpv4(ip);
+
+  @visibleForTesting
+  static bool isPublicIp(String ip) => _isPublicIp(ip);
+
+  @visibleForTesting
+  static bool isLoopbackHost(String host) => _isLoopbackHost(host);
+
+  @visibleForTesting
+  static bool isValidHostname(String host) => _isValidHostname(host);
+
+  static CidrBlock? _parseCidr(String cidr) {
     try {
       final parts = cidr.split('/');
       if (parts.length != 2) return null;
@@ -424,7 +442,7 @@ class CloudflareIpService {
       if (ip == null || prefix < 0 || prefix > 32) return null;
       final mask = prefix == 0 ? 0 : (0xFFFFFFFF << (32 - prefix)) & 0xFFFFFFFF;
       final network = ip & mask;
-      return _CidrBlock(network, mask);
+      return CidrBlock(network, mask);
     } catch (_) {
       return null;
     }
@@ -483,10 +501,12 @@ class CloudflareIpService {
   }
 }
 
-class _CidrBlock {
+/// A parsed CIDR block for IP range matching.
+@visibleForTesting
+class CidrBlock {
   final int network;
   final int mask;
-  const _CidrBlock(this.network, this.mask);
+  const CidrBlock(this.network, this.mask);
 
   bool contains(int ip) => (ip & mask) == network;
 }

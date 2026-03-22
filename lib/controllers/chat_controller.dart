@@ -44,7 +44,7 @@ import '../services/signal_broadcaster.dart';
 enum ConnectionStatus { disconnected, connecting, connected }
 
 class ChatController extends ChangeNotifier {
-  static final ChatController _instance = ChatController._create(ContactManager());
+  static ChatController _instance = ChatController._create(ContactManager());
   factory ChatController() => _instance;
   ChatController._create(this._contacts);
 
@@ -52,6 +52,11 @@ class ChatController extends ChangeNotifier {
   @visibleForTesting
   factory ChatController.forTesting(IContactRepository contacts) =>
       ChatController._create(contacts);
+
+  /// Replace the singleton for testing. Call in setUp/tearDown.
+  @visibleForTesting
+  static void setInstanceForTesting(ChatController instance) =>
+      _instance = instance;
 
   final IContactRepository _contacts;
 
@@ -1065,9 +1070,7 @@ class ChatController extends ChangeNotifier {
         encryptedPayload: text, timestamp: DateTime.now(),
         adapterType: 'group', isRead: true, status: 'sending',
         replyToId: replyTo?.id,
-        replyToText: replyTo?.encryptedPayload.length != null
-            ? replyTo!.encryptedPayload.substring(0, replyTo.encryptedPayload.length.clamp(0, 80))
-            : null,
+        replyToText: replyTo?.encryptedPayload.substring(0, replyTo.encryptedPayload.length.clamp(0, 80)),
         replyToSender: replyTo?.senderId,
       );
       groupRoom.messages.add(localMsg);
@@ -1898,7 +1901,8 @@ class ChatController extends ChangeNotifier {
     try {
       final dir = await getDownloadsDirectory() ?? await getTemporaryDirectory();
       final date = DateTime.now().toIso8601String().substring(0, 10);
-      final file = File('${dir.path}/chat_${contact.name}_$date.txt');
+      final safeName = contact.name.replaceAll(RegExp(r'[^\w\-. ]'), '_');
+      final file = File('${dir.path}/chat_${safeName}_$date.txt');
       await file.writeAsString(buf.toString());
       return file.path;
     } catch (e) {

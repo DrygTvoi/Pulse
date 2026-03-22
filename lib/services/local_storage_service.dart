@@ -13,9 +13,14 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:sqlite3/open.dart' as sqlite3_open;
 
 class LocalStorageService {
-  static final LocalStorageService _instance = LocalStorageService._internal();
+  static LocalStorageService _instance = LocalStorageService._internal();
   factory LocalStorageService() => _instance;
   LocalStorageService._internal();
+
+  /// Replace the singleton for testing.
+  @visibleForTesting
+  static void setInstanceForTesting(LocalStorageService instance) =>
+      _instance = instance;
 
   Database? _db;
   SecretKey? _encKey;
@@ -245,7 +250,9 @@ class LocalStorageService {
       const ss = FlutterSecureStorage();
       final tsStr = await ss.read(key: _kDbKeyTsPref);
       if (tsStr != null) {
-        final created = DateTime.fromMillisecondsSinceEpoch(int.parse(tsStr));
+        final tsParsed = int.tryParse(tsStr);
+        if (tsParsed == null) return; // corrupt timestamp — skip rotation
+        final created = DateTime.fromMillisecondsSinceEpoch(tsParsed);
         final age = DateTime.now().difference(created).inDays;
         if (age < _kDbKeyRotationDays) return;
       }

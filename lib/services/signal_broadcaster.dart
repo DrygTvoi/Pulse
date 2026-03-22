@@ -243,7 +243,9 @@ class SignalBroadcaster {
           'text': text,
           '_history': true,
         });
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('[Broadcaster] History sync failed for msg ${msg.id}: $e');
+      }
     }
     debugPrint('[Broadcaster] Sent history to ${target.name}');
   }

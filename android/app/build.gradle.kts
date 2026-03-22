@@ -48,9 +48,17 @@ android {
 
     buildTypes {
         release {
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
             signingConfig = if (keystorePropertiesFile.exists()) {
                 signingConfigs.getByName("release")
             } else {
+                // Explicit debug fallback — CI builds without key.properties
+                // will produce a debug-signed APK. Do NOT upload to Play Store.
                 signingConfigs.getByName("debug")
             }
         }

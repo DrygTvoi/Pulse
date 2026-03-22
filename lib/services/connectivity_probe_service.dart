@@ -12,7 +12,9 @@ import 'relay_directory_service.dart';
 import 'nip65_discovery_service.dart';
 import 'adaptive_relay_service.dart';
 import 'circuit_breaker_service.dart';
-import '../controllers/chat_controller.dart';
+// Peer relays key — matches ChatController._peerRelaysKey.
+// Read directly from SharedPreferences to avoid circular dependency.
+const _peerRelaysKey = 'peer_relays_v1';
 
 // ─── Status ───────────────────────────────────────────────────────────────────
 
@@ -726,7 +728,8 @@ class ConnectivityProbeService {
 
   /// Loads peer-shared relay URLs from SharedPreferences and converts to candidates.
   Future<List<(String, int)>> _loadPeerRelayCandidates(Set<String> knownHosts) async {
-    final urls = await ChatController.loadPeerRelays();
+    final prefs = await SharedPreferences.getInstance();
+    final urls = prefs.getStringList(_peerRelaysKey) ?? [];
     final candidates = <(String, int)>[];
     for (final url in urls) {
       final uri = Uri.tryParse(url);

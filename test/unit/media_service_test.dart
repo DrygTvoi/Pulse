@@ -147,12 +147,194 @@ void main() {
     });
   });
 
+  group('MediaPayload.isVoice', () {
+    test('returns true for type "voice"', () {
+      final p = MediaPayload(type: 'voice', data: Uint8List(0), name: 'x', size: 0);
+      expect(p.isVoice, isTrue);
+    });
+
+    test('returns false for type "img"', () {
+      final p = MediaPayload(type: 'img', data: Uint8List(0), name: 'x', size: 0);
+      expect(p.isVoice, isFalse);
+    });
+
+    test('returns false for type "file"', () {
+      final p = MediaPayload(type: 'file', data: Uint8List(0), name: 'x', size: 0);
+      expect(p.isVoice, isFalse);
+    });
+  });
+
+  group('MediaService.isChunkPayload()', () {
+    test('returns true for chunk payload', () {
+      final chunk = jsonEncode({
+        't': 'chunk',
+        'fid': 'abc',
+        'idx': 0,
+        'total': 3,
+        'd': base64Encode(Uint8List(10)),
+        'h': 'sha256hash',
+      });
+      expect(MediaService.isChunkPayload(chunk), isTrue);
+    });
+
+    test('returns false for non-chunk media payload', () {
+      expect(MediaService.isChunkPayload(makeFilePayload()), isFalse);
+    });
+
+    test('returns false for plain text', () {
+      expect(MediaService.isChunkPayload('Hello'), isFalse);
+    });
+
+    test('returns false for empty string', () {
+      expect(MediaService.isChunkPayload(''), isFalse);
+    });
+
+    test('returns false for invalid JSON', () {
+      expect(MediaService.isChunkPayload('{broken'), isFalse);
+    });
+  });
+
+  group('MediaService.chunkPayloads()', () {
+    test('single chunk for data <= 512 KB', () {
+      final data = Uint8List(1024); // 1 KB — well under 512 KB limit
+      final chunks = MediaService.chunkPayloads(data, 'small.bin');
+      expect(chunks.length, equals(1));
+      final parsed = jsonDecode(chunks.first) as Map<String, dynamic>;
+      expect(parsed['t'], equals('file'));
+      expect(parsed['n'], equals('small.bin'));
+      expect(parsed['sz'], equals(1024));
+    });
+
+    test('multiple chunks for data > 512 KB', () {
+      // 1.5 MB => should produce 3 chunks (512KB * 3 = 1.5MB)
+      final data = Uint8List(512 * 1024 + 100); // just over 512 KB
+      final chunks = MediaService.chunkPayloads(data, 'big.bin');
+      expect(chunks.length, equals(2)); // ceil((512*1024+100) / (512*1024)) = 2
+      // First chunk should have name and size metadata
+      final first = jsonDecode(chunks.first) as Map<String, dynamic>;
+      expect(first['t'], equals('chunk'));
+      expect(first['n'], equals('big.bin'));
+      expect(first['sz'], equals(data.length));
+      expect(first['mt'], equals('file'));
+      expect(first['idx'], equals(0));
+      expect(first['total'], equals(2));
+      expect(first.containsKey('h'), isTrue); // SHA-256 hash present
+      // Second chunk should NOT have name/size metadata
+      final second = jsonDecode(chunks[1]) as Map<String, dynamic>;
+      expect(second['t'], equals('chunk'));
+      expect(second.containsKey('n'), isFalse);
+      expect(second.containsKey('sz'), isFalse);
+      expect(second['idx'], equals(1));
+      expect(second['total'], equals(2));
+    });
+
+    test('respects custom mediaType parameter', () {
+      final data = Uint8List(100);
+      final chunks = MediaService.chunkPayloads(data, 'audio.wav', mediaType: 'voice');
+      final parsed = jsonDecode(chunks.first) as Map<String, dynamic>;
+      expect(parsed['t'], equals('voice'));
+    });
+
+    test('chunkIterable yields same number of chunks as chunkPayloads', () {
+      final data = Uint8List(1024 * 1024); // 1 MB
+      final chunked = MediaService.chunkPayloads(data, 'test.bin');
+      final iterable = MediaService.chunkIterable(data, 'test.bin').toList();
+      expect(iterable.length, equals(chunked.length));
+      // Each call generates a different fileId, so compare structure not identity
+      for (int i = 0; i < chunked.length; i++) {
+        final a = jsonDecode(chunked[i]) as Map<String, dynamic>;
+        final b = jsonDecode(iterable[i]) as Map<String, dynamic>;
+        expect(b['t'], equals(a['t']));
+        expect(b['d'], equals(a['d']));
+        expect(b['idx'], equals(a['idx']));
+        expect(b['total'], equals(a['total']));
+      }
+    });
+
+    test('chunk fileIds are consistent across all chunks', () {
+      final data = Uint8List(1024 * 1024 + 1); // just over 1 MB => 3 chunks
+      final chunks = MediaService.chunkPayloads(data, 'multi.bin');
+      expect(chunks.length, greaterThan(1));
+      final fid = (jsonDecode(chunks.first) as Map<String, dynamic>)['fid'];
+      expect(fid, isNotNull);
+      for (final chunk in chunks) {
+        final parsed = jsonDecode(chunk) as Map<String, dynamic>;
+        expect(parsed['fid'], equals(fid));
+      }
+    });
+
+    test('sanitizes filename in chunk payloads', () {
+      final data = Uint8List(100);
+      final chunks = MediaService.chunkPayloads(data, '../../../etc/passwd');
+      final parsed = jsonDecode(chunks.first) as Map<String, dynamic>;
+      expect(parsed['n'], isNot(contains('..')));
+      expect(parsed['n'], equals('passwd'));
+    });
+  });
+
+  group('MediaService.parse() — voice payload', () {
+    test('parses voice payload with duration and amplitudes', () {
+      // Build valid WAV magic header: RIFF....WAVE
+      final wavBytes = Uint8List(64);
+      // RIFF
+      wavBytes[0] = 0x52; wavBytes[1] = 0x49; wavBytes[2] = 0x46; wavBytes[3] = 0x46;
+      // WAVE
+      wavBytes[8] = 0x57; wavBytes[9] = 0x41; wavBytes[10] = 0x56; wavBytes[11] = 0x45;
+
+      final payload = jsonEncode({
+        't': 'voice',
+        'd': base64Encode(wavBytes),
+        'dur': 15,
+        'sz': wavBytes.length,
+        'amp': [0, 25, 50, 75, 100],
+      });
+      final parsed = MediaService.parse(payload);
+      expect(parsed, isNotNull);
+      expect(parsed!.type, equals('voice'));
+      expect(parsed.isVoice, isTrue);
+      expect(parsed.durationSeconds, equals(15));
+      expect(parsed.amplitudes, isNotNull);
+      expect(parsed.amplitudes!.length, equals(5));
+      // Amplitudes are divided by 100 and clamped to [0, 1]
+      expect(parsed.amplitudes![0], closeTo(0.0, 0.01));
+      expect(parsed.amplitudes![2], closeTo(0.5, 0.01));
+      expect(parsed.amplitudes![4], closeTo(1.0, 0.01));
+    });
+
+    test('parse returns durationSeconds=0 when dur field is missing', () {
+      final wavBytes = Uint8List(64);
+      wavBytes[0] = 0x52; wavBytes[1] = 0x49; wavBytes[2] = 0x46; wavBytes[3] = 0x46;
+      wavBytes[8] = 0x57; wavBytes[9] = 0x41; wavBytes[10] = 0x56; wavBytes[11] = 0x45;
+      final payload = jsonEncode({
+        't': 'voice',
+        'd': base64Encode(wavBytes),
+        'sz': wavBytes.length,
+      });
+      final parsed = MediaService.parse(payload);
+      expect(parsed, isNotNull);
+      expect(parsed!.durationSeconds, equals(0));
+      expect(parsed.amplitudes, isNull);
+    });
+  });
+
   group('MediaTooLargeException', () {
     test('toString returns descriptive message', () {
       expect(
         MediaTooLargeException().toString(),
         contains('100 MB'),
       );
+    });
+  });
+
+  group('MediaSecurityException', () {
+    test('toString includes the reason', () {
+      const e = MediaSecurityException('bad magic bytes');
+      expect(e.toString(), contains('bad magic bytes'));
+    });
+
+    test('reason field is preserved', () {
+      const e = MediaSecurityException('executable detected');
+      expect(e.reason, equals('executable detected'));
     });
   });
 }

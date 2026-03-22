@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'firebase_adapter.dart';
 import 'nostr_adapter.dart';
 import 'waku_adapter.dart';
@@ -42,9 +43,18 @@ abstract class MessageSender {
 }
 
 class InboxManager {
-  static final InboxManager _instance = InboxManager._internal();
+  static InboxManager _instance = InboxManager._internal();
   factory InboxManager() => _instance;
   InboxManager._internal();
+
+  /// Create a detached instance for unit testing.
+  @visibleForTesting
+  factory InboxManager.forTesting() => InboxManager._internal();
+
+  /// Replace the singleton for testing.
+  @visibleForTesting
+  static void setInstanceForTesting(InboxManager instance) =>
+      _instance = instance;
 
   InboxReader? reader;
   final Map<String, MessageSender> _senders = {};
@@ -53,6 +63,10 @@ class InboxManager {
   Map<String, MessageSender> get senders => Map.unmodifiable(_senders);
 
   Future<void> configureSelf(String provider, String apiKey, String databaseId) async {
+    // Stop the old reader's event loop before replacing it
+    final oldReader = reader;
+    if (oldReader is NostrInboxReader) oldReader.close();
+
     if (provider == 'Firebase') {
       reader = FirebaseInboxReader();
     } else if (provider == 'Nostr') {
