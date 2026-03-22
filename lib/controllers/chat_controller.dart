@@ -2,7 +2,9 @@ import 'dart:async';
 import 'dart:collection';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
+import 'package:convert/convert.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -20,6 +22,7 @@ import '../adapters/firebase_adapter.dart';
 import '../adapters/nostr_adapter.dart';
 import '../adapters/waku_adapter.dart';
 import '../adapters/oxen_adapter.dart';
+import '../adapters/pulse_adapter.dart';
 import '../adapters/lan_adapter.dart';
 import '../services/oxen_key_service.dart';
 import '../services/p2p_transport_service.dart';
@@ -395,6 +398,30 @@ class ChatController extends ChangeNotifier {
           apiKey = nodeUrl;
           dbId = _selfId;
         }
+      case 'pulse':
+        providerName = 'Pulse';
+        {
+          final privkey = await _secureStorage.read(key: 'pulse_privkey') ?? '';
+          final prefs = await SharedPreferences.getInstance();
+          final serverUrl = prefs.getString('pulse_server_url') ?? '';
+          final invite = prefs.getString('pulse_invite_code') ?? '';
+          apiKey = jsonEncode({'privkey': privkey, 'serverUrl': serverUrl, 'invite': invite});
+          dbId = serverUrl;
+          if (privkey.isNotEmpty) {
+            try {
+              final seed = Uint8List.fromList(hex.decode(privkey));
+              final pubkey = await ed25519PubkeyFromSeed(seed);
+              _selfId = '$pubkey@$serverUrl';
+            } catch (e) {
+              debugPrint('[ChatController] Invalid Pulse private key: $e');
+              _connectionStatus = ConnectionStatus.disconnected;
+              notifyListeners();
+              return;
+            }
+          } else {
+            _selfId = '${_identity!.id}@$serverUrl';
+          }
+        }
       default:
         providerName = 'Firebase';
         dbId = _identity!.adapterConfig['dbId'] ?? _identity!.id;
@@ -580,6 +607,12 @@ class ChatController extends ChangeNotifier {
         final prefs = await SharedPreferences.getInstance();
         final nodeUrl = prefs.getString('oxen_node_url') ?? '';
         return (sender: OxenMessageSender(), apiKey: nodeUrl);
+      case 'Pulse':
+        final privkey = await _secureStorage.read(key: 'pulse_privkey') ?? '';
+        final prefs = await SharedPreferences.getInstance();
+        final serverUrl = prefs.getString('pulse_server_url') ?? '';
+        return (sender: PulseMessageSender(),
+                apiKey: jsonEncode({'privkey': privkey, 'serverUrl': serverUrl}));
       default:
         return null;
     }
@@ -1143,6 +1176,13 @@ class ChatController extends ChangeNotifier {
           initApiKey = prefs.getString('oxen_node_url') ?? '';
           initDbId = contact.databaseId;
           unawaited(_keys.publishOxenKeysTo(contact, _selfId));
+        } else if (contact.provider == 'Pulse') {
+          contactReader = PulseInboxReader();
+          final privkey = await _secureStorage.read(key: 'pulse_privkey') ?? '';
+          final prefs = await SharedPreferences.getInstance();
+          final serverUrl = prefs.getString('pulse_server_url') ?? '';
+          initApiKey = jsonEncode({'privkey': privkey, 'serverUrl': serverUrl});
+          initDbId = contact.databaseId;
         } else {
           throw Exception('Unknown provider: ${contact.provider}');
         }
@@ -1240,6 +1280,8 @@ class ChatController extends ChangeNotifier {
         RegExp(r'^[0-9a-f]{66}$').hasMatch(lower)) { return 'Oxen'; }
     if (lower.contains('@wss://') || lower.contains('@ws://') ||
         RegExp(r'^[0-9a-f]{64}$').hasMatch(lower)) { return 'Nostr'; }
+    // Pulse: 64-char hex @ https:// (not wss://)
+    if (RegExp(r'^[0-9a-f]{64}@https://', caseSensitive: false).hasMatch(lower)) { return 'Pulse'; }
     if (lower.contains('@https://')) { return 'Firebase'; }
     if (lower.contains('@http://')) { return 'Waku'; }
     return 'Nostr';
@@ -1279,6 +1321,12 @@ class ChatController extends ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
       final nodeUrl = prefs.getString('oxen_node_url') ?? '';
       await InboxManager().addSenderPlugin('Oxen', OxenMessageSender(), nodeUrl);
+    } else if (provider == 'Pulse') {
+      final privkey = await _secureStorage.read(key: 'pulse_privkey') ?? '';
+      final prefs = await SharedPreferences.getInstance();
+      final serverUrl = prefs.getString('pulse_server_url') ?? '';
+      await InboxManager().addSenderPlugin('Pulse', PulseMessageSender(),
+          jsonEncode({'privkey': privkey, 'serverUrl': serverUrl}));
     } else {
       return false;
     }
@@ -1316,6 +1364,12 @@ class ChatController extends ChangeNotifier {
           final prefs = await SharedPreferences.getInstance();
           initApiKey = prefs.getString('oxen_node_url') ?? '';
           unawaited(_keys.publishOxenKeysTo(contact, _selfId));
+        } else if (contact.provider == 'Pulse') {
+          contactReader = PulseInboxReader();
+          final privkey = await _secureStorage.read(key: 'pulse_privkey') ?? '';
+          final prefs = await SharedPreferences.getInstance();
+          final serverUrl = prefs.getString('pulse_server_url') ?? '';
+          initApiKey = jsonEncode({'privkey': privkey, 'serverUrl': serverUrl});
         } else {
           return false;
         }
@@ -2152,8 +2206,10 @@ class ChatController extends ChangeNotifier {
     PqcService().zeroize();
     final reader = InboxManager().reader;
     if (reader is NostrInboxReader) reader.zeroize();
+    if (reader is PulseInboxReader) reader.zeroize();
     for (final sender in InboxManager().senders.values) {
       if (sender is NostrMessageSender) sender.zeroize();
+      if (sender is PulseMessageSender) sender.zeroize();
     }
     super.dispose();
   }

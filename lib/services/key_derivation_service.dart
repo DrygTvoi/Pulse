@@ -23,6 +23,7 @@ final _argon2 = DartArgon2id(
 // The salt is NOT secret; the password is the only secret.
 final _kNostrSalt = utf8.encode('pulse_nostr_key_v1');
 final _kOxenSalt  = utf8.encode('pulse_oxen_seed_v1');
+final _kPulseSalt = utf8.encode('pulse_server_key_v1');
 
 /// Derives deterministic cryptographic keys from a recovery password.
 ///
@@ -46,6 +47,15 @@ class KeyDerivationService {
     final sk = await _argon2.deriveKey(
       secretKey: SecretKey(utf8.encode(password)),
       nonce: _kOxenSalt,
+    );
+    return Uint8List.fromList(await sk.extractBytes());
+  }
+
+  /// 32-byte Ed25519 seed derived from [password] for Pulse server auth.
+  static Future<Uint8List> derivePulseKey(String password) async {
+    final sk = await _argon2.deriveKey(
+      secretKey: SecretKey(utf8.encode(password)),
+      nonce: _kPulseSalt,
     );
     return Uint8List.fromList(await sk.extractBytes());
   }

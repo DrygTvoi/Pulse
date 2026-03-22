@@ -3,6 +3,7 @@ import 'firebase_adapter.dart';
 import 'nostr_adapter.dart';
 import 'waku_adapter.dart';
 import 'oxen_adapter.dart';
+import 'pulse_adapter.dart';
 
 import '../models/message.dart';
 
@@ -66,6 +67,7 @@ class InboxManager {
     // Stop the old reader's event loop before replacing it
     final oldReader = reader;
     if (oldReader is NostrInboxReader) oldReader.close();
+    if (oldReader is PulseInboxReader) oldReader.close();
 
     if (provider == 'Firebase') {
       reader = FirebaseInboxReader();
@@ -75,6 +77,8 @@ class InboxManager {
       reader = WakuInboxReader();
     } else if (provider == 'Oxen') {
       reader = OxenInboxReader();
+    } else if (provider == 'Pulse') {
+      reader = PulseInboxReader();
     }
     await reader?.initializeReader(apiKey, databaseId);
   }
@@ -107,6 +111,8 @@ class InboxManager {
       adhocReader = WakuInboxReader();
     } else if (provider == 'Oxen') {
       adhocReader = OxenInboxReader();
+    } else if (provider == 'Pulse') {
+      adhocReader = PulseInboxReader();
     }
     await adhocReader?.initializeReader(apiKey, databaseId);
     return adhocReader;

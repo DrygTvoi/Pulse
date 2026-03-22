@@ -23,6 +23,8 @@ class ProviderSection extends StatefulWidget {
   final TextEditingController nostrRelayController;
   final TextEditingController wakuNodeUrlController;
   final TextEditingController oxenNodeUrlController;
+  final TextEditingController pulseServerUrlController;
+  final TextEditingController pulseInviteController;
   final bool isSaving;
   final List<Map<String, String>> secondaryAdapters;
   final VoidCallback onSave;
@@ -38,6 +40,8 @@ class ProviderSection extends StatefulWidget {
     required this.nostrRelayController,
     required this.wakuNodeUrlController,
     required this.oxenNodeUrlController,
+    required this.pulseServerUrlController,
+    required this.pulseInviteController,
     required this.isSaving,
     required this.secondaryAdapters,
     required this.onSave,
@@ -82,7 +86,8 @@ class _ProviderSectionState extends State<ProviderSection> {
           .map((e) => Map<String, String>.from(
               (e as Map).map((k, v) => MapEntry(k.toString(), v.toString()))))
           .toList();
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[Settings] Failed to parse secondary_adapters: $e');
       return [];
     }
   }
@@ -218,7 +223,8 @@ class _ProviderSectionState extends State<ProviderSection> {
                 List<dynamic> current;
                 try {
                   current = jsonDecode(currentRaw);
-                } catch (_) {
+                } catch (e) {
+                  debugPrint('[Settings] Failed to parse adapters JSON: $e');
                   current = [];
                 }
                 Map<String, String> newEntry;
@@ -315,6 +321,7 @@ class _ProviderSectionState extends State<ProviderSection> {
         icon: Icons.security_rounded,
         color: Color(0xFF00695C)
       ),
+      (name: 'Pulse', icon: Icons.dns_rounded, color: Color(0xFF2196F3)),
     ];
     return Wrap(
       spacing: 8,
@@ -322,7 +329,7 @@ class _ProviderSectionState extends State<ProviderSection> {
       children: [
         for (final p in providers)
           SizedBox(
-            width: (MediaQuery.of(context).size.width - 40 - 24) / 4,
+            width: (MediaQuery.of(context).size.width - 40 - 24) / 5,
             child: _providerChip(p.name, p.icon, p.color),
           ),
       ],
@@ -670,6 +677,36 @@ class _ProviderSectionState extends State<ProviderSection> {
               ),
             ]),
           ]);
+    } else if (widget.selectedProvider == 'Pulse') {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          settingsField(
+            controller: widget.pulseServerUrlController,
+            hint: 'https://your-server:8443',
+            label: 'Server URL',
+            icon: Icons.dns_rounded,
+          ),
+          const SizedBox(height: 12),
+          settingsField(
+            controller: widget.pulseInviteController,
+            hint: 'Invite code (if required)',
+            label: 'Invite Code',
+            icon: Icons.card_giftcard_rounded,
+          ),
+          const SizedBox(height: 8),
+          Row(children: [
+            Icon(Icons.info_outline_rounded, size: 13, color: AppTheme.textSecondary),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                'Self-hosted relay. Keys derived from your recovery password.',
+                style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: 11),
+              ),
+            ),
+          ]),
+        ],
+      );
     } else if (widget.selectedProvider == 'Oxen') {
       return Column(
           crossAxisAlignment: CrossAxisAlignment.start,

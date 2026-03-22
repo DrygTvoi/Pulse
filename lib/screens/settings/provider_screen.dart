@@ -24,6 +24,7 @@ const _kProviderMeta = <String, (IconData, Color)>{
   'Nostr':    (Icons.bolt_rounded,                  Color(0xFF9B59B6)),
   'Waku':     (Icons.hub_rounded,                   Color(0xFF00BCD4)),
   'Oxen':     (Icons.security_rounded,              Color(0xFF00695C)),
+  'Pulse':    (Icons.dns_rounded,                   Color(0xFF2196F3)),
 };
 
 const _secureStorage = FlutterSecureStorage();
@@ -48,6 +49,8 @@ class _ProviderScreenState extends State<ProviderScreen> {
   final _nostrRelayCtrl = TextEditingController();
   final _wakuNodeUrlCtrl = TextEditingController(text: 'http://127.0.0.1:8645');
   final _oxenNodeUrlCtrl = TextEditingController();
+  final _pulseServerUrlCtrl = TextEditingController();
+  final _pulseInviteCtrl = TextEditingController();
 
   bool _isSaving = false;
   bool _showNostrAdvanced = false;
@@ -74,6 +77,8 @@ class _ProviderScreenState extends State<ProviderScreen> {
     _nostrRelayCtrl.dispose();
     _wakuNodeUrlCtrl.dispose();
     _oxenNodeUrlCtrl.dispose();
+    _pulseServerUrlCtrl.dispose();
+    _pulseInviteCtrl.dispose();
     super.dispose();
   }
 
@@ -110,6 +115,9 @@ class _ProviderScreenState extends State<ProviderScreen> {
             prefs.getString('waku_node_url') ?? 'http://127.0.0.1:8645';
       } else if (provider == 'Oxen') {
         _oxenNodeUrlCtrl.text = prefs.getString('oxen_node_url') ?? '';
+      } else if (provider == 'Pulse') {
+        _pulseServerUrlCtrl.text = prefs.getString('pulse_server_url') ?? '';
+        _pulseInviteCtrl.text = prefs.getString('pulse_invite_code') ?? '';
       }
       _secondaryAdapters = secondaries;
       _loading = false;
@@ -157,6 +165,11 @@ class _ProviderScreenState extends State<ProviderScreen> {
         if (url.isNotEmpty && !_isValidUrl(url, schemes: ['http', 'https'])) {
           return 'Invalid Waku node URL. Expected http://host:port';
         }
+      case 'Pulse':
+        final url = _pulseServerUrlCtrl.text.trim();
+        if (url.isNotEmpty && !_isValidUrl(url, schemes: ['https', 'http'])) {
+          return 'Invalid Pulse server URL. Expected https://server:port';
+        }
     }
     return null;
   }
@@ -200,6 +213,15 @@ class _ProviderScreenState extends State<ProviderScreen> {
       await prefs.setString('waku_node_url', nodeUrl);
       finalApiKey = jsonEncode({'nodeUrl': nodeUrl});
       finalDbId = nodeUrl;
+    } else if (_selectedProvider == 'Pulse') {
+      final serverUrl = _pulseServerUrlCtrl.text.trim();
+      final invite = _pulseInviteCtrl.text.trim();
+      await prefs.setString('pulse_server_url', serverUrl);
+      await prefs.setString('pulse_invite_code', invite);
+      // Private key is derived from recovery password; read from secure storage
+      final privkey = await _secureStorage.read(key: 'pulse_privkey') ?? '';
+      finalApiKey = jsonEncode({'privkey': privkey, 'serverUrl': serverUrl, 'invite': invite});
+      finalDbId = serverUrl;
     } else {
       final nodeUrl = _oxenNodeUrlCtrl.text.trim();
       await prefs.setString('oxen_node_url', nodeUrl);
@@ -208,7 +230,7 @@ class _ProviderScreenState extends State<ProviderScreen> {
     }
 
     await prefs.setString('byod_provider', _selectedProvider);
-    if (!['Nostr', 'Waku', 'Oxen'].contains(_selectedProvider)) {
+    if (!['Nostr', 'Waku', 'Oxen', 'Pulse'].contains(_selectedProvider)) {
       await prefs.setString('byod_api_key', finalApiKey);
     }
     await prefs.setString('byod_db_id', finalDbId);
@@ -220,6 +242,7 @@ class _ProviderScreenState extends State<ProviderScreen> {
         'Nostr': 'nostr',
         'Waku': 'waku',
         'Oxen': 'oxen',
+        'Pulse': 'pulse',
       };
       chatCtrl.identity!.preferredAdapter =
           adapterMap[_selectedProvider] ?? 'firebase';
@@ -488,6 +511,7 @@ class _ProviderScreenState extends State<ProviderScreen> {
       (name: 'Nostr',    icon: Icons.bolt_rounded,                   color: Color(0xFF9B59B6)),
       (name: 'Waku',     icon: Icons.hub_rounded,                    color: Color(0xFF00BCD4)),
       (name: 'Oxen',     icon: Icons.security_rounded,               color: Color(0xFF00695C)),
+      (name: 'Pulse',    icon: Icons.dns_rounded,                    color: Color(0xFF2196F3)),
     ];
     return Wrap(
       spacing: 8,
@@ -495,7 +519,7 @@ class _ProviderScreenState extends State<ProviderScreen> {
       children: [
         for (final p in providers)
           SizedBox(
-            width: (MediaQuery.of(context).size.width - 40 - 24) / 4,
+            width: (MediaQuery.of(context).size.width - 40 - 24) / 5,
             child: _providerChip(p.name, p.icon, p.color),
           ),
       ],
@@ -801,6 +825,38 @@ class _ProviderScreenState extends State<ProviderScreen> {
               const SizedBox(width: 6),
               Expanded(
                 child: Text(context.l10n.providerWakuAutoDiscovery,
+                    style: GoogleFonts.inter(
+                        color: AppTheme.textSecondary, fontSize: 11)),
+              ),
+            ]),
+          ]);
+    }
+
+    if (_selectedProvider == 'Pulse') {
+      return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            settingsField(
+              controller: _pulseServerUrlCtrl,
+              hint: 'https://your-server:8443',
+              label: 'Server URL',
+              icon: Icons.dns_rounded,
+            ),
+            const SizedBox(height: 12),
+            settingsField(
+              controller: _pulseInviteCtrl,
+              hint: 'Invite code (if required)',
+              label: 'Invite Code',
+              icon: Icons.card_giftcard_rounded,
+            ),
+            const SizedBox(height: 8),
+            Row(children: [
+              Icon(Icons.info_outline_rounded,
+                  size: 13, color: AppTheme.textSecondary),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                    'Self-hosted relay. Keys derived from your recovery password.',
                     style: GoogleFonts.inter(
                         color: AppTheme.textSecondary, fontSize: 11)),
               ),

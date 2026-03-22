@@ -44,6 +44,8 @@ class _AddContactDialogState extends State<AddContactDialog> {
         RegExp(r'^[0-9a-f]{66}$').hasMatch(lower)) { return 'Oxen'; }
     if (lower.contains('@wss://') || lower.contains('@ws://') ||
         RegExp(r'^[0-9a-f]{64}$').hasMatch(lower)) { return 'Nostr'; }
+    // Pulse: 64-char hex @ https:// (not wss://)
+    if (RegExp(r'^[0-9a-f]{64}@https://', caseSensitive: false).hasMatch(lower)) { return 'Pulse'; }
     if (lower.contains('@https://')) { return 'Firebase'; }
     if (lower.contains('@http://')) { return 'Waku'; }
     return 'Nostr';
@@ -88,7 +90,8 @@ class _AddContactDialogState extends State<AddContactDialog> {
       if (_nameController.text.isEmpty && _detectProvider(addresses.first) == 'Nostr') {
         _tryScheduleNostrFetch(addresses.first);
       }
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[AddContact] Deep link parse error: $e');
       _onInput(link);
     }
   }
@@ -483,7 +486,8 @@ class _AddContactDialogState extends State<AddContactDialog> {
     if (addresses.isEmpty) return null;
     final name = (json['n'] as String?)?.trim() ?? '';
     return (name: name, addresses: addresses);
-  } catch (_) {
+  } catch (e) {
+    debugPrint('[AddContact] Config parse error: $e');
     return null;
   }
 }
