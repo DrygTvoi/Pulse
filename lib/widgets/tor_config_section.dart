@@ -18,6 +18,8 @@ class TorConfigSection extends StatelessWidget {
     required this.onToggleBundledTor,
     required this.onPreferredPtChanged,
     required this.onOpenDiagnostics,
+    this.torTimeoutSec = 60,
+    this.onTorTimeoutChanged,
   });
 
   final bool torEnabled;
@@ -30,6 +32,8 @@ class TorConfigSection extends StatelessWidget {
   final VoidCallback onToggleBundledTor;
   final ValueChanged<String> onPreferredPtChanged;
   final VoidCallback onOpenDiagnostics;
+  final int torTimeoutSec;
+  final ValueChanged<int>? onTorTimeoutChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -112,10 +116,10 @@ class TorConfigSection extends StatelessWidget {
                   Text(subtitle,
                       style: GoogleFonts.inter(
                           color: subtitleColor, fontSize: 12)),
-                  if (active) ...[
-                    const SizedBox(height: 8),
-                    _buildPtSelector(purple),
-                  ],
+                  const SizedBox(height: 8),
+                  _buildPtSelector(purple),
+                  const SizedBox(height: 6),
+                  _buildTimeoutRow(purple),
                 ],
               ),
             ),
@@ -209,6 +213,43 @@ class TorConfigSection extends StatelessWidget {
             ),
           );
         }),
+      ],
+    );
+  }
+
+  Widget _buildTimeoutRow(Color purple) {
+    return Row(
+      children: [
+        Text('Timeout: ',
+            style: GoogleFonts.inter(
+                color: AppTheme.textSecondary, fontSize: 11)),
+        Text('${torTimeoutSec}s',
+            style: GoogleFonts.inter(
+                color: purple,
+                fontSize: 11,
+                fontWeight: FontWeight.w600)),
+        Expanded(
+          child: SliderTheme(
+            data: SliderThemeData(
+              trackHeight: 2,
+              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+              overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
+              activeTrackColor: purple,
+              inactiveTrackColor: purple.withValues(alpha: 0.15),
+              thumbColor: purple,
+              overlayColor: purple.withValues(alpha: 0.12),
+            ),
+            child: Slider(
+              value: torTimeoutSec.toDouble(),
+              min: 15,
+              max: 120,
+              divisions: 21,
+              onChanged: onTorTimeoutChanged != null
+                  ? (v) => onTorTimeoutChanged!(v.round())
+                  : null,
+            ),
+          ),
+        ),
       ],
     );
   }

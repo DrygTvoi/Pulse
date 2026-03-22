@@ -120,6 +120,7 @@ class TorService {
     // User preference: auto = full chain, or force a specific PT
     final prefs = await SharedPreferences.getInstance();
     final pref = prefs.getString('preferred_pt') ?? 'auto';
+    final timeoutSec = prefs.getInt('tor_timeout_sec') ?? 60;
 
     // ── PT chain ───────────────────────────────────────────────────────────
     final obfs4Path = await _findObfs4Proxy();
@@ -132,7 +133,7 @@ class TorService {
         debugPrint('[TorService] Trying obfs4...');
         final ok = await _launchTor(torPath, dataDir.path,
             mode: _PtMode.obfs4, ptPath: obfs4Path, bridges: bridges,
-            timeoutSec: 35);
+            timeoutSec: timeoutSec);
         if (ok) return true;
         debugPrint('[TorService] obfs4 failed — trying WebTunnel');
       }
@@ -145,7 +146,7 @@ class TorService {
         debugPrint('[TorService] Trying WebTunnel...');
         final ok = await _launchTor(torPath, dataDir.path,
             mode: _PtMode.webTunnel, ptPath: obfs4Path, bridges: wtBridges,
-            timeoutSec: 45);
+            timeoutSec: timeoutSec);
         if (ok) return true;
         debugPrint('[TorService] WebTunnel failed — trying Snowflake');
       }
@@ -157,7 +158,7 @@ class TorService {
       debugPrint('[TorService] Trying Snowflake...');
       final ok = await _launchTor(torPath, dataDir.path,
           mode: _PtMode.snowflake, ptPath: sfPath, bridges: bridges,
-          timeoutSec: 45);
+          timeoutSec: timeoutSec);
       if (ok) return true;
       debugPrint('[TorService] Snowflake failed — trying plain Tor');
     }
@@ -166,7 +167,7 @@ class TorService {
     if (pref == 'auto' || pref == 'plain') {
       debugPrint('[TorService] Trying plain Tor...');
       final plainOk = await _launchTor(torPath, dataDir.path,
-          mode: _PtMode.plain, timeoutSec: 30);
+          mode: _PtMode.plain, timeoutSec: timeoutSec);
       if (plainOk) return true;
     }
 
@@ -338,7 +339,7 @@ class TorService {
         buf
           ..writeln('UseBridges 1')
           ..writeln('ClientTransportPlugin snowflake exec $ptPath '
-              '-max-peers 1 -ice $sfStun');
+              '-max 1 -ice $sfStun');
         for (final b in bridges) {
           buf.writeln('Bridge $b');
         }
