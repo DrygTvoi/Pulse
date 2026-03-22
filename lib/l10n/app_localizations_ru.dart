@@ -686,6 +686,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get bubbleReplyVoice => 'Голосовое сообщение';
 
   @override
+  String get bubbleReplyVideo => 'Видеосообщение';
+
+  @override
   String bubbleReadBy(String names) {
     return 'Прочитано: $names';
   }
@@ -1043,6 +1046,9 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get menuAttachFile => 'Файл';
+
+  @override
+  String get menuAttachVideo => 'Видео';
 
   @override
   String get mediaTitle => 'Медиа';

@@ -18,6 +18,8 @@ class MediaValidator {
   static const int maxImageBytes = 20 * 1024 * 1024;   //  20 MB raw
   static const int maxFileBytes  = 100 * 1024 * 1024;  // 100 MB
   static const int maxVoiceBytes = 10 * 1024 * 1024;   //  10 MB
+  static const int maxVideoNoteBytes = 15 * 1024 * 1024; // 15 MB
+  static const int maxGifBytes   = 10 * 1024 * 1024;   //  10 MB
   static const int maxImageDimension = 4096;            //  px per axis
   static const int maxJsonBytes  = 512 * 1024;          // 512 KB JSON payload
   static const int maxJsonDepth  = 8;                   // nesting depth
@@ -115,6 +117,51 @@ class MediaValidator {
     if (b.length < 12) return false;
     return b[0] == 0x52 && b[1] == 0x49 && b[2] == 0x46 && b[3] == 0x46 && // RIFF
            b[8] == 0x57 && b[9] == 0x41 && b[10] == 0x56 && b[11] == 0x45;  // WAVE
+  }
+
+  // ── Video ─────────────────────────────────────────────────────────────────
+
+  /// Validates video bytes (MP4 / WebM). Returns a [MediaValidationResult].
+  static MediaValidationResult validateVideo(Uint8List bytes) {
+    if (bytes.length > maxVideoNoteBytes) {
+      return MediaValidationResult.reject('Video exceeds ${maxVideoNoteBytes ~/ 1024 ~/ 1024} MB limit');
+    }
+    if (!_hasVideoMagic(bytes)) {
+      return MediaValidationResult.reject('File is not a recognised video format');
+    }
+    return MediaValidationResult.ok;
+  }
+
+  /// Returns true if [bytes] start with MP4 (ftyp at offset 4) or WebM (0x1A45DFA3).
+  static bool _hasVideoMagic(Uint8List b) {
+    if (b.length < 8) return false;
+    // MP4: "ftyp" at offset 4
+    if (b[4] == 0x66 && b[5] == 0x74 && b[6] == 0x79 && b[7] == 0x70) return true;
+    // WebM: EBML header 0x1A45DFA3
+    if (b[0] == 0x1A && b[1] == 0x45 && b[2] == 0xDF && b[3] == 0xA3) return true;
+    return false;
+  }
+
+  // ── GIF ──────────────────────────────────────────────────────────────────
+
+  /// Validates GIF bytes. Returns a [MediaValidationResult].
+  static MediaValidationResult validateGif(Uint8List bytes) {
+    if (bytes.length > maxGifBytes) {
+      return MediaValidationResult.reject('GIF exceeds ${maxGifBytes ~/ 1024 ~/ 1024} MB limit');
+    }
+    if (!_hasGifMagic(bytes)) {
+      return MediaValidationResult.reject('File is not a valid GIF');
+    }
+    return MediaValidationResult.ok;
+  }
+
+  /// GIF87a or GIF89a magic bytes.
+  static bool _hasGifMagic(Uint8List b) {
+    if (b.length < 6) return false;
+    // GIF87a: 47 49 46 38 37 61
+    // GIF89a: 47 49 46 38 39 61
+    return b[0] == 0x47 && b[1] == 0x49 && b[2] == 0x46 &&
+           b[3] == 0x38 && (b[4] == 0x37 || b[4] == 0x39) && b[5] == 0x61;
   }
 
   // ── File ──────────────────────────────────────────────────────────────────

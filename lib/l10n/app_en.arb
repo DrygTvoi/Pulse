@@ -319,6 +319,7 @@
   "bubbleCorruptedImage": "[Corrupted image]",
   "bubbleReplyPhoto": "Photo",
   "bubbleReplyVoice": "Voice message",
+  "bubbleReplyVideo": "Video message",
   "bubbleReadBy": "Read by {names}",
   "@bubbleReadBy": {
     "placeholders": {
@@ -604,6 +605,8 @@
   "@menuAttachPhoto": { "description": "Attach menu photo option" },
   "menuAttachFile": "File",
   "@menuAttachFile": { "description": "Attach menu file option" },
+  "menuAttachVideo": "Video",
+  "@menuAttachVideo": { "description": "Attach menu video option" },
 
   "mediaTitle": "Media",
   "@mediaTitle": { "description": "Title for media gallery screen" },

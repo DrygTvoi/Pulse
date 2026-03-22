@@ -1328,6 +1328,12 @@ abstract class AppLocalizations {
   /// **'Voice message'**
   String get bubbleReplyVoice;
 
+  /// No description provided for @bubbleReplyVideo.
+  ///
+  /// In en, this message translates to:
+  /// **'Video message'**
+  String get bubbleReplyVideo;
+
   /// No description provided for @bubbleReadBy.
   ///
   /// In en, this message translates to:
@@ -1963,6 +1969,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'File'**
   String get menuAttachFile;
+
+  /// Attach menu video option
+  ///
+  /// In en, this message translates to:
+  /// **'Video'**
+  String get menuAttachVideo;
 
   /// Title for media gallery screen
   ///

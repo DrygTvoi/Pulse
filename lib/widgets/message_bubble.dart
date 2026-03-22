@@ -6,11 +6,13 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:video_player/video_player.dart';
 import '../theme/app_theme.dart';
 import '../theme/design_tokens.dart';
 import '../models/contact.dart';
 import '../models/contact_repository.dart';
 import '../services/media_service.dart';
+import '../services/video_service.dart';
 import '../services/voice_service.dart';
 import '../screens/image_viewer_screen.dart';
 import '../l10n/l10n_ext.dart';
@@ -107,12 +109,12 @@ class MessageBubble extends StatelessWidget {
               left: isMe ? DesignTokens.chatBubbleMarginOpposite : 0,
               right: isMe ? 0 : DesignTokens.chatBubbleMarginOpposite,
             ),
-            // No padding for image bubbles — image fills the bubble
-            padding: media?.isImage == true
+            // No padding for media bubbles that fill the bubble
+            padding: (media?.isImage == true || media?.isGif == true || media?.isVideoNote == true)
                 ? EdgeInsets.zero
                 : const EdgeInsets.symmetric(horizontal: DesignTokens.chatBubblePaddingH, vertical: DesignTokens.chatBubblePaddingV),
             decoration: BoxDecoration(
-              color: media?.isImage == true ? Colors.transparent : bgColor,
+              color: (media?.isImage == true || media?.isGif == true || media?.isVideoNote == true) ? Colors.transparent : bgColor,
               borderRadius: radius,
               boxShadow: [
                 BoxShadow(
@@ -356,6 +358,8 @@ class MessageBubble extends StatelessWidget {
     if (replyMedia != null) {
       if (replyMedia.isImage) { displayText = '\u{1F4F7} ${context.l10n.bubbleReplyPhoto}'; }
       else if (replyMedia.isVoice) { displayText = '\u{1F399} ${context.l10n.bubbleReplyVoice}'; }
+      else if (replyMedia.isVideoNote) { displayText = '\u{1F3A5} ${context.l10n.bubbleReplyVideo}'; }
+      else if (replyMedia.isGif) { displayText = 'GIF'; }
       else { displayText = '\u{1F4CE} ${replyMedia.name}'; }
     } else {
       displayText = replyToText!.length > 80 ? '${replyToText!.substring(0, 80)}…' : replyToText!;
@@ -403,6 +407,12 @@ class MessageBubble extends StatelessWidget {
   Widget _buildMediaContent(BuildContext context, MediaPayload media, Color bgColor, BorderRadius radius) {
     if (media.isVoice) {
       return _VoiceBubble(media: media, isMe: isMe, bgColor: bgColor, radius: radius, buildTimestamp: _buildTimestamp);
+    }
+    if (media.isVideoNote) {
+      return _VideoNoteBubble(media: media, isMe: isMe, buildTimestamp: _buildTimestamp);
+    }
+    if (media.isGif) {
+      return _GifBubble(media: media, isMe: isMe, radius: radius, buildTimestamp: _buildTimestamp);
     }
     if (media.isImage) {
       return GestureDetector(
@@ -824,6 +834,205 @@ class _VoiceBubbleState extends State<_VoiceBubble> {
                 ],
               ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Video note bubble (circular) ────────────────────────────────────────────
+
+class _VideoNoteBubble extends StatefulWidget {
+  final MediaPayload media;
+  final bool isMe;
+  final Widget Function() buildTimestamp;
+
+  const _VideoNoteBubble({
+    required this.media,
+    required this.isMe,
+    required this.buildTimestamp,
+  });
+
+  @override
+  State<_VideoNoteBubble> createState() => _VideoNoteBubbleState();
+}
+
+class _VideoNoteBubbleState extends State<_VideoNoteBubble> {
+  VideoPlayerController? _controller;
+  bool _playing = false;
+  String? _tmpPath;
+
+  @override
+  void dispose() {
+    _controller?.dispose();
+    if (_tmpPath != null) {
+      File(_tmpPath!).delete().catchError((_) => File(_tmpPath!));
+    }
+    super.dispose();
+  }
+
+  Future<void> _togglePlay() async {
+    if (_controller != null && _playing) {
+      await _controller!.pause();
+      if (mounted) setState(() => _playing = false);
+      return;
+    }
+    if (_controller == null) {
+      _tmpPath = await VideoService.writeTempVideo(widget.media.data);
+      final ctrl = VideoPlayerController.file(File(_tmpPath!));
+      await ctrl.initialize();
+      ctrl.addListener(() {
+        if (!mounted) return;
+        if (ctrl.value.position >= ctrl.value.duration && ctrl.value.duration > Duration.zero) {
+          setState(() => _playing = false);
+          ctrl.seekTo(Duration.zero);
+          ctrl.pause();
+        }
+      });
+      _controller = ctrl;
+    }
+    await _controller!.play();
+    if (mounted) setState(() => _playing = true);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const size = 200.0;
+    return Column(
+      crossAxisAlignment: widget.isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        GestureDetector(
+          onTap: _togglePlay,
+          child: ClipOval(
+            child: SizedBox(
+              width: size,
+              height: size,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  // Thumbnail or video
+                  if (_controller != null && _controller!.value.isInitialized)
+                    FittedBox(
+                      fit: BoxFit.cover,
+                      child: SizedBox(
+                        width: _controller!.value.size.width,
+                        height: _controller!.value.size.height,
+                        child: VideoPlayer(_controller!),
+                      ),
+                    )
+                  else if (widget.media.thumbnailData != null)
+                    Image.memory(widget.media.thumbnailData!, fit: BoxFit.cover,
+                        gaplessPlayback: true)
+                  else
+                    Container(color: AppTheme.surfaceVariant,
+                        child: const Icon(Icons.videocam_rounded, color: Colors.white54, size: 48)),
+                  // Play icon overlay
+                  if (!_playing)
+                    Center(
+                      child: Container(
+                        width: 48, height: 48,
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.5),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 32),
+                      ),
+                    ),
+                  // Duration label
+                  if (widget.media.durationSeconds > 0)
+                    Positioned(
+                      bottom: 8, right: 12,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.6),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          '${widget.media.durationSeconds ~/ 60}:${(widget.media.durationSeconds % 60).toString().padLeft(2, '0')}',
+                          style: GoogleFonts.inter(color: Colors.white, fontSize: DesignTokens.fontXs),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 3),
+        widget.buildTimestamp(),
+      ],
+    );
+  }
+}
+
+// ─── GIF bubble ──────────────────────────────────────────────────────────────
+
+class _GifBubble extends StatelessWidget {
+  final MediaPayload media;
+  final bool isMe;
+  final BorderRadius radius;
+  final Widget Function() buildTimestamp;
+
+  const _GifBubble({
+    required this.media,
+    required this.isMe,
+    required this.radius,
+    required this.buildTimestamp,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: radius,
+      child: Column(
+        crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Stack(
+            children: [
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 260, maxHeight: 260),
+                child: Image.memory(
+                  media.data,
+                  fit: BoxFit.cover,
+                  gaplessPlayback: true,
+                  errorBuilder: (context, error, stack) => Container(
+                    width: 260, height: 120,
+                    color: Colors.black26,
+                    alignment: Alignment.center,
+                    child: const Icon(Icons.broken_image_rounded, color: Colors.white54, size: DesignTokens.iconXl),
+                  ),
+                ),
+              ),
+              // GIF badge
+              Positioned(
+                top: 8, left: 8,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.6),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text('GIF',
+                      style: GoogleFonts.inter(color: Colors.white, fontSize: DesignTokens.fontXs,
+                          fontWeight: FontWeight.w700)),
+                ),
+              ),
+            ],
+          ),
+          // Timestamp bar
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: DesignTokens.spacing8, vertical: DesignTokens.spacing4),
+            color: Colors.black.withValues(alpha: 0.35),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
+              children: [buildTimestamp()],
+            ),
           ),
         ],
       ),

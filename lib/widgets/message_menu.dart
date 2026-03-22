@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:emoji_picker_flutter/emoji_picker_flutter.dart' as emoji_pkg;
 import '../theme/app_theme.dart';
 import '../models/message.dart';
 import '../models/contact.dart';
@@ -189,7 +190,7 @@ void showForwardPicker({
   );
 }
 
-/// Shows an emoji reaction picker bottom sheet.
+/// Shows an emoji reaction picker bottom sheet with quick reactions + full picker.
 void showEmojiPicker({
   required BuildContext context,
   required String messageId,
@@ -202,25 +203,78 @@ void showEmojiPicker({
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
     ),
-    builder: (_) => SafeArea(
+    builder: (sheetCtx) => SafeArea(
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: emojis.map((emoji) => GestureDetector(
-            onTap: () {
-              Navigator.pop(context);
-              context.read<ChatController>().toggleReaction(contact, messageId, emoji);
-            },
-            child: Container(
-              width: 44, height: 44,
-              decoration: BoxDecoration(
-                color: AppTheme.surfaceVariant,
-                shape: BoxShape.circle,
+          children: [
+            ...emojis.map((emoji) => GestureDetector(
+              onTap: () {
+                Navigator.pop(sheetCtx);
+                context.read<ChatController>().toggleReaction(contact, messageId, emoji);
+              },
+              child: Container(
+                width: 40, height: 40,
+                decoration: BoxDecoration(
+                  color: AppTheme.surfaceVariant,
+                  shape: BoxShape.circle,
+                ),
+                child: Center(child: Text(emoji, style: const TextStyle(fontSize: 20))),
               ),
-              child: Center(child: Text(emoji, style: const TextStyle(fontSize: 22))),
+            )),
+            GestureDetector(
+              onTap: () {
+                Navigator.pop(sheetCtx);
+                _showFullReactionPicker(context, messageId, contact);
+              },
+              child: Container(
+                width: 40, height: 40,
+                decoration: BoxDecoration(
+                  color: AppTheme.surfaceVariant,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(Icons.add_rounded, color: AppTheme.textSecondary, size: 22),
+              ),
             ),
-          )).toList(),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+void _showFullReactionPicker(BuildContext context, String messageId, Contact contact) {
+  // Import done at file level
+  showModalBottomSheet(
+    context: context,
+    backgroundColor: AppTheme.surface,
+    isScrollControlled: true,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    ),
+    builder: (_) => SafeArea(
+      child: SizedBox(
+        height: 340,
+        child: Column(
+          children: [
+            Container(
+              width: 40, height: 4,
+              margin: const EdgeInsets.only(top: 12, bottom: 8),
+              decoration: BoxDecoration(
+                color: AppTheme.textSecondary.withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            Expanded(
+              child: _FullEmojiReactionPicker(
+                onSelected: (emoji) {
+                  Navigator.pop(context);
+                  context.read<ChatController>().toggleReaction(contact, messageId, emoji);
+                },
+              ),
+            ),
+          ],
         ),
       ),
     ),
@@ -376,11 +430,12 @@ void showScheduledPanel({
   );
 }
 
-/// Shows the attach options (Photo / File) bottom sheet.
+/// Shows the attach options (Photo / Video / File) bottom sheet.
 void showAttachMenu({
   required BuildContext context,
   required VoidCallback onPickImage,
   required VoidCallback onPickFile,
+  required VoidCallback onPickVideo,
 }) {
   showModalBottomSheet(
     context: context,
@@ -399,6 +454,12 @@ void showAttachMenu({
               label: context.l10n.menuAttachPhoto,
               color: const Color(0xFF4CAF50),
               onTap: () { Navigator.pop(context); onPickImage(); },
+            ),
+            _AttachOption(
+              icon: Icons.videocam_rounded,
+              label: context.l10n.menuAttachVideo,
+              color: const Color(0xFF9C27B0),
+              onTap: () { Navigator.pop(context); onPickVideo(); },
             ),
             _AttachOption(
               icon: Icons.insert_drive_file_rounded,
@@ -509,4 +570,38 @@ void showTtlDialog({
       },
     ),
   );
+}
+
+class _FullEmojiReactionPicker extends StatelessWidget {
+  final void Function(String emoji) onSelected;
+  const _FullEmojiReactionPicker({required this.onSelected});
+
+  @override
+  Widget build(BuildContext context) {
+    return emoji_pkg.EmojiPicker(
+      onEmojiSelected: (_, emoji) => onSelected(emoji.emoji),
+      config: emoji_pkg.Config(
+        height: 280,
+        emojiViewConfig: emoji_pkg.EmojiViewConfig(
+          columns: 8,
+          emojiSizeMax: 28,
+          backgroundColor: AppTheme.surface,
+          noRecents: const Text('No recent emojis',
+              style: TextStyle(color: Colors.white54, fontSize: 14)),
+        ),
+        categoryViewConfig: emoji_pkg.CategoryViewConfig(
+          backgroundColor: AppTheme.surface,
+          indicatorColor: AppTheme.primary,
+          iconColorSelected: AppTheme.primary,
+          iconColor: AppTheme.textSecondary,
+        ),
+        bottomActionBarConfig: const emoji_pkg.BottomActionBarConfig(enabled: false),
+        searchViewConfig: emoji_pkg.SearchViewConfig(
+          backgroundColor: AppTheme.surface,
+          buttonIconColor: AppTheme.textSecondary,
+          hintText: 'Search emoji...',
+        ),
+      ),
+    );
+  }
 }

@@ -222,6 +222,7 @@
   "bubbleCorruptedImage": "[Повреждённое изображение]",
   "bubbleReplyPhoto": "Фото",
   "bubbleReplyVoice": "Голосовое сообщение",
+  "bubbleReplyVideo": "Видеосообщение",
   "bubbleReadBy": "Прочитано: {names}",
   "bubbleReadByCount": "Прочитано: {count}",
 
@@ -334,6 +335,7 @@
   "menuTtl7d": "7 дней",
   "menuAttachPhoto": "Фото",
   "menuAttachFile": "Файл",
+  "menuAttachVideo": "Видео",
 
   "mediaTitle": "Медиа",
   "mediaFileLabel": "ФАЙЛ",
