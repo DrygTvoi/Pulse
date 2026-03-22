@@ -1,34 +1,15 @@
 // Widget tests for message_menu.dart (lib/widgets/message_menu.dart).
 //
-// All public functions are free functions (showMessageMenu, showForwardPicker,
-// showEmojiPicker, showReactionDetails, showScheduledPanel, showAttachMenu,
-// showTtlDialog).  They require ChatController via Provider and/or Contact /
-// Message models, so most are skipped.  Structural tests verify the file can
-// be imported and basic parameter expectations.
+// Tests the public free functions: showMessageMenu, showAttachMenu,
+// showEmojiPicker, showForwardPicker, showScheduledPanel, showTtlDialog.
 
 import 'package:flutter/material.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:pulse_messenger/l10n/app_localizations.dart';
 import 'package:pulse_messenger/widgets/message_menu.dart';
 
 import '../helpers/test_mocks.dart';
-
-Widget buildTestableWidget(Widget child) {
-  return MaterialApp(
-    localizationsDelegates: const [
-      AppLocalizations.delegate,
-      GlobalMaterialLocalizations.delegate,
-      GlobalWidgetsLocalizations.delegate,
-      GlobalCupertinoLocalizations.delegate,
-    ],
-    supportedLocales: AppLocalizations.supportedLocales,
-    locale: const Locale('en'),
-    home: child,
-  );
-}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -36,22 +17,57 @@ void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues({});
     setUpSecureStorageMock();
+    setUpServiceMocks();
     createTestChatController();
   });
 
   group('message_menu', () {
-    // ── Test 1: showMessageMenu requires ChatController ──────────────────────
+    // ── Test 1: showMessageMenu ─────────────────────────────────────────────
     testWidgets(
       'showMessageMenu opens bottom sheet with menu items',
       (WidgetTester tester) async {
-        // showMessageMenu calls context.read<ChatController>() which is
-        // a singleton requiring platform services.  Cannot render without
-        // a full ChatController mock.
+        // Use a taller surface so the bottom sheet Column does not overflow.
+        await tester.binding.setSurfaceSize(const Size(640, 1200));
+        addTearDown(() => tester.binding.setSurfaceSize(const Size(800, 600)));
+
+        final message = testMessage();
+        final contact = testContact();
+
+        await tester.pumpWidget(buildTestApp(
+          Builder(builder: (context) {
+            return Scaffold(
+              body: ElevatedButton(
+                onPressed: () => showMessageMenu(
+                  context: context,
+                  message: message,
+                  myId: 'me',
+                  onReply: () {},
+                  onForward: (_) {},
+                  onShowEmojiPicker: (_) {},
+                  onDelete: (_) {},
+                  onEdit: (_, __) {},
+                  contact: contact,
+                ),
+                child: const Text('Open'),
+              ),
+            );
+          }),
+        ));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('Open'));
+        await tester.pumpAndSettle();
+
+        // Verify core menu items are present
+        expect(find.text('Reply'), findsOneWidget);
+        expect(find.text('Forward'), findsOneWidget);
+        expect(find.text('React'), findsOneWidget);
+        expect(find.text('Copy'), findsOneWidget);
+        expect(find.text('Delete'), findsOneWidget);
       },
-      skip: true, // Requires Message + Contact model data to populate menu
     );
 
-    // ── Test 2: showAttachMenu would show photo and file options ─────────────
+    // ── Test 2: showAttachMenu ──────────────────────────────────────────────
     testWidgets(
       'showAttachMenu displays photo and file options',
       (WidgetTester tester) async {
@@ -77,16 +93,44 @@ void main() {
       },
     );
 
-    // ── Test 3: showEmojiPicker requires ChatController ─────────────────────
+    // ── Test 3: showEmojiPicker ─────────────────────────────────────────────
     testWidgets(
       'showEmojiPicker displays 8 emoji options',
       (WidgetTester tester) async {
-        // showEmojiPicker reads ChatController to call toggleReaction.
+        final contact = testContact();
+
+        await tester.pumpWidget(buildTestApp(
+          Builder(builder: (context) {
+            return Scaffold(
+              body: ElevatedButton(
+                onPressed: () => showEmojiPicker(
+                  context: context,
+                  messageId: 'msg-1',
+                  contact: contact,
+                ),
+                child: const Text('Open'),
+              ),
+            );
+          }),
+        ));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('Open'));
+        await tester.pumpAndSettle();
+
+        // Verify all 8 emoji options are displayed
+        expect(find.text('👍'), findsOneWidget);
+        expect(find.text('❤️'), findsOneWidget);
+        expect(find.text('😂'), findsOneWidget);
+        expect(find.text('😮'), findsOneWidget);
+        expect(find.text('😢'), findsOneWidget);
+        expect(find.text('🙏'), findsOneWidget);
+        expect(find.text('🔥'), findsOneWidget);
+        expect(find.text('👎'), findsOneWidget);
       },
-      skip: true, // Requires Message model + ChatController.toggleReaction
     );
 
-    // ── Test 4: showTtlDialog requires ChatController ───────────────────────
+    // ── Test 4: showTtlDialog ───────────────────────────────────────────────
     testWidgets(
       'showTtlDialog displays disappearing message options',
       (WidgetTester tester) async {
@@ -113,22 +157,95 @@ void main() {
       },
     );
 
-    // ── Test 5: showForwardPicker requires IContactRepository ───────────────
+    // ── Test 5: showForwardPicker ───────────────────────────────────────────
     testWidgets(
       'showForwardPicker shows contact list for forwarding',
       (WidgetTester tester) async {
-        // showForwardPicker reads IContactRepository and ChatController.
+        final currentContact = testContact(
+          id: 'contact-1',
+          name: 'Alice',
+        );
+        final otherContact = testContact(
+          id: 'contact-2',
+          name: 'Bob',
+          databaseId: 'bob123@wss://relay.example.com',
+          publicKey: 'pubkey-bob',
+        );
+        final message = testMessage();
+
+        // Create controller with contacts so the forward picker has entries
+        final contacts = [currentContact, otherContact];
+        final cc = createTestChatController(contacts);
+        final repo = FakeContactRepository(contacts);
+
+        await tester.pumpWidget(buildTestApp(
+          Builder(builder: (context) {
+            return Scaffold(
+              body: ElevatedButton(
+                onPressed: () => showForwardPicker(
+                  context: context,
+                  message: message,
+                  currentContact: currentContact,
+                  avatarBuilder: (name, size) => CircleAvatar(
+                    radius: size / 2,
+                    child: Text(name[0]),
+                  ),
+                ),
+                child: const Text('Open'),
+              ),
+            );
+          }),
+          chatController: cc,
+          contactRepository: repo,
+        ));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('Open'));
+        await tester.pumpAndSettle();
+
+        // Verify the forward picker title appears
+        expect(find.textContaining('Forward to'), findsOneWidget);
+        // Verify Bob (the other contact) is listed, but not Alice (current)
+        expect(find.text('Bob'), findsOneWidget);
+        expect(find.text('Alice'), findsNothing);
       },
-      skip: true, // Requires Message model data
     );
 
-    // ── Test 6: showScheduledPanel requires ChatController ──────────────────
+    // ── Test 6: showScheduledPanel ──────────────────────────────────────────
     testWidgets(
       'showScheduledPanel displays scheduled messages list',
       (WidgetTester tester) async {
-        // showScheduledPanel reads ChatController to cancel messages.
+        final contact = testContact();
+        final scheduledMessage = testMessage(
+          id: 'sched-1',
+          encryptedPayload: 'See you tomorrow!',
+          status: 'scheduled',
+        );
+
+        await tester.pumpWidget(buildTestApp(
+          Builder(builder: (context) {
+            return Scaffold(
+              body: ElevatedButton(
+                onPressed: () => showScheduledPanel(
+                  context: context,
+                  scheduled: [scheduledMessage],
+                  contact: contact,
+                ),
+                child: const Text('Open'),
+              ),
+            );
+          }),
+        ));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('Open'));
+        await tester.pumpAndSettle();
+
+        // Verify the scheduled messages panel title
+        expect(find.text('Scheduled messages'), findsOneWidget);
+        // Verify the scheduled message content is displayed
+        expect(find.text('See you tomorrow!'), findsOneWidget);
       },
-      skip: true, // Requires ChatController with scheduled messages
     );
   });
 }

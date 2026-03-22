@@ -27,8 +27,16 @@ import 'tor_turn_proxy.dart';
 enum _PtMode { obfs4, webTunnel, snowflake, plain }
 
 class TorService {
-  static final instance = TorService._();
+  static TorService instance = TorService._();
   TorService._();
+
+  /// Protected constructor for test subclasses.
+  @visibleForTesting
+  TorService.forTesting();
+
+  /// Replace the singleton for testing.
+  @visibleForTesting
+  static void setInstanceForTesting(TorService inst) => instance = inst;
 
   static const int socksPort = 9250;
 

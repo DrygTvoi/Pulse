@@ -172,8 +172,17 @@ const _kTurnCandidates = <(String, int, List<Map<String, dynamic>>)>[
 /// Pluggable: add new candidate lists or new probe phases without touching
 /// adapters or call logic.
 class ConnectivityProbeService {
-  static final instance = ConnectivityProbeService._();
+  static ConnectivityProbeService instance = ConnectivityProbeService._();
   ConnectivityProbeService._();
+
+  /// Protected constructor for test subclasses.
+  @visibleForTesting
+  ConnectivityProbeService.forTesting();
+
+  /// Replace the singleton for testing.
+  @visibleForTesting
+  static void setInstanceForTesting(ConnectivityProbeService inst) =>
+      instance = inst;
 
   static const _cacheKeyBase  = 'connectivity_probe_v1';
   static const _cacheKey      = 'connectivity_probe_v1'; // kept for fallback reads

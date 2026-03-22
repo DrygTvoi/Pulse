@@ -17,6 +17,10 @@ class LocalStorageService {
   factory LocalStorageService() => _instance;
   LocalStorageService._internal();
 
+  /// Protected constructor for test subclasses.
+  @visibleForTesting
+  LocalStorageService.forTesting();
+
   /// Replace the singleton for testing.
   @visibleForTesting
   static void setInstanceForTesting(LocalStorageService instance) =>

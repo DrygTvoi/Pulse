@@ -5,6 +5,8 @@
 /// services (ChatController, SignalService).
 library;
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -15,6 +17,12 @@ import 'package:pulse_messenger/controllers/chat_controller.dart';
 import 'package:pulse_messenger/l10n/app_localizations.dart';
 import 'package:pulse_messenger/models/contact.dart';
 import 'package:pulse_messenger/models/contact_repository.dart';
+import 'package:pulse_messenger/models/message.dart';
+import 'package:pulse_messenger/services/connectivity_probe_service.dart';
+import 'package:pulse_messenger/services/local_storage_service.dart';
+import 'package:pulse_messenger/services/notification_service.dart';
+import 'package:pulse_messenger/services/tor_service.dart';
+import 'package:pulse_messenger/services/utls_service.dart';
 import 'package:pulse_messenger/theme/theme_manager.dart';
 
 // ─── FlutterSecureStorage channel mock ──────────────────────────────────────
@@ -88,6 +96,137 @@ class FakeContactRepository implements IContactRepository {
   @override
   Contact? findByAddress(String address) =>
       _contacts.cast<Contact?>().firstWhere((c) => c?.databaseId == address, orElse: () => null);
+}
+
+// ─── FakeLocalStorageService ────────────────────────────────────────────────
+
+/// Minimal [LocalStorageService] substitute for widget tests.
+/// All methods are no-ops or return empty data.
+class FakeLocalStorageService extends LocalStorageService {
+  FakeLocalStorageService() : super.forTesting();
+
+  @override
+  Future<void> init() async {}
+
+  @override
+  Future<String?> loadDraft(String contactId) async => null;
+
+  @override
+  Future<void> saveDraft(String contactId, String text) async {}
+
+  @override
+  Future<void> deleteDraft(String contactId) async {}
+
+  @override
+  Future<List<Map<String, dynamic>>> getMessages(String recipientId,
+      {int limit = 50, int offset = 0}) async => [];
+
+  @override
+  Future<void> saveMessage(String roomId, Map<String, dynamic> msg) async {}
+
+  @override
+  Future<int> countMessages(String roomId) async => 0;
+
+  @override
+  Future<List<Map<String, dynamic>>> loadMessagesPage(
+    String roomId, {
+    int pageSize = 50,
+    int? beforeTimestamp,
+  }) async => [];
+
+  @override
+  Future<void> deleteMessage(String roomId, String messageId) async {}
+
+  @override
+  Future<List<Map<String, dynamic>>> loadMessages(String roomId) async => [];
+
+  @override
+  bool get isSqlcipherAvailable => true;
+
+  @override
+  Future<String?> loadAvatar(String contactId) async => null;
+
+  @override
+  Future<List<({String roomId, Map<String, dynamic> message})>> searchMessages(
+    String query, {String? roomId, int limit = 50, void Function(int scanned, int total)? onProgress}) async => [];
+}
+
+// ─── Singleton mock setup ───────────────────────────────────────────────────
+
+/// Installs lightweight singleton mocks for services that widget tests
+/// depend on. Call in setUp() before pumping widgets.
+///
+/// Mocks: ConnectivityProbeService, TorService, UTLSService,
+/// NotificationService.
+void setUpServiceMocks() {
+  // ConnectivityProbeService — just needs a working status stream
+  ConnectivityProbeService.setInstanceForTesting(
+      _FakeConnectivityProbeService());
+
+  // TorService — just needs a working stateChanges stream
+  TorService.setInstanceForTesting(_FakeTorService());
+
+  // UTLSService — just needs available ValueNotifier
+  UTLSService.setInstanceForTesting(_FakeUTLSService());
+
+  // NotificationService — isChatMuted returns false
+  NotificationService.setInstanceForTesting(_FakeNotificationService());
+
+  // LocalStorageService — no-op draft/message methods
+  LocalStorageService.setInstanceForTesting(FakeLocalStorageService());
+}
+
+class _FakeConnectivityProbeService extends ConnectivityProbeService {
+  final _statusCtrl = StreamController<ProbeStatus>.broadcast();
+
+  _FakeConnectivityProbeService() : super.forTesting();
+
+  @override
+  Stream<ProbeStatus> get status => _statusCtrl.stream;
+
+  @override
+  ProbeResult get lastResult => ProbeResult.empty();
+}
+
+class _FakeTorService extends TorService {
+  final _stateCtrl = StreamController<void>.broadcast();
+
+  _FakeTorService() : super.forTesting();
+
+  @override
+  Stream<void> get stateChanges => _stateCtrl.stream;
+
+  @override
+  bool get isRunning => false;
+
+  @override
+  bool get isBootstrapped => false;
+
+  @override
+  int get bootstrapPercent => 0;
+
+  @override
+  String get activePtLabel => '';
+}
+
+class _FakeUTLSService extends UTLSService {
+  _FakeUTLSService() : super.forTesting();
+
+  @override
+  final ValueNotifier<bool> available = ValueNotifier<bool>(false);
+
+  @override
+  bool get isRunning => false;
+}
+
+class _FakeNotificationService extends NotificationService {
+  _FakeNotificationService() : super.forTesting();
+
+  @override
+  Future<bool> isChatMuted(String contactId) async => false;
+
+  @override
+  Future<void> setChatMuted(String contactId, bool muted) async {}
 }
 
 // ─── Test ChatController ────────────────────────────────────────────────────
@@ -166,4 +305,28 @@ Contact testContact({
       isGroup: isGroup,
       members: members,
       creatorId: creatorId,
+    );
+
+// ─── Test Message factory ───────────────────────────────────────────────────
+
+/// Creates a [Message] with sensible defaults for tests.
+Message testMessage({
+  String id = 'msg-1',
+  String senderId = 'me',
+  String receiverId = 'test-contact-id',
+  String encryptedPayload = 'Hello, world!',
+  DateTime? timestamp,
+  String adapterType = 'nostr',
+  bool isRead = false,
+  String status = '',
+}) =>
+    Message(
+      id: id,
+      senderId: senderId,
+      receiverId: receiverId,
+      encryptedPayload: encryptedPayload,
+      timestamp: timestamp ?? DateTime(2026, 1, 1, 12),
+      adapterType: adapterType,
+      isRead: isRead,
+      status: status,
     );

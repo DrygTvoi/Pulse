@@ -22,8 +22,16 @@ import 'bundled_binary_service.dart';
 /// Falls back gracefully: if the binary is unavailable, ensureRunning() is a
 /// no-op and proxyPort returns null — callers fall through to Tor/plain.
 class UTLSService {
-  static final instance = UTLSService._();
+  static UTLSService instance = UTLSService._();
   UTLSService._();
+
+  /// Protected constructor for test subclasses.
+  @visibleForTesting
+  UTLSService.forTesting();
+
+  /// Replace the singleton for testing.
+  @visibleForTesting
+  static void setInstanceForTesting(UTLSService inst) => instance = inst;
 
   Process? _process;
   int? _port;
