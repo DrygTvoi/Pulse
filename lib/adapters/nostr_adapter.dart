@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
@@ -284,25 +285,57 @@ Future<WebSocketChannel> _nostrWsConnect(
 
 final _secp256k1 = ECCurve_secp256k1();
 
+/// Issue 1: secp256k1 field prime — parsed once at module level, not per call.
+final BigInt _secp256k1P = BigInt.parse(
+    'FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F',
+    radix: 16);
+
+/// Issue 2: ECDH shared-secret cache — keyed by "ourPub:theirPub".
+/// Avoids ~300ms EC math per message for the same key pair.
+/// LinkedHashMap preserves insertion order for LRU eviction (max 500 entries).
+final LinkedHashMap<String, Uint8List> _ecdhCache = LinkedHashMap<String, Uint8List>();
+const _ecdhCacheMaxSize = 500;
+
+/// Issue 3: Cached pubkey derivation — privkey doesn't change at runtime.
+/// Maps privkeyHex → pubkeyHex. Invalidated implicitly (new privkey = new entry).
+/// LinkedHashMap preserves insertion order for LRU eviction (max 200 entries).
+final LinkedHashMap<String, String> _pubkeyCache = LinkedHashMap<String, String>();
+const _pubkeyCacheMaxSize = 200;
+
 /// Public API: derive Nostr pubkey (x-coordinate) from hex private key
 String deriveNostrPubkeyHex(String privkeyHex) => _derivePubkeyHex(privkeyHex);
 
 /// Public API: compute ECDH shared secret (x-coord) from our privkey + their pubkey.
 /// Same derivation as NIP-04 — deterministic per-pair shared key.
+/// Results are cached per key pair (Issue 2).
 Uint8List computeEcdhSecret(String ourPrivkeyHex, String theirPubkeyHex) {
-  const pHex = 'FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F';
-  final p = BigInt.parse(pHex, radix: 16);
+  // Issue 2: return cached secret if available.
+  final cacheKey = '$ourPrivkeyHex:$theirPubkeyHex';
+  final cached = _ecdhCache[cacheKey];
+  if (cached != null) return cached;
+
   final d = BigInt.parse(ourPrivkeyHex, radix: 16);
   final curve = _secp256k1.curve;
   final x = BigInt.parse(theirPubkeyHex, radix: 16);
-  final y2 = (x.modPow(BigInt.from(3), p) + BigInt.from(7)) % p;
-  final y = y2.modPow((p + BigInt.one) ~/ BigInt.from(4), p);
-  final useY = y.isEven ? y : p - y;
+  // Issue 1: use module-level _secp256k1P instead of re-parsing.
+  final y2 = (x.modPow(BigInt.from(3), _secp256k1P) + BigInt.from(7)) % _secp256k1P;
+  final y = y2.modPow((_secp256k1P + BigInt.one) ~/ BigInt.from(4), _secp256k1P);
+  final useY = y.isEven ? y : _secp256k1P - y;
   final sharedPoint = curve.createPoint(x, useY) * d;
   final xVal = sharedPoint?.x?.toBigInteger();
   if (xVal == null) throw StateError('ECDH: invalid shared point');
-  return _bigIntToBytes(xVal, 32);
+  final result = _bigIntToBytes(xVal, 32);
+
+  // Issue 2: store in cache with LRU eviction.
+  _ecdhCache[cacheKey] = result;
+  if (_ecdhCache.length > _ecdhCacheMaxSize) {
+    _ecdhCache.remove(_ecdhCache.keys.first);
+  }
+  return result;
 }
+
+/// Clear ECDH cache — call if privkey changes (shouldn't normally happen).
+void clearEcdhCache() => _ecdhCache.clear();
 
 /// Encrypt plaintext with NIP-04 (AES-CBC + HMAC-SHA256 MAC).
 String nip04Encrypt(String senderPrivkeyHex, String recipientPubkeyHex, String plaintext) =>
@@ -334,12 +367,22 @@ bool verifySignalPayload(String receiverPrivkeyHex, String senderPubkeyHex, Stri
   return result == 0;
 }
 
+/// Issue 3: cached pubkey derivation — privkey doesn't change during runtime.
 String _derivePubkeyHex(String privkeyHex) {
+  final cached = _pubkeyCache[privkeyHex];
+  if (cached != null) return cached;
+
   final d = BigInt.parse(privkeyHex, radix: 16);
   final G = _secp256k1.G;
   final Q = G * d;
   final xBytes = _bigIntToBytes(Q!.x!.toBigInteger()!, 32);
-  return hex.encode(xBytes);
+  final result = hex.encode(xBytes);
+
+  _pubkeyCache[privkeyHex] = result;
+  if (_pubkeyCache.length > _pubkeyCacheMaxSize) {
+    _pubkeyCache.remove(_pubkeyCache.keys.first);
+  }
+  return result;
 }
 
 Uint8List _bigIntToBytes(BigInt n, int length) {
@@ -361,7 +404,8 @@ Uint8List _taggedHash(String tag, List<int> data) {
   return _sha256([...tagHash, ...tagHash, ...data]);
 }
 
-String _signEvent(String privkeyHex, String eventId) {
+/// Issue 4: accepts optional pre-computed [pubkeyHex] to avoid redundant derivation.
+String _signEvent(String privkeyHex, String eventId, {String? pubkeyHex}) {
   final msgBytes = Uint8List.fromList(hex.decode(eventId));
   var d = BigInt.parse(privkeyHex, radix: 16);
   final n = _secp256k1.n;
@@ -370,8 +414,9 @@ String _signEvent(String privkeyHex, String eventId) {
   final P = G * d;
   if (P!.y!.toBigInteger()!.isOdd) d = n - d;
 
-  final pubkeyHex = _derivePubkeyHex(privkeyHex);
-  final pubBytes = Uint8List.fromList(hex.decode(pubkeyHex));
+  // Issue 4: use provided pubkey or fall back to cached derivation.
+  final effectivePubkey = pubkeyHex ?? _derivePubkeyHex(privkeyHex);
+  final pubBytes = Uint8List.fromList(hex.decode(effectivePubkey));
   final privBytes = Uint8List.fromList(hex.decode(privkeyHex));
   final randBytes = Uint8List(32);
   final auxRng = Random.secure();
@@ -407,6 +452,7 @@ Map<String, dynamic> _buildEvent({
   required String content,
   List<List<String>>? tags,
 }) {
+  // Issue 4: derive pubkey once (cached) and pass to _signEvent.
   final pubkey = _derivePubkeyHex(privkeyHex);
   final createdAt = DateTime.now().millisecondsSinceEpoch ~/ 1000;
   final event = <String, dynamic>{
@@ -415,25 +461,15 @@ Map<String, dynamic> _buildEvent({
   };
   final id = _buildEventId(event);
   event['id'] = id;
-  event['sig'] = _signEvent(privkeyHex, id);
+  event['sig'] = _signEvent(privkeyHex, id, pubkeyHex: pubkey);
   return event;
 }
 
 // ─── NIP-04 (kept for WebRTC signaling only) ─────────────
 
+/// Issue 5: delegates ECDH to computeEcdhSecret() which uses the shared cache.
 String _nip04Encrypt(String senderPrivkeyHex, String recipientPubkeyHex, String plaintext) {
-  const pHex = 'FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F';
-  final p = BigInt.parse(pHex, radix: 16);
-  final d = BigInt.parse(senderPrivkeyHex, radix: 16);
-  final curve = _secp256k1.curve;
-  final x = BigInt.parse(recipientPubkeyHex, radix: 16);
-  final y2 = (x.modPow(BigInt.from(3), p) + BigInt.from(7)) % p;
-  final y = y2.modPow((p + BigInt.one) ~/ BigInt.from(4), p);
-  final useY = y.isEven ? y : p - y;
-  final sharedPoint = curve.createPoint(x, useY) * d;
-  final xVal = sharedPoint?.x?.toBigInteger();
-  if (xVal == null) throw FormatException('NIP-04 encrypt: invalid shared point');
-  final sharedX = _bigIntToBytes(xVal, 32);
+  final sharedX = computeEcdhSecret(senderPrivkeyHex, recipientPubkeyHex);
 
   final rng = Random.secure();
   final iv = Uint8List.fromList(List.generate(16, (_) => rng.nextInt(256)));
@@ -453,6 +489,7 @@ String _nip04Encrypt(String senderPrivkeyHex, String recipientPubkeyHex, String 
   return '${base64.encode(ciphertext)}?iv=${base64.encode(iv)}&mac=$mac';
 }
 
+/// Issue 5: delegates ECDH to computeEcdhSecret() which uses the shared cache.
 String _nip04Decrypt(String recipientPrivkeyHex, String senderPubkeyHex, String ciphertext) {
   // Parse: base64_ct?iv=base64_iv[&mac=hex_hmac]
   final ivSplit = ciphertext.split('?iv=');
@@ -469,18 +506,7 @@ String _nip04Decrypt(String recipientPrivkeyHex, String senderPubkeyHex, String 
   }
   final ct = base64.decode(ctB64);
   final iv = base64.decode(ivB64);
-  const pHex = 'FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F';
-  final p = BigInt.parse(pHex, radix: 16);
-  final d = BigInt.parse(recipientPrivkeyHex, radix: 16);
-  final curve = _secp256k1.curve;
-  final x = BigInt.parse(senderPubkeyHex, radix: 16);
-  final y2 = (x.modPow(BigInt.from(3), p) + BigInt.from(7)) % p;
-  final y = y2.modPow((p + BigInt.one) ~/ BigInt.from(4), p);
-  final useY = y.isEven ? y : p - y;
-  final sharedPoint = curve.createPoint(x, useY) * d;
-  final xVal = sharedPoint?.x?.toBigInteger();
-  if (xVal == null) throw FormatException('NIP-04 decrypt: invalid shared point');
-  final sharedX = _bigIntToBytes(xVal, 32);
+  final sharedX = computeEcdhSecret(recipientPrivkeyHex, senderPubkeyHex);
   // Verify MAC before decrypting (Encrypt-then-MAC). MAC is required — no fallback.
   if (macHex == null) throw FormatException('NIP-04 decrypt: missing MAC');
   final macKey = _sha256([...sharedX, 0x01]);
@@ -615,7 +641,8 @@ class NostrInboxReader implements InboxReader {
 
   void _trackSeenId(String id) {
     if (_seenIds.length > 2000) {
-      _seenIds.removeAll(_seenIds.take(1000).toList());
+      final evict = _seenIds.toList().sublist(0, 1000);
+      _seenIds.removeAll(evict);
     }
     _seenIds.add(id);
   }
@@ -640,6 +667,10 @@ class NostrInboxReader implements InboxReader {
   bool _loopStarted = false;
   bool _running = false;
   WebSocketChannel? _activeChannel;
+
+  // Issue 6: pending fetchPublicKeys requests dispatched by the shared loop.
+  // Maps subscription ID → completer. The shared loop forwards matching events.
+  final Map<String, Completer<Map<String, dynamic>?>> _pendingKeyFetches = {};
 
   @override
   Stream<bool> get healthChanges => _healthCtrl.stream;
@@ -691,6 +722,30 @@ class NostrInboxReader implements InboxReader {
             try {
               final data = jsonDecode(raw as String) as List;
               if (data.isEmpty) continue;
+
+              // Issue 6: dispatch events/EOSE for pending fetchPublicKeys requests
+              // before the main subscription filters them out.
+              if (data.length >= 2) {
+                final incomingSubId = data[1] as String?;
+                if (incomingSubId != null && incomingSubId != subId) {
+                  final fetchCompleter = _pendingKeyFetches[incomingSubId];
+                  if (fetchCompleter != null && !fetchCompleter.isCompleted) {
+                    if (data[0] == 'EVENT' && data.length >= 3) {
+                      try {
+                        final fetchEvent = data[2] as Map<String, dynamic>;
+                        final bundle = jsonDecode(fetchEvent['content'] as String) as Map<String, dynamic>;
+                        fetchCompleter.complete(bundle);
+                      } catch (e) {
+                        debugPrint('[Nostr] fetchPublicKeys inline parse error: $e');
+                      }
+                    } else if (data[0] == 'EOSE') {
+                      fetchCompleter.complete(null);
+                    }
+                  }
+                  continue;
+                }
+              }
+
               if (data[0] == 'EOSE') {
                 debugPrint('[Nostr] EOSE on $_relayUrl');
                 continue;
@@ -783,6 +838,7 @@ class NostrInboxReader implements InboxReader {
       final content = event['content'] as String? ?? '';
       final createdAt = event['created_at'] as int?;
       if (id.isEmpty || pubkey.isEmpty || content.isEmpty) return;
+      if (_msgCtrl.isClosed) return;
       _msgCtrl.add([Message(
         id: id,
         senderId: pubkey,
@@ -821,7 +877,7 @@ class NostrInboxReader implements InboxReader {
       }
 
       final data = jsonDecode(plain) as Map<String, dynamic>;
-      _sigCtrl.add([{
+      if (!_sigCtrl.isClosed) _sigCtrl.add([{
         'type': data['type'],
         'senderId': senderPubkey,
         'roomId': data['roomId'],
@@ -850,17 +906,49 @@ class NostrInboxReader implements InboxReader {
 
   // ─────────────────────────────────────────────────────────────────────────
 
-  /// One-shot fetch of the contact's Signal public key bundle (kind 10009)
+  /// Issue 6: reuse the active shared-loop WebSocket for key fetches when available.
+  /// Sends a separate REQ on the existing channel; the shared loop dispatches
+  /// matching responses via _pendingKeyFetches. Falls back to a new connection
+  /// only if the shared loop isn't running.
   @override
   Future<Map<String, dynamic>?> fetchPublicKeys() async {
     if (_publicKeyHex.isEmpty || _relayUrl.isEmpty) return null;
+
+    final activeChannel = _activeChannel;
+    final subId = 'keys_${DateTime.now().millisecondsSinceEpoch}';
+
+    // Issue 6: if the shared loop is active, piggyback on its WS connection.
+    if (activeChannel != null) {
+      final completer = Completer<Map<String, dynamic>?>();
+      _pendingKeyFetches[subId] = completer;
+      try {
+        activeChannel.sink.add(jsonEncode(['REQ', subId, {
+          'kinds': [10009],
+          'authors': [_publicKeyHex],
+          'limit': 1,
+        }]));
+        final result = await completer.future.timeout(
+          const Duration(seconds: 10),
+          onTimeout: () => null,
+        );
+        // Close the relay-side subscription for this REQ.
+        try { activeChannel.sink.add(jsonEncode(['CLOSE', subId])); } catch (_) {}
+        return result;
+      } catch (e) {
+        debugPrint('[Nostr] fetchPublicKeys (shared) error: $e');
+        return null;
+      } finally {
+        _pendingKeyFetches.remove(subId);
+      }
+    }
+
+    // Fallback: no active shared loop — open a one-shot connection.
     final completer = Completer<Map<String, dynamic>?>();
     WebSocketChannel? channel;
     StreamSubscription<dynamic>? sub;
     try {
       channel = await _wsConnect(_relayUrl);
       await channel.ready;
-      final subId = 'keys_${DateTime.now().millisecondsSinceEpoch}';
       channel.sink.add(jsonEncode(['REQ', subId, {
         'kinds': [10009],
         'authors': [_publicKeyHex],
@@ -920,6 +1008,9 @@ class NostrInboxReader implements InboxReader {
     close();
     _privateKeyHex = '';
     _publicKeyHex = '';
+    // Clear caches that may hold derived key material.
+    clearEcdhCache();
+    _pubkeyCache.clear();
   }
 }
 
@@ -1182,5 +1273,8 @@ class NostrMessageSender implements MessageSender {
       try { entry.ch.sink.close(); } catch (_) {}
     }
     _wsPool.clear();
+    // Clear caches that may hold derived key material.
+    clearEcdhCache();
+    _pubkeyCache.clear();
   }
 }

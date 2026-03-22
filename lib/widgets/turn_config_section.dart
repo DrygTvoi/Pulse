@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_theme.dart';
 import '../services/ice_server_config.dart';
+import '../l10n/l10n_ext.dart';
 
 /// Extracted TURN server configuration section from SettingsScreen.
 /// Displays community TURN preset checkboxes and custom TURN input fields.
@@ -23,23 +24,24 @@ class TurnConfigSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildTurnInfo(),
+        _buildTurnInfo(context),
         const SizedBox(height: 14),
-        _sectionLabel('Community TURN Servers'),
+        _sectionLabel(l.turnCommunityServers),
         const SizedBox(height: 10),
-        _buildTurnPresets(),
+        _buildTurnPresets(context),
         const SizedBox(height: 20),
-        _sectionLabel('Custom TURN Server (BYOD)'),
+        _sectionLabel(l.turnCustomServer),
         const SizedBox(height: 10),
-        _buildCustomTurn(),
+        _buildCustomTurn(context),
       ],
     );
   }
 
-  Widget _buildTurnInfo() {
+  Widget _buildTurnInfo(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
@@ -54,9 +56,7 @@ class TurnConfigSection extends StatelessWidget {
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              'TURN servers only relay already-encrypted streams (DTLS-SRTP). '
-              'A relay operator sees your IP and traffic volume, but cannot decrypt calls. '
-              'TURN is only used when direct P2P fails (~15\u201320% of connections).',
+              context.l10n.turnInfoDescription,
               style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: 11, height: 1.5),
             ),
           ),
@@ -65,7 +65,8 @@ class TurnConfigSection extends StatelessWidget {
     );
   }
 
-  Widget _buildTurnPresets() {
+  Widget _buildTurnPresets(BuildContext context) {
+    final l = context.l10n;
     return Column(
       children: kTurnPresets.map((preset) {
         final id = preset['id'] as String;
@@ -124,7 +125,7 @@ class TurnConfigSection extends StatelessWidget {
                       color: const Color(0xFF2ECC71).withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(6),
                     ),
-                    child: Text('FREE',
+                    child: Text(l.turnFreeLabel,
                         style: GoogleFonts.inter(
                             color: const Color(0xFF2ECC71),
                             fontSize: 10,
@@ -139,27 +140,28 @@ class TurnConfigSection extends StatelessWidget {
     );
   }
 
-  Widget _buildCustomTurn() {
+  Widget _buildCustomTurn(BuildContext context) {
+    final l = context.l10n;
     return Column(
       children: [
         _field(
           controller: turnUrlController,
-          hint: 'turn:your-server.com:3478 or turns:...',
-          label: 'TURN Server URL',
+          hint: l.turnServerUrlHint,
+          label: l.turnServerUrlLabel,
           icon: Icons.dns_rounded,
         ),
         const SizedBox(height: 10),
         _field(
           controller: turnUsernameController,
-          hint: 'Optional',
-          label: 'Username',
+          hint: l.turnOptionalHint,
+          label: l.turnUsernameLabel,
           icon: Icons.person_outline_rounded,
         ),
         const SizedBox(height: 10),
         _field(
           controller: turnPasswordController,
-          hint: 'Optional',
-          label: 'Password',
+          hint: l.turnOptionalHint,
+          label: l.turnPasswordLabel,
           icon: Icons.password_rounded,
           obscure: true,
         ),
@@ -169,8 +171,7 @@ class TurnConfigSection extends StatelessWidget {
           const SizedBox(width: 6),
           Expanded(
             child: Text(
-              'Self-host coturn on any \$5/mo VPS for maximum control. '
-              'Credentials are stored locally.',
+              l.turnCustomInfo,
               style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: 11),
             ),
           ),

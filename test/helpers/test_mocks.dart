@@ -125,6 +125,10 @@ class FakeLocalStorageService extends LocalStorageService {
   Future<void> saveMessage(String roomId, Map<String, dynamic> msg) async {}
 
   @override
+  Future<void> saveMessagesBatch(
+      String roomId, List<Map<String, dynamic>> messages) async {}
+
+  @override
   Future<int> countMessages(String roomId) async => 0;
 
   @override

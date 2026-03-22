@@ -80,6 +80,7 @@ class TorService {
   /// PT chain: obfs4 (if binary) → Snowflake (if binary) → plain Tor.
   /// Returns false if tor is unavailable or all strategies time out.
   Future<bool> start() async {
+    if (Platform.isIOS) { debugPrint('[TorService] Not available on iOS'); return false; }
     if (_bootstrapped) return true;
     if (_starting) return false; // prevent concurrent start()
     _starting = true;

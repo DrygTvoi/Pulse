@@ -2167,4 +2167,302 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get themeEngineTitle => 'Theme Engine';
+
+  @override
+  String get torBuiltInTitle => 'Built-in Tor';
+
+  @override
+  String get torConnectedSubtitle =>
+      'Connected — Nostr routed via 127.0.0.1:9250';
+
+  @override
+  String torConnectingSubtitle(int pct) {
+    return 'Connecting… $pct%';
+  }
+
+  @override
+  String get torNotRunning => 'Not running — tap switch to restart';
+
+  @override
+  String get torDescription =>
+      'Routes Nostr via Tor (Snowflake for censored networks)';
+
+  @override
+  String get torNetworkDiagnostics => 'Network Diagnostics';
+
+  @override
+  String get torTransportLabel => 'Transport: ';
+
+  @override
+  String get torPtAuto => 'Auto';
+
+  @override
+  String get torPtObfs4 => 'obfs4';
+
+  @override
+  String get torPtWebTunnel => 'WebTunnel';
+
+  @override
+  String get torPtSnowflake => 'Snowflake';
+
+  @override
+  String get torPtPlain => 'Plain';
+
+  @override
+  String get torTimeoutLabel => 'Timeout: ';
+
+  @override
+  String get torInfoDescription =>
+      'When enabled, Nostr WebSocket connections are routed through Tor (SOCKS5). Tor Browser listens on 127.0.0.1:9150. The standalone tor daemon uses port 9050. Firebase connections are not affected.';
+
+  @override
+  String get torRouteNostrTitle => 'Route Nostr via Tor';
+
+  @override
+  String get torManagedByBuiltin => 'Managed by Built-in Tor';
+
+  @override
+  String get torActiveRouting => 'Active — Nostr traffic routed through Tor';
+
+  @override
+  String get torDisabled => 'Disabled';
+
+  @override
+  String get torProxySocks5 => 'Tor Proxy (SOCKS5)';
+
+  @override
+  String get torProxyHostLabel => 'Proxy Host';
+
+  @override
+  String get torProxyPortLabel => 'Port';
+
+  @override
+  String get torPortInfo => 'Tor Browser: port 9150  •  tor daemon: port 9050';
+
+  @override
+  String get i2pProxySocks5 => 'I2P Proxy (SOCKS5)';
+
+  @override
+  String get i2pInfoDescription =>
+      'I2P uses SOCKS5 on port 4447 by default. Connect to a Nostr relay via I2P outproxy (e.g. relay.damus.i2p) to communicate with users on any transport. Tor takes priority when both are enabled.';
+
+  @override
+  String get i2pRouteNostrTitle => 'Route Nostr via I2P';
+
+  @override
+  String get i2pActiveRouting => 'Active — Nostr traffic routed through I2P';
+
+  @override
+  String get i2pDisabled => 'Disabled';
+
+  @override
+  String get i2pProxyHostLabel => 'Proxy Host';
+
+  @override
+  String get i2pProxyPortLabel => 'Port';
+
+  @override
+  String get i2pPortInfo => 'I2P Router default SOCKS5 port: 4447';
+
+  @override
+  String get customProxySocks5 => 'Custom Proxy (SOCKS5)';
+
+  @override
+  String get customCfWorkerRelay => 'CF Worker Relay';
+
+  @override
+  String get customProxyInfoDescription =>
+      'Custom proxy routes traffic through your V2Ray/Xray/Shadowsocks. CF Worker acts as a personal relay proxy on Cloudflare CDN — GFW sees *.workers.dev, not the real relay.';
+
+  @override
+  String get customSocks5ProxyTitle => 'Custom SOCKS5 Proxy';
+
+  @override
+  String get customProxyActive => 'Active — traffic routed via SOCKS5';
+
+  @override
+  String get customProxyDisabled => 'Disabled';
+
+  @override
+  String get customProxyHostLabel => 'Proxy Host';
+
+  @override
+  String get customProxyPortLabel => 'Port';
+
+  @override
+  String get customProxyHint =>
+      'V2Ray/Xray: 127.0.0.1:10808  •  Shadowsocks: 127.0.0.1:1080';
+
+  @override
+  String get customWorkerLabel => 'Worker Domain (optional)';
+
+  @override
+  String get customWorkerHelpTitle => 'How to deploy a CF Worker relay (free)';
+
+  @override
+  String get customWorkerScriptCopied => 'Script copied!';
+
+  @override
+  String get customWorkerStep1 =>
+      '1. Go to dash.cloudflare.com → Workers & Pages\n2. Create Worker → paste this script:\n';
+
+  @override
+  String get customWorkerStep2 =>
+      '3. Deploy → copy domain (e.g. my-relay.user.workers.dev)\n4. Paste domain above → Save\n\nApp auto-connects: wss://domain/?r=relay_url\nGFW sees: connection to *.workers.dev (CF CDN)';
+
+  @override
+  String get psiphonTitle => 'Psiphon';
+
+  @override
+  String psiphonConnectedSubtitle(int port) {
+    return 'Connected — SOCKS5 on 127.0.0.1:$port';
+  }
+
+  @override
+  String get psiphonConnecting => 'Connecting…';
+
+  @override
+  String get psiphonNotRunning => 'Not running — tap switch to restart';
+
+  @override
+  String get psiphonDescription =>
+      'Fast tunnel (~3s bootstrap, 2000+ rotating VPS)';
+
+  @override
+  String get turnCommunityServers => 'Community TURN Servers';
+
+  @override
+  String get turnCustomServer => 'Custom TURN Server (BYOD)';
+
+  @override
+  String get turnInfoDescription =>
+      'TURN servers only relay already-encrypted streams (DTLS-SRTP). A relay operator sees your IP and traffic volume, but cannot decrypt calls. TURN is only used when direct P2P fails (~15–20% of connections).';
+
+  @override
+  String get turnFreeLabel => 'FREE';
+
+  @override
+  String get turnServerUrlLabel => 'TURN Server URL';
+
+  @override
+  String get turnServerUrlHint => 'turn:your-server.com:3478 or turns:...';
+
+  @override
+  String get turnUsernameLabel => 'Username';
+
+  @override
+  String get turnPasswordLabel => 'Password';
+
+  @override
+  String get turnOptionalHint => 'Optional';
+
+  @override
+  String get turnCustomInfo =>
+      'Self-host coturn on any \$5/mo VPS for maximum control. Credentials are stored locally.';
+
+  @override
+  String get themePickerAppearance => 'Appearance';
+
+  @override
+  String get themePickerAccentColor => 'Accent Color';
+
+  @override
+  String get themeModeLight => 'Light';
+
+  @override
+  String get themeModeDark => 'Dark';
+
+  @override
+  String get themeModeSystem => 'System';
+
+  @override
+  String get themeDynamicPresets => 'Presets';
+
+  @override
+  String get themeDynamicPrimaryColor => 'Primary Color';
+
+  @override
+  String get themeDynamicBorderRadius => 'Border Radius';
+
+  @override
+  String get themeDynamicFont => 'Font';
+
+  @override
+  String get themeDynamicAppearance => 'Appearance';
+
+  @override
+  String get themeDynamicUiStyle => 'UI Style';
+
+  @override
+  String get themeDynamicUiStyleDescription =>
+      'Controls how dialogs, switches and indicators look.';
+
+  @override
+  String get themeDynamicSharp => 'Sharp';
+
+  @override
+  String get themeDynamicRound => 'Round';
+
+  @override
+  String get themeDynamicModeDark => 'Dark';
+
+  @override
+  String get themeDynamicModeLight => 'Light';
+
+  @override
+  String get themeDynamicModeAuto => 'Auto';
+
+  @override
+  String get themeDynamicPlatformAuto => 'Auto';
+
+  @override
+  String get themeDynamicPlatformAndroid => 'Android';
+
+  @override
+  String get themeDynamicPlatformIos => 'iOS';
+
+  @override
+  String get providerErrorInvalidFirebaseUrl =>
+      'Invalid Firebase URL. Expected https://project.firebaseio.com';
+
+  @override
+  String get providerErrorInvalidRelayUrl =>
+      'Invalid relay URL. Expected wss://relay.example.com';
+
+  @override
+  String get providerErrorInvalidWakuUrl =>
+      'Invalid Waku node URL. Expected http://host:port';
+
+  @override
+  String get providerErrorInvalidPulseUrl =>
+      'Invalid Pulse server URL. Expected https://server:port';
+
+  @override
+  String get providerPulseServerUrlLabel => 'Server URL';
+
+  @override
+  String get providerPulseServerUrlHint => 'https://your-server:8443';
+
+  @override
+  String get providerPulseInviteLabel => 'Invite Code';
+
+  @override
+  String get providerPulseInviteHint => 'Invite code (if required)';
+
+  @override
+  String get providerPulseInfo =>
+      'Self-hosted relay. Keys derived from your recovery password.';
+
+  @override
+  String get providerScreenTitle => 'Inboxes';
+
+  @override
+  String get providerSecondaryInboxesHeader => 'SECONDARY INBOXES';
+
+  @override
+  String get providerSecondaryInboxesInfo =>
+      'Secondary inboxes receive messages simultaneously for redundancy.';
+
+  @override
+  String get providerRemoveTooltip => 'Remove';
 }

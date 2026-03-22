@@ -150,7 +150,7 @@ class _DynamicThemeScreenState extends State<DynamicThemeScreen> {
         padding: const EdgeInsets.all(20),
         children: [
           // ── Presets ────────────────────────────────────────────────────
-          _label('Presets', theme),
+          _label(context.l10n.themeDynamicPresets, theme),
           const SizedBox(height: 12),
           _buildPresetGrid(theme),
 
@@ -159,7 +159,7 @@ class _DynamicThemeScreenState extends State<DynamicThemeScreen> {
           const SizedBox(height: 24),
 
           // ── Primary colour ─────────────────────────────────────────────
-          _label('Primary Color', theme),
+          _label(context.l10n.themeDynamicPrimaryColor, theme),
           const SizedBox(height: 12),
           _buildColorGrid(theme.primary,
               (c) => ThemeNotifier.instance.updateColors(primary: c)),
@@ -169,7 +169,7 @@ class _DynamicThemeScreenState extends State<DynamicThemeScreen> {
           const SizedBox(height: 24),
 
           // ── Border radius ──────────────────────────────────────────────
-          _label('Border Radius', theme),
+          _label(context.l10n.themeDynamicBorderRadius, theme),
           const SizedBox(height: 4),
           _buildRadiusSlider(theme),
 
@@ -178,7 +178,7 @@ class _DynamicThemeScreenState extends State<DynamicThemeScreen> {
           const SizedBox(height: 24),
 
           // ── Typography ─────────────────────────────────────────────────
-          _label('Font', theme),
+          _label(context.l10n.themeDynamicFont, theme),
           const SizedBox(height: 12),
           _buildFontSelector(theme),
 
@@ -187,7 +187,7 @@ class _DynamicThemeScreenState extends State<DynamicThemeScreen> {
           const SizedBox(height: 24),
 
           // ── Dark / Light ───────────────────────────────────────────────
-          _label('Appearance', theme),
+          _label(context.l10n.themeDynamicAppearance, theme),
           const SizedBox(height: 12),
           _buildModeToggle(theme),
 
@@ -196,9 +196,9 @@ class _DynamicThemeScreenState extends State<DynamicThemeScreen> {
           const SizedBox(height: 24),
 
           // ── UI Style ───────────────────────────────────────────────────
-          _label('UI Style', theme),
+          _label(context.l10n.themeDynamicUiStyle, theme),
           const SizedBox(height: 4),
-          Text('Controls how dialogs, switches and indicators look.',
+          Text(context.l10n.themeDynamicUiStyleDescription,
               style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: 12)),
           const SizedBox(height: 12),
           _buildPlatformToggle(theme),
@@ -331,10 +331,10 @@ class _DynamicThemeScreenState extends State<DynamicThemeScreen> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Sharp', style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: 11)),
+              Text(context.l10n.themeDynamicSharp, style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: 11)),
               Text('${theme.borderRadius.round()}px',
                   style: GoogleFonts.inter(color: theme.primary, fontSize: 11, fontWeight: FontWeight.w600)),
-              Text('Round', style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: 11)),
+              Text(context.l10n.themeDynamicRound, style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: 11)),
             ],
           ),
         ),
@@ -380,10 +380,11 @@ class _DynamicThemeScreenState extends State<DynamicThemeScreen> {
 
   // ── Dark / Light toggle ───────────────────────────────────────────────────
   Widget _buildModeToggle(ThemeNotifier theme) {
+    final l = context.l10n;
     final modes = [
-      (ThemeMode.dark,   Icons.dark_mode_rounded,   'Dark'),
-      (ThemeMode.light,  Icons.light_mode_rounded,  'Light'),
-      (ThemeMode.system, Icons.brightness_auto_rounded, 'Auto'),
+      (ThemeMode.dark,   Icons.dark_mode_rounded,   l.themeDynamicModeDark),
+      (ThemeMode.light,  Icons.light_mode_rounded,  l.themeDynamicModeLight),
+      (ThemeMode.system, Icons.brightness_auto_rounded, l.themeDynamicModeAuto),
     ];
     return Container(
       height: 48,
@@ -429,10 +430,11 @@ class _DynamicThemeScreenState extends State<DynamicThemeScreen> {
 
   // ── Platform (UI style) toggle ────────────────────────────────────────────
   Widget _buildPlatformToggle(ThemeNotifier theme) {
+    final l = context.l10n;
     final options = [
-      (null,                   Icons.android_rounded,        'Auto'),
-      (TargetPlatform.android, Icons.smartphone_rounded,     'Android'),
-      (TargetPlatform.iOS,     Icons.phone_iphone_rounded,   'iOS'),
+      (null,                   Icons.android_rounded,        l.themeDynamicPlatformAuto),
+      (TargetPlatform.android, Icons.smartphone_rounded,     l.themeDynamicPlatformAndroid),
+      (TargetPlatform.iOS,     Icons.phone_iphone_rounded,   l.themeDynamicPlatformIos),
     ];
     return Container(
       height: 48,

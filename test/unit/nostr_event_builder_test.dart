@@ -24,8 +24,8 @@ void main() {
   });
 
   group('buildEvent', () {
-    test('produces valid event structure', () {
-      final event = buildEvent(
+    test('produces valid event structure', () async {
+      final event = await buildEvent(
         privkeyHex: _priv2,
         kind: 4,
         content: 'hello',
@@ -40,8 +40,8 @@ void main() {
       expect((event['sig'] as String).length, equals(128));
     });
 
-    test('respects custom createdAt', () {
-      final event = buildEvent(
+    test('respects custom createdAt', () async {
+      final event = await buildEvent(
         privkeyHex: _priv2,
         kind: 1,
         content: 'test',
@@ -50,16 +50,16 @@ void main() {
       expect(event['created_at'], equals(1700000000));
     });
 
-    test('different content → different id', () {
-      final e1 = buildEvent(privkeyHex: _priv2, kind: 1, content: 'a');
-      final e2 = buildEvent(privkeyHex: _priv2, kind: 1, content: 'b');
+    test('different content → different id', () async {
+      final e1 = await buildEvent(privkeyHex: _priv2, kind: 1, content: 'a');
+      final e2 = await buildEvent(privkeyHex: _priv2, kind: 1, content: 'b');
       expect(e1['id'], isNot(equals(e2['id'])));
     });
   });
 
   group('verifyEventSignature', () {
-    test('valid event passes', () {
-      final event = buildEvent(
+    test('valid event passes', () async {
+      final event = await buildEvent(
         privkeyHex: _priv2,
         kind: 1,
         content: 'test content',
@@ -67,8 +67,8 @@ void main() {
       expect(verifyEventSignature(event), isTrue);
     });
 
-    test('tampered content fails', () {
-      final event = buildEvent(
+    test('tampered content fails', () async {
+      final event = await buildEvent(
         privkeyHex: _priv2,
         kind: 1,
         content: 'original',
@@ -77,8 +77,8 @@ void main() {
       expect(verifyEventSignature(event), isFalse);
     });
 
-    test('tampered id fails', () {
-      final event = buildEvent(
+    test('tampered id fails', () async {
+      final event = await buildEvent(
         privkeyHex: _priv2,
         kind: 1,
         content: 'test',
@@ -87,8 +87,8 @@ void main() {
       expect(verifyEventSignature(event), isFalse);
     });
 
-    test('wrong sig fails', () {
-      final event = buildEvent(
+    test('wrong sig fails', () async {
+      final event = await buildEvent(
         privkeyHex: _priv2,
         kind: 1,
         content: 'test',
@@ -97,9 +97,9 @@ void main() {
       expect(verifyEventSignature(event), isFalse);
     });
 
-    test('different keys produce valid signatures', () {
-      final e1 = buildEvent(privkeyHex: _priv1, kind: 1, content: 'a');
-      final e2 = buildEvent(privkeyHex: _priv2, kind: 1, content: 'a');
+    test('different keys produce valid signatures', () async {
+      final e1 = await buildEvent(privkeyHex: _priv1, kind: 1, content: 'a');
+      final e2 = await buildEvent(privkeyHex: _priv2, kind: 1, content: 'a');
       expect(verifyEventSignature(e1), isTrue);
       expect(verifyEventSignature(e2), isTrue);
       expect(e1['pubkey'], isNot(equals(e2['pubkey'])));

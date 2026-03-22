@@ -230,7 +230,7 @@ class DeviceTransferService {
           // Encrypt and send bundle back
           final bundle = await _collectBundle();
           final encrypted = nip04Encrypt(_myPrivHex, _peerPubHex, jsonEncode(bundle));
-          final replyEvent = neb.buildEvent(
+          final replyEvent = await neb.buildEvent(
             privkeyHex: _myPrivHex,
             kind: 4,
             content: encrypted,
@@ -283,7 +283,7 @@ class DeviceTransferService {
       }]));
 
       // Publish our pubkey to the source
-      final announceEvent = neb.buildEvent(
+      final announceEvent = await neb.buildEvent(
         privkeyHex: _myPrivHex,
         kind: 4,
         content: _myPubHex,
@@ -293,24 +293,25 @@ class DeviceTransferService {
 
       // Wait for bundle reply (60s timeout)
       bool received = false;
-      await channel.stream.timeout(const Duration(seconds: 60)).forEach((raw) async {
-        if (received) return;
+      await for (final raw in channel.stream.timeout(const Duration(seconds: 60))) {
+        if (received) break;
         try {
           final data = jsonDecode(raw as String) as List;
-          if (data[0] != 'EVENT' || data[1] != subId) return;
+          if (data[0] != 'EVENT' || data[1] != subId) continue;
           final event = data[2] as Map<String, dynamic>;
-          if (event['kind'] != 4) return;
+          if (event['kind'] != 4) continue;
           final senderPub = event['pubkey'] as String;
-          if (senderPub != srcPubHex) return;
+          if (senderPub != srcPubHex) continue;
           final plain = nip04Decrypt(_myPrivHex, srcPubHex, event['content'] as String);
           await _importBundle(jsonDecode(plain) as Map<String, dynamic>);
           verificationCode = _verificationCode(_myPrivHex, srcPubHex);
           _peerPubHex = srcPubHex;
           received = true;
+          break;
         } catch (e) {
           debugPrint('[DeviceTransfer] Nostr target parse error: $e');
         }
-      });
+      }
       if (!received) throw TimeoutException('No bundle received from source device');
     } finally {
       channel?.sink.close();

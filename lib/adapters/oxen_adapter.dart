@@ -95,7 +95,16 @@ class OxenInboxReader implements InboxReader {
 
   bool _loopStarted = false;
   String _lastHash = '';
-  int _pollDelay = 2;
+
+  // ── Adaptive polling — reduces bandwidth when idle ──────────────────────
+  DateTime _lastActivity = DateTime.now();
+
+  int get _adaptivePollDelay {
+    final idle = DateTime.now().difference(_lastActivity);
+    if (idle < const Duration(seconds: 10)) return 3;    // active
+    if (idle < const Duration(seconds: 60)) return 30;   // idle
+    return 300;                                            // deep idle (5 min)
+  }
 
   final _healthCtrl = StreamController<bool>.broadcast();
   int _consecutiveFailures = 0;
@@ -158,9 +167,10 @@ class OxenInboxReader implements InboxReader {
     }
 
     while (true) {
+      int pollDelay;
       try {
         await _poll();
-        _pollDelay = 2;
+        pollDelay = _adaptivePollDelay;
         _consecutiveFailures = 0;
         if (!_isHealthy && !_healthCtrl.isClosed) {
           _isHealthy = true;
@@ -189,11 +199,11 @@ class OxenInboxReader implements InboxReader {
           break;
         }
         // Tiered delay: 5s for first 5 failures, 30s up to 15, then 5min
-        _pollDelay = (_consecutiveFailures < 5) ? 5
+        pollDelay = (_consecutiveFailures < 5) ? 5
             : (_consecutiveFailures < 15) ? 30
             : 300;
       }
-      await Future.delayed(Duration(seconds: _pollDelay));
+      await Future.delayed(Duration(seconds: pollDelay));
     }
   }
 
@@ -249,6 +259,8 @@ class OxenInboxReader implements InboxReader {
       final bytes = base64.decode(raw);
       final outer = jsonDecode(utf8.decode(bytes)) as Map<String, dynamic>;
       final ts = (item['timestamp'] as int?) ?? DateTime.now().millisecondsSinceEpoch;
+
+      _lastActivity = DateTime.now(); // reset to active polling
 
       if (outer['t'] == 'sig') {
         _sigCtrl.add([{

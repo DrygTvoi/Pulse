@@ -160,6 +160,14 @@ class SignalChunkReqEvent {
   SignalChunkReqEvent(this.fid, this.missing, this.senderId);
 }
 
+/// Sender key distribution for group E2EE.
+class SignalSenderKeyDistEvent {
+  final Contact fromContact;
+  final String groupId;
+  final String skdmB64;
+  SignalSenderKeyDistEvent(this.fromContact, this.groupId, this.skdmB64);
+}
+
 /// Group invite from a known contact — receiver can accept or decline.
 class SignalGroupInviteEvent {
   final Contact fromContact;
@@ -243,6 +251,8 @@ class SignalDispatcher {
   final _msgDeleteCtrl = StreamController<SignalMsgDeleteEvent>.broadcast();
   final _groupInviteDeclineCtrl =
       StreamController<SignalGroupInviteDeclineEvent>.broadcast();
+  final _senderKeyDistCtrl =
+      StreamController<SignalSenderKeyDistEvent>.broadcast();
 
   Stream<SignalRawEvent> get rawSignals => _rawCtrl.stream;
   Stream<SignalIncomingCallEvent> get incomingCalls => _incomingCallCtrl.stream;
@@ -267,6 +277,8 @@ class SignalDispatcher {
   Stream<SignalMsgDeleteEvent> get msgDeletes => _msgDeleteCtrl.stream;
   Stream<SignalGroupInviteDeclineEvent> get groupInviteDeclines =>
       _groupInviteDeclineCtrl.stream;
+  Stream<SignalSenderKeyDistEvent> get senderKeyDists =>
+      _senderKeyDistCtrl.stream;
 
   // ── Constants ────────────────────────────────────────────────────────────
 
@@ -609,6 +621,19 @@ class SignalDispatcher {
               _msgDeleteCtrl.add(SignalMsgDeleteEvent(senderId, msgId, groupId: deleteGroupId));
             }
           }
+        } else if (sigType == 'sender_key_dist') {
+          final payload = sig['payload'];
+          if (payload is Map) {
+            final groupId = payload['groupId'] as String?;
+            final skdm = payload['skdm'] as String?;
+            final senderId = sig['senderId'] as String? ?? '';
+            final sender = _resolveContact(senderId, contactByDbId);
+            if (groupId != null && skdm != null && sender != null &&
+                !_senderKeyDistCtrl.isClosed) {
+              _senderKeyDistCtrl
+                  .add(SignalSenderKeyDistEvent(sender, groupId, skdm));
+            }
+          }
         } else if (sigType == 'chunk_req') {
           final payload = sig['payload'];
           if (payload is Map) {
@@ -650,6 +675,7 @@ class SignalDispatcher {
     _groupUpdateCtrl.close();
     _groupInviteCtrl.close();
     _groupInviteDeclineCtrl.close();
+    _senderKeyDistCtrl.close();
     _msgDeleteCtrl.close();
     _sigRateLimiter.clear();
   }

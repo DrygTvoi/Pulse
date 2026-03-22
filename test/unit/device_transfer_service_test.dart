@@ -219,9 +219,9 @@ void main() {
   // ── Event building via neb ────────────────────────────────────────────────
 
   group('Nostr event building (neb)', () {
-    test('buildEvent returns properly structured event', () {
+    test('buildEvent returns properly structured event', () async {
       final priv = neb.generateRandomPrivkey();
-      final event = neb.buildEvent(
+      final event = await neb.buildEvent(
         privkeyHex: priv,
         kind: 4,
         content: 'encrypted payload here',
@@ -242,10 +242,10 @@ void main() {
       expect(event['tags'], isA<List>());
     });
 
-    test('buildEvent pubkey matches derivePubkeyHex', () {
+    test('buildEvent pubkey matches derivePubkeyHex', () async {
       final priv = neb.generateRandomPrivkey();
       final expectedPub = neb.derivePubkeyHex(priv);
-      final event = neb.buildEvent(
+      final event = await neb.buildEvent(
         privkeyHex: priv,
         kind: 1,
         content: 'hello',
@@ -253,9 +253,9 @@ void main() {
       expect(event['pubkey'], equals(expectedPub));
     });
 
-    test('buildEvent signature is verifiable', () {
+    test('buildEvent signature is verifiable', () async {
       final priv = neb.generateRandomPrivkey();
-      final event = neb.buildEvent(
+      final event = await neb.buildEvent(
         privkeyHex: priv,
         kind: 4,
         content: 'device transfer bundle',
@@ -266,10 +266,10 @@ void main() {
       expect(neb.verifyEventSignature(event), isTrue);
     });
 
-    test('buildEvent with custom createdAt uses provided timestamp', () {
+    test('buildEvent with custom createdAt uses provided timestamp', () async {
       final priv = neb.generateRandomPrivkey();
       const ts = 1700000000;
-      final event = neb.buildEvent(
+      final event = await neb.buildEvent(
         privkeyHex: priv,
         kind: 4,
         content: 'test',
@@ -278,10 +278,10 @@ void main() {
       expect(event['created_at'], equals(ts));
     });
 
-    test('buildEvent id is deterministic for same inputs', () {
+    test('buildEvent id is deterministic for same inputs', () async {
       final priv = neb.generateRandomPrivkey();
       const ts = 1700000000;
-      final event1 = neb.buildEvent(
+      final event1 = await neb.buildEvent(
         privkeyHex: priv,
         kind: 4,
         content: 'same content',

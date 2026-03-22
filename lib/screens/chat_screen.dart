@@ -75,6 +75,9 @@ class _ChatScreenState extends State<ChatScreen> {
   // Delete animation
   final _pendingDelete = <String>{};
 
+  // Track messages that have already been rendered (skip entrance animation for them)
+  final _seenMessageIds = <String>{};
+
   // Scroll-to-bottom FAB
   bool _showScrollFab = false;
   int _unreadWhileScrolled = 0;
@@ -86,6 +89,11 @@ class _ChatScreenState extends State<ChatScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final ctrl = context.read<ChatController>();
       await ctrl.loadRoomHistory(_contact);
+      // Seed seen IDs with all existing messages so they don't animate on open
+      final existingRoom = ctrl.getRoomForContact(_contact.id);
+      if (existingRoom != null) {
+        _seenMessageIds.addAll(existingRoom.messages.map((m) => m.id));
+      }
       await ctrl.markRoomAsRead(_contact);
       if (_contact.isGroup) unawaited(ctrl.markGroupMessagesRead(_contact));
       ctrl.setActiveRoom(_contact.id);
@@ -736,46 +744,55 @@ class _ChatScreenState extends State<ChatScreen> {
                               scale: _pendingDelete.contains(msg.id) ? 0.88 : 1.0,
                               duration: const Duration(milliseconds: 220),
                               curve: Curves.easeIn,
-                              child: Padding(
-                            padding: EdgeInsets.only(bottom: entry.isGrouped ? 1 : 5),
-                            child: MessageBubble(
-                              message: msg.encryptedPayload,
-                              timestamp: msg.timestamp,
-                              isMe: isMe,
-                              status: msg.status,
-                              showTail: entry.isLast,
-                              senderName: senderName,
-                              isEdited: msg.isEdited,
-                              reactions: chatController.getReactions(_contact.storageKey, msg.id),
-                              onReact: (e) { HapticFeedback.selectionClick(); chatController.toggleReaction(_contact, msg.id, e); },
-                              onReactLongPress: (e) {
-                                final r = chatController.getReactions(_contact.storageKey, msg.id);
-                                final senders = r[e] ?? <String>[];
-                                if (senders.isNotEmpty) {
-                                  menu.showReactionDetails(
-                                    context: context,
-                                    emoji: e,
-                                    senderIds: senders,
-                                  );
-                                }
-                              },
-                              replyToText: msg.replyToText,
-                              replyToSender: replyFromName,
-                              uploadProgress: chatController.getUploadProgress(msg.id),
-                              readBy: msg.readBy,
-                              deliveredTo: msg.deliveredTo,
-                              onGroupStatusTap: (isMe && _contact.isGroup &&
-                                      (msg.readBy.isNotEmpty || msg.deliveredTo.isNotEmpty))
-                                  ? () => _showGroupStatusDialog(msg)
-                                  : null,
-                              onRetry: msg.status == 'failed'
-                                  ? () => chatController.retryMessage(_contact, msg)
-                                  : null,
-                            )
-                            .animate()
-                            .fadeIn(duration: 200.ms)
-                            .slideY(begin: 0.05, end: 0),
-                          ),
+                              child: Builder(builder: (_) {
+                            final isNew = !_seenMessageIds.contains(msg.id);
+                            _seenMessageIds.add(msg.id);
+                            Widget bubble = Padding(
+                              padding: EdgeInsets.only(bottom: entry.isGrouped ? 1 : 5),
+                              child: MessageBubble(
+                                message: msg.encryptedPayload,
+                                timestamp: msg.timestamp,
+                                isMe: isMe,
+                                status: msg.status,
+                                showTail: entry.isLast,
+                                senderName: senderName,
+                                isEdited: msg.isEdited,
+                                reactions: chatController.getReactions(_contact.storageKey, msg.id),
+                                onReact: (e) { HapticFeedback.selectionClick(); chatController.toggleReaction(_contact, msg.id, e); },
+                                onReactLongPress: (e) {
+                                  final r = chatController.getReactions(_contact.storageKey, msg.id);
+                                  final senders = r[e] ?? <String>[];
+                                  if (senders.isNotEmpty) {
+                                    menu.showReactionDetails(
+                                      context: context,
+                                      emoji: e,
+                                      senderIds: senders,
+                                    );
+                                  }
+                                },
+                                replyToText: msg.replyToText,
+                                replyToSender: replyFromName,
+                                uploadProgress: chatController.getUploadProgress(msg.id),
+                                readBy: msg.readBy,
+                                deliveredTo: msg.deliveredTo,
+                                onGroupStatusTap: (isMe && _contact.isGroup &&
+                                        (msg.readBy.isNotEmpty || msg.deliveredTo.isNotEmpty))
+                                    ? () => _showGroupStatusDialog(msg)
+                                    : null,
+                                onRetry: msg.status == 'failed'
+                                    ? () => chatController.retryMessage(_contact, msg)
+                                    : null,
+                              ),
+                            );
+                            // Only animate entrance for newly arrived messages
+                            if (isNew) {
+                              bubble = bubble
+                                  .animate()
+                                  .fadeIn(duration: 200.ms)
+                                  .slideY(begin: 0.05, end: 0);
+                            }
+                            return bubble;
+                          }),
                           ),
                           ),
                         );

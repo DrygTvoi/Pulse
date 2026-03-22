@@ -2153,4 +2153,302 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get themeEngineTitle => 'Движок тем';
+
+  @override
+  String get torBuiltInTitle => 'Встроенный Tor';
+
+  @override
+  String get torConnectedSubtitle => 'Подключён — Nostr через 127.0.0.1:9250';
+
+  @override
+  String torConnectingSubtitle(int pct) {
+    return 'Подключение… $pct%';
+  }
+
+  @override
+  String get torNotRunning => 'Не запущен — нажмите для перезапуска';
+
+  @override
+  String get torDescription =>
+      'Маршрутизация Nostr через Tor (Snowflake для сетей с цензурой)';
+
+  @override
+  String get torNetworkDiagnostics => 'Диагностика сети';
+
+  @override
+  String get torTransportLabel => 'Транспорт: ';
+
+  @override
+  String get torPtAuto => 'Авто';
+
+  @override
+  String get torPtObfs4 => 'obfs4';
+
+  @override
+  String get torPtWebTunnel => 'WebTunnel';
+
+  @override
+  String get torPtSnowflake => 'Snowflake';
+
+  @override
+  String get torPtPlain => 'Прямой';
+
+  @override
+  String get torTimeoutLabel => 'Таймаут: ';
+
+  @override
+  String get torInfoDescription =>
+      'При включении WebSocket-соединения Nostr проходят через Tor (SOCKS5). Tor Browser слушает 127.0.0.1:9150. Демон tor использует порт 9050. Подключения Firebase не затронуты.';
+
+  @override
+  String get torRouteNostrTitle => 'Маршрутизировать Nostr через Tor';
+
+  @override
+  String get torManagedByBuiltin => 'Управляется встроенным Tor';
+
+  @override
+  String get torActiveRouting => 'Активен — трафик Nostr через Tor';
+
+  @override
+  String get torDisabled => 'Отключён';
+
+  @override
+  String get torProxySocks5 => 'Tor Прокси (SOCKS5)';
+
+  @override
+  String get torProxyHostLabel => 'Хост прокси';
+
+  @override
+  String get torProxyPortLabel => 'Порт';
+
+  @override
+  String get torPortInfo => 'Tor Browser: порт 9150  •  демон tor: порт 9050';
+
+  @override
+  String get i2pProxySocks5 => 'I2P Прокси (SOCKS5)';
+
+  @override
+  String get i2pInfoDescription =>
+      'I2P использует SOCKS5 на порту 4447 по умолчанию. Подключайтесь к Nostr-реле через I2P-outproxy для связи с пользователями на любом транспорте. Tor имеет приоритет.';
+
+  @override
+  String get i2pRouteNostrTitle => 'Маршрутизировать Nostr через I2P';
+
+  @override
+  String get i2pActiveRouting => 'Активен — трафик Nostr через I2P';
+
+  @override
+  String get i2pDisabled => 'Отключён';
+
+  @override
+  String get i2pProxyHostLabel => 'Хост прокси';
+
+  @override
+  String get i2pProxyPortLabel => 'Порт';
+
+  @override
+  String get i2pPortInfo => 'I2P Router SOCKS5 порт по умолчанию: 4447';
+
+  @override
+  String get customProxySocks5 => 'Пользовательский прокси (SOCKS5)';
+
+  @override
+  String get customCfWorkerRelay => 'CF Worker реле';
+
+  @override
+  String get customProxyInfoDescription =>
+      'Прокси направляет трафик через V2Ray/Xray/Shadowsocks. CF Worker работает как личный прокси на Cloudflare CDN — GFW видит *.workers.dev, а не реальное реле.';
+
+  @override
+  String get customSocks5ProxyTitle => 'Пользовательский SOCKS5 прокси';
+
+  @override
+  String get customProxyActive => 'Активен — трафик через SOCKS5';
+
+  @override
+  String get customProxyDisabled => 'Отключён';
+
+  @override
+  String get customProxyHostLabel => 'Хост прокси';
+
+  @override
+  String get customProxyPortLabel => 'Порт';
+
+  @override
+  String get customProxyHint =>
+      'V2Ray/Xray: 127.0.0.1:10808  •  Shadowsocks: 127.0.0.1:1080';
+
+  @override
+  String get customWorkerLabel => 'Домен Worker (необязательно)';
+
+  @override
+  String get customWorkerHelpTitle =>
+      'Как развернуть CF Worker реле (бесплатно)';
+
+  @override
+  String get customWorkerScriptCopied => 'Скрипт скопирован!';
+
+  @override
+  String get customWorkerStep1 =>
+      '1. Откройте dash.cloudflare.com → Workers & Pages\n2. Создайте Worker → вставьте этот скрипт:\n';
+
+  @override
+  String get customWorkerStep2 =>
+      '3. Разверните → скопируйте домен (напр. my-relay.user.workers.dev)\n4. Вставьте домен выше → Сохраните\n\nПриложение подключается: wss://domain/?r=relay_url\nGFW видит: подключение к *.workers.dev (CF CDN)';
+
+  @override
+  String get psiphonTitle => 'Psiphon';
+
+  @override
+  String psiphonConnectedSubtitle(int port) {
+    return 'Подключён — SOCKS5 на 127.0.0.1:$port';
+  }
+
+  @override
+  String get psiphonConnecting => 'Подключение…';
+
+  @override
+  String get psiphonNotRunning => 'Не запущен — нажмите для перезапуска';
+
+  @override
+  String get psiphonDescription =>
+      'Быстрый туннель (~3с запуск, 2000+ ротируемых VPS)';
+
+  @override
+  String get turnCommunityServers => 'Общественные TURN-серверы';
+
+  @override
+  String get turnCustomServer => 'Пользовательский TURN-сервер (BYOD)';
+
+  @override
+  String get turnInfoDescription =>
+      'TURN-серверы только ретранслируют уже зашифрованные потоки (DTLS-SRTP). Оператор видит ваш IP и объём трафика, но не может расшифровать звонки. TURN используется только при невозможности прямого P2P (~15–20%).';
+
+  @override
+  String get turnFreeLabel => 'БЕСПЛАТНО';
+
+  @override
+  String get turnServerUrlLabel => 'URL TURN-сервера';
+
+  @override
+  String get turnServerUrlHint => 'turn:your-server.com:3478 или turns:...';
+
+  @override
+  String get turnUsernameLabel => 'Логин';
+
+  @override
+  String get turnPasswordLabel => 'Пароль';
+
+  @override
+  String get turnOptionalHint => 'Необязательно';
+
+  @override
+  String get turnCustomInfo =>
+      'Разверните coturn на любом VPS за \$5/мес для максимального контроля. Учётные данные хранятся локально.';
+
+  @override
+  String get themePickerAppearance => 'Оформление';
+
+  @override
+  String get themePickerAccentColor => 'Акцентный цвет';
+
+  @override
+  String get themeModeLight => 'Светлая';
+
+  @override
+  String get themeModeDark => 'Тёмная';
+
+  @override
+  String get themeModeSystem => 'Система';
+
+  @override
+  String get themeDynamicPresets => 'Предустановки';
+
+  @override
+  String get themeDynamicPrimaryColor => 'Основной цвет';
+
+  @override
+  String get themeDynamicBorderRadius => 'Скругление';
+
+  @override
+  String get themeDynamicFont => 'Шрифт';
+
+  @override
+  String get themeDynamicAppearance => 'Оформление';
+
+  @override
+  String get themeDynamicUiStyle => 'Стиль интерфейса';
+
+  @override
+  String get themeDynamicUiStyleDescription =>
+      'Определяет оформление диалогов, переключателей и индикаторов.';
+
+  @override
+  String get themeDynamicSharp => 'Острый';
+
+  @override
+  String get themeDynamicRound => 'Круглый';
+
+  @override
+  String get themeDynamicModeDark => 'Тёмная';
+
+  @override
+  String get themeDynamicModeLight => 'Светлая';
+
+  @override
+  String get themeDynamicModeAuto => 'Авто';
+
+  @override
+  String get themeDynamicPlatformAuto => 'Авто';
+
+  @override
+  String get themeDynamicPlatformAndroid => 'Android';
+
+  @override
+  String get themeDynamicPlatformIos => 'iOS';
+
+  @override
+  String get providerErrorInvalidFirebaseUrl =>
+      'Неверный URL Firebase. Ожидается https://project.firebaseio.com';
+
+  @override
+  String get providerErrorInvalidRelayUrl =>
+      'Неверный URL реле. Ожидается wss://relay.example.com';
+
+  @override
+  String get providerErrorInvalidWakuUrl =>
+      'Неверный URL узла Waku. Ожидается http://host:port';
+
+  @override
+  String get providerErrorInvalidPulseUrl =>
+      'Неверный URL Pulse-сервера. Ожидается https://server:port';
+
+  @override
+  String get providerPulseServerUrlLabel => 'URL сервера';
+
+  @override
+  String get providerPulseServerUrlHint => 'https://your-server:8443';
+
+  @override
+  String get providerPulseInviteLabel => 'Код приглашения';
+
+  @override
+  String get providerPulseInviteHint => 'Код приглашения (если требуется)';
+
+  @override
+  String get providerPulseInfo =>
+      'Собственное реле. Ключи получены из пароля восстановления.';
+
+  @override
+  String get providerScreenTitle => 'Ящики';
+
+  @override
+  String get providerSecondaryInboxesHeader => 'ДОПОЛНИТЕЛЬНЫЕ ЯЩИКИ';
+
+  @override
+  String get providerSecondaryInboxesInfo =>
+      'Дополнительные ящики получают сообщения одновременно для надёжности.';
+
+  @override
+  String get providerRemoveTooltip => 'Удалить';
 }

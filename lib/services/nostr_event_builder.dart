@@ -1,8 +1,8 @@
 import 'dart:convert';
 import 'dart:math';
-import 'dart:typed_data';
 import 'package:crypto/crypto.dart' as crypto;
 import 'package:convert/convert.dart';
+import 'package:flutter/foundation.dart';
 import 'package:pointycastle/export.dart';
 
 /// Public Nostr event utilities extracted for use by Gift Wrap and other services.
@@ -34,24 +34,53 @@ String derivePubkeyHex(String privkeyHex) {
   return hex.encode(_bigIntToBytes(Q!.x!.toBigInteger()!, 32));
 }
 
-/// BIP-340 Schnorr sign an event ID.
-String signEvent(String privkeyHex, String eventId) {
+/// Top-level function for compute(): performs BIP-340 Schnorr signing
+/// in a background isolate. Receives a Map with 'privkeyHex', 'eventId',
+/// and 'auxRand' (random bytes generated on main isolate).
+String _schnorrSignIsolate(Map<String, dynamic> params) {
+  final String privkeyHex = params['privkeyHex'];
+  final String eventId = params['eventId'];
+  final List<int> auxRand = (params['auxRand'] as List).cast<int>();
+
+  // Recreate curve in the isolate (top-level _secp256k1 is not shared)
+  final secp = ECCurve_secp256k1();
+
+  Uint8List bigIntToBytes(BigInt n, int length) {
+    final bytes = Uint8List(length);
+    var value = n;
+    for (int i = length - 1; i >= 0; i--) {
+      bytes[i] = (value & BigInt.from(0xFF)).toInt();
+      value = value >> 8;
+    }
+    return bytes;
+  }
+
+  Uint8List sha256(List<int> data) =>
+      Uint8List.fromList(crypto.sha256.convert(data).bytes);
+
+  Uint8List taggedHash(String tag, List<int> data) {
+    final tagHash = sha256(utf8.encode(tag));
+    return sha256([...tagHash, ...tagHash, ...data]);
+  }
+
   final msgBytes = Uint8List.fromList(hex.decode(eventId));
   var d = BigInt.parse(privkeyHex, radix: 16);
-  final n = _secp256k1.n;
-  final G = _secp256k1.G;
+  final n = secp.n;
+  final G = secp.G;
 
   final P = G * d;
   if (P!.y!.toBigInteger()!.isOdd) d = n - d;
 
-  final pubBytes = Uint8List.fromList(hex.decode(derivePubkeyHex(privkeyHex)));
+  // Derive pubkey inside isolate (cannot call top-level derivePubkeyHex)
+  final dOrig = BigInt.parse(privkeyHex, radix: 16);
+  final Q = secp.G * dOrig;
+  final pubBytes =
+      Uint8List.fromList(hex.decode(hex.encode(bigIntToBytes(Q!.x!.toBigInteger()!, 32))));
+
   final privBytes = Uint8List.fromList(hex.decode(privkeyHex));
-  final randBytes = Uint8List(32);
-  final auxRng = Random.secure();
-  for (int i = 0; i < 32; i++) {
-    randBytes[i] = auxRng.nextInt(256);
-  }
-  final nonceHash = _taggedHash(
+  final randBytes = Uint8List.fromList(auxRand);
+
+  final nonceHash = taggedHash(
       'BIP0340/nonce', [...randBytes, ...privBytes, ...msgBytes]);
   var k = BigInt.parse(hex.encode(nonceHash), radix: 16) % n;
   if (k == BigInt.zero) k = BigInt.one;
@@ -61,12 +90,25 @@ String signEvent(String privkeyHex, String eventId) {
     k = n - k;
     R = G * k;
   }
-  final rx = _bigIntToBytes(R!.x!.toBigInteger()!, 32);
+  final rx = bigIntToBytes(R!.x!.toBigInteger()!, 32);
   final eBytes =
-      _taggedHash('BIP0340/challenge', [...rx, ...pubBytes, ...msgBytes]);
+      taggedHash('BIP0340/challenge', [...rx, ...pubBytes, ...msgBytes]);
   final e = BigInt.parse(hex.encode(eBytes), radix: 16) % n;
   final s = (k + e * d) % n;
-  return hex.encode([...rx, ..._bigIntToBytes(s, 32)]);
+  return hex.encode([...rx, ...bigIntToBytes(s, 32)]);
+}
+
+/// BIP-340 Schnorr sign an event ID in a background isolate.
+Future<String> signEvent(String privkeyHex, String eventId) {
+  // Generate random bytes on the main isolate (secure RNG)
+  final auxRng = Random.secure();
+  final randBytes = List<int>.generate(32, (_) => auxRng.nextInt(256));
+
+  return compute(_schnorrSignIsolate, <String, dynamic>{
+    'privkeyHex': privkeyHex,
+    'eventId': eventId,
+    'auxRand': randBytes,
+  });
 }
 
 /// Build a Nostr event ID (SHA-256 of serialized array).
@@ -83,13 +125,13 @@ String buildEventId(Map<String, dynamic> event) {
 }
 
 /// Build and sign a complete Nostr event.
-Map<String, dynamic> buildEvent({
+Future<Map<String, dynamic>> buildEvent({
   required String privkeyHex,
   required int kind,
   required String content,
   List<List<String>>? tags,
   int? createdAt,
-}) {
+}) async {
   final pubkey = derivePubkeyHex(privkeyHex);
   final ts = createdAt ?? DateTime.now().millisecondsSinceEpoch ~/ 1000;
   final event = <String, dynamic>{
@@ -101,7 +143,7 @@ Map<String, dynamic> buildEvent({
   };
   final id = buildEventId(event);
   event['id'] = id;
-  event['sig'] = signEvent(privkeyHex, id);
+  event['sig'] = await signEvent(privkeyHex, id);
   return event;
 }
 

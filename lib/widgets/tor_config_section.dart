@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_theme.dart';
 import '../services/tor_service.dart';
+import '../l10n/l10n_ext.dart';
 
 /// Extracted Tor/censorship-resistance configuration section from SettingsScreen.
 /// Displays bundled Tor card, diagnostics button, PT selector, and manual SOCKS5 proxy fields.
@@ -40,42 +41,43 @@ class TorConfigSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildBundledTorCard(),
+        _buildBundledTorCard(context),
         const SizedBox(height: 8),
-        _buildDiagnosticsButton(),
+        _buildDiagnosticsButton(context),
         // Manual Tor proxy settings -- hidden when Built-in Tor is active
         if (!bundledTorEnabled) ...[
           const SizedBox(height: 14),
-          _buildTorInfo(),
+          _buildTorInfo(context),
           const SizedBox(height: 14),
-          _sectionLabel('Tor Proxy (SOCKS5)'),
+          _sectionLabel(context.l10n.torProxySocks5),
           const SizedBox(height: 10),
-          _buildTorSettings(),
+          _buildTorSettings(context),
         ],
       ],
     );
   }
 
-  Widget _buildBundledTorCard() {
+  Widget _buildBundledTorCard(BuildContext context) {
     const purple = Color(0xFF7D4698);
     final tor = TorService.instance;
     final isConnected = tor.isBootstrapped;
     final isConnecting = tor.isRunning && !tor.isBootstrapped;
     final pct = tor.bootstrapPercent;
+    final l = context.l10n;
 
     String subtitle;
     Color subtitleColor;
     if (isConnected) {
-      subtitle = 'Connected \u2014 Nostr routed via 127.0.0.1:9250';
+      subtitle = l.torConnectedSubtitle;
       subtitleColor = purple;
     } else if (isConnecting) {
-      subtitle = 'Connecting\u2026 $pct%';
+      subtitle = l.torConnectingSubtitle(pct);
       subtitleColor = purple.withValues(alpha: 0.7);
     } else if (bundledTorEnabled) {
-      subtitle = 'Not running \u2014 tap switch to restart';
+      subtitle = l.torNotRunning;
       subtitleColor = AppTheme.textSecondary;
     } else {
-      subtitle = 'Routes Nostr via Tor (Snowflake for censored networks)';
+      subtitle = l.torDescription;
       subtitleColor = AppTheme.textSecondary;
     }
 
@@ -108,7 +110,7 @@ class TorConfigSection extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Built-in Tor',
+                  Text(l.torBuiltInTitle,
                       style: GoogleFonts.inter(
                           color: AppTheme.textPrimary,
                           fontWeight: FontWeight.w600,
@@ -117,9 +119,9 @@ class TorConfigSection extends StatelessWidget {
                       style: GoogleFonts.inter(
                           color: subtitleColor, fontSize: 12)),
                   const SizedBox(height: 8),
-                  _buildPtSelector(purple),
+                  _buildPtSelector(context, purple),
                   const SizedBox(height: 6),
-                  _buildTimeoutRow(purple),
+                  _buildTimeoutRow(context, purple),
                 ],
               ),
             ),
@@ -143,7 +145,7 @@ class TorConfigSection extends StatelessWidget {
     );
   }
 
-  Widget _buildDiagnosticsButton() {
+  Widget _buildDiagnosticsButton(BuildContext context) {
     return GestureDetector(
       onTap: onOpenDiagnostics,
       child: Container(
@@ -158,7 +160,7 @@ class TorConfigSection extends StatelessWidget {
             Icon(Icons.speed_rounded,
                 color: AppTheme.textSecondary, size: 18),
             const SizedBox(width: 10),
-            Text('Network Diagnostics',
+            Text(context.l10n.torNetworkDiagnostics,
                 style: GoogleFonts.inter(
                     color: AppTheme.textPrimary, fontSize: 13)),
             const Spacer(),
@@ -170,17 +172,18 @@ class TorConfigSection extends StatelessWidget {
     );
   }
 
-  Widget _buildPtSelector(Color purple) {
-    const items = [
-      ('auto',      'Auto'),
-      ('obfs4',     'obfs4'),
-      ('webtunnel', 'WebTunnel'),
-      ('snowflake', 'Snowflake'),
-      ('plain',     'Plain'),
+  Widget _buildPtSelector(BuildContext context, Color purple) {
+    final l = context.l10n;
+    final items = [
+      ('auto',      l.torPtAuto),
+      ('obfs4',     l.torPtObfs4),
+      ('webtunnel', l.torPtWebTunnel),
+      ('snowflake', l.torPtSnowflake),
+      ('plain',     l.torPtPlain),
     ];
     return Row(
       children: [
-        Text('Transport: ',
+        Text(l.torTransportLabel,
             style: GoogleFonts.inter(
                 color: AppTheme.textSecondary, fontSize: 11)),
         ...items.map((e) {
@@ -217,10 +220,10 @@ class TorConfigSection extends StatelessWidget {
     );
   }
 
-  Widget _buildTimeoutRow(Color purple) {
+  Widget _buildTimeoutRow(BuildContext context, Color purple) {
     return Row(
       children: [
-        Text('Timeout: ',
+        Text(context.l10n.torTimeoutLabel,
             style: GoogleFonts.inter(
                 color: AppTheme.textSecondary, fontSize: 11)),
         Text('${torTimeoutSec}s',
@@ -254,7 +257,7 @@ class TorConfigSection extends StatelessWidget {
     );
   }
 
-  Widget _buildTorInfo() {
+  Widget _buildTorInfo(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
@@ -269,10 +272,7 @@ class TorConfigSection extends StatelessWidget {
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              'When enabled, Nostr WebSocket connections are routed through Tor '
-              '(SOCKS5). Tor Browser listens on 127.0.0.1:9150. '
-              'The standalone tor daemon uses port 9050. '
-              'Firebase connections are not affected.',
+              context.l10n.torInfoDescription,
               style: GoogleFonts.inter(
                   color: AppTheme.textSecondary, fontSize: 11, height: 1.5),
             ),
@@ -282,9 +282,10 @@ class TorConfigSection extends StatelessWidget {
     );
   }
 
-  Widget _buildTorSettings() {
+  Widget _buildTorSettings(BuildContext context) {
     const purple = Color(0xFF7D4698);
     final managedByBundled = bundledTorEnabled;
+    final l = context.l10n;
     return Column(
       children: [
         // Toggle row
@@ -319,7 +320,7 @@ class TorConfigSection extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Route Nostr via Tor',
+                      Text(l.torRouteNostrTitle,
                           style: GoogleFonts.inter(
                               color: managedByBundled
                                   ? AppTheme.textSecondary
@@ -328,8 +329,8 @@ class TorConfigSection extends StatelessWidget {
                               fontSize: 14)),
                       Text(
                           managedByBundled
-                              ? 'Managed by Built-in Tor'
-                              : (torEnabled ? 'Active \u2014 Nostr traffic routed through Tor' : 'Disabled'),
+                              ? l.torManagedByBuiltin
+                              : (torEnabled ? l.torActiveRouting : l.torDisabled),
                           style: GoogleFonts.inter(
                               color: torEnabled
                                   ? purple
@@ -376,7 +377,7 @@ class TorConfigSection extends StatelessWidget {
                   child: _field(
                     controller: torHostController,
                     hint: '127.0.0.1',
-                    label: 'Proxy Host',
+                    label: l.torProxyHostLabel,
                     icon: Icons.router_rounded,
                   ),
                 ),
@@ -386,7 +387,7 @@ class TorConfigSection extends StatelessWidget {
                   child: _field(
                     controller: torPortController,
                     hint: '9050',
-                    label: 'Port',
+                    label: l.torProxyPortLabel,
                     icon: Icons.electrical_services_rounded,
                   ),
                 ),
@@ -399,7 +400,7 @@ class TorConfigSection extends StatelessWidget {
             const SizedBox(width: 6),
             Expanded(
               child: Text(
-                'Tor Browser: port 9150  \u2022  tor daemon: port 9050',
+                l.torPortInfo,
                 style: GoogleFonts.inter(
                     color: AppTheme.textSecondary, fontSize: 11),
               ),

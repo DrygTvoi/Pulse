@@ -683,15 +683,15 @@ class _ProviderSectionState extends State<ProviderSection> {
         children: [
           settingsField(
             controller: widget.pulseServerUrlController,
-            hint: 'https://your-server:8443',
-            label: 'Server URL',
+            hint: context.l10n.providerPulseServerUrlHint,
+            label: context.l10n.providerPulseServerUrlLabel,
             icon: Icons.dns_rounded,
           ),
           const SizedBox(height: 12),
           settingsField(
             controller: widget.pulseInviteController,
-            hint: 'Invite code (if required)',
-            label: 'Invite Code',
+            hint: context.l10n.providerPulseInviteHint,
+            label: context.l10n.providerPulseInviteLabel,
             icon: Icons.card_giftcard_rounded,
           ),
           const SizedBox(height: 8),
@@ -700,7 +700,7 @@ class _ProviderSectionState extends State<ProviderSection> {
             const SizedBox(width: 6),
             Expanded(
               child: Text(
-                'Self-hosted relay. Keys derived from your recovery password.',
+                context.l10n.providerPulseInfo,
                 style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: 11),
               ),
             ),

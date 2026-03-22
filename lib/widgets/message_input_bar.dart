@@ -288,7 +288,7 @@ class MessageInputBar extends StatelessWidget {
             children: [
               const SizedBox(width: DesignTokens.spacing14),
               // Pulsing red dot
-              _PulsingDot(),
+              const _PulsingDot(),
               const SizedBox(width: DesignTokens.spacing10),
               Text(
                 _fmtRecording(recordingSeconds),
@@ -327,6 +327,8 @@ class MessageInputBar extends StatelessWidget {
 
 /// Pulsing red dot for the recording indicator.
 class _PulsingDot extends StatefulWidget {
+  const _PulsingDot();
+
   @override
   State<_PulsingDot> createState() => _PulsingDotState();
 }

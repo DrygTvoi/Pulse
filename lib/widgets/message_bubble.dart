@@ -176,10 +176,17 @@ class MessageBubble extends StatelessWidget {
     );
   }
 
+  /// Build an O(1) lookup index from the contacts list.
+  /// Called once per status-row build instead of O(n) per ID.
+  static Map<String, Contact> _buildContactIndex(BuildContext context) {
+    final contacts = context.read<IContactRepository>().contacts;
+    return {for (final c in contacts) c.id: c};
+  }
+
   Widget _buildDeliveredToRow(BuildContext context) {
+    final index = _buildContactIndex(context);
     final names = deliveredTo.map((id) {
-      final c = context.read<IContactRepository>().contacts.cast<Contact?>()
-          .firstWhere((c) => c?.id == id, orElse: () => null);
+      final c = index[id];
       return c?.name ?? id.substring(0, id.length.clamp(0, 8));
     }).toList();
     final label = names.length <= 2
@@ -190,9 +197,9 @@ class MessageBubble extends StatelessWidget {
   }
 
   Widget _buildReadByRow(BuildContext context) {
+    final index = _buildContactIndex(context);
     final names = readBy.map((id) {
-      final c = context.read<IContactRepository>().contacts.cast<Contact?>()
-          .firstWhere((c) => c?.id == id, orElse: () => null);
+      final c = index[id];
       return c?.name ?? id.substring(0, id.length.clamp(0, 8));
     }).toList();
     final label = names.length <= 2

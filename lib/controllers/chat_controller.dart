@@ -37,6 +37,7 @@ import '../services/rate_limiter.dart';
 import '../services/chunk_assembler.dart';
 import '../services/sentry_service.dart';
 import '../services/voice_service.dart';
+import '../services/sender_key_service.dart';
 import '../services/signal_dispatcher.dart';
 import '../models/contact_repository.dart';
 // Facade services
@@ -148,9 +149,18 @@ class ChatController extends ChangeNotifier {
   bool hasMoreHistory(String contactId) => _repo.hasMoreHistory(contactId);
   bool isLoadingMoreHistory(String contactId) => _repo.isLoadingMoreHistory(contactId);
 
-  // Global dedup
+  // Global dedup — circular buffer approach for O(1) eviction
   // ignore: prefer_collection_literals
   final _seenMsgIds = LinkedHashSet<String>();
+  final _seenMsgIdsList = <String>[]; // mirrors insertion order for O(1) eviction
+
+  // Cached contact index with dirty flag — avoids rebuilding on every call
+  HashMap<String, Contact>? _contactIndex;
+  bool _contactIndexDirty = true;
+
+  // Cached Nostr sender + privkey to avoid re-creating per signal
+  NostrMessageSender? _cachedNostrSender;
+  String? _cachedNostrPrivkey;
 
   // Per-sender rate limiters
   final _msgRateLimiter = RateLimiter(maxTokens: 30, refillInterval: Duration(seconds: 2));
@@ -303,6 +313,10 @@ class ChatController extends ChangeNotifier {
       _signalDispatcher?.dispose();
       _signalDispatcher = null;
       _adapterHealth.clear();
+      // Invalidate caches that may depend on adapter state
+      _invalidateContactIndex();
+      _cachedNostrSender = null;
+      _cachedNostrPrivkey = null;
       await _initInbox();
     } finally {
       _reconnecting = false;
@@ -586,16 +600,25 @@ class ChatController extends ChangeNotifier {
 
   // ── Sender factory ────────────────────────────────────────────────────────
 
+  /// Returns the cached Nostr private key, reading from secure storage only on
+  /// first call or after invalidation (reconnect).
+  Future<String> _getNostrPrivkey() async {
+    if (_cachedNostrPrivkey != null) return _cachedNostrPrivkey!;
+    _cachedNostrPrivkey = await _secureStorage.read(key: 'nostr_privkey') ?? '';
+    return _cachedNostrPrivkey!;
+  }
+
   Future<({MessageSender sender, String apiKey})?> _buildSenderFor(Contact contact) async {
     switch (contact.provider) {
       case 'Firebase':
         final token = _identity!.adapterConfig['token'] ?? '';
         return (sender: FirebaseInboxSender(), apiKey: token);
       case 'Nostr':
-        final privkey = await _secureStorage.read(key: 'nostr_privkey') ?? '';
+        final privkey = await _getNostrPrivkey();
         final prefs = await SharedPreferences.getInstance();
         final relay = prefs.getString('nostr_relay') ?? _kDefaultNostrRelay;
-        return (sender: NostrMessageSender(),
+        _cachedNostrSender ??= NostrMessageSender();
+        return (sender: _cachedNostrSender!,
                 apiKey: jsonEncode({'privkey': privkey, 'relay': relay}));
       case 'Waku':
         final prefs = await SharedPreferences.getInstance();
@@ -641,7 +664,7 @@ class ChatController extends ChangeNotifier {
   Future<Map<String, dynamic>> _signPayload(
       Contact contact, String type, Map<String, dynamic> payload) async {
     try {
-      final privkey = await _secureStorage.read(key: 'nostr_privkey') ?? '';
+      final privkey = await _getNostrPrivkey();
       if (privkey.isEmpty) return payload;
       final recipientPub = _extractPubkey(contact.databaseId);
       if (recipientPub == null) return payload;
@@ -690,8 +713,16 @@ class ChatController extends ChangeNotifier {
 
   // ── Signal dispatcher ─────────────────────────────────────────────────────
 
-  Map<String, Contact> _buildContactIndex() {
-    final contactByDbId = <String, Contact>{};
+  /// Marks the contact index as stale so [_getContactIndex] rebuilds it.
+  void _invalidateContactIndex() {
+    _contactIndexDirty = true;
+    _contactIndex = null;
+  }
+
+  /// Returns the cached contact index, rebuilding only when dirty.
+  Map<String, Contact> _getContactIndex() {
+    if (!_contactIndexDirty && _contactIndex != null) return _contactIndex!;
+    final contactByDbId = HashMap<String, Contact>();
     for (final c in _contacts.contacts) {
       contactByDbId[c.databaseId] = c;
       final idPart = c.databaseId.split('@').first;
@@ -699,6 +730,8 @@ class ChatController extends ChangeNotifier {
         contactByDbId.putIfAbsent(idPart, () => c);
       }
     }
+    _contactIndex = contactByDbId;
+    _contactIndexDirty = false;
     return contactByDbId;
   }
 
@@ -714,7 +747,7 @@ class ChatController extends ChangeNotifier {
     _signalDispatcher = SignalDispatcher(
       allAddressesGetter: () => _allAddresses,
       selfIdGetter: () => _selfId,
-      contactIndexBuilder: _buildContactIndex,
+      contactIndexBuilder: _getContactIndex,
       signatureVerifier: _verifySignalSignature,
       groupContactResolver: (id) => _contacts
           .contacts
@@ -842,6 +875,7 @@ class ChatController extends ChangeNotifier {
         alternateAddresses: alts.toList(),
       );
       await _contacts.updateContact(updated);
+      _invalidateContactIndex();
       debugPrint('[ChatController] addr_update: ${addrContact.name} → $primary');
       notifyListeners();
     }));
@@ -860,6 +894,7 @@ class ChatController extends ChangeNotifier {
       }
       if (changed) {
         await _contacts.updateContact(updated);
+        _invalidateContactIndex();
         notifyListeners();
       }
     }));
@@ -884,16 +919,48 @@ class ChatController extends ChangeNotifier {
       final group = _contacts.contacts.cast<Contact?>()
           .firstWhere((c) => c?.isGroup == true && c?.id == e.groupId, orElse: () => null);
       if (group == null) return;
+      final memberRemoved = e.members.length < group.members.length;
       final updated = group.copyWith(
         name: e.groupName.isNotEmpty ? e.groupName : group.name,
         members: e.members,
         creatorId: group.creatorId ?? e.creatorId,
       );
       await _contacts.updateContact(updated);
+      _invalidateContactIndex();
       debugPrint('[Group] Membership updated for ${updated.name}: ${e.members.length} members');
+      // Rotate sender key when a member was removed (forward secrecy).
+      if (memberRemoved && _selfId.isNotEmpty) {
+        unawaited(rotateGroupSenderKey(updated));
+      }
       if (!_groupUpdatePublicCtrl.isClosed) _groupUpdatePublicCtrl.add(e);
       notifyListeners();
     }));
+
+    _dispatcherSubs.add(d.senderKeyDists.listen((e) async {
+      try {
+        final skdmBytes = base64Decode(e.skdmB64);
+        await SenderKeyService.instance.processDistribution(
+            e.groupId, e.fromContact.databaseId, skdmBytes);
+        debugPrint('[SenderKey] Received distribution from ${e.fromContact.name} for group ${e.groupId}');
+      } catch (err) {
+        debugPrint('[SenderKey] Failed to process distribution: $err');
+      }
+    }));
+  }
+
+  // ── Sorted insertion (O(log n) vs O(n log n) sort) ──────────────────────
+  /// Insert [msg] into an already-sorted [list] using binary search.
+  static void _insertMessageSorted(List<Message> list, Message msg) {
+    int low = 0, high = list.length;
+    while (low < high) {
+      final mid = (low + high) >> 1;
+      if (list[mid].timestamp.compareTo(msg.timestamp) < 0) {
+        low = mid + 1;
+      } else {
+        high = mid;
+      }
+    }
+    list.insert(low, msg);
   }
 
   // ── Incoming messages ─────────────────────────────────────────────────────
@@ -925,22 +992,22 @@ class ChatController extends ChangeNotifier {
 
   Future<void> _handleIncomingMessages(List<Message> newMessages) async {
     bool hasUpdates = false;
-    final contactByDbId = _buildContactIndex();
+    final contactByDbId = _getContactIndex();
 
     for (var msg in newMessages) {
       try {
         if (_seenMsgIds.contains(msg.id)) continue;
         if (_seenMsgIds.length >= 10000) {
-          final it = _seenMsgIds.iterator;
-          int removed = 0;
-          final toRemove = <String>[];
-          while (it.moveNext() && removed < 5000) {
-            toRemove.add(it.current);
-            removed++;
+          // Evict oldest 5K entries using the insertion-order list
+          // instead of materializing an iterator snapshot.
+          final evictCount = 5000.clamp(0, _seenMsgIdsList.length);
+          for (int i = 0; i < evictCount; i++) {
+            _seenMsgIds.remove(_seenMsgIdsList[i]);
           }
-          toRemove.forEach(_seenMsgIds.remove);
+          _seenMsgIdsList.removeRange(0, evictCount);
         }
         _seenMsgIds.add(msg.id);
+        _seenMsgIdsList.add(msg.id);
 
         if (!_allAddresses.contains(msg.senderId) &&
             msg.senderId != _selfId &&
@@ -1003,7 +1070,25 @@ class ChatController extends ChangeNotifier {
               String finalText = displayText;
               String? groupReplyToId, groupReplyToText, groupReplyToSender;
               try {
-                final parsed = jsonDecode(displayText) as Map<String, dynamic>;
+                var parsed = jsonDecode(displayText) as Map<String, dynamic>;
+                // ── Sender Key decrypt: unwrap _sk envelope ──
+                if (parsed['_sk'] == true) {
+                  final skGroupId = parsed['_group'] as String?;
+                  final ct = parsed['ct'] as String?;
+                  if (skGroupId != null && ct != null) {
+                    try {
+                      final cipherBytes = base64Decode(ct);
+                      final plainBytes = await SenderKeyService.instance
+                          .decrypt(skGroupId, senderContact.databaseId, cipherBytes);
+                      final innerJson = utf8.decode(plainBytes);
+                      parsed = jsonDecode(innerJson) as Map<String, dynamic>;
+                      displayText = innerJson;
+                    } catch (skErr) {
+                      debugPrint('[SenderKey] Decrypt failed from ${senderContact.name}: $skErr');
+                      // Fall through — parsed still has _sk envelope, will be treated as plain text.
+                    }
+                  }
+                }
                 final groupId = parsed['_group'] as String?;
                 if (groupId != null) {
                   final groupContact = _contacts.contacts.cast<Contact?>()
@@ -1054,8 +1139,7 @@ class ChatController extends ChangeNotifier {
                     replyToText: groupReplyToText ?? env?.replyTo?.text,
                     replyToSender: groupReplyToSender ?? env?.replyTo?.sender,
                   );
-                  targetRoom.messages.add(decryptedMsg);
-                  targetRoom.messages.sort((a, b) => a.timestamp.compareTo(b.timestamp));
+                  _insertMessageSorted(targetRoom.messages, decryptedMsg);
                   await LocalStorageService().saveMessage(
                       targetContact.storageKey, decryptedMsg.toJson());
                   hasUpdates = true;
@@ -1119,13 +1203,56 @@ class ChatController extends ChangeNotifier {
       }
       final groupPayload = jsonEncode(groupMap);
 
+      // ── Sender Key: distribute if needed, then try encrypt-once ──
       int sent = 0;
-      for (final memberId in contact.members) {
-        final memberContact = _contacts.contacts.cast<Contact?>()
-            .firstWhere((c) => c?.id == memberId, orElse: () => null);
-        if (memberContact == null) continue;
-        await _sendToContact(memberContact, groupPayload, noAutoRetry: noAutoRetry);
-        sent++;
+      bool usedSenderKey = false;
+      try {
+        final sk = SenderKeyService.instance;
+        // Ensure all members have our sender key distribution.
+        if (!await sk.allMembersHaveKey(contact.id, contact.members)) {
+          final skdmBytes = await sk.createDistribution(contact.id, _selfId);
+          final skdmB64 = base64Encode(skdmBytes);
+          for (final memberId in contact.members) {
+            final memberContact = _contacts.contacts.cast<Contact?>()
+                .firstWhere((c) => c?.id == memberId, orElse: () => null);
+            if (memberContact == null) continue;
+            await _sendSignalTo(memberContact, 'sender_key_dist', {
+              'groupId': contact.id,
+              'skdm': skdmB64,
+            });
+            await sk.markDistributed(contact.id, memberId);
+          }
+        }
+        // Encrypt once with GroupCipher.
+        final plainBytes = Uint8List.fromList(utf8.encode(groupPayload));
+        final cipherBytes = await sk.encrypt(contact.id, _selfId, plainBytes);
+        final skEnvelope = jsonEncode({
+          '_sk': true,
+          '_group': contact.id,
+          'ct': base64Encode(cipherBytes),
+        });
+        // Send same ciphertext to all members via per-member Signal session.
+        for (final memberId in contact.members) {
+          final memberContact = _contacts.contacts.cast<Contact?>()
+              .firstWhere((c) => c?.id == memberId, orElse: () => null);
+          if (memberContact == null) continue;
+          await _sendToContact(memberContact, skEnvelope, noAutoRetry: noAutoRetry);
+          sent++;
+        }
+        usedSenderKey = true;
+      } catch (e) {
+        debugPrint('[SenderKey] Encrypt failed, falling back to per-member: $e');
+      }
+      // Fallback: per-member encryption (original path).
+      if (!usedSenderKey) {
+        sent = 0;
+        for (final memberId in contact.members) {
+          final memberContact = _contacts.contacts.cast<Contact?>()
+              .firstWhere((c) => c?.id == memberId, orElse: () => null);
+          if (memberContact == null) continue;
+          await _sendToContact(memberContact, groupPayload, noAutoRetry: noAutoRetry);
+          sent++;
+        }
       }
 
       final finalStatus = sent > 0 ? 'sent' : 'failed';
@@ -1302,13 +1429,14 @@ class ChatController extends ChangeNotifier {
     if (provider == 'Firebase') {
       await InboxManager().addSenderPlugin('Firebase', FirebaseInboxSender(), ourApiKey);
     } else if (provider == 'Nostr') {
-      final privkey = await _secureStorage.read(key: 'nostr_privkey') ?? '';
+      final privkey = await _getNostrPrivkey();
       final prefs = await SharedPreferences.getInstance();
       final atIdx = address.indexOf('@');
       final relay = atIdx != -1
           ? address.substring(atIdx + 1)
           : prefs.getString('nostr_relay') ?? _kDefaultNostrRelay;
-      await InboxManager().addSenderPlugin('Nostr', NostrMessageSender(),
+      _cachedNostrSender ??= NostrMessageSender();
+      await InboxManager().addSenderPlugin('Nostr', _cachedNostrSender!,
           jsonEncode({'privkey': privkey, 'relay': relay}));
     } else if (provider == 'Waku') {
       final prefs = await SharedPreferences.getInstance();
@@ -1618,7 +1746,21 @@ class ChatController extends ChangeNotifier {
     await sendMessage(contact, message.encryptedPayload, noAutoRetry: true);
   }
 
+  /// Evicts the oldest 100 entries when the map exceeds 500, preventing
+  /// unbounded growth if messages are created faster than resolved.
+  void _pruneRetryTimers() {
+    if (_retryTimers.length > 500) {
+      final keysToRemove = _retryTimers.keys.take(100).toList();
+      for (final key in keysToRemove) {
+        _retryTimers[key]?.cancel();
+        _retryTimers.remove(key);
+      }
+      debugPrint('[ChatController] Pruned 100 oldest retry timers (was ${_retryTimers.length + 100})');
+    }
+  }
+
   void _scheduleAutoRetry(Contact contact, Message failedMsg) {
+    _pruneRetryTimers();
     _retryTimers[failedMsg.id]?.cancel();
     _retryTimers[failedMsg.id] = Timer(const Duration(seconds: 30), () async {
       _retryTimers.remove(failedMsg.id);
@@ -1809,12 +1951,38 @@ class ChatController extends ChangeNotifier {
       creatorId: invite.creatorId,
     );
     await _contacts.addContact(newGroup);
+    _invalidateContactIndex();
     debugPrint('[Group] Joined group "${invite.groupName}" via invite');
     notifyListeners();
   }
 
   Future<void> broadcastGroupUpdate(Contact group) =>
       _broadcaster.broadcastGroupUpdate(group, _contacts.contacts);
+
+  /// Rotate the sender key for a group after a member is removed, then
+  /// redistribute to all remaining members. Call this AFTER updating the
+  /// group's member list and broadcasting the group update.
+  Future<void> rotateGroupSenderKey(Contact group) async {
+    if (!group.isGroup || _selfId.isEmpty) return;
+    try {
+      final sk = SenderKeyService.instance;
+      final skdmBytes = await sk.rotateKey(group.id, _selfId);
+      final skdmB64 = base64Encode(skdmBytes);
+      for (final memberId in group.members) {
+        final memberContact = _contacts.contacts.cast<Contact?>()
+            .firstWhere((c) => c?.id == memberId, orElse: () => null);
+        if (memberContact == null) continue;
+        await _sendSignalTo(memberContact, 'sender_key_dist', {
+          'groupId': group.id,
+          'skdm': skdmB64,
+        });
+        await sk.markDistributed(group.id, memberId);
+      }
+      debugPrint('[SenderKey] Rotated and redistributed key for group ${group.name}');
+    } catch (e) {
+      debugPrint('[SenderKey] Key rotation failed for group ${group.name}: $e');
+    }
+  }
 
   Future<void> markGroupMessagesRead(Contact group) async {
     if (!group.isGroup || _identity == null || _selfId.isEmpty) return;
@@ -1967,6 +2135,12 @@ class ChatController extends ChangeNotifier {
 
   // ── Scheduled messages ────────────────────────────────────────────────────
 
+  /// Schedules [text] to be sent to [contact] at [scheduledAt].
+  ///
+  /// Creates a placeholder [Message] with status `'scheduled'` that is shown
+  /// in the chat UI immediately. The message and its timer are persisted to
+  /// SharedPreferences so they survive app restarts (see
+  /// [_restoreScheduledMessages]).
   Future<void> scheduleMessage(Contact contact, String text, DateTime scheduledAt) async {
     if (_identity == null) return;
     final room = _repo.getOrCreateRoom(contact);
@@ -2000,15 +2174,22 @@ class ChatController extends ChangeNotifier {
     _scheduleTimer(contact, placeholder);
   }
 
+  /// Arms a [Timer] that fires [_fireScheduled] when [msg.scheduledAt] arrives.
+  ///
+  /// If the scheduled time is already past (e.g. restored after a long
+  /// offline period), the message is fired immediately.
   void _scheduleTimer(Contact contact, Message msg) {
     final delay = msg.scheduledAt!.difference(DateTime.now());
     if (delay.isNegative) {
       unawaited(_fireScheduled(contact, msg));
       return;
     }
+    _pruneRetryTimers();
     _retryTimers[msg.id] = Timer(delay, () => unawaited(_fireScheduled(contact, msg)));
   }
 
+  /// Sends the previously-scheduled [msg] via [sendMessage], removes the
+  /// placeholder from the chat room, and cleans up SharedPreferences.
   Future<void> _fireScheduled(Contact contact, Message msg) async {
     _retryTimers.remove(msg.id);
     final room = _repo.getRoomForContact(contact.id);
@@ -2032,6 +2213,10 @@ class ChatController extends ChangeNotifier {
     await sendMessage(contact, msg.encryptedPayload);
   }
 
+  /// Cancels a pending scheduled message identified by [msgId].
+  ///
+  /// Stops its timer, removes the placeholder from the room, and deletes
+  /// the entry from SharedPreferences so it is not restored on next launch.
   Future<void> cancelScheduledMessage(Contact contact, String msgId) async {
     _retryTimers[msgId]?.cancel();
     _retryTimers.remove(msgId);
@@ -2056,6 +2241,11 @@ class ChatController extends ChangeNotifier {
     }
   }
 
+  /// Restores all persisted scheduled messages from SharedPreferences on init.
+  ///
+  /// For each contact, deserialises the `scheduled_<contactId>` list, adds
+  /// the placeholder messages back into their rooms, and re-arms timers via
+  /// [_scheduleTimer]. Called once during [_init].
   Future<void> _restoreScheduledMessages() async {
     final prefs = await SharedPreferences.getInstance();
     for (final contact in _contacts.contacts) {
@@ -2181,6 +2371,7 @@ class ChatController extends ChangeNotifier {
     _signalDispatcher?.dispose();
     _signalDispatcher = null;
     _sigRateLimiter.clear();
+    SenderKeyService.instance.clearCaches();
     _broadcaster.dispose();
     for (final t in _retryTimers.values) { t.cancel(); }
     _retryTimers.clear();
@@ -2201,6 +2392,10 @@ class ChatController extends ChangeNotifier {
     _groupInviteDeclineCtrl.close();
     _groupUpdatePublicCtrl.close();
     _msgRateLimiter.clear();
+    _cachedNostrSender?.zeroize();
+    _cachedNostrSender = null;
+    _cachedNostrPrivkey = null;
+    _contactIndex = null;
     unawaited(VoiceService().dispose());
     _signalService.zeroize();
     PqcService().zeroize();

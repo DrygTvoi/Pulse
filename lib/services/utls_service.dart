@@ -39,6 +39,7 @@ class UTLSService {
   bool _stopped = false; // true when stop() called explicitly
   int _restartCount = 0;
   static const _maxRestartDelay = 30; // seconds
+  static const _maxRestarts = 10;
 
   /// True when the uTLS proxy binary was successfully extracted and started.
   /// False if the binary is missing (e.g. unsupported platform) — callers can
@@ -121,13 +122,18 @@ class UTLSService {
         _port = null;
         available.value = false;
         if (!_stopped) {
+          if (_restartCount >= _maxRestarts) {
+            debugPrint('[UTLSService] proxy crashed — max restarts '
+                '($_maxRestarts) reached, giving up');
+            return;
+          }
           // Exponential backoff: 1s, 2s, 4s, 8s... max 30s
           final delay = (_restartCount < 5)
               ? (1 << _restartCount)
               : _maxRestartDelay;
           _restartCount++;
           debugPrint('[UTLSService] proxy crashed — restarting in ${delay}s '
-              '(attempt $_restartCount)');
+              '(attempt $_restartCount/$_maxRestarts)');
           Future.delayed(Duration(seconds: delay), () {
             if (!_stopped) ensureRunning();
           });
