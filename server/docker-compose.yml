@@ -1,0 +1,24 @@
+version: "3.8"
+
+services:
+  pulse:
+    build: .
+    container_name: pulse-server
+    restart: unless-stopped
+    ports:
+      - "8443:8443"          # WebSocket relay
+      - "3478:3478/udp"      # TURN (UDP)
+      - "3478:3478/tcp"      # TURN (TCP)
+    volumes:
+      - pulse-data:/data
+      - ./config.toml:/etc/pulse/config.toml:ro
+    command: ["serve", "--config", "/etc/pulse/config.toml", "--data-dir", "/data"]
+    environment:
+      - PULSE_LOG_LEVEL=info
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+volumes:
+  pulse-data:
