@@ -27,6 +27,7 @@ class _ProxyTunnelsScreenState extends State<ProxyTunnelsScreen> {
   bool _bundledTorEnabled = false;
   bool _bundledTorLoading = false;
   String _preferredPt = 'auto';
+  int _torTimeoutSec = 60;
   final _torHostController = TextEditingController(text: '127.0.0.1');
   final _torPortController = TextEditingController(text: '9050');
 
@@ -82,6 +83,7 @@ class _ProxyTunnelsScreenState extends State<ProxyTunnelsScreen> {
     final bundledTorEnabled = prefs.getBool('bundled_tor_enabled') ?? false;
     final psiphonEnabled = prefs.getBool('bundled_psiphon_enabled') ?? false;
     final preferredPt = prefs.getString('preferred_pt') ?? 'auto';
+    final torTimeoutSec = prefs.getInt('tor_timeout_sec') ?? 60;
 
     if (!mounted) return;
     setState(() {
@@ -89,6 +91,7 @@ class _ProxyTunnelsScreenState extends State<ProxyTunnelsScreen> {
       _bundledTorEnabled = bundledTorEnabled;
       _psiphonEnabled = psiphonEnabled;
       _preferredPt = preferredPt;
+      _torTimeoutSec = torTimeoutSec;
       _torHostController.text = torHost;
       _torPortController.text = torPort.toString();
       _i2pEnabled = i2pEnabled;
@@ -192,6 +195,12 @@ class _ProxyTunnelsScreenState extends State<ProxyTunnelsScreen> {
               setState(() => _preferredPt = val);
               final prefs = await SharedPreferences.getInstance();
               await prefs.setString('preferred_pt', val);
+            },
+            torTimeoutSec: _torTimeoutSec,
+            onTorTimeoutChanged: (val) async {
+              setState(() => _torTimeoutSec = val);
+              final prefs = await SharedPreferences.getInstance();
+              await prefs.setInt('tor_timeout_sec', val);
             },
             onOpenDiagnostics: () => Navigator.push(
               context,
