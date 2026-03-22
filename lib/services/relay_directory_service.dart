@@ -19,6 +19,10 @@ class RelayDirectoryService {
   static final instance = RelayDirectoryService._();
   RelayDirectoryService._();
 
+  /// Create a detached instance for unit testing.
+  @visibleForTesting
+  factory RelayDirectoryService.forTesting() => RelayDirectoryService._();
+
   static const _cacheKey  = 'relay_dir_v1';
   static const _cacheTtlH = 6;
 
@@ -212,6 +216,15 @@ class RelayDirectoryService {
   }
 
   /// Parses nostr.watch-style (array) and nostr.band-style (object) responses.
+  /// Exposed for unit testing.
+  @visibleForTesting
+  List<String> parseApiResponse(String body) => _parseApiResponse(body);
+
+  /// Exposed for unit testing.
+  @visibleForTesting
+  List<(String, int)> urlsToCandidates(List<String> urls) =>
+      _urlsToCandidates(urls);
+
   List<String> _parseApiResponse(String body) {
     try {
       final decoded = jsonDecode(body);

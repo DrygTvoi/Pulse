@@ -1,164 +1,20 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:math';
 import 'package:crypto/crypto.dart' as crypto;
 import 'package:convert/convert.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:pointycastle/export.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
-// ─── Secp256k1 key utilities (copied from nostr_adapter.dart) ────────────────
-
-final _secp256k1 = ECCurve_secp256k1();
-
-Uint8List _bigIntToBytes(BigInt n, int length) {
-  final bytes = Uint8List(length);
-  var value = n;
-  for (int i = length - 1; i >= 0; i--) {
-    bytes[i] = (value & BigInt.from(0xFF)).toInt();
-    value = value >> 8;
-  }
-  return bytes;
-}
-
-String _derivePubkeyHex(String privkeyHex) {
-  final d = BigInt.parse(privkeyHex, radix: 16);
-  final G = _secp256k1.G;
-  final Q = G * d;
-  final xBytes = _bigIntToBytes(Q!.x!.toBigInteger()!, 32);
-  return hex.encode(xBytes);
-}
-
-String _nip04Encrypt(String senderPrivkeyHex, String recipientPubkeyHex, String plaintext) {
-  const pHex = 'FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F';
-  final p = BigInt.parse(pHex, radix: 16);
-  final d = BigInt.parse(senderPrivkeyHex, radix: 16);
-  final curve = _secp256k1.curve;
-  final x = BigInt.parse(recipientPubkeyHex, radix: 16);
-  final y2 = (x.modPow(BigInt.from(3), p) + BigInt.from(7)) % p;
-  final y = y2.modPow((p + BigInt.one) ~/ BigInt.from(4), p);
-  final useY = y.isEven ? y : p - y;
-  final sharedPoint = curve.createPoint(x, useY) * d;
-  final xVal = sharedPoint?.x?.toBigInteger();
-  if (xVal == null) throw FormatException('NIP-04 encrypt: invalid shared point');
-  final sharedX = _bigIntToBytes(xVal, 32);
-  final rng = Random.secure();
-  final iv = Uint8List.fromList(List.generate(16, (_) => rng.nextInt(256)));
-  final plaintextBytes = Uint8List.fromList(utf8.encode(plaintext));
-  final cipher = CBCBlockCipher(AESEngine());
-  cipher.init(true, ParametersWithIV<KeyParameter>(KeyParameter(Uint8List.fromList(sharedX)), iv));
-  final padLen = 16 - (plaintextBytes.length % 16);
-  final padded = Uint8List(plaintextBytes.length + padLen)
-    ..setAll(0, plaintextBytes)
-    ..fillRange(plaintextBytes.length, plaintextBytes.length + padLen, padLen);
-  final ciphertext = Uint8List(padded.length);
-  for (int i = 0; i < padded.length; i += 16) {
-    cipher.processBlock(padded, i, ciphertext, i);
-  }
-  return '${base64.encode(ciphertext)}?iv=${base64.encode(iv)}';
-}
-
-String _nip04Decrypt(String recipientPrivkeyHex, String senderPubkeyHex, String ciphertext) {
-  final parts = ciphertext.split('?iv=');
-  if (parts.length != 2) throw FormatException('Invalid NIP-04 ciphertext');
-  final ct = base64.decode(parts[0]);
-  final iv = base64.decode(parts[1]);
-  const pHex = 'FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F';
-  final p = BigInt.parse(pHex, radix: 16);
-  final d = BigInt.parse(recipientPrivkeyHex, radix: 16);
-  final curve = _secp256k1.curve;
-  final x = BigInt.parse(senderPubkeyHex, radix: 16);
-  final y2 = (x.modPow(BigInt.from(3), p) + BigInt.from(7)) % p;
-  final y = y2.modPow((p + BigInt.one) ~/ BigInt.from(4), p);
-  final useY = y.isEven ? y : p - y;
-  final sharedPoint = curve.createPoint(x, useY) * d;
-  final xVal = sharedPoint?.x?.toBigInteger();
-  if (xVal == null) throw FormatException('NIP-04 decrypt: invalid shared point');
-  final sharedX = _bigIntToBytes(xVal, 32);
-  final cipherObj = CBCBlockCipher(AESEngine());
-  cipherObj.init(false, ParametersWithIV<KeyParameter>(KeyParameter(Uint8List.fromList(sharedX)), Uint8List.fromList(iv)));
-  final plainBytes = Uint8List(ct.length);
-  for (int i = 0; i < ct.length; i += 16) {
-    cipherObj.processBlock(Uint8List.fromList(ct), i, plainBytes, i);
-  }
-  final padLen = plainBytes.last;
-  return utf8.decode(plainBytes.sublist(0, plainBytes.length - padLen));
-}
-
-Uint8List _sha256(List<int> data) =>
-    Uint8List.fromList(crypto.sha256.convert(data).bytes);
-
-Uint8List _taggedHash(String tag, List<int> data) {
-  final tagHash = _sha256(utf8.encode(tag));
-  return _sha256([...tagHash, ...tagHash, ...data]);
-}
-
-String _signEvent(String privkeyHex, String eventId) {
-  final msgBytes = Uint8List.fromList(hex.decode(eventId));
-  var d = BigInt.parse(privkeyHex, radix: 16);
-  final n = _secp256k1.n;
-  final G = _secp256k1.G;
-  final P = G * d;
-  if (P!.y!.toBigInteger()!.isOdd) d = n - d;
-  final pubkeyHex = _derivePubkeyHex(privkeyHex);
-  final pubBytes = Uint8List.fromList(hex.decode(pubkeyHex));
-  final privBytes = Uint8List.fromList(hex.decode(privkeyHex));
-  final randBytes = Uint8List(32);
-  final auxRng = Random.secure();
-  for (int i = 0; i < 32; i++) { randBytes[i] = auxRng.nextInt(256); }
-  final nonceHash = _taggedHash('BIP0340/nonce', [...randBytes, ...privBytes, ...msgBytes]);
-  var k = BigInt.parse(hex.encode(nonceHash), radix: 16) % n;
-  if (k == BigInt.zero) k = BigInt.one;
-  var R = G * k;
-  if (R!.y!.toBigInteger()!.isOdd) {
-    k = n - k;
-    R = G * k;
-  }
-  final rx = _bigIntToBytes(R!.x!.toBigInteger()!, 32);
-  final eBytes = _taggedHash('BIP0340/challenge', [...rx, ...pubBytes, ...msgBytes]);
-  final e = BigInt.parse(hex.encode(eBytes), radix: 16) % n;
-  final s = (k + e * d) % n;
-  return hex.encode([...rx, ..._bigIntToBytes(s, 32)]);
-}
-
-String _buildEventId(Map<String, dynamic> event) {
-  final serialized = jsonEncode([
-    0, event['pubkey'], event['created_at'], event['kind'], event['tags'], event['content'],
-  ]);
-  return hex.encode(_sha256(utf8.encode(serialized)));
-}
-
-Map<String, dynamic> _buildEvent({
-  required String privkeyHex,
-  required int kind,
-  required String content,
-  List<List<String>>? tags,
-}) {
-  final pubkey = _derivePubkeyHex(privkeyHex);
-  final createdAt = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-  final event = <String, dynamic>{
-    'pubkey': pubkey, 'created_at': createdAt, 'kind': kind,
-    'tags': tags ?? [], 'content': content,
-  };
-  final id = _buildEventId(event);
-  event['id'] = id;
-  event['sig'] = _signEvent(privkeyHex, id);
-  return event;
-}
+// Use shared crypto — no duplicated NIP-04 / secp256k1 code.
+import '../adapters/nostr_adapter.dart' show nip04Encrypt, nip04Decrypt, computeEcdhSecret;
+import '../services/nostr_event_builder.dart' as neb;
 
 /// 6-char hex verification code derived from ECDH shared secret.
 String _verificationCode(String privHex, String peerPubHex) {
-  const pHex = 'FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F';
-  final p = BigInt.parse(pHex, radix: 16);
-  final x = BigInt.parse(peerPubHex, radix: 16);
-  final y2 = (x.modPow(BigInt.from(3), p) + BigInt.from(7)) % p;
-  final y = y2.modPow((p + BigInt.one) ~/ BigInt.from(4), p);
-  final useY = y.isEven ? y : p - y;
-  final sharedPoint = _secp256k1.curve.createPoint(x, useY) * BigInt.parse(privHex, radix: 16);
-  final sharedX = _bigIntToBytes(sharedPoint!.x!.toBigInteger()!, 32);
+  final sharedX = computeEcdhSecret(privHex, peerPubHex);
   final hash = crypto.sha256.convert(sharedX).bytes;
   return hex.encode(hash.take(3).toList()).toUpperCase();
 }
@@ -182,9 +38,8 @@ class DeviceTransferService {
   bool _disposed = false;
 
   void _genKeypair() {
-    final rng = Random.secure();
-    _myPrivHex = hex.encode(Uint8List.fromList(List.generate(32, (_) => rng.nextInt(256))));
-    _myPubHex = _derivePubkeyHex(_myPrivHex);
+    _myPrivHex = neb.generateRandomPrivkey();
+    _myPubHex = neb.derivePubkeyHex(_myPrivHex);
   }
 
   // ─── Bundle collection ─────────────────────────────────────────────────────
@@ -264,7 +119,7 @@ class DeviceTransferService {
             _peerPubHex = json['pubkey'] as String;
             verificationCode = _verificationCode(_myPrivHex, _peerPubHex);
             final bundle = await _collectBundle();
-            final encrypted = _nip04Encrypt(_myPrivHex, _peerPubHex, jsonEncode(bundle));
+            final encrypted = nip04Encrypt(_myPrivHex, _peerPubHex, jsonEncode(bundle));
             final response = jsonEncode({'ciphertext': encrypted});
             req.response
               ..statusCode = 200
@@ -303,7 +158,8 @@ class DeviceTransferService {
     // parts[0]=LAN, parts[1]=ip, parts[2]=port, parts[3]=srcPub (64 hex chars)
     if (parts.length < 4) throw FormatException('Invalid LAN transfer code');
     final ip = parts[1];
-    final port = int.parse(parts[2]);
+    final port = int.tryParse(parts[2]);
+    if (port == null) throw FormatException('Invalid port in LAN transfer code');
     final srcPubHex = parts[3];
 
     _genKeypair();
@@ -317,7 +173,7 @@ class DeviceTransferService {
       final body = await utf8.decoder.bind(response).join();
       final json = jsonDecode(body) as Map<String, dynamic>;
       final ciphertext = json['ciphertext'] as String;
-      final plain = _nip04Decrypt(_myPrivHex, srcPubHex, ciphertext);
+      final plain = nip04Decrypt(_myPrivHex, srcPubHex, ciphertext);
       await _importBundle(jsonDecode(plain) as Map<String, dynamic>);
       verificationCode = _verificationCode(_myPrivHex, srcPubHex);
       _peerPubHex = srcPubHex;
@@ -373,8 +229,8 @@ class DeviceTransferService {
           verificationCode = _verificationCode(_myPrivHex, _peerPubHex);
           // Encrypt and send bundle back
           final bundle = await _collectBundle();
-          final encrypted = _nip04Encrypt(_myPrivHex, _peerPubHex, jsonEncode(bundle));
-          final replyEvent = _buildEvent(
+          final encrypted = nip04Encrypt(_myPrivHex, _peerPubHex, jsonEncode(bundle));
+          final replyEvent = neb.buildEvent(
             privkeyHex: _myPrivHex,
             kind: 4,
             content: encrypted,
@@ -427,7 +283,7 @@ class DeviceTransferService {
       }]));
 
       // Publish our pubkey to the source
-      final announceEvent = _buildEvent(
+      final announceEvent = neb.buildEvent(
         privkeyHex: _myPrivHex,
         kind: 4,
         content: _myPubHex,
@@ -446,7 +302,7 @@ class DeviceTransferService {
           if (event['kind'] != 4) return;
           final senderPub = event['pubkey'] as String;
           if (senderPub != srcPubHex) return;
-          final plain = _nip04Decrypt(_myPrivHex, srcPubHex, event['content'] as String);
+          final plain = nip04Decrypt(_myPrivHex, srcPubHex, event['content'] as String);
           await _importBundle(jsonDecode(plain) as Map<String, dynamic>);
           verificationCode = _verificationCode(_myPrivHex, srcPubHex);
           _peerPubHex = srcPubHex;

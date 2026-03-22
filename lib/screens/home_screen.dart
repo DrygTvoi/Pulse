@@ -65,6 +65,7 @@ class _HomeScreenState extends State<HomeScreen> {
   int _torBootPercent = 0;
   bool _torRunning = false;
   bool _utlsAvailable = true; // assume available until proven otherwise
+  VoidCallback? _utlsListener;
   ({Contact contact, Message message})? _banner;
   ProbeStatus? _probeStatus;
   Timer? _bannerTimer;
@@ -151,10 +152,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
     // Track uTLS proxy availability for "No ECH" warning chip.
     _utlsAvailable = UTLSService.instance.available.value;
-    UTLSService.instance.available.addListener(() {
+    _utlsListener = () {
       if (!mounted) return;
       setState(() => _utlsAvailable = UTLSService.instance.available.value);
-    });
+    };
+    UTLSService.instance.available.addListener(_utlsListener!);
 
     _loadStatuses();
     _loadMutedChats();
@@ -198,6 +200,9 @@ class _HomeScreenState extends State<HomeScreen> {
     _probeBannerTimer?.cancel();
     _searchDebounce?.cancel();
     _searchController.dispose();
+    if (_utlsListener != null) {
+      UTLSService.instance.available.removeListener(_utlsListener!);
+    }
     super.dispose();
   }
 

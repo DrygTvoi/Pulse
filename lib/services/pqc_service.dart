@@ -17,9 +17,31 @@ import 'package:pqcrypto/pqcrypto.dart';
 /// rotation period so in-flight messages using the old public key can still be
 /// decrypted.
 class PqcService {
-  static final PqcService _instance = PqcService._internal();
+  static PqcService _instance = PqcService._internal();
   factory PqcService() => _instance;
   PqcService._internal();
+
+  /// Create a detached instance for unit testing (no singleton side-effects).
+  @visibleForTesting
+  factory PqcService.testInstance() => PqcService._internal();
+
+  /// Replace the singleton for testing.
+  @visibleForTesting
+  static void setInstanceForTesting(PqcService instance) =>
+      _instance = instance;
+
+  /// Inject key material directly for unit testing (skips storage + KEM).
+  @visibleForTesting
+  void setKeysForTesting({
+    required Uint8List pk,
+    required Uint8List sk,
+    Uint8List? skPrev,
+  }) {
+    _pk = pk;
+    _sk = sk;
+    _skPrev = skPrev;
+    _initialized = true;
+  }
 
   static final _kem = PqcKem.kyber1024;
   static const _storage = FlutterSecureStorage();
