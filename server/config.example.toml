@@ -1,0 +1,65 @@
+# Pulse Relay Server Configuration
+# Copy this file to config.toml and adjust as needed.
+
+[server]
+# Address and port to listen on (supports IPv4 and IPv6)
+listen = "0.0.0.0:8443"
+
+# Directory for database and other persistent data
+data_dir = "/data"
+
+# TLS mode: "self-signed" | "manual" | "auto" | "none"
+#   self-signed  — generate a self-signed certificate on startup (development)
+#   manual       — load cert and key from tls_cert / tls_key paths
+#   auto         — Let's Encrypt (not yet implemented)
+#   none         — plain TCP, use behind a reverse proxy
+tls_mode = "self-signed"
+
+# Paths to TLS certificate and key (only used when tls_mode = "manual")
+tls_cert = ""
+tls_key = ""
+
+[auth]
+# Registration mode: "open" | "invite" | "closed"
+#   open   — anyone can register by connecting
+#   invite — new users must provide a valid invite code
+#   closed — no new registrations allowed
+mode = "invite"
+
+[storage]
+# How long to keep undelivered messages (in hours). 0 = forever.
+message_ttl_hours = 168
+
+# Maximum size of a single message payload in bytes (512 KB)
+max_message_bytes = 524288
+
+# Maximum size of an encrypted backup in bytes (50 MB)
+max_backup_bytes = 52428800
+
+[turn]
+# Enable built-in TURN relay (Phase 8)
+enabled = true
+
+# TURN listening port
+port = 3478
+
+# TURN realm
+realm = "pulse"
+
+[privacy]
+# Whether to log client IP addresses and request details
+access_log = false
+
+# Delete messages from storage immediately upon client acknowledgement
+delete_on_ack = true
+
+[limits]
+# Maximum messages a single user can send per minute
+messages_per_minute = 30
+
+# Maximum concurrent WebSocket connections
+max_connections = 1000
+
+[federation]
+# Enable federation with other Pulse servers (Phase 9)
+enabled = false
