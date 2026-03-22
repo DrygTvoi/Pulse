@@ -180,6 +180,18 @@ class IceServerConfig {
       }
     }
 
+    // Pulse server TURN (dynamic creds from auth_ok)
+    final pulseTurnUrl = prefs.getString('pulse_turn_url') ?? '';
+    final pulseTurnUser = prefs.getString('pulse_turn_user') ?? '';
+    final pulseTurnPass = prefs.getString('pulse_turn_pass') ?? '';
+    if (pulseTurnUrl.isNotEmpty) {
+      servers.add({
+        'urls': pulseTurnUrl,
+        if (pulseTurnUser.isNotEmpty) 'username': pulseTurnUser,
+        if (pulseTurnPass.isNotEmpty) 'credential': pulseTurnPass,
+      });
+    }
+
     // Custom TURN server (BYOD — highest priority, added last so WebRTC tries it first)
     final url  = prefs.getString(_kCustomUrl)     ?? '';
     final user = prefs.getString(_kCustomUsername) ?? '';

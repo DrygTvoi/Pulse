@@ -4,3 +4,6 @@
 /// SharedPreferences 'nostr_relay' is not set.  AdaptiveRelayService and
 /// RelayDirectoryService may replace it at runtime with a faster/closer relay.
 const kDefaultNostrRelay = 'wss://relay.damus.io';
+
+/// Provider string for the self-hosted Pulse relay transport.
+const kPulseProvider = 'Pulse';
