@@ -183,7 +183,7 @@ class _PulseAppState extends State<PulseApp> {
       if (uri != null && mounted) {
         _processUri(uri);
       }
-    }, onError: (err) {});
+    }, onError: (err) { debugPrint('[App] URI stream error: $err'); });
   }
 
   void _processUri(Uri uri) {
