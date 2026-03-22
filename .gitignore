@@ -82,3 +82,12 @@ tools/psiphon-client/pulse-psiphon
 # Android release signing
 android/key.properties
 android/app/*.jks
+
+# Sentry native crash artifacts
+.sentry-native/
+
+# Compiled server binary (rebuild with `go build`)
+server/pulse-server
+
+# Old app icon (renamed to pulse)
+assets/icons/aegis.png
