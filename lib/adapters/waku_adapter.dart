@@ -14,6 +14,7 @@ import 'inbox_manager.dart';
 const _autoDiscoverSentinel = '__auto__';
 const _pubsubTopic = '/waku/2/default-waku/proto';
 
+// Wire paths intentionally kept as /aegis/1/ for backward compat — do not rename.
 String _msgTopic(String userId) => '/aegis/1/$userId/proto';
 String _sigTopic(String userId) => '/aegis/1/$userId/signals/proto';
 String _keysTopic(String userId) => '/aegis/1/$userId/keys/proto';
@@ -46,6 +47,16 @@ class WakuInboxReader implements InboxReader {
 
   bool _subscribed = false;
   bool _loopStarted = false;
+
+  // ── Adaptive polling — reduces bandwidth when idle ──────────────────────
+  DateTime _lastActivity = DateTime.now();
+
+  Duration get _adaptivePollInterval {
+    final idle = DateTime.now().difference(_lastActivity);
+    if (idle < const Duration(seconds: 10)) return const Duration(seconds: 2);
+    if (idle < const Duration(seconds: 60)) return const Duration(seconds: 15);
+    return const Duration(minutes: 2);
+  }
 
   final _healthCtrl = StreamController<bool>.broadcast();
   int _subscribeFailures = 0;
@@ -167,7 +178,7 @@ class WakuInboxReader implements InboxReader {
         ]);
         _consecutiveLoopFailures = 0; // reset on successful poll cycle
       }
-      await Future.delayed(const Duration(milliseconds: 500));
+      await Future.delayed(_adaptivePollInterval);
     }
   }
 
@@ -208,10 +219,12 @@ class WakuInboxReader implements InboxReader {
           if (_seenHashes.contains(hash)) continue;
           _seenHashes.add(hash);
           if (_seenHashes.length > 3000) {
-            _seenHashes.removeAll(_seenHashes.take(1500).toList());
+            final evict = _seenHashes.toList().sublist(0, 1500);
+            _seenHashes.removeAll(evict);
           }
         }
         handler(msg);
+        _lastActivity = DateTime.now(); // reset to active polling
       }
     } catch (e) {
       debugPrint('[Waku] Poll response parse error: $e');
@@ -231,7 +244,7 @@ class WakuInboxReader implements InboxReader {
       final senderId = outer['from'] as String? ?? '';
       final encPayload = outer['payload'] as String? ?? '';
       final tsNs = msg['timestamp'] as int? ?? 0;
-      _msgCtrl.add([Message(
+      if (!_msgCtrl.isClosed) _msgCtrl.add([Message(
         id: msg['messageHash'] as String? ?? tsNs.toString(),
         senderId: senderId,
         receiverId: _userId,
@@ -272,7 +285,7 @@ class WakuInboxReader implements InboxReader {
         data = outer;
       }
 
-      _sigCtrl.add([{
+      if (!_sigCtrl.isClosed) _sigCtrl.add([{
         'type': data['type'],
         'senderId': data['senderId'],
         'roomId': data['roomId'],

@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../theme/theme_manager.dart';
 import '../theme/app_theme.dart';
+import '../l10n/l10n_ext.dart';
 
 /// Reusable theme picker — used on the onboarding screen and in Settings.
 /// Shows a Light / Dark / System mode selector + accent color swatches.
@@ -20,30 +21,31 @@ class ThemePickerWidget extends StatelessWidget {
     Color(0xFFEF4444), // Red
   ];
 
-  static const _modes = [
-    (ThemeMode.light, Icons.light_mode_rounded, 'Light'),
-    (ThemeMode.dark, Icons.dark_mode_rounded, 'Dark'),
-    (ThemeMode.system, Icons.brightness_auto_rounded, 'System'),
-  ];
-
   @override
   Widget build(BuildContext context) {
     final notifier = context.watch<ThemeNotifier>();
     final mode = notifier.themeMode;
     final accent = notifier.primary;
+    final l = context.l10n;
+
+    final modes = [
+      (ThemeMode.light, Icons.light_mode_rounded, l.themeModeLight),
+      (ThemeMode.dark, Icons.dark_mode_rounded, l.themeModeDark),
+      (ThemeMode.system, Icons.brightness_auto_rounded, l.themeModeSystem),
+    ];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // ── Mode selector ──────────────────────────────────────────────
-        Text('Appearance',
+        Text(l.themePickerAppearance,
             style: GoogleFonts.inter(
                 color: AppTheme.textPrimary,
                 fontSize: 15,
                 fontWeight: FontWeight.w700)),
         const SizedBox(height: 12),
         _SegmentedPill(
-          items: _modes.map((m) => (m.$1, m.$2, m.$3)).toList(),
+          items: modes.map((m) => (m.$1, m.$2, m.$3)).toList(),
           selected: mode,
           onTap: (m) => ThemeNotifier.instance.setThemeMode(m),
         ),
@@ -51,7 +53,7 @@ class ThemePickerWidget extends StatelessWidget {
         const SizedBox(height: 20),
 
         // ── Accent color ───────────────────────────────────────────────
-        Text('Accent Color',
+        Text(l.themePickerAccentColor,
             style: GoogleFonts.inter(
                 color: AppTheme.textPrimary,
                 fontSize: 15,

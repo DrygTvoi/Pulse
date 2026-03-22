@@ -137,7 +137,8 @@ class PulseInboxReader implements InboxReader {
 
   void _trackSeenId(String id) {
     if (_seenIds.length > 2000) {
-      _seenIds.removeAll(_seenIds.take(1000).toList());
+      final evict = _seenIds.toList().sublist(0, 1000);
+      _seenIds.removeAll(evict);
     }
     _seenIds.add(id);
   }

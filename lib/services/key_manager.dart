@@ -1,3 +1,4 @@
+import 'dart:collection';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -25,7 +26,10 @@ class KeyManager {
   static const _kDefaultNostrRelay = kDefaultNostrRelay;
 
   // In-memory PQC key cache: contactId → Kyber-1024 public key
-  final Map<String, Uint8List> _contactKyberPks = {};
+  // LinkedHashMap preserves insertion order for oldest-first eviction.
+  static const _kyberCacheMaxSize = 2000;
+  final LinkedHashMap<String, Uint8List> _contactKyberPks =
+      LinkedHashMap<String, Uint8List>();
 
   KeyManager(this._signalService, this._pqcService);
 
@@ -38,6 +42,9 @@ class KeyManager {
     try {
       final pk = Uint8List.fromList(List<int>.from(kyberPkList));
       _contactKyberPks[contactId] = pk;
+      if (_contactKyberPks.length > _kyberCacheMaxSize) {
+        _contactKyberPks.remove(_contactKyberPks.keys.first);
+      }
       SharedPreferences.getInstance().then((prefs) {
         prefs.setString('pqc_contact_pk_$contactId', base64Encode(pk));
       });
@@ -60,6 +67,9 @@ class KeyManager {
     if (b64 == null) return null;
     final pk = base64Decode(b64);
     _contactKyberPks[contactId] = pk;
+    if (_contactKyberPks.length > _kyberCacheMaxSize) {
+      _contactKyberPks.remove(_contactKyberPks.keys.first);
+    }
     return pk;
   }
 

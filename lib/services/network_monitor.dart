@@ -65,15 +65,17 @@ class NetworkMonitor {
     // Try two well-known DNS servers via TCP (port 53).
     // We don't send data — just check that a TCP connection can be established.
     for (final host in ['8.8.8.8', '1.1.1.1']) {
+      Socket? socket;
       try {
-        final socket = await Socket.connect(
+        socket = await Socket.connect(
           host, 53,
           timeout: const Duration(seconds: 3),
         );
-        socket.destroy();
         return true;
       } catch (e) {
         debugPrint('[Network] Connectivity check to $host failed: $e');
+      } finally {
+        socket?.destroy();
       }
     }
     return false;

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_theme.dart';
+import '../l10n/l10n_ext.dart';
 
 /// Custom proxy & CF Worker relay configuration section for Settings.
 ///
@@ -50,31 +51,32 @@ class _CustomProxySectionState extends State<CustomProxySection> {
 
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildInfo(),
+        _buildInfo(context),
         const SizedBox(height: 14),
-        _sectionLabel('Custom Proxy (SOCKS5)'),
+        _sectionLabel(l.customProxySocks5),
         const SizedBox(height: 10),
-        _buildProxyToggle(),
+        _buildProxyToggle(context),
         if (widget.proxyEnabled) ...[
           const SizedBox(height: 10),
-          _buildProxyFields(),
+          _buildProxyFields(context),
           const SizedBox(height: 8),
-          _hint('V2Ray/Xray: 127.0.0.1:10808  \u2022  Shadowsocks: 127.0.0.1:1080'),
+          _hint(l.customProxyHint),
         ],
         const SizedBox(height: 18),
-        _sectionLabel('CF Worker Relay'),
+        _sectionLabel(l.customCfWorkerRelay),
         const SizedBox(height: 10),
-        _buildWorkerField(),
+        _buildWorkerField(context),
         const SizedBox(height: 8),
-        _buildWorkerHelp(),
+        _buildWorkerHelp(context),
       ],
     );
   }
 
-  Widget _buildInfo() {
+  Widget _buildInfo(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
@@ -89,9 +91,7 @@ class _CustomProxySectionState extends State<CustomProxySection> {
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              'Custom proxy routes traffic through your V2Ray/Xray/Shadowsocks. '
-              'CF Worker acts as a personal relay proxy on Cloudflare CDN \u2014 '
-              'GFW sees *.workers.dev, not the real relay.',
+              context.l10n.customProxyInfoDescription,
               style: GoogleFonts.inter(
                   color: AppTheme.textSecondary, fontSize: 11, height: 1.5),
             ),
@@ -101,7 +101,8 @@ class _CustomProxySectionState extends State<CustomProxySection> {
     );
   }
 
-  Widget _buildProxyToggle() {
+  Widget _buildProxyToggle(BuildContext context) {
+    final l = context.l10n;
     return GestureDetector(
       onTap: () => widget.onProxyEnabledChanged(!widget.proxyEnabled),
       child: Container(
@@ -132,15 +133,15 @@ class _CustomProxySectionState extends State<CustomProxySection> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Custom SOCKS5 Proxy',
+                  Text(l.customSocks5ProxyTitle,
                       style: GoogleFonts.inter(
                           color: AppTheme.textPrimary,
                           fontWeight: FontWeight.w600,
                           fontSize: 14)),
                   Text(
                       widget.proxyEnabled
-                          ? 'Active \u2014 traffic routed via SOCKS5'
-                          : 'Disabled',
+                          ? l.customProxyActive
+                          : l.customProxyDisabled,
                       style: GoogleFonts.inter(
                           color: widget.proxyEnabled ? _accent : AppTheme.textSecondary,
                           fontSize: 12)),
@@ -158,7 +159,8 @@ class _CustomProxySectionState extends State<CustomProxySection> {
     );
   }
 
-  Widget _buildProxyFields() {
+  Widget _buildProxyFields(BuildContext context) {
+    final l = context.l10n;
     return Row(
       children: [
         Expanded(
@@ -166,7 +168,7 @@ class _CustomProxySectionState extends State<CustomProxySection> {
           child: _field(
             controller: widget.proxyHostController,
             hint: '127.0.0.1',
-            label: 'Proxy Host',
+            label: l.customProxyHostLabel,
             icon: Icons.router_rounded,
           ),
         ),
@@ -176,7 +178,7 @@ class _CustomProxySectionState extends State<CustomProxySection> {
           child: _field(
             controller: widget.proxyPortController,
             hint: '10808',
-            label: 'Port',
+            label: l.customProxyPortLabel,
             icon: Icons.electrical_services_rounded,
           ),
         ),
@@ -184,16 +186,17 @@ class _CustomProxySectionState extends State<CustomProxySection> {
     );
   }
 
-  Widget _buildWorkerField() {
+  Widget _buildWorkerField(BuildContext context) {
     return _field(
       controller: widget.workerRelayController,
       hint: 'my-relay.username.workers.dev',
-      label: 'Worker Domain (optional)',
+      label: context.l10n.customWorkerLabel,
       icon: Icons.cloud_queue_rounded,
     );
   }
 
-  Widget _buildWorkerHelp() {
+  Widget _buildWorkerHelp(BuildContext context) {
+    final l = context.l10n;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -209,7 +212,7 @@ class _CustomProxySectionState extends State<CustomProxySection> {
               ),
               const SizedBox(width: 4),
               Text(
-                'How to deploy a CF Worker relay (free)',
+                l.customWorkerHelpTitle,
                 style: GoogleFonts.inter(
                     color: _accent, fontSize: 12, fontWeight: FontWeight.w500),
               ),
@@ -229,8 +232,7 @@ class _CustomProxySectionState extends State<CustomProxySection> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '1. Go to dash.cloudflare.com \u2192 Workers & Pages\n'
-                  '2. Create Worker \u2192 paste this script:\n',
+                  l.customWorkerStep1,
                   style: GoogleFonts.inter(
                       color: AppTheme.textSecondary, fontSize: 11, height: 1.5),
                 ),
@@ -239,7 +241,7 @@ class _CustomProxySectionState extends State<CustomProxySection> {
                     Clipboard.setData(const ClipboardData(text: _workerScript));
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: Text('Script copied!', style: GoogleFonts.inter()),
+                        content: Text(l.customWorkerScriptCopied, style: GoogleFonts.inter()),
                         backgroundColor: _accent,
                         behavior: SnackBarBehavior.floating,
                         duration: const Duration(seconds: 2),
@@ -271,10 +273,7 @@ class _CustomProxySectionState extends State<CustomProxySection> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  '3. Deploy \u2192 copy domain (e.g. my-relay.user.workers.dev)\n'
-                  '4. Paste domain above \u2192 Save\n\n'
-                  'App auto-connects: wss://domain/?r=relay_url\n'
-                  'GFW sees: connection to *.workers.dev (CF CDN)',
+                  l.customWorkerStep2,
                   style: GoogleFonts.inter(
                       color: AppTheme.textSecondary, fontSize: 11, height: 1.5),
                 ),

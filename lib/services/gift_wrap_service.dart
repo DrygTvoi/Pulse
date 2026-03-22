@@ -33,7 +33,7 @@ Future<Map<String, dynamic>> wrapEvent({
   List<List<String>>? innerTags,
 }) async {
   // 1. Build and sign the inner event
-  final innerEvent = eb.buildEvent(
+  final innerEvent = await eb.buildEvent(
     privkeyHex: senderPrivkey,
     kind: innerKind,
     content: innerContent,
@@ -44,7 +44,7 @@ Future<Map<String, dynamic>> wrapEvent({
   final innerJson = jsonEncode(innerEvent);
   final sealSharedX = computeEcdhSecret(senderPrivkey, recipientPubkey);
   final sealContent = await nip44.nip44Encrypt(sealSharedX, innerJson);
-  final sealEvent = eb.buildEvent(
+  final sealEvent = await eb.buildEvent(
     privkeyHex: senderPrivkey,
     kind: 13,
     content: sealContent,
@@ -62,7 +62,7 @@ Future<Map<String, dynamic>> wrapEvent({
   final jitter = rng.nextInt(14400) - 7200; // ±2 hours in seconds
   final ts = DateTime.now().millisecondsSinceEpoch ~/ 1000 + jitter;
 
-  final wrapEvent = eb.buildEvent(
+  final wrapEvent = await eb.buildEvent(
     privkeyHex: ephemeralPrivkey,
     kind: 1059,
     content: wrapContent,

@@ -21,15 +21,40 @@ class _PersistentSignalStore extends InMemorySignalProtocolStore {
   /// ChatController hooks this to republish the bundle with the next available preKey.
   VoidCallback? onPreKeyConsumed;
 
-  /// Read only entries matching [prefix] from secure storage.
+  /// In-memory cache of all secure storage entries.
+  /// Populated on first read, updated on writes/deletes.
+  /// Avoids reading ALL 300+ keys from disk on every prefix scan.
+  Map<String, String>? _secureStorageCache;
+
+  /// Returns all entries from secure storage, using a cached copy after the
+  /// first call. Subsequent calls are O(1) instead of a full disk read.
+  Future<Map<String, String>> _getAllCached() async {
+    if (_secureStorageCache != null) return _secureStorageCache!;
+    _secureStorageCache = await _storage.readAll();
+    return _secureStorageCache!;
+  }
+
+  /// Read only entries matching [prefix] from the cached secure storage.
   /// Avoids leaking unrelated secrets (nostr_privkey, oxen_seed, etc.) into callers.
   Future<Map<String, String>> _readByPrefix(String prefix) async {
-    final all = await _storage.readAll();
+    final all = await _getAllCached();
     final filtered = <String, String>{};
     for (final entry in all.entries) {
       if (entry.key.startsWith(prefix)) filtered[entry.key] = entry.value;
     }
     return filtered;
+  }
+
+  /// Write to secure storage and update the in-memory cache.
+  Future<void> _secureWrite(String key, String value) async {
+    await _storage.write(key: key, value: value);
+    _secureStorageCache?[key] = value;
+  }
+
+  /// Delete from secure storage and update the in-memory cache.
+  Future<void> _secureDelete(String key) async {
+    await _storage.delete(key: key);
+    _secureStorageCache?.remove(key);
   }
 
   _PersistentSignalStore(
@@ -68,13 +93,13 @@ class _PersistentSignalStore extends InMemorySignalProtocolStore {
   Future<void> storeSession(SignalProtocolAddress address, SessionRecord record) async {
     await super.storeSession(address, record);
     final key = '$_sessionPrefix${address.getName()}_${address.getDeviceId()}';
-    await _storage.write(key: key, value: base64Encode(record.serialize()));
+    await _secureWrite(key, base64Encode(record.serialize()));
   }
 
   @override
   Future<void> deleteSession(SignalProtocolAddress address) async {
     await super.deleteSession(address);
-    await _storage.delete(key: '$_sessionPrefix${address.getName()}_${address.getDeviceId()}');
+    await _secureDelete('$_sessionPrefix${address.getName()}_${address.getDeviceId()}');
   }
 
   @override
@@ -85,7 +110,7 @@ class _PersistentSignalStore extends InMemorySignalProtocolStore {
     for (final k in all.keys) {
       final suffix = k.substring(expectedPrefix.length);
       if (int.tryParse(suffix) != null) {
-        await _storage.delete(key: k);
+        await _secureDelete(k);
       }
     }
   }
@@ -97,9 +122,9 @@ class _PersistentSignalStore extends InMemorySignalProtocolStore {
     await super.storePreKey(preKeyId, record);
     // Persist as JSON {id, pub, priv} so it survives restarts.
     final kp = record.getKeyPair();
-    await _storage.write(
-      key: '$_preKeyPrefix$preKeyId',
-      value: jsonEncode({
+    await _secureWrite(
+      '$_preKeyPrefix$preKeyId',
+      jsonEncode({
         'id': preKeyId,
         'pub': base64Encode(kp.publicKey.serialize()),
         'priv': base64Encode(kp.privateKey.serialize()),
@@ -110,7 +135,7 @@ class _PersistentSignalStore extends InMemorySignalProtocolStore {
   @override
   Future<void> removePreKey(int preKeyId) async {
     await super.removePreKey(preKeyId);
-    await _storage.delete(key: '$_preKeyPrefix$preKeyId');
+    await _secureDelete('$_preKeyPrefix$preKeyId');
     onPreKeyConsumed?.call(); // trigger bundle republish in ChatController
   }
 

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_theme.dart';
 import '../services/psiphon_service.dart';
+import '../l10n/l10n_ext.dart';
 
 /// Psiphon toggle card for the Settings → Censorship Resistance section.
 class PsiphonConfigSection extends StatelessWidget {
@@ -21,21 +22,22 @@ class PsiphonConfigSection extends StatelessWidget {
     const teal = Color(0xFF00897B);
     final svc = PsiphonService.instance;
     final isConnected = svc.isRunning;
+    final l = context.l10n;
 
     String subtitle;
     Color subtitleColor;
     if (isConnected && psiphonEnabled) {
       final port = svc.proxyPort;
-      subtitle = 'Connected \u2014 SOCKS5 on 127.0.0.1:$port';
+      subtitle = l.psiphonConnectedSubtitle(port ?? 0);
       subtitleColor = teal;
     } else if (psiphonLoading) {
-      subtitle = 'Connecting\u2026';
+      subtitle = l.psiphonConnecting;
       subtitleColor = teal.withValues(alpha: 0.7);
     } else if (psiphonEnabled) {
-      subtitle = 'Not running \u2014 tap switch to restart';
+      subtitle = l.psiphonNotRunning;
       subtitleColor = AppTheme.textSecondary;
     } else {
-      subtitle = 'Fast tunnel (~3s bootstrap, 2000+ rotating VPS)';
+      subtitle = l.psiphonDescription;
       subtitleColor = AppTheme.textSecondary;
     }
 
@@ -69,7 +71,7 @@ class PsiphonConfigSection extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Psiphon',
+                  Text(l.psiphonTitle,
                       style: GoogleFonts.inter(
                           color: AppTheme.textPrimary,
                           fontWeight: FontWeight.w600,

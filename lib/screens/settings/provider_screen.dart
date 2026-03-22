@@ -153,22 +153,22 @@ class _ProviderScreenState extends State<ProviderScreen> {
       case 'Firebase':
         final url = _firebaseUrlCtrl.text.trim();
         if (url.isNotEmpty && !_isValidUrl(url, schemes: ['https', 'http'])) {
-          return 'Invalid Firebase URL. Expected https://project.firebaseio.com';
+          return context.l10n.providerErrorInvalidFirebaseUrl;
         }
       case 'Nostr':
         final relay = _nostrRelayCtrl.text.trim();
         if (relay.isNotEmpty && !_isValidUrl(relay, schemes: ['wss', 'ws'])) {
-          return 'Invalid relay URL. Expected wss://relay.example.com';
+          return context.l10n.providerErrorInvalidRelayUrl;
         }
       case 'Waku':
         final url = _wakuNodeUrlCtrl.text.trim();
         if (url.isNotEmpty && !_isValidUrl(url, schemes: ['http', 'https'])) {
-          return 'Invalid Waku node URL. Expected http://host:port';
+          return context.l10n.providerErrorInvalidWakuUrl;
         }
       case 'Pulse':
         final url = _pulseServerUrlCtrl.text.trim();
         if (url.isNotEmpty && !_isValidUrl(url, schemes: ['https', 'http'])) {
-          return 'Invalid Pulse server URL. Expected https://server:port';
+          return context.l10n.providerErrorInvalidPulseUrl;
         }
     }
     return null;
@@ -838,15 +838,15 @@ class _ProviderScreenState extends State<ProviderScreen> {
           children: [
             settingsField(
               controller: _pulseServerUrlCtrl,
-              hint: 'https://your-server:8443',
-              label: 'Server URL',
+              hint: context.l10n.providerPulseServerUrlHint,
+              label: context.l10n.providerPulseServerUrlLabel,
               icon: Icons.dns_rounded,
             ),
             const SizedBox(height: 12),
             settingsField(
               controller: _pulseInviteCtrl,
-              hint: 'Invite code (if required)',
-              label: 'Invite Code',
+              hint: context.l10n.providerPulseInviteHint,
+              label: context.l10n.providerPulseInviteLabel,
               icon: Icons.card_giftcard_rounded,
             ),
             const SizedBox(height: 8),
@@ -856,7 +856,7 @@ class _ProviderScreenState extends State<ProviderScreen> {
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
-                    'Self-hosted relay. Keys derived from your recovery password.',
+                    context.l10n.providerPulseInfo,
                     style: GoogleFonts.inter(
                         color: AppTheme.textSecondary, fontSize: 11)),
               ),
@@ -986,7 +986,7 @@ class _ProviderScreenState extends State<ProviderScreen> {
         IconButton(
           icon: Icon(Icons.close_rounded,
               size: 18, color: AppTheme.textSecondary),
-          tooltip: 'Remove',
+          tooltip: context.l10n.providerRemoveTooltip,
           onPressed: onRemove,
         ),
       ]),
@@ -1000,7 +1000,7 @@ class _ProviderScreenState extends State<ProviderScreen> {
     return Scaffold(
       backgroundColor: AppTheme.background,
       appBar: AppBar(
-        title: Text('Inboxes',
+        title: Text(context.l10n.providerScreenTitle,
             style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
         backgroundColor: AppTheme.surface,
         elevation: 0,
@@ -1056,7 +1056,7 @@ class _ProviderScreenState extends State<ProviderScreen> {
                             color: AppTheme.surfaceVariant, height: 1)),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 12),
-                      child: Text('SECONDARY INBOXES',
+                      child: Text(context.l10n.providerSecondaryInboxesHeader,
                           style: GoogleFonts.inter(
                             color: AppTheme.textSecondary,
                             fontSize: 11,
@@ -1080,7 +1080,7 @@ class _ProviderScreenState extends State<ProviderScreen> {
                         const SizedBox(width: 6),
                         Expanded(
                           child: Text(
-                            'Secondary inboxes receive messages simultaneously for redundancy.',
+                            context.l10n.providerSecondaryInboxesInfo,
                             style: GoogleFonts.inter(
                                 color: AppTheme.textSecondary,
                                 fontSize: 11,

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_theme.dart';
+import '../l10n/l10n_ext.dart';
 
 /// Extracted I2P configuration section from SettingsScreen.
 /// Displays the I2P info banner, toggle, and SOCKS5 host/port fields.
@@ -20,19 +21,20 @@ class I2pConfigSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildI2pInfo(),
+        _buildI2pInfo(context),
         const SizedBox(height: 14),
-        _sectionLabel('I2P Proxy (SOCKS5)'),
+        _sectionLabel(l.i2pProxySocks5),
         const SizedBox(height: 10),
-        _buildI2pSettings(),
+        _buildI2pSettings(context),
       ],
     );
   }
 
-  Widget _buildI2pInfo() {
+  Widget _buildI2pInfo(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
@@ -47,9 +49,7 @@ class I2pConfigSection extends StatelessWidget {
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              'I2P uses SOCKS5 on port 4447 by default. Connect to a Nostr relay via '
-              'I2P outproxy (e.g. relay.damus.i2p) to communicate with users on any transport. '
-              'Tor takes priority when both are enabled.',
+              context.l10n.i2pInfoDescription,
               style: GoogleFonts.inter(
                   color: AppTheme.textSecondary, fontSize: 11, height: 1.5),
             ),
@@ -59,8 +59,9 @@ class I2pConfigSection extends StatelessWidget {
     );
   }
 
-  Widget _buildI2pSettings() {
+  Widget _buildI2pSettings(BuildContext context) {
     const teal = Color(0xFF00897B);
+    final l = context.l10n;
     return Column(
       children: [
         GestureDetector(
@@ -93,13 +94,13 @@ class I2pConfigSection extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Route Nostr via I2P',
+                      Text(l.i2pRouteNostrTitle,
                           style: GoogleFonts.inter(
                               color: AppTheme.textPrimary,
                               fontWeight: FontWeight.w600,
                               fontSize: 14)),
                       Text(
-                          i2pEnabled ? 'Active \u2014 Nostr traffic routed through I2P' : 'Disabled',
+                          i2pEnabled ? l.i2pActiveRouting : l.i2pDisabled,
                           style: GoogleFonts.inter(
                               color: i2pEnabled ? teal : AppTheme.textSecondary,
                               fontSize: 12)),
@@ -124,7 +125,7 @@ class I2pConfigSection extends StatelessWidget {
                 child: _field(
                   controller: i2pHostController,
                   hint: '127.0.0.1',
-                  label: 'Proxy Host',
+                  label: l.i2pProxyHostLabel,
                   icon: Icons.router_rounded,
                 ),
               ),
@@ -134,7 +135,7 @@ class I2pConfigSection extends StatelessWidget {
                 child: _field(
                   controller: i2pPortController,
                   hint: '4447',
-                  label: 'Port',
+                  label: l.i2pProxyPortLabel,
                   icon: Icons.electrical_services_rounded,
                 ),
               ),
@@ -147,7 +148,7 @@ class I2pConfigSection extends StatelessWidget {
             const SizedBox(width: 6),
             Expanded(
               child: Text(
-                'I2P Router default SOCKS5 port: 4447',
+                l.i2pPortInfo,
                 style: GoogleFonts.inter(
                     color: AppTheme.textSecondary, fontSize: 11),
               ),

@@ -29,6 +29,9 @@ class LocalStorageService {
   Database? _db;
   SecretKey? _encKey;
 
+  /// Whether FTS5 is available in this SQLite build.
+  bool _fts5Available = false;
+
   /// SQLCipher is always available — bundled via sqlcipher_flutter_libs.
   bool get isSqlcipherAvailable => true;
 
@@ -57,7 +60,7 @@ class LocalStorageService {
     _db = await databaseFactory.openDatabase(
       path,
       options: OpenDatabaseOptions(
-        version: 6,
+        version: 7,
         onConfigure: (db) async {
           await db.rawQuery("PRAGMA KEY=\"x'$dbKey'\"");
           debugPrint('[LocalStorage] SQLCipher: full-DB encryption active');
@@ -87,6 +90,7 @@ class LocalStorageService {
           await _createContactsTable(db);
           await _createAvatarsTable(db);
           await _createDraftsTable(db);
+          await _createFtsTable(db);
         },
         onUpgrade: (db, oldVersion, newVersion) async {
           if (oldVersion < 2) {
@@ -111,11 +115,18 @@ class LocalStorageService {
           if (oldVersion < 6) {
             await _createDraftsTable(db, ifNotExists: true);
           }
+          if (oldVersion < 7) {
+            await _createFtsTable(db);
+          }
         },
       ),
     );
 
-    await _migrateEncryption();
+    // Detect FTS5 availability.
+    _fts5Available = await _checkFts5Available();
+
+    // Strip per-row AES-GCM encryption (lazy migration to plaintext within SQLCipher).
+    await _migrateToPlaintext();
     await _migrateFromPrefs();
     await migrateReactionsFromPrefs();
     await _migrateContactsFromPrefs();
@@ -181,6 +192,41 @@ class LocalStorageService {
         text       TEXT NOT NULL
       )
     ''');
+  }
+
+  /// Create the FTS5 virtual table for full-text message search.
+  /// Silently skipped if FTS5 is not compiled into this SQLite build.
+  static Future<void> _createFtsTable(Database db) async {
+    try {
+      await db.execute('''
+        CREATE VIRTUAL TABLE IF NOT EXISTS messages_fts USING fts5(
+          msg_id UNINDEXED,
+          room_id UNINDEXED,
+          content,
+          tokenize='unicode61'
+        )
+      ''');
+      debugPrint('[LocalStorage] FTS5 messages_fts table created');
+    } catch (e) {
+      // FTS5 extension not available in this SQLite build — search will
+      // fall back to SQL LIKE.
+      debugPrint('[LocalStorage] FTS5 not available: $e');
+    }
+  }
+
+  /// Check if FTS5 is available by probing the messages_fts table.
+  Future<bool> _checkFts5Available() async {
+    try {
+      final db = _db;
+      if (db == null) return false;
+      // If the table exists and is queryable, FTS5 is available.
+      await db.rawQuery(
+        "SELECT msg_id FROM messages_fts WHERE messages_fts MATCH 'test' LIMIT 1",
+      );
+      return true;
+    } catch (_) {
+      return false;
+    }
   }
 
   /// Load the SQLCipher shared library and override the sqlite3 open hook.
@@ -326,7 +372,7 @@ class LocalStorageService {
       // Create encrypted DB
       final encDb = await databaseFactory.openDatabase(path,
           options: OpenDatabaseOptions(
-            version: 6,
+            version: 7,
             onConfigure: (db) async {
               if (dbKey != null) {
                 await db.rawQuery("PRAGMA KEY=\"x'$dbKey'\"");
@@ -357,6 +403,7 @@ class LocalStorageService {
               await _createContactsTable(db);
               await _createAvatarsTable(db);
               await _createDraftsTable(db);
+              await _createFtsTable(db);
             },
           ));
 
@@ -432,6 +479,8 @@ class LocalStorageService {
     return key;
   }
 
+  // Keep for backward compat — may be needed for backup re-encryption.
+  // ignore: unused_element
   Future<String> _encrypt(String plain) async {
     final plainBytes = utf8.encode(plain);
     final secretBox = await _aesGcm.encrypt(plainBytes, secretKey: _encKey!);
@@ -466,26 +515,89 @@ class LocalStorageService {
     return utf8.decode(decryptedBytes);
   }
 
-  /// Re-encrypts any legacy plaintext rows left from v1 schema.
-  Future<void> _migrateEncryption() async {
+  /// Read stored data with backward compatibility: tries plaintext JSON first,
+  /// falls back to AES-GCM decryption for legacy `ENC:` rows.
+  Future<String> _readData(String stored) async {
+    if (!stored.startsWith('ENC:')) return stored; // plaintext (new format)
+    return _decrypt(stored); // legacy AES-GCM encrypted row
+  }
+
+  /// Strips per-row AES-GCM encryption from all rows, storing plaintext JSON
+  /// directly (SQLCipher provides file-level encryption). Also populates the
+  /// FTS5 index for migrated rows.
+  Future<void> _migrateToPlaintext() async {
     final db = _db!;
     final rows = await db.query('messages', columns: ['msg_id', 'room_id', 'data']);
     int migrated = 0;
+    final batch = db.batch();
+    final ftsBatch = db.batch();
+    bool hasFtsBatch = false;
     for (final row in rows) {
       final data = row['data'] as String;
-      if (!data.startsWith('ENC:')) {
-        final encrypted = await _encrypt(data);
-        await db.update(
-          'messages',
-          {'data': encrypted},
-          where: 'msg_id = ? AND room_id = ?',
-          whereArgs: [row['msg_id'], row['room_id']],
-        );
-        migrated++;
+      if (data.startsWith('ENC:')) {
+        try {
+          final plain = await _decrypt(data);
+          batch.update(
+            'messages',
+            {'data': plain},
+            where: 'msg_id = ? AND room_id = ?',
+            whereArgs: [row['msg_id'], row['room_id']],
+          );
+          // Populate FTS index for this row.
+          if (_fts5Available) {
+            final content = _extractSearchContent(plain);
+            if (content.isNotEmpty) {
+              ftsBatch.insert('messages_fts', {
+                'msg_id': row['msg_id'],
+                'room_id': row['room_id'],
+                'content': content,
+              }, conflictAlgorithm: ConflictAlgorithm.replace);
+              hasFtsBatch = true;
+            }
+          }
+          migrated++;
+        } catch (e) {
+          debugPrint('[LocalStorage] Failed to decrypt row ${row['msg_id']} during migration: $e');
+        }
+      } else {
+        // Already plaintext — ensure it's in the FTS index.
+        if (_fts5Available) {
+          final content = _extractSearchContent(data);
+          if (content.isNotEmpty) {
+            ftsBatch.insert('messages_fts', {
+              'msg_id': row['msg_id'],
+              'room_id': row['room_id'],
+              'content': content,
+            }, conflictAlgorithm: ConflictAlgorithm.replace);
+            hasFtsBatch = true;
+          }
+        }
       }
     }
     if (migrated > 0) {
-      debugPrint('[LocalStorage] Re-encrypted $migrated legacy plaintext row(s)');
+      await batch.commit(noResult: true);
+      debugPrint('[LocalStorage] Stripped AES-GCM from $migrated row(s) (SQLCipher handles encryption)');
+    }
+    if (hasFtsBatch) {
+      try {
+        await ftsBatch.commit(noResult: true);
+        debugPrint('[LocalStorage] Populated FTS index for ${rows.length} row(s)');
+      } catch (e) {
+        debugPrint('[LocalStorage] FTS population failed: $e');
+      }
+    }
+  }
+
+  /// Extract searchable text content from a message JSON string.
+  /// Returns empty string for media/file payloads.
+  static String _extractSearchContent(String jsonStr) {
+    try {
+      final msg = jsonDecode(jsonStr) as Map<String, dynamic>;
+      final payload = msg['encryptedPayload'] as String? ?? '';
+      if (payload.isEmpty || payload.startsWith('E2EE||')) return '';
+      return payload;
+    } catch (_) {
+      return '';
     }
   }
 
@@ -543,17 +655,28 @@ class LocalStorageService {
       final batch = db.batch();
       for (final raw in msgs) {
         final msg = raw as Map<String, dynamic>;
-        final encrypted = await _encrypt(jsonEncode(msg));
+        final plainJson = jsonEncode(msg);
         batch.insert(
           'messages',
           {
             'msg_id': msg['id'] as String? ?? '',
             'room_id': roomId,
             'timestamp': _tsOf(msg),
-            'data': encrypted,
+            'data': plainJson,
           },
           conflictAlgorithm: ConflictAlgorithm.replace,
         );
+        // Populate FTS index.
+        if (_fts5Available) {
+          final content = _extractSearchContent(plainJson);
+          if (content.isNotEmpty) {
+            batch.insert('messages_fts', {
+              'msg_id': msg['id'] as String? ?? '',
+              'room_id': roomId,
+              'content': content,
+            }, conflictAlgorithm: ConflictAlgorithm.replace);
+          }
+        }
       }
       await batch.commit(noResult: true);
       await prefs.remove(key);
@@ -577,18 +700,72 @@ class LocalStorageService {
   // ── Public CRUD ─────────────────────────────────────────────────────────────
 
   /// Upsert a message (insert or replace if same msg_id+room_id).
+  /// Data is stored as plaintext JSON — SQLCipher provides file-level encryption.
   Future<void> saveMessage(String roomId, Map<String, dynamic> message) async {
-    final encrypted = await _encrypt(jsonEncode(message));
+    final plainJson = jsonEncode(message);
+    final msgId = message['id'] as String? ?? '';
     await _database.insert(
       'messages',
       {
-        'msg_id': message['id'] as String? ?? '',
+        'msg_id': msgId,
         'room_id': roomId,
         'timestamp': _tsOf(message),
-        'data': encrypted,
+        'data': plainJson,
       },
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
+    // Update FTS index.
+    if (_fts5Available) {
+      final content = _extractSearchContent(plainJson);
+      if (content.isNotEmpty) {
+        try {
+          await _database.insert('messages_fts', {
+            'msg_id': msgId,
+            'room_id': roomId,
+            'content': content,
+          }, conflictAlgorithm: ConflictAlgorithm.replace);
+        } catch (e) {
+          debugPrint('[LocalStorage] FTS insert failed: $e');
+        }
+      }
+    }
+  }
+
+  /// Batch upsert multiple messages in a single transaction.
+  /// Significantly faster than calling [saveMessage] in a loop (e.g. marking
+  /// all messages as read).
+  Future<void> saveMessagesBatch(
+      String roomId, List<Map<String, dynamic>> messages) async {
+    if (messages.isEmpty) return;
+    await _database.transaction((txn) async {
+      final batch = txn.batch();
+      for (final message in messages) {
+        final plainJson = jsonEncode(message);
+        final msgId = message['id'] as String? ?? '';
+        batch.insert(
+          'messages',
+          {
+            'msg_id': msgId,
+            'room_id': roomId,
+            'timestamp': _tsOf(message),
+            'data': plainJson,
+          },
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+        // Update FTS index.
+        if (_fts5Available) {
+          final content = _extractSearchContent(plainJson);
+          if (content.isNotEmpty) {
+            batch.insert('messages_fts', {
+              'msg_id': msgId,
+              'room_id': roomId,
+              'content': content,
+            }, conflictAlgorithm: ConflictAlgorithm.replace);
+          }
+        }
+      }
+      await batch.commit(noResult: true);
+    });
   }
 
   /// Delete a single message by id.
@@ -598,6 +775,18 @@ class LocalStorageService {
       where: 'room_id = ? AND msg_id = ?',
       whereArgs: [roomId, messageId],
     );
+    // Remove from FTS index.
+    if (_fts5Available) {
+      try {
+        await _database.delete(
+          'messages_fts',
+          where: 'room_id = ? AND msg_id = ?',
+          whereArgs: [roomId, messageId],
+        );
+      } catch (e) {
+        debugPrint('[LocalStorage] FTS delete failed: $e');
+      }
+    }
   }
 
   /// Load all messages for a room in ascending timestamp order.
@@ -612,10 +801,10 @@ class LocalStorageService {
     final result = <Map<String, dynamic>>[];
     for (final r in rows) {
       try {
-        final plain = await _decrypt(r['data'] as String);
+        final plain = await _readData(r['data'] as String);
         result.add(jsonDecode(plain) as Map<String, dynamic>);
       } catch (e) {
-        debugPrint('[LocalStorage] Failed to decrypt row: $e');
+        debugPrint('[LocalStorage] Failed to read row: $e');
       }
     }
     return result;
@@ -666,23 +855,23 @@ class LocalStorageService {
     final result = <Map<String, dynamic>>[];
     for (final r in reversed) {
       try {
-        final plain = await _decrypt(r['data'] as String);
+        final plain = await _readData(r['data'] as String);
         result.add(jsonDecode(plain) as Map<String, dynamic>);
       } catch (e) {
-        debugPrint('[LocalStorage] Failed to decrypt row: $e');
+        debugPrint('[LocalStorage] Failed to read row: $e');
       }
     }
     return result;
   }
 
-  // ── Full-text search (decrypt-then-filter) ─────────────────────────────────
+  // ── Full-text search ───────────────────────────────────────────────────────
 
   /// Search messages across all rooms or within a specific [roomId].
   ///
-  /// Because messages are AES-256-GCM encrypted at rest, SQL LIKE/FTS cannot
-  /// be used. Instead, this method loads rows in batches (newest first),
-  /// decrypts each, and performs a case-insensitive substring match on the
-  /// message text (the `encryptedPayload` field after decryption).
+  /// Strategy (in priority order):
+  /// 1. **FTS5 MATCH** — O(log N), uses the messages_fts virtual table.
+  /// 2. **SQL LIKE** — linear scan but done in-engine (no Dart-side decrypt).
+  /// 3. **Decrypt-then-filter** — fallback for any remaining AES-GCM rows.
   ///
   /// Messages whose payload starts with `E2EE||` (media/file blobs) are
   /// skipped since they are not human-readable text.
@@ -698,73 +887,167 @@ class LocalStorageService {
     void Function(int scanned, int total)? onProgress,
   }) async {
     if (query.isEmpty) return [];
-    final queryLower = query.toLowerCase();
     final db = _database;
 
-    // Get total count for progress reporting.
+    // ── Strategy 1: FTS5 MATCH (fastest) ──
+    if (_fts5Available) {
+      try {
+        final results = await _searchViaFts(db, query, roomId: roomId, limit: limit);
+        if (onProgress != null) onProgress(results.length, results.length);
+        return results;
+      } catch (e) {
+        debugPrint('[Search] FTS5 search failed, falling back: $e');
+      }
+    }
+
+    // ── Strategy 2: SQL LIKE on plaintext data column ──
+    // This works for all rows already migrated to plaintext.
+    // Legacy ENC: rows won't match LIKE and are handled in strategy 3.
+    final results = <({String roomId, Map<String, dynamic> message})>[];
+    final escapedQuery = query.replaceAll('%', r'\%').replaceAll('_', r'\_');
+    final likePattern = '%"encryptedPayload":"%$escapedQuery%';
+
+    final List<Map<String, dynamic>> likeRows;
+    if (roomId != null) {
+      likeRows = await db.rawQuery(
+        'SELECT room_id, data FROM messages '
+        "WHERE room_id = ? AND data NOT LIKE 'ENC:%' AND data LIKE ? ESCAPE '\\' "
+        'ORDER BY timestamp DESC LIMIT ?',
+        [roomId, likePattern, limit],
+      );
+    } else {
+      likeRows = await db.rawQuery(
+        'SELECT room_id, data FROM messages '
+        "WHERE data NOT LIKE 'ENC:%' AND data LIKE ? ESCAPE '\\' "
+        'ORDER BY timestamp DESC LIMIT ?',
+        [likePattern, limit],
+      );
+    }
+
+    for (final row in likeRows) {
+      try {
+        final msg = jsonDecode(row['data'] as String) as Map<String, dynamic>;
+        final payload = msg['encryptedPayload'] as String? ?? '';
+        if (payload.isEmpty || payload.startsWith('E2EE||')) continue;
+        // Verify case-insensitive match (SQL LIKE is case-insensitive for ASCII
+        // but we want full Unicode support).
+        if (payload.toLowerCase().contains(query.toLowerCase())) {
+          results.add((roomId: row['room_id'] as String, message: msg));
+          if (results.length >= limit) break;
+        }
+      } catch (e) {
+        debugPrint('[Search] Failed to parse plaintext row: $e');
+      }
+    }
+
+    if (results.length >= limit) {
+      if (onProgress != null) onProgress(limit, limit);
+      return results;
+    }
+
+    // ── Strategy 3: Decrypt-then-filter for any remaining legacy ENC: rows ──
+    final queryLower = query.toLowerCase();
     final countResult = roomId != null
         ? await db.rawQuery(
-            'SELECT COUNT(*) AS cnt FROM messages WHERE room_id = ?',
+            "SELECT COUNT(*) AS cnt FROM messages WHERE room_id = ? AND data LIKE 'ENC:%'",
             [roomId])
-        : await db.rawQuery('SELECT COUNT(*) AS cnt FROM messages');
-    final total = (countResult.first['cnt'] as int?) ?? 0;
-    if (total == 0) return [];
+        : await db.rawQuery(
+            "SELECT COUNT(*) AS cnt FROM messages WHERE data LIKE 'ENC:%'");
+    final encryptedCount = (countResult.first['cnt'] as int?) ?? 0;
 
-    final results = <({String roomId, Map<String, dynamic> message})>[];
-    const batchSize = 200;
-    int scanned = 0;
-
-    // Stream through messages in batches (newest first) using OFFSET pagination.
-    for (int offset = 0; offset < total && results.length < limit; offset += batchSize) {
-      final List<Map<String, dynamic>> rows;
-      if (roomId != null) {
-        rows = await db.rawQuery(
-          'SELECT room_id, data FROM messages '
-          'WHERE room_id = ? '
-          'ORDER BY timestamp DESC LIMIT ? OFFSET ?',
-          [roomId, batchSize, offset],
-        );
-      } else {
-        rows = await db.rawQuery(
-          'SELECT room_id, data FROM messages '
-          'ORDER BY timestamp DESC LIMIT ? OFFSET ?',
-          [batchSize, offset],
-        );
-      }
-
-      if (rows.isEmpty) break;
-
-      for (final row in rows) {
-        scanned++;
-        try {
-          final plain = await _decrypt(row['data'] as String);
-          final msg = jsonDecode(plain) as Map<String, dynamic>;
-          final payload = msg['encryptedPayload'] as String? ?? '';
-
-          // Skip media/file payloads and empty messages.
-          if (payload.isEmpty || payload.startsWith('E2EE||')) continue;
-
-          if (payload.toLowerCase().contains(queryLower)) {
-            results.add((
-              roomId: row['room_id'] as String,
-              message: msg,
-            ));
-            if (results.length >= limit) break;
-          }
-        } catch (e) {
-          debugPrint('[Search] Failed to decrypt/parse row: $e');
+    if (encryptedCount > 0) {
+      const batchSize = 200;
+      int scanned = 0;
+      for (int offset = 0; offset < encryptedCount && results.length < limit; offset += batchSize) {
+        final List<Map<String, dynamic>> rows;
+        if (roomId != null) {
+          rows = await db.rawQuery(
+            "SELECT room_id, data FROM messages "
+            "WHERE room_id = ? AND data LIKE 'ENC:%' "
+            'ORDER BY timestamp DESC LIMIT ? OFFSET ?',
+            [roomId, batchSize, offset],
+          );
+        } else {
+          rows = await db.rawQuery(
+            "SELECT room_id, data FROM messages "
+            "WHERE data LIKE 'ENC:%' "
+            'ORDER BY timestamp DESC LIMIT ? OFFSET ?',
+            [batchSize, offset],
+          );
         }
+        if (rows.isEmpty) break;
 
-        // Report progress every 100 rows.
-        if (onProgress != null && (scanned % 100 == 0)) {
-          onProgress(scanned, total);
+        for (final row in rows) {
+          scanned++;
+          try {
+            final plain = await _decrypt(row['data'] as String);
+            final msg = jsonDecode(plain) as Map<String, dynamic>;
+            final payload = msg['encryptedPayload'] as String? ?? '';
+            if (payload.isEmpty || payload.startsWith('E2EE||')) continue;
+            if (payload.toLowerCase().contains(queryLower)) {
+              results.add((roomId: row['room_id'] as String, message: msg));
+              if (results.length >= limit) break;
+            }
+          } catch (e) {
+            debugPrint('[Search] Failed to decrypt/parse row: $e');
+          }
+          if (onProgress != null && (scanned % 100 == 0)) {
+            onProgress(scanned, encryptedCount);
+          }
         }
       }
     }
 
-    // Final progress callback.
-    if (onProgress != null) onProgress(total, total);
+    if (onProgress != null) onProgress(results.length, results.length);
+    return results;
+  }
 
+  /// FTS5-based search. Joins messages_fts with messages to get full data.
+  Future<List<({String roomId, Map<String, dynamic> message})>> _searchViaFts(
+    Database db,
+    String query, {
+    String? roomId,
+    int limit = 50,
+  }) async {
+    // Escape FTS5 special characters and wrap each term in double quotes for
+    // a phrase-like search.
+    final sanitized = query
+        .replaceAll('"', '""')
+        .split(RegExp(r'\s+'))
+        .where((t) => t.isNotEmpty)
+        .map((t) => '"$t"')
+        .join(' ');
+    if (sanitized.isEmpty) return [];
+
+    final List<Map<String, dynamic>> rows;
+    if (roomId != null) {
+      rows = await db.rawQuery(
+        'SELECT m.room_id, m.data FROM messages_fts f '
+        'JOIN messages m ON m.msg_id = f.msg_id AND m.room_id = f.room_id '
+        'WHERE f.messages_fts MATCH ? AND f.room_id = ? '
+        'ORDER BY m.timestamp DESC LIMIT ?',
+        [sanitized, roomId, limit],
+      );
+    } else {
+      rows = await db.rawQuery(
+        'SELECT m.room_id, m.data FROM messages_fts f '
+        'JOIN messages m ON m.msg_id = f.msg_id AND m.room_id = f.room_id '
+        'WHERE f.messages_fts MATCH ? '
+        'ORDER BY m.timestamp DESC LIMIT ?',
+        [sanitized, limit],
+      );
+    }
+
+    final results = <({String roomId, Map<String, dynamic> message})>[];
+    for (final row in rows) {
+      try {
+        final plain = await _readData(row['data'] as String);
+        final msg = jsonDecode(plain) as Map<String, dynamic>;
+        results.add((roomId: row['room_id'] as String, message: msg));
+      } catch (e) {
+        debugPrint('[Search] FTS result parse failed: $e');
+      }
+    }
     return results;
   }
 
@@ -1030,32 +1313,38 @@ class LocalStorageService {
 
   /// Delete all messages for a room.
   Future<void> clearHistory(String roomId) async {
-    await _database.delete(
-      'messages',
-      where: 'room_id = ?',
-      whereArgs: [roomId],
-    );
-    await _database.delete(
-      'ttl_pending',
-      where: 'room_id = ?',
-      whereArgs: [roomId],
-    );
-    await _database.delete(
-      'reactions',
-      where: 'room_id = ?',
-      whereArgs: [roomId],
-    );
+    await _database.transaction((txn) async {
+      await txn.delete('messages', where: 'room_id = ?', whereArgs: [roomId]);
+      await txn.delete('ttl_pending', where: 'room_id = ?', whereArgs: [roomId]);
+      await txn.delete('reactions', where: 'room_id = ?', whereArgs: [roomId]);
+      if (_fts5Available) {
+        try {
+          await txn.delete('messages_fts', where: 'room_id = ?', whereArgs: [roomId]);
+        } catch (e) {
+          debugPrint('[LocalStorage] FTS clear failed: $e');
+        }
+      }
+    });
   }
 
   /// Wipe the entire messages table (used by panic key / self-destruct).
   Future<void> clearAll() async {
     if (_db == null) return;
-    await _database.delete('messages');
-    await _database.delete('ttl_pending');
-    await _database.delete('reactions');
-    await _database.delete('contacts');
-    await _database.delete('avatars');
-    await _database.delete('drafts');
+    await _database.transaction((txn) async {
+      await txn.delete('messages');
+      await txn.delete('ttl_pending');
+      await txn.delete('reactions');
+      await txn.delete('contacts');
+      await txn.delete('avatars');
+      await txn.delete('drafts');
+      if (_fts5Available) {
+        try {
+          await txn.delete('messages_fts');
+        } catch (e) {
+          debugPrint('[LocalStorage] FTS clear failed: $e');
+        }
+      }
+    });
   }
 
   // ── Encrypted Backup / Restore ──────────────────────────────────────────────
@@ -1124,7 +1413,7 @@ class LocalStorageService {
       for (int i = 0; i < rows.length; i++) {
         final row = rows[i];
         try {
-          final plainJson = await _decrypt(row['data'] as String);
+          final plainJson = await _readData(row['data'] as String);
           messages.add({
             'msg_id': row['msg_id'],
             'room_id': row['room_id'],
@@ -1294,35 +1583,47 @@ class LocalStorageService {
       int imported = 0;
       final total = messages.length;
 
+      // Batch-insert messages with dedup (use transaction for performance).
+      final importBatch = db.batch();
+      final existingIds = <String>{};
+      // Pre-fetch existing message IDs to avoid per-row queries.
+      final existingRows = await db.rawQuery(
+        'SELECT msg_id, room_id FROM messages',
+      );
+      for (final r in existingRows) {
+        existingIds.add('${r['msg_id']}|${r['room_id']}');
+      }
+
       for (int i = 0; i < messages.length; i++) {
         final entry = messages[i] as Map<String, dynamic>;
         final msgId = entry['msg_id'] as String? ?? '';
-        final roomId = entry['room_id'] as String? ?? '';
+        final entryRoomId = entry['room_id'] as String? ?? '';
         final timestamp = entry['timestamp'] as int? ?? 0;
         final plainData = entry['data'] as String? ?? '{}';
 
-        // Check if message already exists (dedup by primary key)
-        final existing = await db.query(
-          'messages',
-          columns: ['msg_id'],
-          where: 'msg_id = ? AND room_id = ?',
-          whereArgs: [msgId, roomId],
-          limit: 1,
-        );
-
-        if (existing.isEmpty) {
-          // Re-encrypt with the device's DB AES key
-          final encrypted = await _encrypt(plainData);
-          await db.insert(
+        if (!existingIds.contains('$msgId|$entryRoomId')) {
+          // Store plaintext — SQLCipher handles file encryption.
+          importBatch.insert(
             'messages',
             {
               'msg_id': msgId,
-              'room_id': roomId,
+              'room_id': entryRoomId,
               'timestamp': timestamp,
-              'data': encrypted,
+              'data': plainData,
             },
             conflictAlgorithm: ConflictAlgorithm.ignore,
           );
+          // Populate FTS index.
+          if (_fts5Available) {
+            final content = _extractSearchContent(plainData);
+            if (content.isNotEmpty) {
+              importBatch.insert('messages_fts', {
+                'msg_id': msgId,
+                'room_id': entryRoomId,
+                'content': content,
+              }, conflictAlgorithm: ConflictAlgorithm.replace);
+            }
+          }
           imported++;
         }
 
@@ -1330,6 +1631,7 @@ class LocalStorageService {
           onProgress(i + 1, total);
         }
       }
+      await importBatch.commit(noResult: true);
 
       // ── Restore contacts (v2 only, no-clobber) ──
       if (contactsPayload != null) {

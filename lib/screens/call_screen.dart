@@ -49,6 +49,7 @@ class _CallScreenState extends State<CallScreen> {
   bool _secondaryReady  = false;  // secondary PC connected and stream available
   bool _usingSecondary  = false;  // currently routing audio through secondary
   bool _ready           = false;  // true after _initWebRTC() completes
+  String? _initError;            // non-null when _initWebRTC() failed
 
   Timer? _hideControlsTimer;
   Timer? _durationTimer;
@@ -66,52 +67,70 @@ class _CallScreenState extends State<CallScreen> {
   Future<void> _initWebRTC({
     CallTransportProfile profile = CallTransportProfile.auto,
   }) async {
-    await _localRenderer.initialize();
-    await _remoteRenderer.initialize();
+    bool renderersInitialized = false;
+    try {
+      await _localRenderer.initialize();
+      await _remoteRenderer.initialize();
+      renderersInitialized = true;
 
-    _signaling = SignalingService(
-      contact: widget.contact,
-      myId:    widget.myId,
-      isCaller: widget.isCaller,
-    );
+      _signaling = SignalingService(
+        contact: widget.contact,
+        myId:    widget.myId,
+        isCaller: widget.isCaller,
+      );
 
-    _signaling!.onAddRemoteStream = (stream) {
-      if (mounted) setState(() => _remoteRenderer.srcObject = stream);
-    };
+      _signaling!.onAddRemoteStream = (stream) {
+        if (mounted) setState(() => _remoteRenderer.srcObject = stream);
+      };
 
-    _signaling!.onConnectionState = _onIceState;
+      _signaling!.onConnectionState = _onIceState;
 
-    // Secondary path callbacks
-    _signaling!.onSecondaryRemoteStream = (stream) {
-      if (!mounted) return;
-      setState(() => _secondaryReady = true);
-      // If primary has already failed, switch to secondary immediately
-      if (_iceState == RTCIceConnectionState.RTCIceConnectionStateFailed &&
-          !_usingSecondary) {
-        _switchToSecondary();
+      // Secondary path callbacks
+      _signaling!.onSecondaryRemoteStream = (stream) {
+        if (!mounted) return;
+        setState(() => _secondaryReady = true);
+        // If primary has already failed, switch to secondary immediately
+        if (_iceState == RTCIceConnectionState.RTCIceConnectionStateFailed &&
+            !_usingSecondary) {
+          _switchToSecondary();
+        }
+      };
+      _signaling!.onSecondaryConnectionState = (state) {
+        if (state == RTCIceConnectionState.RTCIceConnectionStateConnected ||
+            state == RTCIceConnectionState.RTCIceConnectionStateCompleted) {
+          if (mounted) setState(() => _secondaryReady = true);
+        }
+      };
+
+      await _signaling!.init(profile: profile);
+      if (_disposed) return;
+
+      await _openUserMedia();
+      if (_disposed) return;
+
+      if (widget.isCaller) await _signaling!.createOffer();
+
+      // Start secondary audio path in background — will be ready if primary fails
+      unawaited(_signaling!.startSecondaryAudio());
+
+      if (mounted) {
+        setState(() => _ready = true);
+        _resetHideControlsTimer();
       }
-    };
-    _signaling!.onSecondaryConnectionState = (state) {
-      if (state == RTCIceConnectionState.RTCIceConnectionStateConnected ||
-          state == RTCIceConnectionState.RTCIceConnectionStateCompleted) {
-        if (mounted) setState(() => _secondaryReady = true);
+    } catch (e) {
+      debugPrint('[CallScreen] _initWebRTC failed: $e');
+      _signaling?.hangUp();
+      _signaling = null;
+      if (renderersInitialized) {
+        try { _localRenderer.dispose(); } catch (_) {}
+        try { _remoteRenderer.dispose(); } catch (_) {}
       }
-    };
-
-    await _signaling!.init(profile: profile);
-    if (_disposed) return;
-
-    await _openUserMedia();
-    if (_disposed) return;
-
-    if (widget.isCaller) await _signaling!.createOffer();
-
-    // Start secondary audio path in background — will be ready if primary fails
-    unawaited(_signaling!.startSecondaryAudio());
-
-    if (mounted) {
-      setState(() => _ready = true);
-      _resetHideControlsTimer();
+      if (mounted) {
+        setState(() {
+          _ready = false;
+          _initError = e.toString();
+        });
+      }
     }
   }
 
@@ -262,8 +281,11 @@ class _CallScreenState extends State<CallScreen> {
     _durationTimer?.cancel();
     _hideControlsTimer?.cancel();
     _signaling?.hangUp();
-    _localRenderer.dispose();
-    _remoteRenderer.dispose();
+    // Renderers are already disposed if _initError is set (catch block cleaned up)
+    if (_initError == null) {
+      _localRenderer.dispose();
+      _remoteRenderer.dispose();
+    }
     if (mounted) Navigator.pop(context);
   }
 
@@ -291,8 +313,11 @@ class _CallScreenState extends State<CallScreen> {
       _durationTimer?.cancel();
       _hideControlsTimer?.cancel();
       _signaling?.hangUp();
-      _localRenderer.dispose();
-      _remoteRenderer.dispose();
+      // Renderers are already disposed if _initError is set (catch block cleaned up)
+      if (_initError == null) {
+        _localRenderer.dispose();
+        _remoteRenderer.dispose();
+      }
     }
     super.dispose();
   }
@@ -340,12 +365,39 @@ class _CallScreenState extends State<CallScreen> {
   Widget _buildLoading() => Scaffold(
     backgroundColor: Colors.black,
     body: Builder(builder: (context) => Center(
-      child: Column(mainAxisSize: MainAxisSize.min, children: [
-        const CircularProgressIndicator(color: Colors.white54, strokeWidth: 2),
-        const SizedBox(height: 16),
-        Text(context.l10n.callInitializing,
-          style: GoogleFonts.inter(color: Colors.white54, fontSize: 13)),
-      ]),
+      child: _initError != null
+        ? Column(mainAxisSize: MainAxisSize.min, children: [
+            const Icon(Icons.error_outline_rounded, color: Colors.redAccent, size: 48),
+            const SizedBox(height: 16),
+            Text(context.l10n.callConnectionFailed,
+              style: GoogleFonts.inter(color: Colors.redAccent, fontSize: 15, fontWeight: FontWeight.w600)),
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 32),
+              child: Text(_initError!,
+                style: GoogleFonts.inter(color: Colors.white38, fontSize: 12),
+                textAlign: TextAlign.center,
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis),
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.redAccent,
+                shape: const StadiumBorder(),
+              ),
+              icon: const Icon(Icons.call_end_rounded, color: Colors.white, size: 18),
+              label: Text(context.l10n.callClose,
+                style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w600)),
+              onPressed: () => Navigator.pop(context),
+            ),
+          ])
+        : Column(mainAxisSize: MainAxisSize.min, children: [
+            const CircularProgressIndicator(color: Colors.white54, strokeWidth: 2),
+            const SizedBox(height: 16),
+            Text(context.l10n.callInitializing,
+              style: GoogleFonts.inter(color: Colors.white54, fontSize: 13)),
+          ]),
     )),
   );
 

@@ -98,6 +98,7 @@ class CryptoLayer {
 
     // Step 2 — Expand: T(1) = HMAC-SHA256(PRK, info || 0x01)
     // Single block suffices because output length (32) == HashLen (32).
+    // Label kept as 'Aegis_PQC_v1' for backward compat — do not rename.
     final info = utf8.encode('Aegis_PQC_v1'); // domain-separation label
     final expandInput = Uint8List(info.length + 1)
       ..setAll(0, info)

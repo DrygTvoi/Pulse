@@ -17,6 +17,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
+import 'dart:collection';
 import '../controllers/chat_controller.dart';
 import '../services/signal_dispatcher.dart';
 import '../models/message.dart';
@@ -81,9 +82,20 @@ class _HomeScreenState extends State<HomeScreen> {
   UserStatus? _ownStatus;
   Map<String, UserStatus> _contactStatuses = {};
   Set<String> _mutedContactIds = {};
-  Map<String, Uint8List> _contactAvatars = {}; // contactId -> JPEG bytes
+  // LRU avatar cache — keeps only the most recent _maxAvatars entries in memory
+  final _avatarCache = LinkedHashMap<String, Uint8List>();
+  static const _maxAvatars = 20;
+  final _avatarLoadRequested = <String>{}; // tracks lazy-load requests to avoid duplicates
   bool _loading = true;
   Contact? _selectedContact; // currently open chat in wide (split) mode
+
+  // Sorted rooms cache — avoids re-sorting on every build when rooms haven't changed
+  List<Contact>? _sortedRoomsCache;
+  int _sortCacheContactCount = -1;
+  int _sortCacheMsgCount = -1;
+
+  // Unread counts cache — avoids scanning all messages per tile per rebuild
+  final _unreadCounts = <String, int>{};
 
   @override
   void initState() {
@@ -219,19 +231,52 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  void _cacheAvatar(String id, Uint8List bytes) {
+    // Remove and re-insert to move to end (most recently used)
+    _avatarCache.remove(id);
+    _avatarCache[id] = bytes;
+    while (_avatarCache.length > _maxAvatars) {
+      _avatarCache.remove(_avatarCache.keys.first);
+    }
+  }
+
+  /// Lazily load a single contact's avatar when a tile becomes visible.
+  void _ensureAvatarLoaded(String contactId) {
+    if (_avatarCache.containsKey(contactId)) return;
+    if (_avatarLoadRequested.contains(contactId)) return;
+    _avatarLoadRequested.add(contactId);
+    LocalStorageService().loadAvatar(contactId).then((b64) {
+      if (b64 != null && b64.isNotEmpty) {
+        try {
+          final bytes = base64Decode(b64);
+          if (mounted) {
+            setState(() => _cacheAvatar(contactId, bytes));
+          }
+        } catch (e) {
+          debugPrint('[Home] Failed to decode avatar for $contactId: $e');
+        }
+      }
+    });
+  }
+
   Future<void> _loadContactAvatars() async {
+    // Only pre-load a small batch (first 20) for the initially visible tiles.
+    // The rest will be lazy-loaded when tiles scroll into view.
     final contactList = context.read<IContactRepository>().contacts.toList();
     final storage = LocalStorageService();
-    final avatars = <String, Uint8List>{};
-    for (final c in contactList) {
+    final batch = contactList.take(_maxAvatars).toList();
+    for (final c in batch) {
       final b64 = await storage.loadAvatar(c.id);
       if (b64 != null && b64.isNotEmpty) {
-        try { avatars[c.id] = base64Decode(b64); } catch (e) {
+        try {
+          _cacheAvatar(c.id, base64Decode(b64));
+          _avatarLoadRequested.add(c.id);
+        } catch (e) {
           debugPrint('[Home] Failed to decode avatar for ${c.id}: $e');
         }
       }
     }
-    if (mounted) setState(() => _contactAvatars = avatars);
+    if (mounted) setState(() {});
   }
 
   Future<void> _loadMutedChats() async {
@@ -247,11 +292,13 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _loadAll() async {
     final contactRepo = context.read<IContactRepository>();
     await contactRepo.loadContacts();
-    // Pre-load room histories so last-message preview works on HomeScreen
+    // Pre-load room histories in parallel (was sequential — 25s for 50 contacts)
     final ctrl = ChatController();
-    for (final c in contactRepo.contacts) {
-      await ctrl.loadRoomHistory(c);
-    }
+    await Future.wait(contactRepo.contacts.map((c) => ctrl.loadRoomHistory(c)));
+    // Invalidate sorted rooms cache since rooms changed
+    _sortedRoomsCache = null;
+    _sortCacheContactCount = -1;
+    _sortCacheMsgCount = -1;
     if (mounted) setState(() => _loading = false);
     _loadStatuses();
   }
@@ -526,7 +573,16 @@ class _HomeScreenState extends State<HomeScreen> {
   void _openChatNarrow(Contact c) {
     Navigator.push(
       context, _slideRoute(ChatScreen(contact: c)),
-    ).then((_) { setState(() {}); _loadMutedChats(); _loadContactAvatars(); });
+    ).then((_) {
+      // Invalidate caches — unread counts and sort order may have changed
+      _sortedRoomsCache = null;
+      _sortCacheContactCount = -1;
+      _sortCacheMsgCount = -1;
+      _unreadCounts.clear();
+      setState(() {});
+      _loadMutedChats();
+      _loadContactAvatars();
+    });
   }
 
   void _openChatWide(Contact c) {
@@ -567,8 +623,6 @@ class _HomeScreenState extends State<HomeScreen> {
   // ---- Wide (split-view) layout ----
 
   Widget _buildWideLayout(BoxConstraints constraints) {
-    final chatCtrl = context.watch<ChatController>();
-
     return Scaffold(
       backgroundColor: AppTheme.background,
       body: Row(
@@ -576,7 +630,9 @@ class _HomeScreenState extends State<HomeScreen> {
           // Left panel — chat list with its own AppBar
           SizedBox(
             width: 360,
-            child: _buildLeftPanel(chatCtrl, isWide: true),
+            child: Consumer<ChatController>(
+              builder: (context, chatCtrl, _) => _buildLeftPanel(chatCtrl, isWide: true),
+            ),
           ),
           VerticalDivider(width: 1, thickness: 1, color: AppTheme.surfaceVariant),
           // Right panel — selected chat or placeholder
@@ -598,30 +654,56 @@ class _HomeScreenState extends State<HomeScreen> {
   // ---- Narrow (single-column) layout ----
 
   Widget _buildNarrowLayout() {
-    final chatCtrl = context.watch<ChatController>();
-
-    return _buildLeftPanel(chatCtrl, isWide: false);
+    return Consumer<ChatController>(
+      builder: (context, chatCtrl, _) => _buildLeftPanel(chatCtrl, isWide: false),
+    );
   }
 
   // ---- Left panel (shared between wide & narrow) ----
 
-  Widget _buildLeftPanel(ChatController chatCtrl, {required bool isWide}) {
-    final contacts = context.read<IContactRepository>().contacts;
-    final myId = chatCtrl.identity?.id ?? '';
-
-    final filtered = _searchQuery.isEmpty
-        ? contacts
-        : contacts.where((c) => c.name.toLowerCase().contains(_searchQuery)).toList();
-
-    // Sort by last message time (most recent first)
-    final sorted = List<Contact>.from(filtered);
-    sorted.sort((a, b) {
+  List<Contact> _getSortedContacts(List<Contact> contacts, int totalMsgCount, ChatController chatCtrl) {
+    if (_sortedRoomsCache != null &&
+        contacts.length == _sortCacheContactCount &&
+        totalMsgCount == _sortCacheMsgCount) {
+      return _sortedRoomsCache!;
+    }
+    _sortedRoomsCache = [...contacts]..sort((a, b) {
       final roomA = chatCtrl.getRoomForContact(a.id);
       final roomB = chatCtrl.getRoomForContact(b.id);
       final tA = roomA?.messages.isNotEmpty == true ? roomA!.messages.last.timestamp : DateTime(2000);
       final tB = roomB?.messages.isNotEmpty == true ? roomB!.messages.last.timestamp : DateTime(2000);
       return tB.compareTo(tA);
     });
+    _sortCacheContactCount = contacts.length;
+    _sortCacheMsgCount = totalMsgCount;
+    // Refresh unread counts when sort cache is rebuilt
+    _unreadCounts.clear();
+    return _sortedRoomsCache!;
+  }
+
+  int _getUnreadCount(String contactId, String myId, ChatController chatCtrl) {
+    if (_unreadCounts.containsKey(contactId)) return _unreadCounts[contactId]!;
+    final room = chatCtrl.getRoomForContact(contactId);
+    final messages = room?.messages ?? [];
+    final count = messages.where((m) => !m.isRead && m.senderId != myId).length;
+    _unreadCounts[contactId] = count;
+    return count;
+  }
+
+  Widget _buildLeftPanel(ChatController chatCtrl, {required bool isWide}) {
+    final contacts = context.read<IContactRepository>().contacts;
+    final myId = chatCtrl.identity?.id ?? '';
+
+    // Compute total message count for cache invalidation
+    final totalMsgCount = contacts.fold<int>(0, (sum, c) {
+      final room = chatCtrl.getRoomForContact(c.id);
+      return sum + (room?.messages.length ?? 0);
+    });
+
+    final allSorted = _getSortedContacts(contacts, totalMsgCount, chatCtrl);
+    final sorted = _searchQuery.isEmpty
+        ? allSorted
+        : allSorted.where((c) => c.name.toLowerCase().contains(_searchQuery)).toList();
 
     return Scaffold(
       backgroundColor: AppTheme.background,
@@ -765,7 +847,10 @@ class _HomeScreenState extends State<HomeScreen> {
                                   final room = chatCtrl.getRoomForContact(c.id);
                                   final messages = room?.messages ?? [];
                                   Message? lastMsg = messages.isNotEmpty ? messages.last : null;
-                                  final unread = messages.where((m) => !m.isRead && m.senderId != myId).length;
+                                  final unread = _getUnreadCount(c.id, myId, chatCtrl);
+
+                                  // Lazy-load avatar when tile becomes visible
+                                  _ensureAvatarLoaded(c.id);
 
                                   return ChatTile(
                                     contact: c,
@@ -774,12 +859,10 @@ class _HomeScreenState extends State<HomeScreen> {
                                     myId: myId,
                                     isOnline: chatCtrl.isOnline(c.id),
                                     isMuted: _mutedContactIds.contains(c.id),
-                                    avatarBytes: _contactAvatars[c.id],
+                                    avatarBytes: _avatarCache[c.id],
                                     selected: isWide && _selectedContact?.id == c.id,
                                     onTap: () => isWide ? _openChatWide(c) : _openChatNarrow(c),
-                                  ).animate()
-                                    .fadeIn(delay: Duration(milliseconds: 30 * index))
-                                    .slideX(begin: 0.03, end: 0);
+                                  );
                                 },
                               ),
                       ),
@@ -1014,7 +1097,7 @@ class _HomeScreenState extends State<HomeScreen> {
             final messages = room?.messages ?? [];
             final lastMsg = messages.isNotEmpty ? messages.last : null;
             final myId = chatCtrl.identity?.id ?? '';
-            final unread = messages.where((m) => !m.isRead && m.senderId != myId).length;
+            final unread = _getUnreadCount(c.id, myId, chatCtrl);
             return ChatTile(
               contact: c,
               lastMsg: lastMsg,
@@ -1022,7 +1105,7 @@ class _HomeScreenState extends State<HomeScreen> {
               myId: myId,
               isOnline: chatCtrl.isOnline(c.id),
               isMuted: _mutedContactIds.contains(c.id),
-              avatarBytes: _contactAvatars[c.id],
+              avatarBytes: _avatarCache[c.id],
               selected: isWide && _selectedContact?.id == c.id,
               onTap: () => isWide ? _openChatWide(c) : _openChatNarrow(c),
             );
@@ -1101,7 +1184,7 @@ class _HomeScreenState extends State<HomeScreen> {
               AvatarWidget(
                 name: contact.name,
                 size: 44,
-                imageBytes: _contactAvatars[contact.id],
+                imageBytes: _avatarCache[contact.id],
                 fontSize: DesignTokens.fontHeading,
               ),
               const SizedBox(width: DesignTokens.spacing12),

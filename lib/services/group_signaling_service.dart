@@ -165,6 +165,7 @@ class GroupSignalingService {
   // ── Signal listener ─────────────────────────────────────────────────────
 
   void _listenForSignals() {
+    _signalSub?.cancel();
     _signalSub = ChatController().signalStream.listen((sig) async {
       try {
         final type = sig['type'] as String?;
@@ -311,6 +312,7 @@ class GroupSignalingService {
 
   Future<void> hangUp() async {
     _signalSub?.cancel();
+    _signalSub = null;
     for (final t in _offerRetryTimers.values) {
       t.cancel();
     }
@@ -319,6 +321,7 @@ class GroupSignalingService {
     _offerRetryCount.clear();
     localStream?.getTracks().forEach((t) => t.stop());
     await localStream?.dispose();
+    localStream = null;
     for (final entry in _remoteStreams.entries) {
       entry.value.getTracks().forEach((t) => t.stop());
       await entry.value.dispose();

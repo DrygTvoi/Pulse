@@ -3907,6 +3907,558 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Theme Engine'**
   String get themeEngineTitle;
+
+  /// No description provided for @torBuiltInTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Built-in Tor'**
+  String get torBuiltInTitle;
+
+  /// No description provided for @torConnectedSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Connected — Nostr routed via 127.0.0.1:9250'**
+  String get torConnectedSubtitle;
+
+  /// No description provided for @torConnectingSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Connecting… {pct}%'**
+  String torConnectingSubtitle(int pct);
+
+  /// No description provided for @torNotRunning.
+  ///
+  /// In en, this message translates to:
+  /// **'Not running — tap switch to restart'**
+  String get torNotRunning;
+
+  /// No description provided for @torDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Routes Nostr via Tor (Snowflake for censored networks)'**
+  String get torDescription;
+
+  /// No description provided for @torNetworkDiagnostics.
+  ///
+  /// In en, this message translates to:
+  /// **'Network Diagnostics'**
+  String get torNetworkDiagnostics;
+
+  /// No description provided for @torTransportLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Transport: '**
+  String get torTransportLabel;
+
+  /// No description provided for @torPtAuto.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto'**
+  String get torPtAuto;
+
+  /// No description provided for @torPtObfs4.
+  ///
+  /// In en, this message translates to:
+  /// **'obfs4'**
+  String get torPtObfs4;
+
+  /// No description provided for @torPtWebTunnel.
+  ///
+  /// In en, this message translates to:
+  /// **'WebTunnel'**
+  String get torPtWebTunnel;
+
+  /// No description provided for @torPtSnowflake.
+  ///
+  /// In en, this message translates to:
+  /// **'Snowflake'**
+  String get torPtSnowflake;
+
+  /// No description provided for @torPtPlain.
+  ///
+  /// In en, this message translates to:
+  /// **'Plain'**
+  String get torPtPlain;
+
+  /// No description provided for @torTimeoutLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Timeout: '**
+  String get torTimeoutLabel;
+
+  /// No description provided for @torInfoDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'When enabled, Nostr WebSocket connections are routed through Tor (SOCKS5). Tor Browser listens on 127.0.0.1:9150. The standalone tor daemon uses port 9050. Firebase connections are not affected.'**
+  String get torInfoDescription;
+
+  /// No description provided for @torRouteNostrTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Route Nostr via Tor'**
+  String get torRouteNostrTitle;
+
+  /// No description provided for @torManagedByBuiltin.
+  ///
+  /// In en, this message translates to:
+  /// **'Managed by Built-in Tor'**
+  String get torManagedByBuiltin;
+
+  /// No description provided for @torActiveRouting.
+  ///
+  /// In en, this message translates to:
+  /// **'Active — Nostr traffic routed through Tor'**
+  String get torActiveRouting;
+
+  /// No description provided for @torDisabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Disabled'**
+  String get torDisabled;
+
+  /// No description provided for @torProxySocks5.
+  ///
+  /// In en, this message translates to:
+  /// **'Tor Proxy (SOCKS5)'**
+  String get torProxySocks5;
+
+  /// No description provided for @torProxyHostLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Proxy Host'**
+  String get torProxyHostLabel;
+
+  /// No description provided for @torProxyPortLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Port'**
+  String get torProxyPortLabel;
+
+  /// No description provided for @torPortInfo.
+  ///
+  /// In en, this message translates to:
+  /// **'Tor Browser: port 9150  •  tor daemon: port 9050'**
+  String get torPortInfo;
+
+  /// No description provided for @i2pProxySocks5.
+  ///
+  /// In en, this message translates to:
+  /// **'I2P Proxy (SOCKS5)'**
+  String get i2pProxySocks5;
+
+  /// No description provided for @i2pInfoDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'I2P uses SOCKS5 on port 4447 by default. Connect to a Nostr relay via I2P outproxy (e.g. relay.damus.i2p) to communicate with users on any transport. Tor takes priority when both are enabled.'**
+  String get i2pInfoDescription;
+
+  /// No description provided for @i2pRouteNostrTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Route Nostr via I2P'**
+  String get i2pRouteNostrTitle;
+
+  /// No description provided for @i2pActiveRouting.
+  ///
+  /// In en, this message translates to:
+  /// **'Active — Nostr traffic routed through I2P'**
+  String get i2pActiveRouting;
+
+  /// No description provided for @i2pDisabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Disabled'**
+  String get i2pDisabled;
+
+  /// No description provided for @i2pProxyHostLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Proxy Host'**
+  String get i2pProxyHostLabel;
+
+  /// No description provided for @i2pProxyPortLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Port'**
+  String get i2pProxyPortLabel;
+
+  /// No description provided for @i2pPortInfo.
+  ///
+  /// In en, this message translates to:
+  /// **'I2P Router default SOCKS5 port: 4447'**
+  String get i2pPortInfo;
+
+  /// No description provided for @customProxySocks5.
+  ///
+  /// In en, this message translates to:
+  /// **'Custom Proxy (SOCKS5)'**
+  String get customProxySocks5;
+
+  /// No description provided for @customCfWorkerRelay.
+  ///
+  /// In en, this message translates to:
+  /// **'CF Worker Relay'**
+  String get customCfWorkerRelay;
+
+  /// No description provided for @customProxyInfoDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Custom proxy routes traffic through your V2Ray/Xray/Shadowsocks. CF Worker acts as a personal relay proxy on Cloudflare CDN — GFW sees *.workers.dev, not the real relay.'**
+  String get customProxyInfoDescription;
+
+  /// No description provided for @customSocks5ProxyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Custom SOCKS5 Proxy'**
+  String get customSocks5ProxyTitle;
+
+  /// No description provided for @customProxyActive.
+  ///
+  /// In en, this message translates to:
+  /// **'Active — traffic routed via SOCKS5'**
+  String get customProxyActive;
+
+  /// No description provided for @customProxyDisabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Disabled'**
+  String get customProxyDisabled;
+
+  /// No description provided for @customProxyHostLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Proxy Host'**
+  String get customProxyHostLabel;
+
+  /// No description provided for @customProxyPortLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Port'**
+  String get customProxyPortLabel;
+
+  /// No description provided for @customProxyHint.
+  ///
+  /// In en, this message translates to:
+  /// **'V2Ray/Xray: 127.0.0.1:10808  •  Shadowsocks: 127.0.0.1:1080'**
+  String get customProxyHint;
+
+  /// No description provided for @customWorkerLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Worker Domain (optional)'**
+  String get customWorkerLabel;
+
+  /// No description provided for @customWorkerHelpTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'How to deploy a CF Worker relay (free)'**
+  String get customWorkerHelpTitle;
+
+  /// No description provided for @customWorkerScriptCopied.
+  ///
+  /// In en, this message translates to:
+  /// **'Script copied!'**
+  String get customWorkerScriptCopied;
+
+  /// No description provided for @customWorkerStep1.
+  ///
+  /// In en, this message translates to:
+  /// **'1. Go to dash.cloudflare.com → Workers & Pages\n2. Create Worker → paste this script:\n'**
+  String get customWorkerStep1;
+
+  /// No description provided for @customWorkerStep2.
+  ///
+  /// In en, this message translates to:
+  /// **'3. Deploy → copy domain (e.g. my-relay.user.workers.dev)\n4. Paste domain above → Save\n\nApp auto-connects: wss://domain/?r=relay_url\nGFW sees: connection to *.workers.dev (CF CDN)'**
+  String get customWorkerStep2;
+
+  /// No description provided for @psiphonTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Psiphon'**
+  String get psiphonTitle;
+
+  /// No description provided for @psiphonConnectedSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Connected — SOCKS5 on 127.0.0.1:{port}'**
+  String psiphonConnectedSubtitle(int port);
+
+  /// No description provided for @psiphonConnecting.
+  ///
+  /// In en, this message translates to:
+  /// **'Connecting…'**
+  String get psiphonConnecting;
+
+  /// No description provided for @psiphonNotRunning.
+  ///
+  /// In en, this message translates to:
+  /// **'Not running — tap switch to restart'**
+  String get psiphonNotRunning;
+
+  /// No description provided for @psiphonDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Fast tunnel (~3s bootstrap, 2000+ rotating VPS)'**
+  String get psiphonDescription;
+
+  /// No description provided for @turnCommunityServers.
+  ///
+  /// In en, this message translates to:
+  /// **'Community TURN Servers'**
+  String get turnCommunityServers;
+
+  /// No description provided for @turnCustomServer.
+  ///
+  /// In en, this message translates to:
+  /// **'Custom TURN Server (BYOD)'**
+  String get turnCustomServer;
+
+  /// No description provided for @turnInfoDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'TURN servers only relay already-encrypted streams (DTLS-SRTP). A relay operator sees your IP and traffic volume, but cannot decrypt calls. TURN is only used when direct P2P fails (~15–20% of connections).'**
+  String get turnInfoDescription;
+
+  /// No description provided for @turnFreeLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'FREE'**
+  String get turnFreeLabel;
+
+  /// No description provided for @turnServerUrlLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'TURN Server URL'**
+  String get turnServerUrlLabel;
+
+  /// No description provided for @turnServerUrlHint.
+  ///
+  /// In en, this message translates to:
+  /// **'turn:your-server.com:3478 or turns:...'**
+  String get turnServerUrlHint;
+
+  /// No description provided for @turnUsernameLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Username'**
+  String get turnUsernameLabel;
+
+  /// No description provided for @turnPasswordLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Password'**
+  String get turnPasswordLabel;
+
+  /// No description provided for @turnOptionalHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Optional'**
+  String get turnOptionalHint;
+
+  /// No description provided for @turnCustomInfo.
+  ///
+  /// In en, this message translates to:
+  /// **'Self-host coturn on any \$5/mo VPS for maximum control. Credentials are stored locally.'**
+  String get turnCustomInfo;
+
+  /// No description provided for @themePickerAppearance.
+  ///
+  /// In en, this message translates to:
+  /// **'Appearance'**
+  String get themePickerAppearance;
+
+  /// No description provided for @themePickerAccentColor.
+  ///
+  /// In en, this message translates to:
+  /// **'Accent Color'**
+  String get themePickerAccentColor;
+
+  /// No description provided for @themeModeLight.
+  ///
+  /// In en, this message translates to:
+  /// **'Light'**
+  String get themeModeLight;
+
+  /// No description provided for @themeModeDark.
+  ///
+  /// In en, this message translates to:
+  /// **'Dark'**
+  String get themeModeDark;
+
+  /// No description provided for @themeModeSystem.
+  ///
+  /// In en, this message translates to:
+  /// **'System'**
+  String get themeModeSystem;
+
+  /// No description provided for @themeDynamicPresets.
+  ///
+  /// In en, this message translates to:
+  /// **'Presets'**
+  String get themeDynamicPresets;
+
+  /// No description provided for @themeDynamicPrimaryColor.
+  ///
+  /// In en, this message translates to:
+  /// **'Primary Color'**
+  String get themeDynamicPrimaryColor;
+
+  /// No description provided for @themeDynamicBorderRadius.
+  ///
+  /// In en, this message translates to:
+  /// **'Border Radius'**
+  String get themeDynamicBorderRadius;
+
+  /// No description provided for @themeDynamicFont.
+  ///
+  /// In en, this message translates to:
+  /// **'Font'**
+  String get themeDynamicFont;
+
+  /// No description provided for @themeDynamicAppearance.
+  ///
+  /// In en, this message translates to:
+  /// **'Appearance'**
+  String get themeDynamicAppearance;
+
+  /// No description provided for @themeDynamicUiStyle.
+  ///
+  /// In en, this message translates to:
+  /// **'UI Style'**
+  String get themeDynamicUiStyle;
+
+  /// No description provided for @themeDynamicUiStyleDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Controls how dialogs, switches and indicators look.'**
+  String get themeDynamicUiStyleDescription;
+
+  /// No description provided for @themeDynamicSharp.
+  ///
+  /// In en, this message translates to:
+  /// **'Sharp'**
+  String get themeDynamicSharp;
+
+  /// No description provided for @themeDynamicRound.
+  ///
+  /// In en, this message translates to:
+  /// **'Round'**
+  String get themeDynamicRound;
+
+  /// No description provided for @themeDynamicModeDark.
+  ///
+  /// In en, this message translates to:
+  /// **'Dark'**
+  String get themeDynamicModeDark;
+
+  /// No description provided for @themeDynamicModeLight.
+  ///
+  /// In en, this message translates to:
+  /// **'Light'**
+  String get themeDynamicModeLight;
+
+  /// No description provided for @themeDynamicModeAuto.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto'**
+  String get themeDynamicModeAuto;
+
+  /// No description provided for @themeDynamicPlatformAuto.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto'**
+  String get themeDynamicPlatformAuto;
+
+  /// No description provided for @themeDynamicPlatformAndroid.
+  ///
+  /// In en, this message translates to:
+  /// **'Android'**
+  String get themeDynamicPlatformAndroid;
+
+  /// No description provided for @themeDynamicPlatformIos.
+  ///
+  /// In en, this message translates to:
+  /// **'iOS'**
+  String get themeDynamicPlatformIos;
+
+  /// No description provided for @providerErrorInvalidFirebaseUrl.
+  ///
+  /// In en, this message translates to:
+  /// **'Invalid Firebase URL. Expected https://project.firebaseio.com'**
+  String get providerErrorInvalidFirebaseUrl;
+
+  /// No description provided for @providerErrorInvalidRelayUrl.
+  ///
+  /// In en, this message translates to:
+  /// **'Invalid relay URL. Expected wss://relay.example.com'**
+  String get providerErrorInvalidRelayUrl;
+
+  /// No description provided for @providerErrorInvalidWakuUrl.
+  ///
+  /// In en, this message translates to:
+  /// **'Invalid Waku node URL. Expected http://host:port'**
+  String get providerErrorInvalidWakuUrl;
+
+  /// No description provided for @providerErrorInvalidPulseUrl.
+  ///
+  /// In en, this message translates to:
+  /// **'Invalid Pulse server URL. Expected https://server:port'**
+  String get providerErrorInvalidPulseUrl;
+
+  /// No description provided for @providerPulseServerUrlLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Server URL'**
+  String get providerPulseServerUrlLabel;
+
+  /// No description provided for @providerPulseServerUrlHint.
+  ///
+  /// In en, this message translates to:
+  /// **'https://your-server:8443'**
+  String get providerPulseServerUrlHint;
+
+  /// No description provided for @providerPulseInviteLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Invite Code'**
+  String get providerPulseInviteLabel;
+
+  /// No description provided for @providerPulseInviteHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Invite code (if required)'**
+  String get providerPulseInviteHint;
+
+  /// No description provided for @providerPulseInfo.
+  ///
+  /// In en, this message translates to:
+  /// **'Self-hosted relay. Keys derived from your recovery password.'**
+  String get providerPulseInfo;
+
+  /// No description provided for @providerScreenTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Inboxes'**
+  String get providerScreenTitle;
+
+  /// No description provided for @providerSecondaryInboxesHeader.
+  ///
+  /// In en, this message translates to:
+  /// **'SECONDARY INBOXES'**
+  String get providerSecondaryInboxesHeader;
+
+  /// No description provided for @providerSecondaryInboxesInfo.
+  ///
+  /// In en, this message translates to:
+  /// **'Secondary inboxes receive messages simultaneously for redundancy.'**
+  String get providerSecondaryInboxesInfo;
+
+  /// No description provided for @providerRemoveTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove'**
+  String get providerRemoveTooltip;
 }
 
 class _AppLocalizationsDelegate

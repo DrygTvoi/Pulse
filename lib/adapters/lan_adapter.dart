@@ -75,21 +75,22 @@ class LanInboxReader implements InboxReader {
         if (_seenIds.contains(id)) return;
         _seenIds.add(id);
         if (_seenIds.length > 2000) {
-          _seenIds.removeAll(_seenIds.take(1000).toList());
+          final evict = _seenIds.toList().sublist(0, 1000);
+          _seenIds.removeAll(evict);
         }
       }
 
       if (type == 'sig') {
         try {
           final sigData = jsonDecode(payload) as Map<String, dynamic>;
-          _sigCtrl.add([sigData]);
+          if (!_sigCtrl.isClosed) _sigCtrl.add([sigData]);
         } catch (e) {
           debugPrint('[LAN] Signal JSON parse error: $e');
         }
         return;
       }
 
-      _msgCtrl.add([
+      if (!_msgCtrl.isClosed) _msgCtrl.add([
         Message(
           id:               id.isNotEmpty ? id : '${from}_$tsMs',
           senderId:         from,

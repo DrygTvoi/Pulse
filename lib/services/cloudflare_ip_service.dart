@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 import 'dart:convert';
 import 'dart:io';
 import 'package:crypto/crypto.dart' as crypto;
@@ -52,7 +53,10 @@ class CloudflareIpService {
   DateTime? _loadedAt;
 
   // ECH config cache: host → (config_bytes, fetched_at)
-  final Map<String, (Uint8List, DateTime)> _echCache = {};
+  // LinkedHashMap preserves insertion order for oldest-first eviction.
+  static const _echCacheMaxSize = 1000;
+  final LinkedHashMap<String, (Uint8List, DateTime)> _echCache =
+      LinkedHashMap<String, (Uint8List, DateTime)>();
 
   // ── Public API ─────────────────────────────────────────────────────────────
 
@@ -187,6 +191,9 @@ class CloudflareIpService {
             try {
               final echBytes = base64.decode(echMatch.group(1)!);
               _echCache[host] = (echBytes, DateTime.now());
+              if (_echCache.length > _echCacheMaxSize) {
+                _echCache.remove(_echCache.keys.first);
+              }
               debugPrint('[CF/ECH] $host → ${echBytes.length}B ECH'
                   ' (via $dohIp${ad ? ', DNSSEC✓' : ''})');
               return echBytes;

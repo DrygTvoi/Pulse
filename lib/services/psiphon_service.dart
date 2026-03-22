@@ -25,9 +25,14 @@ IOClient? buildPsiphonHttpClient({bool acceptBadCertificate = false}) {
         await ServerSocket.bind(InternetAddress.loopbackIPv4, 0, shared: false);
     final localPort = server.port;
     unawaited(_runPsiphonSocks5Bridge(server, host, port, psiphonPort));
-    final s = await Socket.connect(InternetAddress.loopbackIPv4, localPort,
-        timeout: const Duration(seconds: 60));
-    return ConnectionTask.fromSocket(Future.value(s), () => s.destroy());
+    try {
+      final s = await Socket.connect(InternetAddress.loopbackIPv4, localPort,
+          timeout: const Duration(seconds: 60));
+      return ConnectionTask.fromSocket(Future.value(s), () => s.destroy());
+    } catch (e) {
+      unawaited(server.close());
+      rethrow;
+    }
   };
   return IOClient(inner);
 }
@@ -128,6 +133,7 @@ Future<void> _runPsiphonSocks5Bridge(
     debugPrint('[Psiphon] HTTP bridge error ($targetHost:$targetPort): $e');
     client?.destroy();
     proxy?.destroy();
+    try { await server.close(); } catch (_) {}
   }
 }
 
@@ -155,6 +161,7 @@ class PsiphonService {
   bool _stopped = false;
   int _restartCount = 0;
   static const _maxRestartDelay = 60; // seconds
+  static const _maxRestarts = 10;
 
   bool get isRunning => _process != null && _port != null;
 
@@ -164,6 +171,7 @@ class PsiphonService {
   /// Start the tunnel if not already running.
   /// Safe to call multiple times — idempotent.
   Future<void> ensureRunning() async {
+    if (Platform.isIOS) { debugPrint('[PsiphonService] Not available on iOS'); return; }
     if (isRunning || _starting) return;
     _stopped = false;
     _starting = true;
@@ -218,12 +226,17 @@ class PsiphonService {
         _process = null;
         _port = null;
         if (!_stopped) {
+          if (_restartCount >= _maxRestarts) {
+            debugPrint('[PsiphonService] tunnel crashed — max restarts '
+                '($_maxRestarts) reached, giving up');
+            return;
+          }
           final delay = (_restartCount < 6)
               ? (2 << _restartCount) // 2s, 4s, 8s, 16s, 32s, 64s
               : _maxRestartDelay;
           _restartCount++;
           debugPrint('[PsiphonService] tunnel crashed — restarting in ${delay}s '
-              '(attempt $_restartCount)');
+              '(attempt $_restartCount/$_maxRestarts)');
           Future.delayed(Duration(seconds: delay), () {
             if (!_stopped) ensureRunning();
           });
