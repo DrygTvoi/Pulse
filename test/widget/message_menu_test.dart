@@ -79,6 +79,7 @@ void main() {
                   context: context,
                   onPickImage: () {},
                   onPickFile: () {},
+                  onPickVideo: () {},
                 ),
                 child: const Text('Open'),
               ),
@@ -245,6 +246,67 @@ void main() {
         expect(find.text('Scheduled messages'), findsOneWidget);
         // Verify the scheduled message content is displayed
         expect(find.text('See you tomorrow!'), findsOneWidget);
+      },
+    );
+
+    // ── Test 7: showAttachMenu shows Video option ─────────────────────────
+    testWidgets(
+      'showAttachMenu displays Video option',
+      (WidgetTester tester) async {
+        await tester.pumpWidget(buildTestApp(
+          Builder(builder: (context) {
+            return Scaffold(
+              body: ElevatedButton(
+                onPressed: () => showAttachMenu(
+                  context: context,
+                  onPickImage: () {},
+                  onPickFile: () {},
+                  onPickVideo: () {},
+                ),
+                child: const Text('Open'),
+              ),
+            );
+          }),
+        ));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Open'));
+        await tester.pumpAndSettle();
+        expect(find.text('Photo'), findsOneWidget);
+        expect(find.text('Video'), findsOneWidget);
+        expect(find.text('File'), findsOneWidget);
+      },
+    );
+
+    // ── Test 8: showEmojiPicker has "+" button for full picker ────────────
+    testWidgets(
+      'showEmojiPicker displays quick reactions and "+" button',
+      (WidgetTester tester) async {
+        final contact = testContact();
+
+        await tester.pumpWidget(buildTestApp(
+          Builder(builder: (context) {
+            return Scaffold(
+              body: ElevatedButton(
+                onPressed: () => showEmojiPicker(
+                  context: context,
+                  messageId: 'msg-1',
+                  contact: contact,
+                ),
+                child: const Text('Open'),
+              ),
+            );
+          }),
+        ));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('Open'));
+        await tester.pumpAndSettle();
+
+        // Verify the "+" button (add_rounded icon) for full emoji picker is present
+        expect(find.byIcon(Icons.add_rounded), findsOneWidget);
+        // Quick reactions still present
+        expect(find.text('👍'), findsOneWidget);
+        expect(find.text('❤️'), findsOneWidget);
       },
     );
   });

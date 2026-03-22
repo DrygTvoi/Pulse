@@ -337,4 +337,156 @@ void main() {
       expect(e.reason, equals('executable detected'));
     });
   });
+
+  // ==========================================================================
+  // MediaPayload — video_note
+  // ==========================================================================
+  group('parse video_note', () {
+    Uint8List _makeMp4({int size = 64}) {
+      final b = Uint8List(size);
+      b[4] = 0x66; b[5] = 0x74; b[6] = 0x79; b[7] = 0x70;
+      return b;
+    }
+
+    test('parses video_note payload correctly', () {
+      final mp4 = _makeMp4();
+      final thumbBytes = Uint8List.fromList([0xFF, 0xD8, 0xFF, 0x01, 0x02]);
+      final payload = jsonEncode({
+        't': 'video_note',
+        'd': base64Encode(mp4),
+        'sz': mp4.length,
+        'dur': 10,
+        'thumb': base64Encode(thumbBytes),
+      });
+      final parsed = MediaService.parse(payload);
+      expect(parsed, isNotNull);
+      expect(parsed!.type, equals('video_note'));
+      expect(parsed.isVideoNote, isTrue);
+      expect(parsed.isGif, isFalse);
+      expect(parsed.thumbnailData, isNotNull);
+      expect(parsed.thumbnailData!.length, equals(thumbBytes.length));
+      expect(parsed.durationSeconds, equals(10));
+    });
+
+    test('video_note without thumb field parses with null thumbnailData', () {
+      final mp4 = _makeMp4();
+      final payload = jsonEncode({
+        't': 'video_note',
+        'd': base64Encode(mp4),
+        'sz': mp4.length,
+        'dur': 5,
+      });
+      final parsed = MediaService.parse(payload);
+      expect(parsed, isNotNull);
+      expect(parsed!.isVideoNote, isTrue);
+      expect(parsed.thumbnailData, isNull);
+    });
+
+    test('rejects video_note exceeding 15 MB via actual data size', () {
+      // parse() estimates size from base64 length, not 'sz' field.
+      // Create actual oversized base64 to trigger the size check.
+      final mp4 = _makeMp4(size: 15 * 1024 * 1024 + 100);
+      final payload = jsonEncode({
+        't': 'video_note',
+        'd': base64Encode(mp4),
+        'sz': mp4.length,
+      });
+      final parsed = MediaService.parse(payload);
+      expect(parsed, isNull);
+    });
+
+    test('rejects video_note with invalid magic bytes', () {
+      final bad = Uint8List(64); // all zeros, no video magic
+      final payload = jsonEncode({
+        't': 'video_note',
+        'd': base64Encode(bad),
+        'sz': bad.length,
+      });
+      final parsed = MediaService.parse(payload);
+      expect(parsed, isNull);
+    });
+  });
+
+  // ==========================================================================
+  // MediaPayload — gif
+  // ==========================================================================
+  group('parse gif', () {
+    Uint8List _makeGif({int size = 64}) {
+      final b = Uint8List(size);
+      b[0] = 0x47; b[1] = 0x49; b[2] = 0x46;
+      b[3] = 0x38; b[4] = 0x39; b[5] = 0x61;
+      return b;
+    }
+
+    test('parses gif payload correctly', () {
+      final gif = _makeGif();
+      final payload = jsonEncode({
+        't': 'gif',
+        'd': base64Encode(gif),
+        'sz': gif.length,
+        'w': 320,
+        'h': 240,
+      });
+      final parsed = MediaService.parse(payload);
+      expect(parsed, isNotNull);
+      expect(parsed!.type, equals('gif'));
+      expect(parsed.isGif, isTrue);
+      expect(parsed.isVideoNote, isFalse);
+    });
+
+    test('rejects gif exceeding 10 MB via actual data size', () {
+      final gif = _makeGif(size: 10 * 1024 * 1024 + 100);
+      final payload = jsonEncode({
+        't': 'gif',
+        'd': base64Encode(gif),
+        'sz': gif.length,
+      });
+      final parsed = MediaService.parse(payload);
+      expect(parsed, isNull);
+    });
+
+    test('rejects gif with invalid magic bytes', () {
+      final bad = Uint8List(64);
+      final payload = jsonEncode({
+        't': 'gif',
+        'd': base64Encode(bad),
+        'sz': bad.length,
+      });
+      final parsed = MediaService.parse(payload);
+      expect(parsed, isNull);
+    });
+  });
+
+  // ==========================================================================
+  // MediaPayload — property getters
+  // ==========================================================================
+  group('MediaPayload properties', () {
+    test('isVideoNote returns true for video_note type', () {
+      final mp4 = Uint8List(64);
+      mp4[4] = 0x66; mp4[5] = 0x74; mp4[6] = 0x79; mp4[7] = 0x70;
+      final payload = jsonEncode({
+        't': 'video_note',
+        'd': base64Encode(mp4),
+        'sz': mp4.length,
+      });
+      final parsed = MediaService.parse(payload);
+      expect(parsed!.isVideoNote, isTrue);
+      expect(parsed.isGif, isFalse);
+      expect(parsed.isVoice, isFalse);
+    });
+
+    test('isGif returns true for gif type', () {
+      final gif = Uint8List(64);
+      gif[0] = 0x47; gif[1] = 0x49; gif[2] = 0x46;
+      gif[3] = 0x38; gif[4] = 0x39; gif[5] = 0x61;
+      final payload = jsonEncode({
+        't': 'gif',
+        'd': base64Encode(gif),
+        'sz': gif.length,
+      });
+      final parsed = MediaService.parse(payload);
+      expect(parsed!.isGif, isTrue);
+      expect(parsed.isVideoNote, isFalse);
+    });
+  });
 }
