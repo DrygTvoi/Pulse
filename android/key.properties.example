@@ -1,0 +1,15 @@
+# Copy this file to android/key.properties and fill in your values.
+# android/key.properties is listed in .gitignore — NEVER commit the real file.
+#
+# Generate a keystore:
+#   keytool -genkey -v -keystore pulse-release.jks \
+#     -alias pulse -keyalg RSA -keysize 4096 -validity 10000
+#
+# For CI, use environment variables instead (see android/app/build.gradle.kts):
+#   KEYSTORE_STORE_PASSWORD, KEYSTORE_KEY_PASSWORD,
+#   KEYSTORE_KEY_ALIAS, KEYSTORE_STORE_FILE
+
+storePassword=CHANGE_ME
+keyPassword=CHANGE_ME
+keyAlias=pulse
+storeFile=pulse-release.jks
