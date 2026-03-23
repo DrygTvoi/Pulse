@@ -39,14 +39,32 @@ android {
 
     signingConfigs {
         create("release") {
-            if (keystorePropertiesFile.exists()) {
-                keyAlias = keystoreProperties.getProperty("keyAlias")
-                keyPassword = keystoreProperties.getProperty("keyPassword")
-                storeFile = file(keystoreProperties.getProperty("storeFile"))
-                storePassword = keystoreProperties.getProperty("storePassword")
+            // Priority: key.properties file → CI environment variables → skip (debug fallback).
+            // CI usage:
+            //   KEYSTORE_STORE_PASSWORD=... KEYSTORE_KEY_PASSWORD=... \
+            //   KEYSTORE_KEY_ALIAS=pulse    KEYSTORE_STORE_FILE=/path/to/pulse-release.jks \
+            //   flutter build apk --release --dart-define=SENTRY_DSN=https://...
+            val storePass   = keystoreProperties.getProperty("storePassword")
+                ?: System.getenv("KEYSTORE_STORE_PASSWORD")
+            val keyPass     = keystoreProperties.getProperty("keyPassword")
+                ?: System.getenv("KEYSTORE_KEY_PASSWORD")
+            val alias       = keystoreProperties.getProperty("keyAlias")
+                ?: System.getenv("KEYSTORE_KEY_ALIAS")
+            val storeFilePath = keystoreProperties.getProperty("storeFile")
+                ?: System.getenv("KEYSTORE_STORE_FILE")
+
+            if (storePass != null && keyPass != null && alias != null && storeFilePath != null) {
+                keyAlias      = alias
+                keyPassword   = keyPass
+                storeFile     = file(storeFilePath)
+                storePassword = storePass
             }
         }
     }
+
+    // Helper: true when signing credentials are available from any source.
+    val hasSigningCredentials = keystorePropertiesFile.exists()
+        || System.getenv("KEYSTORE_STORE_PASSWORD") != null
 
     buildTypes {
         release {
@@ -56,11 +74,10 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            signingConfig = if (keystorePropertiesFile.exists()) {
+            signingConfig = if (hasSigningCredentials) {
                 signingConfigs.getByName("release")
             } else {
-                // Explicit debug fallback — CI builds without key.properties
-                // will produce a debug-signed APK. Do NOT upload to Play Store.
+                // No credentials available — debug-signed APK. Do NOT upload to Play Store.
                 signingConfigs.getByName("debug")
             }
         }
