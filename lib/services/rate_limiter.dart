@@ -5,7 +5,10 @@
 /// [allow] returns `true` if a token was consumed, `false` if rate-limited.
 ///
 /// Buckets are capped at [maxBuckets] to prevent unbounded memory growth.
-/// When the limit is exceeded, the least-recently-accessed buckets are evicted.
+/// When the limit is exceeded, buckets are evicted in LRU order — but senders
+/// that have been recently rate-limited are deprioritised for eviction to
+/// prevent a burst-and-evict attack (exhaust tokens → go quiet → get evicted
+/// → return with a fresh full bucket).
 class RateLimiter {
   final int maxTokens;
   final Duration refillInterval;
@@ -35,13 +38,35 @@ class RateLimiter {
       bucket.tokens--;
       return true;
     }
+    bucket.lastBlocked = now; // track rate-limit hit for eviction protection
     return false;
   }
 
-  /// Evict the oldest buckets by lastAccess until at or below maxBuckets.
+  /// Evict buckets until at or below [maxBuckets].
+  ///
+  /// Sort order:
+  ///   1. Buckets with NO recent rate-limit hit evicted first (safe to lose).
+  ///   2. Buckets with a recent hit (within the full-refill penalty window)
+  ///      are evicted last — evicting them early would reset their penalty.
+  ///   3. Within each group, least-recently-accessed first.
   void _evictOldest() {
+    final now = DateTime.now();
+    // Penalty window = time for a fully-empty bucket to refill to max.
+    final penaltyWindow =
+        Duration(milliseconds: refillInterval.inMilliseconds * maxTokens);
     final entries = _buckets.entries.toList()
-      ..sort((a, b) => a.value.lastAccess.compareTo(b.value.lastAccess));
+      ..sort((a, b) {
+        final aBlocked = a.value.lastBlocked;
+        final bBlocked = b.value.lastBlocked;
+        final aInPenalty =
+            aBlocked != null && now.difference(aBlocked) < penaltyWindow;
+        final bInPenalty =
+            bBlocked != null && now.difference(bBlocked) < penaltyWindow;
+        // Non-penalty senders sort first (evicted first).
+        if (aInPenalty != bInPenalty) return aInPenalty ? 1 : -1;
+        // Within the same group, evict least-recently-accessed first.
+        return a.value.lastAccess.compareTo(b.value.lastAccess);
+      });
     final toRemove = _buckets.length - maxBuckets;
     for (var i = 0; i < toRemove; i++) {
       _buckets.remove(entries[i].key);
@@ -56,5 +81,7 @@ class _Bucket {
   int tokens;
   DateTime lastRefill;
   DateTime lastAccess;
+  DateTime? lastBlocked; // last time this sender hit the rate limit
+
   _Bucket(this.tokens, this.lastRefill) : lastAccess = lastRefill;
 }

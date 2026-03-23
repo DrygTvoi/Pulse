@@ -5,7 +5,7 @@ import 'dart:typed_data';
 import 'package:convert/convert.dart';
 import 'package:crypto/crypto.dart' as crypto;
 import 'package:cryptography/cryptography.dart' as cryptography;
-import '../adapters/nostr_adapter.dart' show computeEcdhSecret;
+import '../adapters/nostr_adapter.dart' show computeEcdhSecretAsync;
 
 /// NIP-44 v2 encryption: XChaCha20 + HMAC-SHA256.
 ///
@@ -229,13 +229,13 @@ Future<String> nip44Decrypt(Uint8List sharedX, String payload) async {
 /// Encrypt with NIP-44 using hex-encoded Nostr private/public keys.
 Future<String> nip44EncryptWithKeys(
     String privHex, String pubHex, String text) async {
-  final sharedX = computeEcdhSecret(privHex, pubHex, context: 'nip44');
+  final sharedX = await computeEcdhSecretAsync(privHex, pubHex, context: 'nip44');
   return nip44Encrypt(sharedX, text);
 }
 
 /// Decrypt NIP-44 payload using hex-encoded Nostr private/public keys.
 Future<String> nip44DecryptWithKeys(
     String privHex, String pubHex, String payload) async {
-  final sharedX = computeEcdhSecret(privHex, pubHex, context: 'nip44');
+  final sharedX = await computeEcdhSecretAsync(privHex, pubHex, context: 'nip44');
   return nip44Decrypt(sharedX, payload);
 }
