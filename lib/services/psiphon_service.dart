@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:http/io_client.dart';
+import 'package:path_provider/path_provider.dart';
 import 'bundled_binary_service.dart';
 
 /// Returns an HTTP client tunneled through Psiphon SOCKS5, or null if Psiphon
@@ -184,6 +185,7 @@ class PsiphonService {
 
   Future<void> stop() async {
     _stopped = true;
+    _restartCount = 0; // reset so next ensureRunning() starts with minimal delay
     _process?.kill();
     await _process?.exitCode.catchError((_) => -1);
     _process = null;
@@ -201,7 +203,13 @@ class PsiphonService {
     }
 
     try {
-      _process = await Process.start(binaryPath, []);
+      // Pass a platform-appropriate writable data directory so Psiphon can
+      // cache its server list and state.  On Android, os.TempDir() in Go
+      // returns a system path (/data/local/tmp) that is not writable by apps.
+      final supportDir = await getApplicationSupportDirectory();
+      final psiphonDataDir = '${supportDir.path}/psiphon';
+
+      _process = await Process.start(binaryPath, [psiphonDataDir]);
 
       // The binary prints its SOCKS5 port as the first stdout line.
       final portCompleter = Completer<int?>();

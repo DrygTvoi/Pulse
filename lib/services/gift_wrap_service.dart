@@ -11,7 +11,7 @@ import 'nostr_event_builder.dart' as eb;
 ///   1. Inner event = real kind event, signed by sender
 ///   2. Seal (kind:13) = NIP-44-encrypt(innerJSON, ephemeralSeal→recipient), signed by ephemeral seal key
 ///   3. Gift Wrap (kind:1059) = NIP-44-encrypt(sealJSON, ephemeral→recipient),
-///      signed by ephemeral key, randomized timestamp ±48 hours
+///      signed by ephemeral key, randomized timestamp ±1 hour
 ///
 /// Unwrap flow:
 ///   1. Decrypt kind:1059 content with our privkey + event.pubkey (ephemeral)
@@ -64,12 +64,12 @@ Future<Map<String, dynamic>> wrapEvent({
   final wrapSharedX = await computeEcdhSecretAsync(ephemeralPrivkey, recipientPubkey, context: 'giftwrap');
   final wrapContent = await nip44.nip44Encrypt(wrapSharedX, sealJson);
 
-  // Randomize timestamp ±2 hours for metadata privacy.
-  // NIP-59 recommends ±48 h, but most relays reject events older than ~2 h or
-  // more than ~1 h in the future, so ±2 h is the practical maximum that still
-  // ensures reliable delivery.
+  // Randomize timestamp ±1 hour for metadata privacy.
+  // NIP-59 recommends ±48 h, but most relays reject events older than ~1-2 h,
+  // so ±1 h keeps us well within relay acceptance windows while still providing
+  // meaningful timing obfuscation.
   final rng = Random.secure();
-  final jitter = rng.nextInt(14400) - 7200; // ±2 hours in seconds
+  final jitter = rng.nextInt(7200) - 3600; // ±1 hour in seconds
   final ts = DateTime.now().millisecondsSinceEpoch ~/ 1000 + jitter;
 
   final wrapEvent = await eb.buildEvent(

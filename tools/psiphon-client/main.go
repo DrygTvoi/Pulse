@@ -24,7 +24,13 @@ import (
 )
 
 func main() {
+	// Accept data directory as first argument so the caller (Dart) can pass
+	// a platform-appropriate writable path (app support dir on Android/Linux).
+	// Falls back to os.TempDir() for backward compatibility.
 	dataDir := filepath.Join(os.TempDir(), "pulse-psiphon")
+	if len(os.Args) >= 2 && os.Args[1] != "" {
+		dataDir = os.Args[1]
+	}
 	if err := os.MkdirAll(dataDir, 0700); err != nil {
 		fmt.Fprintf(os.Stderr, "[psiphon] data dir error: %v\n", err)
 		os.Exit(1)
