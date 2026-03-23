@@ -301,13 +301,19 @@ class ConnectivityProbeService {
   }
 
   /// Quick health check — re-probes cached relays and removes dead ones.
+  /// Probes in batches of 10 to avoid opening hundreds of simultaneous
+  /// TCP connections (same DoH-storm fix applied to filterCloudflare).
   Future<void> _healthCheck() async {
     if (_last.nostrRelays.isEmpty) return;
     debugPrint('[Probe/Health] Checking ${_last.nostrRelays.length} cached relays');
 
+    const _healthBatchSize = 10;
     final alive = <String>[];
-    await Future.wait(
-      _last.nostrRelays.map((url) async {
+    final urls = _last.nostrRelays;
+
+    for (var i = 0; i < urls.length; i += _healthBatchSize) {
+      final batch = urls.sublist(i, (i + _healthBatchSize).clamp(0, urls.length));
+      await Future.wait(batch.map((url) async {
         final uri = Uri.tryParse(url);
         if (uri == null || uri.host.isEmpty) return;
         final port = (uri.hasPort && uri.port != 0) ? uri.port : 443;
@@ -317,8 +323,8 @@ class ConnectivityProbeService {
         } else {
           debugPrint('[Probe/Health] ✗ dead: $url');
         }
-      }),
-    );
+      }));
+    }
 
     if (alive.length < _last.nostrRelays.length) {
       debugPrint('[Probe/Health] ${_last.nostrRelays.length - alive.length} dead relay(s) removed');

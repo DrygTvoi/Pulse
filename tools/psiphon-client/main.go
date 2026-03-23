@@ -19,6 +19,8 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
+	"strings"
 
 	clientlib "github.com/Psiphon-Labs/psiphon-tunnel-core/ClientLibrary/clientlib"
 )
@@ -38,7 +40,14 @@ func main() {
 
 	timeout := 120 // generous timeout for first bootstrap
 	networkID := "WIFI"
-	platform := "Linux_im.pulse.messenger"
+	// Build platform string from runtime.GOOS so Android builds report
+	// "Android_im.pulse.messenger" and Linux builds report
+	// "Linux_im.pulse.messenger" — Psiphon uses this for server selection.
+	goos := runtime.GOOS
+	if len(goos) > 0 {
+		goos = strings.ToUpper(goos[:1]) + goos[1:]
+	}
+	platform := goos + "_im.pulse.messenger"
 
 	params := clientlib.Parameters{
 		DataRootDirectory:             &dataDir,
