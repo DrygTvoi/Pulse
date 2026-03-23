@@ -48,6 +48,15 @@ Future<void> main() async {
       }
     };
 
+    // Catch unhandled async errors (e.g. uncaught Future exceptions)
+    PlatformDispatcher.instance.onError = (error, stack) {
+      debugPrint('[FATAL] Unhandled: $error\n$stack');
+      if (sentryEnabled) {
+        Sentry.captureException(error, stackTrace: stack);
+      }
+      return true;
+    };
+
       final prefs = await SharedPreferences.getInstance();
       // Clear legacy auto-saved theme keys so new design defaults apply cleanly.
       if (prefs.getBool('theme_user_customized') != true) {
@@ -120,9 +129,13 @@ Future<void> main() async {
   }
 
   if (sentryEnabled) {
+    const sentryDsn = String.fromEnvironment('SENTRY_DSN', defaultValue: '');
+    if (sentryDsn.isEmpty && kReleaseMode) {
+      debugPrint('[Sentry] WARNING: SENTRY_DSN not set in release build — crash reporting disabled');
+    }
     await SentryFlutter.init(
       (options) {
-        options.dsn = const String.fromEnvironment('SENTRY_DSN', defaultValue: '');
+        options.dsn = sentryDsn;
         options.tracesSampleRate = 0.2;
         options.environment = kDebugMode ? 'debug' : 'release';
         options.sendDefaultPii = false;
