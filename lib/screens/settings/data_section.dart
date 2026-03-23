@@ -652,7 +652,7 @@ class DataSection extends StatelessWidget {
 
     try {
       final storage = LocalStorageService();
-      final imported = await storage.importBackup(
+      final result = await storage.importBackup(
         fileBytes,
         password,
         onProgress: (done, total) {
@@ -666,7 +666,7 @@ class DataSection extends StatelessWidget {
       if (!context.mounted) return;
       Navigator.of(context).pop();
 
-      if (imported < 0) {
+      if (result.imported < 0) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text(context.l10n.dataRestoreFailed,
               style: GoogleFonts.inter()),
@@ -676,14 +676,18 @@ class DataSection extends StatelessWidget {
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.spacing10)),
         ));
       } else {
+        final msg = result.imported > 0
+            ? context.l10n.dataRestoreSuccess(result.imported)
+            : context.l10n.dataRestoreNothingNew;
+        final failedMsg = result.failed > 0
+            ? ' (${result.failed} entries skipped)'
+            : '';
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text(
-            imported > 0
-                ? context.l10n.dataRestoreSuccess(imported)
-                : context.l10n.dataRestoreNothingNew,
+            '$msg$failedMsg',
             style: GoogleFonts.inter(),
           ),
-          backgroundColor: AppTheme.primary,
+          backgroundColor: result.failed > 0 ? Colors.orange : AppTheme.primary,
           behavior: SnackBarBehavior.floating,
           duration: const Duration(seconds: 3),
           shape:

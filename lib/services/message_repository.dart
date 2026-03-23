@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/contact.dart';
@@ -307,7 +308,10 @@ class MessageRepository {
     required VoidCallback onDeleted,
   }) {
     if (ttlSeconds <= 0) return;
-    final expiresAt = msg.timestamp.add(Duration(seconds: ttlSeconds));
+    // Add 0-10% random jitter to TTL to prevent timing analysis
+    final jitter = Duration(
+        seconds: Random.secure().nextInt((ttlSeconds * 0.1).ceil().clamp(1, 600)));
+    final expiresAt = msg.timestamp.add(Duration(seconds: ttlSeconds) + jitter);
     final remaining = expiresAt.difference(DateTime.now());
     _ttlTimers[msg.id]?.cancel();
     if (remaining.isNegative) {
