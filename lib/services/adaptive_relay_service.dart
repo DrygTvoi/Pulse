@@ -26,6 +26,7 @@ class AdaptiveRelayService {
   static const _cacheKey  = 'adaptive_cf_relay';
   static const _cacheTsKey = 'adaptive_cf_relay_ts';
   static const _ttlMs     = 15 * 60 * 1000; // 15 min
+  static const _maxConcurrentProbes = 50;
 
   String? _bestRelay;
   DateTime? _lastRace;
@@ -110,36 +111,40 @@ class AdaptiveRelayService {
     return CloudflareIpService.instance.filterCloudflare(urls);
   }
 
-  /// Races all [urls] by sending a WebSocket ping.
-  /// Returns the first URL that responds, or null if all fail/timeout.
+  /// Races [urls] in batches of [_maxConcurrentProbes] to avoid opening
+  /// hundreds of WebSocket connections simultaneously.
+  /// Stops as soon as a winner is found — remaining batches are skipped.
   Future<String?> _raceRelays(List<String> urls) async {
+    if (urls.isEmpty) return null;
+    for (var i = 0; i < urls.length; i += _maxConcurrentProbes) {
+      final end = (i + _maxConcurrentProbes).clamp(0, urls.length);
+      final batch = urls.sublist(i, end);
+      final winner = await _raceBatch(batch);
+      if (winner != null) return winner;
+    }
+    return null;
+  }
+
+  /// Races a single batch of URLs concurrently.
+  /// Returns the first URL that responds successfully, or null if all fail.
+  Future<String?> _raceBatch(List<String> urls) async {
     final completer = Completer<String?>();
-
     int pending = urls.length;
-    if (pending == 0) return null;
-
     for (final url in urls) {
       unawaited(_probeWs(url).then((ok) {
         if (ok && !completer.isCompleted) {
           completer.complete(url);
         } else {
           pending--;
-          if (pending <= 0 && !completer.isCompleted) {
-            completer.complete(null);
-          }
+          if (pending <= 0 && !completer.isCompleted) completer.complete(null);
         }
       }).catchError((_) {
         pending--;
-        if (pending <= 0 && !completer.isCompleted) {
-          completer.complete(null);
-        }
+        if (pending <= 0 && !completer.isCompleted) completer.complete(null);
       }));
     }
-
-    return completer.future.timeout(
-      const Duration(seconds: 8),
-      onTimeout: () => null,
-    );
+    return completer.future.timeout(const Duration(seconds: 8),
+        onTimeout: () => null);
   }
 
   /// Returns true if a WebSocket connection can be established and a response
