@@ -478,7 +478,7 @@ class ChatController extends ChangeNotifier {
     // Heartbeats via broadcaster
     _broadcaster.startHeartbeats(() => _contacts.contacts);
 
-    _allAddresses = [myAddress];
+    final newAddresses = <String>[myAddress];
     _adapterHealth.clear();
     for (final s in _healthSubs) { s.cancel(); }
     _healthSubs.clear();
@@ -511,13 +511,16 @@ class ChatController extends ChangeNotifier {
       _signalSubs.add(reader.listenForSignals().listen(_signalDispatcher!.dispatch));
       final addr = cfg['selfId'] ?? '';
       if (addr.isNotEmpty) {
-        _allAddresses.add(addr);
+        newAddresses.add(addr);
         _adapterHealth[addr] = true;
         _healthSubs.add(reader.healthChanges.listen((h) => _onAdapterHealthChange(addr, h)));
       }
       unawaited(_keys.publishKeysToAdapter(
           cfg['provider']!, cfg['apiKey']!, cfg['selfId'] ?? ''));
     }
+
+    // Assign all addresses atomically so concurrent readers see a complete list.
+    _allAddresses = newAddresses;
 
     // LAN fallback adapter
     _lanReader?.close();
@@ -543,11 +546,10 @@ class ChatController extends ChangeNotifier {
       },
       onNetworkChanged: () {
         debugPrint('[Chat] Network changed — re-probing relays');
-        unawaited(ConnectivityProbeService.instance.forceProbe());
-        unawaited(ConnectivityProbeService.instance.firstRunDone.then((_) {
+        ConnectivityProbeService.instance.forceProbe().then((_) {
           reconnectInbox();
           Future.delayed(const Duration(seconds: 3), _flushFailedMessages);
-        }));
+        });
       },
     );
 
@@ -642,11 +644,11 @@ class ChatController extends ChangeNotifier {
   }
 
   /// Centralised helper: init sender for contact's provider and send a signal.
-  Future<void> _sendSignalTo(Contact contact, String type, Map<String, dynamic> payload) async {
-    if (_identity == null || _selfId.isEmpty) return;
+  Future<bool> _sendSignalTo(Contact contact, String type, Map<String, dynamic> payload) async {
+    if (_identity == null || _selfId.isEmpty) return false;
     try {
       final built = await _buildSenderFor(contact);
-      if (built == null) return;
+      if (built == null) return false;
       await built.sender.initializeSender(built.apiKey);
 
       var signedPayload = payload;
@@ -656,8 +658,10 @@ class ChatController extends ChangeNotifier {
 
       await built.sender.sendSignal(
           contact.databaseId, contact.databaseId, _selfId, type, signedPayload);
+      return true;
     } catch (e) {
       debugPrint('[ChatController] Signal $type to ${contact.name} failed: $e');
+      return false;
     }
   }
 
@@ -969,11 +973,7 @@ class ChatController extends ChangeNotifier {
     final groupContact = _contacts.contacts.cast<Contact?>()
         .firstWhere((c) => c?.isGroup == true && c?.id == groupId, orElse: () => null);
     if (groupContact == null) return;
-    final room = _repo.getRoomForContact(groupContact.id);
-    if (room == null) return;
-    final idx = room.messages.indexWhere((m) => m.id == msgId);
-    if (idx == -1) return;
-    final msg = room.messages[idx];
+    // Resolve reader and verify group membership to prevent forged receipts.
     Contact? reader;
     for (final c in _contacts.contacts) {
       if (c.databaseId == fromId || c.databaseId.split('@').first == fromId) {
@@ -982,6 +982,12 @@ class ChatController extends ChangeNotifier {
       }
     }
     final readerId = reader?.id ?? fromId;
+    if (!groupContact.members.contains(readerId)) return;
+    final room = _repo.getRoomForContact(groupContact.id);
+    if (room == null) return;
+    final idx = room.messages.indexWhere((m) => m.id == msgId);
+    if (idx == -1) return;
+    final msg = room.messages[idx];
     if (!msg.readBy.contains(readerId)) {
       room.messages[idx] = msg.copyWith(readBy: [...msg.readBy, readerId]);
       unawaited(LocalStorageService().saveMessage(
@@ -998,13 +1004,16 @@ class ChatController extends ChangeNotifier {
       try {
         if (_seenMsgIds.contains(msg.id)) continue;
         if (_seenMsgIds.length >= 10000) {
-          // Evict oldest 5K entries using the insertion-order list
-          // instead of materializing an iterator snapshot.
+          // Atomic eviction: rebuild both structures from remaining entries
+          // to avoid Set/List desync across microtask boundaries.
           final evictCount = 5000.clamp(0, _seenMsgIdsList.length);
-          for (int i = 0; i < evictCount; i++) {
-            _seenMsgIds.remove(_seenMsgIdsList[i]);
-          }
-          _seenMsgIdsList.removeRange(0, evictCount);
+          final remaining = _seenMsgIdsList.sublist(evictCount);
+          _seenMsgIdsList
+            ..clear()
+            ..addAll(remaining);
+          _seenMsgIds
+            ..clear()
+            ..addAll(remaining);
         }
         _seenMsgIds.add(msg.id);
         _seenMsgIdsList.add(msg.id);
@@ -1216,11 +1225,11 @@ class ChatController extends ChangeNotifier {
             final memberContact = _contacts.contacts.cast<Contact?>()
                 .firstWhere((c) => c?.id == memberId, orElse: () => null);
             if (memberContact == null) continue;
-            await _sendSignalTo(memberContact, 'sender_key_dist', {
+            final distOk = await _sendSignalTo(memberContact, 'sender_key_dist', {
               'groupId': contact.id,
               'skdm': skdmB64,
             });
-            await sk.markDistributed(contact.id, memberId);
+            if (distOk) await sk.markDistributed(contact.id, memberId);
           }
         }
         // Encrypt once with GroupCipher.
@@ -1972,11 +1981,11 @@ class ChatController extends ChangeNotifier {
         final memberContact = _contacts.contacts.cast<Contact?>()
             .firstWhere((c) => c?.id == memberId, orElse: () => null);
         if (memberContact == null) continue;
-        await _sendSignalTo(memberContact, 'sender_key_dist', {
+        final distOk = await _sendSignalTo(memberContact, 'sender_key_dist', {
           'groupId': group.id,
           'skdm': skdmB64,
         });
-        await sk.markDistributed(group.id, memberId);
+        if (distOk) await sk.markDistributed(group.id, memberId);
       }
       debugPrint('[SenderKey] Rotated and redistributed key for group ${group.name}');
     } catch (e) {

@@ -79,8 +79,10 @@ class CloudflareIpService {
   Future<(bool, List<String>)> resolveAndCheck(String host) async {
     // .onion addresses can only be resolved via Tor — skip DNS entirely.
     if (host.endsWith('.onion')) return (false, <String>[]);
-    // Loopback/localhost — definitely not Cloudflare, no DNS needed.
+    // Loopback/localhost/private IPs — definitely not Cloudflare, no DNS needed.
     if (_isLoopbackHost(host)) return (false, <String>[]);
+    // Raw private IP as hostname (e.g. 192.168.2.12) — skip DNS + DoH.
+    if (_isPrivateIpHost(host)) return (false, <String>[]);
     // Reject malformed hostnames (e.g. 'relay.primal.net)' from bad relay lists).
     if (!_isValidHostname(host)) return (false, <String>[]);
     try {
@@ -293,7 +295,7 @@ class CloudflareIpService {
   Future<List<String>> _dohResolve(String host) async {
     // .onion addresses are Tor-only — DNS cannot resolve them.
     if (host.endsWith('.onion')) return [];
-    if (_isLoopbackHost(host) || !_isValidHostname(host)) return [];
+    if (_isLoopbackHost(host) || _isPrivateIpHost(host) || !_isValidHostname(host)) return [];
     for (final (dohIp, sniHost, pathPrefix) in _dohProviders) {
       try {
         final httpClient = _pinnedDohClient(dohIp, sniHost);
@@ -480,6 +482,14 @@ class CloudflareIpService {
     // Raw IPv4 loopback: 127.x.x.x
     final n = _ipToInt(host);
     return n != null && (n >> 24) == 127;
+  }
+
+  /// Returns true if [host] is a raw private/link-local IP (RFC-1918, etc.).
+  /// Prevents pointless DoH lookups for LAN addresses like 192.168.2.12.
+  static bool _isPrivateIpHost(String host) {
+    final n = _ipToInt(host);
+    if (n == null) return false; // not a raw IP → let DNS handle it
+    return !_isPublicIp(host);  // reuse existing RFC-1918 filter
   }
 
   /// Returns true if [host] is a syntactically valid DNS hostname.

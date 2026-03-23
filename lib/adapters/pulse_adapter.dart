@@ -585,7 +585,8 @@ class PulseMessageSender implements MessageSender {
 
   /// Get an authenticated WS connection, reusing if available.
   Future<WebSocketChannel?> _getConnection() async {
-    if (_ws != null && _authenticated) return _ws;
+    final ws = _ws;
+    if (ws != null && _authenticated) return ws;
 
     try {
       final channel = await _connectWs();

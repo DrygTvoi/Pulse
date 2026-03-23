@@ -148,7 +148,9 @@ class Nip65DiscoveryService {
       ]));
 
       await for (final raw in ws.stream
-          .timeout(Duration(seconds: timeoutSec), onTimeout: (_) {})) {
+          .timeout(Duration(seconds: timeoutSec), onTimeout: (sink) {
+        sink.close();
+      })) {
         try {
           final msg = jsonDecode(raw as String) as List;
           if (msg.isEmpty) continue;

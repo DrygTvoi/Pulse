@@ -208,7 +208,7 @@ class AdaptiveRelayService {
     } catch (_) {
       return false;
     } finally {
-      try { ws?.close(); } catch (_) {} // cleanup — intentionally silent
+      try { await ws?.close(); } catch (_) {} // cleanup — intentionally silent
     }
   }
 }
