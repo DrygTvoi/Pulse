@@ -41,6 +41,8 @@ class MessageBubble extends StatelessWidget {
   final VoidCallback? onRetry;
   /// Called when user taps the delivery-status row to see per-member detail.
   final VoidCallback? onGroupStatusTap;
+  /// Pre-built contact lookup index — avoids rebuilding per bubble.
+  final Map<String, Contact>? contactIndex;
 
   const MessageBubble({
     super.key,
@@ -61,6 +63,7 @@ class MessageBubble extends StatelessWidget {
     this.deliveredTo = const [],
     this.onRetry,
     this.onGroupStatusTap,
+    this.contactIndex,
   });
 
   static const _unencryptedPrefix = '⚠️ UNENCRYPTED: ';
@@ -186,7 +189,7 @@ class MessageBubble extends StatelessWidget {
   }
 
   Widget _buildDeliveredToRow(BuildContext context) {
-    final index = _buildContactIndex(context);
+    final index = contactIndex ?? _buildContactIndex(context);
     final names = deliveredTo.map((id) {
       final c = index[id];
       return c?.name ?? id.substring(0, id.length.clamp(0, 8));
@@ -199,7 +202,7 @@ class MessageBubble extends StatelessWidget {
   }
 
   Widget _buildReadByRow(BuildContext context) {
-    final index = _buildContactIndex(context);
+    final index = contactIndex ?? _buildContactIndex(context);
     final names = readBy.map((id) {
       final c = index[id];
       return c?.name ?? id.substring(0, id.length.clamp(0, 8));

@@ -97,6 +97,17 @@ class ChatController extends ChangeNotifier {
   bool _disposed = false; // guards notifyListeners in TTL callbacks
   String? _activeRoomId; // contact ID of the currently open chat screen
 
+  // Microtask-coalesced notifyListeners — collapses rapid-fire updates into one
+  bool _notifyScheduled = false;
+  void _scheduleNotify() {
+    if (_notifyScheduled || _disposed) return;
+    _notifyScheduled = true;
+    Future.microtask(() {
+      _notifyScheduled = false;
+      if (!_disposed) notifyListeners();
+    });
+  }
+
   /// Called by ChatScreen when it becomes the active/visible chat.
   void setActiveRoom(String? contactId) => _activeRoomId = contactId;
 
@@ -357,7 +368,7 @@ class ChatController extends ChangeNotifier {
             final prefs2 = await SharedPreferences.getInstance();
             await prefs2.setString('user_identity', jsonEncode(_identity!.toJson()));
             _connectionStatus = ConnectionStatus.disconnected;
-            notifyListeners();
+            _scheduleNotify();
             return;
           }
         }
@@ -376,7 +387,7 @@ class ChatController extends ChangeNotifier {
           } catch (e) {
             debugPrint('[ChatController] Invalid Nostr private key: $e');
             _connectionStatus = ConnectionStatus.disconnected;
-            notifyListeners();
+            _scheduleNotify();
             return;
           }
         } else {
@@ -429,7 +440,7 @@ class ChatController extends ChangeNotifier {
             } catch (e) {
               debugPrint('[ChatController] Invalid Pulse private key: $e');
               _connectionStatus = ConnectionStatus.disconnected;
-              notifyListeners();
+              _scheduleNotify();
               return;
             }
           } else {
@@ -445,7 +456,7 @@ class ChatController extends ChangeNotifier {
     await InboxManager().configureSelf(providerName, apiKey, dbId);
     _connectionStatus = ConnectionStatus.connected;
     sentryBreadcrumb('Adapter connected: $providerName', category: 'adapter');
-    notifyListeners();
+    _scheduleNotify();
 
     // Load delivery stats and start 24h halving timer.
     unawaited(_loadDeliveryStats());
@@ -541,7 +552,7 @@ class ChatController extends ChangeNotifier {
       onChanged: (isAvailable) {
         if (_lanModeActive == isAvailable) {
           _lanModeActive = !isAvailable;
-          notifyListeners();
+          _scheduleNotify();
         }
       },
       onNetworkChanged: () {
@@ -565,7 +576,7 @@ class ChatController extends ChangeNotifier {
       _handleP2PMessage(evt.contactId, evt.payload);
     }));
 
-    notifyListeners();
+    _scheduleNotify();
   }
 
   Future<List<Map<String, String>>> _loadSecondaryAdapters() async {
@@ -811,7 +822,7 @@ class ChatController extends ChangeNotifier {
       } else {
         unawaited(LocalStorageService().addReaction(e.storageKey, e.msgId, e.emoji, e.from));
       }
-      notifyListeners();
+      _scheduleNotify();
     }));
 
     _dispatcherSubs.add(d.edits.listen((e) {
@@ -825,7 +836,7 @@ class ChatController extends ChangeNotifier {
           final updated = room.messages[idx].copyWith(encryptedPayload: e.text, isEdited: true);
           room.messages[idx] = updated;
           unawaited(LocalStorageService().saveMessage(storageKey, updated.toJson()));
-          notifyListeners();
+          _scheduleNotify();
         }
       }
     }));
@@ -833,7 +844,7 @@ class ChatController extends ChangeNotifier {
     // Heartbeats — update broadcaster's last-seen
     _dispatcherSubs.add(d.heartbeats.listen((e) {
       _broadcaster.updateLastSeen(e.contact.id);
-      notifyListeners();
+      _scheduleNotify();
     }));
 
     _dispatcherSubs.add(d.keysEvents.listen((e) async {
@@ -881,7 +892,7 @@ class ChatController extends ChangeNotifier {
       await _contacts.updateContact(updated);
       _invalidateContactIndex();
       debugPrint('[ChatController] addr_update: ${addrContact.name} → $primary');
-      notifyListeners();
+      _scheduleNotify();
     }));
 
     _dispatcherSubs.add(d.profileUpdates.listen((e) async {
@@ -899,7 +910,7 @@ class ChatController extends ChangeNotifier {
       if (changed) {
         await _contacts.updateContact(updated);
         _invalidateContactIndex();
-        notifyListeners();
+        _scheduleNotify();
       }
     }));
 
@@ -937,7 +948,7 @@ class ChatController extends ChangeNotifier {
         unawaited(rotateGroupSenderKey(updated));
       }
       if (!_groupUpdatePublicCtrl.isClosed) _groupUpdatePublicCtrl.add(e);
-      notifyListeners();
+      _scheduleNotify();
     }));
 
     _dispatcherSubs.add(d.senderKeyDists.listen((e) async {
@@ -992,7 +1003,7 @@ class ChatController extends ChangeNotifier {
       room.messages[idx] = msg.copyWith(readBy: [...msg.readBy, readerId]);
       unawaited(LocalStorageService().saveMessage(
           groupContact.storageKey, room.messages[idx].toJson()));
-      notifyListeners();
+      _scheduleNotify();
     }
   }
 
@@ -1178,7 +1189,7 @@ class ChatController extends ChangeNotifier {
       }
     }
 
-    if (hasUpdates) notifyListeners();
+    if (hasUpdates) _scheduleNotify();
   }
 
   // ── Message sending ───────────────────────────────────────────────────────
@@ -1410,14 +1421,18 @@ class ChatController extends ChangeNotifier {
 
   // ── Smart Router helpers ──────────────────────────────────────────────────
 
+  static final _oxenAddrRegex = RegExp(r'^[0-9a-f]{66}$');
+  static final _nostrPubRegex = RegExp(r'^[0-9a-f]{64}$');
+  static final _pulseAddrRegex = RegExp(r'^[0-9a-f]{64}@https://', caseSensitive: false);
+
   static String _providerFromAddress(String address) {
     final lower = address.toLowerCase();
     if (lower.startsWith('05') && lower.length == 66 &&
-        RegExp(r'^[0-9a-f]{66}$').hasMatch(lower)) { return 'Oxen'; }
+        _oxenAddrRegex.hasMatch(lower)) { return 'Oxen'; }
     if (lower.contains('@wss://') || lower.contains('@ws://') ||
-        RegExp(r'^[0-9a-f]{64}$').hasMatch(lower)) { return 'Nostr'; }
+        _nostrPubRegex.hasMatch(lower)) { return 'Nostr'; }
     // Pulse: 64-char hex @ https:// (not wss://)
-    if (RegExp(r'^[0-9a-f]{64}@https://', caseSensitive: false).hasMatch(lower)) { return 'Pulse'; }
+    if (_pulseAddrRegex.hasMatch(lower)) { return 'Pulse'; }
     if (lower.contains('@https://')) { return 'Firebase'; }
     if (lower.contains('@http://')) { return 'Waku'; }
     return 'Nostr';
@@ -1577,12 +1592,12 @@ class ChatController extends ChangeNotifier {
         debugPrint('[LAN] Delivered via local network multicast');
         if (!_lanModeActive) {
           _lanModeActive = true;
-          notifyListeners();
+          _scheduleNotify();
         }
       }
     } else if (sent && _lanModeActive) {
       _lanModeActive = false;
-      notifyListeners();
+      _scheduleNotify();
     }
 
     return sent;
@@ -1641,7 +1656,7 @@ class ChatController extends ChangeNotifier {
         if (!ok) { allSent = false; break; }
         i++;
         _repo.setUploadProgress(msgId, i / totalChunks);
-        notifyListeners();
+        _scheduleNotify();
       }
       if (fileId != null) {
         _pendingSends[fileId] = (contact: contact, bytes: bytes, name: name);
@@ -1679,7 +1694,7 @@ class ChatController extends ChangeNotifier {
     _retryTimers[messageId]?.cancel();
     _retryTimers.remove(messageId);
     await _repo.deleteMessageFromRoom(contact, messageId);
-    notifyListeners();
+    _scheduleNotify();
   }
 
   Future<void> deleteMessage(Contact contact, Message message) async {
@@ -1707,7 +1722,7 @@ class ChatController extends ChangeNotifier {
       if (room.messages[idx].senderId != senderId) return;
       room.messages.removeAt(idx);
       unawaited(LocalStorageService().deleteMessage(room.contact.storageKey, msgId));
-      notifyListeners();
+      _scheduleNotify();
     } else {
       for (final room in _repo.rooms) {
         if (room.contact.isGroup) continue;
@@ -1717,7 +1732,7 @@ class ChatController extends ChangeNotifier {
         if (idx != -1) {
           room.messages.removeAt(idx);
           unawaited(LocalStorageService().deleteMessage(room.contact.storageKey, msgId));
-          notifyListeners();
+          _scheduleNotify();
           break;
         }
       }
@@ -1727,17 +1742,17 @@ class ChatController extends ChangeNotifier {
   Future<void> markRoomAsRead(Contact contact) async {
     final room = _repo.getRoomForContact(contact.id);
     if (room == null) return;
-    bool changed = false;
+    final updated = <Map<String, dynamic>>[];
     for (int i = 0; i < room.messages.length; i++) {
       final m = room.messages[i];
       if (!m.isRead) {
         room.messages[i] = m.copyWith(isRead: true);
-        unawaited(LocalStorageService().saveMessage(contact.storageKey, room.messages[i].toJson()));
-        changed = true;
+        updated.add(room.messages[i].toJson());
       }
     }
-    if (changed) {
-      notifyListeners();
+    if (updated.isNotEmpty) {
+      unawaited(LocalStorageService().saveMessagesBatch(contact.storageKey, updated));
+      _scheduleNotify();
       unawaited(_broadcaster.sendReadReceipt(contact));
     }
   }
@@ -1751,7 +1766,7 @@ class ChatController extends ChangeNotifier {
     if (room == null) return;
     room.messages.removeWhere((m) => m.id == message.id);
     await LocalStorageService().deleteMessage(contact.storageKey, message.id);
-    notifyListeners();
+    _scheduleNotify();
     await sendMessage(contact, message.encryptedPayload, noAutoRetry: true);
   }
 
@@ -1815,7 +1830,7 @@ class ChatController extends ChangeNotifier {
         }
       }
     }
-    if (changed) notifyListeners();
+    if (changed) _scheduleNotify();
   }
 
   void _handleDeliveryAck(String fromId, String msgId, {String? groupId}) {
@@ -1860,7 +1875,7 @@ class ChatController extends ChangeNotifier {
       }
       if (changed) break;
     }
-    if (changed) notifyListeners();
+    if (changed) _scheduleNotify();
   }
 
   // ── Disappearing messages ─────────────────────────────────────────────────
@@ -1887,9 +1902,9 @@ class ChatController extends ChangeNotifier {
         return false;
       });
       for (final m in List.of(room.messages)) {
-        _repo.scheduleTtlDelete(contact, m, seconds, onDeleted: () { if (!_disposed) notifyListeners(); });
+        _repo.scheduleTtlDelete(contact, m, seconds, onDeleted: () { if (!_disposed) _scheduleNotify(); });
       }
-      notifyListeners();
+      _scheduleNotify();
     }
   }
 
@@ -1962,7 +1977,7 @@ class ChatController extends ChangeNotifier {
     await _contacts.addContact(newGroup);
     _invalidateContactIndex();
     debugPrint('[Group] Joined group "${invite.groupName}" via invite');
-    notifyListeners();
+    _scheduleNotify();
   }
 
   Future<void> broadcastGroupUpdate(Contact group) =>
@@ -2027,7 +2042,7 @@ class ChatController extends ChangeNotifier {
       _failoverCtrl.add((from: oldAddr, to: newPrimary));
     }
     unawaited(broadcastAddressUpdate());
-    notifyListeners();
+    _scheduleNotify();
   }
 
   // ── Reactions ─────────────────────────────────────────────────────────────
@@ -2048,7 +2063,7 @@ class ChatController extends ChangeNotifier {
       unawaited(LocalStorageService().addReaction(storageKey, msgId, emoji, _selfId)
           .catchError((Object e) => debugPrint('[Chat] addReaction DB failed: $e')));
     }
-    notifyListeners();
+    _scheduleNotify();
 
     if (contact.isGroup) {
       for (final memberId in contact.members) {
@@ -2078,7 +2093,7 @@ class ChatController extends ChangeNotifier {
     final updated = room.messages[idx].copyWith(encryptedPayload: newText, isEdited: true);
     room.messages[idx] = updated;
     await LocalStorageService().saveMessage(storageKey, updated.toJson());
-    notifyListeners();
+    _scheduleNotify();
     if (contact.isGroup) {
       unawaited(_broadcaster.sendGroupEditSignal(
           contact, msgId, newText, _contacts.contacts));
@@ -2167,7 +2182,7 @@ class ChatController extends ChangeNotifier {
       scheduledAt: scheduledAt,
     );
     room.messages.add(placeholder);
-    notifyListeners();
+    _scheduleNotify();
 
     final prefs = await SharedPreferences.getInstance();
     final storageKey = 'scheduled_${contact.id}';
@@ -2231,7 +2246,7 @@ class ChatController extends ChangeNotifier {
     _retryTimers.remove(msgId);
     final room = _repo.getRoomForContact(contact.id);
     if (room != null) room.messages.removeWhere((m) => m.id == msgId);
-    notifyListeners();
+    _scheduleNotify();
     final prefs = await SharedPreferences.getInstance();
     final storageKey = 'scheduled_${contact.id}';
     List list;

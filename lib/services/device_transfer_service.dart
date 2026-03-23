@@ -8,8 +8,9 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
-// Use shared crypto — no duplicated NIP-04 / secp256k1 code.
-import '../adapters/nostr_adapter.dart' show nip04Encrypt, nip04Decrypt, computeEcdhSecret;
+// Use shared crypto — NIP-44 for encryption, secp256k1 for ECDH.
+import '../adapters/nostr_adapter.dart' show computeEcdhSecret;
+import '../services/nip44_service.dart' show nip44Encrypt, nip44Decrypt;
 import '../services/nostr_event_builder.dart' as neb;
 
 /// 6-char hex verification code derived from ECDH shared secret.
@@ -32,6 +33,18 @@ class DeviceTransferService {
 
   final Completer<void> _exchangeCompleter = Completer();
   Future<void> get exchangeComplete => _exchangeCompleter.future;
+
+  /// Completer gated on user confirming verification code match (sender side).
+  Completer<void>? _bundleConfirmed;
+
+  /// Call after user confirms the verification code matches on the sender side.
+  /// This unblocks the /confirm-and-get-bundle endpoint so the receiver can
+  /// fetch the encrypted key bundle.
+  void confirmTransfer() {
+    if (_bundleConfirmed != null && !_bundleConfirmed!.isCompleted) {
+      _bundleConfirmed!.complete();
+    }
+  }
 
   HttpServer? _server;
   WebSocketChannel? _ws;
@@ -109,23 +122,28 @@ class DeviceTransferService {
   }
 
   Future<void> _serveLanExchange() async {
+    _bundleConfirmed = Completer<void>();
     try {
       await for (final req in _server!) {
         if (_disposed) break;
+
+        // Phase 1: Exchange pubkeys + verification code (no bundle yet).
         if (req.method == 'POST' && req.uri.path == '/exchange') {
           try {
             final body = await utf8.decoder.bind(req).join();
             final json = jsonDecode(body) as Map<String, dynamic>;
             _peerPubHex = json['pubkey'] as String;
             verificationCode = _verificationCode(_myPrivHex, _peerPubHex);
-            final bundle = await _collectBundle();
-            final encrypted = nip04Encrypt(_myPrivHex, _peerPubHex, jsonEncode(bundle));
-            final response = jsonEncode({'ciphertext': encrypted});
+            final response = jsonEncode({
+              'pubkey': _myPubHex,
+              'verification': verificationCode,
+            });
             req.response
               ..statusCode = 200
               ..headers.contentType = ContentType.json
               ..write(response);
             await req.response.close();
+            // Signal that the exchange phase completed (UI shows code).
             if (!_exchangeCompleter.isCompleted) _exchangeCompleter.complete();
           } catch (e) {
             req.response.statusCode = 400;
@@ -134,7 +152,33 @@ class DeviceTransferService {
               _exchangeCompleter.completeError(e);
             }
           }
-          break;
+
+        // Phase 2: Receiver requests bundle after both users confirm the code.
+        } else if (req.method == 'POST' && req.uri.path == '/confirm-and-get-bundle') {
+          try {
+            if (_peerPubHex.isEmpty) {
+              req.response.statusCode = 409; // Conflict — exchange not done
+              await req.response.close();
+              continue;
+            }
+            // Wait for sender-side confirmation (2-minute timeout).
+            await _bundleConfirmed!.future.timeout(const Duration(minutes: 2));
+            final bundle = await _collectBundle();
+            final sharedX = computeEcdhSecret(
+              _myPrivHex, _peerPubHex, context: 'device_transfer');
+            final encrypted = await nip44Encrypt(sharedX, jsonEncode(bundle));
+            final response = jsonEncode({'ciphertext': encrypted});
+            req.response
+              ..statusCode = 200
+              ..headers.contentType = ContentType.json
+              ..write(response);
+            await req.response.close();
+          } catch (e) {
+            req.response.statusCode = 408; // Timeout or error
+            await req.response.close();
+          }
+          break; // Transfer complete or failed — stop serving.
+
         } else {
           req.response.statusCode = 404;
           await req.response.close();
@@ -153,6 +197,12 @@ class DeviceTransferService {
   // ─── LAN — Target ──────────────────────────────────────────────────────────
 
   /// Connect to LAN sender. Code format: "LAN:ip:port:srcPubHex"
+  ///
+  /// Phase 1: POST /exchange — sends our pubkey, receives sender's pubkey +
+  /// verification code. The caller must show the code to the user.
+  ///
+  /// Phase 2: After the user confirms the code, call [confirmAndReceiveBundle]
+  /// to POST /confirm-and-get-bundle and import the encrypted key bundle.
   Future<void> receiveLanTransfer(String code) async {
     final parts = code.split(':');
     // parts[0]=LAN, parts[1]=ip, parts[2]=port, parts[3]=srcPub (64 hex chars)
@@ -160,10 +210,10 @@ class DeviceTransferService {
     final ip = parts[1];
     final port = int.tryParse(parts[2]);
     if (port == null) throw FormatException('Invalid port in LAN transfer code');
-    final srcPubHex = parts[3];
 
     _genKeypair();
 
+    // Phase 1: exchange pubkeys, get verification code.
     final client = HttpClient();
     try {
       final request = await client.post(ip, port, '/exchange');
@@ -172,11 +222,41 @@ class DeviceTransferService {
       final response = await request.close();
       final body = await utf8.decoder.bind(response).join();
       final json = jsonDecode(body) as Map<String, dynamic>;
+      verificationCode = json['verification'] as String;
+      _peerPubHex = json['pubkey'] as String;
+    } finally {
+      client.close();
+    }
+    // At this point the UI should display verificationCode and wait for user
+    // to tap Confirm, then call confirmAndReceiveBundle(code).
+  }
+
+  /// Phase 2 (receiver side): request the encrypted bundle from the sender
+  /// after the user has confirmed the verification code.
+  Future<void> confirmAndReceiveBundle(String code) async {
+    final parts = code.split(':');
+    if (parts.length < 4) throw FormatException('Invalid LAN transfer code');
+    final ip = parts[1];
+    final port = int.tryParse(parts[2]);
+    if (port == null) throw FormatException('Invalid port in LAN transfer code');
+
+    final client = HttpClient();
+    try {
+      final request = await client.post(ip, port, '/confirm-and-get-bundle');
+      request.headers.contentType = ContentType.json;
+      request.write(jsonEncode({'pubkey': _myPubHex}));
+      final response = await request.close();
+      if (response.statusCode != 200) {
+        throw Exception(
+            'Bundle request failed with status ${response.statusCode}');
+      }
+      final body = await utf8.decoder.bind(response).join();
+      final json = jsonDecode(body) as Map<String, dynamic>;
       final ciphertext = json['ciphertext'] as String;
-      final plain = nip04Decrypt(_myPrivHex, srcPubHex, ciphertext);
+      final sharedX = computeEcdhSecret(
+          _myPrivHex, _peerPubHex, context: 'device_transfer');
+      final plain = await nip44Decrypt(sharedX, ciphertext);
       await _importBundle(jsonDecode(plain) as Map<String, dynamic>);
-      verificationCode = _verificationCode(_myPrivHex, srcPubHex);
-      _peerPubHex = srcPubHex;
     } finally {
       client.close();
     }
@@ -184,10 +264,10 @@ class DeviceTransferService {
 
   // ─── Nostr — Source ────────────────────────────────────────────────────────
 
-  /// Start Nostr transfer as sender. Returns code: "NOS:relay:pubkey"
+  /// Start Nostr transfer as sender. Returns code: "NOS:relay_url|pubkey"
   Future<String> startNostrTransfer(String relay) async {
     _genKeypair();
-    final code = 'NOS:$relay:$_myPubHex';
+    final code = 'NOS:$relay|$_myPubHex';
     unawaited(_serveNostrExchange(relay));
     // 5-minute timeout
     Timer(const Duration(minutes: 5), () {
@@ -227,9 +307,11 @@ class DeviceTransferService {
           if (kbPubHex.length != 64) continue; // sanity check
           _peerPubHex = kbPubHex;
           verificationCode = _verificationCode(_myPrivHex, _peerPubHex);
-          // Encrypt and send bundle back
+          // Encrypt and send bundle back (NIP-44)
           final bundle = await _collectBundle();
-          final encrypted = nip04Encrypt(_myPrivHex, _peerPubHex, jsonEncode(bundle));
+          final sharedX = computeEcdhSecret(
+            _myPrivHex, _peerPubHex, context: 'device_transfer');
+          final encrypted = await nip44Encrypt(sharedX, jsonEncode(bundle));
           final replyEvent = await neb.buildEvent(
             privkeyHex: _myPrivHex,
             kind: 4,
@@ -255,13 +337,14 @@ class DeviceTransferService {
 
   // ─── Nostr — Target ────────────────────────────────────────────────────────
 
-  /// Connect to Nostr sender. Code format: "NOS:relay:srcPubHex"
+  /// Connect to Nostr sender. Code format: "NOS:relay_url|srcPubHex"
   Future<void> receiveNostrTransfer(String code) async {
-    // Code: "NOS:wss://relay.damus.io:deadbeef..."
-    // srcPub is always the last 64 chars; relay is everything between "NOS:" and ":$srcPub"
     final withoutPrefix = code.substring(4); // strip "NOS:"
-    final srcPubHex = withoutPrefix.substring(withoutPrefix.length - 64);
-    final relay = withoutPrefix.substring(0, withoutPrefix.length - 65); // strip ":$srcPub"
+    final pipeIdx = withoutPrefix.lastIndexOf('|');
+    if (pipeIdx < 0) throw FormatException('Invalid Nostr transfer code — missing | delimiter');
+    final relay = withoutPrefix.substring(0, pipeIdx);
+    final srcPubHex = withoutPrefix.substring(pipeIdx + 1);
+    if (srcPubHex.length != 64) throw FormatException('Invalid pubkey in Nostr transfer code');
 
     _genKeypair();
 
@@ -302,7 +385,9 @@ class DeviceTransferService {
           if (event['kind'] != 4) continue;
           final senderPub = event['pubkey'] as String;
           if (senderPub != srcPubHex) continue;
-          final plain = nip04Decrypt(_myPrivHex, srcPubHex, event['content'] as String);
+          final sharedX = computeEcdhSecret(
+              _myPrivHex, srcPubHex, context: 'device_transfer');
+          final plain = await nip44Decrypt(sharedX, event['content'] as String);
           await _importBundle(jsonDecode(plain) as Map<String, dynamic>);
           verificationCode = _verificationCode(_myPrivHex, srcPubHex);
           _peerPubHex = srcPubHex;
@@ -322,5 +407,10 @@ class DeviceTransferService {
     _disposed = true;
     await _server?.close(force: true);
     _ws?.sink.close();
+    // Zeroize ephemeral key material so it doesn't linger in memory.
+    _myPrivHex = '';
+    _myPubHex = '';
+    _peerPubHex = '';
+    verificationCode = '';
   }
 }
