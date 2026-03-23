@@ -60,7 +60,7 @@ class LocalStorageService {
     _db = await databaseFactory.openDatabase(
       path,
       options: OpenDatabaseOptions(
-        version: 7,
+        version: 8,
         onConfigure: (db) async {
           await db.rawQuery("PRAGMA KEY=\"x'$dbKey'\"");
           await db.execute('PRAGMA journal_mode=WAL');
@@ -93,6 +93,7 @@ class LocalStorageService {
           await _createAvatarsTable(db);
           await _createDraftsTable(db);
           await _createFtsTable(db);
+          await _createNonceCacheTable(db);
         },
         onUpgrade: (db, oldVersion, newVersion) async {
           if (oldVersion < 2) {
@@ -119,6 +120,9 @@ class LocalStorageService {
           }
           if (oldVersion < 7) {
             await _createFtsTable(db);
+          }
+          if (oldVersion < 8) {
+            await _createNonceCacheTable(db, ifNotExists: true);
           }
         },
       ),
@@ -1699,6 +1703,92 @@ class LocalStorageService {
     } catch (e, st) {
       debugPrint('[Backup] Import failed: $e\n$st');
       return (imported: -1, failed: 0);
+    }
+  }
+
+  // ── NIP-44 nonce cache ────────────────────────────────────────────────────
+  //
+  // Persists seen NIP-44 nonces so replay detection survives app restarts.
+  // TTL: 2 days — sufficient to cover offline/delayed message delivery while
+  // keeping the table small (~few thousand rows for typical usage).
+
+  /// Create the nonce_cache table (and its index) inside [db].
+  static Future<void> _createNonceCacheTable(Database db,
+      {bool ifNotExists = false}) async {
+    final q = ifNotExists ? 'IF NOT EXISTS ' : '';
+    await db.execute('''
+      CREATE TABLE ${q}nonce_cache (
+        conv_key TEXT NOT NULL,
+        nonce    TEXT NOT NULL,
+        seen_at  INTEGER NOT NULL,
+        PRIMARY KEY (conv_key, nonce)
+      )
+    ''');
+    await db.execute(
+      'CREATE INDEX ${q}idx_nonce_cache_seen_at ON nonce_cache(seen_at)',
+    );
+  }
+
+  /// Persist a newly seen NIP-44 nonce. Safe to call fire-and-forget.
+  /// Errors are logged and swallowed — replay protection is still provided
+  /// by the in-memory cache for the current session.
+  Future<void> saveNonce(String convKey, String nonceHex) async {
+    final db = _db;
+    if (db == null) return;
+    try {
+      await db.rawInsert(
+        'INSERT OR IGNORE INTO nonce_cache(conv_key, nonce, seen_at) VALUES(?,?,?)',
+        [convKey, nonceHex, DateTime.now().millisecondsSinceEpoch],
+      );
+    } catch (e) {
+      debugPrint('[LocalStorage] saveNonce error: $e');
+    }
+  }
+
+  /// Load nonces seen within [maxAgeDays] days.
+  /// Called on startup to pre-populate the in-memory replay-detection cache.
+  Future<List<(String, String)>> loadRecentNonces({int maxAgeDays = 2}) async {
+    final db = _db;
+    if (db == null) return [];
+    try {
+      final cutoff = DateTime.now()
+          .subtract(Duration(days: maxAgeDays))
+          .millisecondsSinceEpoch;
+      final rows = await db.rawQuery(
+        'SELECT conv_key, nonce FROM nonce_cache WHERE seen_at >= ?',
+        [cutoff],
+      );
+      return rows
+          .map((r) => (r['conv_key'] as String, r['nonce'] as String))
+          .toList();
+    } catch (e) {
+      debugPrint('[LocalStorage] loadRecentNonces error: $e');
+      return [];
+    }
+  }
+
+  /// Delete nonces older than [maxAgeDays] days.
+  /// Pass maxAgeDays = 0 to delete all nonces (e.g. after security reset).
+  Future<void> purgeOldNonces({int maxAgeDays = 2}) async {
+    final db = _db;
+    if (db == null) return;
+    try {
+      final int deleted;
+      if (maxAgeDays <= 0) {
+        deleted = await db.delete('nonce_cache');
+      } else {
+        final cutoff = DateTime.now()
+            .subtract(Duration(days: maxAgeDays))
+            .millisecondsSinceEpoch;
+        deleted = await db.delete(
+          'nonce_cache',
+          where: 'seen_at < ?',
+          whereArgs: [cutoff],
+        );
+      }
+      if (deleted > 0) debugPrint('[LocalStorage] Purged $deleted old nonces');
+    } catch (e) {
+      debugPrint('[LocalStorage] purgeOldNonces error: $e');
     }
   }
 }
