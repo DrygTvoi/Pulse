@@ -20,6 +20,9 @@ const int _maxNoncesPerKey = 10000;
 /// Key: conversation key hex string. Value: insertion-ordered set of nonce hex strings.
 final Map<String, LinkedHashSet<String>> _seenNonces = {};
 
+/// Total nonce count across all conversation keys. Bounded to prevent unbounded growth.
+int _totalNonceCount = 0;
+
 /// Check for duplicate nonce and record it. Throws on replay.
 void _checkAndRecordNonce(Uint8List convKey, Uint8List nonce) {
   final keyHex = hex.encode(convKey);
@@ -33,13 +36,23 @@ void _checkAndRecordNonce(Uint8List convKey, Uint8List nonce) {
   // Evict oldest entries if at capacity
   while (set.length >= _maxNoncesPerKey) {
     set.remove(set.first);
+    _totalNonceCount--;
   }
   set.add(nonceHex);
+  _totalNonceCount++;
+
+  // Bound total nonces across all keys to prevent unbounded memory growth
+  if (_totalNonceCount > 50000) {
+    final oldestKey = _seenNonces.keys.first;
+    _totalNonceCount -= _seenNonces[oldestKey]!.length;
+    _seenNonces.remove(oldestKey);
+  }
 }
 
 /// Clear the nonce replay cache (useful for testing or memory pressure).
 void clearNonceCache() {
   _seenNonces.clear();
+  _totalNonceCount = 0;
 }
 
 /// HKDF-extract (RFC 5869): PRK = HMAC-Hash(salt, IKM).

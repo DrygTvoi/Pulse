@@ -319,7 +319,9 @@ String deriveNostrPubkeyHex(String privkeyHex) => _derivePubkeyHex(privkeyHex);
 Uint8List computeEcdhSecret(String ourPrivkeyHex, String theirPubkeyHex,
     {String context = 'default'}) {
   // Issue 2: return cached secret if available and not expired (TTL check).
-  final cacheKey = '$context:$ourPrivkeyHex:$theirPubkeyHex';
+  // Use derived pubkey (not privkey) in cache key to avoid leaking key material in memory.
+  final ourPubHex = _derivePubkeyHex(ourPrivkeyHex);
+  final cacheKey = '$context:$ourPubHex:$theirPubkeyHex';
   final cached = _ecdhCache[cacheKey];
   if (cached != null) {
     if (DateTime.now().difference(cached.cachedAt) < _ecdhCacheTtl) {
@@ -335,6 +337,10 @@ Uint8List computeEcdhSecret(String ourPrivkeyHex, String theirPubkeyHex,
   // Issue 1: use module-level _secp256k1P instead of re-parsing.
   final y2 = (x.modPow(BigInt.from(3), _secp256k1P) + BigInt.from(7)) % _secp256k1P;
   final y = y2.modPow((_secp256k1P + BigInt.one) ~/ BigInt.from(4), _secp256k1P);
+  // Validate point is on curve: y^2 mod p must equal y2
+  if ((y * y) % _secp256k1P != y2) {
+    throw ArgumentError('ECDH: peer public key is not on secp256k1');
+  }
   final useY = y.isEven ? y : _secp256k1P - y;
   final sharedPoint = curve.createPoint(x, useY) * d;
   final xVal = sharedPoint?.x?.toBigInteger();
@@ -906,7 +912,12 @@ class NostrInboxReader implements InboxReader {
       }
 
       if (isNip44) {
-        plain = await nip44.nip44DecryptWithKeys(_privateKeyHex, senderPubkey, content);
+        try {
+          plain = await nip44.nip44DecryptWithKeys(_privateKeyHex, senderPubkey, content);
+        } catch (_) {
+          // NIP-44 failed — might be NIP-04 with coincidental first byte 0x02
+          plain = _nip04Decrypt(_privateKeyHex, senderPubkey, content);
+        }
       } else {
         plain = _nip04Decrypt(_privateKeyHex, senderPubkey, content);
       }

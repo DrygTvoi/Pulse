@@ -59,6 +59,9 @@ class KeyDerivationService {
 
   /// 32-byte Ed25519 seed derived from [password] for Pulse server auth.
   static Future<Uint8List> derivePulseKey(String password) async {
+    if (password.length < 16) {
+      throw ArgumentError('Password must be at least 16 characters');
+    }
     final sk = await _argon2.deriveKey(
       secretKey: SecretKey(utf8.encode(password)),
       nonce: _kPulseSalt,

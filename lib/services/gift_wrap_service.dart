@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:math';
+import 'package:flutter/foundation.dart';
 import '../adapters/nostr_adapter.dart' show computeEcdhSecret;
 import 'nip44_service.dart' as nip44;
 import 'nostr_event_builder.dart' as eb;
@@ -100,6 +101,12 @@ Future<Map<String, dynamic>?> unwrapEvent({
     final wrapSharedX = computeEcdhSecret(recipientPrivkey, ephemeralPubkey, context: 'giftwrap');
     final sealJson = await nip44.nip44Decrypt(wrapSharedX, wrapContent);
     final sealEvent = jsonDecode(sealJson) as Map<String, dynamic>;
+
+    // Verify seal event signature before trusting its contents
+    if (!eb.verifyEventSignature(sealEvent)) {
+      debugPrint('[GiftWrap] Seal signature invalid — dropping');
+      return null;
+    }
 
     final sealKind = sealEvent['kind'] as int?;
     if (sealKind != 13) return null;

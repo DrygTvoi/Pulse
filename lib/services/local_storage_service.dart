@@ -63,7 +63,9 @@ class LocalStorageService {
         version: 7,
         onConfigure: (db) async {
           await db.rawQuery("PRAGMA KEY=\"x'$dbKey'\"");
-          debugPrint('[LocalStorage] SQLCipher: full-DB encryption active');
+          await db.execute('PRAGMA journal_mode=WAL');
+          await db.execute('PRAGMA synchronous=NORMAL');
+          debugPrint('[LocalStorage] SQLCipher: full-DB encryption active (WAL mode)');
         },
         onCreate: (db, _) async {
           await db.execute('''
@@ -526,6 +528,8 @@ class LocalStorageService {
   /// directly (SQLCipher provides file-level encryption). Also populates the
   /// FTS5 index for migrated rows.
   Future<void> _migrateToPlaintext() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (prefs.getBool('fts_migration_done') == true) return;
     final db = _db!;
     final rows = await db.query('messages', columns: ['msg_id', 'room_id', 'data']);
     int migrated = 0;
@@ -586,6 +590,7 @@ class LocalStorageService {
         debugPrint('[LocalStorage] FTS population failed: $e');
       }
     }
+    await prefs.setBool('fts_migration_done', true);
   }
 
   /// Extract searchable text content from a message JSON string.

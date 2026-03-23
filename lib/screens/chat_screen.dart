@@ -78,6 +78,9 @@ class _ChatScreenState extends State<ChatScreen> {
   // Delete animation
   final _pendingDelete = <String>{};
 
+  // Pre-built contact index for MessageBubble (avoids O(N) per-bubble rebuild)
+  Map<String, Contact>? _contactIndex;
+
   // Track messages that have already been rendered (skip entrance animation for them)
   final _seenMessageIds = <String>{};
 
@@ -605,6 +608,9 @@ class _ChatScreenState extends State<ChatScreen> {
     final room = chatController.getRoomForContact(_contact.id);
     final messages = room?.messages ?? [];
 
+    // Build contact index once per build (shared by all MessageBubbles).
+    _contactIndex = {for (final c in context.read<IContactRepository>().contacts) c.id: c};
+
     // Auto-scroll and mark as read when new messages arrive
     if (msgCount != _lastMessageCount) {
       final delta = msgCount - _lastMessageCount;
@@ -805,6 +811,7 @@ class _ChatScreenState extends State<ChatScreen> {
                                 showTail: entry.isLast,
                                 senderName: senderName,
                                 isEdited: msg.isEdited,
+                                contactIndex: _contactIndex,
                                 reactions: chatController.getReactions(_contact.storageKey, msg.id),
                                 onReact: (e) { HapticFeedback.selectionClick(); chatController.toggleReaction(_contact, msg.id, e); },
                                 onReactLongPress: (e) {

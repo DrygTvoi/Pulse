@@ -38,6 +38,12 @@ class ChunkAssembler {
         return null;
       }
 
+      // Reject out-of-bounds chunk index
+      if (idx < 0 || idx >= total) {
+        debugPrint('[ChunkAssembler] Rejected: idx=$idx out of range for total=$total');
+        return null;
+      }
+
       // Reject if too many pending files (evict oldest if at limit)
       if (!_pendingChunks.containsKey(fid) && _pendingChunks.length >= maxPendingFiles) {
         _evictOldest();
