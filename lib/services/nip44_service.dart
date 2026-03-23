@@ -16,6 +16,15 @@ const int _version = 2;
 const int _minPadSize = 32;
 const int _maxNoncesPerKey = 10000;
 
+/// Global ceiling on total tracked nonces (across all conversation keys).
+/// At 80 bytes per nonce-hex entry this caps nonce-cache RAM at ~16 MB.
+const int _totalNoncesHardLimit = 200000;
+
+/// When the hard limit is hit, the oldest conversation key is trimmed to this
+/// many entries rather than deleted entirely — keeping replay protection for
+/// the most-recent messages in that conversation.
+const int _minNoncesAfterTrim = 50;
+
 /// Tracks seen nonces per conversation-key to detect replay attacks.
 /// Key: conversation key hex string. Value: insertion-ordered set of nonce hex strings.
 final Map<String, LinkedHashSet<String>> _seenNonces = {};
@@ -41,11 +50,19 @@ void _checkAndRecordNonce(Uint8List convKey, Uint8List nonce) {
   set.add(nonceHex);
   _totalNonceCount++;
 
-  // Bound total nonces across all keys to prevent unbounded memory growth
-  if (_totalNonceCount > 50000) {
+  // Global safety valve: trim the oldest conversation key rather than deleting
+  // it entirely. Deleting would allow replay of any previously-seen nonce in
+  // that conversation; trimming to _minNoncesAfterTrim keeps protection for
+  // recent messages while still bounding memory.
+  if (_totalNonceCount > _totalNoncesHardLimit) {
     final oldestKey = _seenNonces.keys.first;
-    _totalNonceCount -= _seenNonces[oldestKey]!.length;
-    _seenNonces.remove(oldestKey);
+    final oldestSet = _seenNonces[oldestKey]!;
+    while (oldestSet.length > _minNoncesAfterTrim &&
+        _totalNonceCount > _totalNoncesHardLimit) {
+      oldestSet.remove(oldestSet.first);
+      _totalNonceCount--;
+    }
+    if (oldestSet.isEmpty) _seenNonces.remove(oldestKey);
   }
 }
 

@@ -64,9 +64,12 @@ Future<Map<String, dynamic>> wrapEvent({
   final wrapSharedX = await computeEcdhSecretAsync(ephemeralPrivkey, recipientPubkey, context: 'giftwrap');
   final wrapContent = await nip44.nip44Encrypt(wrapSharedX, sealJson);
 
-  // Randomize timestamp ±48 hours for metadata privacy
+  // Randomize timestamp ±2 hours for metadata privacy.
+  // NIP-59 recommends ±48 h, but most relays reject events older than ~2 h or
+  // more than ~1 h in the future, so ±2 h is the practical maximum that still
+  // ensures reliable delivery.
   final rng = Random.secure();
-  final jitter = rng.nextInt(345600) - 172800; // ±48 hours in seconds
+  final jitter = rng.nextInt(14400) - 7200; // ±2 hours in seconds
   final ts = DateTime.now().millisecondsSinceEpoch ~/ 1000 + jitter;
 
   final wrapEvent = await eb.buildEvent(

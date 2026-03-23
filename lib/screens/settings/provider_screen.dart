@@ -203,6 +203,7 @@ class _ProviderScreenState extends State<ProviderScreen> {
     } else if (_selectedProvider == 'Nostr') {
       await _secureStorage.write(
           key: 'nostr_privkey', value: _nostrKeyCtrl.text.trim());
+      ChatController().invalidateNostrPrivkeyCache();
       await prefs.setString('nostr_relay', _nostrRelayCtrl.text.trim());
       finalApiKey = jsonEncode({'relay': _nostrRelayCtrl.text.trim()});
       finalDbId = _nostrRelayCtrl.text.trim();

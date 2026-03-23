@@ -1181,6 +1181,7 @@ class NostrMessageSender implements MessageSender {
   final Map<String, ({WebSocketChannel ch, DateTime ts})> _wsPool = {};
   static const _wsPoolTtl = Duration(minutes: 5);
   final Map<String, StreamSubscription> _wsPoolSubs = {};
+  Timer? _wsPoolCleanupTimer;
 
   // initializeSender dedup: skip re-reading prefs when apiKey unchanged within TTL.
   String _lastInitApiKey = '';
@@ -1212,6 +1213,23 @@ class NostrMessageSender implements MessageSender {
 
   @override
   Future<void> initializeSender(String apiKey) async {
+    // Start the pool cleanup timer once — runs even on dedup skips so that
+    // idle relay connections are proactively closed every 5 minutes.
+    _wsPoolCleanupTimer ??= Timer.periodic(const Duration(minutes: 5), (_) {
+      final staleKeys = <String>[];
+      final now = DateTime.now();
+      for (final entry in _wsPool.entries) {
+        if (now.difference(entry.value.ts) >= _wsPoolTtl) {
+          staleKeys.add(entry.key);
+        }
+      }
+      for (final key in staleKeys) {
+        final entry = _wsPool.remove(key);
+        _wsPoolSubs.remove(key)?.cancel();
+        try { entry?.ch.sink.close(); } catch (_) {}
+      }
+    });
+
     // Skip re-reading prefs when apiKey is unchanged within TTL (avoids 11+
     // SharedPreferences lookups per message on high-frequency sends).
     final nowMs = DateTime.now().millisecondsSinceEpoch;
@@ -1457,6 +1475,8 @@ class NostrMessageSender implements MessageSender {
 
   /// Clear private key from memory and close pooled connections.
   void zeroize() {
+    _wsPoolCleanupTimer?.cancel();
+    _wsPoolCleanupTimer = null;
     _privateKeyHex = '';
     for (final entry in _wsPool.values) {
       try { entry.ch.sink.close(); } catch (_) {}
