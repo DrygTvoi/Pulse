@@ -29,7 +29,10 @@ class RateLimiter {
     final tokensToAdd = elapsed.inMilliseconds ~/ refillInterval.inMilliseconds;
     if (tokensToAdd > 0) {
       bucket.tokens = (bucket.tokens + tokensToAdd).clamp(0, maxTokens);
-      bucket.lastRefill = now;
+      // Advance lastRefill by exactly tokensToAdd intervals so fractional
+      // elapsed time carries over to the next refill cycle rather than
+      // being lost (which would make the limiter slightly stricter than intended).
+      bucket.lastRefill = bucket.lastRefill.add(refillInterval * tokensToAdd);
     }
     if (_buckets.length > maxBuckets) {
       _evictOldest();

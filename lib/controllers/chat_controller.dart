@@ -636,6 +636,13 @@ class ChatController extends ChangeNotifier {
     return _cachedNostrPrivkey!;
   }
 
+  /// Invalidate the cached Nostr private key so the next send re-reads from
+  /// secure storage. Call this whenever the Nostr key is changed in Settings
+  /// without a full reconnect, to prevent stale-key delivery.
+  void invalidateNostrPrivkeyCache() {
+    _cachedNostrPrivkey = null;
+  }
+
   Future<({MessageSender sender, String apiKey})?> _buildSenderFor(Contact contact) async {
     switch (contact.provider) {
       case 'Firebase':
