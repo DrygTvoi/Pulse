@@ -16,6 +16,9 @@ const _privB =
 String _pub(String priv) => derivePubkeyHex(priv);
 
 void main() {
+  // Clear replay nonce cache between tests to prevent cross-test interference
+  setUp(() => clearNonceCache());
+
   group('NIP-44 padding', () {
     test('pads short text to minimum 32 bytes', () {
       final padded = nip44Pad('hi');

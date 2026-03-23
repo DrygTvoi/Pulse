@@ -8,9 +8,9 @@ import 'nostr_event_builder.dart' as eb;
 ///
 /// Wrap flow:
 ///   1. Inner event = real kind event, signed by sender
-///   2. Seal (kind:13) = NIP-44-encrypt(innerJSON, sender→recipient), signed by sender
+///   2. Seal (kind:13) = NIP-44-encrypt(innerJSON, ephemeralSeal→recipient), signed by ephemeral seal key
 ///   3. Gift Wrap (kind:1059) = NIP-44-encrypt(sealJSON, ephemeral→recipient),
-///      signed by ephemeral key, randomized timestamp ±2 hours
+///      signed by ephemeral key, randomized timestamp ±48 hours
 ///
 /// Unwrap flow:
 ///   1. Decrypt kind:1059 content with our privkey + event.pubkey (ephemeral)
@@ -20,7 +20,7 @@ import 'nostr_event_builder.dart' as eb;
 
 /// Wrap an inner event in a Gift Wrap envelope.
 ///
-/// [senderPrivkey]: hex sender private key (signs inner + seal)
+/// [senderPrivkey]: hex sender private key (signs inner event only)
 /// [recipientPubkey]: hex recipient public key
 /// [innerKind]: the real event kind (4, 20000, etc.)
 /// [innerContent]: the real event content
@@ -40,12 +40,18 @@ Future<Map<String, dynamic>> wrapEvent({
     tags: innerTags,
   );
 
-  // 2. Seal (kind:13): NIP-44 encrypt inner event JSON, signed by sender
+  // 2. Seal (kind:13): NIP-44 encrypt inner event JSON with ephemeral key.
+  //    Using an ephemeral key for the seal means that even if the sender's
+  //    long-term identity key is later compromised, past seals cannot be
+  //    decrypted (forward secrecy for the seal layer). The ephemeral pubkey
+  //    is placed in the seal event's `pubkey` field so the recipient can
+  //    derive the shared secret. The real sender pubkey is in the inner event.
   final innerJson = jsonEncode(innerEvent);
-  final sealSharedX = computeEcdhSecret(senderPrivkey, recipientPubkey);
+  final ephemeralSealPrivkey = eb.generateRandomPrivkey();
+  final sealSharedX = computeEcdhSecret(ephemeralSealPrivkey, recipientPubkey, context: 'giftwrap');
   final sealContent = await nip44.nip44Encrypt(sealSharedX, innerJson);
   final sealEvent = await eb.buildEvent(
-    privkeyHex: senderPrivkey,
+    privkeyHex: ephemeralSealPrivkey,
     kind: 13,
     content: sealContent,
     tags: [],
@@ -54,12 +60,12 @@ Future<Map<String, dynamic>> wrapEvent({
   // 3. Gift Wrap (kind:1059): NIP-44 encrypt seal JSON with ephemeral key
   final ephemeralPrivkey = eb.generateRandomPrivkey();
   final sealJson = jsonEncode(sealEvent);
-  final wrapSharedX = computeEcdhSecret(ephemeralPrivkey, recipientPubkey);
+  final wrapSharedX = computeEcdhSecret(ephemeralPrivkey, recipientPubkey, context: 'giftwrap');
   final wrapContent = await nip44.nip44Encrypt(wrapSharedX, sealJson);
 
-  // Randomize timestamp ±2 hours for metadata privacy
+  // Randomize timestamp ±48 hours for metadata privacy
   final rng = Random.secure();
-  final jitter = rng.nextInt(14400) - 7200; // ±2 hours in seconds
+  final jitter = rng.nextInt(345600) - 172800; // ±48 hours in seconds
   final ts = DateTime.now().millisecondsSinceEpoch ~/ 1000 + jitter;
 
   final wrapEvent = await eb.buildEvent(
@@ -91,7 +97,7 @@ Future<Map<String, dynamic>?> unwrapEvent({
     if (ephemeralPubkey.isEmpty || wrapContent.isEmpty) return null;
 
     // 1. Decrypt Gift Wrap → Seal
-    final wrapSharedX = computeEcdhSecret(recipientPrivkey, ephemeralPubkey);
+    final wrapSharedX = computeEcdhSecret(recipientPrivkey, ephemeralPubkey, context: 'giftwrap');
     final sealJson = await nip44.nip44Decrypt(wrapSharedX, wrapContent);
     final sealEvent = jsonDecode(sealJson) as Map<String, dynamic>;
 
@@ -103,7 +109,7 @@ Future<Map<String, dynamic>?> unwrapEvent({
     final sealContent = sealEvent['content'] as String? ?? '';
     if (sealPubkey.isEmpty || sealContent.isEmpty) return null;
 
-    final sealSharedX = computeEcdhSecret(recipientPrivkey, sealPubkey);
+    final sealSharedX = computeEcdhSecret(recipientPrivkey, sealPubkey, context: 'giftwrap');
     final innerJson = await nip44.nip44Decrypt(sealSharedX, sealContent);
     final innerEvent = jsonDecode(innerJson) as Map<String, dynamic>;
 

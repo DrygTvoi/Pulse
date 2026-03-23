@@ -58,7 +58,7 @@ void main() {
       expect(wrapped['pubkey'], isNot(equals(pubA)));
     });
 
-    test('timestamp is randomized (within ±2 hours)', () async {
+    test('timestamp is randomized (within ±48 hours)', () async {
       final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
       final wrapped = await wrapEvent(
         senderPrivkey: _privA,
@@ -67,8 +67,8 @@ void main() {
         innerContent: 'test',
       );
       final ts = wrapped['created_at'] as int;
-      // Should be within 2 hours + some slack
-      expect((ts - now).abs(), lessThan(7200 + 10));
+      // Should be within 48 hours + some slack
+      expect((ts - now).abs(), lessThan(172800 + 10));
     });
 
     test('inner event signature is verified', () async {

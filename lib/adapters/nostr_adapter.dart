@@ -290,11 +290,15 @@ final BigInt _secp256k1P = BigInt.parse(
     'FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F',
     radix: 16);
 
-/// Issue 2: ECDH shared-secret cache — keyed by "ourPub:theirPub".
+/// Issue 2: ECDH shared-secret cache — keyed by "context:ourPub:theirPub".
 /// Avoids ~300ms EC math per message for the same key pair.
+/// Domain-separated: different protocols get independent cache entries.
 /// LinkedHashMap preserves insertion order for LRU eviction (max 500 entries).
-final LinkedHashMap<String, Uint8List> _ecdhCache = LinkedHashMap<String, Uint8List>();
+/// Each entry carries a timestamp for TTL-based expiry (1 hour).
+final LinkedHashMap<String, ({Uint8List secret, DateTime cachedAt})> _ecdhCache =
+    LinkedHashMap<String, ({Uint8List secret, DateTime cachedAt})>();
 const _ecdhCacheMaxSize = 500;
+const _ecdhCacheTtl = Duration(hours: 1);
 
 /// Issue 3: Cached pubkey derivation — privkey doesn't change at runtime.
 /// Maps privkeyHex → pubkeyHex. Invalidated implicitly (new privkey = new entry).
@@ -307,12 +311,23 @@ String deriveNostrPubkeyHex(String privkeyHex) => _derivePubkeyHex(privkeyHex);
 
 /// Public API: compute ECDH shared secret (x-coord) from our privkey + their pubkey.
 /// Same derivation as NIP-04 — deterministic per-pair shared key.
-/// Results are cached per key pair (Issue 2).
-Uint8List computeEcdhSecret(String ourPrivkeyHex, String theirPubkeyHex) {
-  // Issue 2: return cached secret if available.
-  final cacheKey = '$ourPrivkeyHex:$theirPubkeyHex';
+/// Results are cached per key pair + context (Issue 2).
+///
+/// [context] provides domain separation so the same key pair produces
+/// independent cache entries for different protocols ('nip04', 'nip44',
+/// 'giftwrap', 'mac', 'device_transfer', etc.). Defaults to 'default'.
+Uint8List computeEcdhSecret(String ourPrivkeyHex, String theirPubkeyHex,
+    {String context = 'default'}) {
+  // Issue 2: return cached secret if available and not expired (TTL check).
+  final cacheKey = '$context:$ourPrivkeyHex:$theirPubkeyHex';
   final cached = _ecdhCache[cacheKey];
-  if (cached != null) return cached;
+  if (cached != null) {
+    if (DateTime.now().difference(cached.cachedAt) < _ecdhCacheTtl) {
+      return cached.secret;
+    }
+    // Expired — evict stale entry and recompute.
+    _ecdhCache.remove(cacheKey);
+  }
 
   final d = BigInt.parse(ourPrivkeyHex, radix: 16);
   final curve = _secp256k1.curve;
@@ -327,7 +342,7 @@ Uint8List computeEcdhSecret(String ourPrivkeyHex, String theirPubkeyHex) {
   final result = _bigIntToBytes(xVal, 32);
 
   // Issue 2: store in cache with LRU eviction.
-  _ecdhCache[cacheKey] = result;
+  _ecdhCache[cacheKey] = (secret: result, cachedAt: DateTime.now());
   if (_ecdhCache.length > _ecdhCacheMaxSize) {
     _ecdhCache.remove(_ecdhCache.keys.first);
   }
@@ -348,14 +363,14 @@ String nip04Decrypt(String recipientPrivkeyHex, String senderPubkeyHex, String c
 /// Sign a signal payload with HMAC-SHA256 using ECDH shared secret.
 /// Returns hex-encoded HMAC.
 String signSignalPayload(String senderPrivkeyHex, String recipientPubkeyHex, String canonicalJson) {
-  final secret = computeEcdhSecret(senderPrivkeyHex, recipientPubkeyHex);
+  final secret = computeEcdhSecret(senderPrivkeyHex, recipientPubkeyHex, context: 'mac');
   final hmac = crypto.Hmac(crypto.sha256, secret);
   return hmac.convert(utf8.encode(canonicalJson)).toString();
 }
 
 /// Verify a signal's HMAC using ECDH shared secret.
 bool verifySignalPayload(String receiverPrivkeyHex, String senderPubkeyHex, String canonicalJson, String hmacHex) {
-  final secret = computeEcdhSecret(receiverPrivkeyHex, senderPubkeyHex);
+  final secret = computeEcdhSecret(receiverPrivkeyHex, senderPubkeyHex, context: 'mac');
   final hmac = crypto.Hmac(crypto.sha256, secret);
   final expected = hmac.convert(utf8.encode(canonicalJson)).toString();
   // Constant-time comparison to prevent timing attacks.
@@ -469,7 +484,7 @@ Map<String, dynamic> _buildEvent({
 
 /// Issue 5: delegates ECDH to computeEcdhSecret() which uses the shared cache.
 String _nip04Encrypt(String senderPrivkeyHex, String recipientPubkeyHex, String plaintext) {
-  final sharedX = computeEcdhSecret(senderPrivkeyHex, recipientPubkeyHex);
+  final sharedX = computeEcdhSecret(senderPrivkeyHex, recipientPubkeyHex, context: 'nip04');
 
   final rng = Random.secure();
   final iv = Uint8List.fromList(List.generate(16, (_) => rng.nextInt(256)));
@@ -506,7 +521,7 @@ String _nip04Decrypt(String recipientPrivkeyHex, String senderPubkeyHex, String 
   }
   final ct = base64.decode(ctB64);
   final iv = base64.decode(ivB64);
-  final sharedX = computeEcdhSecret(recipientPrivkeyHex, senderPubkeyHex);
+  final sharedX = computeEcdhSecret(recipientPrivkeyHex, senderPubkeyHex, context: 'nip04');
   // Verify MAC before decrypting (Encrypt-then-MAC). MAC is required — no fallback.
   if (macHex == null) throw FormatException('NIP-04 decrypt: missing MAC');
   final macKey = _sha256([...sharedX, 0x01]);
@@ -544,7 +559,7 @@ class NostrInboxReader implements InboxReader {
   String _privateKeyHex = '';
   String _publicKeyHex = '';
   String _relayUrl = _defaultRelay;
-  final Set<String> _seenIds = {};
+  final Map<String, DateTime> _seenIds = {};
 
   /// Emits a sender pubkey whenever an incoming signal fails MAC verification.
   /// This indicates a possible tamper attempt or malicious relay injection.
@@ -640,11 +655,20 @@ class NostrInboxReader implements InboxReader {
   }
 
   void _trackSeenId(String id) {
-    if (_seenIds.length > 2000) {
-      final evict = _seenIds.toList().sublist(0, 1000);
-      _seenIds.removeAll(evict);
+    // Time-based eviction: remove entries older than 30 minutes first.
+    if (_seenIds.length >= 2000) {
+      final cutoff = DateTime.now().subtract(const Duration(minutes: 30));
+      _seenIds.removeWhere((_, ts) => ts.isBefore(cutoff));
+      // If still over limit after time-based eviction, remove oldest by timestamp.
+      if (_seenIds.length >= 2000) {
+        final sorted = _seenIds.entries.toList()
+          ..sort((a, b) => a.value.compareTo(b.value));
+        for (int i = 0; i < 1000 && i < sorted.length; i++) {
+          _seenIds.remove(sorted[i].key);
+        }
+      }
     }
-    _seenIds.add(id);
+    _seenIds[id] = DateTime.now();
   }
 
   // ── Shared WebSocket — one connection for both messages and signals ────────
@@ -756,7 +780,7 @@ class NostrInboxReader implements InboxReader {
               if (event == null) continue;
               final id = event['id'] as String?;
               if (id == null || id.isEmpty) continue;
-              if (_seenIds.contains(id)) continue;
+              if (_seenIds.containsKey(id)) continue;
               _trackSeenId(id);
               final ts = event['created_at'] as int?;
               if (ts != null) unawaited(_updateSince(ts));

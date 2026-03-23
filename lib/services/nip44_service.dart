@@ -1,17 +1,46 @@
+import 'dart:collection';
 import 'dart:convert';
 import 'dart:math';
 import 'dart:typed_data';
+import 'package:convert/convert.dart';
 import 'package:crypto/crypto.dart' as crypto;
 import 'package:cryptography/cryptography.dart' as cryptography;
 import '../adapters/nostr_adapter.dart' show computeEcdhSecret;
 
 /// NIP-44 v2 encryption: XChaCha20 + HMAC-SHA256.
 ///
-/// Pure functions, no state. Uses the `cryptography` package for
-/// XChaCha20 and the `crypto` package for HMAC-SHA256.
+/// Uses the `cryptography` package for XChaCha20 and the `crypto` package
+/// for HMAC-SHA256. Tracks seen nonces per conversation key to detect replays.
 
 const int _version = 2;
 const int _minPadSize = 32;
+const int _maxNoncesPerKey = 10000;
+
+/// Tracks seen nonces per conversation-key to detect replay attacks.
+/// Key: conversation key hex string. Value: insertion-ordered set of nonce hex strings.
+final Map<String, LinkedHashSet<String>> _seenNonces = {};
+
+/// Check for duplicate nonce and record it. Throws on replay.
+void _checkAndRecordNonce(Uint8List convKey, Uint8List nonce) {
+  final keyHex = hex.encode(convKey);
+  final nonceHex = hex.encode(nonce);
+
+  final set = _seenNonces.putIfAbsent(keyHex, () => LinkedHashSet<String>());
+  if (set.contains(nonceHex)) {
+    throw FormatException('Duplicate nonce — possible replay attack');
+  }
+
+  // Evict oldest entries if at capacity
+  while (set.length >= _maxNoncesPerKey) {
+    set.remove(set.first);
+  }
+  set.add(nonceHex);
+}
+
+/// Clear the nonce replay cache (useful for testing or memory pressure).
+void clearNonceCache() {
+  _seenNonces.clear();
+}
 
 /// HKDF-extract (RFC 5869): PRK = HMAC-Hash(salt, IKM).
 Uint8List _hkdfExtract(Uint8List salt, Uint8List ikm) {
@@ -145,6 +174,10 @@ Future<String> nip44Decrypt(Uint8List sharedX, String payload) async {
   final mac = Uint8List.sublistView(raw, raw.length - 32);
 
   final convKey = computeConversationKey(sharedX);
+
+  // Replay detection: reject duplicate nonces for this conversation key
+  _checkAndRecordNonce(convKey, nonce);
+
   final keys = deriveMessageKeys(convKey, nonce);
 
   // Verify HMAC first
@@ -183,13 +216,13 @@ Future<String> nip44Decrypt(Uint8List sharedX, String payload) async {
 /// Encrypt with NIP-44 using hex-encoded Nostr private/public keys.
 Future<String> nip44EncryptWithKeys(
     String privHex, String pubHex, String text) async {
-  final sharedX = computeEcdhSecret(privHex, pubHex);
+  final sharedX = computeEcdhSecret(privHex, pubHex, context: 'nip44');
   return nip44Encrypt(sharedX, text);
 }
 
 /// Decrypt NIP-44 payload using hex-encoded Nostr private/public keys.
 Future<String> nip44DecryptWithKeys(
     String privHex, String pubHex, String payload) async {
-  final sharedX = computeEcdhSecret(privHex, pubHex);
+  final sharedX = computeEcdhSecret(privHex, pubHex, context: 'nip44');
   return nip44Decrypt(sharedX, payload);
 }

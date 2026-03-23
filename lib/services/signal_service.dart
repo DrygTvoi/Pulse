@@ -201,6 +201,14 @@ class SignalService {
   static const _exhaustionWindow = Duration(hours: 24);
   static const _exhaustionThreshold = 3;
 
+  /// Fires when a contact's identity key changes suspiciously fast (<24h).
+  /// ChatController can surface this as a security warning.
+  final _rapidKeyChangeCtrl = StreamController<String>.broadcast();
+  Stream<String> get onRapidKeyChange => _rapidKeyChangeCtrl.stream;
+
+  /// Tracks last identity key change time per contact for rate limiting.
+  final Map<String, DateTime> _lastKeyChange = {};
+
   VoidCallback? _onPreKeyConsumed;
   /// Set by ChatController to republish the Signal bundle when a preKey is consumed.
   set onPreKeyConsumed(VoidCallback? cb) {
@@ -308,8 +316,8 @@ class SignalService {
       );
       debugPrint('[Signal] Rotated signed prekey: $currentId → $newId');
 
-      // Keep old key for 2 rotation periods (grace for in-flight messages).
-      final oldestKeep = newId - 2;
+      // Keep old key for 1 rotation period (7 days grace for in-flight messages).
+      final oldestKeep = newId - 1;
       for (int id = 0; id < oldestKeep; id++) {
         try {
           await _store.removeSignedPreKey(id);
@@ -467,6 +475,17 @@ class SignalService {
     final newB64 = base64Encode(idKeyBytes);
     final keyChanged = storedB64 != null && storedB64 != newB64;
 
+    // Rate-limit identity key changes per contact (anti-notification-fatigue attack).
+    if (keyChanged) {
+      final now = DateTime.now();
+      final lastChange = _lastKeyChange[remoteId];
+      if (lastChange != null && now.difference(lastChange) < const Duration(hours: 24)) {
+        debugPrint('[Signal] WARNING: Rapid key change for $remoteId — possible attack');
+        _rapidKeyChangeCtrl.add('Rapid identity key change detected for $remoteId');
+      }
+      _lastKeyChange[remoteId] = now;
+    }
+
     final sessionBuilder = SessionBuilder(_store, _store, _store, _store, remoteAddress);
     await sessionBuilder.processPreKeyBundle(preKeyBundle);
 
@@ -514,17 +533,56 @@ class SignalService {
 
   /// Clear sensitive key material from memory.
   void zeroize() {
-    _isInitialized = false;
-    // Dart strings are immutable and GC'd, but we can drop references.
-    // IdentityKeyPair holds byte arrays — zero them out.
+    // Zero out identity key pair bytes (best-effort; Dart byte arrays may be read-only).
     try {
       final pubBytes = _identityKeyPair.getPublicKey().serialize();
       for (int i = 0; i < pubBytes.length; i++) { pubBytes[i] = 0; }
       final privBytes = _identityKeyPair.serialize();
       for (int i = 0; i < privBytes.length; i++) { privBytes[i] = 0; }
     } catch (e) {
-      // Best-effort: Dart byte arrays may be read-only; log but don't crash.
       debugPrint('[Signal] Key zeroization incomplete: $e');
     }
+
+    // Delete all sessions from the persistent store to clear session key material.
+    if (_isInitialized) {
+      try {
+        // Iterate cached secure storage to find all session keys and delete them.
+        final cache = _store._secureStorageCache;
+        if (cache != null) {
+          final sessionKeys = cache.keys
+              .where((k) => k.startsWith(_PersistentSignalStore._sessionPrefix))
+              .toList();
+          for (final key in sessionKeys) {
+            final withoutPrefix = key.substring(_PersistentSignalStore._sessionPrefix.length);
+            final lastUnderscore = withoutPrefix.lastIndexOf('_');
+            if (lastUnderscore >= 0) {
+              final name = withoutPrefix.substring(0, lastUnderscore);
+              unawaited(_store.deleteAllSessions(name));
+            }
+          }
+        }
+        // Clear prekey material from store.
+        if (cache != null) {
+          final preKeyKeys = cache.keys
+              .where((k) => k.startsWith(_PersistentSignalStore._preKeyPrefix))
+              .toList();
+          for (final key in preKeyKeys) {
+            final idStr = key.substring(_PersistentSignalStore._preKeyPrefix.length);
+            final id = int.tryParse(idStr);
+            if (id != null) {
+              unawaited(_store.removePreKey(id));
+            }
+          }
+        }
+      } catch (e) {
+        debugPrint('[Signal] Session/prekey cleanup during zeroize failed: $e');
+      }
+    }
+
+    // Clear rate-limiting state.
+    _lastKeyChange.clear();
+
+    // Mark as uninitialized so no further crypto operations are possible.
+    _isInitialized = false;
   }
 }

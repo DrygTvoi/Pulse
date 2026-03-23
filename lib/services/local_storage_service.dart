@@ -1492,9 +1492,10 @@ class LocalStorageService {
 
   /// Import messages from an encrypted backup file.
   ///
-  /// Returns the number of imported (new) messages, or -1 on error.
+  /// Returns a record with the number of imported (new) messages and the number
+  /// of failed (malformed/skipped) entries. Returns `imported: -1` on total failure.
   /// [onProgress] is called with (processed, total) for UI feedback.
-  Future<int> importBackup(
+  Future<({int imported, int failed})> importBackup(
     Uint8List data,
     String password, {
     void Function(int processed, int total)? onProgress,
@@ -1503,20 +1504,20 @@ class LocalStorageService {
       // ── Validate header ──
       if (data.length < _kHeaderLen + 16) {
         debugPrint('[Backup] File too small (${data.length} bytes)');
-        return -1;
+        return (imported: -1, failed: 0);
       }
       // Check magic
       for (int i = 0; i < 4; i++) {
         if (data[i] != _kBackupMagic[i]) {
           debugPrint('[Backup] Invalid magic bytes');
-          return -1;
+          return (imported: -1, failed: 0);
         }
       }
       // Check version (accept v1 and v2)
       final version = data[4] | (data[5] << 8);
       if (version != 1 && version != 2) {
         debugPrint('[Backup] Unsupported backup version: $version');
-        return -1;
+        return (imported: -1, failed: 0);
       }
 
       // ── Extract fields ──
@@ -1527,7 +1528,7 @@ class LocalStorageService {
       // The encrypted payload is ciphertext + 16-byte GCM tag at the end
       if (encryptedPayload.length < 16) {
         debugPrint('[Backup] Encrypted payload too small');
-        return -1;
+        return (imported: -1, failed: 0);
       }
       final cipherText = Uint8List.sublistView(
           encryptedPayload, 0, encryptedPayload.length - 16);
@@ -1550,7 +1551,7 @@ class LocalStorageService {
         plainBytes = await _aesGcm.decrypt(secretBox, secretKey: secretKey);
       } catch (e) {
         debugPrint('[Backup] Decryption failed (wrong password?): $e');
-        return -1;
+        return (imported: -1, failed: 0);
       }
 
       // ── Parse JSON ──
@@ -1571,16 +1572,17 @@ class LocalStorageService {
           avatarsPayload = decoded['avatars'] as List?;
         } else {
           debugPrint('[Backup] Unknown payload structure');
-          return -1;
+          return (imported: -1, failed: 0);
         }
       } catch (e) {
         debugPrint('[Backup] JSON parse failed: $e');
-        return -1;
+        return (imported: -1, failed: 0);
       }
 
       // ── Insert messages with dedup ──
       final db = _database;
       int imported = 0;
+      int failedCount = 0;
       final total = messages.length;
 
       // Batch-insert messages with dedup (use transaction for performance).
@@ -1595,36 +1597,47 @@ class LocalStorageService {
       }
 
       for (int i = 0; i < messages.length; i++) {
-        final entry = messages[i] as Map<String, dynamic>;
-        final msgId = entry['msg_id'] as String? ?? '';
-        final entryRoomId = entry['room_id'] as String? ?? '';
-        final timestamp = entry['timestamp'] as int? ?? 0;
-        final plainData = entry['data'] as String? ?? '{}';
+        try {
+          final entry = messages[i] as Map<String, dynamic>;
+          final msgId = entry['msg_id'] as String? ?? '';
+          final entryRoomId = entry['room_id'] as String? ?? '';
+          final timestamp = entry['timestamp'] as int? ?? 0;
+          final plainData = entry['data'] as String? ?? '{}';
 
-        if (!existingIds.contains('$msgId|$entryRoomId')) {
-          // Store plaintext — SQLCipher handles file encryption.
-          importBatch.insert(
-            'messages',
-            {
-              'msg_id': msgId,
-              'room_id': entryRoomId,
-              'timestamp': timestamp,
-              'data': plainData,
-            },
-            conflictAlgorithm: ConflictAlgorithm.ignore,
-          );
-          // Populate FTS index.
-          if (_fts5Available) {
-            final content = _extractSearchContent(plainData);
-            if (content.isNotEmpty) {
-              importBatch.insert('messages_fts', {
+          if (msgId.isEmpty || entryRoomId.isEmpty) {
+            failedCount++;
+            debugPrint('[Backup] Skipping entry $i: missing msg_id or room_id');
+            continue;
+          }
+
+          if (!existingIds.contains('$msgId|$entryRoomId')) {
+            // Store plaintext — SQLCipher handles file encryption.
+            importBatch.insert(
+              'messages',
+              {
                 'msg_id': msgId,
                 'room_id': entryRoomId,
-                'content': content,
-              }, conflictAlgorithm: ConflictAlgorithm.replace);
+                'timestamp': timestamp,
+                'data': plainData,
+              },
+              conflictAlgorithm: ConflictAlgorithm.ignore,
+            );
+            // Populate FTS index.
+            if (_fts5Available) {
+              final content = _extractSearchContent(plainData);
+              if (content.isNotEmpty) {
+                importBatch.insert('messages_fts', {
+                  'msg_id': msgId,
+                  'room_id': entryRoomId,
+                  'content': content,
+                }, conflictAlgorithm: ConflictAlgorithm.replace);
+              }
             }
+            imported++;
           }
-          imported++;
+        } catch (e) {
+          failedCount++;
+          debugPrint('[Backup] Skipping malformed entry $i: $e');
         }
 
         if (onProgress != null && (i % 100 == 0 || i == total - 1)) {
@@ -1672,12 +1685,13 @@ class LocalStorageService {
       }
 
       debugPrint('[Backup] Imported $imported new messages out of $total total'
+          ' ($failedCount failed)'
           '${contactsPayload != null ? ", ${contactsPayload.length} contact(s)" : ""}'
           '${avatarsPayload != null ? ", ${avatarsPayload.length} avatar(s)" : ""}');
-      return imported;
+      return (imported: imported, failed: failedCount);
     } catch (e, st) {
       debugPrint('[Backup] Import failed: $e\n$st');
-      return -1;
+      return (imported: -1, failed: 0);
     }
   }
 }

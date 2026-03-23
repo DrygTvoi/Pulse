@@ -172,10 +172,18 @@ bool verifyEventSignature(Map<String, dynamic> event) {
 
     // Lift x to point P (even y)
     final px = BigInt.parse(pubkeyHex, radix: 16);
+    if (px == BigInt.zero || px >= p) return false;
     final py2 = (px.modPow(BigInt.from(3), p) + BigInt.from(7)) % p;
     final py = py2.modPow((p + BigInt.one) ~/ BigInt.from(4), p);
+    // Verify the lifted y is actually a square root (point is on the curve)
+    if ((py * py) % p != py2) return false;
     final useY = py.isEven ? py : p - py;
     final P = _secp256k1.curve.createPoint(px, useY);
+
+    // Reject identity point and small-order / invalid subgroup points
+    if (P.isInfinity) return false;
+    final nP = P * n;
+    if (nP == null || !nP.isInfinity) return false;
 
     final msgBytes = hex.decode(id);
     final pubBytes = hex.decode(pubkeyHex);

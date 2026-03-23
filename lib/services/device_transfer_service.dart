@@ -14,7 +14,7 @@ import '../services/nostr_event_builder.dart' as neb;
 
 /// 6-char hex verification code derived from ECDH shared secret.
 String _verificationCode(String privHex, String peerPubHex) {
-  final sharedX = computeEcdhSecret(privHex, peerPubHex);
+  final sharedX = computeEcdhSecret(privHex, peerPubHex, context: 'device_transfer');
   final hash = crypto.sha256.convert(sharedX).bytes;
   return hex.encode(hash.take(3).toList()).toUpperCase();
 }
