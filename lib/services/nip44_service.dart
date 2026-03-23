@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:collection';
 import 'dart:convert';
 import 'dart:math';
@@ -5,7 +6,9 @@ import 'dart:typed_data';
 import 'package:convert/convert.dart';
 import 'package:crypto/crypto.dart' as crypto;
 import 'package:cryptography/cryptography.dart' as cryptography;
+import 'package:flutter/foundation.dart';
 import '../adapters/nostr_adapter.dart' show computeEcdhSecretAsync;
+import 'local_storage_service.dart';
 
 /// NIP-44 v2 encryption: XChaCha20 + HMAC-SHA256.
 ///
@@ -32,6 +35,39 @@ final Map<String, LinkedHashSet<String>> _seenNonces = {};
 /// Total nonce count across all conversation keys. Bounded to prevent unbounded growth.
 int _totalNonceCount = 0;
 
+/// Lazy-load state: nonces are loaded from SQLite on the first decrypt call
+/// and held in-memory for the session. SQLite write is fire-and-forget.
+bool _nonceDbLoaded = false;
+Future<void>? _nonceDbLoadFuture;
+
+/// Load recent nonces (≤ 2 days old) from SQLite into [_seenNonces].
+/// Called lazily before the first [nip44Decrypt] to restore replay protection
+/// across app restarts. Purges stale entries as a side-effect.
+Future<void> _loadNoncesFromDb() async {
+  if (_nonceDbLoaded) return;
+  _nonceDbLoaded = true;
+  try {
+    final entries = await LocalStorageService().loadRecentNonces(maxAgeDays: 2);
+    for (final (convKey, nonceHex) in entries) {
+      final set = _seenNonces.putIfAbsent(convKey, () => LinkedHashSet<String>());
+      if (!set.contains(nonceHex)) {
+        // Respect per-key cap when importing
+        while (set.length >= _maxNoncesPerKey) {
+          set.remove(set.first);
+          _totalNonceCount--;
+        }
+        set.add(nonceHex);
+        _totalNonceCount++;
+      }
+    }
+    debugPrint('[NIP44] Loaded $_totalNonceCount nonces from DB');
+    // Purge rows older than 2 days in the background
+    unawaited(LocalStorageService().purgeOldNonces(maxAgeDays: 2));
+  } catch (e) {
+    debugPrint('[NIP44] Failed to load nonces from DB: $e');
+  }
+}
+
 /// Check for duplicate nonce and record it. Throws on replay.
 void _checkAndRecordNonce(Uint8List convKey, Uint8List nonce) {
   final keyHex = hex.encode(convKey);
@@ -49,6 +85,8 @@ void _checkAndRecordNonce(Uint8List convKey, Uint8List nonce) {
   }
   set.add(nonceHex);
   _totalNonceCount++;
+  // Fire-and-forget: persist to SQLite for replay protection across restarts.
+  unawaited(LocalStorageService().saveNonce(keyHex, nonceHex));
 
   // Global safety valve: trim the oldest conversation key rather than deleting
   // it entirely. Deleting would allow replay of any previously-seen nonce in
@@ -67,9 +105,13 @@ void _checkAndRecordNonce(Uint8List convKey, Uint8List nonce) {
 }
 
 /// Clear the nonce replay cache (useful for testing or memory pressure).
+/// Also purges the SQLite nonce table so replay protection resets cleanly.
 void clearNonceCache() {
   _seenNonces.clear();
   _totalNonceCount = 0;
+  _nonceDbLoaded = false;
+  _nonceDbLoadFuture = null;
+  unawaited(LocalStorageService().purgeOldNonces(maxAgeDays: 0));
 }
 
 /// HKDF-extract (RFC 5869): PRK = HMAC-Hash(salt, IKM).
@@ -204,6 +246,11 @@ Future<String> nip44Decrypt(Uint8List sharedX, String payload) async {
   final mac = Uint8List.sublistView(raw, raw.length - 32);
 
   final convKey = computeConversationKey(sharedX);
+
+  // Ensure nonces from previous sessions are loaded before checking.
+  // The Future is cached so this only runs once per app lifetime.
+  _nonceDbLoadFuture ??= _loadNoncesFromDb();
+  await _nonceDbLoadFuture;
 
   // Replay detection: reject duplicate nonces for this conversation key
   _checkAndRecordNonce(convKey, nonce);
