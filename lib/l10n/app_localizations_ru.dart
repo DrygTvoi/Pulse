@@ -2457,4 +2457,34 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get providerRemoveTooltip => 'Удалить';
+
+  @override
+  String get emojiNoRecent => 'Нет недавних эмодзи';
+
+  @override
+  String get emojiSearchHint => 'Поиск эмодзи...';
+
+  @override
+  String get contactTileE2ee => 'E2EE';
+
+  @override
+  String get contactTileTapToChat => 'Нажмите для чата';
+
+  @override
+  String get imageViewerSaveToDownloads => 'Сохранить в Загрузки';
+
+  @override
+  String imageViewerSavedTo(String path) {
+    return 'Сохранено в $path';
+  }
+
+  @override
+  String get addContactManualHint =>
+      'pubkey@wss://relay  ·  05hex…  ·  id@https://...';
+
+  @override
+  String get chatOk => 'ОК';
+
+  @override
+  String get bubbleGifBadge => 'GIF';
 }

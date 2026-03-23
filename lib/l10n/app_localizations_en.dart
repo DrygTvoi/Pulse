@@ -2471,4 +2471,34 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get providerRemoveTooltip => 'Remove';
+
+  @override
+  String get emojiNoRecent => 'No recent emojis';
+
+  @override
+  String get emojiSearchHint => 'Search emoji...';
+
+  @override
+  String get contactTileE2ee => 'E2EE';
+
+  @override
+  String get contactTileTapToChat => 'Tap to chat';
+
+  @override
+  String get imageViewerSaveToDownloads => 'Save to Downloads';
+
+  @override
+  String imageViewerSavedTo(String path) {
+    return 'Saved to $path';
+  }
+
+  @override
+  String get addContactManualHint =>
+      'pubkey@wss://relay  ·  05hex…  ·  id@https://...';
+
+  @override
+  String get chatOk => 'OK';
+
+  @override
+  String get bubbleGifBadge => 'GIF';
 }
