@@ -75,7 +75,7 @@ void main() {
           ownStatus: null,
           contactStatuses: const {},
           onOwnStatusTap: () {},
-          onContactStatusTap: (_, __) {},
+          onContactStatusTap: (_, _) {},
         ),
       ));
       await tester.pumpAndSettle();
@@ -95,7 +95,7 @@ void main() {
           ownStatus: _makeStatus(),
           contactStatuses: const {},
           onOwnStatusTap: () {},
-          onContactStatusTap: (_, __) {},
+          onContactStatusTap: (_, _) {},
         ),
       ));
       await tester.pumpAndSettle();
@@ -119,7 +119,7 @@ void main() {
             'c2': _makeStatus(id: 's2', text: 'Bob status'),
           },
           onOwnStatusTap: () {},
-          onContactStatusTap: (_, __) {},
+          onContactStatusTap: (_, _) {},
         ),
       ));
       await tester.pumpAndSettle();
@@ -145,7 +145,7 @@ void main() {
             // Bob has no status in the map
           },
           onOwnStatusTap: () {},
-          onContactStatusTap: (_, __) {},
+          onContactStatusTap: (_, _) {},
         ),
       ));
       await tester.pumpAndSettle();
@@ -166,7 +166,7 @@ void main() {
           ownStatus: _makeStatus(),
           contactStatuses: const {},
           onOwnStatusTap: () => tapped = true,
-          onContactStatusTap: (_, __) {},
+          onContactStatusTap: (_, _) {},
         ),
       ));
       await tester.pumpAndSettle();
@@ -215,7 +215,7 @@ void main() {
             'g1': _makeStatus(id: 's1'),
           },
           onOwnStatusTap: () {},
-          onContactStatusTap: (_, __) {},
+          onContactStatusTap: (_, _) {},
         ),
       ));
       await tester.pumpAndSettle();
@@ -236,7 +236,7 @@ void main() {
           ownStatus: _makeStatus(),
           contactStatuses: const {},
           onOwnStatusTap: () {},
-          onContactStatusTap: (_, __) {},
+          onContactStatusTap: (_, _) {},
         ),
       ));
       await tester.pumpAndSettle();

@@ -11,12 +11,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:pulse_messenger/controllers/chat_controller.dart';
 import 'package:pulse_messenger/l10n/app_localizations.dart';
-import 'package:pulse_messenger/models/contact.dart';
 import 'package:pulse_messenger/widgets/chat_app_bar.dart';
 
 import '../helpers/test_mocks.dart';
@@ -73,19 +70,7 @@ void main() {
       ));
       await tester.pumpAndSettle();
 
-      // Find the container with the gradient
-      bool foundCorrectSize = false;
-      for (final element in find.byType(Container).evaluate()) {
-        final widget = element.widget;
-        if (widget is Container &&
-            widget.constraints != null &&
-            widget.constraints!.maxWidth == 64.0 &&
-            widget.constraints!.maxHeight == 64.0) {
-          foundCorrectSize = true;
-          break;
-        }
-      }
-      // The Container uses width/height directly, so we check render size
+      // Find the container with the gradient — check render size directly
       final containers = find.byType(Container);
       expect(containers, findsWidgets);
     });

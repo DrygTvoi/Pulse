@@ -421,71 +421,6 @@ Uint8List _sha256(List<int> data) {
   return Uint8List.fromList(crypto.sha256.convert(data).bytes);
 }
 
-Uint8List _taggedHash(String tag, List<int> data) {
-  final tagHash = _sha256(utf8.encode(tag));
-  return _sha256([...tagHash, ...tagHash, ...data]);
-}
-
-/// Issue 4: accepts optional pre-computed [pubkeyHex] to avoid redundant derivation.
-String _signEvent(String privkeyHex, String eventId, {String? pubkeyHex}) {
-  final msgBytes = Uint8List.fromList(hex.decode(eventId));
-  var d = BigInt.parse(privkeyHex, radix: 16);
-  final n = _secp256k1.n;
-  final G = _secp256k1.G;
-
-  final P = G * d;
-  if (P!.y!.toBigInteger()!.isOdd) d = n - d;
-
-  // Issue 4: use provided pubkey or fall back to cached derivation.
-  final effectivePubkey = pubkeyHex ?? _derivePubkeyHex(privkeyHex);
-  final pubBytes = Uint8List.fromList(hex.decode(effectivePubkey));
-  final privBytes = Uint8List.fromList(hex.decode(privkeyHex));
-  final randBytes = Uint8List(32);
-  final auxRng = Random.secure();
-  for (int i = 0; i < 32; i++) {
-    randBytes[i] = auxRng.nextInt(256);
-  }
-  final nonceHash = _taggedHash('BIP0340/nonce', [...randBytes, ...privBytes, ...msgBytes]);
-  var k = BigInt.parse(hex.encode(nonceHash), radix: 16) % n;
-  if (k == BigInt.zero) k = BigInt.one;
-
-  var R = G * k;
-  if (R!.y!.toBigInteger()!.isOdd) {
-    k = n - k;
-    R = G * k;
-  }
-  final rx = _bigIntToBytes(R!.x!.toBigInteger()!, 32);
-  final eBytes = _taggedHash('BIP0340/challenge', [...rx, ...pubBytes, ...msgBytes]);
-  final e = BigInt.parse(hex.encode(eBytes), radix: 16) % n;
-  final s = (k + e * d) % n;
-  return hex.encode([...rx, ..._bigIntToBytes(s, 32)]);
-}
-
-String _buildEventId(Map<String, dynamic> event) {
-  final serialized = jsonEncode([
-    0, event['pubkey'], event['created_at'], event['kind'], event['tags'], event['content'],
-  ]);
-  return hex.encode(_sha256(utf8.encode(serialized)));
-}
-
-Map<String, dynamic> _buildEvent({
-  required String privkeyHex,
-  required int kind,
-  required String content,
-  List<List<String>>? tags,
-}) {
-  // Issue 4: derive pubkey once (cached) and pass to _signEvent.
-  final pubkey = _derivePubkeyHex(privkeyHex);
-  final createdAt = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-  final event = <String, dynamic>{
-    'pubkey': pubkey, 'created_at': createdAt, 'kind': kind,
-    'tags': tags ?? [], 'content': content,
-  };
-  final id = _buildEventId(event);
-  event['id'] = id;
-  event['sig'] = _signEvent(privkeyHex, id, pubkeyHex: pubkey);
-  return event;
-}
 
 // ─── Async ECDH (compute isolate) ────────────────────────
 
@@ -1034,12 +969,14 @@ class NostrInboxReader implements InboxReader {
       }
 
       final data = jsonDecode(plain) as Map<String, dynamic>;
-      if (!_sigCtrl.isClosed) _sigCtrl.add([{
-        'type': data['type'],
-        'senderId': senderPubkey,
-        'roomId': data['roomId'],
-        'payload': data['payload'],
-      }]);
+      if (!_sigCtrl.isClosed) {
+        _sigCtrl.add([{
+          'type': data['type'],
+          'senderId': senderPubkey,
+          'roomId': data['roomId'],
+          'payload': data['payload'],
+        }]);
+      }
     } catch (e) {
       debugPrint('[Nostr] Signal parse error: $e');
       if (e.toString().contains('MAC verification failed')) {

@@ -586,8 +586,8 @@ class _FullEmojiReactionPicker extends StatelessWidget {
           columns: 8,
           emojiSizeMax: 28,
           backgroundColor: AppTheme.surface,
-          noRecents: const Text('No recent emojis',
-              style: TextStyle(color: Colors.white54, fontSize: 14)),
+          noRecents: Text(context.l10n.emojiNoRecent,
+              style: const TextStyle(color: Colors.white54, fontSize: 14)),
         ),
         categoryViewConfig: emoji_pkg.CategoryViewConfig(
           backgroundColor: AppTheme.surface,
@@ -599,7 +599,7 @@ class _FullEmojiReactionPicker extends StatelessWidget {
         searchViewConfig: emoji_pkg.SearchViewConfig(
           backgroundColor: AppTheme.surface,
           buttonIconColor: AppTheme.textSecondary,
-          hintText: 'Search emoji...',
+          hintText: context.l10n.emojiSearchHint,
         ),
       ),
     );

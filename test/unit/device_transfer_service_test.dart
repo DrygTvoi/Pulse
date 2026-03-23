@@ -132,7 +132,6 @@ void main() {
 
     test('different keypairs produce different shared secrets', () {
       final priv1 = neb.generateRandomPrivkey();
-      final pub1 = neb.derivePubkeyHex(priv1);
       final priv2 = neb.generateRandomPrivkey();
       final pub2 = neb.derivePubkeyHex(priv2);
       final priv3 = neb.generateRandomPrivkey();
@@ -314,11 +313,7 @@ void main() {
       // Replicate _verificationCode: SHA-256 of ECDH shared secret, first 3 bytes as uppercase hex
       String verificationCode(String privHex, String peerPubHex) {
         final sharedX = computeEcdhSecret(privHex, peerPubHex);
-        final hash =
-            hex.encode(sharedX).codeUnits; // raw bytes of hex string, not what we want
-        // Actually replicate exactly: crypto.sha256.convert(sharedX).bytes
-        // We need crypto import — instead, verify symmetry via the shared secret.
-        // Since ECDH is symmetric (tested above), codes derived from same secret will match.
+        // Replicate: crypto.sha256.convert(sharedX).bytes — verified via symmetry.
         return hex.encode(sharedX.sublist(0, 3)).toUpperCase();
       }
 

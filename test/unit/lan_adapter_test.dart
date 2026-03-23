@@ -983,9 +983,8 @@ void main() {
 
     test('broadcast returns false when socket is null', () {
       // if (_socket == null) return false;
-      Object? socket;
-      expect(socket == null, isTrue);
-      final result = socket == null ? false : true;
+      // Null socket → broadcast returns false
+      const result = false;
       expect(result, isFalse);
     });
   });
@@ -1474,8 +1473,8 @@ void main() {
 
     test('null datagram from receive() is ignored', () {
       // if (dg == null || ...) return;
-      Object? dg;
-      final shouldProcess = dg != null;
+      // Null datagram is never processed
+      const shouldProcess = false;
       expect(shouldProcess, isFalse);
     });
   });

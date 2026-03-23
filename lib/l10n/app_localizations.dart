@@ -4498,6 +4498,72 @@ abstract class AppLocalizations {
   /// **'Remove'**
   String get providerRemoveTooltip;
 
+  /// No description provided for @providerFirebaseUrlHint.
+  ///
+  /// In en, this message translates to:
+  /// **'https://project.firebaseio.com'**
+  String get providerFirebaseUrlHint;
+
+  /// No description provided for @providerNostrRelayHint.
+  ///
+  /// In en, this message translates to:
+  /// **'wss://relay.damus.io'**
+  String get providerNostrRelayHint;
+
+  /// No description provided for @providerNostrPrivkeyHint.
+  ///
+  /// In en, this message translates to:
+  /// **'nsec1... or hex'**
+  String get providerNostrPrivkeyHint;
+
+  /// No description provided for @providerNostrPrivkeyHintFull.
+  ///
+  /// In en, this message translates to:
+  /// **'nsec1... or hex private key'**
+  String get providerNostrPrivkeyHintFull;
+
+  /// No description provided for @customProxyHostHint.
+  ///
+  /// In en, this message translates to:
+  /// **'127.0.0.1'**
+  String get customProxyHostHint;
+
+  /// No description provided for @customProxyPortHint.
+  ///
+  /// In en, this message translates to:
+  /// **'10808'**
+  String get customProxyPortHint;
+
+  /// No description provided for @i2pProxyHostHint.
+  ///
+  /// In en, this message translates to:
+  /// **'127.0.0.1'**
+  String get i2pProxyHostHint;
+
+  /// No description provided for @i2pProxyPortHint.
+  ///
+  /// In en, this message translates to:
+  /// **'4447'**
+  String get i2pProxyPortHint;
+
+  /// No description provided for @torProxyHostHint.
+  ///
+  /// In en, this message translates to:
+  /// **'127.0.0.1'**
+  String get torProxyHostHint;
+
+  /// No description provided for @torProxyPortHint.
+  ///
+  /// In en, this message translates to:
+  /// **'9050'**
+  String get torProxyPortHint;
+
+  /// No description provided for @cfWorkerDomainHint.
+  ///
+  /// In en, this message translates to:
+  /// **'my-relay.username.workers.dev'**
+  String get cfWorkerDomainHint;
+
   /// No description provided for @emojiNoRecent.
   ///
   /// In en, this message translates to:

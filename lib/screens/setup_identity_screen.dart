@@ -236,7 +236,7 @@ class _SetupIdentityScreenState extends State<SetupIdentityScreen> {
                     color: Colors.white, size: 40),
               ),
               const SizedBox(height: 16),
-              Text('Pulse',
+              Text(context.l10n.appTitle,
                   style: GoogleFonts.inter(
                       fontSize: 26,
                       fontWeight: FontWeight.bold,

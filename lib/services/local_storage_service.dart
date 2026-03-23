@@ -1478,7 +1478,7 @@ class LocalStorageService {
         nonce: iv,
       );
       // Zero plaintext from memory as soon as ciphertext is produced.
-      (jsonBytes as Uint8List).fillRange(0, jsonBytes.length, 0);
+      jsonBytes.fillRange(0, jsonBytes.length, 0);
 
       // Assemble file: magic + version + salt + iv + ciphertext + mac
       final cipherWithMac = [
@@ -1742,6 +1742,27 @@ class LocalStorageService {
       );
     } catch (e) {
       debugPrint('[LocalStorage] saveNonce error: $e');
+    }
+  }
+
+  /// Persist a batch of NIP-44 nonces in a single transaction.
+  /// Much more efficient than individual [saveNonce] calls when processing
+  /// many offline messages at once (e.g. 50 messages → 1 transaction).
+  Future<void> saveNonces(List<(String, String)> nonces) async {
+    final db = _db;
+    if (db == null || nonces.isEmpty) return;
+    try {
+      final now = DateTime.now().millisecondsSinceEpoch;
+      await db.transaction((txn) async {
+        for (final (convKey, nonceHex) in nonces) {
+          await txn.rawInsert(
+            'INSERT OR IGNORE INTO nonce_cache(conv_key, nonce, seen_at) VALUES(?,?,?)',
+            [convKey, nonceHex, now],
+          );
+        }
+      });
+    } catch (e) {
+      debugPrint('[LocalStorage] saveNonces batch error: $e');
     }
   }
 

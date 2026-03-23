@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
+import '../l10n/l10n_ext.dart';
 import '../theme/app_theme.dart';
 
 class EmojiPickerPanel extends StatelessWidget {
@@ -25,8 +26,8 @@ class EmojiPickerPanel extends StatelessWidget {
             columns: 8,
             emojiSizeMax: 28,
             backgroundColor: AppTheme.surface,
-            noRecents: const Text('No recent emojis',
-                style: TextStyle(color: Colors.white54, fontSize: 14)),
+            noRecents: Text(context.l10n.emojiNoRecent,
+                style: const TextStyle(color: Colors.white54, fontSize: 14)),
           ),
           categoryViewConfig: CategoryViewConfig(
             backgroundColor: AppTheme.surface,
@@ -38,7 +39,7 @@ class EmojiPickerPanel extends StatelessWidget {
           searchViewConfig: SearchViewConfig(
             backgroundColor: AppTheme.surface,
             buttonIconColor: AppTheme.textSecondary,
-            hintText: 'Search emoji...',
+            hintText: context.l10n.emojiSearchHint,
           ),
           skinToneConfig: const SkinToneConfig(
             dialogBackgroundColor: Color(0xFF2A2A2E),

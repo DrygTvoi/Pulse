@@ -173,5 +173,26 @@ void main() {
         throwsFormatException,
       );
     });
+
+    test('replay detection: same ciphertext rejected on second decrypt', () async {
+      final sx = computeEcdhSecret(_privA, _pub(_privB));
+      final enc = await nip44Encrypt(sx, 'replay test');
+      // First decrypt succeeds
+      await nip44Decrypt(sx, enc);
+      // Second decrypt with same nonce must be rejected
+      await expectLater(() => nip44Decrypt(sx, enc), throwsFormatException);
+    });
+
+    test('different messages each decrypt exactly once', () async {
+      final sx = computeEcdhSecret(_privA, _pub(_privB));
+      final enc1 = await nip44Encrypt(sx, 'msg 1');
+      final enc2 = await nip44Encrypt(sx, 'msg 2');
+      // Both succeed first time
+      expect(await nip44Decrypt(sx, enc1), equals('msg 1'));
+      expect(await nip44Decrypt(sx, enc2), equals('msg 2'));
+      // Replays rejected
+      await expectLater(() => nip44Decrypt(sx, enc1), throwsFormatException);
+      await expectLater(() => nip44Decrypt(sx, enc2), throwsFormatException);
+    });
   });
 }

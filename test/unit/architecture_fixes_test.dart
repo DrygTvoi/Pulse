@@ -1,7 +1,7 @@
-/// Tests for the architectural fixes applied to ChatController:
-///   - contact index deduplication (_buildContactIndex)
-///   - typing timer cap (max 200 entries)
-///   - _healthSubs disposal (verified via dispose() completing cleanly)
+// Tests for the architectural fixes applied to ChatController:
+//   - contact index deduplication (_buildContactIndex)
+//   - typing timer cap (max 200 entries)
+//   - _healthSubs disposal (verified via dispose() completing cleanly)
 import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pulse_messenger/models/contact.dart';

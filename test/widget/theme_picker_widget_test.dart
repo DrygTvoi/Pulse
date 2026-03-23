@@ -125,7 +125,6 @@ void main() {
       // Find all GestureDetectors inside the Wrap. Tap the second one
       // (Indigo, index 1).
       final wrapFinder = find.byType(Wrap);
-      final wrapWidget = tester.widget<Wrap>(wrapFinder);
       // Each child is a GestureDetector. Get the second child's center.
       final secondChip = find.descendant(
         of: wrapFinder,

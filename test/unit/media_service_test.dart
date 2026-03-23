@@ -342,14 +342,14 @@ void main() {
   // MediaPayload — video_note
   // ==========================================================================
   group('parse video_note', () {
-    Uint8List _makeMp4({int size = 64}) {
+    Uint8List makeMp4({int size = 64}) {
       final b = Uint8List(size);
       b[4] = 0x66; b[5] = 0x74; b[6] = 0x79; b[7] = 0x70;
       return b;
     }
 
     test('parses video_note payload correctly', () {
-      final mp4 = _makeMp4();
+      final mp4 = makeMp4();
       final thumbBytes = Uint8List.fromList([0xFF, 0xD8, 0xFF, 0x01, 0x02]);
       final payload = jsonEncode({
         't': 'video_note',
@@ -369,7 +369,7 @@ void main() {
     });
 
     test('video_note without thumb field parses with null thumbnailData', () {
-      final mp4 = _makeMp4();
+      final mp4 = makeMp4();
       final payload = jsonEncode({
         't': 'video_note',
         'd': base64Encode(mp4),
@@ -385,7 +385,7 @@ void main() {
     test('rejects video_note exceeding 15 MB via actual data size', () {
       // parse() estimates size from base64 length, not 'sz' field.
       // Create actual oversized base64 to trigger the size check.
-      final mp4 = _makeMp4(size: 15 * 1024 * 1024 + 100);
+      final mp4 = makeMp4(size: 15 * 1024 * 1024 + 100);
       final payload = jsonEncode({
         't': 'video_note',
         'd': base64Encode(mp4),
@@ -411,7 +411,7 @@ void main() {
   // MediaPayload — gif
   // ==========================================================================
   group('parse gif', () {
-    Uint8List _makeGif({int size = 64}) {
+    Uint8List makeGif({int size = 64}) {
       final b = Uint8List(size);
       b[0] = 0x47; b[1] = 0x49; b[2] = 0x46;
       b[3] = 0x38; b[4] = 0x39; b[5] = 0x61;
@@ -419,7 +419,7 @@ void main() {
     }
 
     test('parses gif payload correctly', () {
-      final gif = _makeGif();
+      final gif = makeGif();
       final payload = jsonEncode({
         't': 'gif',
         'd': base64Encode(gif),
@@ -435,7 +435,7 @@ void main() {
     });
 
     test('rejects gif exceeding 10 MB via actual data size', () {
-      final gif = _makeGif(size: 10 * 1024 * 1024 + 100);
+      final gif = makeGif(size: 10 * 1024 * 1024 + 100);
       final payload = jsonEncode({
         't': 'gif',
         'd': base64Encode(gif),

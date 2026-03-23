@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pulse_messenger/services/signal_dispatcher.dart';
 import 'package:pulse_messenger/models/contact.dart';
@@ -40,7 +39,7 @@ SignalDispatcher _dispatcher({
     allAddressesGetter: () => allAddresses,
     selfIdGetter: () => selfId,
     contactIndexBuilder: () => index,
-    signatureVerifier: verifier ?? (_, __, ___, ____) async => true,
+    signatureVerifier: verifier ?? (_, _, _, _) async => true,
     groupContactResolver: (id) => groupList.cast<Contact?>().firstWhere(
           (c) => c?.id == id,
           orElse: () => null,
@@ -535,7 +534,7 @@ void main() {
 
     test('rejects signal with invalid signature', () async {
       final d = _dispatcher(
-        verifier: (_, __, ___, ____) async => false,
+        verifier: (_, _, _, _) async => false,
       );
       final events = <SignalAddrUpdateEvent>[];
       d.addrUpdates.listen(events.add);

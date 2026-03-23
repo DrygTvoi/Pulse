@@ -479,10 +479,7 @@ void main() {
           torNostrRelays: [],
           timestamp: DateTime(2026),
         );
-        final j = r.toJson();
-        // Mutate the original list — should not affect toJson output
-        // (const constructor doesn't copy, but toJson returns the same list ref)
-        // This documents current behavior.
+        // Mutate the original list — documents that toJson shares list references.
         relays.add('wss://b');
         // The internal list IS the same reference, so this would change.
         // This is expected Dart behavior for const constructors.

@@ -318,7 +318,7 @@ class _ProviderScreenState extends State<ProviderScreen> {
               if (provider == 'Firebase') ...[
                 settingsField(
                   controller: fbUrlCtrl,
-                  hint: 'https://project.firebaseio.com',
+                  hint: ctx.l10n.providerFirebaseUrlHint,
                   label: ctx.l10n.providerDatabaseUrlLabel,
                   icon: Icons.link_rounded,
                 ),
@@ -333,14 +333,14 @@ class _ProviderScreenState extends State<ProviderScreen> {
               ] else ...[
                 settingsField(
                   controller: nostrRelayCtrl,
-                  hint: 'wss://relay.damus.io',
+                  hint: ctx.l10n.providerNostrRelayHint,
                   label: ctx.l10n.providerRelayUrlLabel,
                   icon: Icons.bolt_rounded,
                 ),
                 const SizedBox(height: 10),
                 settingsField(
                   controller: nostrKeyCtrl,
-                  hint: 'nsec1... or hex',
+                  hint: ctx.l10n.providerNostrPrivkeyHint,
                   label: ctx.l10n.providerPrivateKeyLabel,
                   icon: Icons.vpn_key_rounded,
                   obscure: true,
@@ -361,8 +361,8 @@ class _ProviderScreenState extends State<ProviderScreen> {
                   final url = fbUrlCtrl.text.trim();
                   if (url.isEmpty) { Navigator.pop(ctx); return; }
                   if (!_isValidUrl(url, schemes: ['https', 'http'])) {
-                    ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(
-                      content: Text('Invalid URL. Expected https://project.firebaseio.com'),
+                    ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(
+                      content: Text(ctx.l10n.providerErrorInvalidFirebaseUrl),
                       backgroundColor: Colors.redAccent,
                     ));
                     return;
@@ -371,8 +371,8 @@ class _ProviderScreenState extends State<ProviderScreen> {
                   final relay = nostrRelayCtrl.text.trim();
                   if (relay.isEmpty) { Navigator.pop(ctx); return; }
                   if (!_isValidUrl(relay, schemes: ['wss', 'ws'])) {
-                    ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(
-                      content: Text('Invalid relay URL. Expected wss://relay.example.com'),
+                    ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(
+                      content: Text(ctx.l10n.providerErrorInvalidRelayUrl),
                       backgroundColor: Colors.redAccent,
                     ));
                     return;
@@ -631,7 +631,7 @@ class _ProviderScreenState extends State<ProviderScreen> {
       return Column(children: [
         settingsField(
           controller: _firebaseUrlCtrl,
-          hint: 'https://project.firebaseio.com',
+          hint: context.l10n.providerFirebaseUrlHint,
           label: context.l10n.providerDatabaseUrlLabel,
           icon: Icons.link_rounded,
         ),
@@ -675,14 +675,14 @@ class _ProviderScreenState extends State<ProviderScreen> {
               const SizedBox(height: 12),
               settingsField(
                 controller: _nostrRelayCtrl,
-                hint: 'wss://relay.damus.io',
+                hint: context.l10n.providerNostrRelayHint,
                 label: context.l10n.providerRelayUrlLabel,
                 icon: Icons.bolt_rounded,
               ),
               const SizedBox(height: 12),
               settingsField(
                 controller: _nostrKeyCtrl,
-                hint: 'nsec1... or hex private key',
+                hint: context.l10n.providerNostrPrivkeyHintFull,
                 label: context.l10n.providerPrivateKeyNsecLabel,
                 icon: Icons.vpn_key_rounded,
                 obscure: true,

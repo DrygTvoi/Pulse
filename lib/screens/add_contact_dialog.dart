@@ -394,7 +394,7 @@ class _AddContactDialogState extends State<AddContactDialog> {
                       style: GoogleFonts.jetBrainsMono(
                           color: AppTheme.textPrimary, fontSize: 12),
                       decoration: InputDecoration(
-                        hintText: 'pubkey@wss://relay  ·  05hex…  ·  id@https://...',
+                        hintText: context.l10n.addContactManualHint,
                         hintStyle: GoogleFonts.inter(
                             color: AppTheme.textSecondary.withValues(alpha: 0.4),
                             fontSize: 11),

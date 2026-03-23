@@ -177,7 +177,7 @@ class _ProviderSectionState extends State<ProviderSection> {
                 if (provider == 'Firebase') ...[
                   settingsField(
                     controller: fbUrlCtrl,
-                    hint: 'https://project.firebaseio.com',
+                    hint: context.l10n.providerFirebaseUrlHint,
                     label: context.l10n.providerDatabaseUrlLabel,
                     icon: Icons.link_rounded,
                   ),
@@ -192,14 +192,14 @@ class _ProviderSectionState extends State<ProviderSection> {
                 ] else ...[
                   settingsField(
                     controller: nostrRelayCtrl,
-                    hint: 'wss://relay.damus.io',
+                    hint: context.l10n.providerNostrRelayHint,
                     label: context.l10n.providerRelayUrlLabel,
                     icon: Icons.bolt_rounded,
                   ),
                   const SizedBox(height: 10),
                   settingsField(
                     controller: nostrKeyCtrl,
-                    hint: 'nsec1... or hex',
+                    hint: context.l10n.providerNostrPrivkeyHint,
                     label: context.l10n.providerPrivateKeyLabel,
                     icon: Icons.vpn_key_rounded,
                     obscure: true,
@@ -520,7 +520,7 @@ class _ProviderSectionState extends State<ProviderSection> {
             const SizedBox(height: 12),
             settingsField(
               controller: widget.nostrKeyController,
-              hint: 'nsec1... or hex private key',
+              hint: context.l10n.providerNostrPrivkeyHintFull,
               label: context.l10n.providerPrivateKeyNsecLabel,
               icon: Icons.vpn_key_rounded,
               obscure: true,

@@ -376,7 +376,7 @@ class TorConfigSection extends StatelessWidget {
                   flex: 3,
                   child: _field(
                     controller: torHostController,
-                    hint: '127.0.0.1',
+                    hint: l.torProxyHostHint,
                     label: l.torProxyHostLabel,
                     icon: Icons.router_rounded,
                   ),
@@ -386,7 +386,7 @@ class TorConfigSection extends StatelessWidget {
                   flex: 1,
                   child: _field(
                     controller: torPortController,
-                    hint: '9050',
+                    hint: l.torProxyPortHint,
                     label: l.torProxyPortLabel,
                     icon: Icons.electrical_services_rounded,
                   ),

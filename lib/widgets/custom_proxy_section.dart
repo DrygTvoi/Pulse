@@ -167,7 +167,7 @@ class _CustomProxySectionState extends State<CustomProxySection> {
           flex: 3,
           child: _field(
             controller: widget.proxyHostController,
-            hint: '127.0.0.1',
+            hint: l.customProxyHostHint,
             label: l.customProxyHostLabel,
             icon: Icons.router_rounded,
           ),
@@ -177,7 +177,7 @@ class _CustomProxySectionState extends State<CustomProxySection> {
           flex: 1,
           child: _field(
             controller: widget.proxyPortController,
-            hint: '10808',
+            hint: l.customProxyPortHint,
             label: l.customProxyPortLabel,
             icon: Icons.electrical_services_rounded,
           ),
@@ -189,7 +189,7 @@ class _CustomProxySectionState extends State<CustomProxySection> {
   Widget _buildWorkerField(BuildContext context) {
     return _field(
       controller: widget.workerRelayController,
-      hint: 'my-relay.username.workers.dev',
+      hint: context.l10n.cfWorkerDomainHint,
       label: context.l10n.customWorkerLabel,
       icon: Icons.cloud_queue_rounded,
     );

@@ -158,10 +158,7 @@ void main() {
 
     test('decapsulate with wrong ciphertext throws', () {
       // A garbage ciphertext should fail
-      final garbageCt = Uint8List(1568); // Kyber-1024 ciphertext size
-      // Won't match — should either throw or produce wrong secret.
-      // The Kyber KEM is implicitly rejecting, so decapsulate always returns
-      // a value (may be garbage). But if ciphertext length is wrong, it throws.
+      // Kyber KEM is implicitly rejecting; wrong length throws.
       final shortCt = Uint8List(10);
       expect(() => service.decapsulate(shortCt), throwsA(anything));
     });
