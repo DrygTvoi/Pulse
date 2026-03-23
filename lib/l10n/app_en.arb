@@ -1558,6 +1558,18 @@
   "providerSecondaryInboxesInfo": "Secondary inboxes receive messages simultaneously for redundancy.",
   "providerRemoveTooltip": "Remove",
 
+  "providerFirebaseUrlHint": "https://project.firebaseio.com",
+  "providerNostrRelayHint": "wss://relay.damus.io",
+  "providerNostrPrivkeyHint": "nsec1... or hex",
+  "providerNostrPrivkeyHintFull": "nsec1... or hex private key",
+  "customProxyHostHint": "127.0.0.1",
+  "customProxyPortHint": "10808",
+  "i2pProxyHostHint": "127.0.0.1",
+  "i2pProxyPortHint": "4447",
+  "torProxyHostHint": "127.0.0.1",
+  "torProxyPortHint": "9050",
+  "cfWorkerDomainHint": "my-relay.username.workers.dev",
+
   "emojiNoRecent": "No recent emojis",
   "emojiSearchHint": "Search emoji...",
   "contactTileE2ee": "E2EE",

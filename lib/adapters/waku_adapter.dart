@@ -244,16 +244,18 @@ class WakuInboxReader implements InboxReader {
       final senderId = outer['from'] as String? ?? '';
       final encPayload = outer['payload'] as String? ?? '';
       final tsNs = msg['timestamp'] as int? ?? 0;
-      if (!_msgCtrl.isClosed) _msgCtrl.add([Message(
-        id: msg['messageHash'] as String? ?? tsNs.toString(),
-        senderId: senderId,
-        receiverId: _userId,
-        encryptedPayload: encPayload,
-        timestamp: tsNs > 0
-            ? DateTime.fromMicrosecondsSinceEpoch(tsNs ~/ 1000)
-            : DateTime.now(),
-        adapterType: 'waku',
-      )]);
+      if (!_msgCtrl.isClosed) {
+        _msgCtrl.add([Message(
+          id: msg['messageHash'] as String? ?? tsNs.toString(),
+          senderId: senderId,
+          receiverId: _userId,
+          encryptedPayload: encPayload,
+          timestamp: tsNs > 0
+              ? DateTime.fromMicrosecondsSinceEpoch(tsNs ~/ 1000)
+              : DateTime.now(),
+          adapterType: 'waku',
+        )]);
+      }
     } catch (e) {
       debugPrint('[Waku] Message parse error: $e');
     }
@@ -285,12 +287,14 @@ class WakuInboxReader implements InboxReader {
         data = outer;
       }
 
-      if (!_sigCtrl.isClosed) _sigCtrl.add([{
-        'type': data['type'],
-        'senderId': data['senderId'],
-        'roomId': data['roomId'],
-        'payload': data['payload'],
-      }]);
+      if (!_sigCtrl.isClosed) {
+        _sigCtrl.add([{
+          'type': data['type'],
+          'senderId': data['senderId'],
+          'roomId': data['roomId'],
+          'payload': data['payload'],
+        }]);
+      }
     } catch (e) {
       debugPrint('[Waku] Signal parse error: $e');
     }

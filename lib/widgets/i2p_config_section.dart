@@ -124,7 +124,7 @@ class I2pConfigSection extends StatelessWidget {
                 flex: 3,
                 child: _field(
                   controller: i2pHostController,
-                  hint: '127.0.0.1',
+                  hint: l.i2pProxyHostHint,
                   label: l.i2pProxyHostLabel,
                   icon: Icons.router_rounded,
                 ),
@@ -134,7 +134,7 @@ class I2pConfigSection extends StatelessWidget {
                 flex: 1,
                 child: _field(
                   controller: i2pPortController,
-                  hint: '4447',
+                  hint: l.i2pProxyPortHint,
                   label: l.i2pProxyPortLabel,
                   icon: Icons.electrical_services_rounded,
                 ),

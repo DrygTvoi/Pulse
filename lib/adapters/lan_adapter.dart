@@ -90,18 +90,20 @@ class LanInboxReader implements InboxReader {
         return;
       }
 
-      if (!_msgCtrl.isClosed) _msgCtrl.add([
-        Message(
-          id:               id.isNotEmpty ? id : '${from}_$tsMs',
-          senderId:         from,
-          receiverId:       _selfAddress,
-          encryptedPayload: payload,
-          timestamp:        tsMs > 0
-              ? DateTime.fromMillisecondsSinceEpoch(tsMs)
-              : DateTime.now(),
-          adapterType: 'lan',
-        )
-      ]);
+      if (!_msgCtrl.isClosed) {
+        _msgCtrl.add([
+          Message(
+            id:               id.isNotEmpty ? id : '${from}_$tsMs',
+            senderId:         from,
+            receiverId:       _selfAddress,
+            encryptedPayload: payload,
+            timestamp:        tsMs > 0
+                ? DateTime.fromMillisecondsSinceEpoch(tsMs)
+                : DateTime.now(),
+            adapterType: 'lan',
+          )
+        ]);
+      }
     } catch (e) {
       debugPrint('[LAN] Datagram parse error: $e');
     }

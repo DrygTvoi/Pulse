@@ -196,6 +196,19 @@ class TorService {
     _bootstrapPercent = 0;
     _activeMode = null;
     _stateCtrl.add(null);
+    // Clean up torrc files to avoid leaking bridge fingerprints
+    try {
+      final tmpDir = await getTemporaryDirectory();
+      final dataDir = Directory('${tmpDir.path}/pulse_tor');
+      if (await dataDir.exists()) {
+        // Delete only torrc files, keep cached state
+        await for (final entity in dataDir.list()) {
+          if (entity is File && entity.path.contains('torrc_')) {
+            await entity.delete();
+          }
+        }
+      }
+    } catch (_) {}
     debugPrint('[TorService] stopped');
   }
 
@@ -562,7 +575,7 @@ Future<WebSocketChannel> connectWebSocket(String url,
         while (rxBuf.length < n) {
           final c = Completer<void>();
           waiters.add(c);
-          await c.future;
+          await c.future.timeout(const Duration(seconds: 15));
         }
         final result = Uint8List.fromList(rxBuf.take(n).toList());
         rxBuf.removeRange(0, n);

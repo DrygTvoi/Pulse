@@ -2396,6 +2396,39 @@ class AppLocalizationsKo extends AppLocalizations {
   String get providerRemoveTooltip => '삭제';
 
   @override
+  String get providerFirebaseUrlHint => 'https://project.firebaseio.com';
+
+  @override
+  String get providerNostrRelayHint => 'wss://relay.damus.io';
+
+  @override
+  String get providerNostrPrivkeyHint => 'nsec1... or hex';
+
+  @override
+  String get providerNostrPrivkeyHintFull => 'nsec1... or hex private key';
+
+  @override
+  String get customProxyHostHint => '127.0.0.1';
+
+  @override
+  String get customProxyPortHint => '10808';
+
+  @override
+  String get i2pProxyHostHint => '127.0.0.1';
+
+  @override
+  String get i2pProxyPortHint => '4447';
+
+  @override
+  String get torProxyHostHint => '127.0.0.1';
+
+  @override
+  String get torProxyPortHint => '9050';
+
+  @override
+  String get cfWorkerDomainHint => 'my-relay.username.workers.dev';
+
+  @override
   String get emojiNoRecent => '최근 이모지 없음';
 
   @override

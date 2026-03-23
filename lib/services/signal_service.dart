@@ -249,6 +249,7 @@ class SignalService {
       for (final pk in preKeys) {
         await _store.storePreKey(pk.id, pk); // also persists via override
       }
+      await _storage.write(key: _kPreKeyNextIdKey, value: '100');
       await _storage.write(key: 'signal_prekeys_generated', value: '1');
     } else {
       // Restore the same prekeys from storage — avoids invalidating published bundles.
@@ -285,6 +286,7 @@ class SignalService {
     unawaited(PqcService().rotateIfNeeded());
   }
 
+  static const _kPreKeyNextIdKey = 'signal_prekey_next_id';
   static const _kSignedPreKeyRotationDays = 7;
   static const _kSignedPreKeyTsKey = 'signal_signed_prekey_ts';
   static const _kSignedPreKeyIdKey = 'signal_signed_prekey_current_id';
@@ -393,8 +395,11 @@ class SignalService {
     // All 100 consumed — regenerate a fresh batch.
     if (preKey == null) {
       debugPrint('[Signal] All prekeys exhausted — regenerating fresh batch');
-      final newKeys = generatePreKeys(0, 100);
+      final nextIdStr = await _storage.read(key: _kPreKeyNextIdKey);
+      final nextId = nextIdStr != null ? (int.tryParse(nextIdStr) ?? 100) : 100;
+      final newKeys = generatePreKeys(nextId, 100);
       for (final pk in newKeys) { await _store.storePreKey(pk.id, pk); }
+      await _storage.write(key: _kPreKeyNextIdKey, value: '${nextId + 100}');
       preKey = newKeys.first;
       _bundleRefreshCtrl.add(null);
       unawaited(_trackExhaustionEvent());

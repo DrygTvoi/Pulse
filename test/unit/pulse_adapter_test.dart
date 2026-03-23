@@ -1318,9 +1318,9 @@ void main() {
         'turn_pass': 'pass456',
       };
 
-      final turnUrl = authOkData['turn_url'] as String? ?? '';
-      final turnUser = authOkData['turn_user'] as String? ?? '';
-      final turnPass = authOkData['turn_pass'] as String? ?? '';
+      final turnUrl = authOkData['turn_url'] ?? '';
+      final turnUser = authOkData['turn_user'] ?? '';
+      final turnPass = authOkData['turn_pass'] ?? '';
       if (turnUrl.isNotEmpty) {
         await prefs.setString('pulse_turn_url', turnUrl);
         await prefs.setString('pulse_turn_user', turnUser);
@@ -1344,7 +1344,7 @@ void main() {
         'turn_pass': '',
       };
 
-      final turnUrl = authOkData['turn_url'] as String? ?? '';
+      final turnUrl = authOkData['turn_url'] ?? '';
       if (turnUrl.isNotEmpty) {
         await prefs.setString('pulse_turn_url', turnUrl);
       }

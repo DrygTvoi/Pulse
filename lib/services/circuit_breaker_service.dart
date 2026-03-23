@@ -53,6 +53,14 @@ class CircuitBreakerService {
       s.tripCount++;
     }
     _state[endpoint] = s;
+    // Cap total entries to prevent unbounded growth
+    if (_state.length > 500) {
+      final sorted = _state.entries.toList()
+        ..sort((a, b) => a.value.lastFailure.compareTo(b.value.lastFailure));
+      for (final entry in sorted.take(_state.length - 500)) {
+        _state.remove(entry.key);
+      }
+    }
     await _save();
   }
 
@@ -93,6 +101,9 @@ class CircuitBreakerService {
       }
     }
     _loaded = true;
+    // Purge entries older than 7 days to prevent unbounded growth
+    final cutoff = DateTime.now().subtract(const Duration(days: 7));
+    _state.removeWhere((_, s) => s.lastFailure.isBefore(cutoff) && s.failures < maxFailures);
   }
 
   Future<void> _save() async {

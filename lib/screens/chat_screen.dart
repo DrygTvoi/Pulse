@@ -513,7 +513,7 @@ class _ChatScreenState extends State<ChatScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: Text('OK',
+            child: Text(context.l10n.chatOk,
                 style: GoogleFonts.inter(
                     color: AppTheme.primary, fontWeight: FontWeight.w600)),
           ),

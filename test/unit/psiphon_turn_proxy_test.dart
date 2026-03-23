@@ -51,7 +51,7 @@ final _all = [_openrelay, _freestun];
 
 /// Mirrors allIceServerEntries when all proxies are "running".
 List<Map<String, dynamic>> allIceServerEntries(
-        {required bool Function(_TurnPreset) isRunning}) =>
+        {required bool Function(_TurnPreset) isRunning}) => // ignore: library_private_types_in_public_api
     _all.where(isRunning).map((p) => p.iceServerEntry).toList();
 
 // ---------------------------------------------------------------------------

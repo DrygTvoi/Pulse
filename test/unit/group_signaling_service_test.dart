@@ -276,7 +276,6 @@ void main() {
     test('answered peer cancels retry', () {
       // Simulates the answer-tracking logic from _listenForSignals
       final answeredPeers = <String>{};
-      final offerRetryCount = <String, int>{};
 
       // Peer sends answer
       const peerId = 'peer-1';

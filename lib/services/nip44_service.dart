@@ -40,6 +40,26 @@ int _totalNonceCount = 0;
 bool _nonceDbLoaded = false;
 Future<void>? _nonceDbLoadFuture;
 
+/// Pending nonce writes batched for efficiency.
+final List<(String, String)> _pendingNonceWrites = [];
+Timer? _nonceFlushTimer;
+
+/// Flush pending nonces to SQLite.
+void _flushPendingNonces() {
+  _nonceFlushTimer?.cancel();
+  _nonceFlushTimer = null;
+  if (_pendingNonceWrites.isEmpty) return;
+  final batch = List<(String, String)>.from(_pendingNonceWrites);
+  _pendingNonceWrites.clear();
+  unawaited(LocalStorageService().saveNonces(batch));
+}
+
+/// Schedule a nonce flush (debounced 500ms).
+void _scheduleNonceFlush() {
+  _nonceFlushTimer?.cancel();
+  _nonceFlushTimer = Timer(const Duration(milliseconds: 500), _flushPendingNonces);
+}
+
 /// Load recent nonces (≤ 2 days old) from SQLite into [_seenNonces].
 /// Called lazily before the first [nip44Decrypt] to restore replay protection
 /// across app restarts. Purges stale entries as a side-effect.
@@ -85,8 +105,10 @@ void _checkAndRecordNonce(Uint8List convKey, Uint8List nonce) {
   }
   set.add(nonceHex);
   _totalNonceCount++;
-  // Fire-and-forget: persist to SQLite for replay protection across restarts.
-  unawaited(LocalStorageService().saveNonce(keyHex, nonceHex));
+  // Batch nonce writes: debounced flush reduces SQLite round-trips when
+  // processing many messages at once (e.g. 50 offline messages → 1 write).
+  _pendingNonceWrites.add((keyHex, nonceHex));
+  _scheduleNonceFlush();
 
   // Global safety valve: trim the oldest conversation key rather than deleting
   // it entirely. Deleting would allow replay of any previously-seen nonce in
@@ -111,6 +133,8 @@ void clearNonceCache() {
   _totalNonceCount = 0;
   _nonceDbLoaded = false;
   _nonceDbLoadFuture = null;
+  _nonceFlushTimer?.cancel();
+  _pendingNonceWrites.clear();
   unawaited(LocalStorageService().purgeOldNonces(maxAgeDays: 0));
 }
 

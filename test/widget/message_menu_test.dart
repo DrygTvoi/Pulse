@@ -45,7 +45,7 @@ void main() {
                   onForward: (_) {},
                   onShowEmojiPicker: (_) {},
                   onDelete: (_) {},
-                  onEdit: (_, __) {},
+                  onEdit: (_, _) {},
                   contact: contact,
                 ),
                 child: const Text('Open'),

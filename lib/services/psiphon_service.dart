@@ -261,6 +261,17 @@ class PsiphonService {
         await stop();
         _stopped = false; // allow auto-restart after timeout
         debugPrint('[PsiphonService] timed out waiting for tunnel');
+        if (_restartCount < _maxRestarts) {
+          final delay = (_restartCount < 6)
+              ? (2 << _restartCount)
+              : _maxRestartDelay;
+          _restartCount++;
+          debugPrint('[PsiphonService] timed out — retrying in ${delay}s '
+              '(attempt $_restartCount/$_maxRestarts)');
+          Future.delayed(Duration(seconds: delay), () {
+            if (!_stopped) ensureRunning();
+          });
+        }
       } else {
         _restartCount = 0;
         debugPrint('[PsiphonService] tunnel running — SOCKS5 on 127.0.0.1:$_port');

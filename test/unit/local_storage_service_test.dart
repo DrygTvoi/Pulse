@@ -1,3 +1,4 @@
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -29,6 +30,7 @@ void main() {
   setUpAll(() async {
     TestWidgetsFlutterBinding.ensureInitialized();
     SharedPreferences.setMockInitialValues({});
+    FlutterSecureStorage.setMockInitialValues({});
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfi;
     await LocalStorageService().init();
@@ -377,6 +379,60 @@ void main() {
 
       final loaded = await LocalStorageService().loadMessages(room);
       expect(loaded.length, 1);
+    });
+  });
+
+  // ── nonce_cache ───────────────────────────────────────────────────────────
+
+  group('nonce_cache', () {
+    test('saveNonce / loadRecentNonces round-trip', () async {
+      const key = 'deadbeef_nc01';
+      const nonce = 'cafebabe_nc01';
+      await LocalStorageService().saveNonce(key, nonce);
+
+      final entries = await LocalStorageService().loadRecentNonces(maxAgeDays: 2);
+      expect(entries.any((e) => e.$1 == key && e.$2 == nonce), isTrue);
+    });
+
+    test('purgeOldNonces(maxAgeDays:0) removes all entries', () async {
+      const key = 'deadbeef_nc02';
+      const nonce = 'cafebabe_nc02';
+      await LocalStorageService().saveNonce(key, nonce);
+
+      await LocalStorageService().purgeOldNonces(maxAgeDays: 0);
+
+      final entries = await LocalStorageService().loadRecentNonces(maxAgeDays: 2);
+      expect(entries.any((e) => e.$1 == key && e.$2 == nonce), isFalse);
+    });
+
+    test('duplicate nonce is ignored without throwing', () async {
+      const key = 'deadbeef_nc03';
+      const nonce = 'cafebabe_nc03';
+      await LocalStorageService().saveNonce(key, nonce);
+      await LocalStorageService().saveNonce(key, nonce); // second insert
+
+      final entries = await LocalStorageService().loadRecentNonces(maxAgeDays: 2);
+      final matching = entries.where((e) => e.$1 == key && e.$2 == nonce).toList();
+      expect(matching.length, 1);
+    });
+
+    test('same nonce under different conv_keys are both stored', () async {
+      const key1 = 'convkey_alpha_nc04';
+      const key2 = 'convkey_beta_nc04';
+      const nonce = 'shared_nonce_nc04';
+      await LocalStorageService().saveNonce(key1, nonce);
+      await LocalStorageService().saveNonce(key2, nonce);
+
+      final entries = await LocalStorageService().loadRecentNonces(maxAgeDays: 2);
+      expect(entries.any((e) => e.$1 == key1 && e.$2 == nonce), isTrue);
+      expect(entries.any((e) => e.$1 == key2 && e.$2 == nonce), isTrue);
+    });
+
+    test('loadRecentNonces returns empty list when table is empty', () async {
+      await LocalStorageService().purgeOldNonces(maxAgeDays: 0);
+
+      final entries = await LocalStorageService().loadRecentNonces(maxAgeDays: 2);
+      expect(entries, isEmpty);
     });
   });
 

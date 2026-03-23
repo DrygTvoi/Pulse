@@ -307,12 +307,12 @@ class ConnectivityProbeService {
     if (_last.nostrRelays.isEmpty) return;
     debugPrint('[Probe/Health] Checking ${_last.nostrRelays.length} cached relays');
 
-    const _healthBatchSize = 10;
+    const healthBatchSize = 10;
     final alive = <String>[];
     final urls = _last.nostrRelays;
 
-    for (var i = 0; i < urls.length; i += _healthBatchSize) {
-      final batch = urls.sublist(i, (i + _healthBatchSize).clamp(0, urls.length));
+    for (var i = 0; i < urls.length; i += healthBatchSize) {
+      final batch = urls.sublist(i, (i + healthBatchSize).clamp(0, urls.length));
       await Future.wait(batch.map((url) async {
         final uri = Uri.tryParse(url);
         if (uri == null || uri.host.isEmpty) return;
@@ -468,12 +468,12 @@ class ConnectivityProbeService {
       // Statically-probed URLs come first (known-good); regen candidates fill
       // the remainder up to the cap.
       {
-        const _maxAdaptiveCandidates = 500;
+        const maxAdaptiveCandidates = 500;
         final allKnownUrls = <String>{
           ...directNostr,
           ..._kNostrCandidates.map((c) => 'wss://${c.$1}'),
           ...regenCandidates.map((c) => 'wss://${c.$1}'),
-        }.take(_maxAdaptiveCandidates).toList();
+        }.take(maxAdaptiveCandidates).toList();
         AdaptiveRelayService.instance.seedCandidates(allKnownUrls);
         // Kick off background race so best relay is cached before first connect
         unawaited(AdaptiveRelayService.instance.getBestRelay());

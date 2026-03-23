@@ -118,10 +118,6 @@ class FakeLocalStorageService extends LocalStorageService {
   Future<void> deleteDraft(String contactId) async {}
 
   @override
-  Future<List<Map<String, dynamic>>> getMessages(String recipientId,
-      {int limit = 50, int offset = 0}) async => [];
-
-  @override
   Future<void> saveMessage(String roomId, Map<String, dynamic> msg) async {}
 
   @override
@@ -217,7 +213,7 @@ class _FakeUTLSService extends UTLSService {
   _FakeUTLSService() : super.forTesting();
 
   @override
-  final ValueNotifier<bool> available = ValueNotifier<bool>(false);
+  final ValueNotifier<bool> available = ValueNotifier<bool>(false); // ignore: overridden_fields
 
   @override
   bool get isRunning => false;

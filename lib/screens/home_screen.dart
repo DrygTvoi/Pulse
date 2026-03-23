@@ -17,7 +17,6 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
-import 'dart:collection';
 import '../controllers/chat_controller.dart';
 import '../services/signal_dispatcher.dart';
 import '../models/message.dart';
@@ -83,7 +82,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Map<String, UserStatus> _contactStatuses = {};
   Set<String> _mutedContactIds = {};
   // LRU avatar cache — keeps only the most recent _maxAvatars entries in memory
-  final _avatarCache = LinkedHashMap<String, Uint8List>();
+  final _avatarCache = <String, Uint8List>{};
   static const _maxAvatars = 20;
   final _avatarLoadRequested = <String>{}; // tracks lazy-load requests to avoid duplicates
   bool _loading = true;

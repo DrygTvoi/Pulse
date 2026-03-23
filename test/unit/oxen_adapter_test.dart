@@ -238,7 +238,6 @@ void main() {
     });
 
     test('sys_keys to self only stores once', () {
-      const type = 'sys_keys';
       const selfId = '05aaa';
       const targetId = '05aaa'; // same as self
       expect(targetId == selfId, isTrue);

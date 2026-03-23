@@ -19,3 +19,8 @@
 
 # Prevent stripping Dart FFI native lookups
 -keep class * extends io.flutter.embedding.engine.FlutterJNI { *; }
+
+# Google Play Core (deferred components) — not used in this app but referenced
+# by Flutter embedding; suppress missing-class errors from R8.
+-dontwarn com.google.android.play.core.**
+-keep class com.google.android.play.core.** { *; }

@@ -56,10 +56,12 @@ class _PanicKeyDialogState extends State<PanicKeyDialog> {
       await widget.onSet(key);
     } catch (e) {
       debugPrint('[PanicKey] Failed to save panic key: $e');
-      if (mounted) setState(() {
-        _loading = false;
-        _error = context.l10n.panicSetFailed;
-      });
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _error = context.l10n.panicSetFailed;
+        });
+      }
     }
   }
 
