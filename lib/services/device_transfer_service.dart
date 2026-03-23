@@ -9,7 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 // Use shared crypto — NIP-44 for encryption, secp256k1 for ECDH.
-import '../adapters/nostr_adapter.dart' show computeEcdhSecret;
+import '../adapters/nostr_adapter.dart' show computeEcdhSecret, computeEcdhSecretAsync;
 import '../services/nip44_service.dart' show nip44Encrypt, nip44Decrypt;
 import '../services/nostr_event_builder.dart' as neb;
 
@@ -164,7 +164,7 @@ class DeviceTransferService {
             // Wait for sender-side confirmation (2-minute timeout).
             await _bundleConfirmed!.future.timeout(const Duration(minutes: 2));
             final bundle = await _collectBundle();
-            final sharedX = computeEcdhSecret(
+            final sharedX = await computeEcdhSecretAsync(
               _myPrivHex, _peerPubHex, context: 'device_transfer');
             final encrypted = await nip44Encrypt(sharedX, jsonEncode(bundle));
             final response = jsonEncode({'ciphertext': encrypted});
@@ -253,7 +253,7 @@ class DeviceTransferService {
       final body = await utf8.decoder.bind(response).join();
       final json = jsonDecode(body) as Map<String, dynamic>;
       final ciphertext = json['ciphertext'] as String;
-      final sharedX = computeEcdhSecret(
+      final sharedX = await computeEcdhSecretAsync(
           _myPrivHex, _peerPubHex, context: 'device_transfer');
       final plain = await nip44Decrypt(sharedX, ciphertext);
       await _importBundle(jsonDecode(plain) as Map<String, dynamic>);
@@ -309,7 +309,7 @@ class DeviceTransferService {
           verificationCode = _verificationCode(_myPrivHex, _peerPubHex);
           // Encrypt and send bundle back (NIP-44)
           final bundle = await _collectBundle();
-          final sharedX = computeEcdhSecret(
+          final sharedX = await computeEcdhSecretAsync(
             _myPrivHex, _peerPubHex, context: 'device_transfer');
           final encrypted = await nip44Encrypt(sharedX, jsonEncode(bundle));
           final replyEvent = await neb.buildEvent(
@@ -385,7 +385,7 @@ class DeviceTransferService {
           if (event['kind'] != 4) continue;
           final senderPub = event['pubkey'] as String;
           if (senderPub != srcPubHex) continue;
-          final sharedX = computeEcdhSecret(
+          final sharedX = await computeEcdhSecretAsync(
               _myPrivHex, srcPubHex, context: 'device_transfer');
           final plain = await nip44Decrypt(sharedX, event['content'] as String);
           await _importBundle(jsonDecode(plain) as Map<String, dynamic>);

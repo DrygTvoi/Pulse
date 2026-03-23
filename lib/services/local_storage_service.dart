@@ -1473,6 +1473,8 @@ class LocalStorageService {
         secretKey: secretKey,
         nonce: iv,
       );
+      // Zero plaintext from memory as soon as ciphertext is produced.
+      (jsonBytes as Uint8List).fillRange(0, jsonBytes.length, 0);
 
       // Assemble file: magic + version + salt + iv + ciphertext + mac
       final cipherWithMac = [

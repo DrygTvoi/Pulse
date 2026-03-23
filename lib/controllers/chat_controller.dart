@@ -123,7 +123,7 @@ class ChatController extends ChangeNotifier {
   /// Enable or disable the LAN adapter and reconnect the inbox.
   Future<void> setLanModeEnabled(bool enabled) async {
     try {
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = await _getPrefs();
       await prefs.setBool(_kLanModeEnabled, enabled);
     } catch (e) {
       debugPrint('[ChatController] setLanModeEnabled: prefs write failed: $e');
@@ -169,9 +169,20 @@ class ChatController extends ChangeNotifier {
   HashMap<String, Contact>? _contactIndex;
   bool _contactIndexDirty = true;
 
-  // Cached Nostr sender + privkey to avoid re-creating per signal
+  // Cached sender instances per provider — avoids re-allocating on every send.
   NostrMessageSender? _cachedNostrSender;
+  FirebaseInboxSender? _cachedFirebaseSender;
+  WakuMessageSender? _cachedWakuSender;
+  OxenMessageSender? _cachedOxenSender;
+  PulseMessageSender? _cachedPulseSender;
   String? _cachedNostrPrivkey;
+
+  // Cached SharedPreferences instance — avoids repeated async platform channel
+  // round-trips. The underlying singleton is initialised on first access and
+  // reused for the lifetime of this controller.
+  SharedPreferences? _prefs;
+  Future<SharedPreferences> _getPrefs() async =>
+      _prefs ??= await SharedPreferences.getInstance();
 
   // Per-sender rate limiters
   final _msgRateLimiter = RateLimiter(maxTokens: 30, refillInterval: Duration(seconds: 2));
@@ -287,7 +298,7 @@ class ChatController extends ChangeNotifier {
     await LocalStorageService().init();
     unawaited(_repo.restoreScheduledTtls(onDeleted: () { if (!_disposed) notifyListeners(); }));
     _connectionStatus = ConnectionStatus.connecting;
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await _getPrefs();
     final identityJson = prefs.getString('user_identity');
     if (identityJson != null) {
       try {
@@ -328,6 +339,10 @@ class ChatController extends ChangeNotifier {
       _invalidateContactIndex();
       _cachedNostrSender = null;
       _cachedNostrPrivkey = null;
+      _cachedFirebaseSender = null;
+      _cachedWakuSender = null;
+      _cachedOxenSender = null;
+      _cachedPulseSender = null;
       await _initInbox();
     } finally {
       _reconnecting = false;
@@ -365,7 +380,7 @@ class ChatController extends ChangeNotifier {
             _identity = _identity!.copyWith(
               adapterConfig: Map.from(_identity!.adapterConfig)..remove('token'),
             );
-            final prefs2 = await SharedPreferences.getInstance();
+            final prefs2 = await _getPrefs();
             await prefs2.setString('user_identity', jsonEncode(_identity!.toJson()));
             _connectionStatus = ConnectionStatus.disconnected;
             _scheduleNotify();
@@ -375,7 +390,7 @@ class ChatController extends ChangeNotifier {
       case 'nostr':
         providerName = 'Nostr';
         final privkey = await _secureStorage.read(key: 'nostr_privkey') ?? '';
-        final prefs = await SharedPreferences.getInstance();
+        final prefs = await _getPrefs();
         final relay = _identity!.adapterConfig['relay'] ??
             prefs.getString('nostr_relay') ?? _kDefaultNostrRelay;
         apiKey = jsonEncode({'privkey': privkey, 'relay': relay});
@@ -396,7 +411,7 @@ class ChatController extends ChangeNotifier {
       case 'waku':
         providerName = 'Waku';
         {
-          final prefs = await SharedPreferences.getInstance();
+          final prefs = await _getPrefs();
           String userId = prefs.getString('waku_identity') ?? '';
           if (userId.isEmpty) {
             userId = const Uuid().v4().replaceAll('-', '');
@@ -418,7 +433,7 @@ class ChatController extends ChangeNotifier {
         {
           await OxenKeyService.instance.initialize();
           _selfId = OxenKeyService.instance.sessionId;
-          final prefs = await SharedPreferences.getInstance();
+          final prefs = await _getPrefs();
           final nodeUrl = prefs.getString('oxen_node_url') ?? '';
           apiKey = nodeUrl;
           dbId = _selfId;
@@ -427,7 +442,7 @@ class ChatController extends ChangeNotifier {
         providerName = 'Pulse';
         {
           final privkey = await _secureStorage.read(key: 'pulse_privkey') ?? '';
-          final prefs = await SharedPreferences.getInstance();
+          final prefs = await _getPrefs();
           final serverUrl = prefs.getString('pulse_server_url') ?? '';
           final invite = prefs.getString('pulse_invite_code') ?? '';
           apiKey = jsonEncode({'privkey': privkey, 'serverUrl': serverUrl, 'invite': invite});
@@ -538,7 +553,7 @@ class ChatController extends ChangeNotifier {
     _lanSender?.close();
     _lanReader = null;
     _lanSender = null;
-    final lanEnabled = (await SharedPreferences.getInstance()).getBool(_kLanModeEnabled) ?? true;
+    final lanEnabled = (await _getPrefs()).getBool(_kLanModeEnabled) ?? true;
     if (lanEnabled) {
       _lanReader = LanInboxReader();
       _lanSender = LanMessageSender();
@@ -580,7 +595,7 @@ class ChatController extends ChangeNotifier {
   }
 
   Future<List<Map<String, String>>> _loadSecondaryAdapters() async {
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await _getPrefs();
     final raw = prefs.getString('secondary_adapters');
     if (raw == null || raw.isEmpty) return [];
     try {
@@ -625,29 +640,33 @@ class ChatController extends ChangeNotifier {
     switch (contact.provider) {
       case 'Firebase':
         final token = _identity!.adapterConfig['token'] ?? '';
-        return (sender: FirebaseInboxSender(), apiKey: token);
+        _cachedFirebaseSender ??= FirebaseInboxSender();
+        return (sender: _cachedFirebaseSender!, apiKey: token);
       case 'Nostr':
         final privkey = await _getNostrPrivkey();
-        final prefs = await SharedPreferences.getInstance();
+        final prefs = await _getPrefs();
         final relay = prefs.getString('nostr_relay') ?? _kDefaultNostrRelay;
         _cachedNostrSender ??= NostrMessageSender();
         return (sender: _cachedNostrSender!,
                 apiKey: jsonEncode({'privkey': privkey, 'relay': relay}));
       case 'Waku':
-        final prefs = await SharedPreferences.getInstance();
+        final prefs = await _getPrefs();
         final nodeUrl = prefs.getString('waku_node_url') ?? 'http://127.0.0.1:8645';
         final userId = prefs.getString('waku_identity') ?? '';
-        return (sender: WakuMessageSender(),
+        _cachedWakuSender ??= WakuMessageSender();
+        return (sender: _cachedWakuSender!,
                 apiKey: jsonEncode({'nodeUrl': nodeUrl, 'userId': userId}));
       case 'Oxen':
-        final prefs = await SharedPreferences.getInstance();
+        final prefs = await _getPrefs();
         final nodeUrl = prefs.getString('oxen_node_url') ?? '';
-        return (sender: OxenMessageSender(), apiKey: nodeUrl);
+        _cachedOxenSender ??= OxenMessageSender();
+        return (sender: _cachedOxenSender!, apiKey: nodeUrl);
       case 'Pulse':
         final privkey = await _secureStorage.read(key: 'pulse_privkey') ?? '';
-        final prefs = await SharedPreferences.getInstance();
+        final prefs = await _getPrefs();
         final serverUrl = prefs.getString('pulse_server_url') ?? '';
-        return (sender: PulseMessageSender(),
+        _cachedPulseSender ??= PulseMessageSender();
+        return (sender: _cachedPulseSender!,
                 apiKey: jsonEncode({'privkey': privkey, 'serverUrl': serverUrl}));
       default:
         return null;
@@ -1319,14 +1338,14 @@ class ChatController extends ChangeNotifier {
           initDbId = contact.databaseId;
         } else if (contact.provider == 'Oxen') {
           contactReader = OxenInboxReader();
-          final prefs = await SharedPreferences.getInstance();
+          final prefs = await _getPrefs();
           initApiKey = prefs.getString('oxen_node_url') ?? '';
           initDbId = contact.databaseId;
           unawaited(_keys.publishOxenKeysTo(contact, _selfId));
         } else if (contact.provider == 'Pulse') {
           contactReader = PulseInboxReader();
           final privkey = await _secureStorage.read(key: 'pulse_privkey') ?? '';
-          final prefs = await SharedPreferences.getInstance();
+          final prefs = await _getPrefs();
           final serverUrl = prefs.getString('pulse_server_url') ?? '';
           initApiKey = jsonEncode({'privkey': privkey, 'serverUrl': serverUrl});
           initDbId = contact.databaseId;
@@ -1454,7 +1473,7 @@ class ChatController extends ChangeNotifier {
       await InboxManager().addSenderPlugin('Firebase', FirebaseInboxSender(), ourApiKey);
     } else if (provider == 'Nostr') {
       final privkey = await _getNostrPrivkey();
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = await _getPrefs();
       final atIdx = address.indexOf('@');
       final relay = atIdx != -1
           ? address.substring(atIdx + 1)
@@ -1463,19 +1482,19 @@ class ChatController extends ChangeNotifier {
       await InboxManager().addSenderPlugin('Nostr', _cachedNostrSender!,
           jsonEncode({'privkey': privkey, 'relay': relay}));
     } else if (provider == 'Waku') {
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = await _getPrefs();
       final userId = prefs.getString('waku_identity') ?? '';
       final atIdx = address.indexOf('@http');
       final nodeUrl = atIdx != -1 ? address.substring(atIdx + 1) : '';
       await InboxManager().addSenderPlugin('Waku', WakuMessageSender(),
           jsonEncode({'nodeUrl': nodeUrl, 'userId': userId}));
     } else if (provider == 'Oxen') {
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = await _getPrefs();
       final nodeUrl = prefs.getString('oxen_node_url') ?? '';
       await InboxManager().addSenderPlugin('Oxen', OxenMessageSender(), nodeUrl);
     } else if (provider == 'Pulse') {
       final privkey = await _secureStorage.read(key: 'pulse_privkey') ?? '';
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = await _getPrefs();
       final serverUrl = prefs.getString('pulse_server_url') ?? '';
       await InboxManager().addSenderPlugin('Pulse', PulseMessageSender(),
           jsonEncode({'privkey': privkey, 'serverUrl': serverUrl}));
@@ -1513,13 +1532,13 @@ class ChatController extends ChangeNotifier {
           initApiKey = '';
         } else if (contact.provider == 'Oxen') {
           contactReader = OxenInboxReader();
-          final prefs = await SharedPreferences.getInstance();
+          final prefs = await _getPrefs();
           initApiKey = prefs.getString('oxen_node_url') ?? '';
           unawaited(_keys.publishOxenKeysTo(contact, _selfId));
         } else if (contact.provider == 'Pulse') {
           contactReader = PulseInboxReader();
           final privkey = await _secureStorage.read(key: 'pulse_privkey') ?? '';
-          final prefs = await SharedPreferences.getInstance();
+          final prefs = await _getPrefs();
           final serverUrl = prefs.getString('pulse_server_url') ?? '';
           initApiKey = jsonEncode({'privkey': privkey, 'serverUrl': serverUrl});
         } else {
@@ -1882,7 +1901,7 @@ class ChatController extends ChangeNotifier {
 
   Future<void> setChatTtlSeconds(Contact contact, int seconds, {bool sendSignal = true}) async {
     _repo.setChatTtl(contact.id, seconds);
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await _getPrefs();
     if (seconds == 0) {
       await prefs.remove('chat_ttl_${contact.id}');
     } else {
@@ -2184,7 +2203,7 @@ class ChatController extends ChangeNotifier {
     room.messages.add(placeholder);
     _scheduleNotify();
 
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await _getPrefs();
     final storageKey = 'scheduled_${contact.id}';
     List existing;
     try {
@@ -2218,7 +2237,7 @@ class ChatController extends ChangeNotifier {
     _retryTimers.remove(msg.id);
     final room = _repo.getRoomForContact(contact.id);
     if (room != null) room.messages.removeWhere((m) => m.id == msg.id);
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await _getPrefs();
     final storageKey = 'scheduled_${contact.id}';
     List list;
     try {
@@ -2247,7 +2266,7 @@ class ChatController extends ChangeNotifier {
     final room = _repo.getRoomForContact(contact.id);
     if (room != null) room.messages.removeWhere((m) => m.id == msgId);
     _scheduleNotify();
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await _getPrefs();
     final storageKey = 'scheduled_${contact.id}';
     List list;
     try {
@@ -2271,7 +2290,7 @@ class ChatController extends ChangeNotifier {
   /// the placeholder messages back into their rooms, and re-arms timers via
   /// [_scheduleTimer]. Called once during [_init].
   Future<void> _restoreScheduledMessages() async {
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await _getPrefs();
     for (final contact in _contacts.contacts) {
       final storageKey = 'scheduled_${contact.id}';
       final raw = prefs.getString(storageKey);
@@ -2353,7 +2372,7 @@ class ChatController extends ChangeNotifier {
 
   Future<void> _loadDeliveryStats() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = await _getPrefs();
       final raw = prefs.getString(_kDeliveryStatsKey);
       if (raw == null) return;
       final map = jsonDecode(raw) as Map<String, dynamic>;
@@ -2368,7 +2387,7 @@ class ChatController extends ChangeNotifier {
 
   Future<void> _saveDeliveryStats() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = await _getPrefs();
       await prefs.setString(
           _kDeliveryStatsKey, jsonEncode(Map<String, int>.from(_deliverySuccessCount)));
     } catch (e) {
@@ -2419,6 +2438,10 @@ class ChatController extends ChangeNotifier {
     _cachedNostrSender?.zeroize();
     _cachedNostrSender = null;
     _cachedNostrPrivkey = null;
+    _cachedFirebaseSender = null;
+    _cachedWakuSender = null;
+    _cachedOxenSender = null;
+    _cachedPulseSender = null;
     _contactIndex = null;
     unawaited(VoiceService().dispose());
     _signalService.zeroize();

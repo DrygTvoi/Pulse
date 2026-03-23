@@ -17,6 +17,7 @@ import '../services/utls_service.dart';
 import '../services/psiphon_service.dart';
 import '../services/nip44_service.dart' as nip44;
 import '../services/gift_wrap_service.dart' as giftwrap;
+import '../services/nostr_event_builder.dart' as eb;
 import 'inbox_manager.dart';
 
 /// ─────────────────────────────────────────────────────────
@@ -486,6 +487,107 @@ Map<String, dynamic> _buildEvent({
   return event;
 }
 
+// ─── Async ECDH (compute isolate) ────────────────────────
+
+/// Isolate entry point: performs secp256k1 ECDH + pubkey derivation.
+/// Returns {'secret': base64(sharedX), 'ourPubHex': hex}.
+/// The isolate re-initialises all secp256k1 globals from scratch.
+Map<String, dynamic> _ecdhFullIsolate(Map<String, dynamic> params) {
+  final ourPrivkeyHex = params['ourPrivkeyHex'] as String;
+  final theirPubkeyHex = params['theirPubkeyHex'] as String;
+
+  final d = BigInt.parse(ourPrivkeyHex, radix: 16);
+  final x = BigInt.parse(theirPubkeyHex, radix: 16);
+
+  // Derive our pubkey (needed for cache key on return).
+  final Q = _secp256k1.G * d;
+  final ourPubHex = hex.encode(_bigIntToBytes(Q!.x!.toBigInteger()!, 32));
+
+  // Compute ECDH shared secret (x-coordinate of d·P).
+  final y2 = (x.modPow(BigInt.from(3), _secp256k1P) + BigInt.from(7)) % _secp256k1P;
+  final y = y2.modPow((_secp256k1P + BigInt.one) ~/ BigInt.from(4), _secp256k1P);
+  if ((y * y) % _secp256k1P != y2) {
+    throw ArgumentError('ECDH: peer public key is not on secp256k1');
+  }
+  final useY = y.isEven ? y : _secp256k1P - y;
+  final sharedPoint = _secp256k1.curve.createPoint(x, useY) * d;
+  final xVal = sharedPoint?.x?.toBigInteger();
+  if (xVal == null) throw StateError('ECDH: invalid shared point');
+
+  return {
+    'secret': base64.encode(_bigIntToBytes(xVal, 32)),
+    'ourPubHex': ourPubHex,
+  };
+}
+
+/// Async version of [computeEcdhSecret]: runs secp256k1 math in a background
+/// isolate on cache miss; subsequent calls for the same key pair + context are
+/// served from the LRU cache without spawning an isolate.
+///
+/// Use this in async contexts (message encryption, gift-wrap) so heavy
+/// elliptic-curve operations do not block the UI thread.
+Future<Uint8List> computeEcdhSecretAsync(
+    String ourPrivkeyHex, String theirPubkeyHex,
+    {String context = 'default'}) async {
+  // Fast path: if our pubkey is already cached we can check the ECDH cache
+  // without touching the isolate at all.
+  final cachedPub = _pubkeyCache[ourPrivkeyHex];
+  if (cachedPub != null) {
+    final cacheKey = '$context:$cachedPub:$theirPubkeyHex';
+    final cached = _ecdhCache[cacheKey];
+    if (cached != null &&
+        DateTime.now().difference(cached.cachedAt) < _ecdhCacheTtl) {
+      return cached.secret;
+    }
+  }
+
+  // Slow path: compute in background isolate (both pubkey derivation + ECDH).
+  final result = await compute(_ecdhFullIsolate, {
+    'ourPrivkeyHex': ourPrivkeyHex,
+    'theirPubkeyHex': theirPubkeyHex,
+  });
+  final secret =
+      Uint8List.fromList(base64.decode(result['secret'] as String));
+  final ourPubHex = result['ourPubHex'] as String;
+
+  // Populate both caches on the main thread.
+  _pubkeyCache[ourPrivkeyHex] = ourPubHex;
+  if (_pubkeyCache.length > _pubkeyCacheMaxSize) {
+    _pubkeyCache.remove(_pubkeyCache.keys.first);
+  }
+  final cacheKey = '$context:$ourPubHex:$theirPubkeyHex';
+  _ecdhCache[cacheKey] = (secret: secret, cachedAt: DateTime.now());
+  if (_ecdhCache.length > _ecdhCacheMaxSize) {
+    _ecdhCache.remove(_ecdhCache.keys.first);
+  }
+  return secret;
+}
+
+// ─── NIP-42 AUTH helper ───────────────────────────────────
+
+/// Respond to a NIP-42 AUTH challenge from the relay.
+/// Builds and signs a kind:22242 event in a background isolate, then sends
+/// ["AUTH", event] on [ch]. No-op if [privkeyHex] is empty.
+Future<void> _nostrRespondToAuth(WebSocketChannel ch, String relayUrl,
+    String challenge, String privkeyHex) async {
+  if (privkeyHex.isEmpty) return;
+  try {
+    final authEvent = await eb.buildEvent(
+      privkeyHex: privkeyHex,
+      kind: 22242,
+      content: '',
+      tags: [
+        ['relay', relayUrl],
+        ['challenge', challenge],
+      ],
+    );
+    ch.sink.add(jsonEncode(['AUTH', authEvent]));
+    debugPrint('[Nostr] AUTH → $relayUrl');
+  } catch (e) {
+    debugPrint('[Nostr] AUTH response error: $e');
+  }
+}
+
 // ─── NIP-04 (kept for WebRTC signaling only) ─────────────
 
 /// Issue 5: delegates ECDH to computeEcdhSecret() which uses the shared cache.
@@ -781,6 +883,15 @@ class NostrInboxReader implements InboxReader {
                 debugPrint('[Nostr] EOSE on $_relayUrl');
                 continue;
               }
+              // NIP-42: respond to AUTH challenges from the relay.
+              if (data[0] == 'AUTH' && data.length >= 2) {
+                final challenge = data[1] as String?;
+                if (challenge != null && _privateKeyHex.isNotEmpty) {
+                  unawaited(_nostrRespondToAuth(
+                      channel, _relayUrl, challenge, _privateKeyHex));
+                }
+                continue;
+              }
               if (data.length < 3 || data[0] != 'EVENT' || data[1] != subId) continue;
               final event = data[2] as Map<String, dynamic>?;
               if (event == null) continue;
@@ -1071,6 +1182,11 @@ class NostrMessageSender implements MessageSender {
   static const _wsPoolTtl = Duration(minutes: 5);
   final Map<String, StreamSubscription> _wsPoolSubs = {};
 
+  // initializeSender dedup: skip re-reading prefs when apiKey unchanged within TTL.
+  String _lastInitApiKey = '';
+  int _lastInitMs = 0;
+  static const _initTtlMs = 10000; // 10 seconds
+
   // Tor settings — loaded once in initializeSender
   bool _torEnabled = false;
   String _torHost = '127.0.0.1';
@@ -1096,6 +1212,13 @@ class NostrMessageSender implements MessageSender {
 
   @override
   Future<void> initializeSender(String apiKey) async {
+    // Skip re-reading prefs when apiKey is unchanged within TTL (avoids 11+
+    // SharedPreferences lookups per message on high-frequency sends).
+    final nowMs = DateTime.now().millisecondsSinceEpoch;
+    if (apiKey == _lastInitApiKey && nowMs - _lastInitMs < _initTtlMs) return;
+    _lastInitApiKey = apiKey;
+    _lastInitMs = nowMs;
+
     if (apiKey.startsWith('{')) {
       try {
         final decoded = jsonDecode(apiKey);
@@ -1156,9 +1279,20 @@ class NostrMessageSender implements MessageSender {
       final ch = await _wsConnect(relayUrl);
       await ch.ready;
       _wsPool[relayUrl] = (ch: ch, ts: DateTime.now());
-      // Listen for close/errors to evict from pool.
+      // Listen for close/errors to evict from pool; also handle NIP-42 AUTH.
       final sub = ch.stream.listen(
-        (_) { /* consume data frames to keep stream alive */ },
+        (raw) {
+          try {
+            final data = jsonDecode(raw as String) as List;
+            if (data.isNotEmpty && data[0] == 'AUTH' && data.length >= 2) {
+              final challenge = data[1] as String?;
+              if (challenge != null && _privateKeyHex.isNotEmpty) {
+                unawaited(_nostrRespondToAuth(
+                    ch, relayUrl, challenge, _privateKeyHex));
+              }
+            }
+          } catch (_) {}
+        },
         onDone: () {
           _wsPool.remove(relayUrl);
           _wsPoolSubs.remove(relayUrl)?.cancel();
@@ -1270,7 +1404,7 @@ class NostrMessageSender implements MessageSender {
     if (type == 'sys_keys') {
       if (_privateKeyHex.isEmpty) return false; // sys_keys requires real identity
       try {
-        final event = _buildEvent(
+        final event = await eb.buildEvent(
           privkeyHex: _privateKeyHex,
           kind: 10009,
           content: jsonEncode(payload),
@@ -1309,7 +1443,7 @@ class NostrMessageSender implements MessageSender {
   Future<bool> publishProfile({required String name, String? about}) async {
     if (_privateKeyHex.isEmpty) return false;
     try {
-      final event = _buildEvent(
+      final event = await eb.buildEvent(
         privkeyHex: _privateKeyHex,
         kind: 0,
         content: jsonEncode({'name': name, 'about': about ?? ''}),

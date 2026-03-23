@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/foundation.dart';
-import '../adapters/nostr_adapter.dart' show computeEcdhSecret;
+import '../adapters/nostr_adapter.dart' show computeEcdhSecretAsync;
 import 'nip44_service.dart' as nip44;
 import 'nostr_event_builder.dart' as eb;
 
@@ -49,7 +49,7 @@ Future<Map<String, dynamic>> wrapEvent({
   //    derive the shared secret. The real sender pubkey is in the inner event.
   final innerJson = jsonEncode(innerEvent);
   final ephemeralSealPrivkey = eb.generateRandomPrivkey();
-  final sealSharedX = computeEcdhSecret(ephemeralSealPrivkey, recipientPubkey, context: 'giftwrap');
+  final sealSharedX = await computeEcdhSecretAsync(ephemeralSealPrivkey, recipientPubkey, context: 'giftwrap');
   final sealContent = await nip44.nip44Encrypt(sealSharedX, innerJson);
   final sealEvent = await eb.buildEvent(
     privkeyHex: ephemeralSealPrivkey,
@@ -61,7 +61,7 @@ Future<Map<String, dynamic>> wrapEvent({
   // 3. Gift Wrap (kind:1059): NIP-44 encrypt seal JSON with ephemeral key
   final ephemeralPrivkey = eb.generateRandomPrivkey();
   final sealJson = jsonEncode(sealEvent);
-  final wrapSharedX = computeEcdhSecret(ephemeralPrivkey, recipientPubkey, context: 'giftwrap');
+  final wrapSharedX = await computeEcdhSecretAsync(ephemeralPrivkey, recipientPubkey, context: 'giftwrap');
   final wrapContent = await nip44.nip44Encrypt(wrapSharedX, sealJson);
 
   // Randomize timestamp ±48 hours for metadata privacy
@@ -98,7 +98,7 @@ Future<Map<String, dynamic>?> unwrapEvent({
     if (ephemeralPubkey.isEmpty || wrapContent.isEmpty) return null;
 
     // 1. Decrypt Gift Wrap → Seal
-    final wrapSharedX = computeEcdhSecret(recipientPrivkey, ephemeralPubkey, context: 'giftwrap');
+    final wrapSharedX = await computeEcdhSecretAsync(recipientPrivkey, ephemeralPubkey, context: 'giftwrap');
     final sealJson = await nip44.nip44Decrypt(wrapSharedX, wrapContent);
     final sealEvent = jsonDecode(sealJson) as Map<String, dynamic>;
 
@@ -116,7 +116,7 @@ Future<Map<String, dynamic>?> unwrapEvent({
     final sealContent = sealEvent['content'] as String? ?? '';
     if (sealPubkey.isEmpty || sealContent.isEmpty) return null;
 
-    final sealSharedX = computeEcdhSecret(recipientPrivkey, sealPubkey, context: 'giftwrap');
+    final sealSharedX = await computeEcdhSecretAsync(recipientPrivkey, sealPubkey, context: 'giftwrap');
     final innerJson = await nip44.nip44Decrypt(sealSharedX, sealContent);
     final innerEvent = jsonDecode(innerJson) as Map<String, dynamic>;
 
