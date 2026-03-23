@@ -694,6 +694,7 @@ class NostrInboxReader implements InboxReader {
     while (_running) {
       WebSocketChannel? channel;
       bool cycleSuccess = false;
+      final connectTime = DateTime.now();
       if (!_running) break;
       try {
         channel = await _wsConnect(_relayUrl);
@@ -799,9 +800,19 @@ class NostrInboxReader implements InboxReader {
         await Future.delayed(delay);
         if (!_running) break;
       } else {
-        // Successful cycle — reconnect quickly (relay closed gracefully).
-        debugPrint('[Nostr] Reconnecting in 2s…');
-        await Future.delayed(const Duration(seconds: 2));
+        // Successful cycle but relay closed gracefully.
+        // If connection was very short-lived, relay might be down — use backoff.
+        final connectionDuration = DateTime.now().difference(connectTime);
+        if (connectionDuration < const Duration(seconds: 30)) {
+          _consecutiveFailures++;
+          final delay = _consecutiveFailures < 3 ? 5 : (_consecutiveFailures < 10 ? 30 : 300);
+          debugPrint('[Nostr] Short-lived connection (${connectionDuration.inSeconds}s) — reconnecting in ${delay}s');
+          await Future.delayed(Duration(seconds: delay));
+        } else {
+          _consecutiveFailures = 0;
+          debugPrint('[Nostr] Reconnecting in 2s…');
+          await Future.delayed(const Duration(seconds: 2));
+        }
         if (!_running) break;
       }
     }
@@ -1023,6 +1034,7 @@ class NostrMessageSender implements MessageSender {
   // Persistent WS pool: relay URL → (channel, lastUsed)
   final Map<String, ({WebSocketChannel ch, DateTime ts})> _wsPool = {};
   static const _wsPoolTtl = Duration(minutes: 5);
+  final Map<String, StreamSubscription> _wsPoolSubs = {};
 
   // Tor settings — loaded once in initializeSender
   bool _torEnabled = false;
@@ -1096,26 +1108,33 @@ class NostrMessageSender implements MessageSender {
   Future<WebSocketChannel?> _getPooledWs(String relayUrl) async {
     final cached = _wsPool[relayUrl];
     if (cached != null) {
-      final age = DateTime.now().difference(cached.ts);
-      if (age < _wsPoolTtl) {
-        return cached.ch;
+      final (ch: cachedCh, ts: cachedTs) = cached;
+      if (DateTime.now().difference(cachedTs) < _wsPoolTtl) {
+        return cachedCh;
       }
       // Stale — close and reconnect.
-      try { cached.ch.sink.close(); } catch (_) {}
       _wsPool.remove(relayUrl);
+      _wsPoolSubs.remove(relayUrl)?.cancel();
+      try { cachedCh.sink.close(); } catch (_) {}
     }
     try {
       final ch = await _wsConnect(relayUrl);
       await ch.ready;
       _wsPool[relayUrl] = (ch: ch, ts: DateTime.now());
-      // Listen for close/errors to evict from pool. Subscription kept via
-      // onDone/onError self-cleanup (removes pool entry which drops channel ref).
-      ch.stream.listen(
+      // Listen for close/errors to evict from pool.
+      final sub = ch.stream.listen(
         (_) { /* consume data frames to keep stream alive */ },
-        onDone: () => _wsPool.remove(relayUrl),
-        onError: (_) => _wsPool.remove(relayUrl),
+        onDone: () {
+          _wsPool.remove(relayUrl);
+          _wsPoolSubs.remove(relayUrl)?.cancel();
+        },
+        onError: (_) {
+          _wsPool.remove(relayUrl);
+          _wsPoolSubs.remove(relayUrl)?.cancel();
+        },
         cancelOnError: true,
       );
+      _wsPoolSubs[relayUrl] = sub;
       return ch;
     } catch (e) {
       debugPrint('[Nostr] Pool connect failed: $e');
@@ -1164,6 +1183,7 @@ class NostrMessageSender implements MessageSender {
       debugPrint('[Nostr] Failed to publish: $e');
       // Evict broken pool entry.
       _wsPool.remove(relayUrl);
+      _wsPoolSubs.remove(relayUrl)?.cancel();
       return false;
     }
   }
@@ -1273,6 +1293,10 @@ class NostrMessageSender implements MessageSender {
       try { entry.ch.sink.close(); } catch (_) {}
     }
     _wsPool.clear();
+    for (final sub in _wsPoolSubs.values) {
+      sub.cancel();
+    }
+    _wsPoolSubs.clear();
     // Clear caches that may hold derived key material.
     clearEcdhCache();
     _pubkeyCache.clear();
