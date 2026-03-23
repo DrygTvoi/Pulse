@@ -1556,5 +1556,16 @@
   "providerScreenTitle": "Inboxes",
   "providerSecondaryInboxesHeader": "SECONDARY INBOXES",
   "providerSecondaryInboxesInfo": "Secondary inboxes receive messages simultaneously for redundancy.",
-  "providerRemoveTooltip": "Remove"
+  "providerRemoveTooltip": "Remove",
+
+  "emojiNoRecent": "No recent emojis",
+  "emojiSearchHint": "Search emoji...",
+  "contactTileE2ee": "E2EE",
+  "contactTileTapToChat": "Tap to chat",
+  "imageViewerSaveToDownloads": "Save to Downloads",
+  "imageViewerSavedTo": "Saved to {path}",
+  "@imageViewerSavedTo": { "placeholders": { "path": { "type": "String" } } },
+  "addContactManualHint": "pubkey@wss://relay  ·  05hex…  ·  id@https://...",
+  "chatOk": "OK",
+  "bubbleGifBadge": "GIF"
 }

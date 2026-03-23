@@ -799,5 +799,15 @@
   "providerScreenTitle": "Ящики",
   "providerSecondaryInboxesHeader": "ДОПОЛНИТЕЛЬНЫЕ ЯЩИКИ",
   "providerSecondaryInboxesInfo": "Дополнительные ящики получают сообщения одновременно для надёжности.",
-  "providerRemoveTooltip": "Удалить"
+  "providerRemoveTooltip": "Удалить",
+
+  "emojiNoRecent": "Нет недавних эмодзи",
+  "emojiSearchHint": "Поиск эмодзи...",
+  "contactTileE2ee": "E2EE",
+  "contactTileTapToChat": "Нажмите для чата",
+  "imageViewerSaveToDownloads": "Сохранить в Загрузки",
+  "imageViewerSavedTo": "Сохранено в {path}",
+  "addContactManualHint": "pubkey@wss://relay  ·  05hex…  ·  id@https://...",
+  "chatOk": "ОК",
+  "bubbleGifBadge": "GIF"
 }
