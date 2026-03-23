@@ -25,9 +25,10 @@ class CloudflareIpService {
   static final instance = CloudflareIpService._();
   CloudflareIpService._();
 
-  static const _cacheKeyRanges = 'cf_ip_ranges';
-  static const _cacheKeyTs     = 'cf_ip_ranges_ts';
-  static const _cacheTtlMs     = 24 * 60 * 60 * 1000; // 24h
+  static const _cacheKeyRanges     = 'cf_ip_ranges';
+  static const _cacheKeyTs         = 'cf_ip_ranges_ts';
+  static const _cacheTtlMs         = 24 * 60 * 60 * 1000; // 24h
+  static const _maxConcurrentChecks = 20;
 
   // Official Cloudflare IPv4 ranges as of 2025 (rarely change).
   // Source: https://www.cloudflare.com/ips-v4
@@ -212,22 +213,48 @@ class CloudflareIpService {
   }
 
   /// Filters [urls] to those whose host resolves to Cloudflare IPs.
-  /// Runs DNS lookups in parallel.
+  ///
+  /// Processes URLs in sequential batches of [_maxConcurrentChecks] to avoid
+  /// firing thousands of simultaneous DoH lookups that trigger rate-limiting
+  /// on Google/Quad9 DNS providers.
+  ///
+  /// Obviously non-CF domains (.local, .ts.net, .onion, trycloudflare.com)
+  /// are pre-filtered out before any DNS work begins.
   Future<List<String>> filterCloudflare(List<String> urls) async {
     if (urls.isEmpty) return [];
-    final results = await Future.wait(
-      urls.map((url) async {
-        try {
-          final host = Uri.parse(url).host;
-          if (host.isEmpty) return null;
-          final isCf = await isOnCloudflare(host);
-          return isCf ? url : null;
-        } catch (_) {
-          return null;
-        }
-      }),
-    );
-    return results.whereType<String>().toList();
+
+    // Pre-filter: skip domains that are definitely not on Cloudflare CDN.
+    // This avoids wasting DoH quota on LAN/Tailscale/Tor/trycloudflare hosts.
+    final filtered = urls.where((url) {
+      final host = Uri.tryParse(url)?.host ?? '';
+      return !host.endsWith('.local') &&
+             !host.endsWith('.ts.net') &&
+             !host.endsWith('.onion') &&
+             !host.contains('trycloudflare.com') &&
+             host.isNotEmpty;
+    }).toList();
+
+    if (filtered.isEmpty) return [];
+
+    final cfUrls = <String>[];
+    for (var i = 0; i < filtered.length; i += _maxConcurrentChecks) {
+      final end = (i + _maxConcurrentChecks).clamp(0, filtered.length);
+      final batch = filtered.sublist(i, end);
+      final batchResults = await Future.wait(
+        batch.map((url) async {
+          try {
+            final host = Uri.parse(url).host;
+            if (host.isEmpty) return null;
+            final isCf = await isOnCloudflare(host);
+            return isCf ? url : null;
+          } catch (_) {
+            return null;
+          }
+        }),
+      );
+      cfUrls.addAll(batchResults.whereType<String>());
+    }
+    return cfUrls;
   }
 
   // ── DoH resolver (multi-provider) ──────────────────────────────────────────

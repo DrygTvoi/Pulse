@@ -458,12 +458,16 @@ class ConnectivityProbeService {
 
       // Seed AdaptiveRelayService with all known reachable relay URLs so the
       // CF race can start immediately without waiting for a separate fetch.
+      // Cap to 500 URLs to avoid racing thousands of connections at once.
+      // Statically-probed URLs come first (known-good); regen candidates fill
+      // the remainder up to the cap.
       {
+        const _maxAdaptiveCandidates = 500;
         final allKnownUrls = <String>{
           ...directNostr,
           ..._kNostrCandidates.map((c) => 'wss://${c.$1}'),
           ...regenCandidates.map((c) => 'wss://${c.$1}'),
-        }.toList();
+        }.take(_maxAdaptiveCandidates).toList();
         AdaptiveRelayService.instance.seedCandidates(allKnownUrls);
         // Kick off background race so best relay is cached before first connect
         unawaited(AdaptiveRelayService.instance.getBestRelay());
