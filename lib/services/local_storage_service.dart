@@ -1337,6 +1337,34 @@ class LocalStorageService {
     });
   }
 
+  /// Close and delete the SQLCipher database file (used by panic key wipe).
+  ///
+  /// More complete than [clearAll]: removes the file so no ciphertext remains
+  /// on disk even if an attacker previously extracted the cipher key from
+  /// FlutterSecureStorage (e.g. via ADB backup on an unencrypted device).
+  /// Falls back to table-clearing if file deletion fails.
+  Future<void> deleteAndClose() async {
+    final dbDir = await databaseFactoryFfi.getDatabasesPath();
+    final path = '$dbDir/messages.db';
+    try {
+      if (_db != null) {
+        await _database.close();
+        _db = null;
+      }
+      final f = File(path);
+      if (await f.exists()) await f.delete();
+      // Also remove SQLite WAL/SHM side-files left on disk.
+      for (final suffix in ['-wal', '-shm']) {
+        final side = File('$path$suffix');
+        if (await side.exists()) await side.delete();
+      }
+      debugPrint('[LocalStorage] Database file deleted');
+    } catch (e) {
+      debugPrint('[LocalStorage] File delete failed, falling back to clearAll: $e');
+      await clearAll();
+    }
+  }
+
   /// Wipe the entire messages table (used by panic key / self-destruct).
   Future<void> clearAll() async {
     if (_db == null) return;

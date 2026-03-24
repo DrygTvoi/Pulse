@@ -46,6 +46,9 @@ class _ProxyTunnelsScreenState extends State<ProxyTunnelsScreen> {
 
   StreamSubscription<void>? _torStateSub;
 
+  // BUG-4: settings loaded flag — prevents saving during initial field population.
+  bool _settingsLoaded = false;
+
   @override
   void initState() {
     super.initState();
@@ -53,19 +56,51 @@ class _ProxyTunnelsScreenState extends State<ProxyTunnelsScreen> {
     _torStateSub = TorService.instance.stateChanges.listen((_) {
       if (mounted) setState(() {});
     });
+    // Save text field values to SharedPreferences whenever they change.
+    for (final c in [
+      _torHostController, _torPortController,
+      _i2pHostController, _i2pPortController,
+      _customProxyHostController, _customProxyPortController,
+      _cfWorkerRelayController,
+    ]) {
+      c.addListener(_onFieldChanged);
+    }
   }
 
   @override
   void dispose() {
     _torStateSub?.cancel();
-    _torHostController.dispose();
-    _torPortController.dispose();
-    _i2pHostController.dispose();
-    _i2pPortController.dispose();
-    _customProxyHostController.dispose();
-    _customProxyPortController.dispose();
-    _cfWorkerRelayController.dispose();
+    for (final c in [
+      _torHostController, _torPortController,
+      _i2pHostController, _i2pPortController,
+      _customProxyHostController, _customProxyPortController,
+      _cfWorkerRelayController,
+    ]) {
+      c.removeListener(_onFieldChanged);
+      c.dispose();
+    }
     super.dispose();
+  }
+
+  void _onFieldChanged() {
+    if (!_settingsLoaded) return;
+    _saveFieldSettings();
+  }
+
+  Future<void> _saveFieldSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('tor_host', _torHostController.text.trim());
+    await prefs.setInt('tor_port',
+        int.tryParse(_torPortController.text) ?? 9050);
+    await prefs.setString('i2p_host', _i2pHostController.text.trim());
+    await prefs.setInt('i2p_port',
+        int.tryParse(_i2pPortController.text) ?? 4447);
+    await prefs.setString('custom_proxy_host',
+        _customProxyHostController.text.trim());
+    await prefs.setInt('custom_proxy_port',
+        int.tryParse(_customProxyPortController.text) ?? 10808);
+    await prefs.setString('cf_worker_relay',
+        _cfWorkerRelayController.text.trim());
   }
 
   Future<void> _loadSettings() async {
@@ -101,6 +136,7 @@ class _ProxyTunnelsScreenState extends State<ProxyTunnelsScreen> {
       _customProxyHostController.text = customProxyHost;
       _customProxyPortController.text = customProxyPort.toString();
       _cfWorkerRelayController.text = cfWorkerRelay;
+      _settingsLoaded = true; // BUG-4: allow listeners to save from this point
     });
   }
 
@@ -189,7 +225,11 @@ class _ProxyTunnelsScreenState extends State<ProxyTunnelsScreen> {
             preferredPt: _preferredPt,
             torHostController: _torHostController,
             torPortController: _torPortController,
-            onTorEnabledChanged: (v) => setState(() => _torEnabled = v),
+            onTorEnabledChanged: (v) async {
+              setState(() => _torEnabled = v);
+              final prefs = await SharedPreferences.getInstance();
+              await prefs.setBool('tor_enabled', v);
+            },
             onToggleBundledTor: _toggleBundledTor,
             onPreferredPtChanged: (val) async {
               setState(() => _preferredPt = val);
@@ -219,8 +259,11 @@ class _ProxyTunnelsScreenState extends State<ProxyTunnelsScreen> {
             proxyEnabled: _customProxyEnabled,
             proxyHostController: _customProxyHostController,
             proxyPortController: _customProxyPortController,
-            onProxyEnabledChanged: (v) =>
-                setState(() => _customProxyEnabled = v),
+            onProxyEnabledChanged: (v) async {
+              setState(() => _customProxyEnabled = v);
+              final prefs = await SharedPreferences.getInstance();
+              await prefs.setBool('custom_proxy_enabled', v);
+            },
             workerRelayController: _cfWorkerRelayController,
           ),
           if (!_bundledTorEnabled) ...[
@@ -229,7 +272,11 @@ class _ProxyTunnelsScreenState extends State<ProxyTunnelsScreen> {
               i2pEnabled: _i2pEnabled,
               i2pHostController: _i2pHostController,
               i2pPortController: _i2pPortController,
-              onI2pEnabledChanged: (v) => setState(() => _i2pEnabled = v),
+              onI2pEnabledChanged: (v) async {
+                setState(() => _i2pEnabled = v);
+                final prefs = await SharedPreferences.getInstance();
+                await prefs.setBool('i2p_enabled', v);
+              },
             ),
           ],
         ],
