@@ -38,6 +38,7 @@ import '../services/sentry_service.dart';
 import '../services/voice_service.dart';
 import '../services/sender_key_service.dart';
 import '../services/signal_dispatcher.dart';
+import '../services/ice_server_config.dart';
 import '../models/contact_repository.dart';
 // Facade services
 import '../services/message_repository.dart';
@@ -891,6 +892,10 @@ class ChatController extends ChangeNotifier {
 
     _dispatcherSubs.add(d.relayExchanges.listen((e) async {
       await savePeerRelays(e.relays);
+    }));
+
+    _dispatcherSubs.add(d.turnExchanges.listen((e) async {
+      await IceServerConfig.savePeerTurnServers(e.servers);
     }));
 
     _dispatcherSubs.add(d.statusUpdates.listen((e) async {
@@ -1949,6 +1954,11 @@ class ChatController extends ChangeNotifier {
 
   Future<void> broadcastWorkingRelays() =>
       _broadcaster.broadcastWorkingRelays(_contacts.contacts);
+
+  /// Sends our TURN server list to [contact] when a call connects via TURN.
+  /// The peer saves the list and tries these servers on future calls.
+  Future<void> broadcastTurnToContact(Contact contact) =>
+      _broadcaster.broadcastTurnToContact(contact);
 
   Future<void> sendGroupInvite(Contact target, Contact group) =>
       _broadcaster.sendGroupInvite(target, group);

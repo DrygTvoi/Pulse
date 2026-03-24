@@ -15,6 +15,7 @@ import '../adapters/oxen_adapter.dart';
 import '../constants.dart';
 import 'key_manager.dart';
 import 'connectivity_probe_service.dart';
+import 'ice_server_config.dart';
 
 /// Handles all *outgoing* signals: typing indicators, heartbeats, status/profile
 /// broadcasts, group signals, delivery ACKs, reactions, edits, and more.
@@ -173,6 +174,31 @@ class SignalBroadcaster {
     final targets = contacts.where((c) => !c.isGroup).toList();
     await Future.wait(
         targets.map((c) => _sendSignalTo(c, 'addr_update', payload)));
+  }
+
+  /// Sends our TURN server list to [contact] after a call connects via TURN.
+  /// Enables organic peer exchange: each successfully used TURN server is
+  /// shared so contacts can try it on future calls even if it's not in the
+  /// default list.
+  Future<void> broadcastTurnToContact(Contact contact) async {
+    final identity = _getIdentity();
+    final selfId   = _getSelfId();
+    if (identity == null || selfId.isEmpty || contact.isGroup) return;
+
+    final allServers = await IceServerConfig.load();
+    final turnServers = allServers
+        .where((s) {
+          final urls = s['urls'];
+          final url  = urls is String ? urls : '';
+          return url.startsWith('turn:') || url.startsWith('turns:');
+        })
+        .take(10)
+        .toList();
+    if (turnServers.isEmpty) return;
+
+    await _sendSignalTo(contact, 'turn_exchange', {'servers': turnServers});
+    debugPrint('[Broadcaster] Shared ${turnServers.length} TURN '
+        'server(s) with ${contact.name}');
   }
 
   Future<void> broadcastWorkingRelays(List<Contact> contacts) async {

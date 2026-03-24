@@ -19,6 +19,7 @@ import 'models/contact_repository.dart';
 import 'services/notification_service.dart';
 import 'services/connectivity_probe_service.dart';
 import 'services/utls_service.dart';
+import 'services/yggdrasil_service.dart';
 import 'services/tor_service.dart';
 import 'services/psiphon_service.dart';
 import 'services/psiphon_turn_proxy.dart';
@@ -98,6 +99,13 @@ Future<void> main() async {
         }
       }));
       unawaited(UTLSService.instance.ensureRunning());
+      // Initialise Yggdrasil overlay once the uTLS proxy binary is up.
+      UTLSService.instance.available.addListener(() {
+        final port = UTLSService.instance.proxyPort;
+        if (UTLSService.instance.available.value && port != null) {
+          unawaited(YggdrasilService.instance.init(port));
+        }
+      });
       // Android foreground service — keeps WS connections alive in background.
       BackgroundService.instance.init();
       unawaited(BackgroundService.instance.startIfEnabled());

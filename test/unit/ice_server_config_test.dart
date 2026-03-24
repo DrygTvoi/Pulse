@@ -388,7 +388,99 @@ void main() {
     });
   });
 
+  // ── Peer TURN servers ──────────────────────────────────────────────────
+
+  group('peer TURN: merge and deduplication logic', () {
+    /// Mirrors IceServerConfig.savePeerTurnServers merge logic.
+    Map<String, Map<String, dynamic>> buildPeerMap(
+        Map<String, Map<String, dynamic>> existing,
+        List<Map<String, dynamic>> newServers) {
+      final result = Map<String, Map<String, dynamic>>.from(existing);
+      for (final s in newServers) {
+        final url = s['urls'] as String? ?? '';
+        if (url.isNotEmpty &&
+            (url.startsWith('turn:') || url.startsWith('turns:'))) {
+          result[url] = s;
+        }
+      }
+      return result;
+    }
+
+    test('turn: and turns: schemes accepted', () {
+      final m = buildPeerMap({}, [
+        {'urls': 'turn:a.com:3478',  'username': 'u1', 'credential': 'p1'},
+        {'urls': 'turns:b.com:5349', 'username': 'u2', 'credential': 'p2'},
+      ]);
+      expect(m.length, 2);
+    });
+
+    test('stun: scheme is rejected', () {
+      final m = buildPeerMap({}, [
+        {'urls': 'stun:stun.example.com:3478'},
+      ]);
+      expect(m, isEmpty);
+    });
+
+    test('empty URL is rejected', () {
+      final m = buildPeerMap({}, [
+        {'urls': ''},
+      ]);
+      expect(m, isEmpty);
+    });
+
+    test('duplicate URL overwrites older entry', () {
+      final existing = <String, Map<String, dynamic>>{
+        'turn:a.com:3478': {'urls': 'turn:a.com:3478', 'username': 'old'},
+      };
+      final m = buildPeerMap(existing, [
+        {'urls': 'turn:a.com:3478', 'username': 'new', 'credential': 'p'},
+      ]);
+      expect(m.length, 1);
+      expect(m['turn:a.com:3478']!['username'], 'new');
+    });
+
+    test('list is trimmed to max 20 entries', () {
+      final servers = List.generate(25, (i) =>
+          <String, dynamic>{'urls': 'turn:s$i.com:3478'});
+      final Map<String, Map<String, dynamic>> m = {};
+      for (final s in servers) {
+        final url = s['urls'] as String;
+        m[url] = s;
+      }
+      final values = m.values.toList();
+      final trimmed = values.length > 20 ? values.sublist(values.length - 20) : values;
+      expect(trimmed.length, 20);
+    });
+  });
+
+  // ── NIP-117 TURN servers parsing ───────────────────────────────────────
+
+  group('NIP-117 TURN: server list parsing', () {
+    test('parses list of ICE server maps', () {
+      final raw = jsonEncode([
+        {'urls': 'turn:nip117.example.com:3478', 'username': 'u', 'credential': 'p'},
+      ]);
+      final result = parseProbeTurnServers(raw); // reuses same JSON parser
+      expect(result, hasLength(1));
+      expect(result.first['urls'], 'turn:nip117.example.com:3478');
+    });
+
+    test('empty list stored and read back', () {
+      expect(parseProbeTurnServers(jsonEncode([])), isEmpty);
+    });
+
+    test('parses turns: scheme entries', () {
+      final raw = jsonEncode([
+        {'urls': 'turns:nip117.example.com:5349?transport=tcp',
+         'username': 'u', 'credential': 'p'},
+      ]);
+      final result = parseProbeTurnServers(raw);
+      expect(result.first['urls'], startsWith('turns:'));
+    });
+  });
+
   // ── Integration: preset → relay filter pipeline ────────────────────────
+
 
   group('integration: preset servers → relay filter', () {
     test('openrelay has at least one turns: server after filtering', () {

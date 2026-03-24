@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'psiphon_turn_proxy.dart';
 import 'tor_turn_proxy.dart';
+import 'yggdrasil_service.dart';
 
 /// Public STUN servers — diverse providers/regions so at least one responds
 /// regardless of location.  WebRTC's ICE agent queries them all in parallel
@@ -146,6 +147,8 @@ const _kCustomUrl       = 'turn_custom_url';
 const _kCustomUsername  = 'turn_custom_username';
 const _kCustomPassword  = 'turn_custom_password';
 const _kProbeTurnKey    = 'probe_turn_servers';
+const _kPeerTurnKey     = 'peer_turn_servers';
+const _kNip117TurnKey   = 'turn_nip117_servers';
 
 class IceServerConfig {
   /// Full ICE server list: all STUN + enabled TURN presets + optional custom TURN.
@@ -203,6 +206,37 @@ class IceServerConfig {
         if (pass.isNotEmpty) 'credential': pass,
       });
     }
+
+    // Peer TURN servers (learned from contacts during calls — organic growth)
+    final peerTurnRaw = prefs.getString(_kPeerTurnKey);
+    if (peerTurnRaw != null) {
+      try {
+        final list = jsonDecode(peerTurnRaw) as List;
+        for (final s in list) {
+          servers.add(Map<String, dynamic>.from(s as Map));
+        }
+      } catch (e) {
+        debugPrint('[ICE] Failed to parse peer TURN servers: $e');
+      }
+    }
+
+    // NIP-117 TURN servers (discovered via Nostr kind:10010 events)
+    final nip117TurnRaw = prefs.getString(_kNip117TurnKey);
+    if (nip117TurnRaw != null) {
+      try {
+        final list = jsonDecode(nip117TurnRaw) as List;
+        for (final s in list) {
+          servers.add(Map<String, dynamic>.from(s as Map));
+        }
+      } catch (e) {
+        debugPrint('[ICE] Failed to parse NIP-117 TURN servers: $e');
+      }
+    }
+
+    // Yggdrasil TURN relay (local pion/turn → Yggdrasil overlay, no VpnService)
+    // Works in censored networks without any TURN infrastructure.
+    final yggEntry = YggdrasilService.instance.iceServerEntry;
+    if (yggEntry != null) servers.add(yggEntry);
 
     // Psiphon TURN proxies — fast path (3-5s bootstrap)
     servers.addAll(PsiphonTurnProxy.allIceServerEntries);
@@ -273,6 +307,54 @@ class IceServerConfig {
       List<Map<String, dynamic>> servers) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_kProbeTurnKey, jsonEncode(servers));
+  }
+
+  /// Merges [servers] into the peer-learned TURN list (max 20 entries).
+  /// Deduplicates by URL; older entries are evicted when the cap is reached.
+  static Future<void> savePeerTurnServers(
+      List<Map<String, dynamic>> servers) async {
+    if (servers.isEmpty) return;
+    final prefs = await SharedPreferences.getInstance();
+
+    // Load existing entries keyed by URL
+    final existing = <String, Map<String, dynamic>>{};
+    final existingRaw = prefs.getString(_kPeerTurnKey);
+    if (existingRaw != null) {
+      try {
+        for (final s in jsonDecode(existingRaw) as List) {
+          final m = Map<String, dynamic>.from(s as Map);
+          final url = m['urls'] as String? ?? '';
+          if (url.isNotEmpty) existing[url] = m;
+        }
+      } catch (_) {}
+    }
+
+    // Merge new entries (turn:/turns: only; skip STUN or unknown)
+    for (final s in servers) {
+      final url = s['urls'] as String? ?? '';
+      if (url.isNotEmpty &&
+          (url.startsWith('turn:') || url.startsWith('turns:'))) {
+        existing[url] = s;
+      }
+    }
+
+    // Trim to max 20 entries (keep newest-added last)
+    final merged  = existing.values.toList();
+    final trimmed = merged.length > 20 ? merged.sublist(merged.length - 20) : merged;
+    await prefs.setString(_kPeerTurnKey, jsonEncode(trimmed));
+    debugPrint('[ICE] Saved ${trimmed.length} peer TURN server(s)');
+  }
+
+  /// Replaces the NIP-117 TURN server list (discovered via kind:10010).
+  static Future<void> saveNip117TurnServers(
+      List<Map<String, dynamic>> servers) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (servers.isEmpty) {
+      await prefs.remove(_kNip117TurnKey);
+      return;
+    }
+    await prefs.setString(_kNip117TurnKey, jsonEncode(servers));
+    debugPrint('[ICE] Saved ${servers.length} NIP-117 TURN server(s)');
   }
 
   static Future<void> saveCustomTurn({

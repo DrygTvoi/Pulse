@@ -10,6 +10,7 @@ import 'psiphon_turn_proxy.dart';
 import 'ice_server_config.dart';
 import 'relay_directory_service.dart';
 import 'nip65_discovery_service.dart';
+import 'turn_discovery_service.dart';
 import 'adaptive_relay_service.dart';
 import 'circuit_breaker_service.dart';
 // Peer relays key — matches ChatController._peerRelaysKey.
@@ -436,6 +437,13 @@ class ConnectivityProbeService {
         ...directNostr.map((u) => Uri.parse(u).host),
       };
 
+      // Phase 1.5D: NIP-117 kind:10010 TURN discovery — runs in parallel
+      // with relay regen.  Discovers community TURN servers self-announced
+      // on Nostr; persisted to IceServerConfig for the next call.
+      final turnDiscoveryFuture = TurnDiscoveryService.instance
+          .discover(directNostr)
+          .catchError((_) => <Map<String, dynamic>>[]);
+
       final regenResults = await Future.wait([
         RelayDirectoryService.instance.getCandidates(),
         Nip65DiscoveryService.instance.discover(
@@ -477,6 +485,14 @@ class ConnectivityProbeService {
         AdaptiveRelayService.instance.seedCandidates(allKnownUrls);
         // Kick off background race so best relay is cached before first connect
         unawaited(AdaptiveRelayService.instance.getBestRelay());
+      }
+
+      // Await Phase 1.5D: NIP-117 TURN discovery results
+      final nip117TurnServers = await turnDiscoveryFuture;
+      if (nip117TurnServers.isNotEmpty) {
+        await IceServerConfig.saveNip117TurnServers(nip117TurnServers);
+        debugPrint('[Probe] Phase 1.5D: '
+            '${nip117TurnServers.length} NIP-117 TURN server(s) saved');
       }
 
       // ── Phase 2: Tor probes (only if direct Nostr insufficient) ───────────
@@ -760,6 +776,4 @@ class ConnectivityProbeService {
     return candidates;
   }
 
-  /// Discovers additional TURN servers from Nostr kind:10010 + peer exchange,
-  /// probes them via TCP, and persists reachable ones to IceServerConfig.
 }
