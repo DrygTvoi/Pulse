@@ -100,6 +100,17 @@ Future<Map<String, dynamic>?> unwrapEvent({
     final wrapContent = wrapEvent['content'] as String? ?? '';
     if (ephemeralPubkey.isEmpty || wrapContent.isEmpty) return null;
 
+    // Verify we are the intended recipient via the outer 'p' tag.
+    // Prevents relays from replaying gift wraps addressed to other users.
+    final ourPubkey = eb.derivePubkeyHex(recipientPrivkey);
+    final wrapTags = wrapEvent['tags'] as List? ?? [];
+    final isForUs = wrapTags.any((tag) =>
+        tag is List && tag.length >= 2 && tag[0] == 'p' && tag[1] == ourPubkey);
+    if (!isForUs) {
+      debugPrint('[GiftWrap] p-tag mismatch — not addressed to us');
+      return null;
+    }
+
     // 1. Decrypt Gift Wrap → Seal
     final wrapSharedX = await computeEcdhSecretAsync(recipientPrivkey, ephemeralPubkey, context: 'giftwrap');
     final sealJson = await nip44.nip44Decrypt(wrapSharedX, wrapContent);
