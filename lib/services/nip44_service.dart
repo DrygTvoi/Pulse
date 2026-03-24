@@ -115,6 +115,11 @@ void _checkAndRecordNonce(Uint8List convKey, Uint8List nonce) {
   // that conversation; trimming to _minNoncesAfterTrim keeps protection for
   // recent messages while still bounding memory.
   if (_totalNonceCount > _totalNoncesHardLimit) {
+    // Flush pending writes to DB BEFORE trimming from memory. Without this,
+    // nonces that are only in _pendingNonceWrites (not yet on disk) would be
+    // silently forgotten if the app crashes after the trim — creating a replay
+    // window for those evicted nonces.
+    _flushPendingNonces();
     final oldestKey = _seenNonces.keys.first;
     final oldestSet = _seenNonces[oldestKey]!;
     while (oldestSet.length > _minNoncesAfterTrim &&
