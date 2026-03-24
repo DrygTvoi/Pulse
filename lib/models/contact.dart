@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../services/local_storage_service.dart';
+import '../services/signal_service.dart';
 import 'contact_repository.dart';
 
 class Contact {
@@ -133,8 +135,14 @@ class ContactManager implements IContactRepository {
 
   @override
   Future<void> removeContact(String id) async {
+    final contact = findById(id);
     _contacts.removeWhere((c) => c.id == id);
     await LocalStorageService().deleteContact(id);
+    // Clean up Signal sessions and identity keys so stale material
+    // cannot be replayed if a new contact with the same address is added.
+    if (contact != null && contact.databaseId.isNotEmpty) {
+      unawaited(SignalService().deleteContactData(contact.databaseId));
+    }
   }
 
   @override

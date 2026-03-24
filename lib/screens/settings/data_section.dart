@@ -233,6 +233,17 @@ class DataSection extends StatelessWidget {
   }
 
   Future<void> _exportIdentity(BuildContext context) async {
+    // Identity export contains private keys — require a password to encrypt.
+    final password = await _showBackupPasswordDialog(
+      context,
+      title: context.l10n.settingsExportIdentity,
+      subtitle: context.l10n.dataExportKeysPasswordSubtitle,
+      confirmLabel: context.l10n.dataExportKeysConfirmLabel,
+      requireConfirm: true,
+    );
+    if (password == null || password.isEmpty) return;
+    if (!context.mounted) return;
+
     try {
       final prefs = await SharedPreferences.getInstance();
       final data = <String, String>{};
@@ -242,6 +253,7 @@ class DataSection extends StatelessWidget {
         'signal_signed_prekey_0',
         'signal_prekeys_generated',
         'nostr_privkey',
+        'oxen_seed',
       ]) {
         final val = await _secureStorage.read(key: key);
         if (val != null && val.isNotEmpty) data[key] = val;
@@ -251,7 +263,21 @@ class DataSection extends StatelessWidget {
       final contacts = prefs.getString('contacts');
       if (contacts != null) data['contacts'] = contacts;
 
-      final b64 = base64.encode(utf8.encode(jsonEncode(data)));
+      final encrypted = await KeyExportService.encryptRawBundle(data, password);
+      if (encrypted == null) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(context.l10n.dataExportFailed,
+                style: GoogleFonts.inter()),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(DesignTokens.spacing10)),
+          ));
+        }
+        return;
+      }
+      final b64 = base64.encode(encrypted);
 
       if (!context.mounted) return;
       await showDialog(
@@ -289,9 +315,9 @@ class DataSection extends StatelessWidget {
               onPressed: () async {
                 try {
                   final dir = await getDownloadsDirectory();
-                  final path =
-                      '${dir?.path ?? '/tmp'}/messenger_identity_backup.txt';
-                  await File(path).writeAsString(b64);
+                  if (dir == null) throw Exception('Downloads folder not available');
+                  final path = '${dir.path}/pulse_identity_backup.enc';
+                  await File(path).writeAsBytes(encrypted);
                   if (ctx.mounted) {
                     ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(
                       content: Text(ctx.l10n.appearanceSavedTo(path),
@@ -393,14 +419,54 @@ class DataSection extends StatelessWidget {
             onPressed: () async {
               try {
                 final b64 = ctrl.text.trim();
-                final jsonStr = utf8.decode(base64.decode(b64));
-                final data = jsonDecode(jsonStr) as Map<String, dynamic>;
+                final bytes = base64.decode(b64);
+
+                // Detect format: PLKE magic = encrypted (new); otherwise legacy plaintext.
+                Map<String, dynamic> data;
+                if (KeyExportService.isValidExportFile(bytes)) {
+                  // Encrypted identity backup — ask for the password used during export.
+                  if (!ctx.mounted) return;
+                  Navigator.pop(ctx);
+                  final password = await _showBackupPasswordDialog(
+                    context,
+                    title: context.l10n.settingsImportIdentity,
+                    subtitle: context.l10n.dataExportKeysPasswordSubtitle,
+                    confirmLabel: context.l10n.settingsImportIdentity,
+                    requireConfirm: false,
+                  );
+                  if (password == null || password.isEmpty) return;
+                  final bundle = await KeyExportService.decryptRawBundle(bytes, password);
+                  if (bundle == null) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                        content: Text(
+                            context.l10n.appearanceImportFailed(
+                                'wrong password or corrupted backup'),
+                            style: GoogleFonts.inter()),
+                        backgroundColor: Colors.red,
+                        behavior: SnackBarBehavior.floating,
+                        shape: RoundedRectangleBorder(
+                            borderRadius:
+                                BorderRadius.circular(DesignTokens.spacing10)),
+                      ));
+                    }
+                    return;
+                  }
+                  data = bundle;
+                } else {
+                  // Legacy plaintext backup — parse directly (backward compat only).
+                  debugPrint('[Identity] Importing legacy unencrypted backup');
+                  final jsonStr = utf8.decode(bytes);
+                  data = jsonDecode(jsonStr) as Map<String, dynamic>;
+                }
+
                 for (final key in [
                   'signal_id_key',
                   'signal_reg_id',
                   'signal_signed_prekey_0',
                   'signal_prekeys_generated',
                   'nostr_privkey',
+                  'oxen_seed',
                 ]) {
                   if (data.containsKey(key)) {
                     await _secureStorage.write(
