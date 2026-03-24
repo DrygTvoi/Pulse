@@ -186,11 +186,18 @@ class SignalBroadcaster {
     if (identity == null || selfId.isEmpty || contact.isGroup) return;
 
     final allServers = await IceServerConfig.load();
+    // F1-6: Only share public/community TURN servers — never the user's custom
+    // private TURN server. The custom TURN may have sensitive credentials used
+    // for corporate access control; sharing them with every call peer is unexpected.
+    final customCfg = await IceServerConfig.loadCustomTurn();
+    final customUrl = customCfg.url.isNotEmpty ? customCfg.url : null;
     final turnServers = allServers
         .where((s) {
           final urls = s['urls'];
           final url  = urls is String ? urls : '';
-          return url.startsWith('turn:') || url.startsWith('turns:');
+          if (!url.startsWith('turn:') && !url.startsWith('turns:')) return false;
+          if (customUrl != null && url == customUrl) return false; // skip private
+          return true;
         })
         .take(10)
         .toList();

@@ -293,6 +293,7 @@ void main() {
         {
           'type': 'edit',
           'senderId': 'alice@wss://relay',
+          'adapterType': 'nostr',
           'payload': {
             'msgId': 'msg1',
             'text': 'edited text',
@@ -496,6 +497,7 @@ void main() {
         {
           'type': 'chunk_req',
           'senderId': 'alice@wss://relay',
+          'adapterType': 'nostr',
           'payload': {
             'fid': 'file123',
             'missing': [2, 5, 8],
@@ -561,11 +563,12 @@ void main() {
       final events = <SignalAddrUpdateEvent>[];
       d.addrUpdates.listen(events.add);
 
-      // Nostr origin (contains @wss://) — Nostr already signs via Schnorr
+      // Nostr origin — marked with adapterType='nostr' by NostrAdapter after Schnorr verify
       await d.dispatch([
         {
           'type': 'addr_update',
           'senderId': 'alice@wss://relay',
+          'adapterType': 'nostr',
           'payload': {
             'primary': 'alice@wss://newrelay',
             'all': ['alice@wss://newrelay'],
@@ -608,6 +611,7 @@ void main() {
         (_) => <String, dynamic>{
           'type': 'sys_keys',
           'senderId': 'alice@wss://relay',
+          'adapterType': 'nostr',
           'payload': {'regId': 1, 'idKey': 'key'},
         },
       );
@@ -673,6 +677,7 @@ void main() {
         {
           'type': 'group_invite',
           'senderId': 'alice@wss://relay',
+          'adapterType': 'nostr',
           'payload': {
             'groupId': 'g42',
             'name': 'Dev Team',
@@ -836,6 +841,7 @@ void main() {
         {
           'type': 'edit',
           'senderId': 'alice@wss://relay',
+          'adapterType': 'nostr',
           'payload': {
             'msgId': 'msg1',
             'text': 'corrected',
@@ -860,6 +866,7 @@ void main() {
         {
           'type': 'edit',
           'senderId': 'alice@wss://relay',
+          'adapterType': 'nostr',
           'payload': {'msgId': 'msg2', 'text': 'updated', 'from': 'alice@wss://relay'},
         },
       ]);
@@ -880,6 +887,7 @@ void main() {
         {
           'type': 'msg_delete',
           'senderId': 'alice@wss://relay',
+          'adapterType': 'nostr',
           'payload': {
             'msgId': 'msg-to-delete',
             'groupId': 'g42',
@@ -904,6 +912,7 @@ void main() {
         {
           'type': 'msg_delete',
           'senderId': 'alice@wss://relay',
+          'adapterType': 'nostr',
           'payload': {
             'msgId': 'solo-msg',
             'from': 'alice@wss://relay',

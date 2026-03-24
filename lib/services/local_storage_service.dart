@@ -333,13 +333,16 @@ class LocalStorageService {
 
       const ss = FlutterSecureStorage();
       final tsStr = await ss.read(key: _kDbKeyTsPref);
-      if (tsStr != null) {
-        final tsParsed = int.tryParse(tsStr);
-        if (tsParsed == null) return; // corrupt timestamp — skip rotation
-        final created = DateTime.fromMillisecondsSinceEpoch(tsParsed);
-        final age = DateTime.now().difference(created).inDays;
-        if (age < _kDbKeyRotationDays) return;
-      }
+      // F3-3: If no timestamp recorded, skip rotation — timestamp is written
+      // atomically with the key in _getOrCreateDbKey. Missing timestamp means
+      // first-launch key generation is incomplete; rotating here would
+      // overwrite the key on every subsequent launch.
+      if (tsStr == null) return;
+      final tsParsed = int.tryParse(tsStr);
+      if (tsParsed == null) return; // corrupt timestamp — skip rotation
+      final created = DateTime.fromMillisecondsSinceEpoch(tsParsed);
+      final age = DateTime.now().difference(created).inDays;
+      if (age < _kDbKeyRotationDays) return;
       // Generate new key.
       final rng = Random.secure();
       final newBytes = List.generate(32, (_) => rng.nextInt(256));
@@ -355,7 +358,14 @@ class LocalStorageService {
         debugPrint('[LocalStorage] DB closed during key rotation — aborting');
         return;
       }
+      // F3-2: Checkpoint WAL before rekeying. SQLCipher encrypts WAL frames
+      // with the current key; frames written before the rekey but not yet
+      // checkpointed would be encrypted with the old key, causing read
+      // inconsistency when opened with the new key.
+      await db.rawQuery('PRAGMA wal_checkpoint(TRUNCATE)');
       await db.rawQuery("PRAGMA rekey=\"x'$newKey'\"");
+      // Checkpoint again after rekey to ensure new WAL frames use new key.
+      await db.rawQuery('PRAGMA wal_checkpoint(TRUNCATE)');
 
       // Phase 3: promote staging → primary, clear staging.
       await ss.write(key: _kDbKeyPref, value: newKey);

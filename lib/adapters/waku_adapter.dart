@@ -114,20 +114,42 @@ class WakuInboxReader implements InboxReader {
     final atHttp = databaseId.indexOf('@http');
     if (atHttp != -1) {
       _userId = databaseId.substring(0, atHttp);
-      _nodeUrl = databaseId.substring(atHttp + 1);
+      final candidateUrl = databaseId.substring(atHttp + 1);
+      // F4-3: Reject Waku node URLs pointing at private/loopback addresses
+      if (!_isPrivateWakuUrl(candidateUrl)) _nodeUrl = candidateUrl;
     } else if (databaseId.startsWith('http')) {
-      _nodeUrl = databaseId;
+      if (!_isPrivateWakuUrl(databaseId)) _nodeUrl = databaseId;
     }
     if (apiKey.startsWith('{')) {
       try {
         final m = jsonDecode(apiKey) as Map<String, dynamic>;
         final nodeUrl = m['nodeUrl'] as String?;
         // Empty string or missing = auto-discover
-        if (nodeUrl != null && nodeUrl.isNotEmpty) _nodeUrl = nodeUrl;
-        if ((m['userId'] as String?)?.isNotEmpty == true) _userId = m['userId'] as String;
+        if (nodeUrl != null && nodeUrl.isNotEmpty &&
+            !_isPrivateWakuUrl(nodeUrl)) { _nodeUrl = nodeUrl; }
+        if ((m['userId'] as String?)?.isNotEmpty == true) { _userId = m['userId'] as String; }
       } catch (e) {
         debugPrint('[Waku] Failed to parse apiKey JSON: $e');
       }
+    }
+  }
+
+  /// Returns true if the URL host resolves to a private/loopback address.
+  /// Prevents SSRF via attacker-controlled contact databaseId.
+  static bool _isPrivateWakuUrl(String url) {
+    try {
+      final uri = Uri.parse(url);
+      final host = uri.host.toLowerCase();
+      if (host.isEmpty) return true;
+      if (host == 'localhost' || host == '127.0.0.1' || host == '::1') return true;
+      if (host.startsWith('192.168.') || host.startsWith('10.') ||
+          host == '169.254.169.254' || host.startsWith('fc') ||
+          host.startsWith('fd')) { return true; }
+      // Reject non-http(s) schemes
+      if (uri.scheme != 'http' && uri.scheme != 'https') return true;
+      return false;
+    } catch (_) {
+      return true; // malformed URL → reject
     }
   }
 

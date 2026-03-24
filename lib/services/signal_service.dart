@@ -35,11 +35,13 @@ class _PersistentSignalStore extends InMemorySignalProtocolStore {
   Future<Map<String, String>> _getAllCached() async {
     if (_secureStorageCache != null) return _secureStorageCache!;
     final all = await _storage.readAll();
+    // F3-7: Only cache Signal and PQC keys — lock_screen_attempts is a
+    // security counter managed by lock_screen.dart; caching it here creates
+    // a stale-read risk that could bypass brute-force lockout detection.
     _secureStorageCache = Map.fromEntries(
       all.entries.where((e) =>
         e.key.startsWith('signal_') ||
-        e.key.startsWith('pqc_') ||
-        e.key == 'lock_screen_attempts'
+        e.key.startsWith('pqc_')
       ),
     );
     return _secureStorageCache!;

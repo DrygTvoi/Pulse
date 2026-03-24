@@ -916,11 +916,26 @@ class ChatController extends ChangeNotifier {
       final addrContact = e.contact;
       final primary = e.primary;
       final all = e.all;
+      // F4-4: Validate alternate addresses — only wss:// and no private IPs.
+      // Without this an attacker can inject http://attacker.com as an alternate,
+      // causing SmartRouter to fall back to the attacker's logging server.
+      bool isValidAltAddr(String addr) {
+        final lower = addr.toLowerCase();
+        if (!lower.contains('@wss://') && !lower.contains('@ws://')) return false;
+        try {
+          final urlPart = addr.substring(addr.indexOf('@') + 1);
+          final uri = Uri.parse(urlPart);
+          final host = uri.host;
+          if (host == 'localhost' || host == '127.0.0.1' || host == '::1') return false;
+          if (host.startsWith('192.168.') || host.startsWith('10.')) return false;
+        } catch (_) { return false; }
+        return true;
+      }
       final alts = <String>{...addrContact.alternateAddresses};
       if (addrContact.databaseId.isNotEmpty && addrContact.databaseId != primary) {
         alts.add(addrContact.databaseId);
       }
-      alts.addAll(all.where((a) => a != primary));
+      alts.addAll(all.where((a) => a != primary && isValidAltAddr(a)));
       alts.remove(primary);
       final updated = addrContact.copyWith(
         databaseId: primary,
@@ -2072,12 +2087,14 @@ class ChatController extends ChangeNotifier {
       debugPrint('[Group] Rejected invite with no creatorId');
       return;
     }
-    final senderKey = invite.fromContact.databaseId.isNotEmpty
-        ? invite.fromContact.databaseId
-        : invite.fromContact.id;
-    if (senderKey != invite.creatorId) {
+    // F4-2: Compare using contact UUID (invite.fromContact.id), not databaseId.
+    // databaseId is a transport address (e.g. "pubkey@wss://relay") while
+    // creatorId is a UUID — they were never equal, causing every invite to fail
+    // or (if attacker sets creatorId=databaseId) to be trivially bypassed.
+    final senderUuid = invite.fromContact.id;
+    if (senderUuid != invite.creatorId) {
       debugPrint('[Group] Rejected invite from non-creator '
-          '$senderKey (declared creator: ${invite.creatorId})');
+          '$senderUuid (declared creator: ${invite.creatorId})');
       return;
     }
     final newGroup = Contact(

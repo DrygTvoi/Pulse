@@ -40,6 +40,7 @@ class SignalingService {
 
   // FINDING-7: ICE candidate flood protection — reset on each new offer/answer.
   int _candidatesReceived = 0;
+  int _secondaryCandidatesReceived = 0; // F1-3: secondary path counter
   static const _kMaxCandidates = 200;
 
   // Remote peer's Yggdrasil ed25519 public key (base64), received in offer/answer.
@@ -234,7 +235,13 @@ class SignalingService {
     if (contact.isGroup) return;
 
     _signalSubscription = ChatController().signalStream.listen((sig) async {
-      if (sig['roomId'] != contact.id || sig['senderId'] != contact.databaseId) return;
+      // F1-9: strip @relay suffix before comparing senderId (different transport formats)
+      final rawSender = sig['senderId'] as String? ?? '';
+      final senderBase = rawSender.contains('@') ? rawSender.split('@').first : rawSender;
+      final expectedBase = contact.databaseId.contains('@')
+          ? contact.databaseId.split('@').first
+          : contact.databaseId;
+      if (sig['roomId'] != contact.id || senderBase != expectedBase) return;
       try {
         final type = sig['type'] as String?;
         if (type == null || type == 'sys_keys' || type == 'sys_kick') return;
@@ -396,6 +403,14 @@ class SignalingService {
 
   Future<void> _handleSecondaryOffer(Map<String, dynamic> data) async {
     try {
+      // F1-1: Require a=fingerprint: in secondary SDP — same check as primary
+      final sdp = data['sdp'] as String? ?? '';
+      if (!sdp.contains('a=fingerprint:')) {
+        debugPrint('[Signaling] Rejected secondary offer SDP without a=fingerprint:');
+        return;
+      }
+      // F1-3: Reset secondary candidate counter for new session
+      _secondaryCandidatesReceived = 0;
       // Lazily create secondary PC if startSecondaryAudio was not yet called
       if (_secondaryPc == null && !_secondaryCreating) {
         _secondaryCreating = true;
@@ -412,8 +427,12 @@ class SignalingService {
           _secondaryCreating = false;
         }
       }
-      await _secondaryPc!.setRemoteDescription(
-          RTCSessionDescription(data['sdp'], data['type']));
+      // F1-8: Guard against null PC (creation may have failed above)
+      if (_secondaryPc == null) {
+        debugPrint('[Signaling] Secondary PC creation failed, skipping offer');
+        return;
+      }
+      await _secondaryPc!.setRemoteDescription(RTCSessionDescription(sdp, data['type']));
       final answer = await _secondaryPc!.createAnswer();
       final constrained = _applyAudioConstraints(answer, restricted: true);
       await _secondaryPc!.setLocalDescription(constrained);
@@ -425,8 +444,13 @@ class SignalingService {
 
   Future<void> _handleSecondaryAnswer(Map<String, dynamic> data) async {
     try {
-      await _secondaryPc?.setRemoteDescription(
-          RTCSessionDescription(data['sdp'], data['type']));
+      // F1-2: Require a=fingerprint: in secondary answer SDP
+      final sdp = data['sdp'] as String? ?? '';
+      if (!sdp.contains('a=fingerprint:')) {
+        debugPrint('[Signaling] Rejected secondary answer SDP without a=fingerprint:');
+        return;
+      }
+      await _secondaryPc?.setRemoteDescription(RTCSessionDescription(sdp, data['type']));
     } catch (e) {
       debugPrint('[Signaling] handleSecondaryAnswer error: $e');
     }
@@ -434,6 +458,11 @@ class SignalingService {
 
   Future<void> _handleSecondaryCandidate(Map<String, dynamic> data) async {
     try {
+      // F1-3: Reject excess secondary candidates — same protection as primary
+      if (++_secondaryCandidatesReceived > _kMaxCandidates) {
+        debugPrint('[Signaling] Secondary ICE candidate limit reached, dropping');
+        return;
+      }
       final raw = RTCIceCandidate(
           data['candidate'], data['sdpMid'], data['sdpMLineIndex']);
       final candidate = await _interceptYggCandidate(raw);
