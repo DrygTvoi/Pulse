@@ -168,8 +168,14 @@ func makeDohTransport(dohIP, sniHost string) *http.Transport {
 // Returns nil if all providers fail — caller falls back to system DNS.
 
 func resolveViaDoH(hostname string) []string {
-	// Skip if already an IP address
+	// Skip if already an IP address — but still apply SSRF filter.
+	// Without this check, CONNECT 127.0.0.1:6379 bypasses isPrivateIP entirely
+	// because the DoH path returns the literal IP before any filtering.
 	if net.ParseIP(hostname) != nil {
+		if isPrivateIP(hostname) {
+			fmt.Fprintf(os.Stderr, "[doh] blocked literal private IP in CONNECT: %s\n", hostname)
+			return nil
+		}
 		return []string{hostname}
 	}
 
@@ -265,6 +271,7 @@ func isPrivateIP(ip string) bool {
 		"192.168.0.0/16",
 		"127.0.0.0/8",
 		"169.254.0.0/16",
+		"100.64.0.0/10",  // CGNAT (RFC 6598) — GFW occasionally poisons with these
 		"::1/128",        // IPv6 loopback
 		"fe80::/10",      // IPv6 link-local
 		"fc00::/7",       // IPv6 unique-local (ULA)
@@ -506,16 +513,31 @@ func handleRequest(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(fakeNginxPage))
 		return
 	}
+	// connSem limits concurrent connection *setup* (DoH + TLS handshake), not
+	// the tunnel itself.  The semaphore slot is released inside handleConnect
+	// as soon as the upstream connection is established — before the blocking
+	// tunnel() call.  This prevents 256 long-lived tunnels from starving new
+	// connection attempts.
 	select {
 	case connSem <- struct{}{}:
-		defer func() { <-connSem }()
-		handleConnect(w, r)
+		handleConnect(w, r, connSem)
 	default:
 		http.Error(w, "too many connections", http.StatusServiceUnavailable)
 	}
 }
 
-func handleConnect(w http.ResponseWriter, r *http.Request) {
+func handleConnect(w http.ResponseWriter, r *http.Request, sem chan struct{}) {
+	// semReleased ensures the slot is freed exactly once — either after
+	// successfully establishing the upstream conn (before tunnel), or on error.
+	semReleased := false
+	releaseSem := func() {
+		if !semReleased {
+			semReleased = true
+			<-sem
+		}
+	}
+	defer releaseSem() // safety net for all early-return error paths
+	_ = releaseSem     // suppress "declared and not used" if inlined later
 	host := r.Host
 	if !strings.Contains(host, ":") {
 		host += ":443"
@@ -548,6 +570,7 @@ func handleConnect(w http.ResponseWriter, r *http.Request) {
 			fmt.Fprintf(os.Stderr, "[conn] %s via %s failed: %v\n", hostname, ip, err)
 			continue
 		}
+		releaseSem() // upstream established — free slot for new connection setups
 		tunnel(w, conn)
 		return
 	}
@@ -577,6 +600,7 @@ func handleConnect(w http.ResponseWriter, r *http.Request) {
 		conn, err := dialTLS(sysIP, port, hostname, echConfigs)
 		if err == nil {
 			fmt.Fprintf(os.Stderr, "[conn] %s → %s fallback (%s)\n", hostname, method, sysIP)
+			releaseSem() // upstream established — free slot for new connection setups
 			tunnel(w, conn)
 			return
 		}
