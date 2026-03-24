@@ -91,15 +91,23 @@ class LanInboxReader implements InboxReader {
       }
 
       if (!_msgCtrl.isClosed) {
+        // Clamp timestamp to ±5 min of local clock to prevent ordering attacks.
+        final now = DateTime.now();
+        DateTime timestamp;
+        if (tsMs > 0) {
+          final claimed = DateTime.fromMillisecondsSinceEpoch(tsMs);
+          final drift = claimed.difference(now).abs();
+          timestamp = drift <= const Duration(minutes: 5) ? claimed : now;
+        } else {
+          timestamp = now;
+        }
         _msgCtrl.add([
           Message(
             id:               id.isNotEmpty ? id : '${from}_$tsMs',
             senderId:         from,
             receiverId:       _selfAddress,
             encryptedPayload: payload,
-            timestamp:        tsMs > 0
-                ? DateTime.fromMillisecondsSinceEpoch(tsMs)
-                : DateTime.now(),
+            timestamp:        timestamp,
             adapterType: 'lan',
           )
         ]);
