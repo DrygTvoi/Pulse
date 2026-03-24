@@ -57,11 +57,15 @@ class PasswordHasher {
   }
 
   /// Constant-time string comparison to prevent timing attacks.
+  /// Always iterates through max(a.length, b.length) to avoid leaking
+  /// information about the hash length or algorithm via response timing.
   static bool _constantTimeEquals(String a, String b) {
-    if (a.length != b.length) return false;
-    int result = 0;
-    for (int i = 0; i < a.length; i++) {
-      result |= a.codeUnitAt(i) ^ b.codeUnitAt(i);
+    final maxLen = a.length > b.length ? a.length : b.length;
+    int result = a.length ^ b.length; // non-zero if lengths differ
+    for (int i = 0; i < maxLen; i++) {
+      final ca = i < a.length ? a.codeUnitAt(i) : 0;
+      final cb = i < b.length ? b.codeUnitAt(i) : 0;
+      result |= ca ^ cb;
     }
     return result == 0;
   }

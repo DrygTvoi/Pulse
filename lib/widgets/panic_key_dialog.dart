@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../services/password_hasher.dart';
 import '../theme/app_theme.dart';
 import '../theme/design_tokens.dart';
 import '../l10n/l10n_ext.dart';
@@ -35,6 +37,8 @@ class _PanicKeyDialogState extends State<PanicKeyDialog> {
     super.dispose();
   }
 
+  static const _ss = FlutterSecureStorage();
+
   Future<void> _submit() async {
     final key = _keyController.text;
     final confirm = _confirmController.text;
@@ -46,6 +50,18 @@ class _PanicKeyDialogState extends State<PanicKeyDialog> {
     if (key != confirm) {
       setState(() => _error = context.l10n.panicKeysDoNotMatch);
       return;
+    }
+
+    // Reject panic key == app password (would wipe data on normal unlock).
+    final pwHash = await _ss.read(key: 'app_password_hash');
+    final pwSalt = await _ss.read(key: 'app_password_salt');
+    if (pwHash != null && pwSalt != null) {
+      if (await PasswordHasher.verify(key, pwSalt, pwHash)) {
+        if (mounted) {
+          setState(() => _error = 'Panic key must differ from your app password');
+        }
+        return;
+      }
     }
 
     setState(() {

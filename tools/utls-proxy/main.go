@@ -56,6 +56,9 @@ import (
 	utls "github.com/refraction-networking/utls"
 )
 
+// connSem limits concurrent CONNECT tunnels to prevent goroutine-exhaustion DoS.
+var connSem = make(chan struct{}, 256)
+
 // ─── ECH Config Cache ────────────────────────────────────────────────────────
 
 type echEntry struct {
@@ -503,7 +506,13 @@ func handleRequest(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(fakeNginxPage))
 		return
 	}
-	handleConnect(w, r)
+	select {
+	case connSem <- struct{}{}:
+		defer func() { <-connSem }()
+		handleConnect(w, r)
+	default:
+		http.Error(w, "too many connections", http.StatusServiceUnavailable)
+	}
 }
 
 func handleConnect(w http.ResponseWriter, r *http.Request) {

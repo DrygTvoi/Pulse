@@ -193,10 +193,12 @@ class MediaValidator {
 
   // ── Filename ──────────────────────────────────────────────────────────────
 
-  /// Strips path traversal and null bytes from filenames.
+  /// Strips path traversal, null bytes, and control characters from filenames.
   static String sanitizeFilename(String name) {
-    // Remove null bytes
-    var s = name.replaceAll('\x00', '');
+    // Remove all ASCII control characters (0x00-0x1F, 0x7F) including
+    // null, tab, newline, carriage return — these can corrupt logs and
+    // cause issues when filenames appear in shell commands or UI.
+    var s = name.replaceAll(RegExp(r'[\x00-\x1F\x7F]'), '');
     // Strip any directory components
     s = s.split('/').last.split('\\').last;
     // Remove leading dots (hidden files on Unix)

@@ -180,16 +180,50 @@ class PulseApp extends StatefulWidget {
   State<PulseApp> createState() => _PulseAppState();
 }
 
-class _PulseAppState extends State<PulseApp> {
+class _PulseAppState extends State<PulseApp> with WidgetsBindingObserver {
   late AppLinks _appLinks;
   StreamSubscription<Uri>? _sub;
   String? _initialDeepLinkConfig;
+  final _navigatorKey = GlobalKey<NavigatorState>();
+
+  /// Timestamp when app was last backgrounded; null if in foreground.
+  DateTime? _backgroundedAt;
+
+  /// Re-lock after this many seconds in background.
+  static const _kLockDelay = Duration(seconds: 30);
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _appLinks = AppLinks();
     _handleDeepLinks();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused) {
+      _backgroundedAt = DateTime.now();
+    } else if (state == AppLifecycleState.resumed) {
+      final bg = _backgroundedAt;
+      _backgroundedAt = null;
+      if (bg != null && DateTime.now().difference(bg) >= _kLockDelay) {
+        _checkAndLock();
+      }
+    }
+  }
+
+  /// Reads current password state from SecureStorage and pushes LockScreen if needed.
+  Future<void> _checkAndLock() async {
+    const ss = FlutterSecureStorage();
+    final enabled = await ss.read(key: 'app_password_enabled') == 'true';
+    if (!enabled) return;
+    final hash = await ss.read(key: 'app_password_hash');
+    if (hash == null) return;
+    _navigatorKey.currentState?.pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const LockScreen()),
+      (_) => false,
+    );
   }
 
   Future<void> _handleDeepLinks() async {
@@ -226,6 +260,7 @@ class _PulseAppState extends State<PulseApp> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _sub?.cancel();
     super.dispose();
   }
@@ -245,6 +280,7 @@ class _PulseAppState extends State<PulseApp> {
             : SetupIdentityScreen(initialConfig: _initialDeepLinkConfig);
 
     return MaterialApp(
+      navigatorKey: _navigatorKey,
       title: 'Pulse',
       debugShowCheckedModeBanner: false,
       theme: themeNotifier.lightThemeData,
