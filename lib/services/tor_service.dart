@@ -420,7 +420,12 @@ class TorService {
       final pids = (r.stdout as String).trim().split('\n')
           .where((s) => s.isNotEmpty).toList();
       for (final pid in pids) {
-        await Process.run('kill', [pid.trim()]);
+        final p = pid.trim();
+        // Validate PID is a positive integer before passing to kill.
+        // Malformed lsof output (e.g. '-9') could otherwise be misinterpreted
+        // as a signal flag by the kill binary.
+        if (int.tryParse(p) == null || int.parse(p) <= 0) continue;
+        await Process.run('kill', [p]);
       }
     } catch (_) {}
   }
