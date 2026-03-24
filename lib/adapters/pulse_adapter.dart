@@ -551,7 +551,10 @@ class PulseMessageSender implements MessageSender {
     if (_serverUrl.startsWith('https://')) {
       _wsUrl = 'wss://${_serverUrl.substring('https://'.length)}/ws';
     } else if (_serverUrl.startsWith('http://')) {
-      _wsUrl = 'ws://${_serverUrl.substring('http://'.length)}/ws';
+      // BUG-02 fix: reject plaintext WebSocket — auth handshake and E2EE
+      // payloads must not travel over an unencrypted connection.
+      debugPrint('[Pulse] Sender rejected http:// server URL — use https://');
+      _wsUrl = '';
     }
 
     // Load Tor settings

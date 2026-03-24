@@ -243,7 +243,9 @@ class KeyManager {
     try {
       final privkey =
           await _secureStorage.read(key: 'nostr_privkey') ?? '';
-      if (privkey.isEmpty) return true;
+      // FINDING-9 fix: empty privkey must REJECT, not accept all signatures.
+      // Returning true here would let any forged signal pass after key loss.
+      if (privkey.isEmpty) return false;
       final cleanPayload = Map<String, dynamic>.from(payload)
         ..remove('_sig')
         ..remove('_spk');

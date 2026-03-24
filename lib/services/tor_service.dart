@@ -85,23 +85,28 @@ class TorService {
     if (_starting) return false; // prevent concurrent start()
     _starting = true;
 
-    // Adopt an existing routing SOCKS5 on our port (e.g. previous session).
+    // BUG-01 fix: do NOT adopt an arbitrary SOCKS5 listener on our port.
+    // Any local process (malicious co-installed app on Android) could open
+    // port 9250, pass the TCP probe, and intercept all traffic. Only trust
+    // a SOCKS5 we launched ourselves in this session (_process != null).
+    // If there's a stale listener from a previous session, kill it and restart.
     if (await _isSocks5Listening(socksPort)) {
-      final routing = await _socks5TcpProbe(
-              '127.0.0.1', socksPort, '1.1.1.1', 80)
-          .timeout(const Duration(seconds: 3), onTimeout: () => false);
-      if (routing) {
-        debugPrint('[TorService] Existing SOCKS5 on :$socksPort — adopting');
+      if (_process != null) {
+        // We launched it — already bootstrapped (shouldn't reach here, but safe)
+        debugPrint('[TorService] Our Tor process is already listening — reusing');
         _bootstrapped = true;
         _bootstrapPercent = 100;
         _starting = false;
         _stateCtrl.add(null);
         return true;
       }
-      debugPrint('[TorService] Zombie SOCKS5 on :$socksPort — killing');
+      debugPrint('[TorService] Foreign SOCKS5 on :$socksPort — killing before start');
       await _killZombieOnPort(socksPort);
       await Future.delayed(const Duration(milliseconds: 800));
-      if (await _isSocks5Listening(socksPort)) return false;
+      if (await _isSocks5Listening(socksPort)) {
+        debugPrint('[TorService] Port still occupied — cannot start');
+        return false;
+      }
     }
 
     final torPath = await _findTor();

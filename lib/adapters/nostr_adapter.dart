@@ -801,8 +801,15 @@ class NostrInboxReader implements InboxReader {
                     if (data[0] == 'EVENT' && data.length >= 3) {
                       try {
                         final fetchEvent = data[2] as Map<String, dynamic>;
-                        final bundle = jsonDecode(fetchEvent['content'] as String) as Map<String, dynamic>;
-                        fetchCompleter.complete(bundle);
+                        // FINDING-2 fix: verify Schnorr signature before trusting
+                        // Signal bundle content — a malicious relay could inject
+                        // fabricated prekeys enabling MITM on all future messages.
+                        if (!eb.verifyEventSignature(fetchEvent)) {
+                          debugPrint('[Nostr] fetchPublicKeys inline: invalid sig — dropped');
+                        } else {
+                          final bundle = jsonDecode(fetchEvent['content'] as String) as Map<String, dynamic>;
+                          fetchCompleter.complete(bundle);
+                        }
                       } catch (e) {
                         debugPrint('[Nostr] fetchPublicKeys inline parse error: $e');
                       }
@@ -1061,8 +1068,13 @@ class NostrInboxReader implements InboxReader {
           final data = jsonDecode(raw as String) as List;
           if (data[0] == 'EVENT' && data[1] == subId) {
             final event = data[2] as Map<String, dynamic>;
-            final bundle = jsonDecode(event['content'] as String) as Map<String, dynamic>;
-            if (!completer.isCompleted) completer.complete(bundle);
+            // FINDING-2 fix: verify Schnorr signature on one-shot key fetch
+            if (!eb.verifyEventSignature(event)) {
+              debugPrint('[Nostr] fetchPublicKeys one-shot: invalid sig — dropped');
+            } else {
+              final bundle = jsonDecode(event['content'] as String) as Map<String, dynamic>;
+              if (!completer.isCompleted) completer.complete(bundle);
+            }
           } else if (data[0] == 'EOSE') {
             if (!completer.isCompleted) completer.complete(null);
           }
