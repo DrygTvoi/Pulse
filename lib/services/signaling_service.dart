@@ -280,7 +280,13 @@ class SignalingService {
 
   Future<void> _handleOffer(Map<String, dynamic> data) async {
     try {
-      _remoteYggPubkey = data['ygg_pubkey'] as String?;
+      final yggPub = data['ygg_pubkey'] as String?;
+      // Validate base64 pubkey format (ed25519 = 44 chars base64 with optional padding)
+      if (yggPub != null && RegExp(r'^[A-Za-z0-9+/]{43}={0,1}$').hasMatch(yggPub)) {
+        _remoteYggPubkey = yggPub;
+      } else {
+        _remoteYggPubkey = null;
+      }
       // ICE-restart offer carries a profile hint — mirror the config change
       // before answering so both sides use the same iceTransportPolicy.
       final profileId = data['profile'] as String?;
@@ -300,7 +306,12 @@ class SignalingService {
 
   Future<void> _handleAnswer(Map<String, dynamic> data) async {
     try {
-      _remoteYggPubkey = data['ygg_pubkey'] as String?;
+      final yggPub = data['ygg_pubkey'] as String?;
+      if (yggPub != null && RegExp(r'^[A-Za-z0-9+/]{43}={0,1}$').hasMatch(yggPub)) {
+        _remoteYggPubkey = yggPub;
+      } else if (yggPub != null) {
+        _remoteYggPubkey = null; // reject malformed pubkey
+      }
       await peerConnection?.setRemoteDescription(RTCSessionDescription(data['sdp'], data['type']));
     } catch (e) {
       debugPrint('[Signaling] handleAnswer error: $e');
@@ -336,8 +347,11 @@ class SignalingService {
         .firstMatch(line);
     if (match == null) return c;
 
-    final yggIp    = match.group(1)!;
-    final yggPort  = match.group(2)!;
+    final yggIp   = match.group(1)!;
+    final yggPort = match.group(2)!;
+    // Validate port is a real TCP/UDP port before creating proxy.
+    final portNum = int.tryParse(yggPort) ?? 0;
+    if (portNum < 1 || portNum > 65535) return c;
     final yggAddr  = '[$yggIp]:$yggPort';
     final localPort = await YggdrasilService.instance.proxyRemote(yggAddr, remotePubkey);
     if (localPort == null) return c; // proxy setup failed — pass through
