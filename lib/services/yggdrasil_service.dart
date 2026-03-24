@@ -39,10 +39,12 @@ class YggdrasilService {
   @visibleForTesting
   static void setInstanceForTesting(YggdrasilService inst) => instance = inst;
 
-  String? _address;   // "200:aaa::1" — our Yggdrasil IPv6 (without brackets)
-  String? _pubkey;    // base64 ed25519 public key (for proxy requests)
-  int?    _port;      // HTTP port of the pulse-utls-proxy Go binary
+  String? _address;    // "200:aaa::1" — our Yggdrasil IPv6 (without brackets)
+  String? _pubkey;     // base64 ed25519 public key (for proxy requests)
+  int?    _port;       // HTTP port of the pulse-utls-proxy Go binary
   int     _turnPort = 0; // actual TURN port reported by Go binary (0 = TURN not running)
+  String  _turnUser = '';     // runtime-generated TURN username (from /ygg response)
+  String  _turnPassword = ''; // runtime-generated TURN password (from /ygg response)
   bool    _initialised  = false;
   bool    _initialising = false; // guard against concurrent init() calls
 
@@ -66,11 +68,11 @@ class YggdrasilService {
   /// Uses the actual TURN port reported by the Go binary — handles port
   /// conflicts where the preferred port 53478 was already in use.
   Map<String, dynamic>? get iceServerEntry {
-    if (!isReady) return null;
+    if (!isReady || _turnUser.isEmpty || _turnPassword.isEmpty) return null;
     return {
       'urls':       'turn:127.0.0.1:$_turnPort',
-      'username':   'pulse',
-      'credential': 'yggtoken',
+      'username':   _turnUser,
+      'credential': _turnPassword,
     };
   }
 
@@ -109,10 +111,15 @@ class YggdrasilService {
         final addr     = data['addr']      as String?;
         final pubkey   = data['pubkey']    as String?;
         final turnPort = (data['turn_port'] as num?)?.toInt() ?? 0;
-        if (addr != null && addr.isNotEmpty && turnPort > 0) {
+        final turnUser = data['user']      as String? ?? '';
+        final turnPass = data['pass']      as String? ?? '';
+        if (addr != null && addr.isNotEmpty && turnPort > 0 &&
+            turnUser.isNotEmpty && turnPass.isNotEmpty) {
           _address      = addr;
           _pubkey       = pubkey;
           _turnPort     = turnPort;
+          _turnUser     = turnUser;
+          _turnPassword = turnPass;
           _initialised  = true;
           debugPrint('[Yggdrasil] Ready: addr=$_address, turn=127.0.0.1:$_turnPort');
         } else if (addr != null && addr.isNotEmpty && turnPort == 0) {
