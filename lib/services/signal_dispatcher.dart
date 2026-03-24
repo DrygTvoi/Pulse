@@ -600,7 +600,7 @@ class SignalDispatcher {
             final creatorId = payload['creatorId'] as String?;
             if (groupId != null && rawMembers is List && !_groupUpdateCtrl.isClosed) {
               _groupUpdateCtrl.add(SignalGroupUpdateEvent(
-                  groupId, groupName, List<String>.from(rawMembers),
+                  groupId, groupName, rawMembers.whereType<String>().toList(),
                   creatorId: creatorId));
             }
           }
@@ -616,7 +616,7 @@ class SignalDispatcher {
             if (groupId != null && rawMembers is List && inviter != null &&
                 !_groupInviteCtrl.isClosed) {
               _groupInviteCtrl.add(SignalGroupInviteEvent(
-                  inviter, groupId, groupName, List<String>.from(rawMembers),
+                  inviter, groupId, groupName, rawMembers.whereType<String>().toList(),
                   creatorId: creatorId));
             }
           }
