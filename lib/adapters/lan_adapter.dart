@@ -27,7 +27,7 @@ class LanInboxReader implements InboxReader {
 
   final _msgCtrl = StreamController<List<Message>>.broadcast();
   final _sigCtrl = StreamController<List<Map<String, dynamic>>>.broadcast();
-  final _seenIds  = <String>{};
+  final _seenIds  = <String, int>{}; // msgId → timestamp ms
 
   @override
   Stream<bool> get healthChanges => Stream<bool>.empty();
@@ -72,11 +72,21 @@ class LanInboxReader implements InboxReader {
       if (from == _selfAddress) return; // ignore own broadcasts
 
       if (id.isNotEmpty) {
-        if (_seenIds.contains(id)) return;
-        _seenIds.add(id);
+        final now = DateTime.now().millisecondsSinceEpoch;
+        if (_seenIds.containsKey(id)) return;
+        _seenIds[id] = now;
         if (_seenIds.length > 2000) {
-          final evict = _seenIds.toList().sublist(0, 1000);
-          _seenIds.removeAll(evict);
+          // First, remove entries older than 10 minutes.
+          final cutoff = now - 600000;
+          _seenIds.removeWhere((_, ts) => ts < cutoff);
+          // If still too large, remove oldest half by insertion time.
+          if (_seenIds.length > 2000) {
+            final sorted = _seenIds.entries.toList()
+              ..sort((a, b) => a.value.compareTo(b.value));
+            for (final e in sorted.sublist(0, 1000)) {
+              _seenIds.remove(e.key);
+            }
+          }
         }
       }
 

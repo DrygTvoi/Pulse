@@ -282,8 +282,24 @@ class LocalStorageService {
   }
 
   /// Get or create a hex key for SQLCipher PRAGMA KEY.
+  ///
+  /// Recovery: if a staging key is present from a previous rotation that
+  /// crashed between phases 1 and 3, complete the promotion atomically so
+  /// the DB (already re-encrypted with the staging key) remains accessible.
   Future<String> _getOrCreateDbKey() async {
     const ss = FlutterSecureStorage();
+
+    // Recovery: check for an abandoned staging key from a crashed rotation.
+    const stagingKey = 'local_db_cipher_key_pending_v1';
+    final pendingKey = await ss.read(key: stagingKey);
+    if (pendingKey != null) {
+      // Crashed during rotation — complete the promotion.
+      debugPrint('[LocalStorage] Completing interrupted key rotation from staging key');
+      await ss.write(key: _kDbKeyPref, value: pendingKey);
+      await ss.delete(key: stagingKey);
+      return pendingKey;
+    }
+
     final existing = await ss.read(key: _kDbKeyPref);
     if (existing != null && _isValidHex64(existing)) {
       return existing;
@@ -302,8 +318,19 @@ class LocalStorageService {
 
   /// Rotate the SQLCipher encryption key if it's older than [_kDbKeyRotationDays].
   /// Uses PRAGMA rekey to atomically re-encrypt the database file.
+  ///
+  /// Two-phase crash-safe rotation:
+  ///   Phase 1 — persist new key to staging slot BEFORE rekeying.
+  ///   Phase 2 — re-encrypt the database.
+  ///   Phase 3 — promote staging key to primary, clear staging slot.
+  /// On recovery, _getOrCreateDbKey() detects an abandoned staging key and
+  /// completes the promotion without data loss.
   Future<void> _rotateDbKeyIfNeeded() async {
     try {
+      // Guard: abort immediately if DB was closed concurrently (panic wipe).
+      final db = _db;
+      if (db == null) return;
+
       const ss = FlutterSecureStorage();
       final tsStr = await ss.read(key: _kDbKeyTsPref);
       if (tsStr != null) {
@@ -317,12 +344,22 @@ class LocalStorageService {
       final rng = Random.secure();
       final newBytes = List.generate(32, (_) => rng.nextInt(256));
       final newKey = newBytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
-      // Apply PRAGMA rekey (SQLCipher atomically re-encrypts the database).
-      final db = _db;
-      if (db == null) return;
+
+      const stagingKey = 'local_db_cipher_key_pending_v1';
+      // Phase 1: persist new key to staging slot BEFORE rekeying.
+      await ss.write(key: stagingKey, value: newKey);
+
+      // Phase 2: re-encrypt the database.
+      // Guard: abort if DB was closed between phase 1 and now (panic wipe).
+      if (_db == null) {
+        debugPrint('[LocalStorage] DB closed during key rotation — aborting');
+        return;
+      }
       await db.rawQuery("PRAGMA rekey=\"x'$newKey'\"");
-      // Persist the new key and timestamp.
+
+      // Phase 3: promote staging → primary, clear staging.
       await ss.write(key: _kDbKeyPref, value: newKey);
+      await ss.delete(key: stagingKey);
       await ss.write(
           key: _kDbKeyTsPref,
           value: DateTime.now().millisecondsSinceEpoch.toString());
@@ -344,8 +381,30 @@ class LocalStorageService {
 
     // Check if already encrypted — try opening with key
     const ss = FlutterSecureStorage();
-    final hasKey = await ss.read(key: _kDbKeyPref) != null;
-    if (hasKey) return; // already encrypted or fresh install
+    final existingKey = await ss.read(key: _kDbKeyPref);
+    final hasKey = existingKey != null;
+    if (hasKey) {
+      // Verify the key actually opens the DB (guard against crash mid-migration
+      // where the key was written but the DB was not yet re-encrypted).
+      try {
+        final testDb = await databaseFactoryFfi.openDatabase(
+          path,
+          options: OpenDatabaseOptions(
+            onConfigure: (db) async {
+              await db.rawQuery("PRAGMA KEY=\"x'$existingKey'\"");
+            },
+            onOpen: (db) async {
+              await db.rawQuery('SELECT count(*) FROM sqlite_master');
+            },
+          ),
+        );
+        await testDb.close();
+        return; // DB opens fine with the key — migration already complete
+      } catch (_) {
+        // Key present but DB not openable with it — fall through to re-migrate.
+        debugPrint('[LocalStorage] Migration sentinel present but DB unreadable — re-migrating');
+      }
+    }
 
     // Read all data from the plaintext DB
     debugPrint('[LocalStorage] Migrating plaintext DB to SQLCipher...');

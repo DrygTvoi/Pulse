@@ -501,10 +501,22 @@ class DataSection extends StatelessWidget {
                   'nostr_privkey',
                   'oxen_seed',
                 ]) {
-                  if (data.containsKey(key)) {
-                    await _secureStorage.write(
-                        key: key, value: data[key] as String);
+                  if (!data.containsKey(key)) continue;
+                  final value = data[key] as String? ?? '';
+                  // Validate known key formats before writing.
+                  if (key == 'nostr_privkey' && !_isValidHex(value, 64)) {
+                    debugPrint('[Import] Invalid nostr_privkey format — skipping');
+                    continue;
                   }
+                  if (key == 'oxen_seed' && !_isValidHex(value, 64)) {
+                    debugPrint('[Import] Invalid oxen_seed format — skipping');
+                    continue;
+                  }
+                  if (key.startsWith('signal_') && !_isValidBase64(value)) {
+                    debugPrint('[Import] Invalid signal key format for $key — skipping');
+                    continue;
+                  }
+                  await _secureStorage.write(key: key, value: value);
                 }
                 final prefs2 = await SharedPreferences.getInstance();
                 if (data.containsKey('user_identity')) {
@@ -634,8 +646,28 @@ class DataSection extends StatelessWidget {
       }
 
       if (savePath == null) {
-        final dir = await getDownloadsDirectory();
-        savePath = '${dir?.path ?? '/tmp'}/$defaultName';
+        final dir = await getDownloadsDirectory() ?? await getApplicationDocumentsDirectory();
+        final fallbackPath = '${dir.path}/$defaultName';
+
+        // Ask user before writing to shared Downloads folder.
+        if (!context.mounted) return;
+        final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Save backup to Downloads?'),
+            content: Text('No file picker available. The backup will be saved to:\n$fallbackPath'),
+            actions: [
+              TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: const Text('Cancel')),
+              TextButton(
+                  onPressed: () => Navigator.pop(ctx, true),
+                  child: const Text('Save')),
+            ],
+          ),
+        );
+        if (confirmed != true) return;
+        savePath = fallbackPath;
       }
 
       await File(savePath).writeAsBytes(bytes);
@@ -1117,6 +1149,21 @@ class DataSection extends StatelessWidget {
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.spacing10)),
         ));
       }
+    }
+  }
+
+  // ── Key format validators ────────────────────────────────────────────────
+
+  static bool _isValidHex(String s, int expectedLen) =>
+      s.length == expectedLen && RegExp(r'^[0-9a-f]+$').hasMatch(s);
+
+  static bool _isValidBase64(String s) {
+    if (s.isEmpty) return false;
+    try {
+      base64.decode(s);
+      return true;
+    } catch (_) {
+      return false;
     }
   }
 

@@ -103,6 +103,36 @@ class _RestoreAccountScreenState extends State<RestoreAccountScreen> {
 
   Future<void> _restore() async {
     if (!_canSubmit) return;
+
+    // Guard against silently overwriting an existing identity.
+    const ss = FlutterSecureStorage();
+    final existingKey = await ss.read(key: 'nostr_privkey');
+    if (existingKey != null && existingKey.isNotEmpty) {
+      if (!mounted) return;
+      final confirmed = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Replace existing identity?'),
+          content: const Text(
+              'An identity already exists on this device. Restoring will '
+              'permanently replace your current Nostr key and Oxen seed. '
+              'All contacts will lose the ability to reach your current address.\n\n'
+              'This cannot be undone.'),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Cancel')),
+            TextButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: Text('Replace',
+                    style: TextStyle(color: Theme.of(ctx).colorScheme.error))),
+          ],
+        ),
+      );
+      if (confirmed != true) return;
+    }
+
     setState(() => _isLoading = true);
 
     final name     = _nameController.text.trim();
@@ -112,7 +142,6 @@ class _RestoreAccountScreenState extends State<RestoreAccountScreen> {
     final nostrKeyBytes = await KeyDerivationService.deriveNostrKey(password);
     final oxenSeedBytes = await KeyDerivationService.deriveOxenSeed(password);
 
-    const ss = FlutterSecureStorage();
     final privkeyHex = hex.encode(nostrKeyBytes);
 
     await ss.write(key: 'nostr_privkey', value: privkeyHex);
