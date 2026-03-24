@@ -190,7 +190,9 @@ class SignalGroupUpdateEvent {
   final String groupName;
   final List<String> members;
   final String? creatorId;
-  SignalGroupUpdateEvent(this.groupId, this.groupName, this.members, {this.creatorId});
+  final String senderId;
+  SignalGroupUpdateEvent(this.groupId, this.groupName, this.members,
+      {this.creatorId, this.senderId = ''});
 }
 
 // ── Callbacks for operations the dispatcher cannot do on its own ────────────
@@ -618,7 +620,7 @@ class SignalDispatcher {
             if (groupId != null && rawMembers is List && !_groupUpdateCtrl.isClosed) {
               _groupUpdateCtrl.add(SignalGroupUpdateEvent(
                   groupId, groupName, rawMembers.whereType<String>().toList(),
-                  creatorId: creatorId));
+                  creatorId: creatorId, senderId: sigSender));
             }
           }
         } else if (sigType == 'group_invite') {

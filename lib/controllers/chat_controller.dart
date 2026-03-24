@@ -964,6 +964,13 @@ class ChatController extends ChangeNotifier {
       final group = _contacts.contacts.cast<Contact?>()
           .firstWhere((c) => c?.isGroup == true && c?.id == e.groupId, orElse: () => null);
       if (group == null) return;
+      // Only the group creator may update membership.
+      if (group.creatorId != null && group.creatorId!.isNotEmpty &&
+          e.senderId != group.creatorId) {
+        debugPrint('[Group] Rejected group_update from non-creator '
+            '${e.senderId} (creator: ${group.creatorId})');
+        return;
+      }
       final memberRemoved = e.members.length < group.members.length;
       final updated = group.copyWith(
         name: e.groupName.isNotEmpty ? e.groupName : group.name,
@@ -983,6 +990,16 @@ class ChatController extends ChangeNotifier {
 
     _dispatcherSubs.add(d.senderKeyDists.listen((e) async {
       try {
+        // Reject SKDM from contacts not in the group.
+        final skdmGroup = _contacts.contacts.cast<Contact?>()
+            .firstWhere((c) => c?.isGroup == true && c?.id == e.groupId,
+                orElse: () => null);
+        if (skdmGroup != null &&
+            !skdmGroup.members.contains(e.fromContact.databaseId)) {
+          debugPrint('[SenderKey] Rejected SKDM from non-member '
+              '${e.fromContact.name} for group ${e.groupId}');
+          return;
+        }
         final skdmBytes = base64Decode(e.skdmB64);
         await SenderKeyService.instance.processDistribution(
             e.groupId, e.fromContact.databaseId, skdmBytes);
