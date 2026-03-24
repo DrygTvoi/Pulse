@@ -273,7 +273,10 @@ class SignalingService {
           return null;
         }
       }
-      return raw;
+      // No e2ee field — reject. Sender always encrypts via Signal Protocol;
+      // an unencrypted payload means a relay injected it without the session key.
+      debugPrint('[Signaling] Rejected unauthenticated signal (no e2ee field)');
+      return null;
     }
     return null;
   }
