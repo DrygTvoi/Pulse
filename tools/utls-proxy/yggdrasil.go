@@ -335,20 +335,7 @@ func (d *yggDispatcher) send(data []byte, port uint16, dst net.Addr) error {
 
 // ── Port allocator ────────────────────────────────────────────────────────────
 
-// allocateYggPort picks a random free port in the dynamic range 49152–65535.
-// Using random ports reduces the probability of cross-device collision when
-// both peers start pion/turn relay allocations concurrently.
-// Returns an error if no free port is found after 200 attempts (e.g. table full).
-func allocateYggPort(d *yggDispatcher) (uint16, error) {
-	const maxTries = 200
-	for i := 0; i < maxTries; i++ {
-		p := uint16(49152 + rand.Intn(16383))
-		if _, ok := d.relayPorts.Load(p); !ok {
-			return p, nil
-		}
-	}
-	return 0, fmt.Errorf("allocateYggPort: no free port after %d attempts", maxTries)
-}
+// allocateYggPort is replaced by inline LoadOrStore in AllocatePacketConn.
 
 // ── pion/turn relay server ────────────────────────────────────────────────────
 
@@ -421,20 +408,28 @@ type yggRelayAddressGenerator struct {
 func (g *yggRelayAddressGenerator) Validate() error { return nil }
 
 // AllocatePacketConn is called by pion/turn for each new TURN allocation.
+//
+// Port selection uses LoadOrStore so the check-and-register is atomic —
+// no two concurrent allocations can claim the same port.
 func (g *yggRelayAddressGenerator) AllocatePacketConn(
 	network string, requestedPort int,
 ) (net.PacketConn, net.Addr, error) {
-	port, err := allocateYggPort(g.disp)
-	if err != nil {
-		return nil, nil, err
+	const maxTries = 200
+	for i := 0; i < maxTries; i++ {
+		port := uint16(49152 + rand.Intn(16383))
+		relayAddr := &net.UDPAddr{IP: g.addr, Port: int(port)}
+		pconn := newYggPacketConn(g.disp, port, relayAddr)
+		if _, loaded := g.disp.relayPorts.LoadOrStore(port, pconn); !loaded {
+			// We atomically claimed this port — nobody else can take it now.
+			yggActiveRelays.Add(1)
+			fmt.Fprintf(os.Stderr, "[ygg] relay allocated port=%d addr=%s active=%d\n",
+				port, relayAddr, yggActiveRelays.Load())
+			return pconn, relayAddr, nil
+		}
+		// Another goroutine claimed this port first — discard and retry.
+		close(pconn.closed)
 	}
-	relayAddr := &net.UDPAddr{IP: g.addr, Port: int(port)}
-	pconn := newYggPacketConn(g.disp, port, relayAddr)
-	g.disp.registerRelay(port, pconn)
-	yggActiveRelays.Add(1)
-	fmt.Fprintf(os.Stderr, "[ygg] relay allocated port=%d addr=%s active=%d\n",
-		port, relayAddr, yggActiveRelays.Load())
-	return pconn, relayAddr, nil
+	return nil, nil, fmt.Errorf("AllocatePacketConn: no free port after %d attempts", maxTries)
 }
 
 // AllocateConn is not used for UDP-based WebRTC media.
