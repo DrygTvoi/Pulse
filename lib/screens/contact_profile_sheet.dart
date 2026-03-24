@@ -4,7 +4,7 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import '../models/contact.dart';
 import '../theme/app_theme.dart';
@@ -78,8 +78,8 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
     final contact = !widget.contact.isGroup
         ? await signal.getContactFingerprint(widget.contact.databaseId)
         : null;
-    final prefs = await SharedPreferences.getInstance();
-    final storedHash = prefs.getString('verified_identity_${widget.contact.databaseId}');
+    const ss = FlutterSecureStorage();
+    final storedHash = await ss.read(key: 'verified_identity_${widget.contact.databaseId}');
     final currentHash = await _computeCurrentHash();
     final verified = storedHash != null && storedHash == currentHash;
     if (mounted) {
@@ -101,14 +101,14 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
   }
 
   Future<void> _toggleVerified() async {
-    final prefs = await SharedPreferences.getInstance();
+    const ss = FlutterSecureStorage();
     if (_isVerified) {
-      await prefs.remove('verified_identity_${_contact.databaseId}');
+      await ss.delete(key: 'verified_identity_${_contact.databaseId}');
       if (mounted) setState(() => _isVerified = false);
     } else {
       final hash = await _computeCurrentHash();
       if (hash == null) return;
-      await prefs.setString('verified_identity_${_contact.databaseId}', hash);
+      await ss.write(key: 'verified_identity_${_contact.databaseId}', value: hash);
       if (mounted) setState(() => _isVerified = true);
     }
   }

@@ -558,6 +558,8 @@ type proxyState struct {
 	localPort int
 }
 
+const maxConcurrentYggProxies = 64 // hard cap; each proxy is a goroutine + UDP socket
+
 var (
 	proxyMu  sync.Mutex
 	proxyMap = map[string]*proxyState{} // "pubkeyHex:port" → proxy
@@ -635,6 +637,11 @@ func handleYggProxy(w http.ResponseWriter, r *http.Request) {
 		proxyMu.Unlock()
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]int{"local_port": existing.localPort})
+		return
+	}
+	if len(proxyMap) >= maxConcurrentYggProxies {
+		proxyMu.Unlock()
+		http.Error(w, "too many concurrent proxies", http.StatusServiceUnavailable)
 		return
 	}
 

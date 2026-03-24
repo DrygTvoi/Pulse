@@ -348,8 +348,7 @@ class SignalService {
   /// Contact's Signal identity fingerprint, stored when session was built.
   /// Returns null if no session has been established with this contact.
   Future<String?> getContactFingerprint(String remoteId) async {
-    final prefs = await SharedPreferences.getInstance();
-    final b64 = prefs.getString('signal_contact_idkey_$remoteId');
+    final b64 = await _storage.read(key: 'signal_contact_idkey_$remoteId');
     if (b64 == null) return null;
     return _formatFingerprint(base64Decode(b64));
   }
@@ -357,8 +356,7 @@ class SignalService {
   /// Returns the raw base64 of the contact's stored identity key.
   /// Used by VerifyIdentityScreen to store a hash for auto-invalidation.
   Future<String?> getContactIdentityKeyB64(String remoteId) async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('signal_contact_idkey_$remoteId');
+    return _storage.read(key: 'signal_contact_idkey_$remoteId');
   }
 
   /// Own identity key as base64 (for verification hash).
@@ -474,9 +472,8 @@ class SignalService {
     }
 
     // Detect key change vs previously stored identity key.
-    final prefs = await SharedPreferences.getInstance();
     final storageKey = 'signal_contact_idkey_$remoteId';
-    final storedB64 = prefs.getString(storageKey);
+    final storedB64 = await _storage.read(key: storageKey);
     final newB64 = base64Encode(idKeyBytes);
     final keyChanged = storedB64 != null && storedB64 != newB64;
 
@@ -495,11 +492,13 @@ class SignalService {
     await sessionBuilder.processPreKeyBundle(preKeyBundle);
 
     // Persist updated identity key for fingerprint display and TOFU tracking.
+    // Stored in FlutterSecureStorage (not SharedPreferences) to protect TOFU state
+    // from backup extraction and prevent undetected MITM via key tampering.
     try {
-      await prefs.setString(storageKey, newB64);
+      await _storage.write(key: storageKey, value: newB64);
       // Invalidate verification status when key changes — safety number is no longer valid.
       if (keyChanged) {
-        await prefs.remove('verified_identity_$remoteId');
+        await _storage.delete(key: 'verified_identity_$remoteId');
       }
     } catch (e) {
       debugPrint('[Signal] Failed to persist identity key for $remoteId: $e');
