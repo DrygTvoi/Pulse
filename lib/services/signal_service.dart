@@ -359,6 +359,21 @@ class SignalService {
     return _storage.read(key: 'signal_contact_idkey_$remoteId');
   }
 
+  /// Delete all Signal sessions and identity material for a removed contact.
+  ///
+  /// Call this whenever a contact is deleted so that stale sessions cannot
+  /// be replayed and old identity keys don't accumulate in secure storage.
+  Future<void> deleteContactData(String remoteId) async {
+    try {
+      await _store.deleteAllSessions(remoteId);
+      await _storage.delete(key: 'signal_contact_idkey_$remoteId');
+      await _storage.delete(key: 'verified_identity_$remoteId');
+      debugPrint('[SignalService] Deleted sessions + idkey for $remoteId');
+    } catch (e) {
+      debugPrint('[SignalService] deleteContactData error: $e');
+    }
+  }
+
   /// Own identity key as base64 (for verification hash).
   String get ownIdentityKeyB64 {
     if (!_isInitialized) return '';

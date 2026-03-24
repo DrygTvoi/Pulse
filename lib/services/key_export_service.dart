@@ -197,6 +197,73 @@ class KeyExportService {
     }
   }
 
+  /// Encrypt an arbitrary string→string map (e.g. identity backup).
+  ///
+  /// Same binary format as [exportKeys]: magic + PBKDF2 salt + IV + AES-GCM.
+  /// Returns encrypted bytes, or null on failure.
+  static Future<Uint8List?> encryptRawBundle(
+      Map<String, String> bundle, String password) async {
+    try {
+      final jsonBytes = utf8.encode(jsonEncode(bundle));
+      final rng  = Random.secure();
+      final salt = Uint8List.fromList(
+          List.generate(_kSaltLen, (_) => rng.nextInt(256)));
+      final iv   = Uint8List.fromList(
+          List.generate(_kIvLen,   (_) => rng.nextInt(256)));
+      final keyBytes  = await _deriveKey(password, salt);
+      final secretBox = await _aesGcm.encrypt(
+        jsonBytes, secretKey: SecretKey(keyBytes), nonce: iv);
+      final out = BytesBuilder(copy: false);
+      out.add(_kMagic);
+      out.add([_kVersion & 0xFF, (_kVersion >> 8) & 0xFF]);
+      out.add(salt);
+      out.add(iv);
+      out.add(secretBox.cipherText);
+      out.add(secretBox.mac.bytes);
+      return out.toBytes();
+    } catch (e) {
+      debugPrint('[KeyExport] encryptRawBundle failed: $e');
+      return null;
+    }
+  }
+
+  /// Decrypt a bundle encrypted with [encryptRawBundle].
+  ///
+  /// Returns the map, or null on wrong password / corrupted data.
+  static Future<Map<String, String>?> decryptRawBundle(
+      Uint8List data, String password) async {
+    try {
+      if (data.length < _kHeaderLen + 16) return null;
+      for (int i = 0; i < 4; i++) {
+        if (data[i] != _kMagic[i]) return null;
+      }
+      final version = data[4] | (data[5] << 8);
+      if (version != _kVersion) return null;
+      final salt = Uint8List.sublistView(data, 6, 6 + _kSaltLen);
+      final iv   = Uint8List.sublistView(data, 6 + _kSaltLen, _kHeaderLen);
+      final enc  = Uint8List.sublistView(data, _kHeaderLen);
+      if (enc.length < 16) return null;
+      final cipher   = Uint8List.sublistView(enc, 0, enc.length - 16);
+      final macBytes = Uint8List.sublistView(enc, enc.length - 16);
+      final keyBytes = await _deriveKey(password, salt);
+      final List<int> plain;
+      try {
+        plain = await _aesGcm.decrypt(
+          SecretBox(cipher, nonce: iv, mac: Mac(macBytes)),
+          secretKey: SecretKey(keyBytes),
+        );
+      } catch (_) {
+        debugPrint('[KeyExport] decryptRawBundle: wrong password or corrupted');
+        return null;
+      }
+      final raw = jsonDecode(utf8.decode(plain)) as Map<String, dynamic>;
+      return {for (final e in raw.entries) e.key: e.value.toString()};
+    } catch (e) {
+      debugPrint('[KeyExport] decryptRawBundle failed: $e');
+      return null;
+    }
+  }
+
   /// Validate that a file has the correct PLKE magic bytes.
   static bool isValidExportFile(Uint8List data) {
     if (data.length < _kHeaderLen + 16) return false;

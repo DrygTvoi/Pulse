@@ -232,6 +232,9 @@ class SignalDispatcher {
   final SignatureVerifier _verifySignature;
   final GroupContactResolver _resolveGroupContact;
   final RateLimiter _sigRateLimiter;
+  // Separate limiter for webrtc offer/answer — 6 per minute per sender.
+  final RateLimiter _webrtcRateLimiter =
+      RateLimiter(maxTokens: 6, refillInterval: Duration(seconds: 10));
 
   // ── Streams ──────────────────────────────────────────────────────────────
   final _rawCtrl = StreamController<SignalRawEvent>.broadcast();
@@ -301,16 +304,21 @@ class SignalDispatcher {
     'group_invite',
   };
 
-  /// Signal types exempt from rate limiting (system-critical).
+  /// Signal types exempt from the general rate limiter (system-critical or
+  /// high-volume per call).  webrtc_candidate is exempt because a single ICE
+  /// negotiation produces 10-20 candidates in rapid succession.  Offer/answer
+  /// are NOT exempt — they get their own stricter per-sender limiter below.
   static const _rateLimitExemptSignals = <String>{
     'sys_keys',
     'addr_update',
-    'webrtc_offer',
-    'webrtc_answer',
     'webrtc_candidate',
-    'webrtc2_offer',
-    'webrtc2_answer',
     'webrtc2_candidate',
+  };
+
+  /// Per-sender rate limiter for webrtc offer/answer — max 6 per minute.
+  /// Prevents relay-based call-flood DoS while allowing normal re-negotiation.
+  static const _webrtcOfferTypes = <String>{
+    'webrtc_offer', 'webrtc_answer', 'webrtc2_offer', 'webrtc2_answer',
   };
 
   // ── Contact resolution ───────────────────────────────────────────────────
@@ -342,6 +350,15 @@ class SignalDispatcher {
             !sigType.startsWith('p2p_') &&
             !_sigRateLimiter.allow(sigSender)) {
           debugPrint('[SignalDispatcher] Rate limited signal ($sigType) from: $sigSender');
+          continue;
+        }
+
+        // Stricter rate limit for webrtc offer/answer (6 per 10s per sender).
+        if (_webrtcOfferTypes.contains(sigType) &&
+            sigSender.isNotEmpty &&
+            !_allAddressesGetter().contains(sigSender) &&
+            !_webrtcRateLimiter.allow(sigSender)) {
+          debugPrint('[SignalDispatcher] Rate limited webrtc signal ($sigType) from: $sigSender');
           continue;
         }
 
