@@ -38,6 +38,10 @@ class SignalingService {
   // Used to select the appropriate audio bitrate in SDP constraints.
   bool _primaryRestricted = false;
 
+  // FINDING-7: ICE candidate flood protection — reset on each new offer/answer.
+  int _candidatesReceived = 0;
+  static const _kMaxCandidates = 200;
+
   // Remote peer's Yggdrasil ed25519 public key (base64), received in offer/answer.
   // Needed to construct outbound proxy routes through the overlay.
   String? _remoteYggPubkey;
@@ -290,6 +294,14 @@ class SignalingService {
       } else {
         _remoteYggPubkey = null;
       }
+      // FINDING-9: Require a=fingerprint: in SDP — prevents DTLS-bypass attack
+      final sdp = data['sdp'] as String? ?? '';
+      if (!sdp.contains('a=fingerprint:')) {
+        debugPrint('[Signaling] Rejected offer SDP without a=fingerprint: (DTLS bypass attempt)');
+        return;
+      }
+      // FINDING-7: Reset candidate counter for new session
+      _candidatesReceived = 0;
       // ICE-restart offer carries a profile hint — mirror the config change
       // before answering so both sides use the same iceTransportPolicy.
       final profileId = data['profile'] as String?;
@@ -300,7 +312,7 @@ class SignalingService {
         _primaryRestricted = profile.isRestricted;
         await peerConnection!.setConfiguration(await profile.peerConfig());
       }
-      await peerConnection?.setRemoteDescription(RTCSessionDescription(data['sdp'], data['type']));
+      await peerConnection?.setRemoteDescription(RTCSessionDescription(sdp, data['type']));
       await createAnswer();
     } catch (e) {
       debugPrint('[Signaling] handleOffer error: $e');
@@ -315,7 +327,15 @@ class SignalingService {
       } else if (yggPub != null) {
         _remoteYggPubkey = null; // reject malformed pubkey
       }
-      await peerConnection?.setRemoteDescription(RTCSessionDescription(data['sdp'], data['type']));
+      // FINDING-9: Require a=fingerprint: in SDP — prevents DTLS-bypass attack
+      final sdp = data['sdp'] as String? ?? '';
+      if (!sdp.contains('a=fingerprint:')) {
+        debugPrint('[Signaling] Rejected answer SDP without a=fingerprint: (DTLS bypass attempt)');
+        return;
+      }
+      // FINDING-7: Reset candidate counter for new session
+      _candidatesReceived = 0;
+      await peerConnection?.setRemoteDescription(RTCSessionDescription(sdp, data['type']));
     } catch (e) {
       debugPrint('[Signaling] handleAnswer error: $e');
     }
@@ -323,6 +343,11 @@ class SignalingService {
 
   Future<void> _handleCandidate(Map<String, dynamic> data) async {
     try {
+      // FINDING-7: Reject excess candidates — prevents CPU/memory flood
+      if (++_candidatesReceived > _kMaxCandidates) {
+        debugPrint('[Signaling] ICE candidate limit reached, dropping');
+        return;
+      }
       final raw = RTCIceCandidate(
           data['candidate'], data['sdpMid'], data['sdpMLineIndex']);
       final candidate = await _interceptYggCandidate(raw);

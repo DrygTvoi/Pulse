@@ -304,6 +304,9 @@ class SignalDispatcher {
     'profile_update',
     'group_update',
     'group_invite',
+    // FINDING-1: status_update was absent — attacker could inject arbitrary
+    // status for any contact without a valid Signal session key.
+    'status_update',
   };
 
   /// Signal types exempt from the general rate limiter (system-critical or
