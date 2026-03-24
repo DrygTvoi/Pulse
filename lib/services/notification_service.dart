@@ -113,7 +113,8 @@ class NotificationService {
           preview = '📎 ${m?.name ?? 'File'}';
         }
       } else {
-        preview = text.length > 80 ? '${text.substring(0, 80)}…' : text;
+        // Never expose raw content to the OS notification tray.
+        preview = 'New message';
       }
 
       if (_isDesktop) {

@@ -836,6 +836,11 @@ class NostrInboxReader implements InboxReader {
               _trackSeenId(id);
               final ts = event['created_at'] as int?;
               if (ts != null) unawaited(_updateSince(ts));
+              // Verify Schnorr signature — reject relay-injected events.
+              if (!eb.verifyEventSignature(event)) {
+                debugPrint('[Nostr] Dropped event with invalid signature: $id');
+                continue;
+              }
               final kind = (event['kind'] as int?) ?? -1;
               if (kind == 1059) {
                 _dispatchGiftWrap(event);

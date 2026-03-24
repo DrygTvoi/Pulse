@@ -118,13 +118,11 @@ class PulseInboxReader implements InboxReader {
       return;
     }
 
-    // Convert https:// → wss:// for WebSocket
+    // Convert https:// → wss:// for WebSocket. Reject plaintext http://.
     if (_serverUrl.startsWith('https://')) {
       _wsUrl = 'wss://${_serverUrl.substring('https://'.length)}/ws';
-    } else if (_serverUrl.startsWith('http://')) {
-      _wsUrl = 'ws://${_serverUrl.substring('http://'.length)}/ws';
     } else {
-      debugPrint('[Pulse] Invalid server URL: $_serverUrl');
+      debugPrint('[Pulse] Rejected insecure or invalid server URL: $_serverUrl');
       return;
     }
 
