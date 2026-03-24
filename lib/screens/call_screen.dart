@@ -393,7 +393,13 @@ class _CallScreenState extends State<CallScreen> {
   }
 
   Future<void> _replaceVideoTrack(MediaStream newStream) async {
-    final newTrack = newStream.getVideoTracks().first;
+    final videoTracks = newStream.getVideoTracks();
+    // F1-11: Guard against empty track list (e.g. camera permission revoked)
+    if (videoTracks.isEmpty) {
+      debugPrint('[CallScreen] _replaceVideoTrack: stream has no video tracks');
+      return;
+    }
+    final newTrack = videoTracks.first;
     final senders = await _signaling?.peerConnection?.getSenders();
     final videoSender = senders?.cast<RTCRtpSender?>().firstWhere(
       (s) => s?.track?.kind == 'video',

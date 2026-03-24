@@ -352,6 +352,9 @@ Uint8List computeEcdhSecret(String ourPrivkeyHex, String theirPubkeyHex,
   final sharedPoint = curve.createPoint(x, useY) * d;
   final xVal = sharedPoint?.x?.toBigInteger();
   if (xVal == null) throw StateError('ECDH: invalid shared point');
+  // F2-8: Reject degenerate shared point with zero x-coordinate — would
+  // produce all-zero key material known to any observer.
+  if (xVal == BigInt.zero) throw StateError('ECDH: degenerate shared point (x=0)');
   final result = _bigIntToBytes(xVal, 32);
 
   // Issue 2: store in cache with LRU eviction.
@@ -455,6 +458,8 @@ Map<String, dynamic> _ecdhFullIsolate(Map<String, dynamic> params) {
   final sharedPoint = _secp256k1.curve.createPoint(x, useY) * d;
   final xVal = sharedPoint?.x?.toBigInteger();
   if (xVal == null) throw StateError('ECDH: invalid shared point');
+  // F2-8: Reject degenerate shared point with zero x-coordinate
+  if (xVal == BigInt.zero) throw StateError('ECDH: degenerate shared point (x=0)');
 
   return {
     'secret': base64.encode(_bigIntToBytes(xVal, 32)),
@@ -835,7 +840,12 @@ class NostrInboxReader implements InboxReader {
               }
               // NIP-42: respond to AUTH challenges from the relay.
               if (data[0] == 'AUTH' && data.length >= 2) {
-                final challenge = data[1] as String?;
+                final rawChallenge = data[1] as String?;
+                // F2-6: Cap challenge to 256 bytes — a relay cannot force us
+                // to sign an arbitrarily large payload.
+                final challenge = rawChallenge != null && rawChallenge.length > 256
+                    ? rawChallenge.substring(0, 256)
+                    : rawChallenge;
                 if (challenge != null && _privateKeyHex.isNotEmpty) {
                   unawaited(_nostrRespondToAuth(
                       channel, _relayUrl, challenge, _privateKeyHex));
@@ -925,6 +935,13 @@ class NostrInboxReader implements InboxReader {
         debugPrint('[Nostr] Gift Wrap: failed to unwrap');
         return;
       }
+      // F2-3: Dedup inner event by inner event ID — outer ID (ephemeral) changes
+      // on every re-broadcast, so we must check the semantic inner ID.
+      final innerId = inner['id'] as String? ?? '';
+      if (innerId.isNotEmpty) {
+        if (_seenIds.containsKey(innerId)) return;
+        _trackSeenId(innerId);
+      }
       final innerKind = (inner['kind'] as int?) ?? -1;
       if (innerKind == 4) {
         _dispatchMessage(inner);
@@ -1001,6 +1018,9 @@ class NostrInboxReader implements InboxReader {
           'senderId': senderPubkey,
           'roomId': data['roomId'],
           'payload': data['payload'],
+          // F4-1: Mark as Nostr-adapter signal so SignalDispatcher can skip HMAC
+          // only for signals that went through Schnorr verification above.
+          'adapterType': 'nostr',
         }]);
       }
     } catch (e) {
@@ -1271,7 +1291,11 @@ class NostrMessageSender implements MessageSender {
           try {
             final data = jsonDecode(raw as String) as List;
             if (data.isNotEmpty && data[0] == 'AUTH' && data.length >= 2) {
-              final challenge = data[1] as String?;
+              final rawC = data[1] as String?;
+              // F2-6: Cap challenge length
+              final challenge = rawC != null && rawC.length > 256
+                  ? rawC.substring(0, 256)
+                  : rawC;
               if (challenge != null && _privateKeyHex.isNotEmpty) {
                 unawaited(_nostrRespondToAuth(
                     ch, relayUrl, challenge, _privateKeyHex));

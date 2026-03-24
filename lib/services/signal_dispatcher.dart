@@ -373,13 +373,15 @@ class SignalDispatcher {
         }
 
         // Verify HMAC signature on security-critical signals.
-        // FINDING-1 fix: removed the @wss:// bypass — that check was
-        // attacker-controlled (crafting senderId = "x@wss://evil.com" skipped
-        // HMAC). Now only bare 64-hex Nostr pubkeys (already authenticated by
-        // Gift Wrap Schnorr) are exempt from the additional HMAC layer.
+        // F4-1: The bare-pubkey HMAC bypass must be gated on adapterType=='nostr'
+        // to prevent Waku/Firebase senders from setting senderId to a 64-hex string
+        // and bypassing HMAC. Only signals that went through Nostr Schnorr
+        // verification (marked by NostrAdapter with adapterType='nostr') are exempt.
+        // The security is in adapterType — set by our adapter code after Schnorr
+        // verification, not attacker-controllable from Waku/Firebase.
         if (_signatureRequiredSignals.contains(sigType)) {
-          final isBareNostrPubkey = RegExp(r'^[0-9a-f]{64}$').hasMatch(sigSender);
-          if (!isBareNostrPubkey) {
+          final isNostrVerified = (sig['adapterType'] as String? ?? '') == 'nostr';
+          if (!isNostrVerified) {
             final payload = sig['payload'];
             if (payload is Map<String, dynamic>) {
               final hmac = payload['_sig'] as String?;

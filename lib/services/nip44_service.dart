@@ -203,6 +203,7 @@ Uint8List nip44Pad(String plaintext) {
   }
 
   // Calculate padded size using NIP-44 v2 spec algorithm.
+  // The 2-byte prefix is included in the padded block size calculation.
   final paddedLen = _calcPaddedLen(2 + contentLen);
 
   final result = Uint8List(paddedLen);
@@ -285,12 +286,10 @@ Future<String> nip44Decrypt(Uint8List sharedX, String payload) async {
   _nonceDbLoadFuture ??= _loadNoncesFromDb();
   await _nonceDbLoadFuture;
 
-  // Replay detection: reject duplicate nonces for this conversation key
-  _checkAndRecordNonce(convKey, nonce);
-
   final keys = deriveMessageKeys(convKey, nonce);
 
-  // Verify HMAC first
+  // Verify HMAC BEFORE recording nonce — F2-1: prevents nonce slot exhaustion
+  // by forged ciphertexts with fresh random nonces.
   final hmac = crypto.Hmac(crypto.sha256, keys.hmacKey);
   final macInput = BytesBuilder()
     ..add(nonce)
@@ -308,6 +307,9 @@ Future<String> nip44Decrypt(Uint8List sharedX, String payload) async {
   if (cmp != 0) {
     throw FormatException('NIP-44: MAC verification failed');
   }
+
+  // Replay detection: only record nonce after authentication succeeds
+  _checkAndRecordNonce(convKey, nonce);
 
   // Decrypt
   final algo = cryptography.Xchacha20(macAlgorithm: cryptography.MacAlgorithm.empty);
