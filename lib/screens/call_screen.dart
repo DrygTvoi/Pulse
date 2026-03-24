@@ -8,6 +8,7 @@ import '../theme/app_theme.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../models/contact.dart';
 import '../l10n/l10n_ext.dart';
+import '../controllers/chat_controller.dart';
 
 class CallScreen extends StatefulWidget {
   final Contact contact;
@@ -53,8 +54,21 @@ class _CallScreenState extends State<CallScreen> {
 
   Timer? _hideControlsTimer;
   Timer? _durationTimer;
+  Timer? _mediaWatchdog;
+  Timer? _disconnectTimer;   // fires if ICE stays Disconnected for >15 s
+  Timer? _secondaryWatchdog; // monitors secondary path once active
   Duration _callDuration = Duration.zero;
   bool _disposed = false;
+
+  // Primary media watchdog state
+  int _lastPacketsReceived = -1; // -1 = not yet seen any RTP packets
+  int _silentTicks = 0;
+
+  // Secondary media watchdog state
+  int _secondaryLastPkts = -1;
+  int _secondarySilentTicks = 0;
+  bool _secondaryDegraded   = false; // true when secondary goes silent
+  bool _secondaryRestarting = false; // restart in progress, prevent double-restart
 
   @override
   void initState() {
@@ -103,12 +117,13 @@ class _CallScreenState extends State<CallScreen> {
       };
 
       await _signaling!.init(profile: profile);
-      if (_disposed) return;
+      if (_disposed) { unawaited(_signaling!.hangUp()); return; }
 
       await _openUserMedia();
-      if (_disposed) return;
+      if (_disposed) { unawaited(_signaling!.hangUp()); return; }
 
       if (widget.isCaller) await _signaling!.createOffer();
+      if (_disposed) { unawaited(_signaling!.hangUp()); return; }
 
       // Start secondary audio path in background — will be ready if primary fails
       unawaited(_signaling!.startSecondaryAudio());
@@ -142,17 +157,18 @@ class _CallScreenState extends State<CallScreen> {
 
     if (state == RTCIceConnectionState.RTCIceConnectionStateConnected ||
         state == RTCIceConnectionState.RTCIceConnectionStateCompleted) {
+      _disconnectTimer?.cancel();
       _startDurationTimer();
-      // Enforce bitrate limit at RTP level now that the sender exists
       unawaited(_signaling?.applyBitrateLimit(
           restricted: _currentProfile.isRestricted));
+      unawaited(ChatController().broadcastTurnToContact(widget.contact));
+      _startMediaWatchdog();
     }
 
     if (state == RTCIceConnectionState.RTCIceConnectionStateFailed) {
       _durationTimer?.cancel();
       if (!_usingSecondary) {
         if (_secondaryReady) {
-          // Secondary (Tor backup) is already connected — switch instantly
           _switchToSecondary();
         } else if (!_autoRetried && !_isRetrying) {
           _retryRestricted();
@@ -162,48 +178,172 @@ class _CallScreenState extends State<CallScreen> {
 
     if (state == RTCIceConnectionState.RTCIceConnectionStateDisconnected) {
       _durationTimer?.cancel();
+      // ICE sometimes recovers from Disconnected on its own.
+      // Give it 15 s; if it hasn't reconnected by then, treat as Failed.
+      _disconnectTimer?.cancel();
+      _disconnectTimer = Timer(const Duration(seconds: 15), () {
+        if (!_disposed &&
+            mounted &&
+            _iceState == RTCIceConnectionState.RTCIceConnectionStateDisconnected &&
+            !_usingSecondary) {
+          _onIceState(RTCIceConnectionState.RTCIceConnectionStateFailed);
+        }
+      });
     }
   }
 
-  /// Switches to RestrictedProfile (relay-only, TLS/TCP 443) on ICE failure.
-  /// Closes the old peer connection, creates a new one, re-sends offer if caller.
-  /// The callee also detects ICE failure independently and reinits its side,
-  /// so it will be ready to receive the new offer.
+  /// Restarts ICE with RestrictedProfile (relay-only, TLS/TCP 443) on failure.
+  ///
+  /// Uses iceRestart() which calls setConfiguration + createOffer({iceRestart})
+  /// on the existing PC — no teardown, no timing coordination with callee.
+  /// The callee receives the new offer via normal signaling and processes it.
   Future<void> _retryRestricted() async {
     if (_disposed || _autoRetried || _isRetrying) return;
     if (mounted) setState(() => _isRetrying = true);
-
-    await _signaling?.reinitPeerConnection(CallTransportProfile.restricted);
-    if (_disposed) return;
-
-    if (mounted) {
-      setState(() {
-        _autoRetried    = true;
-        _isRetrying     = false;
-        _currentProfile = CallTransportProfile.restricted;
-        _iceState       = RTCIceConnectionState.RTCIceConnectionStateChecking;
-      });
-    }
-
-    if (widget.isCaller) {
-      // Give callee ~600 ms to reinit its peer connection
-      await Future.delayed(const Duration(milliseconds: 600));
+    try {
+      await _signaling?.iceRestart(CallTransportProfile.restricted);
       if (_disposed) return;
-      await _signaling?.createOffer();
+      if (mounted) {
+        setState(() {
+          _autoRetried    = true;
+          _currentProfile = CallTransportProfile.restricted;
+          _iceState       = RTCIceConnectionState.RTCIceConnectionStateChecking;
+        });
+      }
+    } catch (e) {
+      debugPrint('[CallScreen] _retryRestricted failed: $e');
+      // ICE restart failed entirely — fall through to secondary on next Failed event
+      if (mounted) setState(() => _autoRetried = true);
+    } finally {
+      if (!_disposed && mounted) setState(() => _isRetrying = false);
     }
   }
 
   /// Switch active audio output to the secondary (Tor relay) stream.
   void _switchToSecondary() {
     if (_disposed || _signaling?.secondaryRemoteStream == null) return;
+    _mediaWatchdog?.cancel();
+    _mediaWatchdog = null;
     setState(() {
-      _usingSecondary = true;
+      _usingSecondary    = true;
+      _secondaryDegraded = false;
       _remoteRenderer.srcObject = _signaling!.secondaryRemoteStream;
     });
     _startDurationTimer();
-    // Secondary always runs on Tor — enforce 24 kbps RTP limit
     unawaited(_signaling!.applyBitrateLimit(restricted: true));
+    _startSecondaryWatchdog();
     debugPrint('[CallScreen] Switched to secondary audio (Tor relay)');
+  }
+
+  // ── Media watchdog ─────────────────────────────────────────────────────────
+  //
+  // Polls WebRTC inbound-rtp stats every 10 seconds.  If inbound audio packet
+  // count stops incrementing for 20 seconds (2 consecutive silent ticks) and
+  // the Tor secondary path is ready, switches to secondary automatically.
+  //
+  // This covers the Yggdrasil-relay-died scenario where the local pion/turn
+  // server keeps ICE alive (STUN keepalives to 127.0.0.1 succeed) but the
+  // Yggdrasil overlay path to the remote is broken — ICE never goes "Failed".
+  //
+  // False-positive guard: only starts counting silence after at least one
+  // non-zero packet count is observed, so connection setup time is ignored.
+
+  void _startMediaWatchdog() {
+    _mediaWatchdog?.cancel();
+    _lastPacketsReceived = -1;
+    _silentTicks = 0;
+    _mediaWatchdog = Timer.periodic(const Duration(seconds: 10), (_) async {
+      if (!mounted || _usingSecondary || _disposed) return;
+      final pc = _signaling?.peerConnection;
+      if (pc == null) return;
+      try {
+        final stats = await pc.getStats();
+        for (final report in stats) {
+          if (report.type != 'inbound-rtp') continue;
+          final kind = report.values['kind'] as String?;
+          if (kind != 'audio') continue;
+          final packets =
+              (report.values['packetsReceived'] as num?)?.toInt() ?? 0;
+          if (_lastPacketsReceived < 0) {
+            // First observation — just record baseline, don't count silence yet
+            if (packets > 0) _lastPacketsReceived = packets;
+          } else if (packets > _lastPacketsReceived) {
+            _silentTicks = 0;
+            _lastPacketsReceived = packets;
+          } else {
+            _silentTicks++;
+            debugPrint('[Watchdog] silent tick $_silentTicks '
+                '(pkts=$packets last=$_lastPacketsReceived)');
+            if (_silentTicks >= 2 && _secondaryReady && !_usingSecondary) {
+              debugPrint('[Watchdog] relay silent >20 s — switching to Tor secondary');
+              _switchToSecondary();
+            }
+          }
+          break; // only need first audio inbound-rtp entry
+        }
+      } catch (e) {
+        debugPrint('[Watchdog] getStats error (non-fatal): $e');
+      }
+    });
+  }
+
+  // ── Secondary media watchdog ───────────────────────────────────────────────
+  //
+  // Same logic as the primary watchdog but for the Tor secondary path.
+  // When the secondary goes silent for 20 s (2 ticks), shows an amber
+  // "degraded" indicator on the banner — there is no third path to switch to,
+  // but the user is informed and can choose to hang up and retry.
+
+  void _startSecondaryWatchdog() {
+    _secondaryWatchdog?.cancel();
+    _secondaryLastPkts = -1;
+    _secondarySilentTicks = 0;
+    _secondaryWatchdog = Timer.periodic(const Duration(seconds: 10), (_) async {
+      if (!mounted || !_usingSecondary || _disposed) return;
+      final pc = _signaling?.secondaryPc;
+      if (pc == null) return;
+      try {
+        final stats = await pc.getStats();
+        for (final report in stats) {
+          if (report.type != 'inbound-rtp') continue;
+          final kind = report.values['kind'] as String?;
+          if (kind != 'audio') continue;
+          final packets =
+              (report.values['packetsReceived'] as num?)?.toInt() ?? 0;
+          if (_secondaryLastPkts < 0) {
+            if (packets > 0) _secondaryLastPkts = packets;
+          } else if (packets > _secondaryLastPkts) {
+            _secondarySilentTicks = 0;
+            _secondaryLastPkts = packets;
+            if (_secondaryDegraded && mounted) {
+              setState(() => _secondaryDegraded = false);
+            }
+          } else {
+            _secondarySilentTicks++;
+            debugPrint('[SecWatchdog] silent tick $_secondarySilentTicks');
+            if (_secondarySilentTicks >= 2 && mounted && !_secondaryRestarting) {
+              if (!_secondaryDegraded) setState(() => _secondaryDegraded = true);
+              // Attempt to restart the Tor secondary path (new Tor circuit).
+              // Reset counters so we can detect recovery or a second failure.
+              _secondarySilentTicks = 0;
+              _secondaryLastPkts    = -1;
+              _secondaryRestarting  = true;
+              debugPrint('[SecWatchdog] restarting secondary (Tor circuit refresh)');
+              try {
+                await _signaling?.restartSecondaryAudio();
+              } catch (e) {
+                debugPrint('[SecWatchdog] restart failed: $e');
+              } finally {
+                if (!_disposed) _secondaryRestarting = false;
+              }
+            }
+          }
+          break;
+        }
+      } catch (e) {
+        debugPrint('[SecWatchdog] getStats error (non-fatal): $e');
+      }
+    });
   }
 
   // ── Media ──────────────────────────────────────────────────────────────────
@@ -280,6 +420,9 @@ class _CallScreenState extends State<CallScreen> {
     _disposed = true;
     _durationTimer?.cancel();
     _hideControlsTimer?.cancel();
+    _mediaWatchdog?.cancel();
+    _disconnectTimer?.cancel();
+    _secondaryWatchdog?.cancel();
     _signaling?.hangUp();
     // Renderers are already disposed if _initError is set (catch block cleaned up)
     if (_initError == null) {
@@ -312,6 +455,9 @@ class _CallScreenState extends State<CallScreen> {
       _disposed = true;
       _durationTimer?.cancel();
       _hideControlsTimer?.cancel();
+      _mediaWatchdog?.cancel();
+      _disconnectTimer?.cancel();
+      _secondaryWatchdog?.cancel();
       _signaling?.hangUp();
       // Renderers are already disposed if _initError is set (catch block cleaned up)
       if (_initError == null) {
@@ -500,7 +646,9 @@ class _CallScreenState extends State<CallScreen> {
     final l = context.l10n;
     if (_usingSecondary) {
       bannerIcon  = Icons.security_rounded;
-      bannerColor = Colors.teal.withValues(alpha: 0.85);
+      bannerColor = _secondaryDegraded
+          ? Colors.orange.withValues(alpha: 0.85)
+          : Colors.teal.withValues(alpha: 0.85);
       bannerText  = l.callTorBackupBanner;
     } else if (_isRetrying) {
       bannerIcon  = Icons.sync_rounded;

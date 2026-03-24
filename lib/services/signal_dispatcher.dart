@@ -129,6 +129,12 @@ class SignalRelayExchangeEvent {
   SignalRelayExchangeEvent(this.relays);
 }
 
+/// Peer TURN server exchange (sent when a call connects via TURN).
+class SignalTurnExchangeEvent {
+  final List<Map<String, dynamic>> servers;
+  SignalTurnExchangeEvent(this.servers);
+}
+
 /// Status/story update from contact.
 class SignalStatusUpdateEvent {
   final Contact contact;
@@ -242,6 +248,7 @@ class SignalDispatcher {
   final _keysCtrl = StreamController<SignalKeysEvent>.broadcast();
   final _p2pCtrl = StreamController<SignalP2PEvent>.broadcast();
   final _relayExchangeCtrl = StreamController<SignalRelayExchangeEvent>.broadcast();
+  final _turnExchangeCtrl  = StreamController<SignalTurnExchangeEvent>.broadcast();
   final _statusUpdateCtrl = StreamController<SignalStatusUpdateEvent>.broadcast();
   final _addrUpdateCtrl = StreamController<SignalAddrUpdateEvent>.broadcast();
   final _profileUpdateCtrl = StreamController<SignalProfileUpdateEvent>.broadcast();
@@ -268,6 +275,7 @@ class SignalDispatcher {
   Stream<SignalKeysEvent> get keysEvents => _keysCtrl.stream;
   Stream<SignalP2PEvent> get p2pEvents => _p2pCtrl.stream;
   Stream<SignalRelayExchangeEvent> get relayExchanges => _relayExchangeCtrl.stream;
+  Stream<SignalTurnExchangeEvent>  get turnExchanges  => _turnExchangeCtrl.stream;
   Stream<SignalStatusUpdateEvent> get statusUpdates => _statusUpdateCtrl.stream;
   Stream<SignalAddrUpdateEvent> get addrUpdates => _addrUpdateCtrl.stream;
   Stream<SignalProfileUpdateEvent> get profileUpdates => _profileUpdateCtrl.stream;
@@ -287,6 +295,7 @@ class SignalDispatcher {
     'addr_update',
     'sys_keys',
     'relay_exchange',
+    'turn_exchange',
     'profile_update',
     'group_update',
     'group_invite',
@@ -515,6 +524,18 @@ class SignalDispatcher {
           if (relays.isNotEmpty && !_relayExchangeCtrl.isClosed) {
             _relayExchangeCtrl.add(SignalRelayExchangeEvent(relays));
           }
+        } else if (sigType == 'turn_exchange') {
+          final payload = sig['payload'];
+          final rawServers = payload is Map ? payload['servers'] : null;
+          final servers = rawServers is List
+              ? rawServers
+                  .whereType<Map>()
+                  .map((s) => Map<String, dynamic>.from(s))
+                  .toList()
+              : <Map<String, dynamic>>[];
+          if (servers.isNotEmpty && !_turnExchangeCtrl.isClosed) {
+            _turnExchangeCtrl.add(SignalTurnExchangeEvent(servers));
+          }
         } else if (sigType == 'status_update') {
           final rawPayload = sig['payload'];
           final statusJson =
@@ -668,6 +689,7 @@ class SignalDispatcher {
     _keysCtrl.close();
     _p2pCtrl.close();
     _relayExchangeCtrl.close();
+    _turnExchangeCtrl.close();
     _statusUpdateCtrl.close();
     _addrUpdateCtrl.close();
     _profileUpdateCtrl.close();

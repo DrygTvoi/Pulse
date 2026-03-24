@@ -576,7 +576,15 @@ func main() {
 
 	fmt.Fprintf(os.Stderr, "[utls-proxy] listening on 127.0.0.1:%d\n", port)
 	fmt.Fprintf(os.Stderr, "[utls-proxy] features: ECH, ECH-retry, fingerprint-rotation"+
-		" (Chrome/Firefox/Edge/Safari/Random), DoH (7 providers), probe-resistance\n")
+		" (Chrome/Firefox/Edge/Safari/Random), DoH (7 providers), probe-resistance, Yggdrasil\n")
 
-	http.Serve(listener, http.HandlerFunc(handleRequest))
+	// Start Yggdrasil overlay in the background (non-fatal if it fails).
+	startYggdrasil()
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/ygg",       handleYggStatus)
+	mux.HandleFunc("/ygg/proxy", handleYggProxy)
+	mux.HandleFunc("/",          handleRequest)
+
+	http.Serve(listener, mux)
 }

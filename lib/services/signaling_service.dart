@@ -12,6 +12,7 @@ import '../adapters/nostr_adapter.dart';
 import '../controllers/chat_controller.dart';
 import '../models/contact.dart';
 import 'signal_service.dart';
+import 'yggdrasil_service.dart';
 
 class SignalingService {
   RTCPeerConnection? peerConnection;
@@ -20,6 +21,7 @@ class SignalingService {
 
   // ── Secondary audio path (Tor relay backup) ────────────────────────────────
   RTCPeerConnection? _secondaryPc;
+  bool _secondaryCreating = false; // guard against concurrent PC creation races
   MediaStream? secondaryRemoteStream;
 
   /// Fires when secondary remote stream arrives (secondary path ready).
@@ -35,6 +37,10 @@ class SignalingService {
   // True when current primary transport profile forces relay-only.
   // Used to select the appropriate audio bitrate in SDP constraints.
   bool _primaryRestricted = false;
+
+  // Remote peer's Yggdrasil ed25519 public key (base64), received in offer/answer.
+  // Needed to construct outbound proxy routes through the overlay.
+  String? _remoteYggPubkey;
 
   StreamSubscription? _signalSubscription;
   Function(MediaStream stream)? onAddRemoteStream;
@@ -52,27 +58,50 @@ class SignalingService {
     await _listenForSignalingData();
   }
 
-  // ── Reinitialise with a different transport profile ────────────────────────
+  // ── ICE restart with a different transport profile ────────────────────────
   //
-  // Called on ICE failure to switch from AutoProfile → RestrictedProfile.
-  // Closes the old peer connection, creates a new one, re-adds local tracks.
-  // Does NOT recreate the signal subscription (ChatController stream persists).
+  // Replaces the old reinitPeerConnection approach.  Instead of tearing down
+  // the PC (which required a 600 ms timing guess for the callee to reinit),
+  // we use the standard WebRTC ICE restart mechanism:
+  //
+  //   Caller:  setConfiguration → createOffer({iceRestart:true}) → send offer.
+  //   Callee:  setConfiguration → wait for offer → setRemoteDescription →
+  //            createAnswer (handled by _handleOffer as usual).
+  //
+  // Advantages over reinit:
+  //   • No PC teardown → no DTLS re-handshake, media state preserved.
+  //   • Callee processes the offer normally — no timing coordination needed.
+  //   • Works even when ICE is in Failed state (spec allows renegotiation).
+  //   • 'profile' field in offer lets callee mirror the config change.
 
-  Future<void> reinitPeerConnection(
-      CallTransportProfile profile) async {
-    _primaryRestricted = profile.isRestricted;
-    await peerConnection?.close();
-    final config = await profile.peerConfig();
-    peerConnection = await createPeerConnection(config);
-    _attachPeerCallbacks();
+  Future<void> iceRestart(CallTransportProfile profile) async {
+    try {
+      _primaryRestricted = profile.isRestricted;
+      final config = await profile.peerConfig();
+      await peerConnection?.setConfiguration(config);
 
-    // Re-add local tracks so media flows on the new connection
-    if (localStream != null) {
-      for (final track in localStream!.getTracks()) {
-        await peerConnection!.addTrack(track, localStream!);
+      if (!isCaller) return; // callee waits for caller's ICE-restart offer
+      if (peerConnection == null) return;
+
+      final offer       = await peerConnection!.createOffer({'iceRestart': true});
+      final constrained = _applyAudioConstraints(offer, restricted: _primaryRestricted);
+      await peerConnection!.setLocalDescription(constrained);
+
+      final offerMap = constrained.toMap();
+      offerMap['profile'] = profile.id; // callee reads this to mirror config
+      if (YggdrasilService.instance.isReady) {
+        offerMap['ygg_addr']   = YggdrasilService.instance.address;
+        offerMap['ygg_pubkey'] = YggdrasilService.instance.pubkey;
       }
+      await _sendSignalingData('offer', offerMap);
+    } catch (e) {
+      debugPrint('[Signaling] iceRestart failed: $e');
+      rethrow; // let _retryRestricted handle and reset _isRetrying
     }
   }
+
+  /// Exposes the secondary peer connection for stats monitoring.
+  RTCPeerConnection? get secondaryPc => _secondaryPc;
 
   // ── Secondary audio path ───────────────────────────────────────────────────
   //
@@ -87,26 +116,40 @@ class SignalingService {
   // If TorTurnProxy is not running the secondary will fail silently — the
   // primary path remains unaffected.
 
+  /// Restart the secondary (Tor) path — closes the old PC and starts fresh.
+  /// Called by CallScreen's secondary watchdog when Tor circuit is degraded.
+  Future<void> restartSecondaryAudio() async {
+    if (contact.isGroup) return;
+    await _secondaryPc?.close();
+    _secondaryPc = null;
+    await startSecondaryAudio();
+  }
+
   Future<void> startSecondaryAudio() async {
-    if (contact.isGroup || _secondaryPc != null) return;
-    debugPrint('[Secondary] Starting secondary audio path (Tor relay)');
+    if (contact.isGroup || _secondaryPc != null || _secondaryCreating) return;
+    _secondaryCreating = true;
+    try {
+      debugPrint('[Secondary] Starting secondary audio path (Tor relay)');
 
-    final config = await CallTransportProfile.torRelay.peerConfig();
-    _secondaryPc = await createPeerConnection(config);
-    _attachSecondaryCallbacks();
+      final config = await CallTransportProfile.torRelay.peerConfig();
+      _secondaryPc = await createPeerConnection(config);
+      _attachSecondaryCallbacks();
 
-    // Add local audio tracks only (secondary is audio-only backup)
-    if (localStream != null) {
-      for (final track in localStream!.getAudioTracks()) {
-        await _secondaryPc!.addTrack(track, localStream!);
+      // Add local audio tracks only (secondary is audio-only backup)
+      if (localStream != null) {
+        for (final track in localStream!.getAudioTracks()) {
+          await _secondaryPc!.addTrack(track, localStream!);
+        }
       }
-    }
 
-    if (isCaller) {
-      final offer = await _secondaryPc!.createOffer();
-      final constrained = _applyAudioConstraints(offer, restricted: true);
-      await _secondaryPc!.setLocalDescription(constrained);
-      await _sendSignalingData('offer', constrained.toMap(), prefix: 'webrtc2');
+      if (isCaller) {
+        final offer = await _secondaryPc!.createOffer();
+        final constrained = _applyAudioConstraints(offer, restricted: true);
+        await _secondaryPc!.setLocalDescription(constrained);
+        await _sendSignalingData('offer', constrained.toMap(), prefix: 'webrtc2');
+      }
+    } finally {
+      _secondaryCreating = false;
     }
   }
 
@@ -151,7 +194,13 @@ class SignalingService {
     final offer = await peerConnection!.createOffer();
     final constrained = _applyAudioConstraints(offer, restricted: _primaryRestricted);
     await peerConnection!.setLocalDescription(constrained);
-    await _sendSignalingData('offer', constrained.toMap());
+    final offerMap = constrained.toMap();
+    // Include Yggdrasil address + pubkey so the peer can route back to us
+    if (YggdrasilService.instance.isReady) {
+      offerMap['ygg_addr']   = YggdrasilService.instance.address;
+      offerMap['ygg_pubkey'] = YggdrasilService.instance.pubkey;
+    }
+    await _sendSignalingData('offer', offerMap);
   }
 
   Future<void> createAnswer() async {
@@ -159,7 +208,13 @@ class SignalingService {
     final answer = await peerConnection!.createAnswer();
     final constrained = _applyAudioConstraints(answer, restricted: _primaryRestricted);
     await peerConnection!.setLocalDescription(constrained);
-    await _sendSignalingData('answer', constrained.toMap());
+    final answerMap = constrained.toMap();
+    // Include Yggdrasil address + pubkey so the caller can route back to us
+    if (YggdrasilService.instance.isReady) {
+      answerMap['ygg_addr']   = YggdrasilService.instance.address;
+      answerMap['ygg_pubkey'] = YggdrasilService.instance.pubkey;
+    }
+    await _sendSignalingData('answer', answerMap);
   }
 
   // ── Apply bitrate limits after ICE connects ────────────────────────────────
@@ -186,19 +241,19 @@ class SignalingService {
 
         // Primary WebRTC signals
         if (type == 'webrtc_offer' && !isCaller) {
-          _handleOffer(payload);
+          await _handleOffer(payload);
         } else if (type == 'webrtc_answer' && isCaller) {
-          _handleAnswer(payload);
+          await _handleAnswer(payload);
         } else if (type == 'webrtc_candidate') {
-          _handleCandidate(payload);
+          await _handleCandidate(payload);
         }
         // Secondary (Tor backup) WebRTC signals
         else if (type == 'webrtc2_offer' && !isCaller) {
-          _handleSecondaryOffer(payload);
+          await _handleSecondaryOffer(payload);
         } else if (type == 'webrtc2_answer' && isCaller) {
-          _handleSecondaryAnswer(payload);
+          await _handleSecondaryAnswer(payload);
         } else if (type == 'webrtc2_candidate') {
-          _handleSecondaryCandidate(payload);
+          await _handleSecondaryCandidate(payload);
         }
       } catch (e) {
         debugPrint('Error processing signal: $e');
@@ -223,8 +278,19 @@ class SignalingService {
     return null;
   }
 
-  void _handleOffer(Map<String, dynamic> data) async {
+  Future<void> _handleOffer(Map<String, dynamic> data) async {
     try {
+      _remoteYggPubkey = data['ygg_pubkey'] as String?;
+      // ICE-restart offer carries a profile hint — mirror the config change
+      // before answering so both sides use the same iceTransportPolicy.
+      final profileId = data['profile'] as String?;
+      if (profileId != null && peerConnection != null) {
+        final profile = profileId == 'restricted'
+            ? CallTransportProfile.restricted
+            : CallTransportProfile.auto;
+        _primaryRestricted = profile.isRestricted;
+        await peerConnection!.setConfiguration(await profile.peerConfig());
+      }
       await peerConnection?.setRemoteDescription(RTCSessionDescription(data['sdp'], data['type']));
       await createAnswer();
     } catch (e) {
@@ -232,37 +298,76 @@ class SignalingService {
     }
   }
 
-  void _handleAnswer(Map<String, dynamic> data) async {
+  Future<void> _handleAnswer(Map<String, dynamic> data) async {
     try {
+      _remoteYggPubkey = data['ygg_pubkey'] as String?;
       await peerConnection?.setRemoteDescription(RTCSessionDescription(data['sdp'], data['type']));
     } catch (e) {
       debugPrint('[Signaling] handleAnswer error: $e');
     }
   }
 
-  void _handleCandidate(Map<String, dynamic> data) async {
+  Future<void> _handleCandidate(Map<String, dynamic> data) async {
     try {
-      await peerConnection?.addCandidate(
-        RTCIceCandidate(data['candidate'], data['sdpMid'], data['sdpMLineIndex']),
-      );
+      final raw = RTCIceCandidate(
+          data['candidate'], data['sdpMid'], data['sdpMLineIndex']);
+      final candidate = await _interceptYggCandidate(raw);
+      await peerConnection?.addCandidate(candidate);
     } catch (e) {
       debugPrint('[Signaling] handleCandidate error: $e');
     }
   }
 
+  /// Intercepts ICE relay candidates with Yggdrasil 200::/7 addresses and
+  /// rewrites them to a local UDP proxy port.
+  ///
+  /// When the remote peer's TURN server allocated a relay address on the
+  /// Yggdrasil overlay (e.g. [200:aaa::1]:50000), our WebRTC cannot connect
+  /// to that address directly.  We create a local UDP↔Yggdrasil-TCP bridge
+  /// via the Go binary and inject the loopback address instead.
+  Future<RTCIceCandidate> _interceptYggCandidate(RTCIceCandidate c) async {
+    if (!YggdrasilService.instance.isReady) return c;
+    final remotePubkey = _remoteYggPubkey;
+    if (remotePubkey == null) return c; // no pubkey from remote → can't route
+    final line = c.candidate ?? '';
+    // Match Yggdrasil node addresses. Prefix 0x02 + 7-bit count = first hextet
+    // 0x0200–0x027f, displayed as "200:"–"27f:". Pattern: 2[0-7][0-9a-fA-F]
+    final match = RegExp(r'\b(2[0-7][0-9a-fA-F]:[0-9a-fA-F:]+)\s+(\d+)\b')
+        .firstMatch(line);
+    if (match == null) return c;
+
+    final yggIp    = match.group(1)!;
+    final yggPort  = match.group(2)!;
+    final yggAddr  = '[$yggIp]:$yggPort';
+    final localPort = await YggdrasilService.instance.proxyRemote(yggAddr, remotePubkey);
+    if (localPort == null) return c; // proxy setup failed — pass through
+
+    // Replace the Yggdrasil address with the loopback proxy
+    final modified = line.replaceFirst(
+        '$yggIp $yggPort', '127.0.0.1 $localPort');
+    debugPrint('[Signaling] Yggdrasil candidate intercepted: '
+        '$yggAddr → 127.0.0.1:$localPort');
+    return RTCIceCandidate(modified, c.sdpMid, c.sdpMLineIndex);
+  }
+
   // ── Secondary signal handlers ──────────────────────────────────────────────
 
-  void _handleSecondaryOffer(Map<String, dynamic> data) async {
+  Future<void> _handleSecondaryOffer(Map<String, dynamic> data) async {
     try {
       // Lazily create secondary PC if startSecondaryAudio was not yet called
-      if (_secondaryPc == null) {
-        final config = await CallTransportProfile.torRelay.peerConfig();
-        _secondaryPc = await createPeerConnection(config);
-        _attachSecondaryCallbacks();
-        if (localStream != null) {
-          for (final track in localStream!.getAudioTracks()) {
-            await _secondaryPc!.addTrack(track, localStream!);
+      if (_secondaryPc == null && !_secondaryCreating) {
+        _secondaryCreating = true;
+        try {
+          final config = await CallTransportProfile.torRelay.peerConfig();
+          _secondaryPc = await createPeerConnection(config);
+          _attachSecondaryCallbacks();
+          if (localStream != null) {
+            for (final track in localStream!.getAudioTracks()) {
+              await _secondaryPc!.addTrack(track, localStream!);
+            }
           }
+        } finally {
+          _secondaryCreating = false;
         }
       }
       await _secondaryPc!.setRemoteDescription(
@@ -276,7 +381,7 @@ class SignalingService {
     }
   }
 
-  void _handleSecondaryAnswer(Map<String, dynamic> data) async {
+  Future<void> _handleSecondaryAnswer(Map<String, dynamic> data) async {
     try {
       await _secondaryPc?.setRemoteDescription(
           RTCSessionDescription(data['sdp'], data['type']));
@@ -285,11 +390,12 @@ class SignalingService {
     }
   }
 
-  void _handleSecondaryCandidate(Map<String, dynamic> data) async {
+  Future<void> _handleSecondaryCandidate(Map<String, dynamic> data) async {
     try {
-      await _secondaryPc?.addCandidate(
-        RTCIceCandidate(data['candidate'], data['sdpMid'], data['sdpMLineIndex']),
-      );
+      final raw = RTCIceCandidate(
+          data['candidate'], data['sdpMid'], data['sdpMLineIndex']);
+      final candidate = await _interceptYggCandidate(raw);
+      await _secondaryPc?.addCandidate(candidate);
     } catch (e) {
       debugPrint('[Signaling] handleSecondaryCandidate error: $e');
     }
@@ -321,7 +427,7 @@ class SignalingService {
     final asKbps      = restricted ? 48 : 64;
 
     // Find the Opus dynamic payload type (almost always 111, but parse to be safe)
-    final ptMatch = RegExp(r'a=rtpmap:(\d+) opus/48000/2').firstMatch(sdp);
+    final ptMatch = RegExp(r'a=rtpmap:(\d+) opus/\d+/2').firstMatch(sdp);
     if (ptMatch == null) return desc; // No audio section — return unchanged
 
     final pt = ptMatch.group(1)!;
