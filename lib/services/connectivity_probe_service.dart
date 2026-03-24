@@ -273,8 +273,12 @@ class ConnectivityProbeService {
 
   /// Force a fresh probe regardless of cache age.
   Future<void> forceProbe() async {
+    // BUG-08: previously completeError() was called on the old _firstRunCompleter,
+    // which meant main.dart's unawaited(firstRunDone.then(...)) never fired after
+    // a forceProbe triggered by a network change — ChatController never reconnected.
+    // Fix: complete with current _last so existing waiters are notified immediately.
     if (!_firstRunCompleter.isCompleted) {
-      _firstRunCompleter.completeError(StateError('forceProbe: superseded'));
+      _firstRunCompleter.complete(_last);
     }
     _firstRunCompleter = Completer<ProbeResult>();
     await CircuitBreakerService.instance.reset();

@@ -181,6 +181,16 @@ class TurnDiscoveryService {
                 !turnUrl.startsWith('turns:')) {
               continue;
             }
+            // BUG-04: reject TURN URLs pointing at localhost/private IPs.
+            // A malicious relay could supply turn:127.0.0.1:3478 to exfiltrate
+            // TURN credentials (username/password in tag[2]/tag[3]) to a LAN service.
+            // TURN URI format (RFC 7065): turn:host[:port][?transport=...]
+            final afterScheme = turnUrl.substring(turnUrl.indexOf(':') + 1);
+            final turnHost = afterScheme.split('?').first.split(':').first.toLowerCase();
+            if (_isTurnHostPrivate(turnHost)) {
+              debugPrint('[NIP-117] Rejected private-host TURN URL: $turnUrl');
+              continue;
+            }
             final entry = <String, dynamic>{'urls': turnUrl};
             if (tag.length >= 3) {
               final username = tag[2] as String? ?? '';
@@ -208,4 +218,25 @@ class TurnDiscoveryService {
     }
     return servers;
   }
+}
+
+/// Returns true if [host] is a loopback, private, or link-local address
+/// that should never appear as a TURN server host in NIP-117 events.
+bool _isTurnHostPrivate(String host) {
+  if (host.isEmpty) return true;
+  if (host == 'localhost' || host == '::1') return true;
+  if (host.startsWith('127.') || host.startsWith('169.254.')) return true;
+  if (host.startsWith('10.')) return true;
+  if (host.startsWith('192.168.')) return true;
+  if (host.startsWith('100.')) {
+    // 100.64.0.0/10 — Carrier-Grade NAT (RFC 6598)
+    final second = int.tryParse(host.split('.').elementAtOrNull(1) ?? '');
+    if (second != null && second >= 64 && second <= 127) return true;
+  }
+  // 172.16.0.0/12
+  if (host.startsWith('172.')) {
+    final second = int.tryParse(host.split('.').elementAtOrNull(1) ?? '');
+    if (second != null && second >= 16 && second <= 31) return true;
+  }
+  return false;
 }
