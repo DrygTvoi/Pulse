@@ -34,18 +34,16 @@ class _LockScreenState extends State<LockScreen> {
   }
 
   Future<void> _loadAttempts() async {
-    final prefs = await SharedPreferences.getInstance();
-    setState(() => _attempts = prefs.getInt(_attemptsKey) ?? 0);
+    final v = await _ss.read(key: _attemptsKey);
+    setState(() => _attempts = int.tryParse(v ?? '') ?? 0);
   }
 
   Future<void> _persistAttempts() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt(_attemptsKey, _attempts);
+    await _ss.write(key: _attemptsKey, value: '$_attempts');
   }
 
   Future<void> _clearAttempts() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_attemptsKey);
+    await _ss.delete(key: _attemptsKey);
   }
 
   @override

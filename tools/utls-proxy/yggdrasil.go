@@ -340,7 +340,8 @@ func (d *yggDispatcher) send(data []byte, port uint16, dst net.Addr) error {
 // ── pion/turn relay server ────────────────────────────────────────────────────
 
 const (
-	yggTurnPort     = 53478
+	maxAddrCacheEntries = 1024
+	yggTurnPort         = 53478
 	yggTurnRealm    = "pulse.ygg"
 	yggTurnUser     = "pulse"
 	yggTurnPassword = "yggtoken"
@@ -455,7 +456,8 @@ type yggPacketConn struct {
 	incoming  chan yggDatagram
 	closeOnce sync.Once
 	closed    chan struct{}
-	addrCache sync.Map // yggIP.String() → iwtypes.Addr(pubkey)
+	addrCacheMu sync.Mutex
+	addrCache   map[string]net.Addr // yggIP.String() → net.Addr(pubkey) — reverse lookup for WriteTo
 }
 
 var _ yggReceiver = (*yggPacketConn)(nil)
@@ -467,6 +469,7 @@ func newYggPacketConn(disp *yggDispatcher, port uint16, addr net.Addr) *yggPacke
 		localAddr: addr,
 		incoming:  make(chan yggDatagram, 256),
 		closed:    make(chan struct{}),
+		addrCache: make(map[string]net.Addr),
 	}
 }
 
@@ -500,7 +503,16 @@ func (pc *yggPacketConn) ReadFrom(b []byte) (int, net.Addr, error) {
 	case dg := <-pc.incoming:
 		n := copy(b, dg.data)
 		synth := pubkeyToUDPAddr(dg.from)
-		pc.addrCache.Store(synth.IP.String(), dg.from)
+		pc.addrCacheMu.Lock()
+		if len(pc.addrCache) >= maxAddrCacheEntries {
+			// Evict one entry (simple random eviction via map iteration)
+			for k := range pc.addrCache {
+				delete(pc.addrCache, k)
+				break
+			}
+		}
+		pc.addrCache[synth.IP.String()] = dg.from
+		pc.addrCacheMu.Unlock()
 		return n, synth, nil
 	case <-pc.closed:
 		return 0, nil, net.ErrClosed
@@ -515,15 +527,13 @@ func (pc *yggPacketConn) WriteTo(b []byte, addr net.Addr) (int, error) {
 	if !ok {
 		return 0, fmt.Errorf("yggPacketConn.WriteTo: unexpected addr type %T", addr)
 	}
-	v, ok := pc.addrCache.Load(udp.IP.String())
+	pc.addrCacheMu.Lock()
+	orig, ok := pc.addrCache[udp.IP.String()]
+	pc.addrCacheMu.Unlock()
 	if !ok {
 		return 0, fmt.Errorf("yggPacketConn.WriteTo: no route for %s", udp.IP)
 	}
-	iwAddr, ok := v.(net.Addr)
-	if !ok {
-		return 0, fmt.Errorf("yggPacketConn.WriteTo: cache entry has unexpected type %T", v)
-	}
-	if err := pc.disp.send(b, pc.port, iwAddr); err != nil {
+	if err := pc.disp.send(b, pc.port, orig); err != nil {
 		return 0, err
 	}
 	return len(b), nil

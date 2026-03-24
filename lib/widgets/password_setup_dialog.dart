@@ -39,7 +39,7 @@ class _PasswordSetupDialogState extends State<PasswordSetupDialog> {
     final pass = _passController.text;
     final confirm = _confirmController.text;
 
-    if (pass.length < 6) {
+    if (pass.length < 8) {
       setState(() => _error = context.l10n.passwordMinChars);
       return;
     }

@@ -15,7 +15,7 @@ class ChunkAssembler {
 
   // Chunk data buffers keyed by file ID
   final Map<String, Map<int, Uint8List>> _pendingChunks = {};
-  final Map<String, ({String name, int total, int size, String mediaType})> _chunkMeta = {};
+  final Map<String, ({String name, int total, int size, String mediaType, String finalHash})> _chunkMeta = {};
   final Map<String, DateTime> _chunkTimestamps = {};
   int _totalBufferedBytes = 0;
 
@@ -78,6 +78,7 @@ class ChunkAssembler {
           total: total,
           size: (map['sz'] as num?)?.toInt() ?? 0,
           mediaType: map['mt'] as String? ?? 'file',
+          finalHash: map['fh'] as String? ?? '',
         );
       }
 
@@ -98,6 +99,17 @@ class ChunkAssembler {
       for (final part in partsList) {
         assembled.setRange(offset, offset + part.length, part);
         offset += part.length;
+      }
+
+      // Verify whole-file hash when sender included it (guards against
+      // chunk injection between per-chunk and post-assembly verification).
+      if (meta.finalHash.isNotEmpty) {
+        final actualHash = crypto.sha256.convert(assembled).toString();
+        if (actualHash != meta.finalHash) {
+          debugPrint('[ChunkAssembler] Final SHA-256 mismatch for $fid — rejecting');
+          _removePending(fid);
+          return null;
+        }
       }
 
       _removePending(fid);

@@ -128,6 +128,8 @@ class MediaService {
     }
     final fileId = _uuid.v4();
     final total = (bytes.length / _chunkSizeBytes).ceil();
+    // Final file hash sent in chunk 0 so receiver can verify the assembled file.
+    final finalHash = crypto.sha256.convert(bytes).toString();
     for (int i = 0; i < total; i++) {
       final start = i * _chunkSizeBytes;
       final end = (start + _chunkSizeBytes).clamp(0, bytes.length);
@@ -146,6 +148,7 @@ class MediaService {
         map['n'] = safeName;
         map['sz'] = bytes.length;
         map['mt'] = mediaType;
+        map['fh'] = finalHash; // whole-file SHA-256 for post-assembly verification
       }
       yield jsonEncode(map);
     }
