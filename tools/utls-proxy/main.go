@@ -248,23 +248,28 @@ func queryARecordViaDoH(hostname, dohIP, sniHost, pathPrefix string) ([]string, 
 	return ips, nil
 }
 
-// isPrivateIP filters RFC-1918, loopback, link-local addresses.
+// isPrivateIP filters RFC-1918, loopback, link-local, and IPv6 private ranges.
 // GFW sometimes poisons DNS with private IPs — reject them.
+// Also blocks IPv6 loopback/link-local to prevent SSRF via IPv6 DNS rebinding.
 func isPrivateIP(ip string) bool {
 	parsed := net.ParseIP(ip)
 	if parsed == nil {
 		return true
 	}
-	private := []struct{ network string }{
-		{"10.0.0.0/8"},
-		{"172.16.0.0/12"},
-		{"192.168.0.0/16"},
-		{"127.0.0.0/8"},
-		{"169.254.0.0/16"},
+	private := []string{
+		"10.0.0.0/8",
+		"172.16.0.0/12",
+		"192.168.0.0/16",
+		"127.0.0.0/8",
+		"169.254.0.0/16",
+		"::1/128",        // IPv6 loopback
+		"fe80::/10",      // IPv6 link-local
+		"fc00::/7",       // IPv6 unique-local (ULA)
+		"::ffff:0:0/96",  // IPv4-mapped IPv6
 	}
-	for _, p := range private {
-		_, cidr, _ := net.ParseCIDR(p.network)
-		if cidr != nil && cidr.Contains(parsed) {
+	for _, cidrStr := range private {
+		_, cidr, err := net.ParseCIDR(cidrStr)
+		if err == nil && cidr.Contains(parsed) {
 			return true
 		}
 	}
@@ -538,18 +543,37 @@ func handleConnect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Step 5: System DNS fallback (DoH resolved IPs all failed, or DoH itself failed)
-	conn, err := dialTLS(hostname, port, hostname, echConfigs)
-	if err == nil {
-		method := "system-dns"
-		if len(ips) == 0 {
-			method = "direct (no DoH)"
-		}
-		fmt.Fprintf(os.Stderr, "[conn] %s → %s fallback\n", hostname, method)
-		tunnel(w, conn)
+	// Step 5: System DNS fallback (DoH resolved IPs all failed, or DoH itself failed).
+	// Resolve explicitly first so we can apply the same private-IP filter as DoH —
+	// passing a hostname directly to dialTLS would skip the check (Go resolves inside
+	// net.Dial without giving us a chance to inspect the IP).
+	method := "system-dns"
+	if len(ips) == 0 {
+		method = "direct (no DoH)"
+	}
+	sysAddrs, sysErr := net.LookupHost(hostname)
+	if sysErr != nil {
+		fmt.Fprintf(os.Stderr, "[conn] %s → system DNS failed: %v\n", hostname, sysErr)
+		http.Error(w, "all connection methods failed for "+hostname, http.StatusBadGateway)
 		return
 	}
-	lastErr = err
+	for _, sysIP := range sysAddrs {
+		if isPrivateIP(sysIP) {
+			fmt.Fprintf(os.Stderr, "[conn] %s → system DNS returned private IP %s, blocked\n", hostname, sysIP)
+			http.Error(w, "blocked: target resolved to private address", http.StatusForbidden)
+			return
+		}
+	}
+	for _, sysIP := range sysAddrs {
+		conn, err := dialTLS(sysIP, port, hostname, echConfigs)
+		if err == nil {
+			fmt.Fprintf(os.Stderr, "[conn] %s → %s fallback (%s)\n", hostname, method, sysIP)
+			tunnel(w, conn)
+			return
+		}
+		lastErr = err
+		fmt.Fprintf(os.Stderr, "[conn] %s via %s failed: %v\n", hostname, sysIP, err)
+	}
 
 	fmt.Fprintf(os.Stderr, "[conn] %s → ALL FAILED: %v\n", hostname, lastErr)
 	http.Error(w, "all connection methods failed for "+hostname, http.StatusBadGateway)

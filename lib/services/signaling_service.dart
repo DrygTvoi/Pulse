@@ -533,13 +533,17 @@ class SignalingService {
       }
     }
 
-    Map<String, dynamic> payload;
+    // WebRTC signaling MUST be encrypted — sending SDP/candidates in cleartext
+    // would expose TURN credentials and ICE candidates to the transport layer
+    // (Nostr relay, Firebase, etc.).  If encryption fails, abort the send.
+    final Map<String, dynamic> payload;
     try {
       final plaintext = jsonEncode(data);
       final envelope = await SignalService().encryptMessage(contact.databaseId, plaintext);
       payload = {'e2ee': envelope};
-    } catch (_) {
-      payload = data;
+    } catch (e) {
+      debugPrint('[Signaling] encryption failed — dropping signal (never send plaintext): $e');
+      return;
     }
 
     await InboxManager().sendSystemMessage(

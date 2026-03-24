@@ -3,7 +3,7 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../theme/app_theme.dart';
 import '../services/signal_service.dart';
 import '../l10n/l10n_ext.dart';
@@ -41,8 +41,8 @@ class _VerifyIdentityScreenState extends State<VerifyIdentityScreen> {
     final contactFp = await signal.getContactFingerprint(widget.contactId);
 
     // Check current verification status
-    final prefs = await SharedPreferences.getInstance();
-    final storedHash = prefs.getString('verified_identity_${widget.contactId}');
+    const ss = FlutterSecureStorage();
+    final storedHash = await ss.read(key: 'verified_identity_${widget.contactId}');
     final currentHash = await _computeCurrentHash();
     final verified = storedHash != null && storedHash == currentHash;
 
@@ -70,14 +70,14 @@ class _VerifyIdentityScreenState extends State<VerifyIdentityScreen> {
   Future<void> _markVerified() async {
     final hash = await _computeCurrentHash();
     if (hash == null) return;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('verified_identity_${widget.contactId}', hash);
+    const ss = FlutterSecureStorage();
+    await ss.write(key: 'verified_identity_${widget.contactId}', value: hash);
     if (mounted) setState(() => _isVerified = true);
   }
 
   Future<void> _removeVerification() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('verified_identity_${widget.contactId}');
+    const ss = FlutterSecureStorage();
+    await ss.delete(key: 'verified_identity_${widget.contactId}');
     if (mounted) setState(() => _isVerified = false);
   }
 

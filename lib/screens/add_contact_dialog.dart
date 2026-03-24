@@ -67,20 +67,30 @@ class _AddContactDialogState extends State<AddContactDialog> {
       final uri = Uri.parse(link);
       final cfg64 = uri.queryParameters['cfg'];
       if (cfg64 == null) return;
+      // Guard: reject oversized payloads to prevent OOM via crafted deep links.
+      if (cfg64.length > 16384) {
+        debugPrint('[AddContact] Deep link cfg payload too large (${cfg64.length} chars), ignoring');
+        return;
+      }
       final json = jsonDecode(utf8.decode(base64Decode(cfg64))) as Map<String, dynamic>;
 
       final dynamic rawA = json['a'];
       final List<String> addresses;
       if (rawA is List) {
-        addresses = rawA.map((e) => e.toString()).where((e) => e.isNotEmpty).toList();
-      } else if (rawA is String && rawA.isNotEmpty) {
+        addresses = rawA
+            .take(20) // cap address array length
+            .map((e) => e.toString())
+            .where((e) => e.isNotEmpty && e.length <= 512)
+            .toList();
+      } else if (rawA is String && rawA.isNotEmpty && rawA.length <= 512) {
         addresses = [rawA];
       } else {
         return;
       }
       if (addresses.isEmpty) return;
 
-      final name = (json['n'] as String?)?.trim() ?? '';
+      final rawName = (json['n'] as String?)?.trim() ?? '';
+      final name = rawName.length > 128 ? rawName.substring(0, 128) : rawName;
       setState(() {
         _detectedAddresses = addresses;
         if (name.isNotEmpty && _nameController.text.isEmpty) {
@@ -473,18 +483,24 @@ class _AddContactDialogState extends State<AddContactDialog> {
     final uri = Uri.parse(link);
     final cfg64 = uri.queryParameters['cfg'];
     if (cfg64 == null) return null;
+    if (cfg64.length > 16384) return null; // OOM guard
     final json = jsonDecode(utf8.decode(base64Decode(cfg64))) as Map<String, dynamic>;
     final dynamic rawA = json['a'];
     final List<String> addresses;
     if (rawA is List) {
-      addresses = rawA.map((e) => e.toString()).where((e) => e.isNotEmpty).toList();
-    } else if (rawA is String && rawA.isNotEmpty) {
+      addresses = rawA
+          .take(20)
+          .map((e) => e.toString())
+          .where((e) => e.isNotEmpty && e.length <= 512)
+          .toList();
+    } else if (rawA is String && rawA.isNotEmpty && rawA.length <= 512) {
       addresses = [rawA];
     } else {
       return null;
     }
     if (addresses.isEmpty) return null;
-    final name = (json['n'] as String?)?.trim() ?? '';
+    final rawName = (json['n'] as String?)?.trim() ?? '';
+    final name = rawName.length > 128 ? rawName.substring(0, 128) : rawName;
     return (name: name, addresses: addresses);
   } catch (e) {
     debugPrint('[AddContact] Config parse error: $e');
