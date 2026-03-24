@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:convert/convert.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:web_socket_channel/io.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cryptography/cryptography.dart' as crypto_lib;
 import '../models/message.dart';
@@ -225,14 +226,14 @@ class PulseInboxReader implements InboxReader {
 
   Future<void> _saveTurnCreds(Map<String, dynamic> data) async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final turnUrl = data['turn_url'] as String? ?? '';
+      const ss = FlutterSecureStorage();
+      final turnUrl  = data['turn_url']  as String? ?? '';
       final turnUser = data['turn_user'] as String? ?? '';
       final turnPass = data['turn_pass'] as String? ?? '';
       if (turnUrl.isNotEmpty) {
-        await prefs.setString('pulse_turn_url', turnUrl);
-        await prefs.setString('pulse_turn_user', turnUser);
-        await prefs.setString('pulse_turn_pass', turnPass);
+        await ss.write(key: 'pulse_turn_url',  value: turnUrl);
+        await ss.write(key: 'pulse_turn_user', value: turnUser);
+        await ss.write(key: 'pulse_turn_pass', value: turnPass);
       }
     } catch (e) {
       debugPrint('[Pulse] Failed to save TURN creds: $e');

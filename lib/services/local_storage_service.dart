@@ -65,6 +65,7 @@ class LocalStorageService {
           await db.rawQuery("PRAGMA KEY=\"x'$dbKey'\"");
           await db.execute('PRAGMA journal_mode=WAL');
           await db.execute('PRAGMA synchronous=NORMAL');
+          await db.execute('PRAGMA secure_delete=ON');
           debugPrint('[LocalStorage] SQLCipher: full-DB encryption active (WAL mode)');
         },
         onCreate: (db, _) async {

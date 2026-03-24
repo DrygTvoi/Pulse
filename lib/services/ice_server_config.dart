@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'psiphon_turn_proxy.dart';
 import 'tor_turn_proxy.dart';
@@ -183,10 +184,11 @@ class IceServerConfig {
       }
     }
 
-    // Pulse server TURN (dynamic creds from auth_ok)
-    final pulseTurnUrl = prefs.getString('pulse_turn_url') ?? '';
-    final pulseTurnUser = prefs.getString('pulse_turn_user') ?? '';
-    final pulseTurnPass = prefs.getString('pulse_turn_pass') ?? '';
+    // Pulse server TURN (dynamic creds from auth_ok — stored in secure storage)
+    const ss = FlutterSecureStorage();
+    final pulseTurnUrl  = await ss.read(key: 'pulse_turn_url')  ?? '';
+    final pulseTurnUser = await ss.read(key: 'pulse_turn_user') ?? '';
+    final pulseTurnPass = await ss.read(key: 'pulse_turn_pass') ?? '';
     if (pulseTurnUrl.isNotEmpty) {
       servers.add({
         'urls': pulseTurnUrl,
@@ -196,9 +198,9 @@ class IceServerConfig {
     }
 
     // Custom TURN server (BYOD — highest priority, added last so WebRTC tries it first)
-    final url  = prefs.getString(_kCustomUrl)     ?? '';
-    final user = prefs.getString(_kCustomUsername) ?? '';
-    final pass = prefs.getString(_kCustomPassword) ?? '';
+    final url  = await ss.read(key: _kCustomUrl)      ?? '';
+    final user = await ss.read(key: _kCustomUsername)  ?? '';
+    final pass = await ss.read(key: _kCustomPassword)  ?? '';
     if (url.isNotEmpty) {
       servers.add({
         'urls': url,
@@ -295,11 +297,11 @@ class IceServerConfig {
   }
 
   static Future<({String url, String username, String password})> loadCustomTurn() async {
-    final prefs = await SharedPreferences.getInstance();
+    const ss = FlutterSecureStorage();
     return (
-      url:      prefs.getString(_kCustomUrl)      ?? '',
-      username: prefs.getString(_kCustomUsername)  ?? '',
-      password: prefs.getString(_kCustomPassword)  ?? '',
+      url:      await ss.read(key: _kCustomUrl)      ?? '',
+      username: await ss.read(key: _kCustomUsername)  ?? '',
+      password: await ss.read(key: _kCustomPassword)  ?? '',
     );
   }
 
@@ -362,15 +364,15 @@ class IceServerConfig {
     required String username,
     required String password,
   }) async {
-    final prefs = await SharedPreferences.getInstance();
+    const ss = FlutterSecureStorage();
     if (url.isEmpty) {
-      await prefs.remove(_kCustomUrl);
-      await prefs.remove(_kCustomUsername);
-      await prefs.remove(_kCustomPassword);
+      await ss.delete(key: _kCustomUrl);
+      await ss.delete(key: _kCustomUsername);
+      await ss.delete(key: _kCustomPassword);
     } else {
-      await prefs.setString(_kCustomUrl, url);
-      await prefs.setString(_kCustomUsername, username);
-      await prefs.setString(_kCustomPassword, password);
+      await ss.write(key: _kCustomUrl, value: url);
+      await ss.write(key: _kCustomUsername, value: username);
+      await ss.write(key: _kCustomPassword, value: password);
     }
   }
 }
