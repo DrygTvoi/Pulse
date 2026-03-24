@@ -1375,6 +1375,10 @@ class LocalStorageService {
       await txn.delete('contacts');
       await txn.delete('avatars');
       await txn.delete('drafts');
+      // FINDING-2 (storage audit): nonce_cache was omitted — stale nonces
+      // survived panic wipe, causing false-positive replay drops if the same
+      // Nostr key is reused after wipe (brain-wallet restore).
+      try { await txn.delete('nonce_cache'); } catch (_) {}
       if (_fts5Available) {
         try {
           await txn.delete('messages_fts');

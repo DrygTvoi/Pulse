@@ -138,6 +138,14 @@ class OxenInboxReader implements InboxReader {
     _sessionId = databaseId;
     await OxenKeyService.instance.initialize();
     if (apiKey.isNotEmpty) {
+      // BUG-04 fix: validate the node URL starts with https:// before storing.
+      // An attacker-controlled apiKey with a crafted URL could redirect
+      // Oxen JSON-RPC calls (including auth signatures) to a malicious server.
+      if (!apiKey.startsWith('https://')) {
+        debugPrint('[Oxen] Rejected non-HTTPS node URL: $apiKey');
+        _usingDiscovery = true;
+        return;
+      }
       _nodeUrl = apiKey;
       _usingDiscovery = false;
     } else {

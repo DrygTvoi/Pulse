@@ -858,8 +858,15 @@ class ChatController extends ChangeNotifier {
       if (room != null) {
         final idx = room.messages.indexWhere((m) => m.id == e.msgId);
         if (idx != -1) {
+          // FINDING-4 fix: only the original sender may edit their own message.
+          final msg = room.messages[idx];
+          if (msg.senderId != e.contact.databaseId) {
+            debugPrint('[Edit] Rejected: ${e.contact.databaseId} tried to edit '
+                'message owned by ${msg.senderId}');
+            return;
+          }
           final storageKey = room.contact.storageKey;
-          final updated = room.messages[idx].copyWith(encryptedPayload: e.text, isEdited: true);
+          final updated = msg.copyWith(encryptedPayload: e.text, isEdited: true);
           room.messages[idx] = updated;
           unawaited(LocalStorageService().saveMessage(storageKey, updated.toJson()));
           _scheduleNotify();
@@ -965,11 +972,18 @@ class ChatController extends ChangeNotifier {
           .firstWhere((c) => c?.isGroup == true && c?.id == e.groupId, orElse: () => null);
       if (group == null) return;
       // Only the group creator may update membership.
-      if (group.creatorId != null && group.creatorId!.isNotEmpty &&
-          e.senderId != group.creatorId) {
-        debugPrint('[Group] Rejected group_update from non-creator '
-            '${e.senderId} (creator: ${group.creatorId})');
-        return;
+      // FINDING-2 fix: creatorId is a UUID but e.senderId is a transport
+      // address — they were never equal. Resolve sender to a contact UUID first.
+      if (group.creatorId != null && group.creatorId!.isNotEmpty) {
+        final senderContact = _contacts.contacts.cast<Contact?>()
+            .firstWhere((c) => c != null && c.databaseId == e.senderId,
+                orElse: () => null);
+        final senderUuid = senderContact?.id ?? '';
+        if (senderUuid != group.creatorId) {
+          debugPrint('[Group] Rejected group_update from non-creator '
+              '${e.senderId} (creator: ${group.creatorId})');
+          return;
+        }
       }
       final memberRemoved = e.members.length < group.members.length;
       final updated = group.copyWith(
@@ -994,8 +1008,11 @@ class ChatController extends ChangeNotifier {
         final skdmGroup = _contacts.contacts.cast<Contact?>()
             .firstWhere((c) => c?.isGroup == true && c?.id == e.groupId,
                 orElse: () => null);
+        // FINDING-3 fix: members list stores contact UUIDs (e.fromContact.id),
+        // not transport addresses (e.fromContact.databaseId). Previous check
+        // always returned !false = true → any sender could inject SKDM.
         if (skdmGroup != null &&
-            !skdmGroup.members.contains(e.fromContact.databaseId)) {
+            !skdmGroup.members.contains(e.fromContact.id)) {
           debugPrint('[SenderKey] Rejected SKDM from non-member '
               '${e.fromContact.name} for group ${e.groupId}');
           return;
@@ -2037,17 +2054,19 @@ class ChatController extends ChangeNotifier {
             orElse: () => null);
     if (existing != null) return;
     // Only the declared creator should be allowed to send group invites.
-    // Compare the sender's identity (databaseId preferred, else id) against
-    // the creatorId embedded in the invite payload.
-    if (invite.creatorId != null && invite.creatorId!.isNotEmpty) {
-      final senderKey = invite.fromContact.databaseId.isNotEmpty
-          ? invite.fromContact.databaseId
-          : invite.fromContact.id;
-      if (senderKey != invite.creatorId) {
-        debugPrint('[Group] Rejected invite from non-creator '
-            '$senderKey (declared creator: ${invite.creatorId})');
-        return;
-      }
+    // FINDING-5 fix: require creatorId to always be present — if absent,
+    // any known contact could forge a group invite unconditionally.
+    if (invite.creatorId == null || invite.creatorId!.isEmpty) {
+      debugPrint('[Group] Rejected invite with no creatorId');
+      return;
+    }
+    final senderKey = invite.fromContact.databaseId.isNotEmpty
+        ? invite.fromContact.databaseId
+        : invite.fromContact.id;
+    if (senderKey != invite.creatorId) {
+      debugPrint('[Group] Rejected invite from non-creator '
+          '$senderKey (declared creator: ${invite.creatorId})');
+      return;
     }
     final newGroup = Contact(
       id: invite.groupId,
@@ -2430,9 +2449,12 @@ class ChatController extends ChangeNotifier {
       debugPrint('[Resume] chunk_req for $fileId but not in pending sends — ignoring');
       return;
     }
-    debugPrint('[Resume] Re-sending ${missingIndices.length} chunks for $fileId to $recipientId');
+    // FINDING-6 fix: cap and deduplicate indices — prevents amplification
+    // attack where attacker sends chunk_req with thousands of duplicate indices.
+    final uniqueIndices = missingIndices.toSet().take(50).toList();
+    debugPrint('[Resume] Re-sending ${uniqueIndices.length} chunks for $fileId to $recipientId');
     final allChunks = MediaService.chunkIterable(pending.bytes, pending.name).toList();
-    for (final idx in missingIndices) {
+    for (final idx in uniqueIndices) {
       if (idx < 0 || idx >= allChunks.length) continue;
       await _sendToContact(pending.contact, allChunks[idx]);
     }

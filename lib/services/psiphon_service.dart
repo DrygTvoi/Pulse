@@ -219,7 +219,9 @@ class PsiphonService {
           .transform(const LineSplitter())
           .listen((line) {
         final port = int.tryParse(line.trim());
-        if (port != null && !portCompleter.isCompleted) {
+        // BUG-07 fix: validate port is in unprivileged range before trusting
+        if (port != null && port >= 1024 && port <= 65535 &&
+            !portCompleter.isCompleted) {
           portCompleter.complete(port);
         }
       });

@@ -304,9 +304,11 @@ class SignalDispatcher {
     'profile_update',
     'group_update',
     'group_invite',
-    // FINDING-1: status_update was absent — attacker could inject arbitrary
-    // status for any contact without a valid Signal session key.
     'status_update',
+    // FINDING-4: msg_delete / edit were absent — any peer could delete or
+    // rewrite arbitrary messages without HMAC.
+    'msg_delete',
+    'edit',
   };
 
   /// Signal types exempt from the general rate limiter (system-critical or
@@ -368,10 +370,13 @@ class SignalDispatcher {
         }
 
         // Verify HMAC signature on security-critical signals.
+        // FINDING-1 fix: removed the @wss:// bypass — that check was
+        // attacker-controlled (crafting senderId = "x@wss://evil.com" skipped
+        // HMAC). Now only bare 64-hex Nostr pubkeys (already authenticated by
+        // Gift Wrap Schnorr) are exempt from the additional HMAC layer.
         if (_signatureRequiredSignals.contains(sigType)) {
-          final isNostrOrigin =
-              sigSender.contains('@wss://') || sigSender.contains('@ws://');
-          if (!isNostrOrigin) {
+          final isBareNostrPubkey = RegExp(r'^[0-9a-f]{64}$').hasMatch(sigSender);
+          if (!isBareNostrPubkey) {
             final payload = sig['payload'];
             if (payload is Map<String, dynamic>) {
               final hmac = payload['_sig'] as String?;
