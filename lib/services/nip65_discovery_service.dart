@@ -164,7 +164,8 @@ class Nip65DiscoveryService {
           for (final tag in tags) {
             if (tag is! List || tag.length < 2 || tag[0] != 'r') continue;
             final url = tag[1] as String? ?? '';
-            if (url.startsWith('wss://') || url.startsWith('ws://')) {
+            // BUG-02: reject ws:// (cleartext); only accept encrypted wss://
+            if (url.startsWith('wss://')) {
               relays.add(url);
             }
           }

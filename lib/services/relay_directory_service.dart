@@ -151,9 +151,21 @@ class RelayDirectoryService {
       req.headers.set('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; rv:128.0) Gecko/20100101 Firefox/128.0');
       final resp = await req.close().timeout(const Duration(seconds: 8));
       if (resp.statusCode != 200) { client.close(force: true); return []; }
-      final body = await utf8.decoder
-          .bind(resp).join().timeout(const Duration(seconds: 5));
+      // BUG-01: cap body at 4 MB to prevent OOM from a giant API response.
+      const maxBodyBytes = 4 * 1024 * 1024;
+      final bodyBuf = StringBuffer();
+      var bodyOk = true;
+      await for (final chunk in utf8.decoder.bind(resp)
+          .timeout(const Duration(seconds: 5), onTimeout: (s) => s.close())) {
+        bodyBuf.write(chunk);
+        if (bodyBuf.length > maxBodyBytes) { bodyOk = false; break; }
+      }
       client.close(force: true);
+      if (!bodyOk) {
+        debugPrint('[RelayDir] $name: body exceeded 4 MB, discarding');
+        return [];
+      }
+      final body = bodyBuf.toString();
       final relays = _parseApiResponse(body);
       if (relays.isNotEmpty) {
         debugPrint('[RelayDir] $name: ${relays.length} relay(s)');
@@ -201,9 +213,20 @@ class RelayDirectoryService {
       req.headers.set('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; rv:128.0) Gecko/20100101 Firefox/128.0');
       final resp = await req.close().timeout(const Duration(seconds: 8));
       if (resp.statusCode != 200) { client.close(force: true); return []; }
-      final body = await utf8.decoder
-          .bind(resp).join().timeout(const Duration(seconds: 5));
+      const maxBodyBytes = 4 * 1024 * 1024;
+      final bodyBuf = StringBuffer();
+      var bodyOk = true;
+      await for (final chunk in utf8.decoder.bind(resp)
+          .timeout(const Duration(seconds: 5), onTimeout: (s) => s.close())) {
+        bodyBuf.write(chunk);
+        if (bodyBuf.length > maxBodyBytes) { bodyOk = false; break; }
+      }
       client.close(force: true);
+      if (!bodyOk) {
+        debugPrint('[RelayDir] $name (DoH): body exceeded 4 MB, discarding');
+        return [];
+      }
+      final body = bodyBuf.toString();
       final relays = _parseApiResponse(body);
       if (relays.isNotEmpty) {
         debugPrint('[RelayDir] $name (DoH): ${relays.length} relay(s)');
@@ -243,11 +266,14 @@ class RelayDirectoryService {
       final relays = <String>[];
       for (final item in list) {
         final url = item is String ? item : (item is Map ? item['url'] as String? ?? '' : '');
-        if (url.isEmpty) continue;
+        if (url.isEmpty || url.length > 256) continue;
         final uri = Uri.tryParse(url);
         if (uri == null || uri.host.isEmpty) continue;
-        if (!uri.scheme.startsWith('ws')) continue;
-        relays.add(url);
+        // BUG-02: reject ws:// (cleartext Nostr traffic visible to observer)
+        if (uri.scheme != 'wss') continue;
+        // BUG-03: strip embedded credentials to prevent Authorization header leakage
+        final cleanUrl = uri.userInfo.isEmpty ? url : uri.replace(userInfo: '').toString();
+        relays.add(cleanUrl);
       }
       return relays;
     } catch (_) {

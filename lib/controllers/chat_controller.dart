@@ -2200,9 +2200,31 @@ class ChatController extends ChangeNotifier {
     if (relays.isEmpty) return;
     final prefs = await SharedPreferences.getInstance();
     final existing = Set<String>.from(prefs.getStringList(_peerRelaysKey) ?? []);
+    const maxUrlLen = 256;
+    const maxRelays = 50; // cap total stored peer relays
     final before = existing.length;
     for (final r in relays) {
-      if (r.startsWith('wss://') || r.startsWith('ws://')) existing.add(r);
+      if (existing.length >= maxRelays) break;
+      // BUG-05: validate relay URLs received from untrusted peers
+      if (r.length > maxUrlLen) continue;
+      final uri = Uri.tryParse(r);
+      if (uri == null || uri.host.isEmpty) continue;
+      if (uri.scheme != 'wss') continue;          // no ws:// cleartext
+      if (uri.userInfo.isNotEmpty) continue;       // no embedded credentials
+      // Reject loopback and private IP ranges to prevent LAN port-scanning
+      final h = uri.host.toLowerCase();
+      if (h == 'localhost' || h == '127.0.0.1' || h == '::1') continue;
+      if (h.startsWith('10.') || h.startsWith('192.168.') ||
+          h.startsWith('169.254.') ||
+          RegExp(r'^172\.(1[6-9]|2[0-9]|3[01])\.').hasMatch(h)) {
+        continue;
+      }
+      // 100.64.0.0/10 — Carrier-Grade NAT (RFC 6598)
+      if (h.startsWith('100.')) {
+        final second = int.tryParse(h.split('.').elementAtOrNull(1) ?? '');
+        if (second != null && second >= 64 && second <= 127) continue;
+      }
+      existing.add(r);
     }
     if (existing.length > before) {
       await prefs.setStringList(_peerRelaysKey, existing.toList());

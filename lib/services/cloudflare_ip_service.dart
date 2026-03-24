@@ -531,16 +531,24 @@ class CloudflareIpService {
   static bool _isPublicIp(String ip) {
     final n = _ipToInt(ip);
     if (n == null) return false;
+    // 0.0.0.0/8 — "This" network
+    if ((n >> 24) == 0) return false;
     // 10.0.0.0/8
     if ((n >> 24) == 10) return false;
+    // 100.64.0.0/10 — Carrier-Grade NAT (RFC 6598)
+    if ((n >> 22) == ((100 << 2) | 1)) return false;
+    // 127.0.0.0/8
+    if ((n >> 24) == 127) return false;
+    // 169.254.0.0/16 — link-local
+    if ((n >> 16) == ((169 << 8) | 254)) return false;
     // 172.16.0.0/12
     if ((n >> 20) == (172 << 4 | 1)) return false;
     // 192.168.0.0/16
-    if ((n >> 16) == (192 << 8 | 168)) return false;
-    // 127.0.0.0/8
-    if ((n >> 24) == 127) return false;
-    // 169.254.0.0/16
-    if ((n >> 16) == (169 << 8 | 254)) return false;
+    if ((n >> 16) == ((192 << 8) | 168)) return false;
+    // 198.18.0.0/15 — network benchmarking (RFC 2544)
+    if ((n >> 17) == ((198 << 1) | 0) && (((n >> 16) & 0xFE) == 18)) return false;
+    // 240.0.0.0/4 — Class E reserved
+    if ((n >> 28) == 15) return false;
     return true;
   }
 }
