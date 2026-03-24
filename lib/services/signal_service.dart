@@ -26,11 +26,22 @@ class _PersistentSignalStore extends InMemorySignalProtocolStore {
   /// Avoids reading ALL 300+ keys from disk on every prefix scan.
   Map<String, String>? _secureStorageCache;
 
-  /// Returns all entries from secure storage, using a cached copy after the
-  /// first call. Subsequent calls are O(1) instead of a full disk read.
+  /// Returns Signal-relevant entries from secure storage, using a cached copy
+  /// after the first call. Subsequent calls are O(1) instead of a full disk read.
+  ///
+  /// Only loads keys matching Signal-specific prefixes so that unrelated secrets
+  /// (nostr_privkey, oxen_seed, app_password_hash, local_db_cipher_key, etc.)
+  /// are never cached in the Dart heap for the duration of the session.
   Future<Map<String, String>> _getAllCached() async {
     if (_secureStorageCache != null) return _secureStorageCache!;
-    _secureStorageCache = await _storage.readAll();
+    final all = await _storage.readAll();
+    _secureStorageCache = Map.fromEntries(
+      all.entries.where((e) =>
+        e.key.startsWith('signal_') ||
+        e.key.startsWith('pqc_') ||
+        e.key == 'lock_screen_attempts'
+      ),
+    );
     return _secureStorageCache!;
   }
 
@@ -383,9 +394,12 @@ class SignalService {
   }
 
   String _formatFingerprint(Uint8List bytes) {
-    // Skip leading prefix byte (0x05 for DJB), take 10 bytes, format as HEX:HEX:...
-    final start = bytes.length > 10 ? 1 : 0;
-    final take = ((bytes.length - start).clamp(0, 10));
+    // Skip leading prefix byte (0x05 for DJB), take 20 bytes (160 bits).
+    // 160-bit safety numbers provide sufficient collision resistance for
+    // out-of-band manual verification. The previous 10-byte version had only
+    // 80-bit collision resistance which is below the accepted minimum.
+    final start = bytes.length > 20 ? 1 : 0;
+    final take = ((bytes.length - start).clamp(0, 20));
     return List.generate(take, (i) => bytes[start + i].toRadixString(16).padLeft(2, '0'))
         .join(':')
         .toUpperCase();
@@ -599,6 +613,10 @@ class SignalService {
         debugPrint('[Signal] Session/prekey cleanup during zeroize failed: $e');
       }
     }
+
+    // Clear the secure storage cache so Signal key material is removed from
+    // the Dart heap and is not accessible after shutdown.
+    _store._secureStorageCache = null;
 
     // Clear rate-limiting state.
     _lastKeyChange.clear();

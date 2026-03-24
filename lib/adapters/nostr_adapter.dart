@@ -302,10 +302,16 @@ const _ecdhCacheMaxSize = 500;
 const _ecdhCacheTtl = Duration(hours: 1);
 
 /// Issue 3: Cached pubkey derivation — privkey doesn't change at runtime.
-/// Maps privkeyHex → pubkeyHex. Invalidated implicitly (new privkey = new entry).
+/// Maps SHA-256(privkeyHex) → pubkeyHex to avoid storing raw privkey as map key.
 /// LinkedHashMap preserves insertion order for LRU eviction (max 200 entries).
 final LinkedHashMap<String, String> _pubkeyCache = LinkedHashMap<String, String>();
 const _pubkeyCacheMaxSize = 200;
+
+/// Use SHA-256 of privkey as cache key to avoid storing raw privkey in map key slot.
+String _privkeyToCacheKey(String privkeyHex) {
+  final bytes = hex.decode(privkeyHex);
+  return crypto.sha256.convert(bytes).toString();
+}
 
 /// Public API: derive Nostr pubkey (x-coordinate) from hex private key
 String deriveNostrPubkeyHex(String privkeyHex) => _derivePubkeyHex(privkeyHex);
@@ -391,7 +397,8 @@ bool verifySignalPayload(String receiverPrivkeyHex, String senderPubkeyHex, Stri
 
 /// Issue 3: cached pubkey derivation — privkey doesn't change during runtime.
 String _derivePubkeyHex(String privkeyHex) {
-  final cached = _pubkeyCache[privkeyHex];
+  final cacheKey = _privkeyToCacheKey(privkeyHex);
+  final cached = _pubkeyCache[cacheKey];
   if (cached != null) return cached;
 
   final d = BigInt.parse(privkeyHex, radix: 16);
@@ -400,7 +407,7 @@ String _derivePubkeyHex(String privkeyHex) {
   final xBytes = _bigIntToBytes(Q!.x!.toBigInteger()!, 32);
   final result = hex.encode(xBytes);
 
-  _pubkeyCache[privkeyHex] = result;
+  _pubkeyCache[cacheKey] = result;
   if (_pubkeyCache.length > _pubkeyCacheMaxSize) {
     _pubkeyCache.remove(_pubkeyCache.keys.first);
   }
@@ -466,7 +473,8 @@ Future<Uint8List> computeEcdhSecretAsync(
     {String context = 'default'}) async {
   // Fast path: if our pubkey is already cached we can check the ECDH cache
   // without touching the isolate at all.
-  final cachedPub = _pubkeyCache[ourPrivkeyHex];
+  final privCacheKey = _privkeyToCacheKey(ourPrivkeyHex);
+  final cachedPub = _pubkeyCache[privCacheKey];
   if (cachedPub != null) {
     final cacheKey = '$context:$cachedPub:$theirPubkeyHex';
     final cached = _ecdhCache[cacheKey];
@@ -486,7 +494,7 @@ Future<Uint8List> computeEcdhSecretAsync(
   final ourPubHex = result['ourPubHex'] as String;
 
   // Populate both caches on the main thread.
-  _pubkeyCache[ourPrivkeyHex] = ourPubHex;
+  _pubkeyCache[privCacheKey] = ourPubHex;
   if (_pubkeyCache.length > _pubkeyCacheMaxSize) {
     _pubkeyCache.remove(_pubkeyCache.keys.first);
   }
@@ -972,8 +980,14 @@ class NostrInboxReader implements InboxReader {
       if (isNip44) {
         try {
           plain = await nip44.nip44DecryptWithKeys(_privateKeyHex, senderPubkey, content);
-        } catch (_) {
-          // NIP-44 failed — might be NIP-04 with coincidental first byte 0x02
+        } catch (e) {
+          final msg = e.toString().toLowerCase();
+          // Only fall back if it's a format mismatch, NOT an authentication failure
+          if (msg.contains('mac') || msg.contains('auth') || msg.contains('replay') ||
+              msg.contains('invalid signature')) {
+            rethrow; // authentication failure — do not downgrade
+          }
+          // Structural format error — might be NIP-04 with coincidental first byte
           plain = _nip04Decrypt(_privateKeyHex, senderPubkey, content);
         }
       } else {

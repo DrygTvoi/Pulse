@@ -265,7 +265,11 @@ class FirebaseInboxReader implements InboxReader {
       final client = _buildFirebaseClient();
       final res = await client.get(Uri.parse(url));
       client.close();
+      const maxBodyBytes = 10 * 1024 * 1024; // 10 MB
       if (res.statusCode == 200 && res.body != 'null') {
+        if (res.body.length > maxBodyBytes) {
+          throw Exception('[Firebase] Response body too large');
+        }
         final data = jsonDecode(res.body) as Map;
         for (var item in data.values) {
           if (item is Map && item['type'] == 'sys_keys') {

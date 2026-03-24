@@ -543,6 +543,13 @@ class SignalDispatcher {
             }
           }
         } else if (sigType == 'relay_exchange') {
+          // Only accept relay suggestions from known contacts — prevents unknown
+          // senders from influencing relay selection.
+          final relayContact = _resolveContact(sigSender, contactByDbId);
+          if (relayContact == null) {
+            debugPrint('[SignalDispatcher] relay_exchange from unknown sender $sigSender — ignored');
+            continue;
+          }
           final payload = sig['payload'];
           final rawRelays = payload is Map ? payload['relays'] : payload;
           final relays = rawRelays is List

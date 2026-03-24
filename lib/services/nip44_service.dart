@@ -185,8 +185,16 @@ Uint8List computeConversationKey(Uint8List sharedX) {
   );
 }
 
+/// Calculates the padded length per NIP-44 v2 specification.
+int _calcPaddedLen(int unpaddedLen) {
+  if (unpaddedLen <= 32) return 32;
+  final nextPower = 1 << (unpaddedLen - 1).bitLength; // next power of 2 >= unpaddedLen
+  final chunk = nextPower <= 256 ? 32 : nextPower ~/ 8;
+  return chunk * ((unpaddedLen - 1) ~/ chunk + 1);
+}
+
 /// Step 3: Pad plaintext per NIP-44 spec.
-/// Format: 2-byte BE length prefix + content + zero-pad to next power of 2 (min 32).
+/// Format: 2-byte BE length prefix + content + zero-pad per _calcPaddedLen.
 Uint8List nip44Pad(String plaintext) {
   final content = utf8.encode(plaintext);
   final contentLen = content.length;
@@ -194,12 +202,8 @@ Uint8List nip44Pad(String plaintext) {
     throw ArgumentError('NIP-44: plaintext must be 1-65535 bytes');
   }
 
-  // Calculate padded size: next power of 2 of (2 + contentLen), minimum 32.
-  var paddedLen = _minPadSize;
-  final totalUnpadded = 2 + contentLen;
-  while (paddedLen < totalUnpadded) {
-    paddedLen *= 2;
-  }
+  // Calculate padded size using NIP-44 v2 spec algorithm.
+  final paddedLen = _calcPaddedLen(2 + contentLen);
 
   final result = Uint8List(paddedLen);
   // 2-byte big-endian length prefix

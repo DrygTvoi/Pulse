@@ -532,6 +532,9 @@ class PulseMessageSender implements MessageSender {
   WebSocketChannel? _ws;
   bool _authenticated = false;
 
+  // Pending keys_get completers: pubkey → Completer
+  final _pendingKeysCompleters = <String, Completer<Map<String, dynamic>?>>{};
+
   @override
   Future<void> initializeSender(String apiKey) async {
     try {
@@ -643,16 +646,37 @@ class PulseMessageSender implements MessageSender {
       _ws = channel;
       _authenticated = true;
 
-      // Listen for close to reset state
+      // Listen for incoming messages: route keys responses and reset state on close.
       channel.stream.listen(
-        (_) {},
+        (raw) {
+          try {
+            final data = jsonDecode(raw as String) as Map<String, dynamic>;
+            if (data['type'] == 'keys') {
+              final pubkey = data['pubkey'] as String? ?? '';
+              final payload = data['payload'] as Map<String, dynamic>?;
+              final completer = _pendingKeysCompleters.remove(pubkey);
+              if (completer != null && !completer.isCompleted) {
+                completer.complete(payload);
+              }
+            }
+          } catch (_) {}
+        },
         onDone: () {
           _ws = null;
           _authenticated = false;
+          // Complete any pending keys requests with null on disconnect.
+          for (final c in _pendingKeysCompleters.values) {
+            if (!c.isCompleted) c.complete(null);
+          }
+          _pendingKeysCompleters.clear();
         },
         onError: (_) {
           _ws = null;
           _authenticated = false;
+          for (final c in _pendingKeysCompleters.values) {
+            if (!c.isCompleted) c.complete(null);
+          }
+          _pendingKeysCompleters.clear();
         },
         cancelOnError: true,
       );
@@ -766,18 +790,21 @@ class PulseMessageSender implements MessageSender {
       final channel = await _getConnection();
       if (channel == null) return null;
 
-      final completer = Completer<Map<String, dynamic>?>();
+      // Register a completer that will be resolved by the shared stream listener
+      // when the server sends the keys response for this pubkey.
+      final completer = _pendingKeysCompleters.putIfAbsent(
+          pubkey, () => Completer<Map<String, dynamic>?>());
+
       channel.sink.add(jsonEncode({
         'type': 'keys_get',
         'pubkey': pubkey,
       }));
 
       Timer(const Duration(seconds: 10), () {
-        if (!completer.isCompleted) completer.complete(null);
+        final c = _pendingKeysCompleters.remove(pubkey);
+        if (c != null && !c.isCompleted) c.complete(null);
       });
 
-      // Note: response comes through the shared stream; for one-shot
-      // requests we rely on the timeout.
       return await completer.future;
     } catch (e) {
       debugPrint('[Pulse] fetchContactKeys error: $e');
@@ -787,6 +814,10 @@ class PulseMessageSender implements MessageSender {
 
   /// Clear private key from memory and close connection.
   void zeroize() {
+    for (final c in _pendingKeysCompleters.values) {
+      if (!c.isCompleted) c.complete(null);
+    }
+    _pendingKeysCompleters.clear();
     for (int i = 0; i < _seed.length; i++) {
       _seed[i] = 0;
     }

@@ -53,6 +53,15 @@ Future<List<String>> _discoverSnodes() async {
       ).timeout(const Duration(seconds: 10));
 
       if (res.statusCode != 200) continue;
+      const maxBodyBytes = 10 * 1024 * 1024; // 10 MB
+      if (res.contentLength != null && res.contentLength! > maxBodyBytes) {
+        debugPrint('[Oxen] Seed response too large — skipping $seed');
+        continue;
+      }
+      if (res.body.length > maxBodyBytes) {
+        debugPrint('[Oxen] Seed response body too large — skipping $seed');
+        continue;
+      }
       final data = jsonDecode(res.body) as Map<String, dynamic>;
       final states = (data['result']?['service_node_states'] as List?) ?? [];
       final nodes = <String>[];
@@ -246,6 +255,13 @@ class OxenInboxReader implements InboxReader {
     ).timeout(const Duration(seconds: 10));
     if (res.statusCode != 200) return;
 
+    const maxBodyBytes = 10 * 1024 * 1024; // 10 MB
+    if (res.contentLength != null && res.contentLength! > maxBodyBytes) {
+      throw Exception('[Oxen] Response too large: ${res.contentLength} bytes');
+    }
+    if (res.body.length > maxBodyBytes) {
+      throw Exception('[Oxen] Response body too large');
+    }
     final data = jsonDecode(res.body) as Map<String, dynamic>;
     final result = data['result'] as Map<String, dynamic>? ?? {};
     final messages =
@@ -321,6 +337,13 @@ class OxenInboxReader implements InboxReader {
       ).timeout(const Duration(seconds: 10));
       if (res.statusCode != 200) return null;
 
+      const maxBodyBytes = 10 * 1024 * 1024; // 10 MB
+      if (res.contentLength != null && res.contentLength! > maxBodyBytes) {
+        throw Exception('[Oxen] Response too large: ${res.contentLength} bytes');
+      }
+      if (res.body.length > maxBodyBytes) {
+        throw Exception('[Oxen] Response body too large');
+      }
       final data = jsonDecode(res.body) as Map<String, dynamic>;
       final result = data['result'] as Map<String, dynamic>? ?? {};
       final messages =

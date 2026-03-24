@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
+import 'package:crypto/crypto.dart' as crypto;
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../models/message.dart';
@@ -210,14 +211,26 @@ class WakuInboxReader implements InboxReader {
           .get(Uri.parse('$_nodeUrl/filter/v2/messages/$encoded'))
           .timeout(const Duration(seconds: 5));
       if (res.statusCode != 200) return;
+      const maxBodyBytes = 10 * 1024 * 1024; // 10 MB
+      if (res.body.length > maxBodyBytes) {
+        throw Exception('[Waku] Response body too large');
+      }
       final data = jsonDecode(res.body) as Map<String, dynamic>;
       final msgs = (data['messages'] as List?)?.cast<Map<String, dynamic>>() ?? [];
       for (final msg in msgs) {
-        final hash = (msg['messageHash'] as String?) ??
-            (msg['timestamp'] as int?)?.toString() ?? '';
-        if (hash.isNotEmpty) {
-          if (_seenHashes.contains(hash)) continue;
-          _seenHashes.add(hash);
+        // Compute dedup key client-side from payload bytes to prevent a
+        // malicious Waku node from varying messageHash to bypass dedup.
+        final payloadB64 = msg['payload'] as String? ?? '';
+        final clientHash = payloadB64.isNotEmpty
+            ? crypto.sha256
+                .convert(base64.decode(payloadB64))
+                .toString()
+            : ((msg['messageHash'] as String?) ??
+                (msg['timestamp'] as int?)?.toString() ??
+                '');
+        if (clientHash.isNotEmpty) {
+          if (_seenHashes.contains(clientHash)) continue;
+          _seenHashes.add(clientHash);
           if (_seenHashes.length > 3000) {
             final evict = _seenHashes.toList().sublist(0, 1500);
             _seenHashes.removeAll(evict);
@@ -320,6 +333,10 @@ class WakuInboxReader implements InboxReader {
         headers: {'Accept': 'application/json'},
       ).timeout(const Duration(seconds: 10));
       if (res.statusCode != 200) return null;
+      const maxBodyBytes = 10 * 1024 * 1024; // 10 MB
+      if (res.body.length > maxBodyBytes) {
+        throw Exception('[Waku] Response body too large');
+      }
       final data = jsonDecode(res.body) as Map<String, dynamic>;
       final msgs = (data['messages'] as List?)?.cast<Map<String, dynamic>>() ?? [];
       if (msgs.isEmpty) return null;

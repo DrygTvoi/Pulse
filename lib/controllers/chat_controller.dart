@@ -2271,7 +2271,8 @@ class ChatController extends ChangeNotifier {
       buf.writeln('[$ts] $who: $text');
     }
     try {
-      final dir = await getDownloadsDirectory() ?? await getTemporaryDirectory();
+      // Write to app-private documents directory, not world-accessible Downloads.
+      final dir = await getApplicationDocumentsDirectory();
       final date = DateTime.now().toIso8601String().substring(0, 10);
       final safeName = contact.name.replaceAll(RegExp(r'[^\w\-. ]'), '_');
       final file = File('${dir.path}/chat_${safeName}_$date.txt');
@@ -2466,9 +2467,18 @@ class ChatController extends ChangeNotifier {
     final contact = _contacts.contacts.cast<Contact?>()
         .firstWhere((c) => c?.id == contactId, orElse: () => null);
     if (contact == null) return;
+
+    // Use a stable hash of the encrypted payload as the dedup ID so that
+    // replaying the same DataChannel ciphertext is suppressed.
+    // base64 of the first 32 bytes of the UTF-8 payload is unique enough and
+    // requires no additional imports.
+    final payloadBytes = utf8.encode(encryptedPayload);
+    final msgId = base64.encode(
+        payloadBytes.sublist(0, payloadBytes.length.clamp(0, 32)));
+
     _handleIncomingMessages([
       Message(
-        id: _uuid.v4(),
+        id: msgId,
         senderId: contact.databaseId,
         receiverId: _selfId,
         encryptedPayload: encryptedPayload,
