@@ -127,8 +127,14 @@ class OxenInboxReader implements InboxReader {
   @override
   Stream<bool> get healthChanges => _healthCtrl.stream;
 
+  static final _sessionIdRegex = RegExp(r'^05[0-9a-fA-F]{64}$');
+
   @override
   Future<void> initializeReader(String apiKey, String databaseId) async {
+    if (databaseId.isNotEmpty && !_sessionIdRegex.hasMatch(databaseId)) {
+      debugPrint('[Oxen] Rejected invalid session ID format: $databaseId');
+      return;
+    }
     _sessionId = databaseId;
     await OxenKeyService.instance.initialize();
     if (apiKey.isNotEmpty) {
