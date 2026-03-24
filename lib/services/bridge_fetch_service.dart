@@ -357,7 +357,7 @@ class BridgeFetchService {
 
           // Current format (2025+): {"obfs4": ["obfs4 IP:port ...", ...]}
           if (t is List) {
-            final lines = t.whereType<String>().toList();
+            final lines = _sanitizeBridgeLines(t.whereType<String>());
             if (lines.isNotEmpty) result[transport] = lines;
             continue;
           }
@@ -368,7 +368,7 @@ class BridgeFetchService {
             if (bridges is Map) {
               final lines = bridges['bridge_strings'];
               if (lines is List) {
-                result[transport] = lines.cast<String>().toList();
+                result[transport] = _sanitizeBridgeLines(lines.whereType<String>());
               }
             }
           }
@@ -384,7 +384,7 @@ class BridgeFetchService {
           final type  = item['type'] as String?;
           final lines = item['bridge_strings'];
           if (type != null && lines is List) {
-            result[type] = lines.cast<String>().toList();
+            result[type] = _sanitizeBridgeLines(lines.whereType<String>());
           }
         }
         if (result.isNotEmpty) return result;
@@ -444,6 +444,21 @@ class BridgeFetchService {
     if (b[0] == 0) return false;                                     // "this" network
     return true;
   }
+
+  /// Sanitize bridge lines from MOAT/API responses against torrc injection.
+  ///
+  /// A malicious or compromised MOAT response could include a bridge line with
+  /// embedded `\n` to inject arbitrary torrc directives (e.g. `SocksPort 0`).
+  /// This strips any line that contains control characters or is too long.
+  static List<String> _sanitizeBridgeLines(Iterable<String> lines) =>
+      lines
+          .where((l) =>
+              l.isNotEmpty &&
+              l.length < 512 &&
+              !l.contains('\n') &&
+              !l.contains('\r') &&
+              !l.contains('\x00'))
+          .toList();
 
   // ── Embedded fallback bridge lines ─────────────────────────────────────────
   //

@@ -105,6 +105,7 @@ class TorService {
       await Future.delayed(const Duration(milliseconds: 800));
       if (await _isSocks5Listening(socksPort)) {
         debugPrint('[TorService] Port still occupied — cannot start');
+        _starting = false; // FINDING-1 fix: reset flag so retry is possible
         return false;
       }
     }
@@ -112,6 +113,7 @@ class TorService {
     final torPath = await _findTor();
     if (torPath == null) {
       debugPrint('[TorService] tor binary not found');
+      _starting = false; // FINDING-1 fix: reset flag so future call can retry
       return false;
     }
 
@@ -126,7 +128,7 @@ class TorService {
     // User preference: auto = full chain, or force a specific PT
     final prefs = await SharedPreferences.getInstance();
     final pref = prefs.getString('preferred_pt') ?? 'auto';
-    final timeoutSec = prefs.getInt('tor_timeout_sec') ?? 60;
+    final timeoutSec = (prefs.getInt('tor_timeout_sec') ?? 60).clamp(15, 300);
 
     // ── PT chain ───────────────────────────────────────────────────────────
     final obfs4Path = await _findObfs4Proxy();

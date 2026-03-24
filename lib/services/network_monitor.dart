@@ -41,13 +41,16 @@ class NetworkMonitor {
       if (ipsChanged) {
         _lastIps = currentIps;
         debugPrint('[NetworkMonitor] Interface IPs changed: $currentIps');
-        onNetworkChanged?.call();
+        // FINDING-11 fix: only fire here when connectivity status didn't also
+        // change — avoids double-fire when both conditions occur simultaneously.
+        if (was == _available) onNetworkChanged?.call();
       }
 
       if (was != _available) {
         debugPrint('[NetworkMonitor] Internet ${_available ? "restored" : "lost"}');
         onChanged(_available);
-        // Connectivity restored → also treat as network change
+        // Connectivity restored → also treat as network change (single fire
+        // covers both IP change and connectivity restoration).
         if (_available && !was) {
           onNetworkChanged?.call();
         }

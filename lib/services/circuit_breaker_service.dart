@@ -90,11 +90,21 @@ class CircuitBreakerService {
         final map = jsonDecode(raw) as Map<String, dynamic>;
         for (final entry in map.entries) {
           final v = entry.value as Map<String, dynamic>;
+          // FINDING-6 fix: clamp values to prevent SharedPrefs poisoning from
+          // permanently blocking relays (e.g. via rooted device or adb).
           _state[entry.key] = _BreakerState(
-            failures: v['f'] as int? ?? 0,
+            failures: ((v['f'] as int? ?? 0)).clamp(0, 100),
             lastFailure: DateTime.fromMillisecondsSinceEpoch(v['t'] as int? ?? 0),
-            tripCount: v['tc'] as int? ?? 0,
+            tripCount: ((v['tc'] as int? ?? 0)).clamp(0, _backoffs.length - 1),
           );
+        }
+        // Cap total entry count on load (attacker could write 1000+ entries).
+        if (_state.length > 500) {
+          final sorted = _state.entries.toList()
+            ..sort((a, b) => b.value.lastFailure.compareTo(a.value.lastFailure));
+          _state
+            ..clear()
+            ..addEntries(sorted.take(500));
         }
       } catch (e) {
         debugPrint('[CircuitBreaker] Failed to restore state: $e');

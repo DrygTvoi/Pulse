@@ -59,6 +59,10 @@ import (
 // connSem limits concurrent CONNECT tunnels to prevent goroutine-exhaustion DoS.
 var connSem = make(chan struct{}, 256)
 
+// FINDING-6 fix: only accept hostnames consisting of safe characters to
+// prevent log injection and URL manipulation in DoH queries.
+var validHostnameRE = regexp.MustCompile(`^[a-zA-Z0-9.\-_\[\]:]+$`)
+
 // ─── ECH Config Cache ────────────────────────────────────────────────────────
 
 type echEntry struct {
@@ -545,6 +549,13 @@ func handleConnect(w http.ResponseWriter, r *http.Request, sem chan struct{}) {
 	colonIdx := strings.LastIndex(host, ":")
 	hostname := host[:colonIdx]
 	port := host[colonIdx+1:]
+
+	// FINDING-6 fix: reject hostnames with control characters to prevent
+	// log injection and DoH URL manipulation.
+	if !validHostnameRE.MatchString(hostname) {
+		http.Error(w, "Bad Request: invalid hostname", http.StatusBadRequest)
+		return
+	}
 
 	// Step 1: Resolve via DoH (bypasses DNS poisoning)
 	ips := resolveViaDoH(hostname)

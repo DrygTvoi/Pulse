@@ -747,18 +747,12 @@ class ConnectivityProbeService {
   /// This does a real TLS handshake so we know the relay is actually reachable.
   Future<bool> _probeOne(String host, int port, {int timeoutSec = 3}) async {
     try {
-      if (port == 443 || port == 8443) {
-        // TLS probe — catches GFW TLS-level blocking
-        final sock = await SecureSocket.connect(host, port,
-            timeout: Duration(seconds: timeoutSec),
-            onBadCertificate: (_) => true); // accept self-signed for probe
-        sock.destroy();
-      } else {
-        // Non-TLS ports: plain TCP is sufficient
-        final sock = await Socket.connect(host, port,
-            timeout: Duration(seconds: timeoutSec));
-        sock.destroy();
-      }
+      // Use plain TCP for all ports. Accepting self-signed TLS certs would let
+      // a network MITM inject fake relay URLs into the probe cache (FINDING-4).
+      // TCP reachability is sufficient to determine whether GFW is blocking.
+      final sock = await Socket.connect(host, port,
+          timeout: Duration(seconds: timeoutSec));
+      sock.destroy();
       return true;
     } catch (_) {
       return false;

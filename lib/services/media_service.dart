@@ -269,7 +269,14 @@ class MediaService {
 
       Uint8List? thumbData;
       if (type == 'video_note' && map['thumb'] is String) {
-        try { thumbData = base64Decode(map['thumb'] as String); } catch (_) {}
+        try {
+          // FINDING-4 fix: cap thumbnail size to prevent OOM via oversized thumb.
+          final thumbStr = map['thumb'] as String;
+          if (thumbStr.length <= 700000) { // ~512 KB base64
+            final decoded = base64Decode(thumbStr);
+            if (decoded.length <= 512 * 1024) thumbData = decoded;
+          }
+        } catch (_) {}
       }
 
       return MediaPayload(
