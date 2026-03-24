@@ -214,6 +214,9 @@ class DeviceTransferService {
     _genKeypair();
 
     // Phase 1: exchange pubkeys, get verification code.
+    // parts[3] is the sender's pubkey baked into the QR code — bind to it so
+    // an ARP-poisoning attacker cannot substitute their own pubkey here.
+    final expectedSenderPub = parts[3];
     final client = HttpClient();
     try {
       final request = await client.post(ip, port, '/exchange');
@@ -222,8 +225,17 @@ class DeviceTransferService {
       final response = await request.close();
       final body = await utf8.decoder.bind(response).join();
       final json = jsonDecode(body) as Map<String, dynamic>;
+      final returnedPub = json['pubkey'] as String? ?? '';
+      // Cryptographic binding: the server MUST return the same pubkey that was
+      // encoded in the transfer code (QR/string).  Any deviation means the
+      // responding host is not the legitimate sender device — abort immediately.
+      if (returnedPub != expectedSenderPub) {
+        throw FormatException(
+            'Server pubkey mismatch — possible MITM attack. '
+            'Expected $expectedSenderPub, got $returnedPub');
+      }
+      _peerPubHex = returnedPub;
       verificationCode = json['verification'] as String;
-      _peerPubHex = json['pubkey'] as String;
     } finally {
       client.close();
     }
