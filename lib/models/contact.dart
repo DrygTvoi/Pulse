@@ -86,17 +86,22 @@ class Contact {
 
   factory Contact.fromMap(Map<String, dynamic> map) {
     return Contact(
-      id: map['id'],
-      name: map['name'],
-      provider: map['provider'],
-      databaseId: map['databaseId'],
-      publicKey: map['publicKey'] ?? '',
-      avatarUrl: map['avatarUrl'],
-      isGroup: map['isGroup'] ?? false,
-      members: List<String>.from(map['members'] ?? []),
+      id: (map['id'] as String?) ?? '',
+      name: (map['name'] as String?) ?? '',
+      provider: (map['provider'] as String?) ?? 'Nostr',
+      databaseId: (map['databaseId'] as String?) ?? '',
+      publicKey: (map['publicKey'] as String?) ?? '',
+      avatarUrl: map['avatarUrl'] as String?,
+      isGroup: map['isGroup'] as bool? ?? false,
+      // Use whereType<String>() to reject non-string list elements that could
+      // smuggle garbage or attacker-controlled addresses via type confusion.
+      members: (map['members'] as List?)?.whereType<String>().toList() ?? [],
       creatorId: map['creatorId'] as String?,
-      alternateAddresses: List<String>.from(map['alternateAddresses'] ?? []),
-      bio: map['bio'] as String? ?? '',
+      alternateAddresses: (map['alternateAddresses'] as List?)
+              ?.whereType<String>()
+              .toList() ??
+          [],
+      bio: (map['bio'] as String?) ?? '',
     );
   }
 }

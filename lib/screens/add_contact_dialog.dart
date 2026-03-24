@@ -81,6 +81,9 @@ class _AddContactDialogState extends State<AddContactDialog> {
             .take(20) // cap address array length
             .map((e) => e.toString())
             .where((e) => e.isNotEmpty && e.length <= 512)
+            // Require pubkey@server format (all transports) or 66-char Oxen ID.
+            // Rejects localhost/RFC-1918 injections and bare hostnames.
+            .where((e) => e.contains('@') || RegExp(r'^05[0-9a-fA-F]{64}$').hasMatch(e))
             .toList();
       } else if (rawA is String && rawA.isNotEmpty && rawA.length <= 512) {
         addresses = [rawA];
@@ -89,7 +92,10 @@ class _AddContactDialogState extends State<AddContactDialog> {
       }
       if (addresses.isEmpty) return;
 
-      final rawName = (json['n'] as String?)?.trim() ?? '';
+      // Strip bidirectional override and zero-width characters to prevent
+      // display-spoofing attacks (RTL override can make evil.com look like moc.live).
+      final rawName = ((json['n'] as String?)?.trim() ?? '')
+          .replaceAll(RegExp(r'[\u200B-\u200D\u202A-\u202E\u061C\u2066-\u2069\uFEFF]'), '');
       final name = rawName.length > 128 ? rawName.substring(0, 128) : rawName;
       setState(() {
         _detectedAddresses = addresses;
@@ -183,8 +189,10 @@ class _AddContactDialogState extends State<AddContactDialog> {
 
   void _submit() {
     if (_detectedAddresses.isEmpty) return;
-    final primaryAddr = _detectedAddresses.first;
-    final alternates = _detectedAddresses.length > 1 ? _detectedAddresses.sublist(1) : <String>[];
+    // Deduplicate to prevent the same address appearing as both primary and alternate.
+    final uniqueAddrs = _detectedAddresses.toSet().toList();
+    final primaryAddr = uniqueAddrs.first;
+    final alternates = uniqueAddrs.length > 1 ? uniqueAddrs.sublist(1) : <String>[];
     final provider = _detectProvider(primaryAddr);
     String name = _nameController.text.trim();
     if (name.isEmpty) {
