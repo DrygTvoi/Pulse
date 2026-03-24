@@ -2036,6 +2036,19 @@ class ChatController extends ChangeNotifier {
         .firstWhere((c) => c?.isGroup == true && c?.id == invite.groupId,
             orElse: () => null);
     if (existing != null) return;
+    // Only the declared creator should be allowed to send group invites.
+    // Compare the sender's identity (databaseId preferred, else id) against
+    // the creatorId embedded in the invite payload.
+    if (invite.creatorId != null && invite.creatorId!.isNotEmpty) {
+      final senderKey = invite.fromContact.databaseId.isNotEmpty
+          ? invite.fromContact.databaseId
+          : invite.fromContact.id;
+      if (senderKey != invite.creatorId) {
+        debugPrint('[Group] Rejected invite from non-creator '
+            '$senderKey (declared creator: ${invite.creatorId})');
+        return;
+      }
+    }
     final newGroup = Contact(
       id: invite.groupId,
       name: invite.groupName,
