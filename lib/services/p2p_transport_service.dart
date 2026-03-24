@@ -50,6 +50,11 @@ class P2PTransportService {
 
   final Map<String, _P2PConn> _conns = {};
 
+  // FINDING-7 fix: rate-limit p2p_offer per contact — rapid offers tear down
+  // the existing DataChannel and prevent the connection from stabilising.
+  final Map<String, DateTime> _lastOfferTime = {};
+  static const _kMinOfferIntervalSec = 10;
+
   // ── Public API ──────────────────────────────────────────────────────────────
 
   /// True when the DataChannel to [contactId] is open and ready.
@@ -136,6 +141,14 @@ class P2PTransportService {
     String contactId,
     Map<String, dynamic> sdp,
   ) async {
+    final now = DateTime.now();
+    final last = _lastOfferTime[contactId];
+    if (last != null &&
+        now.difference(last).inSeconds < _kMinOfferIntervalSec) {
+      debugPrint('[P2P] Offer rate-limited for $contactId');
+      return;
+    }
+    _lastOfferTime[contactId] = now;
     await _closeConn(contactId);
     final conn = _P2PConn(isCaller: false);
     _conns[contactId] = conn;

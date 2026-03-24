@@ -46,7 +46,6 @@ import (
 	"fmt"
 	"io"
 	"math/big"
-	"math/rand"
 	"net"
 	"net/http"
 	"os"
@@ -342,10 +341,29 @@ func (d *yggDispatcher) send(data []byte, port uint16, dst net.Addr) error {
 const (
 	maxAddrCacheEntries = 1024
 	yggTurnPort         = 53478
-	yggTurnRealm    = "pulse.ygg"
-	yggTurnUser     = "pulse"
-	yggTurnPassword = "yggtoken"
+	yggTurnRealm        = "pulse.ygg"
 )
+
+// FINDING-1 fix: TURN credentials generated at startup — not hardcoded in binary.
+// Previously "pulse"/"yggtoken" were compile-time constants visible to anyone
+// who extracts the APK, allowing them to connect to the local TURN server.
+var (
+	yggTurnUser     string
+	yggTurnPassword string
+)
+
+func init() {
+	userBytes := make([]byte, 8)
+	passBytes := make([]byte, 16)
+	if _, err := cryptorand.Read(userBytes); err != nil {
+		panic("crypto/rand failed: " + err.Error())
+	}
+	if _, err := cryptorand.Read(passBytes); err != nil {
+		panic("crypto/rand failed: " + err.Error())
+	}
+	yggTurnUser = base64.RawURLEncoding.EncodeToString(userBytes)
+	yggTurnPassword = base64.RawURLEncoding.EncodeToString(passBytes)
+}
 
 func startYggTurnServer(node *yggcore.Core, disp *yggDispatcher, addr net.IP) error {
 	// Try preferred port first, then let the OS pick a free one.
@@ -417,7 +435,13 @@ func (g *yggRelayAddressGenerator) AllocatePacketConn(
 ) (net.PacketConn, net.Addr, error) {
 	const maxTries = 200
 	for i := 0; i < maxTries; i++ {
-		port := uint16(49152 + rand.Intn(16383))
+		// FINDING-3 fix: use crypto/rand for port selection so an observer
+		// cannot predict allocations via math/rand PRNG state.
+		var b [2]byte
+		if _, err := cryptorand.Read(b[:]); err != nil {
+			return nil, nil, fmt.Errorf("AllocatePacketConn: crypto/rand: %w", err)
+		}
+		port := uint16(49152 + (binary.BigEndian.Uint16(b[:]) % 16383))
 		relayAddr := &net.UDPAddr{IP: g.addr, Port: int(port)}
 		pconn := newYggPacketConn(g.disp, port, relayAddr)
 		if _, loaded := g.disp.relayPorts.LoadOrStore(port, pconn); !loaded {
@@ -685,15 +709,19 @@ func runYggOutboundProxy(
 	targetAddr iwtypes.Addr,
 	cacheKey string,
 ) {
+	// FINDING-5 fix: delete from proxyMap FIRST, then close UDP, then
+	// unregister from dispatcher. The old order (delete last) meant a new
+	// goroutine for the same cacheKey could re-register before the dying
+	// goroutine ran disp.unregisterProxy, which would then remove the new entry.
 	defer func() {
 		proxyMu.Lock()
 		delete(proxyMap, cacheKey)
 		proxyMu.Unlock()
 	}()
+	defer udpConn.Close()
 	recv := &proxyReceiver{incoming: make(chan yggDatagram, 256)}
 	disp.registerProxy(targetAddr, targetPort, recv)
 	defer disp.unregisterProxy(targetAddr, targetPort)
-	defer udpConn.Close()
 
 	var (
 		clientMu   sync.Mutex

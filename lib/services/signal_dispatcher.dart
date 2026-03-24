@@ -305,10 +305,13 @@ class SignalDispatcher {
     'group_update',
     'group_invite',
     'status_update',
-    // FINDING-4: msg_delete / edit were absent — any peer could delete or
-    // rewrite arbitrary messages without HMAC.
     'msg_delete',
     'edit',
+    // BUG-2 fix: unauthenticated SKDM injection allows key replacement on
+    // Firebase/Waku/Oxen transports where sender is not a bare Nostr pubkey.
+    'sender_key_dist',
+    // FINDING-2 fix: chunk_req must be authenticated to prevent amplification DoS.
+    'chunk_req',
   };
 
   /// Signal types exempt from the general rate limiter (system-critical or
@@ -559,6 +562,13 @@ class SignalDispatcher {
             _relayExchangeCtrl.add(SignalRelayExchangeEvent(relays));
           }
         } else if (sigType == 'turn_exchange') {
+          // FINDING-2 fix: gate on known contact, same as relay_exchange.
+          final turnContact = _resolveContact(sigSender, contactByDbId);
+          if (turnContact == null) {
+            debugPrint('[SignalDispatcher] turn_exchange from unknown sender '
+                '$sigSender — ignored');
+            continue;
+          }
           final payload = sig['payload'];
           final rawServers = payload is Map ? payload['servers'] : null;
           final servers = rawServers is List
@@ -690,14 +700,20 @@ class SignalDispatcher {
             }
           }
         } else if (sigType == 'chunk_req') {
+          // FINDING-2 fix: only accept chunk resend requests from known contacts.
+          final chunkContact = _resolveContact(sigSender, contactByDbId);
+          if (chunkContact == null) {
+            debugPrint('[SignalDispatcher] chunk_req from unknown sender '
+                '$sigSender — ignored');
+            continue;
+          }
           final payload = sig['payload'];
           if (payload is Map) {
             final fid = payload['fid'] as String?;
             final missing = payload['missing'];
-            final senderId = sig['senderId'] as String? ?? '';
             if (fid != null && missing is List && !_chunkReqCtrl.isClosed) {
               _chunkReqCtrl.add(SignalChunkReqEvent(
-                  fid, List<int>.from(missing), senderId));
+                  fid, List<int>.from(missing), sigSender));
             }
           }
         }

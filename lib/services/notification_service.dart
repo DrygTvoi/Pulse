@@ -124,8 +124,12 @@ class NotificationService {
         );
         notification.show();
       } else if (_flnPlugin != null) {
+        // FINDING-5 fix: use per-contact ID so notifications from different
+        // senders don't overwrite each other.
+        // FINDING-6 fix: visibility:secret hides sender name on lock screen.
+        final notifId = event.contactId.hashCode.abs() % 100000;
         _flnPlugin!.show(
-          0,
+          notifId,
           senderName,
           preview,
           const fln.NotificationDetails(
@@ -135,6 +139,7 @@ class NotificationService {
               channelDescription: 'Pulse incoming message notifications',
               importance: fln.Importance.high,
               priority: fln.Priority.high,
+              visibility: fln.NotificationVisibility.secret,
             ),
             iOS: fln.DarwinNotificationDetails(),
           ),

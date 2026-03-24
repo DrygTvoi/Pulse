@@ -131,7 +131,10 @@ class _SecuritySectionState extends State<SecuritySection> {
                 final salt =
                     await _secureStorage.read(key: 'app_password_salt');
                 if (hash == null || salt == null) {
-                  if (ctx.mounted) Navigator.of(ctx).pop(true);
+                  // FINDING-12 fix: fail closed — storage integrity error.
+                  // Silently granting would allow physical accessor with adb
+                  // to bypass auth by deleting the secure storage keys.
+                  setS(() => error = 'Security storage error — restart the app');
                   return;
                 }
                 if (await PasswordHasher.verify(

@@ -985,7 +985,8 @@ class ChatController extends ChangeNotifier {
           return;
         }
       }
-      final memberRemoved = e.members.length < group.members.length;
+      // BUG-5 fix: length comparison missed membership swap (same count, different set).
+      final memberRemoved = group.members.toSet().difference(e.members.toSet()).isNotEmpty;
       final updated = group.copyWith(
         name: e.groupName.isNotEmpty ? e.groupName : group.name,
         members: e.members,
@@ -1180,16 +1181,27 @@ class ChatController extends ChangeNotifier {
                   final skGroupId = parsed['_group'] as String?;
                   final ct = parsed['ct'] as String?;
                   if (skGroupId != null && ct != null) {
-                    try {
-                      final cipherBytes = base64Decode(ct);
-                      final plainBytes = await SenderKeyService.instance
-                          .decrypt(skGroupId, senderContact.databaseId, cipherBytes);
-                      final innerJson = utf8.decode(plainBytes);
-                      parsed = jsonDecode(innerJson) as Map<String, dynamic>;
-                      displayText = innerJson;
-                    } catch (skErr) {
-                      debugPrint('[SenderKey] Decrypt failed from ${senderContact.name}: $skErr');
-                      // Fall through — parsed still has _sk envelope, will be treated as plain text.
+                    // BUG-1 fix: check membership BEFORE decrypting to prevent
+                    // removed members from advancing the ratchet or leaking plaintext.
+                    final skGroup = _contacts.contacts.cast<Contact?>()
+                        .firstWhere((c) => c?.isGroup == true && c?.id == skGroupId,
+                            orElse: () => null);
+                    if (skGroup == null ||
+                        !skGroup.members.contains(senderContact.id)) {
+                      debugPrint('[SenderKey] Rejected SK message from non-member '
+                          '${senderContact.name} for group $skGroupId');
+                    } else {
+                      try {
+                        final cipherBytes = base64Decode(ct);
+                        final plainBytes = await SenderKeyService.instance
+                            .decrypt(skGroupId, senderContact.databaseId, cipherBytes);
+                        final innerJson = utf8.decode(plainBytes);
+                        parsed = jsonDecode(innerJson) as Map<String, dynamic>;
+                        displayText = innerJson;
+                      } catch (skErr) {
+                        debugPrint('[SenderKey] Decrypt failed from ${senderContact.name}: $skErr');
+                        // Fall through — parsed still has _sk envelope.
+                      }
                     }
                   }
                 }

@@ -256,24 +256,11 @@ class SignalBroadcaster {
 
   Future<void> sendGroupHistory(
       Contact target, Contact group, List<Message> messages) async {
-    final identity = _getIdentity();
-    final selfId = _getSelfId();
-    if (identity == null || selfId.isEmpty) return;
-    for (final msg in messages) {
-      try {
-        final text = msg.encryptedPayload;
-        if (text.isEmpty) continue;
-        if (text.startsWith('data:') || text.length > 4096) continue;
-        await _sendSignalTo(target, 'msg', {
-          '_group': group.id,
-          'text': text,
-          '_history': true,
-        });
-      } catch (e) {
-        debugPrint('[Broadcaster] History sync failed for msg ${msg.id}: $e');
-      }
-    }
-    debugPrint('[Broadcaster] Sent history to ${target.name}');
+    // BUG-4 fix: sending history to new members violates group forward secrecy.
+    // Messages were stored as plaintext locally; forwarding them exposes pre-join
+    // content to the new member and to any compromised relay in the chain.
+    // New members start fresh — they see only messages sent after joining.
+    debugPrint('[Broadcaster] sendGroupHistory suppressed (forward secrecy)');
   }
 
   Future<void> markGroupMessagesRead(

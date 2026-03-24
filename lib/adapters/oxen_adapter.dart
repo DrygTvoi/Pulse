@@ -393,6 +393,12 @@ class OxenMessageSender implements MessageSender {
     await OxenKeyService.instance.initialize();
     _selfSessionId = OxenKeyService.instance.sessionId;
     if (apiKey.isNotEmpty) {
+      // FINDING-14 fix: same https:// guard as initializeReader — prevents
+      // outgoing encrypted messages being sent to a plain-http attacker server.
+      if (!apiKey.startsWith('https://')) {
+        debugPrint('[Oxen] Rejected non-HTTPS node URL in sender: $apiKey');
+        return;
+      }
       _nodeUrl = apiKey;
     } else {
       // Discover snodes lazily on first send

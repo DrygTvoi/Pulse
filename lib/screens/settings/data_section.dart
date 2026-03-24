@@ -516,7 +516,11 @@ class DataSection extends StatelessWidget {
                     debugPrint('[Import] Invalid signal key format for $key — skipping');
                     continue;
                   }
-                  await _secureStorage.write(key: key, value: value);
+                  // Normalise hex keys to lowercase for internal consistency.
+                  final normalised = (key == 'nostr_privkey' || key == 'oxen_seed')
+                      ? value.toLowerCase()
+                      : value;
+                  await _secureStorage.write(key: key, value: normalised);
                 }
                 final prefs2 = await SharedPreferences.getInstance();
                 if (data.containsKey('user_identity')) {
@@ -1154,8 +1158,10 @@ class DataSection extends StatelessWidget {
 
   // ── Key format validators ────────────────────────────────────────────────
 
+  // FINDING-13 fix: accept uppercase hex (e.g. from other Nostr clients),
+  // normalise to lowercase before writing.
   static bool _isValidHex(String s, int expectedLen) =>
-      s.length == expectedLen && RegExp(r'^[0-9a-f]+$').hasMatch(s);
+      s.length == expectedLen && RegExp(r'^[0-9a-fA-F]+$').hasMatch(s);
 
   static bool _isValidBase64(String s) {
     if (s.isEmpty) return false;
