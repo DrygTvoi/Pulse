@@ -120,8 +120,10 @@ class _LockScreenState extends State<LockScreen> {
     // Clear all secure storage (keys, password hashes)
     await _ss.deleteAll();
 
-    // Clear local message database
-    await LocalStorageService().clearAll();
+    // BUG-6: Delete the encrypted DB file entirely, not just its tables.
+    // clearAll() is a no-op if _db==null (key already deleted); file delete
+    // is unconditional so no ciphertext remains on disk.
+    await LocalStorageService().deleteAndClose();
 
     if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil(

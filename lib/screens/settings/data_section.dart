@@ -152,9 +152,11 @@ class DataSection extends StatelessWidget {
                   setS(() => error = context.l10n.settingsPasswordCannotBeEmpty);
                   return;
                 }
-                if (pw.length < 4) {
-                  setS(() =>
-                      error = context.l10n.settingsPasswordMin4Chars);
+                // BUG-2: backup file protects all private keys (Signal, Nostr, Oxen,
+                // PQC) — enforce the same 16-char minimum as identity creation.
+                if (pw.length < 16) {
+                  setS(() => error = context.l10n.settingsPasswordMin4Chars
+                      .replaceAll('4', '16'));
                   return;
                 }
                 if (requireConfirm && pw != confirmCtrl.text) {
@@ -454,8 +456,39 @@ class DataSection extends StatelessWidget {
                   }
                   data = bundle;
                 } else {
-                  // Legacy plaintext backup — parse directly (backward compat only).
-                  debugPrint('[Identity] Importing legacy unencrypted backup');
+                  // BUG-3: Legacy plaintext backup — warn user before importing.
+                  // A crafted file could inject arbitrary key material silently.
+                  if (!context.mounted) return;
+                  final confirmed = await showDialog<bool>(
+                    context: context,
+                    barrierDismissible: false,
+                    builder: (ctx) => AlertDialog(
+                      backgroundColor: AppTheme.surface,
+                      title: Text('Unencrypted backup',
+                          style: GoogleFonts.inter(
+                              color: AppTheme.textPrimary,
+                              fontWeight: FontWeight.w700)),
+                      content: Text(
+                        'This file is an unencrypted identity backup and will '
+                        'overwrite your current keys. Only import files you '
+                        'created yourself. Proceed?',
+                        style: GoogleFonts.inter(color: AppTheme.textSecondary, height: 1.5),
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(ctx, false),
+                          child: Text('Cancel', style: GoogleFonts.inter()),
+                        ),
+                        TextButton(
+                          onPressed: () => Navigator.pop(ctx, true),
+                          child: Text('Import anyway',
+                              style: GoogleFonts.inter(color: Colors.red)),
+                        ),
+                      ],
+                    ),
+                  );
+                  if (confirmed != true) return;
+                  debugPrint('[Identity] Importing legacy unencrypted backup (user confirmed)');
                   final jsonStr = utf8.decode(bytes);
                   data = jsonDecode(jsonStr) as Map<String, dynamic>;
                 }
