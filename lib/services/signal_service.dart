@@ -79,8 +79,10 @@ class _PersistentSignalStore extends InMemorySignalProtocolStore {
           final record = SessionRecord.fromSerialized(base64Decode(entry.value));
           await super.storeSession(address, record);
         } catch (e) {
-          debugPrint('[Signal] Failed to restore session ${entry.key}: $e');
+          // Delete corrupted blob so it doesn't block every subsequent restart.
+          debugPrint('[Signal] Corrupted session blob — deleting: ${entry.key}');
           sentryBreadcrumb('Session restore failed: ${entry.key}', category: 'signal');
+          try { await _secureDelete(entry.key); } catch (_) {}
         }
       }
     } catch (e) {
