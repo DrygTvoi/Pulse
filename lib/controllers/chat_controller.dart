@@ -1118,7 +1118,27 @@ class ChatController extends ChangeNotifier {
         }
 
         final env = MessageEnvelope.tryUnwrap(decryptedRaw);
-        final canonicalSenderId = env?.from ?? msg.senderId;
+        // Validate envelope's claimed sender matches transport-layer sender.
+        // env.from may use a different transport address (e.g. Firebase vs Nostr)
+        // but the pubkey prefix must always agree. If they differ, an attacker
+        // forged the inner envelope — fall back to transport sender.
+        String canonicalSenderId;
+        if (env?.from != null && env!.from.isNotEmpty) {
+          final envPrefix = env.from.split('@').first;
+          final transportPrefix = msg.senderId.split('@').first;
+          if (envPrefix == transportPrefix) {
+            canonicalSenderId = env.from;
+          } else {
+            debugPrint('[Chat] Envelope sender mismatch: '
+                'envelope=$envPrefix transport=$transportPrefix — using transport');
+            if (!_tamperWarningCtrl.isClosed) {
+              _tamperWarningCtrl.add('Authenticity warning from ${msg.senderId}');
+            }
+            canonicalSenderId = msg.senderId;
+          }
+        } else {
+          canonicalSenderId = msg.senderId;
+        }
         final bodyText = env?.body ?? decryptedRaw;
 
         Contact? senderContact = contactByDbId[canonicalSenderId]
