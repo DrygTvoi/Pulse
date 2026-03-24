@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io' show gzip;
+import 'dart:typed_data';
 import 'package:crypto/crypto.dart' as crypto;
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
@@ -216,7 +217,33 @@ class MediaService {
       // Decompress gzip if the sender set the 'z' flag (voice messages).
       if (map['z'] == true) {
         try {
-          rawData = Uint8List.fromList(gzip.decode(rawData));
+          // F8: Guard against gzip bombs. The compressed size is already checked
+          // above, but compressed data can expand massively. We use a streaming
+          // decoder with a running byte count to abort before allocating the
+          // full decompressed buffer.
+          final decompressed = BytesBuilder(copy: false);
+          int decompressedTotal = 0;
+          bool tooLarge = false;
+
+          final outSink = _LimitedSink(
+            onChunk: (chunk) {
+              decompressedTotal += chunk.length;
+              if (decompressedTotal > sizeLimit) {
+                tooLarge = true;
+              } else {
+                decompressed.add(chunk);
+              }
+            },
+          );
+          final inSink = gzip.decoder.startChunkedConversion(outSink);
+          inSink.add(rawData);
+          inSink.close();
+
+          if (tooLarge) {
+            debugPrint('[MediaService] Rejected gzip bomb: decompressed > $sizeLimit');
+            return null;
+          }
+          rawData = decompressed.toBytes();
         } catch (e) {
           debugPrint('[MediaService] gzip.decode failed: $e');
           return null;
@@ -343,4 +370,17 @@ class MediaPayload {
     if (size < 1024 * 1024) return '${(size / 1024).toStringAsFixed(1)}KB';
     return '${(size / 1024 / 1024).toStringAsFixed(1)}MB';
   }
+}
+
+/// Streaming sink used for gzip decompression bomb guard.
+/// Calls [onChunk] for each decoded chunk; caller decides whether to abort.
+class _LimitedSink implements Sink<List<int>> {
+  final void Function(List<int> chunk) onChunk;
+  _LimitedSink({required this.onChunk});
+
+  @override
+  void add(List<int> chunk) => onChunk(chunk);
+
+  @override
+  void close() {}
 }
