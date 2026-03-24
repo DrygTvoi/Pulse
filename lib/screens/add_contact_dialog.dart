@@ -86,7 +86,13 @@ class _AddContactDialogState extends State<AddContactDialog> {
             .where((e) => e.contains('@') || RegExp(r'^05[0-9a-fA-F]{64}$').hasMatch(e))
             .toList();
       } else if (rawA is String && rawA.isNotEmpty && rawA.length <= 512) {
-        addresses = [rawA];
+        // F2: Apply same format filter as the List path — require @-address or Oxen ID.
+        // Without this check, attacker-crafted links can inject RFC-1918 or bare URLs.
+        final single = rawA;
+        if (!single.contains('@') && !RegExp(r'^05[0-9a-fA-F]{64}$').hasMatch(single)) {
+          return;
+        }
+        addresses = [single];
       } else {
         return;
       }
@@ -107,8 +113,9 @@ class _AddContactDialogState extends State<AddContactDialog> {
         _tryScheduleNostrFetch(addresses.first);
       }
     } catch (e) {
+      // F3: Do NOT call _onInput(link) here — that causes infinite recursion
+      // when the link starts with pulse:// (re-enters _parsePulseLink → throws → recurse).
       debugPrint('[AddContact] Deep link parse error: $e');
-      _onInput(link);
     }
   }
 

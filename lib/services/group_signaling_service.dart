@@ -259,11 +259,12 @@ class GroupSignalingService {
         'e2ee': envelope, '_g': token,
         'groupId': group.id, 'isVideoCall': isVideoCall,
       };
-    } catch (_) {
-      payload = {
-        '_g': token, 'data': data,
-        'groupId': group.id, 'isVideoCall': isVideoCall,
-      };
+    } catch (e) {
+      // F12: Abort instead of falling back to cleartext SDP.
+      // Cleartext SDP leaks ICE candidates (real IP) to the relay operator,
+      // defeating Tor/Psiphon anonymization for call participants.
+      debugPrint('[GroupSignaling] Encryption failed, aborting signal: $e');
+      return;
     }
 
     if (target.provider == 'Firebase') {

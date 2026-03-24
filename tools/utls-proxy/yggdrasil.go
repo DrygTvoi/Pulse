@@ -201,8 +201,11 @@ func doStartYggdrasil() error {
 		return fmt.Errorf("cert: %w", err)
 	}
 
+	// F5: Bind Yggdrasil peering listener to loopback only.
+	// Binding to 0.0.0.0 makes the device a full overlay router, advertising
+	// an open port on all interfaces and increasing the fingerprinting surface.
 	opts := []yggcore.SetupOption{
-		yggcore.ListenAddress("tcp://0.0.0.0:0"),
+		yggcore.ListenAddress("tcp://127.0.0.1:0"),
 	}
 	for _, p := range yggPublicPeers {
 		opts = append(opts, yggcore.Peer{URI: p})
@@ -709,16 +712,16 @@ func runYggOutboundProxy(
 	targetAddr iwtypes.Addr,
 	cacheKey string,
 ) {
-	// FINDING-5 fix: delete from proxyMap FIRST, then close UDP, then
-	// unregister from dispatcher. The old order (delete last) meant a new
-	// goroutine for the same cacheKey could re-register before the dying
-	// goroutine ran disp.unregisterProxy, which would then remove the new entry.
-	defer func() {
+	// F7: Correct defer order — delete from proxyMap FIRST, then close UDP.
+	// defer is LIFO: last registered runs first. We want map delete to run
+	// before socket close, so register udpConn.Close() FIRST (runs last),
+	// then the map-delete defer (runs first).
+	defer udpConn.Close()  // registered first → runs LAST (after map delete)
+	defer func() {         // registered second → runs FIRST
 		proxyMu.Lock()
 		delete(proxyMap, cacheKey)
 		proxyMu.Unlock()
 	}()
-	defer udpConn.Close()
 	recv := &proxyReceiver{incoming: make(chan yggDatagram, 256)}
 	disp.registerProxy(targetAddr, targetPort, recv)
 	defer disp.unregisterProxy(targetAddr, targetPort)

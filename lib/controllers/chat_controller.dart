@@ -1024,10 +1024,11 @@ class ChatController extends ChangeNotifier {
         final skdmGroup = _contacts.contacts.cast<Contact?>()
             .firstWhere((c) => c?.isGroup == true && c?.id == e.groupId,
                 orElse: () => null);
-        // FINDING-3 fix: members list stores contact UUIDs (e.fromContact.id),
-        // not transport addresses (e.fromContact.databaseId). Previous check
-        // always returned !false = true → any sender could inject SKDM.
-        if (skdmGroup != null &&
+        // F5: Reject SKDM for unknown groups (null skdmGroup) AND from non-members.
+        // Old guard `skdmGroup != null && !members.contains(...)` accepted all
+        // distributions for unknown group IDs (skdmGroup == null → guard skipped).
+        // An attacker could inject key material for arbitrary groupIds.
+        if (skdmGroup == null ||
             !skdmGroup.members.contains(e.fromContact.id)) {
           debugPrint('[SenderKey] Rejected SKDM from non-member '
               '${e.fromContact.name} for group ${e.groupId}');

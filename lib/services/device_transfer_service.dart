@@ -319,7 +319,18 @@ class DeviceTransferService {
           if (kbPubHex.length != 64) continue; // sanity check
           _peerPubHex = kbPubHex;
           verificationCode = _verificationCode(_myPrivHex, _peerPubHex);
-          // Encrypt and send bundle back (NIP-44)
+          // F1-CRITICAL: Gate bundle transmission on user confirmation.
+          // Complete the exchange completer so the UI can show the verification
+          // code; the bundle is NOT sent until confirmTransfer() is called.
+          if (!_exchangeCompleter.isCompleted) _exchangeCompleter.complete();
+          _bundleConfirmed = Completer<void>();
+          try {
+            await _bundleConfirmed!.future.timeout(const Duration(minutes: 2));
+          } on TimeoutException {
+            debugPrint('[DeviceTransfer] Nostr: user did not confirm in time');
+            break;
+          }
+          // Encrypt and send bundle back (NIP-44) only after user confirms
           final bundle = await _collectBundle();
           final sharedX = await computeEcdhSecretAsync(
             _myPrivHex, _peerPubHex, context: 'device_transfer');
@@ -331,7 +342,6 @@ class DeviceTransferService {
             tags: [['p', _peerPubHex]],
           );
           channel.sink.add(jsonEncode(['EVENT', replyEvent]));
-          if (!_exchangeCompleter.isCompleted) _exchangeCompleter.complete();
           break;
         } catch (e) {
           debugPrint('[DeviceTransfer] Nostr source parse error: $e');
@@ -400,10 +410,22 @@ class DeviceTransferService {
           final sharedX = await computeEcdhSecretAsync(
               _myPrivHex, srcPubHex, context: 'device_transfer');
           final plain = await nip44Decrypt(sharedX, event['content'] as String);
-          await _importBundle(jsonDecode(plain) as Map<String, dynamic>);
+          // F4: Store bundle in memory first; import ONLY after user confirms code.
+          // Old code imported immediately — an MITM who controlled the relay could
+          // deliver a crafted bundle before the user sees the verification code.
+          final pendingBundle = jsonDecode(plain) as Map<String, dynamic>;
           verificationCode = _verificationCode(_myPrivHex, srcPubHex);
           _peerPubHex = srcPubHex;
           received = true;
+          // Gate the actual key write on user confirmation.
+          _bundleConfirmed = Completer<void>();
+          if (!_exchangeCompleter.isCompleted) _exchangeCompleter.complete();
+          try {
+            await _bundleConfirmed!.future.timeout(const Duration(minutes: 2));
+            await _importBundle(pendingBundle);
+          } on TimeoutException {
+            debugPrint('[DeviceTransfer] Nostr receiver: confirmation timed out');
+          }
           break;
         } catch (e) {
           debugPrint('[DeviceTransfer] Nostr target parse error: $e');

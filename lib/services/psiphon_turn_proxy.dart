@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'psiphon_service.dart';
@@ -184,7 +185,9 @@ class PsiphonTurnProxy {
     }
 
     // 2. CONNECT request using domain name
-    final hostBytes = remoteHost.codeUnits;
+    // F3: Use utf8.encode, not codeUnits — SOCKS5 requires byte encoding.
+    final hostBytes = utf8.encode(remoteHost);
+    if (hostBytes.length > 255) throw SocketException('SOCKS5: hostname too long');
     proxy.add([
       0x05, 0x01, 0x00, 0x03,
       hostBytes.length, ...hostBytes,

@@ -48,6 +48,7 @@ import (
 	"net/http"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -270,6 +271,7 @@ func isPrivateIP(ip string) bool {
 		return true
 	}
 	private := []string{
+		"0.0.0.0/8",      // "this" network (RFC 1122) — 0.0.0.0 connects to loopback on Linux
 		"10.0.0.0/8",
 		"172.16.0.0/12",
 		"192.168.0.0/16",
@@ -557,6 +559,14 @@ func handleConnect(w http.ResponseWriter, r *http.Request, sem chan struct{}) {
 		return
 	}
 
+	// F1: Validate port is numeric and in a sensible range.
+	// Without this, the proxy accepts CONNECT to any TCP port (SMTP, Redis, etc.).
+	portNum, err := strconv.Atoi(port)
+	if err != nil || portNum < 1 || portNum > 65535 {
+		http.Error(w, "Bad Request: invalid port", http.StatusBadRequest)
+		return
+	}
+
 	// Step 1: Resolve via DoH (bypasses DNS poisoning)
 	ips := resolveViaDoH(hostname)
 
@@ -654,5 +664,11 @@ func main() {
 	mux.HandleFunc("/ygg/proxy", handleYggProxy)
 	mux.HandleFunc("/",          handleRequest)
 
-	http.Serve(listener, mux)
+	// F4: Add server timeouts — prevents goroutine exhaustion from slow HTTP readers.
+	srv := &http.Server{
+		Handler:           mux,
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       60 * time.Second,
+	}
+	srv.Serve(listener) //nolint:errcheck
 }

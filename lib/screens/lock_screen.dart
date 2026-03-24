@@ -55,6 +55,11 @@ class _LockScreenState extends State<LockScreen> {
   Future<void> _unlock() async {
     final entered = _controller.text;
     if (entered.isEmpty) return;
+    // F1: Guard against concurrent unlock calls (rapid keyboard-submit).
+    // Set _loading synchronously before the first await so a second call
+    // that checks _loading before setState sees the true value.
+    if (_loading) return;
+    _loading = true;
 
     setState(() {
       _loading = true;
@@ -65,8 +70,12 @@ class _LockScreenState extends State<LockScreen> {
     final salt = await _ss.read(key: 'app_password_salt');
 
     if (hash == null || salt == null) {
-      // Password was removed — go home directly
-      _goHome();
+      // F1: Missing keys are a tamper/corruption indicator — show error,
+      // do NOT grant unauthenticated access.
+      setState(() {
+        _loading = false;
+        _error = 'wrong';
+      });
       return;
     }
 
