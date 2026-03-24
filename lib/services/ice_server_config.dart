@@ -331,13 +331,16 @@ class IceServerConfig {
       } catch (_) {}
     }
 
-    // Merge new entries (turn:/turns: only; skip STUN or unknown)
+    // Merge new entries (turn:/turns: only; skip STUN, unknown, or private hosts)
     for (final s in servers) {
       final url = s['urls'] as String? ?? '';
-      if (url.isNotEmpty &&
-          (url.startsWith('turn:') || url.startsWith('turns:'))) {
-        existing[url] = s;
-      }
+      if (url.isEmpty) continue;
+      if (!url.startsWith('turn:') && !url.startsWith('turns:')) continue;
+      // FINDING-5: Reject TURN servers pointing at private/loopback addresses
+      // received via peer exchange — prevents SSRF via trusted-peer vector.
+      final host = _extractTurnHost(url);
+      if (host.isEmpty || _isTurnHostPrivate(host)) continue;
+      existing[url] = s;
     }
 
     // Trim to max 20 entries (keep newest-added last)
@@ -357,6 +360,47 @@ class IceServerConfig {
     }
     await prefs.setString(_kNip117TurnKey, jsonEncode(servers));
     debugPrint('[ICE] Saved ${servers.length} NIP-117 TURN server(s)');
+  }
+
+  // ── Private IP helpers (FINDING-5) ─────────────────────────────────────────
+
+  static String _extractTurnHost(String turnUrl) {
+    try {
+      final withoutScheme = turnUrl.replaceFirst(RegExp(r'^turns?:/?/?'), '');
+      final withoutQuery = withoutScheme.split('?').first;
+      if (withoutQuery.startsWith('[')) {
+        // IPv6 literal: [addr]:port
+        final end = withoutQuery.indexOf(']');
+        return end > 1 ? withoutQuery.substring(1, end).toLowerCase() : '';
+      }
+      return withoutQuery.split(':').first.toLowerCase();
+    } catch (_) {
+      return '';
+    }
+  }
+
+  static bool _isTurnHostPrivate(String host) {
+    if (host.isEmpty || host == 'localhost' || host == '::1') return true;
+    if (host.startsWith('127.') || host.startsWith('169.254.')) return true;
+    if (host.startsWith('10.')) return true;
+    if (host.startsWith('192.168.')) return true;
+    // CGNAT 100.64.0.0/10 (RFC 6598)
+    if (host.startsWith('100.')) {
+      final parts = host.split('.');
+      if (parts.length >= 2) {
+        final second = int.tryParse(parts[1]) ?? 0;
+        if (second >= 64 && second <= 127) return true;
+      }
+    }
+    // RFC 1918 172.16.0.0/12
+    if (host.startsWith('172.')) {
+      final parts = host.split('.');
+      if (parts.length >= 2) {
+        final second = int.tryParse(parts[1]) ?? 0;
+        if (second >= 16 && second <= 31) return true;
+      }
+    }
+    return false;
   }
 
   static Future<void> saveCustomTurn({

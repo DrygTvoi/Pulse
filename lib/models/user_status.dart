@@ -37,13 +37,31 @@ class UserStatus {
         'expiresAt': expiresAt.millisecondsSinceEpoch,
       };
 
-  factory UserStatus.fromJson(Map<String, dynamic> json) => UserStatus(
-        id: json['id'] as String? ?? '',
-        text: json['text'] as String? ?? '',
-        mediaPayload: json['media'] as String?,
-        createdAt: DateTime.fromMillisecondsSinceEpoch((json['createdAt'] as int?) ?? 0),
-        expiresAt: DateTime.fromMillisecondsSinceEpoch((json['expiresAt'] as int?) ?? 0),
-      );
+  factory UserStatus.fromJson(Map<String, dynamic> json) {
+    final now = DateTime.now();
+    // FINDING-3: Reject future createdAt (replay / clock-skew attack)
+    final rawCreated = DateTime.fromMillisecondsSinceEpoch((json['createdAt'] as int?) ?? 0);
+    final effectiveCreated =
+        rawCreated.isAfter(now.add(const Duration(minutes: 1))) ? now : rawCreated;
+    // Cap expiresAt at createdAt + 25 h to prevent "eternal" statuses
+    final rawExpiry = DateTime.fromMillisecondsSinceEpoch((json['expiresAt'] as int?) ?? 0);
+    final maxExpiry = effectiveCreated.add(const Duration(hours: 25));
+    final effectiveExpiry = rawExpiry.isAfter(maxExpiry) ? maxExpiry : rawExpiry;
+
+    // FINDING-4: Size limits — text 500 chars, media 512 KB base64
+    const maxTextLen = 500;
+    const maxMediaLen = 512 * 1024;
+    final rawText = (json['text'] as String?) ?? '';
+    final rawMedia = json['media'] as String?;
+
+    return UserStatus(
+      id: (json['id'] as String?) ?? '',
+      text: rawText.length > maxTextLen ? rawText.substring(0, maxTextLen) : rawText,
+      mediaPayload: rawMedia != null && rawMedia.length > maxMediaLen ? null : rawMedia,
+      createdAt: effectiveCreated,
+      expiresAt: effectiveExpiry,
+    );
+  }
 
   String toJsonString() => jsonEncode(toJson());
 

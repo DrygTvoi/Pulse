@@ -143,7 +143,8 @@ class _CallScreenState extends State<CallScreen> {
       if (mounted) {
         setState(() {
           _ready = false;
-          _initError = e.toString();
+          // FINDING-11: Never expose internal exception text to the UI
+          _initError = 'Failed to start call. Please try again.';
         });
       }
     }
