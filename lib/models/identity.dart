@@ -39,11 +39,19 @@ class Identity {
 
   factory Identity.fromJson(Map<String, dynamic> json) {
     return Identity(
-      id: json['id'],
-      publicKey: json['publicKey'],
-      privateKey: json['privateKey'] ?? '', // Handle securely elsewhere
-      preferredAdapter: json['preferredAdapter'],
-      adapterConfig: Map<String, String>.from(json['adapterConfig']),
+      id: (json['id'] as String?) ?? '',
+      publicKey: (json['publicKey'] as String?) ?? '',
+      privateKey: (json['privateKey'] as String?) ?? '',
+      preferredAdapter: (json['preferredAdapter'] as String?) ?? 'nostr',
+      adapterConfig: _parseAdapterConfig(json['adapterConfig']),
     );
+  }
+
+  static Map<String, String> _parseAdapterConfig(dynamic raw) {
+    if (raw is! Map) return {};
+    return {
+      for (final e in raw.entries)
+        if (e.value != null) e.key.toString(): e.value.toString(),
+    };
   }
 }
