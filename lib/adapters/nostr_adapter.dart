@@ -860,11 +860,17 @@ class NostrInboxReader implements InboxReader {
               if (_seenIds.containsKey(id)) continue;
               _trackSeenId(id);
               final ts = event['created_at'] as int?;
-              if (ts != null) unawaited(_updateSince(ts));
               // Verify Schnorr signature — reject relay-injected events.
               if (!eb.verifyEventSignature(event)) {
                 debugPrint('[Nostr] Dropped event with invalid signature: $id');
                 continue;
+              }
+              // F6: Only advance 'since' after signature passes; clamp to
+              // local clock + 5 min to reject relay-injected future timestamps
+              // that would cause us to miss legitimate past messages.
+              if (ts != null) {
+                final nowSec = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+                if (ts <= nowSec + 300) unawaited(_updateSince(ts));
               }
               final kind = (event['kind'] as int?) ?? -1;
               if (kind == 1059) {

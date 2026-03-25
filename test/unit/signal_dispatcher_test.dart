@@ -424,7 +424,7 @@ void main() {
         {
           'type': 'ttl_update',
           'senderId': 'alice@wss://relay',
-          'payload': {'seconds': 3600},
+          'payload': {'seconds': 3600, '_sig': 'hmac', '_spk': 'pk'},
         },
       ]);
       await Future.delayed(Duration.zero);
