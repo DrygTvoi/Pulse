@@ -35,6 +35,7 @@ class UTLSService {
 
   Process? _process;
   int? _port;
+  String? _proxyToken; // per-session secret printed alongside port on stdout
   bool _starting = false;
   bool _stopped = false; // true when stop() called explicitly
   int _restartCount = 0;
@@ -75,12 +76,17 @@ class UTLSService {
   /// Port the proxy is listening on, or null if not running.
   int? get proxyPort => _port;
 
+  /// Per-session secret token for /ygg and /ygg/proxy endpoints.
+  /// Null if the proxy hasn't started or uses an older binary format.
+  String? get proxyToken => _proxyToken;
+
   Future<void> stop() async {
     _stopped = true;
     _process?.kill();
     await _process?.exitCode.catchError((_) => -1);
     _process = null;
     _port = null;
+    _proxyToken = null;
     debugPrint('[UTLSService] stopped');
   }
 
@@ -105,10 +111,16 @@ class UTLSService {
           .transform(utf8.decoder)
           .transform(const LineSplitter())
           .listen((line) {
-        final port = int.tryParse(line.trim());
+        // Proxy prints "PORT TOKEN" — parse both.
+        // Older binaries print just "PORT" — token remains null (no auth).
+        final parts = line.trim().split(' ');
+        final port = int.tryParse(parts[0]);
         // BUG-07 fix: validate port is in unprivileged range before trusting
         if (port != null && port >= 1024 && port <= 65535 &&
             !portCompleter.isCompleted) {
+          if (parts.length >= 2 && parts[1].length == 64) {
+            _proxyToken = parts[1]; // 64 hex chars = 32 bytes
+          }
           portCompleter.complete(port);
         }
       });
@@ -122,6 +134,7 @@ class UTLSService {
       _process!.exitCode.then((_) {
         _process = null;
         _port = null;
+        _proxyToken = null;
         available.value = false;
         if (!_stopped) {
           if (_restartCount >= _maxRestarts) {
@@ -161,6 +174,7 @@ class UTLSService {
       debugPrint('[UTLSService] start error: $e');
       _process = null;
       _port = null;
+      _proxyToken = null;
     }
   }
 }

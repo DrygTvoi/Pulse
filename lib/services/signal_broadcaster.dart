@@ -185,22 +185,20 @@ class SignalBroadcaster {
     final selfId   = _getSelfId();
     if (identity == null || selfId.isEmpty || contact.isGroup) return;
 
-    final allServers = await IceServerConfig.load();
-    // F1-6: Only share public/community TURN servers — never the user's custom
-    // private TURN server. The custom TURN may have sensitive credentials used
-    // for corporate access control; sharing them with every call peer is unexpected.
-    final customCfg = await IceServerConfig.loadCustomTurn();
-    final customUrl = customCfg.url.isNotEmpty ? customCfg.url : null;
-    final turnServers = allServers
-        .where((s) {
-          final urls = s['urls'];
-          final url  = urls is String ? urls : '';
-          if (!url.startsWith('turn:') && !url.startsWith('turns:')) return false;
-          if (customUrl != null && url == customUrl) return false; // skip private
-          return true;
-        })
-        .take(10)
-        .toList();
+    // Only share TURN servers from static well-known presets.
+    // NIP-117-discovered / probe-discovered / peer-received servers are
+    // excluded: they may be attacker-controlled and would propagate transitively
+    // to all contacts (HIGH-3 transitive TURN poisoning).
+    final prefs = await SharedPreferences.getInstance();
+    final enabled = prefs.getStringList('turn_presets_enabled') ?? ['openrelay', 'freestun'];
+    final turnServers = <Map<String, dynamic>>[];
+    for (final preset in IceServerConfig.turnPresets) {
+      if (!enabled.contains(preset['id'] as String)) continue;
+      for (final s in preset['servers'] as List) {
+        turnServers.add(Map<String, dynamic>.from(s as Map));
+      }
+    }
+    if (turnServers.length > 10) turnServers.length = 10;
     if (turnServers.isEmpty) return;
 
     await _sendSignalTo(contact, 'turn_exchange', {'servers': turnServers});

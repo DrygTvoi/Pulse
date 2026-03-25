@@ -2,6 +2,7 @@
 // secondary inboxes and the Save & Connect button.
 import 'dart:async';
 import 'dart:convert';
+import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -254,8 +255,13 @@ class _ProviderSectionState extends State<ProviderSection> {
                   }
                   final privkey = nostrKeyCtrl.text.trim();
                   if (privkey.isNotEmpty) {
-                    final keySuffix =
-                        relay.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_');
+                    // F6: Use SHA256 of relay URL as key suffix to prevent
+                    // collisions from regex normalisation (e.g. relay.a.com
+                    // and relay_a_com would both map to relay_a_com).
+                    final keySuffix = sha256
+                        .convert(utf8.encode(relay))
+                        .toString()
+                        .substring(0, 16);
                     await _secureStorage.write(
                         key: 'secondary_nostr_privkey_$keySuffix',
                         value: privkey);

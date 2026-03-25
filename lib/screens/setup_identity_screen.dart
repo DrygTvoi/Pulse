@@ -131,6 +131,9 @@ class _SetupIdentityScreenState extends State<SetupIdentityScreen> {
 
   Future<void> _createAccount() async {
     if (!_canSubmit) return;
+    // F9: Guard against double-tap. Set synchronously before first await so a
+    // second tap that checks _canSubmit (which reads _isLoading) sees true.
+    _isLoading = true;
 
     // Guard against silently overwriting an existing identity.
     const ss = FlutterSecureStorage();

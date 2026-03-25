@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:collection';
 import 'dart:convert';
+import 'package:crypto/crypto.dart' show sha256;
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:convert/convert.dart';
@@ -606,7 +607,8 @@ class ChatController extends ChangeNotifier {
             (item as Map).map((k, v) => MapEntry(k.toString(), v.toString())));
         if (entry['provider'] == 'Nostr') {
           final relay = entry['databaseId'] ?? '';
-          final keySuffix = relay.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_');
+          // F6: Must use same SHA256 suffix as the write path in provider_section/screen.
+          final keySuffix = sha256.convert(utf8.encode(relay)).toString().substring(0, 16);
           final privkey = await _secureStorage.read(key: 'secondary_nostr_privkey_$keySuffix') ?? '';
           entry['apiKey'] = jsonEncode({'privkey': privkey, 'relay': relay});
           try {

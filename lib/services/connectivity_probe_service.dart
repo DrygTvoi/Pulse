@@ -749,14 +749,11 @@ class ConnectivityProbeService {
     try {
       if (port == 443 || port == 8443) {
         // TLS probe — catches GFW TLS-level RST on ClientHello.
-        // We accept self-signed certs intentionally: the probe only checks
-        // reachability. Even if a network MITM responds with a fake cert,
-        // the actual WSS connection (in NostrAdapter) always validates certs
-        // normally — so a poisoned probe result at most causes one failed
-        // connection attempt before the app falls back to Tor.
+        // MED-2 fix: validate certs. A MITM that accepts all TLS connections
+        // with fake certs would otherwise make every probe succeed, suppressing
+        // Tor bootstrap entirely even when all real connections are blocked.
         final sock = await SecureSocket.connect(host, port,
-            timeout: Duration(seconds: timeoutSec),
-            onBadCertificate: (_) => true);
+            timeout: Duration(seconds: timeoutSec));
         sock.destroy();
       } else {
         final sock = await Socket.connect(host, port,

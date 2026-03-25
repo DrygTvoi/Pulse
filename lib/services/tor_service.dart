@@ -329,7 +329,8 @@ class TorService {
           ..writeln('UseBridges 1')
           ..writeln('ClientTransportPlugin obfs4 exec $ptPath');
         for (final b in bridges) {
-          buf.writeln('Bridge $b');
+          final safe = b.replaceAll(RegExp(r'[\r\n]'), '');
+          if (safe.isNotEmpty) buf.writeln('Bridge $safe');
         }
       case _PtMode.webTunnel:
         // WebTunnel wraps Tor traffic as a WebSocket upgrade inside HTTPS.
@@ -339,7 +340,8 @@ class TorService {
           ..writeln('UseBridges 1')
           ..writeln('ClientTransportPlugin webtunnel exec $ptPath');
         for (final b in bridges) {
-          buf.writeln('Bridge $b');
+          final safe = b.replaceAll(RegExp(r'[\r\n]'), '');
+          if (safe.isNotEmpty) buf.writeln('Bridge $safe');
         }
       case _PtMode.snowflake:
         // Diverse STUN servers for Snowflake ICE — accessible from most regions.
@@ -362,7 +364,8 @@ class TorService {
           ..writeln('ClientTransportPlugin snowflake exec $ptPath '
               '-max 1 -ice $sfStun');
         for (final b in bridges) {
-          buf.writeln('Bridge $b');
+          final safe = b.replaceAll(RegExp(r'[\r\n]'), '');
+          if (safe.isNotEmpty) buf.writeln('Bridge $safe');
         }
       case _PtMode.plain:
         break; // no bridges
@@ -840,6 +843,8 @@ Future<String?> postUrlViaSocks5({
   String proxyHost = '127.0.0.1',
   int proxyPort = TorService.socksPort,
   int timeoutSec = 25,
+  // Oxen/Session snodes use self-signed certs — callers must opt in explicitly.
+  bool acceptBadCertificate = false,
 }) async {
   final uri = Uri.parse(url);
   final targetHost = uri.host;
@@ -933,7 +938,8 @@ Future<String?> postUrlViaSocks5({
     Socket dataSock = rawSock;
     if (isHttps) {
       dataSock = await SecureSocket.secure(rawSock,
-              host: targetHost, onBadCertificate: (_) => true)
+              host: targetHost,
+              onBadCertificate: acceptBadCertificate ? (_) => true : null)
           .timeout(Duration(seconds: timeoutSec));
     }
 

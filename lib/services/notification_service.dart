@@ -93,7 +93,9 @@ class NotificationService {
       final contact = (_contacts?.contacts ?? [])
           .where((c) => c.id == event.contactId)
           .firstOrNull;
-      final senderName = contact?.name ?? 'New message';
+      // Strip control characters and Pango markup chars before passing to the
+      // OS notification API — libnotify on Linux interprets markup in titles.
+      final senderName = _sanitizeNotifTitle(contact?.name);
 
       final text = msg.encryptedPayload;
       final String preview;
@@ -148,5 +150,18 @@ class NotificationService {
     } catch (e) {
       debugPrint('[NotificationService] Failed to show notification: $e');
     }
+  }
+
+  /// Sanitize a contact name for display in OS notification titles.
+  /// Strips control characters and Pango/HTML markup-sensitive chars to
+  /// prevent libnotify markup injection on Linux GTK.
+  static String _sanitizeNotifTitle(String? name) {
+    if (name == null || name.isEmpty) return 'New message';
+    final clean = name
+        .replaceAll(RegExp(r'[\x00-\x1F\x7F]'), '') // control chars
+        .replaceAll(RegExp(r'[<>&"' "'" r'\\]'), '')  // markup chars
+        .trim();
+    if (clean.isEmpty) return 'New message';
+    return clean.length > 64 ? clean.substring(0, 64) : clean;
   }
 }

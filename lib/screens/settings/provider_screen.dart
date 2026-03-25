@@ -2,6 +2,7 @@
 // Provider chips + inline config + save button + secondary inboxes.
 import 'dart:async';
 import 'dart:convert';
+import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -409,8 +410,11 @@ class _ProviderScreenState extends State<ProviderScreen> {
                   }
                   final privkey = nostrKeyCtrl.text.trim();
                   if (privkey.isNotEmpty) {
-                    final keySuffix =
-                        relay.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_');
+                    // F6: SHA256 of relay URL prevents suffix collisions.
+                    final keySuffix = sha256
+                        .convert(utf8.encode(relay))
+                        .toString()
+                        .substring(0, 16);
                     await _secureStorage.write(
                         key: 'secondary_nostr_privkey_$keySuffix',
                         value: privkey);

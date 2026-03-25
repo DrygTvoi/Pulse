@@ -79,6 +79,13 @@ class _LockScreenState extends State<LockScreen> {
       return;
     }
 
+    // F3: Persist the attempt counter BEFORE running any hash check.
+    // This ensures the attempt is counted even if the app is killed mid-check,
+    // preventing a timing attack where the app is force-stopped to avoid
+    // incrementing the counter.  On successful unlock _clearAttempts() resets it.
+    _attempts++;
+    await _persistAttempts();
+
     // Check panic key first (before regular password)
     final panicHash = await _ss.read(key: 'app_panic_key_hash');
     final panicSalt = await _ss.read(key: 'app_panic_key_salt');
@@ -101,9 +108,7 @@ class _LockScreenState extends State<LockScreen> {
       return;
     }
 
-    // Wrong password
-    _attempts++;
-    await _persistAttempts();
+    // Wrong password — attempt already counted above
     _controller.clear();
 
     if (_attempts >= _maxAttempts) {

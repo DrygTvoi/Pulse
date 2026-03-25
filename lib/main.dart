@@ -103,7 +103,10 @@ Future<void> main() async {
       UTLSService.instance.available.addListener(() {
         final port = UTLSService.instance.proxyPort;
         if (UTLSService.instance.available.value && port != null) {
-          unawaited(YggdrasilService.instance.init(port));
+          unawaited(YggdrasilService.instance.init(
+            port,
+            token: UTLSService.instance.proxyToken,
+          ));
         }
       });
       // Android foreground service — keeps WS connections alive in background.

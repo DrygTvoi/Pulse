@@ -12,6 +12,7 @@ import '../theme/design_tokens.dart';
 import '../models/contact.dart';
 import '../models/contact_repository.dart';
 import '../services/media_service.dart';
+import '../services/media_validator.dart';
 import '../services/video_service.dart';
 import '../services/voice_service.dart';
 import '../screens/image_viewer_screen.dart';
@@ -335,7 +336,10 @@ class MessageBubble extends StatelessWidget {
     try {
       final dir = await getDownloadsDirectory() ?? await getApplicationDocumentsDirectory();
       final ts = DateTime.now().millisecondsSinceEpoch;
-      final file = File('${dir.path}/${ts}_${media.name}');
+      // Defense-in-depth: re-sanitize at write time to guard against any
+      // path separator that survived upstream processing.
+      final safeName = MediaValidator.sanitizeFilename(media.name);
+      final file = File('${dir.path}/${ts}_$safeName');
       await file.writeAsBytes(media.data);
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(

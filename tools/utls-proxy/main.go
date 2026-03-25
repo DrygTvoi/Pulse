@@ -38,8 +38,10 @@
 package main
 
 import (
+	crand "crypto/rand"
 	"crypto/tls"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -59,6 +61,22 @@ import (
 
 // connSem limits concurrent CONNECT tunnels to prevent goroutine-exhaustion DoS.
 var connSem = make(chan struct{}, 256)
+
+// proxyToken is a random 32-byte secret generated at startup and printed to
+// stdout alongside the port.  All /ygg and /ygg/proxy endpoints require it
+// as the X-Proxy-Token header to prevent co-resident processes from stealing
+// TURN credentials or opening Yggdrasil proxy tunnels.
+var proxyToken string
+
+// requireProxyToken is a middleware guard for Yggdrasil API endpoints.
+// Returns false and writes 403 if the token is absent or wrong.
+func requireProxyToken(w http.ResponseWriter, r *http.Request) bool {
+	if r.Header.Get("X-Proxy-Token") != proxyToken {
+		http.Error(w, "forbidden", http.StatusForbidden)
+		return false
+	}
+	return true
+}
 
 // FINDING-6 fix: only accept hostnames consisting of safe characters to
 // prevent log injection and URL manipulation in DoH queries.
@@ -643,8 +661,18 @@ func main() {
 	}
 
 	port := listener.Addr().(*net.TCPAddr).Port
-	// Print port to stdout — Dart reads this to know where to connect.
-	fmt.Println(port)
+
+	// Generate a per-session secret token.  Dart must include it as
+	// X-Proxy-Token on all /ygg and /ygg/proxy requests.
+	var tokenBytes [32]byte
+	if _, err := crand.Read(tokenBytes[:]); err != nil {
+		fmt.Fprintln(os.Stderr, "[utls-proxy] failed to generate token:", err)
+		os.Exit(1)
+	}
+	proxyToken = hex.EncodeToString(tokenBytes[:])
+
+	// Print "PORT TOKEN" to stdout — Dart reads both values.
+	fmt.Printf("%d %s\n", port, proxyToken)
 
 	// Exit cleanly when Dart closes stdin (parent process died).
 	go func() {
