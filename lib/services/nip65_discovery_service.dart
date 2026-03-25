@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:web_socket_channel/io.dart';
 import 'cloudflare_ip_service.dart';
+import 'nostr_event_builder.dart' as eb;
 
 // ── NIP-65 Relay Discovery ─────────────────────────────────────────────────────
 //
@@ -162,6 +163,13 @@ class Nip65DiscoveryService {
 
           if (msg[0] != 'EVENT' || msg.length < 3) continue;
           final event = msg[2] as Map<String, dynamic>;
+          // BUG-03: verify Schnorr signature before trusting relay URLs.
+          // A malicious relay can inject kind:10002 events with arbitrary 'r'
+          // tags under any pubkey, poisoning relay discovery without this check.
+          if (!eb.verifyEventSignature(event)) {
+            debugPrint('[NIP-65] Dropped event with invalid signature');
+            continue;
+          }
           final tags  = event['tags'] as List? ?? [];
 
           for (final tag in tags) {
