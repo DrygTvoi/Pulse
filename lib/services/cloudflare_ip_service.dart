@@ -301,8 +301,10 @@ class CloudflareIpService {
       final derHash = crypto.sha256.convert(cert.der).toString().substring(0, 16);
       final issuer = cert.issuer;
       final trusted = _trustedIssuers[sniHost] ?? [];
+      // Word-boundary match prevents substring bypass:
+      // issuer.contains("DigiCert") would match "NotDigiCert CA" — \b prevents that.
       final issuerOk = trusted.isEmpty ||
-          trusted.any((t) => issuer.contains(t));
+          trusted.any((t) => RegExp(r'\b' + RegExp.escape(t) + r'\b').hasMatch(issuer));
       if (!issuerOk) {
         debugPrint('[CF/PIN] REJECTED: $sniHost cert issuer "$issuer" '
             'not in trusted list! DER=$derHash… Possible MITM.');

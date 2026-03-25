@@ -71,7 +71,7 @@ class LanInboxReader implements InboxReader {
       if (from.isEmpty || payload.isEmpty) return;
       if (from == _selfAddress) return; // ignore own broadcasts
 
-      if (id.isNotEmpty) {
+      if (id.isNotEmpty && id.length <= 128) {
         final now = DateTime.now().millisecondsSinceEpoch;
         if (_seenIds.containsKey(id)) return;
         _seenIds[id] = now;

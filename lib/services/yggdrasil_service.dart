@@ -180,10 +180,11 @@ class YggdrasilService {
             .timeout(const Duration(seconds: 2));
         final data      = jsonDecode(body) as Map<String, dynamic>;
         final localPort = data['local_port'] as int?;
-        if (localPort != null) {
+        if (localPort != null && localPort >= 1 && localPort <= 65535) {
           debugPrint('[Yggdrasil] Proxy $yggRelayAddr → 127.0.0.1:$localPort');
+          return localPort;
         }
-        return localPort;
+        return null;
       }
     } catch (e) {
       debugPrint('[Yggdrasil] proxyRemote failed (non-fatal): $e');

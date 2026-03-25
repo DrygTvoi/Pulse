@@ -258,7 +258,8 @@ class _CallScreenState extends State<CallScreen> {
       final pc = _signaling?.peerConnection;
       if (pc == null) return;
       try {
-        final stats = await pc.getStats();
+        final stats = await pc.getStats()
+            .timeout(const Duration(seconds: 5), onTimeout: () => []);
         for (final report in stats) {
           if (report.type != 'inbound-rtp') continue;
           final kind = report.values['kind'] as String?;
@@ -304,7 +305,8 @@ class _CallScreenState extends State<CallScreen> {
       final pc = _signaling?.secondaryPc;
       if (pc == null) return;
       try {
-        final stats = await pc.getStats();
+        final stats = await pc.getStats()
+            .timeout(const Duration(seconds: 5), onTimeout: () => []);
         for (final report in stats) {
           if (report.type != 'inbound-rtp') continue;
           final kind = report.values['kind'] as String?;

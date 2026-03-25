@@ -79,11 +79,11 @@ class AdaptiveRelayService {
     final winner = await _raceRelays(candidates);
     if (winner != null) {
       _bestRelay = winner;
-      _lastRace = DateTime.now();
+      final now = DateTime.now();
+      _lastRace = now;
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_cacheKey, winner);
-      await prefs.setString(_cacheTsKey,
-          DateTime.now().millisecondsSinceEpoch.toString());
+      await prefs.setString(_cacheTsKey, now.millisecondsSinceEpoch.toString());
       debugPrint('[Adaptive] Best CF relay: $winner');
     }
     return winner;
