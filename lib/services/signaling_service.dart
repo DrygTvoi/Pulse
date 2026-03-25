@@ -37,6 +37,9 @@ class SignalingService {
   // True when current primary transport profile forces relay-only.
   // Used to select the appropriate audio bitrate in SDP constraints.
   bool _primaryRestricted = false;
+  // True after the first offer sets our profile — prevents peer from
+  // forcing profile changes via re-offers/ICE restarts (MED-3).
+  bool _profileLocked = false;
 
   // FINDING-7: ICE candidate flood protection — reset on each new offer/answer.
   int _candidatesReceived = 0;
@@ -309,15 +312,17 @@ class SignalingService {
       }
       // FINDING-7: Reset candidate counter for new session
       _candidatesReceived = 0;
-      // ICE-restart offer carries a profile hint — mirror the config change
-      // before answering so both sides use the same iceTransportPolicy.
+      // First-offer profile hint: mirror the caller's iceTransportPolicy so
+      // both sides match on initial setup. Ignored on re-offers/ICE-restarts
+      // to prevent a compromised peer from forcing relay-only mode mid-call.
       final profileId = data['profile'] as String?;
-      if (profileId != null && peerConnection != null) {
+      if (profileId != null && peerConnection != null && !_profileLocked) {
         final profile = profileId == 'restricted'
             ? CallTransportProfile.restricted
             : CallTransportProfile.auto;
         _primaryRestricted = profile.isRestricted;
         await peerConnection!.setConfiguration(await profile.peerConfig());
+        _profileLocked = true;
       }
       await peerConnection?.setRemoteDescription(RTCSessionDescription(sdp, data['type']));
       await createAnswer();
@@ -376,6 +381,9 @@ class SignalingService {
     final remotePubkey = _remoteYggPubkey;
     if (remotePubkey == null) return c; // no pubkey from remote → can't route
     final line = c.candidate ?? '';
+    // Only intercept relay-type candidates — host/srflx candidates with a
+    // Yggdrasil-looking IP should not be proxied (MED-1: non-relay bypass).
+    if (!line.contains('typ relay')) return c;
     // Match Yggdrasil node addresses. Prefix 0x02 + 7-bit count = first hextet
     // 0x0200–0x027f, displayed as "200:"–"27f:". Pattern: 2[0-7][0-9a-fA-F]
     final match = RegExp(r'\b(2[0-7][0-9a-fA-F]:[0-9a-fA-F:]+)\s+(\d+)\b')

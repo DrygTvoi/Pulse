@@ -232,7 +232,14 @@ class MediaValidator {
     bool inString = false;
     for (int i = 0; i < s.length; i++) {
       final c = s[i];
-      if (c == '"' && (i == 0 || s[i - 1] != '\\')) inString = !inString;
+      if (c == '"') {
+        // Count consecutive preceding backslashes to determine if this quote
+        // is escaped. An even number means the quote is real (e.g., `\\"`).
+        int backslashes = 0;
+        int j = i - 1;
+        while (j >= 0 && s[j] == '\\') { backslashes++; j--; }
+        if (backslashes % 2 == 0) inString = !inString;
+      }
       if (!inString) {
         if (c == '{' || c == '[') {
           depth++;

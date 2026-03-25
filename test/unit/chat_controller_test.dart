@@ -204,15 +204,17 @@ void main() {
       expect(relays, isEmpty);
     });
 
-    test('savePeerRelays stores relays that start with ws:// or wss://', () async {
+    test('savePeerRelays stores wss:// relays and rejects ws:// cleartext', () async {
+      // ws:// is intentionally rejected from peer-shared URLs — cleartext is
+      // insecure and localhost is blocked for LAN scan prevention.
       await ChatController.savePeerRelays([
         'wss://relay.damus.io',
         'ws://localhost:8080',
       ]);
       final loaded = await ChatController.loadPeerRelays();
       expect(loaded, contains('wss://relay.damus.io'));
-      expect(loaded, contains('ws://localhost:8080'));
-      expect(loaded.length, equals(2));
+      expect(loaded, isNot(contains('ws://localhost:8080')));
+      expect(loaded.length, equals(1));
     });
 
     test('savePeerRelays deduplicates relays', () async {
@@ -247,15 +249,16 @@ void main() {
       expect(loaded, isEmpty);
     });
 
-    test('savePeerRelays accepts ws:// but rejects other schemes', () async {
+    test('savePeerRelays rejects ws:// and non-ws/wss schemes', () async {
+      // Only wss:// is accepted from peers to prevent cleartext relay use.
       await ChatController.savePeerRelays([
         'ws://local-relay:7777',
         'tcp://somewhere',
         'wss://good.relay',
       ]);
       final loaded = await ChatController.loadPeerRelays();
-      expect(loaded.length, equals(2));
-      expect(loaded, contains('ws://local-relay:7777'));
+      expect(loaded.length, equals(1));
+      expect(loaded, isNot(contains('ws://local-relay:7777')));
       expect(loaded, contains('wss://good.relay'));
       expect(loaded, isNot(contains('tcp://somewhere')));
     });
@@ -271,31 +274,31 @@ void main() {
     });
 
     test('loadPeerRelays returns saved relays after roundtrip', () async {
-      final relays = [
+      // Only wss:// relays are saved; ws:// cleartext is filtered out.
+      await ChatController.savePeerRelays([
         'wss://relay1.example.com',
         'wss://relay2.example.com',
         'ws://relay3.example.com',
-      ];
-      await ChatController.savePeerRelays(relays);
+      ]);
       final loaded = await ChatController.loadPeerRelays();
-      for (final r in relays) {
-        expect(loaded, contains(r));
-      }
-      expect(loaded.length, equals(3));
+      expect(loaded, contains('wss://relay1.example.com'));
+      expect(loaded, contains('wss://relay2.example.com'));
+      expect(loaded, isNot(contains('ws://relay3.example.com')));
+      expect(loaded.length, equals(2));
     });
 
     test('savePeerRelays filters mixed valid and invalid URLs', () async {
       await ChatController.savePeerRelays([
         'wss://good.relay',
         'https://bad.relay',
-        'ws://also-good.relay',
+        'ws://also-good.relay',  // rejected: ws:// cleartext
         'bad-no-scheme',
         'wss://another-good.relay',
       ]);
       final loaded = await ChatController.loadPeerRelays();
-      expect(loaded.length, equals(3));
+      expect(loaded.length, equals(2));
       expect(loaded, contains('wss://good.relay'));
-      expect(loaded, contains('ws://also-good.relay'));
+      expect(loaded, isNot(contains('ws://also-good.relay')));
       expect(loaded, contains('wss://another-good.relay'));
     });
   });

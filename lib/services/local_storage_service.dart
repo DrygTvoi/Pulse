@@ -294,10 +294,16 @@ class LocalStorageService {
     final pendingKey = await ss.read(key: stagingKey);
     if (pendingKey != null) {
       // Crashed during rotation — complete the promotion.
-      debugPrint('[LocalStorage] Completing interrupted key rotation from staging key');
-      await ss.write(key: _kDbKeyPref, value: pendingKey);
-      await ss.delete(key: stagingKey);
-      return pendingKey;
+      // Guard: validate hex before interpolating into PRAGMA KEY rawQuery.
+      if (!_isValidHex64(pendingKey)) {
+        debugPrint('[LocalStorage] Staging key corrupt/invalid — discarding');
+        await ss.delete(key: stagingKey);
+      } else {
+        debugPrint('[LocalStorage] Completing interrupted key rotation from staging key');
+        await ss.write(key: _kDbKeyPref, value: pendingKey);
+        await ss.delete(key: stagingKey);
+        return pendingKey;
+      }
     }
 
     final existing = await ss.read(key: _kDbKeyPref);

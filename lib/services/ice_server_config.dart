@@ -152,6 +152,9 @@ const _kPeerTurnKey     = 'peer_turn_servers';
 const _kNip117TurnKey   = 'turn_nip117_servers';
 
 class IceServerConfig {
+  /// Expose presets for safe peer sharing (only static well-known servers).
+  static List get turnPresets => kTurnPresets;
+
   /// Full ICE server list: all STUN + enabled TURN presets + optional custom TURN.
   /// Used by AutoProfile (iceTransportPolicy = 'all').
   static Future<List<Map<String, dynamic>>> load() async {

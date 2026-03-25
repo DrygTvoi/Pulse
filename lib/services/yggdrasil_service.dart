@@ -42,6 +42,7 @@ class YggdrasilService {
   String? _address;    // "200:aaa::1" — our Yggdrasil IPv6 (without brackets)
   String? _pubkey;     // base64 ed25519 public key (for proxy requests)
   int?    _port;       // HTTP port of the pulse-utls-proxy Go binary
+  String? _token;      // per-session secret for /ygg and /ygg/proxy auth
   int     _turnPort = 0; // actual TURN port reported by Go binary (0 = TURN not running)
   String  _turnUser = '';     // runtime-generated TURN username (from /ygg response)
   String  _turnPassword = ''; // runtime-generated TURN password (from /ygg response)
@@ -86,7 +87,7 @@ class YggdrasilService {
   /// Safe to call multiple times.
   /// Re-initialises when [proxyPort] changes — handles Go binary restarts
   /// where the old HTTP port is closed and a new port is assigned.
-  Future<void> init(int proxyPort) async {
+  Future<void> init(int proxyPort, {String? token}) async {
     if (_initialised && _port == proxyPort) return;
     if (_initialising) return; // concurrent call already in progress — let it finish
     _initialising = true;
@@ -95,12 +96,14 @@ class YggdrasilService {
     _address     = null;
     _pubkey      = null;
     _turnPort    = 0;
-    _port = proxyPort;
+    _port  = proxyPort;
+    _token = token;
     final client = HttpClient();
     try {
       final request = await client
           .getUrl(Uri.parse('http://127.0.0.1:$proxyPort/ygg'))
           .timeout(const Duration(seconds: 5));
+      if (token != null) request.headers.set('X-Proxy-Token', token);
       final response = await request.close().timeout(const Duration(seconds: 5));
       if (response.statusCode == 200) {
         final body = await response
@@ -167,6 +170,7 @@ class YggdrasilService {
           .postUrl(Uri.parse('http://127.0.0.1:$_port/ygg/proxy'))
           .timeout(const Duration(seconds: 3));
       request.headers.contentType = ContentType.json;
+      if (_token != null) request.headers.set('X-Proxy-Token', _token!);
       request.write(jsonEncode({'target': yggRelayAddr, 'pubkey': remotePubkey}));
       final response = await request.close().timeout(const Duration(seconds: 3));
       if (response.statusCode == 200) {

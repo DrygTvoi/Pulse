@@ -619,6 +619,9 @@ func (pr *proxyReceiver) dispatch(dg yggDatagram) {
 // Request body: {"target":"[200:bbb::1]:50000","pubkey":"BASE64_ED25519"}
 // Response:     {"local_port":N}
 func handleYggProxy(w http.ResponseWriter, r *http.Request) {
+	if !requireProxyToken(w, r) {
+		return
+	}
 	if r.Method != http.MethodPost {
 		http.Error(w, "POST only", http.StatusMethodNotAllowed)
 		return
@@ -774,6 +777,9 @@ func runYggOutboundProxy(
 // handleYggStatus handles GET /ygg.
 // Returns our Yggdrasil address, public key (base64), and TURN port; or 503.
 func handleYggStatus(w http.ResponseWriter, r *http.Request) {
+	if !requireProxyToken(w, r) {
+		return
+	}
 	if r.Method != http.MethodGet {
 		http.Error(w, "GET only", http.StatusMethodNotAllowed)
 		return
