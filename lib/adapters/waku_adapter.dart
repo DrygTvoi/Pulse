@@ -336,6 +336,7 @@ class WakuInboxReader implements InboxReader {
           'senderId': data['senderId'],
           'roomId': data['roomId'],
           'payload': data['payload'],
+          'adapterType': 'waku',
         }]);
       }
     } catch (e) {

@@ -834,6 +834,10 @@ class NostrInboxReader implements InboxReader {
         try {
           await for (final raw in channel.stream) {
             try {
+              if (raw is String && raw.length > 2 * 1024 * 1024) {
+                debugPrint('[Nostr] oversized WS frame (${raw.length} bytes) — dropped');
+                continue;
+              }
               final data = jsonDecode(raw as String) as List;
               if (data.isEmpty) continue;
 
@@ -1340,13 +1344,15 @@ class NostrMessageSender implements MessageSender {
             final data = jsonDecode(raw as String) as List;
             if (data.isNotEmpty && data[0] == 'AUTH' && data.length >= 2) {
               final rawC = data[1] as String?;
-              // F2-6: Cap challenge length
-              final challenge = rawC != null && rawC.length > 256
-                  ? rawC.substring(0, 256)
-                  : rawC;
-              if (challenge != null && _privateKeyHex.isNotEmpty) {
+              // Reject oversized AUTH challenges — truncating and signing a
+              // prefix produces a signature the relay cannot verify.
+              if (rawC == null || rawC.length > 256) {
+                debugPrint('[Nostr] sender AUTH: challenge absent or too long, ignoring');
+                return;
+              }
+              if (_privateKeyHex.isNotEmpty) {
                 unawaited(_nostrRespondToAuth(
-                    ch, relayUrl, challenge, _privateKeyHex));
+                    ch, relayUrl, rawC, _privateKeyHex));
               }
             }
           } catch (_) {}
