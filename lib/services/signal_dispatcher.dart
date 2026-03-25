@@ -318,6 +318,9 @@ class SignalDispatcher {
     // A forged group_invite_decline from a relay-injected senderId poisons
     // the group creator's invite state without this HMAC requirement.
     'group_invite_decline',
+    // F4 fix: reactions must be authenticated — an unsigned reaction lets any
+    // relay operator attribute emoji reactions to arbitrary contacts.
+    'reaction',
   };
 
   /// Signal types exempt from the general rate limiter (system-critical or
@@ -481,9 +484,10 @@ class SignalDispatcher {
           if (payload is Map) {
             final msgId = payload['msgId'] as String? ?? '';
             final emoji = payload['emoji'] as String? ?? '';
-            final from = payload['from'] as String? ??
-                sig['senderId'] as String? ??
-                '';
+            // F4 fix: always use the HMAC-verified transport sender, not the
+            // payload 'from' field which is peer-controlled. A malicious relay
+            // could set payload['from'] = victim's id to forge reactions.
+            final from = sig['senderId'] as String? ?? '';
             final remove = payload['remove'] == true;
             final groupId = payload['groupId'] as String?;
             if (msgId.isNotEmpty && emoji.isNotEmpty && from.isNotEmpty) {

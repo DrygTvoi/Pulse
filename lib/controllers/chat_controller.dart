@@ -191,6 +191,9 @@ class ChatController extends ChangeNotifier {
 
   // Chunk assembly
   final _chunkAssembler = ChunkAssembler();
+  // Tracks which contact is sending each incoming file (fileId → contactId).
+  // Used by stall-check timer to send chunk_req only to the right sender.
+  final _chunkSenderIds = <String, String>{};
 
   // Emits contact name when a message had to be sent unencrypted
   final StreamController<String> _e2eeFailCtrl = StreamController.broadcast();
@@ -927,7 +930,7 @@ class ChatController extends ChangeNotifier {
       final addrContact = e.contact;
       final primary = e.primary;
       final all = e.all;
-      // F4-4: Validate alternate addresses — only wss:// and no private IPs.
+      // F3/F4-4: Validate relay addresses — only wss:// and no private IPs.
       // Without this an attacker can inject http://attacker.com as an alternate,
       // causing SmartRouter to fall back to the attacker's logging server.
       bool isValidAltAddr(String addr) {
@@ -936,11 +939,32 @@ class ChatController extends ChangeNotifier {
         try {
           final urlPart = addr.substring(addr.indexOf('@') + 1);
           final uri = Uri.parse(urlPart);
-          final host = uri.host;
-          if (host == 'localhost' || host == '127.0.0.1' || host == '::1') return false;
-          if (host.startsWith('192.168.') || host.startsWith('10.')) return false;
+          final h = uri.host;
+          if (h.isEmpty || h == 'localhost' || h == '127.0.0.1' ||
+              h == '::1' || h == '0.0.0.0') { return false; }
+          if (h.startsWith('192.168.') || h.startsWith('10.') ||
+              h.startsWith('169.254.')) { return false; }
+          if (h.startsWith('172.')) {
+            final seg = int.tryParse(h.split('.').elementAtOrNull(1) ?? '');
+            if (seg != null && seg >= 16 && seg <= 31) return false;
+          }
+          if (h.startsWith('100.')) {
+            final seg = int.tryParse(h.split('.').elementAtOrNull(1) ?? '');
+            if (seg != null && seg >= 64 && seg <= 127) return false;
+          }
+          if (h.startsWith('fc') || h.startsWith('fd')) return false;
         } catch (_) { return false; }
         return true;
+      }
+      // F2 fix: validate the new primary Nostr address before promoting it to
+      // databaseId. An attacker who can forge/replay an addr_update could point
+      // the contact's primary to an internal relay (SSRF).
+      if (primary.toLowerCase().contains('@wss://') ||
+          primary.toLowerCase().contains('@ws://')) {
+        if (!isValidAltAddr(primary)) {
+          debugPrint('[ChatController] addr_update: invalid primary $primary, ignoring');
+          return;
+        }
       }
       final alts = <String>{...addrContact.alternateAddresses};
       if (addrContact.databaseId.isNotEmpty && addrContact.databaseId != primary) {
@@ -948,9 +972,13 @@ class ChatController extends ChangeNotifier {
       }
       alts.addAll(all.where((a) => a != primary && isValidAltAddr(a)));
       alts.remove(primary);
+      // F5 fix: cap alternate addresses to prevent unbounded list growth.
+      const maxAlts = 20;
       final updated = addrContact.copyWith(
         databaseId: primary,
-        alternateAddresses: alts.toList(),
+        alternateAddresses: alts.length > maxAlts
+            ? alts.take(maxAlts).toList()
+            : alts.toList(),
       );
       await _contacts.updateContact(updated);
       _invalidateContactIndex();
@@ -998,9 +1026,15 @@ class ChatController extends ChangeNotifier {
           .firstWhere((c) => c?.isGroup == true && c?.id == e.groupId, orElse: () => null);
       if (group == null) return;
       // Only the group creator may update membership.
+      // F1 fix: reject updates for groups without a creatorId — a null/empty
+      // creatorId means the check was previously skipped, letting anyone update.
       // FINDING-2 fix: creatorId is a UUID but e.senderId is a transport
       // address — they were never equal. Resolve sender to a contact UUID first.
-      if (group.creatorId != null && group.creatorId!.isNotEmpty) {
+      if (group.creatorId == null || group.creatorId!.isEmpty) {
+        debugPrint('[Group] Rejected group_update: group has no creatorId');
+        return;
+      }
+      {
         final senderContact = _contacts.contacts.cast<Contact?>()
             .firstWhere((c) => c != null && c.databaseId == e.senderId,
                 orElse: () => null);
@@ -1251,10 +1285,24 @@ class ChatController extends ChangeNotifier {
 
               bool skipMessage = false;
               if (MediaService.isChunkPayload(finalText)) {
+                // Track which contact is sending this file (F7 fix: stall
+                // chunk_req should only go to the actual sender).
+                try {
+                  final chunkMap = jsonDecode(finalText) as Map<String, dynamic>;
+                  final chunkFid = chunkMap['fid'] as String?;
+                  if (chunkFid != null && chunkFid.isNotEmpty) {
+                    _chunkSenderIds[chunkFid] = senderContact.id;
+                  }
+                } catch (_) {}
                 final assembled = _chunkAssembler.handleChunk(finalText);
                 if (assembled == null) {
                   skipMessage = true;
                 } else {
+                  // Transfer complete — clean up sender tracking.
+                  try {
+                    final chunkMap = jsonDecode(finalText) as Map<String, dynamic>;
+                    _chunkSenderIds.remove(chunkMap['fid']);
+                  } catch (_) {}
                   finalText = assembled;
                 }
               }
@@ -2109,10 +2157,13 @@ class ChatController extends ChangeNotifier {
           '$senderUuid (declared creator: ${invite.creatorId})');
       return;
     }
-    // Reject invite where our own ID is absent from the member list.
+    // Reject invite where our own UUID is absent from the member list.
     // Prevents joining a group in an inconsistent state where we're not
     // listed as a member (e.g., relay replaying an old invite to someone else).
-    if (_selfId.isNotEmpty && !invite.members.contains(_selfId)) {
+    // F6 fix: use _identity?.id (UUID) not _selfId (transport address).
+    // group.members contains UUIDs; _selfId is "pubkey@relay" — never a match.
+    final myUuid = _identity?.id ?? '';
+    if (myUuid.isNotEmpty && !invite.members.contains(myUuid)) {
       debugPrint('[Group] Rejected invite: self not listed in members');
       return;
     }
@@ -2476,8 +2527,16 @@ class ChatController extends ChangeNotifier {
         if (!_chunkAssembler.isStalled(fid)) continue;
         final missing = _chunkAssembler.getMissingChunks(fid);
         if (missing == null || missing.isEmpty) continue;
-        for (final contact in _contacts.contacts) {
-          unawaited(_sendSignalTo(contact, 'chunk_req', {
+        // F7 fix: send chunk_req only to the contact who started this transfer.
+        // Broadcasting to all contacts leaks file IDs and lets unrelated
+        // contacts inject fake chunks.
+        final senderId = _chunkSenderIds[fid];
+        final senderContact = senderId != null
+            ? _contacts.contacts.cast<Contact?>()
+                .firstWhere((c) => c?.id == senderId, orElse: () => null)
+            : null;
+        if (senderContact != null) {
+          unawaited(_sendSignalTo(senderContact, 'chunk_req', {
             'fid': fid,
             'missing': missing,
           }));
