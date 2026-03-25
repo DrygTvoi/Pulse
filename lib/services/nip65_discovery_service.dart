@@ -68,6 +68,9 @@ class Nip65DiscoveryService {
       final uri = Uri.tryParse(url);
       if (uri == null || uri.host.isEmpty) continue;
       if (knownHosts.contains(uri.host)) continue;
+      // Reject private/loopback hosts — a malicious kind:10002 event could
+      // inject wss://127.0.0.1:9999 and cause TCP probing of localhost services.
+      if (_isNip65HostPrivate(uri.host)) continue;
       final port = (uri.hasPort && uri.port != 0) ? uri.port : 443;
       candidates.add((uri.host, port));
     }
@@ -184,4 +187,22 @@ class Nip65DiscoveryService {
     }
     return relays;
   }
+}
+
+/// Returns true if [host] is a loopback, private, or link-local address.
+/// Prevents SSRF via malicious kind:10002 events supplying private-IP relay URLs.
+bool _isNip65HostPrivate(String host) {
+  if (host.isEmpty || host == 'localhost' || host == '::1') return true;
+  if (host.startsWith('127.') || host.startsWith('169.254.')) return true;
+  if (host.startsWith('10.') || host.startsWith('192.168.')) return true;
+  if (host.startsWith('172.')) {
+    final second = int.tryParse(host.split('.').elementAtOrNull(1) ?? '');
+    if (second != null && second >= 16 && second <= 31) return true;
+  }
+  if (host.startsWith('100.')) {
+    final second = int.tryParse(host.split('.').elementAtOrNull(1) ?? '');
+    if (second != null && second >= 64 && second <= 127) return true;
+  }
+  if (host.startsWith('fc') || host.startsWith('fd')) return true;
+  return false;
 }

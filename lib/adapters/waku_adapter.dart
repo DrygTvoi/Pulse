@@ -417,7 +417,8 @@ class WakuMessageSender implements MessageSender {
       try {
         final m = jsonDecode(apiKey) as Map<String, dynamic>;
         final nodeUrl = m['nodeUrl'] as String?;
-        if (nodeUrl != null && nodeUrl.isNotEmpty) _nodeUrl = nodeUrl;
+        if (nodeUrl != null && nodeUrl.isNotEmpty &&
+            !WakuInboxReader._isPrivateWakuUrl(nodeUrl)) { _nodeUrl = nodeUrl; }
         if ((m['userId'] as String?)?.isNotEmpty == true) _userId = m['userId'] as String;
       } catch (e) {
         debugPrint('[Waku] Sender failed to parse apiKey JSON: $e');

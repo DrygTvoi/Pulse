@@ -325,10 +325,14 @@ class OxenInboxReader implements InboxReader {
       _lastActivity = DateTime.now(); // reset to active polling
 
       if (outer['t'] == 'sig') {
+        final sigType   = outer['type']     as String? ?? '';
+        final sigSender = outer['senderId'] as String? ?? '';
+        final sigRoom   = outer['roomId']   as String? ?? '';
+        if (sigType.isEmpty || sigSender.isEmpty) return; // malformed signal
         _sigCtrl.add([{
-          'type': outer['type'],
-          'senderId': outer['senderId'],
-          'roomId': outer['roomId'],
+          'type': sigType,
+          'senderId': sigSender,
+          'roomId': sigRoom,
           'payload': outer['payload'],
         }]);
       } else {
@@ -385,6 +389,7 @@ class OxenInboxReader implements InboxReader {
         try {
           final raw = item['data'] as String? ?? '';
           if (raw.isEmpty) continue;
+          if (raw.length > 700000) continue; // DoS guard — matches _dispatch
           final bytes = base64.decode(raw);
           final outer = jsonDecode(utf8.decode(bytes)) as Map<String, dynamic>;
           if (outer['t'] == 'sig' && outer['type'] == 'sys_keys') {
