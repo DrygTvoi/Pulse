@@ -32,7 +32,14 @@ class KeyExportService {
   // File format constants — same scheme as message backup in LocalStorageService
   static const _kMagic = [0x50, 0x4C, 0x4B, 0x45]; // "PLKE"
   static const _kVersion = 1;
-  static const _kPbkdf2Iterations = 200000; // OWASP 2023
+  // 600 000 iterations: OWASP 2025 PBKDF2-HMAC-SHA256 recommendation.
+  // The export file is subject to offline brute-force (attacker receives the
+  // file and can try passwords at GPU speed).  Higher iterations directly
+  // reduce the feasibility of dictionary attacks on weak export passwords.
+  // Account creation uses Argon2id (memory-hard, ~1000× stronger per guess),
+  // but the export format stays PBKDF2 for broad compatibility; 600k
+  // iterations narrows the gap without requiring a format version bump.
+  static const _kPbkdf2Iterations = 600000;
   static const _kPbkdf2KeyLen = 32; // 256-bit
   static const _kSaltLen = 16;
   static const _kIvLen = 12;

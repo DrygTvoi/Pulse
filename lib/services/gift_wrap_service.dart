@@ -83,6 +83,14 @@ Future<Map<String, dynamic>> wrapEvent({
   return wrapEvent;
 }
 
+/// Maximum age of a gift-wrap outer event.
+/// NIP-44 nonce cache TTL is 7 days; 14 days gives a safety margin while
+/// blocking old archived events that a relay could replay after nonce expiry.
+const _kMaxWrapAgeSeconds = 14 * 24 * 3600;
+
+/// Maximum future drift allowed (2 × the ±1 h jitter added at wrap time).
+const _kMaxWrapFutureSeconds = 7200;
+
 /// Unwrap a Gift Wrap event (kind:1059).
 ///
 /// Returns the verified inner event, or null if verification fails.
@@ -95,6 +103,23 @@ Future<Map<String, dynamic>?> unwrapEvent({
   try {
     final wrapKind = wrapEvent['kind'] as int?;
     if (wrapKind != 1059) return null;
+
+    // Reject events with implausible timestamps.
+    // Without this check, a relay can archive kind:1059 events and replay
+    // them to a freshly-connected client after the NIP-44 nonce cache (7d)
+    // expires, bypassing replay detection entirely.
+    final wrapTs = wrapEvent['created_at'] as int?;
+    if (wrapTs != null) {
+      final nowSec = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+      if (nowSec - wrapTs > _kMaxWrapAgeSeconds) {
+        debugPrint('[GiftWrap] Rejected stale event (age=${nowSec - wrapTs}s)');
+        return null;
+      }
+      if (wrapTs - nowSec > _kMaxWrapFutureSeconds) {
+        debugPrint('[GiftWrap] Rejected future-dated event (drift=${wrapTs - nowSec}s)');
+        return null;
+      }
+    }
 
     final ephemeralPubkey = wrapEvent['pubkey'] as String? ?? '';
     final wrapContent = wrapEvent['content'] as String? ?? '';
