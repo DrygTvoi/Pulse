@@ -579,6 +579,10 @@ String _nip04Decrypt(String recipientPrivkeyHex, String senderPubkeyHex, String 
   } else {
     ivB64 = ivSplit[1];
   }
+  // Size cap before allocation — attacker can send huge NIP-04 ciphertext in a
+  // valid-sig event (relay signs the outer event, not the ciphertext).
+  if (ctB64.length > 131072) throw FormatException('NIP-04: ciphertext too large');
+  if (ivB64.length > 64) throw FormatException('NIP-04: IV too large');
   final ct = base64.decode(ctB64);
   final iv = base64.decode(ivB64);
   final sharedX = computeEcdhSecret(recipientPrivkeyHex, senderPubkeyHex, context: 'nip04');
@@ -611,6 +615,30 @@ String _nip04Decrypt(String recipientPrivkeyHex, String senderPubkeyHex, String 
     }
   }
   return utf8.decode(plainBytes.sublist(0, plainBytes.length - padLen));
+}
+
+// ─── Relay URL validation (shared by InboxReader and MessageSender) ──────────
+
+/// Returns true if [url] is a syntactically valid WebSocket relay URL and
+/// does not point to a loopback or RFC-1918 private address.
+bool _isValidRelayUrl(String url) {
+  try {
+    final uri = Uri.parse(url);
+    if ((uri.scheme != 'wss' && uri.scheme != 'ws') ||
+        uri.host.isEmpty || uri.host.length > 255 || url.length > 2048) {
+      return false;
+    }
+    final h = uri.host.toLowerCase();
+    if (h == 'localhost' || h == '127.0.0.1' || h == '::1' || h == '0.0.0.0') return false;
+    if (h.startsWith('10.') || h.startsWith('192.168.') || h.startsWith('169.254.')) return false;
+    if (h.startsWith('172.')) {
+      final second = int.tryParse(h.split('.').elementAtOrNull(1) ?? '');
+      if (second != null && second >= 16 && second <= 31) return false;
+    }
+    return true;
+  } catch (_) {
+    return false;
+  }
 }
 
 // ─── InboxReader ─────────────────────────────────────────
@@ -714,18 +742,6 @@ class NostrInboxReader implements InboxReader {
     }
   }
 
-  /// Returns true if [url] is a syntactically valid WebSocket relay URL.
-  static bool _isValidRelayUrl(String url) {
-    try {
-      final uri = Uri.parse(url);
-      return (uri.scheme == 'wss' || uri.scheme == 'ws') &&
-          uri.host.isNotEmpty &&
-          uri.host.length <= 255 &&
-          url.length <= 2048;
-    } catch (_) {
-      return false;
-    }
-  }
 
   void _trackSeenId(String id) {
     // Time-based eviction: remove entries older than 30 minutes first.
@@ -858,14 +874,16 @@ class NostrInboxReader implements InboxReader {
               // NIP-42: respond to AUTH challenges from the relay.
               if (data[0] == 'AUTH' && data.length >= 2) {
                 final rawChallenge = data[1] as String?;
-                // F2-6: Cap challenge to 256 bytes — a relay cannot force us
-                // to sign an arbitrarily large payload.
-                final challenge = rawChallenge != null && rawChallenge.length > 256
-                    ? rawChallenge.substring(0, 256)
-                    : rawChallenge;
-                if (challenge != null && _privateKeyHex.isNotEmpty) {
+                // Reject oversized AUTH challenges — no legitimate relay sends
+                // challenges longer than 64 bytes. Truncating and signing a
+                // prefix would produce a signature the relay cannot verify anyway.
+                if (rawChallenge == null || rawChallenge.length > 256) {
+                  debugPrint('[Nostr] AUTH: challenge absent or too long, ignoring');
+                  continue;
+                }
+                if (_privateKeyHex.isNotEmpty) {
                   unawaited(_nostrRespondToAuth(
-                      channel, _relayUrl, challenge, _privateKeyHex));
+                      channel, _relayUrl, rawChallenge, _privateKeyHex));
                 }
                 continue;
               }
@@ -875,13 +893,15 @@ class NostrInboxReader implements InboxReader {
               final id = event['id'] as String?;
               if (id == null || id.isEmpty) continue;
               if (_seenIds.containsKey(id)) continue;
-              _trackSeenId(id);
-              final ts = event['created_at'] as int?;
-              // Verify Schnorr signature — reject relay-injected events.
+              // Track AFTER signature verification — a relay sending an invalid-sig
+              // event with a real ID would poison the dedup cache and suppress the
+              // legitimate event for up to 30 minutes.
               if (!eb.verifyEventSignature(event)) {
                 debugPrint('[Nostr] Dropped event with invalid signature: $id');
                 continue;
               }
+              _trackSeenId(id);
+              final ts = event['created_at'] as int?;
               // F6: Only advance 'since' after signature passes; clamp to
               // local clock + 5 min to reject relay-injected future timestamps
               // that would cause us to miss legitimate past messages.
@@ -958,6 +978,16 @@ class NostrInboxReader implements InboxReader {
         debugPrint('[Nostr] Gift Wrap: failed to unwrap');
         return;
       }
+      // Reject inner events older than 7 days — the outer envelope timestamp
+      // has ±1h jitter for privacy, but the inner event's created_at is
+      // authentic (signed by sender). Without this check, an archived inner
+      // event can be replayed after the 30-minute _seenIds TTL expires.
+      final innerTs = (inner['created_at'] as int?) ?? 0;
+      final nowSec = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+      if (innerTs < nowSec - 7 * 86400) {
+        debugPrint('[Nostr] Gift Wrap: inner event too old ($innerTs), dropping');
+        return;
+      }
       // F2-3: Dedup inner event by inner event ID — outer ID (ephemeral) changes
       // on every re-broadcast, so we must check the semantic inner ID.
       final innerId = inner['id'] as String? ?? '';
@@ -1018,18 +1048,12 @@ class NostrInboxReader implements InboxReader {
       }
 
       if (isNip44) {
-        try {
-          plain = await nip44.nip44DecryptWithKeys(_privateKeyHex, senderPubkey, content);
-        } catch (e) {
-          final msg = e.toString().toLowerCase();
-          // Only fall back if it's a format mismatch, NOT an authentication failure
-          if (msg.contains('mac') || msg.contains('auth') || msg.contains('replay') ||
-              msg.contains('invalid signature')) {
-            rethrow; // authentication failure — do not downgrade
-          }
-          // Structural format error — might be NIP-04 with coincidental first byte
-          plain = _nip04Decrypt(_privateKeyHex, senderPubkey, content);
-        }
+        // Do NOT fall back to NIP-04 on any NIP-44 failure — a crafted structural
+        // error (e.g. "NIP-44: padded data too short") would bypass auth-failure
+        // detection and attempt NIP-04 decryption of attacker-controlled ciphertext.
+        // The "coincidental 0x02 first byte" NIP-04 case is a vanishing edge case
+        // that we sacrifice for security. NIP-44 is mandatory when indicated.
+        plain = await nip44.nip44DecryptWithKeys(_privateKeyHex, senderPubkey, content);
       } else {
         plain = _nip04Decrypt(_privateKeyHex, senderPubkey, content);
       }
@@ -1274,10 +1298,11 @@ class NostrMessageSender implements MessageSender {
     _customProxyPort = prefs.getInt('custom_proxy_port') ?? 10808;
     _cfWorkerRelay = prefs.getString('cf_worker_relay') ?? '';
 
-    // If relay is still the hardcoded default, try adaptive CF relay or probe-suggested
+    // If relay is still the hardcoded default, try adaptive CF relay or probe-suggested.
+    // Mirror the Reader path validation — apply _isValidRelayUrl to both sources.
     if (_relayUrl == _defaultRelay) {
       final adaptive = prefs.getString('adaptive_cf_relay') ?? '';
-      if (adaptive.isNotEmpty) {
+      if (adaptive.isNotEmpty && _isValidRelayUrl(adaptive)) {
         _relayUrl = adaptive;
       } else {
         var probed = prefs.getString('probe_nostr_relay') ?? '';
@@ -1285,7 +1310,7 @@ class NostrMessageSender implements MessageSender {
           if (!probed.startsWith('ws://') && !probed.startsWith('wss://')) {
             probed = 'wss://$probed';
           }
-          _relayUrl = probed;
+          if (_isValidRelayUrl(probed)) _relayUrl = probed;
         }
       }
     }
@@ -1401,7 +1426,10 @@ class NostrMessageSender implements MessageSender {
 
     final parts = targetDatabaseId.split('@');
     final recipientPubkey = parts[0];
-    final relay = parts.length > 1 ? parts.sublist(1).join('@') : _relayUrl;
+    // Validate relay URL extracted from contact address — a malicious contact
+    // imported via deep-link could set relay to ws://192.168.x.x/exfil.
+    final rawRelay = parts.length > 1 ? parts.sublist(1).join('@') : '';
+    final relay = (rawRelay.isNotEmpty && _isValidRelayUrl(rawRelay)) ? rawRelay : _relayUrl;
 
     try {
       // Wrap kind:4 message in Gift Wrap (NIP-59) for metadata privacy
@@ -1431,7 +1459,8 @@ class NostrMessageSender implements MessageSender {
 
     final parts = targetDatabaseId.split('@');
     final recipientPubkey = parts[0];
-    final relay = parts.length > 1 ? parts.sublist(1).join('@') : _relayUrl;
+    final rawRelayS = parts.length > 1 ? parts.sublist(1).join('@') : '';
+    final relay = (rawRelayS.isNotEmpty && _isValidRelayUrl(rawRelayS)) ? rawRelayS : _relayUrl;
 
     // Signal key bundle (sys_keys): must use real key (kind 10009, replaceable by pubkey).
     if (type == 'sys_keys') {

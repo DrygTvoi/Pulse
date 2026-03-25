@@ -272,6 +272,11 @@ Future<String> nip44Encrypt(Uint8List sharedX, String plaintext) async {
 
 /// Step 5: Decrypt NIP-44 v2 payload.
 Future<String> nip44Decrypt(Uint8List sharedX, String payload) async {
+  // Cap before decoding — a malicious relay can send a multi-MB base64 payload
+  // that passes Schnorr verification (relay signs its own valid event), causing
+  // an unbounded allocation before HMAC authentication runs.
+  // NIP-44 spec max plaintext is 65535 bytes; padded+nonce+mac ≤ ~66 KB.
+  if (payload.length > 131072) throw FormatException('NIP-44: payload too large');
   final raw = base64.decode(payload);
   if (raw.length < 1 + 32 + _minPadSize + 32) {
     throw FormatException('NIP-44: payload too short');
