@@ -251,10 +251,16 @@ class FirebaseInboxReader implements InboxReader {
                 final data = buf['data'];
                 if (buf['path'] == '/' && data is Map) {
                   data.forEach((key, value) {
-                    if (value is Map) signals.add(Map<String, dynamic>.from(value));
+                    if (value is Map) {
+                      final sig = Map<String, dynamic>.from(value);
+                      sig['adapterType'] = 'firebase';
+                      signals.add(sig);
+                    }
                   });
                 } else if (buf['path'] != '/' && data is Map) {
-                  signals.add(Map<String, dynamic>.from(data));
+                  final sig = Map<String, dynamic>.from(data);
+                  sig['adapterType'] = 'firebase';
+                  signals.add(sig);
                 }
                 if (signals.isNotEmpty) yield signals;
               } catch (e) {
