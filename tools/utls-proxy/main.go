@@ -39,6 +39,7 @@ package main
 
 import (
 	crand "crypto/rand"
+	"crypto/subtle"
 	"crypto/tls"
 	"encoding/base64"
 	"encoding/hex"
@@ -71,7 +72,8 @@ var proxyToken string
 // requireProxyToken is a middleware guard for Yggdrasil API endpoints.
 // Returns false and writes 403 if the token is absent or wrong.
 func requireProxyToken(w http.ResponseWriter, r *http.Request) bool {
-	if r.Header.Get("X-Proxy-Token") != proxyToken {
+	got := r.Header.Get("X-Proxy-Token")
+	if subtle.ConstantTimeCompare([]byte(got), []byte(proxyToken)) != 1 {
 		http.Error(w, "forbidden", http.StatusForbidden)
 		return false
 	}

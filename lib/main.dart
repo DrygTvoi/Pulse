@@ -248,7 +248,7 @@ class _PulseAppState extends State<PulseApp> with WidgetsBindingObserver {
     if ((uri.scheme == 'pulse' && uri.host == 'add') ||
         (uri.scheme == 'messenger' && uri.host == 'join')) {
       final config64 = uri.queryParameters['cfg'];
-      if (config64 != null) {
+      if (config64 != null && config64.length <= 16384) {
         try {
           final configStr = utf8.decode(base64Decode(config64));
           setState(() {
