@@ -185,7 +185,10 @@ class PsiphonService {
 
   Future<void> stop() async {
     _stopped = true;
-    _restartCount = 0; // reset so next ensureRunning() starts with minimal delay
+    // Do NOT reset _restartCount here — a rapid stop()/ensureRunning() loop
+    // (e.g. triggered by an attacker causing repeated network changes) would
+    // otherwise bypass the _maxRestarts cap and allow unbounded process spawning.
+    // _restartCount is reset to 0 in _start() when the tunnel successfully connects.
     _process?.kill();
     await _process?.exitCode.catchError((_) => -1);
     _process = null;

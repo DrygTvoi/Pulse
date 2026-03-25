@@ -103,9 +103,13 @@ class RelayDirectoryService {
       }
 
       final prefs = await SharedPreferences.getInstance();
+      // Cap to 500 — relay APIs can return up to 1500 entries across 3 sources,
+      // and SharedPreferences has no size limit; uncapped lists can cause slow
+      // reads/writes and excess memory allocation.
+      final capped = ordered.length > 500 ? ordered.sublist(0, 500) : ordered;
       await prefs.setString(_cacheKey, jsonEncode({
         'ts':     DateTime.now().toIso8601String(),
-        'relays': ordered,
+        'relays': capped,
       }));
       debugPrint('[RelayDir] Discovered ${ordered.length} relay(s) from directories');
       return _urlsToCandidates(ordered);
