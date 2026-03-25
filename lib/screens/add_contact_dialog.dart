@@ -518,7 +518,8 @@ class _AddContactDialogState extends State<AddContactDialog> {
       return null;
     }
     if (addresses.isEmpty) return null;
-    final rawName = (json['n'] as String?)?.trim() ?? '';
+    final rawName = ((json['n'] as String?)?.trim() ?? '')
+        .replaceAll(RegExp(r'[\u200B-\u200D\u202A-\u202E\u061C\u2066-\u2069\uFEFF]'), '');
     final name = rawName.length > 128 ? rawName.substring(0, 128) : rawName;
     return (name: name, addresses: addresses);
   } catch (e) {

@@ -106,8 +106,8 @@ class Message {
       scheduledAt: json['scheduledAt'] != null
           ? DateTime.tryParse(json['scheduledAt'].toString())
           : null,
-      readBy: (json['readBy'] as List<dynamic>?)?.cast<String>() ?? const [],
-      deliveredTo: (json['deliveredTo'] as List<dynamic>?)?.cast<String>() ?? const [],
+      readBy: (json['readBy'] as List<dynamic>?)?.whereType<String>().toList() ?? const [],
+      deliveredTo: (json['deliveredTo'] as List<dynamic>?)?.whereType<String>().toList() ?? const [],
     );
   }
 

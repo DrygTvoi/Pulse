@@ -440,7 +440,7 @@ class SignalingService {
         debugPrint('[Signaling] Secondary PC creation failed, skipping offer');
         return;
       }
-      await _secondaryPc!.setRemoteDescription(RTCSessionDescription(sdp, data['type']));
+      await _secondaryPc!.setRemoteDescription(RTCSessionDescription(sdp, data['type'] as String? ?? 'offer'));
       final answer = await _secondaryPc!.createAnswer();
       final constrained = _applyAudioConstraints(answer, restricted: true);
       await _secondaryPc!.setLocalDescription(constrained);
@@ -458,7 +458,7 @@ class SignalingService {
         debugPrint('[Signaling] Rejected secondary answer SDP without a=fingerprint:');
         return;
       }
-      await _secondaryPc?.setRemoteDescription(RTCSessionDescription(sdp, data['type']));
+      await _secondaryPc?.setRemoteDescription(RTCSessionDescription(sdp, data['type'] as String? ?? 'answer'));
     } catch (e) {
       debugPrint('[Signaling] handleSecondaryAnswer error: $e');
     }
