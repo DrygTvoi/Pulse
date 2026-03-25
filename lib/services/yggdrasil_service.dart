@@ -110,13 +110,17 @@ class YggdrasilService {
             .transform(utf8.decoder)
             .join()
             .timeout(const Duration(seconds: 3));
+        if (body.length > 65536) {
+          throw FormatException('Yggdrasil /ygg response too large (${body.length} bytes)');
+        }
         final data     = jsonDecode(body) as Map<String, dynamic>;
         final addr     = data['addr']      as String?;
         final pubkey   = data['pubkey']    as String?;
         final turnPort = (data['turn_port'] as num?)?.toInt() ?? 0;
         final turnUser = data['user']      as String? ?? '';
         final turnPass = data['pass']      as String? ?? '';
-        if (addr != null && addr.isNotEmpty && turnPort > 0 &&
+        if (addr != null && addr.isNotEmpty &&
+            turnPort > 0 && turnPort <= 65535 &&
             turnUser.isNotEmpty && turnPass.isNotEmpty) {
           _address      = addr;
           _pubkey       = pubkey;
@@ -178,6 +182,9 @@ class YggdrasilService {
             .transform(utf8.decoder)
             .join()
             .timeout(const Duration(seconds: 2));
+        if (body.length > 4096) {
+          throw FormatException('Yggdrasil /ygg/proxy response too large');
+        }
         final data      = jsonDecode(body) as Map<String, dynamic>;
         final localPort = data['local_port'] as int?;
         if (localPort != null && localPort >= 1 && localPort <= 65535) {

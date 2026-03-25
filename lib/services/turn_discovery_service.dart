@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:web_socket_channel/io.dart';
 import 'cloudflare_ip_service.dart';
+import 'nostr_event_builder.dart' as eb;
 
 // ── NIP-117 TURN Discovery ─────────────────────────────────────────────────────
 //
@@ -85,6 +86,7 @@ class TurnDiscoveryService {
     final servers = <Map<String, dynamic>>[];
     for (final list in results) {
       for (final s in list) {
+        if (servers.length >= 50) break; // global cap across all relay results
         final url = s['urls'] as String? ?? '';
         if (url.isNotEmpty && seen.add(url)) {
           servers.add(s);
@@ -172,6 +174,15 @@ class TurnDiscoveryService {
           if (msg[0] != 'EVENT' || msg.length < 3) continue;
 
           final event = msg[2] as Map<String, dynamic>;
+          // Verify Schnorr signature before trusting any event content.
+          // A hostile relay can inject arbitrary kind:10010 events; without
+          // verification an attacker can add their own TURN server to every
+          // victim's ICE config, correlating call metadata.
+          if (!eb.verifyEventSignature(event)) {
+            debugPrint('[NIP-117] Dropped event with invalid signature');
+            continue;
+          }
+          if (servers.length >= 50) break; // per-relay cap — relay cannot memory-exhaust us
           final tags  = event['tags'] as List? ?? [];
 
           for (final tag in tags) {
@@ -203,11 +214,16 @@ class TurnDiscoveryService {
             final entry = <String, dynamic>{'urls': turnUrl};
             if (tag.length >= 3) {
               final username = tag[2] as String? ?? '';
-              if (username.isNotEmpty) entry['username'] = username;
+              // Cap credential length — a 1 MB credential would overflow SharedPrefs
+              if (username.isNotEmpty && username.length <= 512) {
+                entry['username'] = username;
+              }
             }
             if (tag.length >= 4) {
               final credential = tag[3] as String? ?? '';
-              if (credential.isNotEmpty) entry['credential'] = credential;
+              if (credential.isNotEmpty && credential.length <= 512) {
+                entry['credential'] = credential;
+              }
             }
             servers.add(entry);
           }
@@ -233,6 +249,9 @@ class TurnDiscoveryService {
 /// that should never appear as a TURN server host in NIP-117 events.
 bool _isTurnHostPrivate(String host) {
   if (host.isEmpty) return true;
+  // IPv6-mapped IPv4 (::ffff:a.b.c.d) — recursively check the IPv4 part.
+  // Without this, turn:[::ffff:127.0.0.1] bypasses all IPv4 checks below.
+  if (host.startsWith('::ffff:')) return _isTurnHostPrivate(host.substring(7));
   // IPv4
   if (host == 'localhost') return true;
   if (host.startsWith('127.') || host.startsWith('169.254.')) return true;
