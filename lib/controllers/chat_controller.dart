@@ -1118,7 +1118,11 @@ class ChatController extends ChangeNotifier {
         break;
       }
     }
-    final readerId = reader?.id ?? fromId;
+    // FINDING-7 fix: reject receipts from unresolved senders.
+    // The fallback reader?.id ?? fromId would let an attacker forge a receipt
+    // by sending a UUID that happens to match a group member's ID.
+    if (reader == null) return;
+    final readerId = reader.id;
     if (!groupContact.members.contains(readerId)) return;
     final room = _repo.getRoomForContact(groupContact.id);
     if (room == null) return;
@@ -1901,6 +1905,12 @@ class ChatController extends ChangeNotifier {
         if (cId != fromId && cId.split('@').first != fromId) continue;
         final idx = room.messages.indexWhere((m) => m.id == msgId);
         if (idx != -1) {
+          // FINDING-1 fix: verify the message was sent by this contact.
+          // Without this, a contact could delete your own outgoing messages.
+          final msg = room.messages[idx];
+          final senderPub = msg.senderId.split('@').first;
+          final fromPub = fromId.split('@').first;
+          if (senderPub != fromPub) break;
           room.messages.removeAt(idx);
           unawaited(LocalStorageService().deleteMessage(room.contact.storageKey, msgId));
           _scheduleNotify();
@@ -2523,6 +2533,11 @@ class ChatController extends ChangeNotifier {
   void _startStallCheckTimer() {
     if (_stallCheckTimer?.isActive == true) return;
     _stallCheckTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      // Prune _chunkSenderIds entries for transfers that ChunkAssembler
+      // has already evicted (stale timeout / capacity). Prevents unbounded growth.
+      final activeIds = _chunkAssembler.activeTransferIds.toSet();
+      _chunkSenderIds.removeWhere((fid, _) => !activeIds.contains(fid));
+
       for (final fid in _chunkAssembler.activeTransferIds) {
         if (!_chunkAssembler.isStalled(fid)) continue;
         final missing = _chunkAssembler.getMissingChunks(fid);

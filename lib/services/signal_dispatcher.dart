@@ -564,9 +564,10 @@ class SignalDispatcher {
           if (payload is Map) {
             final msgId = payload['msgId'] as String? ?? '';
             final text = payload['text'] as String? ?? '';
-            final from = payload['from'] as String? ??
-                sig['senderId'] as String? ??
-                '';
+            // FINDING-2 fix: use authenticated transport sender, not
+            // payload['from'] which is attacker-controlled and would allow
+            // an authenticated peer to resolve a different contact as editor.
+            final from = sig['senderId'] as String? ?? '';
             final editGroupId = payload['groupId'] as String?;
             if (msgId.isNotEmpty && text.isNotEmpty) {
               final editContact = _resolveContact(from, contactByDbId);
