@@ -591,6 +591,12 @@ class SignalDispatcher {
                   if (host.isEmpty) return false;
                   if (host == 'localhost' || host == '127.0.0.1' ||
                       host == '::1' || host == '0.0.0.0') { return false; }
+                  if (host.startsWith('10.') || host.startsWith('192.168.') ||
+                      host.startsWith('169.254.')) { return false; }
+                  if (host.startsWith('172.')) {
+                    final seg = int.tryParse(host.split('.').elementAtOrNull(1) ?? '');
+                    if (seg != null && seg >= 16 && seg <= 31) return false;
+                  }
                   return true;
                 }).toList()
               : <String>[];
