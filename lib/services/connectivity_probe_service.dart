@@ -309,7 +309,8 @@ class ConnectivityProbeService {
   /// Probes in batches of 10 to avoid opening hundreds of simultaneous
   /// TCP connections (same DoH-storm fix applied to filterCloudflare).
   Future<void> _healthCheck() async {
-    if (_last.nostrRelays.isEmpty) return;
+    // Don't clobber _last while a full probe is in progress.
+    if (_running || _last.nostrRelays.isEmpty) return;
     debugPrint('[Probe/Health] Checking ${_last.nostrRelays.length} cached relays');
 
     const healthBatchSize = 10;
@@ -461,6 +462,12 @@ class ConnectivityProbeService {
       for (final list in regenResults) {
         for (final c in list) {
           if (c.$1.endsWith('.onion')) continue;
+          // Relay directory APIs could return RFC-1918 / loopback entries.
+          // Reject them to avoid probing internal network services.
+          final h = c.$1;
+          if (h == 'localhost' || h == '127.0.0.1' || h == '::1' ||
+              h.startsWith('192.168.') || h.startsWith('10.') ||
+              h.startsWith('172.16.') || h.startsWith('169.254.')) continue;
           if (seenHosts.add(c.$1)) regenCandidates.add(c);
         }
       }
