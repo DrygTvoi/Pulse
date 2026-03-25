@@ -174,12 +174,15 @@ class _SetupIdentityScreenState extends State<SetupIdentityScreen> {
     final nostrKeyBytes = await KeyDerivationService.deriveNostrKey(password);
     final oxenSeedBytes = await KeyDerivationService.deriveOxenSeed(password);
 
-    // Store Nostr private key
+    // Store Nostr private key; zero key bytes immediately after encoding
     final privkeyHex = hex.encode(nostrKeyBytes);
     await ss.write(key: 'nostr_privkey', value: privkeyHex);
+    nostrKeyBytes.fillRange(0, nostrKeyBytes.length, 0);
 
     // Store Oxen seed so OxenKeyService picks it up on initialize()
-    await ss.write(key: 'oxen_seed', value: hex.encode(oxenSeedBytes));
+    final oxenHex = hex.encode(oxenSeedBytes);
+    await ss.write(key: 'oxen_seed', value: oxenHex);
+    oxenSeedBytes.fillRange(0, oxenSeedBytes.length, 0);
 
     // Signal identity keys — generated fresh (per-device; re-published on connect)
     final signalService = SignalService();
@@ -225,6 +228,10 @@ class _SetupIdentityScreenState extends State<SetupIdentityScreen> {
     await ss.write(key: 'app_password_hash',    value: hash);
     await ss.write(key: 'app_password_salt',    value: salt);
     await ss.write(key: 'app_password_enabled', value: 'true');
+
+    // Clear password text from controllers — best-effort scrub before navigate
+    _passwordController.clear();
+    _confirmController.clear();
 
     if (!mounted) return;
     setState(() => _isLoading = false);

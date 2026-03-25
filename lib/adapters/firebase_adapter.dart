@@ -117,6 +117,7 @@ class FirebaseInboxReader implements InboxReader {
               .transform(utf8.decoder)
               .transform(const LineSplitter())) {
             if (line.startsWith('data: ')) {
+              dataBuffer = null; // reset before parse — prevents stale buffer if JSON fails
               final dataStr = line.substring(6).trim();
               if (dataStr.isEmpty || dataStr == 'null') continue;
               try {
