@@ -590,7 +590,7 @@ class SignalDispatcher {
                   final host = Uri.tryParse(r)?.host ?? '';
                   if (host.isEmpty) return false;
                   if (host == 'localhost' || host == '127.0.0.1' ||
-                      host == '::1' || host == '0.0.0.0') return false;
+                      host == '::1' || host == '0.0.0.0') { return false; }
                   return true;
                 }).toList()
               : <String>[];

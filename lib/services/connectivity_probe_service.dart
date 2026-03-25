@@ -467,7 +467,7 @@ class ConnectivityProbeService {
           final h = c.$1;
           if (h == 'localhost' || h == '127.0.0.1' || h == '::1' ||
               h.startsWith('192.168.') || h.startsWith('10.') ||
-              h.startsWith('172.16.') || h.startsWith('169.254.')) continue;
+              h.startsWith('172.16.') || h.startsWith('169.254.')) { continue; }
           if (seenHosts.add(c.$1)) regenCandidates.add(c);
         }
       }
