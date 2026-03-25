@@ -448,7 +448,7 @@ func (g *yggRelayAddressGenerator) AllocatePacketConn(
 		if _, err := cryptorand.Read(b[:]); err != nil {
 			return nil, nil, fmt.Errorf("AllocatePacketConn: crypto/rand: %w", err)
 		}
-		port := uint16(49152 + (binary.BigEndian.Uint16(b[:]) % 16383))
+		port := uint16(49152 + (binary.BigEndian.Uint16(b[:]) % 16384)) // 16384 covers [49152,65535]
 		relayAddr := &net.UDPAddr{IP: g.addr, Port: int(port)}
 		pconn := newYggPacketConn(g.disp, port, relayAddr)
 		if _, loaded := g.disp.relayPorts.LoadOrStore(port, pconn); !loaded {
@@ -677,8 +677,12 @@ func handleYggProxy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Deduplicate by pubkey+port
-	cacheKey := req.Pubkey + ":" + portStr
+	// Deduplicate by overlay address + port (same key format as the dispatcher's
+	// proxyRoutes table, which uses targetAddr.String()).  Using req.Pubkey
+	// (base64) would be inconsistent: two callers sending the same key in
+	// different encodings would create duplicate goroutines but share one
+	// dispatcher route, causing the first goroutine's incoming channel to starve.
+	cacheKey := targetAddr.String() + ":" + portStr
 	proxyMu.Lock()
 	if existing, ok := proxyMap[cacheKey]; ok {
 		// Read localPort while holding the lock — avoids a race where the
@@ -772,8 +776,15 @@ func runYggOutboundProxy(
 		if err != nil {
 			return
 		}
+		// Lock in the first sender; reject packets from other loopback processes
+		// that might discover and send to this port to hijack the relay stream.
 		clientMu.Lock()
-		clientAddr = from
+		if clientAddr == nil {
+			clientAddr = from
+		} else if clientAddr.String() != from.String() {
+			clientMu.Unlock()
+			continue
+		}
 		clientMu.Unlock()
 
 		if err := disp.send(buf[:n], targetPort, targetAddr); err != nil {
