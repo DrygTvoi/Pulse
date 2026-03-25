@@ -393,6 +393,9 @@ class IceServerConfig {
     }
   }
 
+  /// Public alias — used by connectivity_probe_service to validate peer relay URLs.
+  static bool isPrivateHost(String host) => _isTurnHostPrivate(host);
+
   static bool _isTurnHostPrivate(String host) {
     if (host.isEmpty || host == 'localhost' || host == '::1') return true;
     if (host.startsWith('127.') || host.startsWith('169.254.')) return true;

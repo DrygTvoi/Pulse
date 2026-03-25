@@ -774,6 +774,9 @@ class ConnectivityProbeService {
     for (final url in urls) {
       final uri = Uri.tryParse(url);
       if (uri == null || uri.host.isEmpty) continue;
+      // Reject non-WSS and private/loopback relay hosts stored via peer exchange
+      if (uri.scheme != 'wss') continue;
+      if (IceServerConfig.isPrivateHost(uri.host)) continue;
       if (knownHosts.contains(uri.host)) continue;
       final port = (uri.hasPort && uri.port != 0) ? uri.port : 443;
       candidates.add((uri.host, port));

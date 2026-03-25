@@ -901,7 +901,7 @@ class LocalStorageService {
       'SELECT COUNT(*) AS cnt FROM messages WHERE room_id = ?',
       [roomId],
     );
-    return (result.first['cnt'] as int?) ?? 0;
+    return result.isEmpty ? 0 : (result.first['cnt'] as int?) ?? 0;
   }
 
   /// Load a page of messages using cursor-based pagination (O(log N) via index).
@@ -1038,7 +1038,7 @@ class LocalStorageService {
             [roomId])
         : await db.rawQuery(
             "SELECT COUNT(*) AS cnt FROM messages WHERE data LIKE 'ENC:%'");
-    final encryptedCount = (countResult.first['cnt'] as int?) ?? 0;
+    final encryptedCount = countResult.isEmpty ? 0 : (countResult.first['cnt'] as int?) ?? 0;
 
     if (encryptedCount > 0) {
       const batchSize = 200;
