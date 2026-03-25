@@ -93,6 +93,12 @@ class LanInboxReader implements InboxReader {
       if (type == 'sig') {
         try {
           final sigData = jsonDecode(payload) as Map<String, dynamic>;
+          // Security: override any attacker-supplied adapterType so the
+          // dispatcher cannot be tricked into skipping HMAC verification.
+          // An attacker on the LAN could craft a UDP packet with
+          // adapterType='nostr' in the payload JSON, which the dispatcher
+          // treats as Nostr-Schnorr-verified and skips all HMAC checks.
+          sigData['adapterType'] = 'lan';
           if (!_sigCtrl.isClosed) _sigCtrl.add([sigData]);
         } catch (e) {
           debugPrint('[LAN] Signal JSON parse error: $e');

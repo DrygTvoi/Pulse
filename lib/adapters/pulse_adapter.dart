@@ -412,6 +412,9 @@ class PulseInboxReader implements InboxReader {
       } else {
         signalData = payload;
       }
+      // Security: override adapterType so a compromised/MITM Pulse server
+      // cannot inject adapterType='nostr' and bypass HMAC verification.
+      signalData['adapterType'] = 'pulse';
       if (!_sigCtrl.isClosed) _sigCtrl.add([signalData]);
     } catch (e) {
       debugPrint('[Pulse] Signal dispatch error: $e');
