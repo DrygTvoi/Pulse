@@ -67,7 +67,7 @@ Future<void> _loadNoncesFromDb() async {
   if (_nonceDbLoaded) return;
   _nonceDbLoaded = true;
   try {
-    final entries = await LocalStorageService().loadRecentNonces(maxAgeDays: 2);
+    final entries = await LocalStorageService().loadRecentNonces(maxAgeDays: 7);
     for (final (convKey, nonceHex) in entries) {
       final set = _seenNonces.putIfAbsent(convKey, () => LinkedHashSet<String>());
       if (!set.contains(nonceHex)) {
@@ -82,7 +82,7 @@ Future<void> _loadNoncesFromDb() async {
     }
     debugPrint('[NIP44] Loaded $_totalNonceCount nonces from DB');
     // Purge rows older than 2 days in the background
-    unawaited(LocalStorageService().purgeOldNonces(maxAgeDays: 2));
+    unawaited(LocalStorageService().purgeOldNonces(maxAgeDays: 7));
   } catch (e) {
     debugPrint('[NIP44] Failed to load nonces from DB: $e');
   }

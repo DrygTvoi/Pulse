@@ -1186,7 +1186,7 @@ class ChatController extends ChangeNotifier {
           if (decryptedRaw == rawPayload) {
             final senderPubPrefix = msg.senderId.split('@').first;
             for (final c in _contacts.contacts) {
-              if (c.alternateAddresses.any((a) => a.startsWith(senderPubPrefix))) {
+              if (c.alternateAddresses.any((a) => a.split('@').first == senderPubPrefix)) {
                 try {
                   decryptedRaw = await _signalService.decryptMessage(c.databaseId, rawPayload);
                   break;

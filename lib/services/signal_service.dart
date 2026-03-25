@@ -566,10 +566,9 @@ class SignalService {
     } else {
       throw Exception('Unknown ciphertext type: $type');
     }
-    // allowMalformed: true prevents FormatException if a malicious peer sends
-    // a Signal message that decrypts successfully but contains non-UTF-8 bytes.
-    // Malformed sequences are replaced with U+FFFD rather than crashing.
-    return utf8.decode(plaintext, allowMalformed: true);
+    // Reject non-UTF-8 plaintext: a legitimate peer never produces it, and
+    // silent U+FFFD substitution could corrupt envelope parsing.
+    return utf8.decode(plaintext);
   }
 
   /// Clear sensitive key material from memory.
