@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:convert/convert.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
@@ -184,6 +185,13 @@ class PulseInboxReader implements InboxReader {
         if (type == 'auth_challenge') {
           final nonce = data['nonce'] as String? ?? '';
           final timestamp = data['timestamp']?.toString() ?? '';
+          // Reject oversized nonce (prevents large-string signing spike).
+          if (nonce.isEmpty || nonce.length > 256) {
+            debugPrint('[Pulse] Auth challenge: invalid nonce length (${nonce.length})');
+            if (!completer.isCompleted) completer.complete(false);
+            sub.cancel();
+            return;
+          }
           // Reject stale auth challenges (replayed by MITM).
           final tsVal = int.tryParse(timestamp) ?? 0;
           final serverTime = DateTime.fromMillisecondsSinceEpoch(tsVal * 1000);
@@ -620,6 +628,16 @@ class PulseMessageSender implements MessageSender {
           if (type == 'auth_challenge') {
             final nonce = data['nonce'] as String? ?? '';
             final timestamp = data['timestamp']?.toString() ?? '';
+            // Mirror reader-side validation: reject oversized nonce + stale timestamp.
+            final tsVal = int.tryParse(timestamp) ?? 0;
+            final serverTime = DateTime.fromMillisecondsSinceEpoch(tsVal * 1000);
+            if (nonce.isEmpty || nonce.length > 256 ||
+                DateTime.now().difference(serverTime).abs() > const Duration(minutes: 5)) {
+              debugPrint('[Pulse/Sender] Auth challenge invalid — nonce or timestamp rejected');
+              if (!completer.isCompleted) completer.complete(false);
+              sub.cancel();
+              return;
+            }
             final message = 'pulse-auth-v1:$nonce:$timestamp';
             final signature = await _ed25519Sign(_seed, message);
             channel.sink.add(jsonEncode({
@@ -718,9 +736,11 @@ class PulseMessageSender implements MessageSender {
       final channel = await _getConnection();
       if (channel == null) return false;
 
+      // Append random suffix so rapid-fire messages within the same millisecond
+      // get distinct IDs and are not deduplicated/dropped by the relay.
       final msgId = message.id.isNotEmpty
           ? message.id
-          : '${DateTime.now().millisecondsSinceEpoch}';
+          : '${DateTime.now().millisecondsSinceEpoch}_${Random.secure().nextInt(0xFFFFFF).toRadixString(16)}';
 
       channel.sink.add(jsonEncode({
         'type': 'send',
@@ -767,7 +787,7 @@ class PulseMessageSender implements MessageSender {
       channel.sink.add(jsonEncode({
         'type': 'signal',
         'payload': {
-          'id': '${DateTime.now().millisecondsSinceEpoch}_${type.hashCode}',
+          'id': '${DateTime.now().millisecondsSinceEpoch}_${Random.secure().nextInt(0xFFFFFF).toRadixString(16)}',
           'to': targetPubkey,
           'payload': signalPayload,
         },
