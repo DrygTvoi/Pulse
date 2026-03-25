@@ -186,8 +186,16 @@ class TurnDiscoveryService {
             // A malicious relay could supply turn:127.0.0.1:3478 to exfiltrate
             // TURN credentials (username/password in tag[2]/tag[3]) to a LAN service.
             // TURN URI format (RFC 7065): turn:host[:port][?transport=...]
+            // IPv6 addrs are bracket-enclosed: turn:[2001:db8::1]:3478
             final afterScheme = turnUrl.substring(turnUrl.indexOf(':') + 1);
-            final turnHost = afterScheme.split('?').first.split(':').first.toLowerCase();
+            final String turnHost;
+            final bracketEnd = afterScheme.indexOf(']');
+            if (afterScheme.startsWith('[') && bracketEnd > 0) {
+              // Extract bare IPv6 address from brackets
+              turnHost = afterScheme.substring(1, bracketEnd).toLowerCase();
+            } else {
+              turnHost = afterScheme.split('?').first.split(':').first.toLowerCase();
+            }
             if (_isTurnHostPrivate(turnHost)) {
               debugPrint('[NIP-117] Rejected private-host TURN URL: $turnUrl');
               continue;
@@ -225,7 +233,8 @@ class TurnDiscoveryService {
 /// that should never appear as a TURN server host in NIP-117 events.
 bool _isTurnHostPrivate(String host) {
   if (host.isEmpty) return true;
-  if (host == 'localhost' || host == '::1') return true;
+  // IPv4
+  if (host == 'localhost') return true;
   if (host.startsWith('127.') || host.startsWith('169.254.')) return true;
   if (host.startsWith('10.')) return true;
   if (host.startsWith('192.168.')) return true;
@@ -239,5 +248,9 @@ bool _isTurnHostPrivate(String host) {
     final second = int.tryParse(host.split('.').elementAtOrNull(1) ?? '');
     if (second != null && second >= 16 && second <= 31) return true;
   }
+  // IPv6 — loopback, link-local, ULA (fc00::/7 covers fc00:: and fd00::)
+  if (host == '::1') return true;
+  if (host.startsWith('fe80:')) return true; // link-local
+  if (host.startsWith('fc') || host.startsWith('fd')) return true; // ULA fc00::/7
   return false;
 }
