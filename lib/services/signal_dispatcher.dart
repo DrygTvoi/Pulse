@@ -315,6 +315,9 @@ class SignalDispatcher {
     // F-TTL fix: ttl_update must be authenticated — an unauthenticated sender
     // could set TTL to 0 and silently wipe all messages in a conversation.
     'ttl_update',
+    // A forged group_invite_decline from a relay-injected senderId poisons
+    // the group creator's invite state without this HMAC requirement.
+    'group_invite_decline',
   };
 
   /// Signal types exempt from the general rate limiter (system-critical or
@@ -578,8 +581,18 @@ class SignalDispatcher {
           }
           final payload = sig['payload'];
           final rawRelays = payload is Map ? payload['relays'] : payload;
+          // Validate relay URLs: must be ws:// or wss://, reject loopback.
           final relays = rawRelays is List
-              ? List<String>.from(rawRelays.whereType<String>())
+              ? rawRelays.whereType<String>().where((r) {
+                  if (!r.startsWith('wss://') && !r.startsWith('ws://')) {
+                    return false;
+                  }
+                  final host = Uri.tryParse(r)?.host ?? '';
+                  if (host.isEmpty) return false;
+                  if (host == 'localhost' || host == '127.0.0.1' ||
+                      host == '::1' || host == '0.0.0.0') return false;
+                  return true;
+                }).toList()
               : <String>[];
           if (relays.isNotEmpty && !_relayExchangeCtrl.isClosed) {
             _relayExchangeCtrl.add(SignalRelayExchangeEvent(relays));
@@ -596,6 +609,7 @@ class SignalDispatcher {
           final rawServers = payload is Map ? payload['servers'] : null;
           final servers = rawServers is List
               ? rawServers
+                  .take(50) // cap before iteration — prevents heap-alloc DoS
                   .whereType<Map>()
                   .map((s) => Map<String, dynamic>.from(s))
                   .toList()
@@ -740,8 +754,10 @@ class SignalDispatcher {
             final fid = payload['fid'] as String?;
             final missing = payload['missing'];
             if (fid != null && missing is List && !_chunkReqCtrl.isClosed) {
+              // Cap before List.from() — prevents 8MB heap spike per signal.
+              final capped = missing.take(200).whereType<int>().toList();
               _chunkReqCtrl.add(SignalChunkReqEvent(
-                  fid, List<int>.from(missing), sigSender));
+                  fid, capped, sigSender));
             }
           }
         }
