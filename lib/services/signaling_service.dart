@@ -128,8 +128,12 @@ class SignalingService {
   /// Called by CallScreen's secondary watchdog when Tor circuit is degraded.
   Future<void> restartSecondaryAudio() async {
     if (contact.isGroup) return;
-    await _secondaryPc?.close();
+    // Clear _secondaryPc BEFORE the await so a concurrent _handleSecondaryOffer
+    // that fires during the close() suspension cannot have its freshly-created
+    // PC silently nullified by the assignment below.
+    final old = _secondaryPc;
     _secondaryPc = null;
+    await old?.close();
     await startSecondaryAudio();
   }
 
@@ -299,7 +303,9 @@ class SignalingService {
     try {
       final yggPub = data['ygg_pubkey'] as String?;
       // Validate base64 pubkey format (ed25519 = 44 chars base64 with optional padding)
-      if (yggPub != null && RegExp(r'^[A-Za-z0-9+/]{43}={0,1}$').hasMatch(yggPub)) {
+      // Accept both standard (+/) and URL-safe base64 (-_) encodings since
+      // the remote Go binary may use either base64.StdEncoding or URLEncoding.
+      if (yggPub != null && RegExp(r'^[A-Za-z0-9+/\-_]{43}={0,1}$').hasMatch(yggPub)) {
         _remoteYggPubkey = yggPub;
       } else {
         _remoteYggPubkey = null;
@@ -334,7 +340,9 @@ class SignalingService {
   Future<void> _handleAnswer(Map<String, dynamic> data) async {
     try {
       final yggPub = data['ygg_pubkey'] as String?;
-      if (yggPub != null && RegExp(r'^[A-Za-z0-9+/]{43}={0,1}$').hasMatch(yggPub)) {
+      // Accept both standard (+/) and URL-safe base64 (-_) encodings since
+      // the remote Go binary may use either base64.StdEncoding or URLEncoding.
+      if (yggPub != null && RegExp(r'^[A-Za-z0-9+/\-_]{43}={0,1}$').hasMatch(yggPub)) {
         _remoteYggPubkey = yggPub;
       } else if (yggPub != null) {
         _remoteYggPubkey = null; // reject malformed pubkey
