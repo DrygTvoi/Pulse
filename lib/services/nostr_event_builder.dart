@@ -165,12 +165,14 @@ bool verifyEventSignature(Map<String, dynamic> event) {
     final s = BigInt.parse(hex.encode(sigBytes.sublist(32, 64)), radix: 16);
 
     final n = _secp256k1.n;
-    // BIP-340 §Verification: fail if s ≥ n.
+    // BIP-340 §Verification: fail if s ≥ n or r ≥ p (field modulus).
     if (s >= n) return false;
     final G = _secp256k1.G;
     const pHex =
         'FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F';
     final p = BigInt.parse(pHex, radix: 16);
+    // BIP-340 §Verification: fail if r ≥ p.
+    if (rx == BigInt.zero || rx >= p) return false;
 
     // Lift x to point P (even y)
     final px = BigInt.parse(pubkeyHex, radix: 16);
