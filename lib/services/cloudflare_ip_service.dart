@@ -407,51 +407,21 @@ class CloudflareIpService {
       }
     }
 
-    // Fetch fresh from Cloudflare
-    final fetched = await _fetchRanges();
-    final ranges = fetched.isNotEmpty ? fetched : _fallbackRanges;
+    // Use hardcoded fallback ranges — the live _fetchRanges() fetch used an
+    // unpinned HttpClient with system DNS, creating a MITM vector where a CA-MitM
+    // could inject arbitrary CIDR blocks and have attacker IPs pass filterCloudflare().
+    // CF's IP ranges change rarely; the fallback list is authoritative for our
+    // purposes and eliminates the attack surface entirely.
+    final ranges = _fallbackRanges;
     _blocks = ranges.map(_parseCidr).whereType<CidrBlock>().toList();
     _loadedAt = DateTime.now();
 
     await prefs.setString(_cacheKeyRanges, jsonEncode(ranges));
     await prefs.setString(
         _cacheKeyTs, DateTime.now().millisecondsSinceEpoch.toString());
-    debugPrint('[CF] Loaded ${_blocks!.length} CIDR blocks '
-        '(${fetched.isNotEmpty ? "live" : "fallback"})');
+    debugPrint('[CF] Loaded ${_blocks!.length} CIDR blocks (hardcoded fallback)');
   }
 
-  Future<List<String>> _fetchRanges() async {
-    try {
-      final client = HttpClient()
-        ..connectionTimeout = const Duration(seconds: 5);
-      final req = await client
-          .getUrl(Uri.parse('https://www.cloudflare.com/ips-v4'))
-          .timeout(const Duration(seconds: 6));
-      final resp = await req.close().timeout(const Duration(seconds: 8));
-      if (resp.statusCode != 200) {
-        client.close(force: true);
-        return [];
-      }
-      final bodyBuf3 = StringBuffer();
-      await for (final chunk in utf8.decoder.bind(resp)
-          .timeout(const Duration(seconds: 5))) {
-        bodyBuf3.write(chunk);
-        if (bodyBuf3.length > 256 * 1024) break;
-      }
-      final body = bodyBuf3.toString();
-      client.close(force: true);
-      final ranges = body
-          .split('\n')
-          .map((l) => l.trim())
-          .where((l) => l.isNotEmpty && l.contains('/'))
-          .toList();
-      debugPrint('[CF] Fetched ${ranges.length} ranges from cloudflare.com');
-      return ranges;
-    } catch (e) {
-      debugPrint('[CF] Failed to fetch ranges: $e');
-      return [];
-    }
-  }
 
   @visibleForTesting
   static CidrBlock? parseCidr(String cidr) => _parseCidr(cidr);
@@ -490,7 +460,11 @@ class CloudflareIpService {
     try {
       final parts = ip.split('.');
       if (parts.length != 4) return null;
-      return parts.fold<int>(0, (acc, p) => (acc << 8) | int.parse(p));
+      return parts.fold<int>(0, (acc, p) {
+        final n = int.parse(p);
+        if (n < 0 || n > 255) throw FormatException('octet out of range: $n');
+        return (acc << 8) | n;
+      });
     } catch (_) {
       return null;
     }
@@ -548,7 +522,10 @@ class CloudflareIpService {
     // 192.168.0.0/16
     if ((n >> 16) == ((192 << 8) | 168)) return false;
     // 198.18.0.0/15 — network benchmarking (RFC 2544)
-    if ((n >> 17) == ((198 << 1) | 0) && (((n >> 16) & 0xFE) == 18)) return false;
+    // Previous check `(n >> 17) == ((198 << 1) | 0)` was always false:
+    // for 198.x, n >> 17 ≈ 25344, not 396.  Correct check: top byte == 198
+    // and second byte is 18 or 19.
+    if ((n >> 24) == 198 && (((n >> 16) & 0xFF) == 18 || ((n >> 16) & 0xFF) == 19)) return false;
     // 240.0.0.0/4 — Class E reserved
     if ((n >> 28) == 15) return false;
     return true;

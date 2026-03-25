@@ -47,9 +47,14 @@ class CircuitBreakerService {
   Future<void> recordFailure(String endpoint) async {
     await _ensureLoaded();
     final s = _state[endpoint] ?? _BreakerState();
+    // Only increment tripCount on the transition from closed→open (not on every
+    // subsequent failure after the threshold). Previously, tripCount incremented
+    // on every failure after the 3rd, reaching the max 12h backoff after just 6
+    // total failures instead of the intended 4 separate trip+reset cycles.
+    final wasTripped = s.failures >= maxFailures;
     s.failures++;
     s.lastFailure = DateTime.now();
-    if (s.failures >= maxFailures) {
+    if (!wasTripped && s.failures >= maxFailures) {
       s.tripCount++;
     }
     _state[endpoint] = s;
