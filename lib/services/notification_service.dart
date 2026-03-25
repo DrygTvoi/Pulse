@@ -112,7 +112,11 @@ class NotificationService {
         } else if (m?.isGif == true) {
           preview = 'GIF';
         } else {
-          preview = '📎 ${m?.name ?? 'File'}';
+          // Do not leak the filename to the OS notification service —
+          // filenames often contain sensitive metadata (health records,
+          // legal documents, etc.) and are visible in the notification
+          // tray, lock screen, and OS notification history logs.
+          preview = '📎 File';
         }
       } else {
         // Never expose raw content to the OS notification tray.
