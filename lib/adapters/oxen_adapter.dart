@@ -68,9 +68,12 @@ Future<List<String>> _discoverSnodes() async {
       for (final s in states) {
         final ip = s['public_ip'] as String? ?? '';
         final port = s['storage_port'];
-        if (ip.isNotEmpty && port != null) {
-          nodes.add('https://$ip:$port');
-        }
+        if (ip.isEmpty || port == null) continue;
+        // F10: Reject private/loopback IPs returned by seed nodes.
+        if (_isPrivateSnodeIp(ip)) continue;
+        final portNum = port is int ? port : int.tryParse(port.toString()) ?? -1;
+        if (portNum < 1 || portNum > 65535) continue;
+        nodes.add('https://$ip:$portNum');
       }
       if (nodes.isNotEmpty) {
         debugPrint('[Oxen] Discovered ${nodes.length} snodes via $seed');
@@ -84,6 +87,34 @@ Future<List<String>> _discoverSnodes() async {
     client.close();
   }
   return [];
+}
+
+/// Returns true if [ip] is a private, loopback, link-local, or otherwise
+/// reserved address that should never appear as a public Session snode.
+bool _isPrivateSnodeIp(String ip) {
+  if (ip == 'localhost' || ip == '127.0.0.1' || ip == '::1') return true;
+  if (ip.startsWith('10.')) return true;
+  if (ip.startsWith('192.168.')) return true;
+  if (ip.startsWith('169.254.')) return true;
+  if (ip.startsWith('172.')) {
+    final parts = ip.split('.');
+    if (parts.length >= 2) {
+      final second = int.tryParse(parts[1]) ?? 0;
+      if (second >= 16 && second <= 31) return true;
+    }
+  }
+  // RFC 6598 — carrier-grade NAT (100.64.0.0/10)
+  if (ip.startsWith('100.')) {
+    final parts = ip.split('.');
+    if (parts.length >= 2) {
+      final second = int.tryParse(parts[1]) ?? 0;
+      if (second >= 64 && second <= 127) return true;
+    }
+  }
+  if (ip.startsWith('0.')) return true;
+  // IPv6 ULA (fc00::/7)
+  if (ip.startsWith('fc') || ip.startsWith('fd')) return true;
+  return false;
 }
 
 // ─── InboxReader ──────────────────────────────────────────────────────────────

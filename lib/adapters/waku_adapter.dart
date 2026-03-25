@@ -145,6 +145,14 @@ class WakuInboxReader implements InboxReader {
       if (host.startsWith('192.168.') || host.startsWith('10.') ||
           host == '169.254.169.254' || host.startsWith('fc') ||
           host.startsWith('fd')) { return true; }
+      // RFC 1918: 172.16.0.0/12 (172.16.x.x – 172.31.x.x)
+      if (host.startsWith('172.')) {
+        final parts = host.split('.');
+        if (parts.length >= 2) {
+          final second = int.tryParse(parts[1]) ?? 0;
+          if (second >= 16 && second <= 31) return true;
+        }
+      }
       // Reject non-http(s) schemes
       if (uri.scheme != 'http' && uri.scheme != 'https') return true;
       return false;

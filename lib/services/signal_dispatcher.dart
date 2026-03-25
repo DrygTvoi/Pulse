@@ -312,6 +312,9 @@ class SignalDispatcher {
     'sender_key_dist',
     // FINDING-2 fix: chunk_req must be authenticated to prevent amplification DoS.
     'chunk_req',
+    // F-TTL fix: ttl_update must be authenticated — an unauthenticated sender
+    // could set TTL to 0 and silently wipe all messages in a conversation.
+    'ttl_update',
   };
 
   /// Signal types exempt from the general rate limiter (system-critical or
@@ -630,6 +633,11 @@ class SignalDispatcher {
             final senderId = sig['senderId'] as String? ?? '';
             final about = payload['about'] as String? ?? '';
             final avatarB64 = payload['avatar'] as String? ?? '';
+            // F7: Prevent storage exhaustion via oversized avatar payload.
+            if (avatarB64.length > 400 * 1024) {
+              debugPrint('[SignalDispatcher] profile_update: oversized avatar dropped (${avatarB64.length} bytes)');
+              continue;
+            }
             final profileContact =
                 _resolveContact(senderId, contactByDbId);
             if (profileContact != null && !_profileUpdateCtrl.isClosed) {

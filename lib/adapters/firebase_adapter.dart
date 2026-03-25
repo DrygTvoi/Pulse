@@ -80,11 +80,15 @@ class FirebaseInboxReader implements InboxReader {
     _selfDbId = databaseId;
   }
 
-  String _buildUrl(String path) {
+  String _buildUrl(String path) => '$_dbUrl$path';
+
+  /// Returns Authorization header when an auth key is configured.
+  /// Keeps the token out of URLs (and thus out of server/proxy access logs).
+  Map<String, String> _buildAuthHeaders() {
     if (_authKey.isNotEmpty) {
-      return '$_dbUrl$path?auth=$_authKey';
+      return {'Authorization': 'Bearer $_authKey'};
     }
-    return '$_dbUrl$path';
+    return {};
   }
 
   @override
@@ -98,7 +102,8 @@ class FirebaseInboxReader implements InboxReader {
         final url = _buildUrl('/inbox/$_selfDbId/messages.json');
 
         final request = http.Request('GET', Uri.parse(url))
-          ..headers['Accept'] = 'text/event-stream';
+          ..headers['Accept'] = 'text/event-stream'
+          ..headers.addAll(_buildAuthHeaders());
 
         final response = await _messagesClient!.send(request);
 
@@ -186,7 +191,8 @@ class FirebaseInboxReader implements InboxReader {
         final url = _buildUrl('/inbox/$_selfDbId/signals.json');
 
         final request = http.Request('GET', Uri.parse(url))
-          ..headers['Accept'] = 'text/event-stream';
+          ..headers['Accept'] = 'text/event-stream'
+          ..headers.addAll(_buildAuthHeaders());
 
         final response = await _signalsClient!.send(request);
 
@@ -263,7 +269,7 @@ class FirebaseInboxReader implements InboxReader {
     try {
       final url = _buildUrl('/inbox/$_selfDbId/signals.json');
       final client = _buildFirebaseClient();
-      final res = await client.get(Uri.parse(url));
+      final res = await client.get(Uri.parse(url), headers: _buildAuthHeaders());
       client.close();
       const maxBodyBytes = 10 * 1024 * 1024; // 10 MB
       if (res.statusCode == 200 && res.body != 'null') {
@@ -289,6 +295,15 @@ class FirebaseInboxReader implements InboxReader {
 class FirebaseInboxSender implements MessageSender {
   late String _dbUrl;
   late String _authKey;
+
+  /// Returns Authorization header when an auth key is configured.
+  /// Keeps the token out of URLs (and thus out of server/proxy access logs).
+  Map<String, String> _buildAuthHeaders() {
+    if (_authKey.isNotEmpty) {
+      return {'Authorization': 'Bearer $_authKey'};
+    }
+    return {};
+  }
 
   @override
   Future<void> initializeSender(String apiKey) async {
@@ -321,15 +336,15 @@ class FirebaseInboxSender implements MessageSender {
       targetDbUrl = _dbUrl; // same Firebase project
     }
 
-    // Only include auth param when sending to our own Firebase project
-    final authSuffix = (_authKey.isNotEmpty && targetDbUrl == _dbUrl) ? '?auth=$_authKey' : '';
-    final url = '$targetDbUrl/inbox/$userId/messages.json$authSuffix';
+    final url = '$targetDbUrl/inbox/$userId/messages.json';
+    // Only include auth header when sending to our own Firebase project.
+    final authHeaders = (targetDbUrl == _dbUrl) ? _buildAuthHeaders() : <String, String>{};
 
     final client = _buildFirebaseClient();
     try {
       final response = await client.post(
         Uri.parse(url),
-        headers: {'Content-Type': 'application/json'},
+        headers: {'Content-Type': 'application/json', ...authHeaders},
         body: jsonEncode(message.toJson()),
       );
       return response.statusCode == 200 || response.statusCode == 201;
@@ -357,15 +372,15 @@ class FirebaseInboxSender implements MessageSender {
       targetDbUrl = _dbUrl;
     }
 
-    // Only include auth when writing to our own Firebase project.
-    final authSuffix = (_authKey.isNotEmpty && targetDbUrl == _dbUrl) ? '?auth=$_authKey' : '';
-    final url = '$targetDbUrl/inbox/$userId/signals.json$authSuffix';
+    final url = '$targetDbUrl/inbox/$userId/signals.json';
+    // Only include auth header when writing to our own Firebase project.
+    final authHeaders = (targetDbUrl == _dbUrl) ? _buildAuthHeaders() : <String, String>{};
 
     final client = _buildFirebaseClient();
     try {
       final response = await client.post(
         Uri.parse(url),
-        headers: {'Content-Type': 'application/json'},
+        headers: {'Content-Type': 'application/json', ...authHeaders},
         body: jsonEncode({
           'roomId': roomId,
           'senderId': senderId,
