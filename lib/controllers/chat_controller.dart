@@ -1159,9 +1159,13 @@ class ChatController extends ChangeNotifier {
         _seenMsgIds.add(msg.id);
         _seenMsgIdsList.add(msg.id);
 
+        // Normalise to pubkey prefix so a sender using multiple transports
+        // (nostr, firebase, waku) shares one rate-limit bucket rather than
+        // getting a fresh 30-token bucket per transport address.
+        final rlKey = msg.senderId.split('@').first;
         if (!_allAddresses.contains(msg.senderId) &&
             msg.senderId != _selfId &&
-            !_msgRateLimiter.allow(msg.senderId)) {
+            !_msgRateLimiter.allow(rlKey)) {
           debugPrint('[Chat] Rate limited message from: ${msg.senderId}');
           continue;
         }

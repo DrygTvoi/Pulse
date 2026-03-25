@@ -80,7 +80,12 @@ class ChunkAssembler {
       _chunkTimestamps[fid] = DateTime.now();
       _totalBufferedBytes += chunkBytes.length;
 
-      if (idx == 0) {
+      // Only store metadata on first arrival of chunk 0.
+      // Retransmitting chunk 0 with different metadata fields (e.g. empty
+      // finalHash to disable the whole-file integrity check) must not
+      // overwrite the original; the per-chunk SHA-256 already covers the
+      // data bytes, and the file-level hash must not be silently cleared.
+      if (idx == 0 && !_chunkMeta.containsKey(fid)) {
         _chunkMeta[fid] = (
           name: map['n'] as String? ?? 'file',
           total: total,
