@@ -90,6 +90,9 @@ class PqcService {
   /// Returns (ciphertext, sharedSecret) — both 32–1568 bytes per ML-KEM-1024 spec.
   (Uint8List, Uint8List) encapsulate(Uint8List remotePk) {
     if (!_initialized) throw StateError('PqcService not initialized');
+    if (remotePk.length != 1568) {
+      throw ArgumentError('Invalid ML-KEM-1024 public key: expected 1568 bytes, got ${remotePk.length}');
+    }
     final (ct, ss) = _kem.encapsulate(remotePk);
     return (Uint8List.fromList(ct), Uint8List.fromList(ss));
   }

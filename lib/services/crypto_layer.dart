@@ -79,6 +79,10 @@ class CryptoLayer {
     if (ct.length != 1568) {
       throw FormatException('Invalid PQC ciphertext: expected 1568 bytes, got ${ct.length}');
     }
+    // AES-256-GCM nonce must be exactly 12 bytes; wrong length → undefined GCM behaviour.
+    if (nonce.length != 12) {
+      throw FormatException('Invalid PQC nonce: expected 12 bytes, got ${nonce.length}');
+    }
     final ss = PqcService().decapsulate(ct);
     final key = _hkdf(ss);
 
