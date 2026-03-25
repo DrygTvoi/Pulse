@@ -13,11 +13,13 @@ import '../adapters/nostr_adapter.dart' show computeEcdhSecret, computeEcdhSecre
 import '../services/nip44_service.dart' show nip44Encrypt, nip44Decrypt;
 import '../services/nostr_event_builder.dart' as neb;
 
-/// 6-char hex verification code derived from ECDH shared secret.
+/// 12-char hex verification code derived from ECDH shared secret.
+/// 6 bytes (48 bits) → 2^48 ≈ 281 trillion combinations, brute-force infeasible
+/// even at 1M ECDH ops/sec (would take ~9 years vs 16 seconds for 3-byte code).
 String _verificationCode(String privHex, String peerPubHex) {
   final sharedX = computeEcdhSecret(privHex, peerPubHex, context: 'device_transfer');
   final hash = crypto.sha256.convert(sharedX).bytes;
-  return hex.encode(hash.take(3).toList()).toUpperCase();
+  return hex.encode(hash.take(6).toList()).toUpperCase();
 }
 
 // ─── DeviceTransferService ───────────────────────────────────────────────────

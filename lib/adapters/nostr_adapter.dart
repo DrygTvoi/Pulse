@@ -799,7 +799,7 @@ class NostrInboxReader implements InboxReader {
         await channel.ready;
         debugPrint('[Nostr] Connected to $_relayUrl');
 
-        final subId = 'sub_${DateTime.now().millisecondsSinceEpoch}';
+        final subId = 'sub_${DateTime.now().millisecondsSinceEpoch}_${Random.secure().nextInt(0xFFFFFF).toRadixString(16)}';
         final since = await _getSince();
         channel.sink.add(jsonEncode(['REQ', subId, {
           'kinds': [4, 20000, 1059],
@@ -991,7 +991,7 @@ class NostrInboxReader implements InboxReader {
         senderId: pubkey,
         receiverId: _publicKeyHex,
         encryptedPayload: content,
-        timestamp: createdAt != null && createdAt > 0
+        timestamp: createdAt != null && createdAt > 0 && createdAt < 32503680000
             ? DateTime.fromMillisecondsSinceEpoch(createdAt * 1000)
             : DateTime.now(),
         adapterType: 'nostr',
@@ -1078,7 +1078,7 @@ class NostrInboxReader implements InboxReader {
     if (_publicKeyHex.isEmpty || _relayUrl.isEmpty) return null;
 
     final activeChannel = _activeChannel;
-    final subId = 'keys_${DateTime.now().millisecondsSinceEpoch}';
+    final subId = 'keys_${DateTime.now().millisecondsSinceEpoch}_${Random.secure().nextInt(0xFFFFFF).toRadixString(16)}';
 
     // Issue 6: if the shared loop is active, piggyback on its WS connection.
     if (activeChannel != null) {
