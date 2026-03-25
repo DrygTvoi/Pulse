@@ -138,6 +138,12 @@ class _DeviceTransferScreenState extends State<DeviceTransferScreen> {
   // ─── Verification ──────────────────────────────────────────────────────────
 
   void _confirm() {
+    // Sender must unblock the /confirm-and-get-bundle endpoint so the receiver
+    // can fetch the encrypted key bundle.  Without this call the bundle is
+    // never delivered — _bundleConfirmed Completer waits forever.
+    if (_role == _Role.sender) {
+      _service?.confirmTransfer();
+    }
     setState(() => _step = _Step.done);
   }
 
