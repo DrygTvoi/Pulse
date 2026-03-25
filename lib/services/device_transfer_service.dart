@@ -216,6 +216,11 @@ class DeviceTransferService {
     // parts[0]=LAN, parts[1]=ip, parts[2]=port, parts[3]=srcPub (64 hex chars)
     if (parts.length < 4) throw FormatException('Invalid LAN transfer code');
     final ip = parts[1];
+    // Reject loopback: a malicious QR could point to local services (e.g.
+    // Tor SOCKS5 on :9050) that receive the ephemeral pubkey POST unexpectedly.
+    if (ip == '127.0.0.1' || ip == '::1' || ip == 'localhost' || ip == '0.0.0.0') {
+      throw FormatException('Invalid LAN transfer code: loopback address rejected');
+    }
     final port = int.tryParse(parts[2]);
     if (port == null) throw FormatException('Invalid port in LAN transfer code');
 
@@ -375,6 +380,11 @@ class DeviceTransferService {
     final relay = withoutPrefix.substring(0, pipeIdx);
     final srcPubHex = withoutPrefix.substring(pipeIdx + 1);
     if (srcPubHex.length != 64) throw FormatException('Invalid pubkey in Nostr transfer code');
+    // Only accept secure WebSocket relays — plaintext ws:// would expose the
+    // ephemeral pubkey exchange in transit.
+    if (!relay.startsWith('wss://')) {
+      throw FormatException('Invalid Nostr transfer code: relay must use wss:// scheme');
+    }
 
     _genKeypair();
 

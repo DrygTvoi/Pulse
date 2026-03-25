@@ -246,7 +246,7 @@ class WakuInboxReader implements InboxReader {
         throw Exception('[Waku] Response body too large');
       }
       final data = jsonDecode(res.body) as Map<String, dynamic>;
-      final msgs = (data['messages'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+      final msgs = (data['messages'] as List?)?.whereType<Map<String, dynamic>>().toList() ?? [];
       for (final msg in msgs) {
         // Compute dedup key client-side from payload bytes to prevent a
         // malicious Waku node from varying messageHash to bypass dedup.
@@ -368,7 +368,7 @@ class WakuInboxReader implements InboxReader {
         throw Exception('[Waku] Response body too large');
       }
       final data = jsonDecode(res.body) as Map<String, dynamic>;
-      final msgs = (data['messages'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+      final msgs = (data['messages'] as List?)?.whereType<Map<String, dynamic>>().toList() ?? [];
       if (msgs.isEmpty) return null;
       final firstPayloadB64 = msgs.first['payload'] as String? ?? '';
       if (firstPayloadB64.isEmpty) return null;
