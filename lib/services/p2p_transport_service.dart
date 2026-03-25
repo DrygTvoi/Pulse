@@ -165,8 +165,14 @@ class P2PTransportService {
         _setupDcCallbacks(contactId, conn);
       };
 
+      final offerSdp = sdp['sdp'] as String? ?? '';
+      if (!offerSdp.contains('a=fingerprint:')) {
+        debugPrint('[P2P] Rejected offer without a=fingerprint: (DTLS bypass attempt)');
+        conn.state = _P2PState.failed;
+        return;
+      }
       await conn.pc!.setRemoteDescription(
-        RTCSessionDescription(sdp['sdp'] as String, sdp['type'] as String),
+        RTCSessionDescription(offerSdp, sdp['type'] as String? ?? 'offer'),
       );
       final answer = await conn.pc!.createAnswer();
       await conn.pc!.setLocalDescription(answer);
@@ -185,8 +191,13 @@ class P2PTransportService {
     final conn = _conns[contactId];
     if (conn?.pc == null) return;
     try {
+      final answerSdp = sdp['sdp'] as String? ?? '';
+      if (!answerSdp.contains('a=fingerprint:')) {
+        debugPrint('[P2P] Rejected answer without a=fingerprint: (DTLS bypass attempt)');
+        return;
+      }
       await conn!.pc!.setRemoteDescription(
-        RTCSessionDescription(sdp['sdp'] as String, sdp['type'] as String),
+        RTCSessionDescription(answerSdp, sdp['type'] as String? ?? 'answer'),
       );
     } catch (e) {
       debugPrint('[P2P] Answer handle error for $contactId: $e');

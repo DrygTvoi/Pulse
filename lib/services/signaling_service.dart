@@ -324,7 +324,7 @@ class SignalingService {
         await peerConnection!.setConfiguration(await profile.peerConfig());
         _profileLocked = true;
       }
-      await peerConnection?.setRemoteDescription(RTCSessionDescription(sdp, data['type']));
+      await peerConnection?.setRemoteDescription(RTCSessionDescription(sdp, data['type'] as String? ?? 'offer'));
       await createAnswer();
     } catch (e) {
       debugPrint('[Signaling] handleOffer error: $e');
@@ -347,7 +347,7 @@ class SignalingService {
       }
       // FINDING-7: Reset candidate counter for new session
       _candidatesReceived = 0;
-      await peerConnection?.setRemoteDescription(RTCSessionDescription(sdp, data['type']));
+      await peerConnection?.setRemoteDescription(RTCSessionDescription(sdp, data['type'] as String? ?? 'answer'));
     } catch (e) {
       debugPrint('[Signaling] handleAnswer error: $e');
     }
@@ -361,7 +361,7 @@ class SignalingService {
         return;
       }
       final raw = RTCIceCandidate(
-          data['candidate'], data['sdpMid'], data['sdpMLineIndex']);
+          data['candidate'] as String?, data['sdpMid'] as String?, data['sdpMLineIndex'] as int?);
       final candidate = await _interceptYggCandidate(raw);
       await peerConnection?.addCandidate(candidate);
     } catch (e) {
@@ -472,7 +472,7 @@ class SignalingService {
         return;
       }
       final raw = RTCIceCandidate(
-          data['candidate'], data['sdpMid'], data['sdpMLineIndex']);
+          data['candidate'] as String?, data['sdpMid'] as String?, data['sdpMLineIndex'] as int?);
       final candidate = await _interceptYggCandidate(raw);
       await _secondaryPc?.addCandidate(candidate);
     } catch (e) {
