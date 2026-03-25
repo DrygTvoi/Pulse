@@ -83,7 +83,12 @@ Future<void> main() async {
       NotificationService().setContactRepository(ContactManager());
 
       // Announce our current addresses to all contacts (in case we changed relay/provider).
-      unawaited(chatController.broadcastAddressUpdate());
+      // When a password lock is enabled, defer this broadcast until AFTER the user
+      // authenticates — otherwise contacts receive a presence update before the user
+      // has unlocked, leaking the device-active timestamp.
+      if (!passwordEnabled) {
+        unawaited(chatController.broadcastAddressUpdate());
+      }
 
       // Background connectivity probe — finds reachable relays/nodes.
       // Runs silently; if connection is already working, does nothing extra.
