@@ -633,14 +633,52 @@ class SignalingService {
       return;
     }
 
+    // HMAC-sign offer/answer on non-Nostr transports to prevent relay operators
+    // from forging fake "Incoming call" events on Waku/Oxen. ICE candidates are
+    // excluded — high-volume and already inside the encrypted SDP session.
+    var sendPayload = payload;
+    final isOfferOrAnswer = type.endsWith('_offer') || type.endsWith('_answer');
+    if (isOfferOrAnswer && contact.provider != 'Nostr') {
+      try {
+        const ss = FlutterSecureStorage();
+        final privkey = await ss.read(key: 'nostr_privkey') ?? '';
+        if (privkey.isNotEmpty) {
+          final recipientPub = _extractContactPubkey();
+          if (recipientPub != null) {
+            final senderPub = deriveNostrPubkeyHex(privkey);
+            final canonical = jsonEncode({'t': type, 'p': payload});
+            final hmac = signSignalPayload(privkey, recipientPub, canonical);
+            sendPayload = {...payload, '_sig': hmac, '_spk': senderPub};
+          }
+        }
+      } catch (e) {
+        debugPrint('[Signaling] HMAC sign failed: $e');
+      }
+    }
+
     await InboxManager().sendSystemMessage(
       contact.provider,
       contact.databaseId,
       contact.id,
       myId,
       type,
-      payload,
+      sendPayload,
     );
+  }
+
+  /// Extract recipient's Nostr pubkey from contact addresses (for HMAC signing).
+  String? _extractContactPubkey() {
+    for (final addr in [contact.databaseId, ...contact.alternateAddresses]) {
+      final atWss = addr.indexOf('@wss://');
+      final atWs  = addr.indexOf('@ws://');
+      final atIdx = atWss != -1 ? atWss : (atWs != -1 ? atWs : -1);
+      if (atIdx != -1) {
+        final pub = addr.substring(0, atIdx);
+        if (RegExp(r'^[0-9a-f]{64}$').hasMatch(pub)) return pub;
+      }
+      if (RegExp(r'^[0-9a-f]{64}$').hasMatch(addr)) return addr;
+    }
+    return null;
   }
 
   Future<void> hangUp() async {

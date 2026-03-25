@@ -311,7 +311,14 @@ class MessageRepository {
     // Add 0-10% random jitter to TTL to prevent timing analysis
     final jitter = Duration(
         seconds: Random.secure().nextInt((ttlSeconds * 0.1).ceil().clamp(1, 600)));
-    final expiresAt = msg.timestamp.add(Duration(seconds: ttlSeconds) + jitter);
+    // Clamp message timestamp to now: a sender can set a far-future timestamp
+    // (e.g. year 2050) to make TTL fire 25+ years later, effectively bypassing
+    // the per-room disappearing-message policy. Use now() as a ceiling so the
+    // TTL countdown always starts from when we received the message at the latest.
+    final effectiveTs = msg.timestamp.isAfter(DateTime.now())
+        ? DateTime.now()
+        : msg.timestamp;
+    final expiresAt = effectiveTs.add(Duration(seconds: ttlSeconds) + jitter);
     final remaining = expiresAt.difference(DateTime.now());
     _ttlTimers[msg.id]?.cancel();
     if (remaining.isNegative) {
