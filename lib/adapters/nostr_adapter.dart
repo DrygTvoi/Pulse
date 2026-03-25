@@ -216,12 +216,16 @@ Future<WebSocketChannel> _nostrWsConnect(
   // 2. CF Worker relay proxy (if configured)
   if (cfWorkerRelay.isNotEmpty && utlsPort != null) {
     try {
-      // Build Worker URL: wss://domain/?r=<relay_url>
-      var workerHost = cfWorkerRelay;
-      if (!workerHost.startsWith('wss://') && !workerHost.startsWith('ws://')) {
-        workerHost = 'wss://$workerHost';
+      // Build Worker URL via URI parsing — prevents path-traversal injection.
+      // Naive string concat allows "host/../evil.com" to traverse to a different
+      // host after HTTP normalisation; Uri.parse + replace avoids this.
+      var workerStr = cfWorkerRelay;
+      if (!workerStr.startsWith('wss://') && !workerStr.startsWith('ws://')) {
+        workerStr = 'wss://$workerStr';
       }
-      final workerUrl = '$workerHost/?r=${Uri.encodeComponent(url)}';
+      final workerUri = Uri.parse(workerStr);
+      if (workerUri.host.isEmpty) throw FormatException('CF Worker: empty host');
+      final workerUrl = workerUri.replace(queryParameters: {'r': url}).toString();
       return await _connectWebSocketViaUtls(workerUrl, utlsPort)
           .timeout(const Duration(seconds: 8));
     } catch (e) {
