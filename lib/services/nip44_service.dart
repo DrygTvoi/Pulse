@@ -225,6 +225,12 @@ String nip44Unpad(Uint8List padded) {
   if (contentLen < 1 || contentLen > padded.length - 2) {
     throw FormatException('NIP-44: invalid content length in padding');
   }
+  // NIP-44 v2 spec: all bytes after content MUST be zero.
+  for (var i = 2 + contentLen; i < padded.length; i++) {
+    if (padded[i] != 0) {
+      throw FormatException('NIP-44: non-zero padding byte at position $i');
+    }
+  }
   return utf8.decode(padded.sublist(2, 2 + contentLen));
 }
 
