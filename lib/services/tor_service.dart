@@ -117,9 +117,17 @@ class TorService {
       return false;
     }
 
-    final tmpDir  = await getTemporaryDirectory();
-    final dataDir = Directory('${tmpDir.path}/pulse_tor');
-    await dataDir.create(recursive: true);
+    final Directory tmpDir;
+    final Directory dataDir;
+    try {
+      tmpDir  = await getTemporaryDirectory();
+      dataDir = Directory('${tmpDir.path}/pulse_tor');
+      await dataDir.create(recursive: true);
+    } catch (e) {
+      debugPrint('[TorService] start() setup error — resetting: $e');
+      _starting = false;
+      return false;
+    }
 
     // Prefetch dynamic bridges in background (cache miss is OK — will use embedded)
     unawaited(BridgeFetchService.instance.getSnowflakeBridges());
@@ -495,6 +503,7 @@ Future<bool> _socks5TcpProbe(
 
     // 2. CONNECT request with domain name (ATYP=0x03)
     final hostBytes = utf8.encode(targetHost);
+    if (hostBytes.length > 255) return false; // SOCKS5 length byte is 1 octet
     sock.add([
       0x05, 0x01, 0x00, 0x03,
       hostBytes.length, ...hostBytes,
@@ -910,6 +919,9 @@ Future<String?> postUrlViaSocks5({
 
     // CONNECT
     final hostBytes = utf8.encode(targetHost);
+    if (hostBytes.length > 255) {
+      throw ArgumentError('Hostname too long for SOCKS5: $targetHost');
+    }
     rawSock.add([
       0x05, 0x01, 0x00, 0x03,
       hostBytes.length, ...hostBytes,
@@ -956,7 +968,10 @@ Future<String?> postUrlViaSocks5({
       ..write('Content-Length: ${bodyBytes.length}\r\n')
       ..write('Connection: close\r\n');
     for (final e in headers.entries) {
-      reqBuf.write('${e.key}: ${e.value}\r\n');
+      // Strip CR/LF to prevent HTTP request smuggling via injected header values.
+      final k = e.key.replaceAll(RegExp(r'[\r\n]'), '');
+      final v = e.value.replaceAll(RegExp(r'[\r\n]'), '');
+      if (k.isNotEmpty) reqBuf.write('$k: $v\r\n');
     }
     reqBuf.write('\r\n');
 
