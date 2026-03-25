@@ -361,8 +361,19 @@ class IceServerConfig {
       await prefs.remove(_kNip117TurnKey);
       return;
     }
-    await prefs.setString(_kNip117TurnKey, jsonEncode(servers));
-    debugPrint('[ICE] Saved ${servers.length} NIP-117 TURN server(s)');
+    // Filter out private/loopback TURN hosts — same SSRF protection as peer exchange
+    final safe = servers.where((s) {
+      final url = s['urls'] as String? ?? '';
+      if (!url.startsWith('turn:') && !url.startsWith('turns:')) return false;
+      final host = _extractTurnHost(url);
+      return host.isNotEmpty && !_isTurnHostPrivate(host);
+    }).toList();
+    if (safe.isEmpty) {
+      await prefs.remove(_kNip117TurnKey);
+      return;
+    }
+    await prefs.setString(_kNip117TurnKey, jsonEncode(safe));
+    debugPrint('[ICE] Saved ${safe.length} NIP-117 TURN server(s)');
   }
 
   // ── Private IP helpers (FINDING-5) ─────────────────────────────────────────
@@ -403,6 +414,12 @@ class IceServerConfig {
         if (second >= 16 && second <= 31) return true;
       }
     }
+    // IPv6-mapped IPv4: ::ffff:a.b.c.d — recurse on the v4 part
+    if (host.startsWith('::ffff:')) return _isTurnHostPrivate(host.substring(7));
+    // IPv6 ULA fc00::/7 (fc** and fd**)
+    if (host.startsWith('fc') || host.startsWith('fd')) return true;
+    // IPv6 link-local fe80::/10 (fe80 – febf)
+    if (RegExp(r'^fe[89ab]', caseSensitive: false).hasMatch(host)) return true;
     return false;
   }
 

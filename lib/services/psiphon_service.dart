@@ -218,6 +218,7 @@ class PsiphonService {
           .transform(utf8.decoder)
           .transform(const LineSplitter())
           .listen((line) {
+        if (line.length > 64) return; // guard against malformed output
         final port = int.tryParse(line.trim());
         // BUG-07 fix: validate port is in unprivileged range before trusting
         if (port != null && port >= 1024 && port <= 65535 &&
