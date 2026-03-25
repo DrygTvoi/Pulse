@@ -529,6 +529,7 @@ func tunnel(w http.ResponseWriter, upstream net.Conn) {
 		done <- struct{}{}
 	}()
 	<-done
+	<-done // wait for both goroutines before closing — prevents a brief use-after-close window
 	upstream.Close()
 	clientConn.Close()
 }
@@ -637,14 +638,23 @@ func handleConnect(w http.ResponseWriter, r *http.Request, sem chan struct{}) {
 		http.Error(w, "all connection methods failed for "+hostname, http.StatusBadGateway)
 		return
 	}
+	// Filter private IPs from system DNS (consistent with DoH path which uses continue).
+	// Previously used return on first private IP, blocking dual-stack hosts that have
+	// both public and private addresses.
+	var publicSysAddrs []string
 	for _, sysIP := range sysAddrs {
 		if isPrivateIP(sysIP) {
-			fmt.Fprintf(os.Stderr, "[conn] %s → system DNS returned private IP %s, blocked\n", hostname, sysIP)
-			http.Error(w, "blocked: target resolved to private address", http.StatusForbidden)
-			return
+			fmt.Fprintf(os.Stderr, "[conn] %s → system DNS returned private IP %s, skipped\n", hostname, sysIP)
+			continue
 		}
+		publicSysAddrs = append(publicSysAddrs, sysIP)
 	}
-	for _, sysIP := range sysAddrs {
+	if len(publicSysAddrs) == 0 {
+		fmt.Fprintf(os.Stderr, "[conn] %s → all system DNS addresses are private, blocked\n", hostname)
+		http.Error(w, "blocked: target resolved to private address", http.StatusForbidden)
+		return
+	}
+	for _, sysIP := range publicSysAddrs {
 		conn, err := dialTLS(sysIP, port, hostname, echConfigs)
 		if err == nil {
 			fmt.Fprintf(os.Stderr, "[conn] %s → %s fallback (%s)\n", hostname, method, sysIP)
@@ -722,12 +732,14 @@ func main() {
 	mux.HandleFunc("/ygg/proxy", handleYggProxy)
 	mux.HandleFunc("/",          handleRequest)
 
-	// F4: Add server timeouts — prevents goroutine exhaustion from slow HTTP readers.
+	// ReadHeaderTimeout prevents goroutine exhaustion from slow HTTP readers.
+	// ReadTimeout and WriteTimeout are intentionally omitted: this server uses
+	// http.Hijacker for CONNECT tunnels and those timeouts apply to the hijacked
+	// net.Conn, killing long-lived WebSocket tunnels after 60 s. Tunnel lifetime
+	// is managed by io.CopyBuffer returning on EOF or error.
 	srv := &http.Server{
 		Handler:           mux,
 		ReadHeaderTimeout: 10 * time.Second,
-		ReadTimeout:       60 * time.Second,
-		WriteTimeout:      60 * time.Second,
 	}
 	srv.Serve(listener) //nolint:errcheck
 }
