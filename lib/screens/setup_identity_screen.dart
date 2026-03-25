@@ -161,7 +161,11 @@ class _SetupIdentityScreenState extends State<SetupIdentityScreen> {
           ],
         ),
       );
-      if (confirmed != true) return;
+      if (confirmed != true) {
+        // Reset loading guard so the button becomes tappable again.
+        setState(() => _isLoading = false);
+        return;
+      }
     }
 
     setState(() => _isLoading = true);

@@ -103,6 +103,9 @@ class _RestoreAccountScreenState extends State<RestoreAccountScreen> {
 
   Future<void> _restore() async {
     if (!_canSubmit) return;
+    // Guard against double-tap: set synchronously before first await so a
+    // concurrent call that checks _canSubmit (reads _isLoading) sees true.
+    _isLoading = true;
 
     // Guard against silently overwriting an existing identity.
     const ss = FlutterSecureStorage();
@@ -130,7 +133,10 @@ class _RestoreAccountScreenState extends State<RestoreAccountScreen> {
           ],
         ),
       );
-      if (confirmed != true) return;
+      if (confirmed != true) {
+        setState(() => _isLoading = false);
+        return;
+      }
     }
 
     setState(() => _isLoading = true);
