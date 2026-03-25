@@ -41,6 +41,13 @@ class KeyManager {
     if (kyberPkList == null) return;
     try {
       final pk = Uint8List.fromList(List<int>.from(kyberPkList));
+      // ML-KEM-1024 public key is always 1568 bytes — reject anything else to
+      // prevent a malicious relay from injecting a wrong-sized key that would
+      // crash encapsulate() and DoS outbound messages to this contact.
+      if (pk.length != 1568) {
+        debugPrint('[KeyManager] Rejected invalid Kyber PK for $contactId: ${pk.length} bytes (expected 1568)');
+        return;
+      }
       _contactKyberPks[contactId] = pk;
       if (_contactKyberPks.length > _kyberCacheMaxSize) {
         _contactKyberPks.remove(_contactKyberPks.keys.first);
