@@ -49,6 +49,7 @@ import (
 	"math/rand"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"regexp"
 	"strconv"
@@ -238,7 +239,7 @@ func queryARecordViaDoH(hostname, dohIP, sniHost, pathPrefix string) ([]string, 
 	client := &http.Client{Transport: transport, Timeout: 5 * time.Second}
 	defer client.CloseIdleConnections()
 
-	u := fmt.Sprintf("https://%s%s?name=%s&type=A&do=1", sniHost, pathPrefix, hostname)
+	u := fmt.Sprintf("https://%s%s?name=%s&type=A&do=1", sniHost, pathPrefix, url.QueryEscape(hostname))
 	req, err := http.NewRequest("GET", u, nil)
 	if err != nil {
 		return nil, err
@@ -361,7 +362,7 @@ func queryECHViaDoH(hostname, dohIP, sniHost, pathPrefix string) ([]utls.ECHConf
 	client := &http.Client{Transport: transport, Timeout: 5 * time.Second}
 	defer client.CloseIdleConnections()
 
-	u := fmt.Sprintf("https://%s%s?name=%s&type=HTTPS&do=1", sniHost, pathPrefix, hostname)
+	u := fmt.Sprintf("https://%s%s?name=%s&type=HTTPS&do=1", sniHost, pathPrefix, url.QueryEscape(hostname))
 	req, err := http.NewRequest("GET", u, nil)
 	if err != nil {
 		return nil, err
@@ -508,7 +509,11 @@ func tunnel(w http.ResponseWriter, upstream net.Conn) {
 		upstream.Close()
 		return
 	}
-	clientConn.Write([]byte("HTTP/1.1 200 Connection Established\r\n\r\n"))
+	if _, err := clientConn.Write([]byte("HTTP/1.1 200 Connection Established\r\n\r\n")); err != nil {
+		upstream.Close()
+		clientConn.Close()
+		return
+	}
 
 	// 64KB buffers — larger TLS records are less distinguishable by DPI
 	// than small Dart-default writes. Also reduces syscall overhead.
