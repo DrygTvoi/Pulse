@@ -297,13 +297,17 @@ func (d *yggDispatcher) run() {
 
 		// 1. Relay registry (local allocation → any source)
 		if v, ok := d.relayPorts.Load(port); ok {
-			v.(yggReceiver).dispatch(dg)
+			if r, ok := v.(yggReceiver); ok {
+				r.dispatch(dg)
+			}
 			continue
 		}
 		// 2. Proxy registry (specific source → proxy listener)
 		key := from.String() + ":" + strconv.Itoa(int(port))
 		if v, ok := d.proxyRoutes.Load(key); ok {
-			v.(yggReceiver).dispatch(dg)
+			if r, ok := v.(yggReceiver); ok {
+				r.dispatch(dg)
+			}
 		}
 	}
 }
@@ -674,9 +678,12 @@ func handleYggProxy(w http.ResponseWriter, r *http.Request) {
 	cacheKey := req.Pubkey + ":" + portStr
 	proxyMu.Lock()
 	if existing, ok := proxyMap[cacheKey]; ok {
+		// Read localPort while holding the lock — avoids a race where the
+		// goroutine deletes the entry from proxyMap between Unlock and read.
+		localPort := existing.localPort
 		proxyMu.Unlock()
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]int{"local_port": existing.localPort})
+		json.NewEncoder(w).Encode(map[string]int{"local_port": localPort})
 		return
 	}
 	if len(proxyMap) >= maxConcurrentYggProxies {

@@ -45,13 +45,13 @@ final List<(String, String)> _pendingNonceWrites = [];
 Timer? _nonceFlushTimer;
 
 /// Flush pending nonces to SQLite.
-void _flushPendingNonces() {
+Future<void> _flushPendingNonces() async {
   _nonceFlushTimer?.cancel();
   _nonceFlushTimer = null;
   if (_pendingNonceWrites.isEmpty) return;
   final batch = List<(String, String)>.from(_pendingNonceWrites);
   _pendingNonceWrites.clear();
-  unawaited(LocalStorageService().saveNonces(batch));
+  await LocalStorageService().saveNonces(batch);
 }
 
 /// Schedule a nonce flush (debounced 500ms).
@@ -89,7 +89,7 @@ Future<void> _loadNoncesFromDb() async {
 }
 
 /// Check for duplicate nonce and record it. Throws on replay.
-void _checkAndRecordNonce(Uint8List convKey, Uint8List nonce) {
+Future<void> _checkAndRecordNonce(Uint8List convKey, Uint8List nonce) async {
   final keyHex = hex.encode(convKey);
   final nonceHex = hex.encode(nonce);
 
@@ -118,8 +118,9 @@ void _checkAndRecordNonce(Uint8List convKey, Uint8List nonce) {
     // Flush pending writes to DB BEFORE trimming from memory. Without this,
     // nonces that are only in _pendingNonceWrites (not yet on disk) would be
     // silently forgotten if the app crashes after the trim — creating a replay
-    // window for those evicted nonces.
-    _flushPendingNonces();
+    // window for those evicted nonces. Must await to guarantee DB commit
+    // completes before in-memory eviction.
+    await _flushPendingNonces();
     final oldestKey = _seenNonces.keys.first;
     final oldestSet = _seenNonces[oldestKey]!;
     while (oldestSet.length > _minNoncesAfterTrim &&
@@ -309,7 +310,7 @@ Future<String> nip44Decrypt(Uint8List sharedX, String payload) async {
   }
 
   // Replay detection: only record nonce after authentication succeeds
-  _checkAndRecordNonce(convKey, nonce);
+  await _checkAndRecordNonce(convKey, nonce);
 
   // Decrypt
   final algo = cryptography.Xchacha20(macAlgorithm: cryptography.MacAlgorithm.empty);
