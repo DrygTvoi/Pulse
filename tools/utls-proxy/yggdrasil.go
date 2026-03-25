@@ -538,14 +538,18 @@ func (pc *yggPacketConn) ReadFrom(b []byte) (int, net.Addr, error) {
 		n := copy(b, dg.data)
 		synth := pubkeyToUDPAddr(dg.from)
 		pc.addrCacheMu.Lock()
-		if len(pc.addrCache) >= maxAddrCacheEntries {
-			// Evict one entry (simple random eviction via map iteration)
+		ipKey := synth.IP.String()
+		if _, exists := pc.addrCache[ipKey]; !exists && len(pc.addrCache) >= maxAddrCacheEntries {
+			// Evict one entry only when the incoming IP is truly new.
+			// Skipping eviction for already-cached IPs avoids randomly
+			// displacing a different legitimate peer on every packet from
+			// a high-volume sender when the cache is at capacity.
 			for k := range pc.addrCache {
 				delete(pc.addrCache, k)
 				break
 			}
 		}
-		pc.addrCache[synth.IP.String()] = dg.from
+		pc.addrCache[ipKey] = dg.from
 		pc.addrCacheMu.Unlock()
 		return n, synth, nil
 	case <-pc.closed:
