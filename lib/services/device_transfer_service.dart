@@ -262,6 +262,9 @@ class DeviceTransferService {
     final parts = code.split(':');
     if (parts.length < 4) throw FormatException('Invalid LAN transfer code');
     final ip = parts[1];
+    if (ip == '127.0.0.1' || ip == '::1' || ip == 'localhost' || ip == '0.0.0.0') {
+      throw FormatException('Invalid LAN transfer code: loopback address rejected');
+    }
     final port = int.tryParse(parts[2]);
     if (port == null) throw FormatException('Invalid port in LAN transfer code');
 
