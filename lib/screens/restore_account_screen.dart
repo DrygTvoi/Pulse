@@ -143,9 +143,12 @@ class _RestoreAccountScreenState extends State<RestoreAccountScreen> {
     final oxenSeedBytes = await KeyDerivationService.deriveOxenSeed(password);
 
     final privkeyHex = hex.encode(nostrKeyBytes);
-
     await ss.write(key: 'nostr_privkey', value: privkeyHex);
-    await ss.write(key: 'oxen_seed',     value: hex.encode(oxenSeedBytes));
+    nostrKeyBytes.fillRange(0, nostrKeyBytes.length, 0);
+
+    final oxenHex = hex.encode(oxenSeedBytes);
+    await ss.write(key: 'oxen_seed', value: oxenHex);
+    oxenSeedBytes.fillRange(0, oxenSeedBytes.length, 0);
 
     // Fresh Signal keys — old sessions will re-establish automatically.
     final signalService = SignalService();
