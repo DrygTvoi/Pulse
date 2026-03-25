@@ -181,6 +181,7 @@ class TurnDiscoveryService {
                 !turnUrl.startsWith('turns:')) {
               continue;
             }
+            if (turnUrl.length > 512) continue; // reject oversized TURN URLs
             // BUG-04: reject TURN URLs pointing at localhost/private IPs.
             // A malicious relay could supply turn:127.0.0.1:3478 to exfiltrate
             // TURN credentials (username/password in tag[2]/tag[3]) to a LAN service.

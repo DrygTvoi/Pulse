@@ -861,8 +861,17 @@ class ChatController extends ChangeNotifier {
         final idx = room.messages.indexWhere((m) => m.id == e.msgId);
         if (idx != -1) {
           // FINDING-4 fix: only the original sender may edit their own message.
+          // Compare by pubkey prefix (before '@') to allow editing via alternate
+          // relay addresses — msg.senderId may contain a different relay URL than
+          // the contact's current primary address.
           final msg = room.messages[idx];
-          if (msg.senderId != e.contact.databaseId) {
+          final senderKey = msg.senderId.contains('@')
+              ? msg.senderId.split('@').first
+              : msg.senderId;
+          final contactKey = e.contact.databaseId.contains('@')
+              ? e.contact.databaseId.split('@').first
+              : e.contact.databaseId;
+          if (senderKey != contactKey) {
             debugPrint('[Edit] Rejected: ${e.contact.databaseId} tried to edit '
                 'message owned by ${msg.senderId}');
             return;
@@ -2507,13 +2516,10 @@ class ChatController extends ChangeNotifier {
         .firstWhere((c) => c?.id == contactId, orElse: () => null);
     if (contact == null) return;
 
-    // Use a stable hash of the encrypted payload as the dedup ID so that
-    // replaying the same DataChannel ciphertext is suppressed.
-    // base64 of the first 32 bytes of the UTF-8 payload is unique enough and
-    // requires no additional imports.
-    final payloadBytes = utf8.encode(encryptedPayload);
-    final msgId = base64.encode(
-        payloadBytes.sublist(0, payloadBytes.length.clamp(0, 32)));
+    // Use SHA-256 of the full encrypted payload as the dedup ID.
+    // First-32-bytes truncation allowed two distinct ciphertexts with identical
+    // first 32 bytes to collide and be deduplicated incorrectly.
+    final msgId = sha256.convert(utf8.encode(encryptedPayload)).toString();
 
     _handleIncomingMessages([
       Message(

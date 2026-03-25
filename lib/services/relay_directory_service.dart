@@ -273,6 +273,8 @@ class RelayDirectoryService {
         if (uri == null || uri.host.isEmpty) continue;
         // BUG-02: reject ws:// (cleartext Nostr traffic visible to observer)
         if (uri.scheme != 'wss') continue;
+        // Reject private/loopback hosts — prevents SSRF via compromised relay directory
+        if (_isPrivateHost(uri.host)) continue;
         // BUG-03: strip embedded credentials to prevent Authorization header leakage
         final cleanUrl = uri.userInfo.isEmpty ? url : uri.replace(userInfo: '').toString();
         relays.add(cleanUrl);
@@ -292,5 +294,29 @@ class RelayDirectoryService {
       candidates.add((uri.host, port));
     }
     return candidates;
+  }
+
+  /// Returns true for private/loopback hostnames — mirrors IceServerConfig._isTurnHostPrivate.
+  static bool _isPrivateHost(String host) {
+    if (host.isEmpty || host == 'localhost' || host == '::1') return true;
+    if (host.startsWith('127.') || host.startsWith('169.254.')) return true;
+    if (host.startsWith('10.') || host.startsWith('192.168.')) return true;
+    if (host.startsWith('172.')) {
+      final parts = host.split('.');
+      if (parts.length >= 2) {
+        final second = int.tryParse(parts[1]) ?? 0;
+        if (second >= 16 && second <= 31) return true;
+      }
+    }
+    if (host.startsWith('100.')) {
+      final parts = host.split('.');
+      if (parts.length >= 2) {
+        final second = int.tryParse(parts[1]) ?? 0;
+        if (second >= 64 && second <= 127) return true;
+      }
+    }
+    if (host.startsWith('fc') || host.startsWith('fd')) return true;
+    if (RegExp(r'^fe[89ab]', caseSensitive: false).hasMatch(host)) return true;
+    return false;
   }
 }
