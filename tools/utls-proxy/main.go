@@ -568,6 +568,8 @@ func handleConnect(w http.ResponseWriter, r *http.Request, sem chan struct{}) {
 	}
 	colonIdx := strings.LastIndex(host, ":")
 	hostname := host[:colonIdx]
+	// Strip IPv6 brackets so net.ParseIP works correctly in resolveViaDoH
+	hostname = strings.Trim(hostname, "[]")
 	port := host[colonIdx+1:]
 
 	// FINDING-6 fix: reject hostnames with control characters to prevent
@@ -687,6 +689,27 @@ func main() {
 	// Start Yggdrasil overlay in the background (non-fatal if it fails).
 	startYggdrasil()
 
+	// Periodically evict stale DoH/ECH cache entries to bound memory growth.
+	go func() {
+		ticker := time.NewTicker(15 * time.Minute)
+		defer ticker.Stop()
+		for range ticker.C {
+			now := time.Now()
+			dohCache.Range(func(k, v any) bool {
+				if now.Sub(v.(*dohEntry).fetchedAt) > 2*dohCacheTTL {
+					dohCache.Delete(k)
+				}
+				return true
+			})
+			echCache.Range(func(k, v any) bool {
+				if now.Sub(v.(*echEntry).fetchedAt) > 2*echCacheTTL {
+					echCache.Delete(k)
+				}
+				return true
+			})
+		}
+	}()
+
 	mux := http.NewServeMux()
 	mux.HandleFunc("/ygg",       handleYggStatus)
 	mux.HandleFunc("/ygg/proxy", handleYggProxy)
@@ -697,6 +720,7 @@ func main() {
 		Handler:           mux,
 		ReadHeaderTimeout: 10 * time.Second,
 		ReadTimeout:       60 * time.Second,
+		WriteTimeout:      60 * time.Second,
 	}
 	srv.Serve(listener) //nolint:errcheck
 }

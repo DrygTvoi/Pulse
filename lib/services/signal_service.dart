@@ -551,6 +551,7 @@ class SignalService {
     if (!envelope.startsWith('E2EE||')) return envelope;
 
     final parts = envelope.split('||');
+    if (parts.length < 3) throw FormatException('[Signal] Malformed envelope');
     final type = int.tryParse(parts[1]) ?? -1;
     final bytes = base64Decode(parts[2]);
 

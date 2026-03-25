@@ -695,7 +695,7 @@ class NostrInboxReader implements InboxReader {
     // If relay is still the hardcoded default, try probe-suggested or adaptive relay
     if (_relayUrl == _defaultRelay) {
       final adaptive = prefs.getString('adaptive_cf_relay') ?? '';
-      if (adaptive.isNotEmpty) {
+      if (adaptive.isNotEmpty && _isValidRelayUrl(adaptive)) {
         _relayUrl = adaptive;
       } else {
         var probed = prefs.getString('probe_nostr_relay') ?? '';
@@ -704,9 +704,22 @@ class NostrInboxReader implements InboxReader {
           if (!probed.startsWith('ws://') && !probed.startsWith('wss://')) {
             probed = 'wss://$probed';
           }
-          _relayUrl = probed;
+          if (_isValidRelayUrl(probed)) _relayUrl = probed;
         }
       }
+    }
+  }
+
+  /// Returns true if [url] is a syntactically valid WebSocket relay URL.
+  static bool _isValidRelayUrl(String url) {
+    try {
+      final uri = Uri.parse(url);
+      return (uri.scheme == 'wss' || uri.scheme == 'ws') &&
+          uri.host.isNotEmpty &&
+          uri.host.length <= 255 &&
+          url.length <= 2048;
+    } catch (_) {
+      return false;
     }
   }
 

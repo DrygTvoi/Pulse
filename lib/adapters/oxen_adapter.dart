@@ -66,6 +66,7 @@ Future<List<String>> _discoverSnodes() async {
       final states = (data['result']?['service_node_states'] as List?) ?? [];
       final nodes = <String>[];
       for (final s in states) {
+        if (nodes.length >= 500) break; // cap snode count per seed response
         final ip = s['public_ip'] as String? ?? '';
         final port = s['storage_port'];
         if (ip.isEmpty || port == null) continue;

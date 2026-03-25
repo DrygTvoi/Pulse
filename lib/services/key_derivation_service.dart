@@ -38,11 +38,16 @@ class KeyDerivationService {
     if (password.length < 16) {
       throw ArgumentError('Password must be at least 16 characters for secure key derivation');
     }
-    final sk = await _argon2.deriveKey(
-      secretKey: SecretKey(utf8.encode(password)),
-      nonce: _kNostrSalt,
-    );
-    return Uint8List.fromList(await sk.extractBytes());
+    final passwordBytes = Uint8List.fromList(utf8.encode(password));
+    try {
+      final sk = await _argon2.deriveKey(
+        secretKey: SecretKey(passwordBytes),
+        nonce: _kNostrSalt,
+      );
+      return Uint8List.fromList(await sk.extractBytes());
+    } finally {
+      passwordBytes.fillRange(0, passwordBytes.length, 0);
+    }
   }
 
   /// 32-byte Oxen/Session seed derived from [password].
@@ -50,11 +55,16 @@ class KeyDerivationService {
     if (password.length < 16) {
       throw ArgumentError('Password must be at least 16 characters for secure key derivation');
     }
-    final sk = await _argon2.deriveKey(
-      secretKey: SecretKey(utf8.encode(password)),
-      nonce: _kOxenSalt,
-    );
-    return Uint8List.fromList(await sk.extractBytes());
+    final passwordBytes = Uint8List.fromList(utf8.encode(password));
+    try {
+      final sk = await _argon2.deriveKey(
+        secretKey: SecretKey(passwordBytes),
+        nonce: _kOxenSalt,
+      );
+      return Uint8List.fromList(await sk.extractBytes());
+    } finally {
+      passwordBytes.fillRange(0, passwordBytes.length, 0);
+    }
   }
 
   /// 32-byte Ed25519 seed derived from [password] for Pulse server auth.
@@ -62,10 +72,15 @@ class KeyDerivationService {
     if (password.length < 16) {
       throw ArgumentError('Password must be at least 16 characters');
     }
-    final sk = await _argon2.deriveKey(
-      secretKey: SecretKey(utf8.encode(password)),
-      nonce: _kPulseSalt,
-    );
-    return Uint8List.fromList(await sk.extractBytes());
+    final passwordBytes = Uint8List.fromList(utf8.encode(password));
+    try {
+      final sk = await _argon2.deriveKey(
+        secretKey: SecretKey(passwordBytes),
+        nonce: _kPulseSalt,
+      );
+      return Uint8List.fromList(await sk.extractBytes());
+    } finally {
+      passwordBytes.fillRange(0, passwordBytes.length, 0);
+    }
   }
 }
