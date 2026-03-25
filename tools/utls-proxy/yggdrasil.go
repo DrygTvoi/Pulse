@@ -532,6 +532,9 @@ func pubkeyToUDPAddr(from net.Addr) *net.UDPAddr {
 func (pc *yggPacketConn) ReadFrom(b []byte) (int, net.Addr, error) {
 	select {
 	case dg := <-pc.incoming:
+		if len(b) < len(dg.data) {
+			return 0, nil, io.ErrShortBuffer
+		}
 		n := copy(b, dg.data)
 		synth := pubkeyToUDPAddr(dg.from)
 		pc.addrCacheMu.Lock()
@@ -660,7 +663,7 @@ func handleYggProxy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	portNum, err := strconv.ParseUint(portStr, 10, 16)
-	if err != nil {
+	if err != nil || portNum == 0 {
 		http.Error(w, "invalid port", http.StatusBadRequest)
 		return
 	}
