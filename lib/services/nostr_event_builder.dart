@@ -165,6 +165,8 @@ bool verifyEventSignature(Map<String, dynamic> event) {
     final s = BigInt.parse(hex.encode(sigBytes.sublist(32, 64)), radix: 16);
 
     final n = _secp256k1.n;
+    // BIP-340 §Verification: fail if s ≥ n.
+    if (s >= n) return false;
     final G = _secp256k1.G;
     const pHex =
         'FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F';

@@ -73,6 +73,12 @@ class KeyManager {
     final b64 = prefs.getString('pqc_contact_pk_$contactId');
     if (b64 == null) return null;
     final pk = base64Decode(b64);
+    // ML-KEM-1024 public key is always 1568 bytes — reject stored keys that
+    // don't match to stay consistent with cacheContactKyberPk validation.
+    if (pk.length != 1568) {
+      debugPrint('[KeyManager] Rejected stored Kyber PK for $contactId: ${pk.length} bytes');
+      return null;
+    }
     _contactKyberPks[contactId] = pk;
     if (_contactKyberPks.length > _kyberCacheMaxSize) {
       _contactKyberPks.remove(_contactKyberPks.keys.first);

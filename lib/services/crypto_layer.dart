@@ -83,6 +83,13 @@ class CryptoLayer {
     if (nonce.length != 12) {
       throw FormatException('Invalid PQC nonce: expected 12 bytes, got ${nonce.length}');
     }
+    // Guard against OOM from a malicious relay injecting a huge ciphertext blob.
+    // 4 MiB is well above any real Signal message (typically < 60 KB on LAN,
+    // < 512 KB on Nostr), but leaves room for legitimate large attachments.
+    const maxCiphertextBytes = 4 * 1024 * 1024;
+    if (ciphertext.length > maxCiphertextBytes) {
+      throw FormatException('PQC ciphertext too large: ${ciphertext.length} bytes (max $maxCiphertextBytes)');
+    }
     final ss = PqcService().decapsulate(ct);
     final key = _hkdf(ss);
 
