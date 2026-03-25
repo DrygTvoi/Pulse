@@ -398,7 +398,7 @@ class LocalStorageService {
     // Check if already encrypted — try opening with key
     const ss = FlutterSecureStorage();
     final existingKey = await ss.read(key: _kDbKeyPref);
-    final hasKey = existingKey != null;
+    final hasKey = existingKey != null && _isValidHex64(existingKey);
     if (hasKey) {
       // Verify the key actually opens the DB (guard against crash mid-migration
       // where the key was written but the DB was not yet re-encrypted).
@@ -521,12 +521,21 @@ class LocalStorageService {
           'moved to encrypted DB');
     } catch (e) {
       debugPrint('[LocalStorage] Migration failed: $e — continuing with plaintext DB');
-      // Restore backup if migration failed
       final bak = File('$path.plaintext.bak');
       if (bak.existsSync() && !file.existsSync()) {
+        // Encrypted DB was never created — restore the plaintext backup.
         await bak.rename(path);
+      } else if (bak.existsSync()) {
+        // Encrypted DB exists (partial/failed migration) but plaintext backup
+        // is no longer needed.  Delete it — never leave plaintext data on disk.
+        try { await bak.delete(); } catch (_) {}
       }
-      // Remove the cipher key so next run doesn't try to use it on a plaintext DB
+      // Also clean up any side-file backups.
+      for (final suffix in ['-journal', '-wal', '-shm']) {
+        final sf = File('$path$suffix.bak');
+        try { if (sf.existsSync()) await sf.delete(); } catch (_) {}
+      }
+      // Remove the cipher key so next run doesn't try to use it on a plaintext DB.
       await ss.delete(key: _kDbKeyPref);
     }
   }
@@ -1624,6 +1633,11 @@ class LocalStorageService {
   }) async {
     try {
       // ── Validate header ──
+      const maxBackupBytes = 500 * 1024 * 1024; // 500 MB hard cap
+      if (data.length > maxBackupBytes) {
+        debugPrint('[Backup] File too large (${data.length} bytes > $maxBackupBytes)');
+        return (imported: -1, failed: 0);
+      }
       if (data.length < _kHeaderLen + 16) {
         debugPrint('[Backup] File too small (${data.length} bytes)');
         return (imported: -1, failed: 0);
@@ -1708,15 +1722,9 @@ class LocalStorageService {
       final total = messages.length;
 
       // Batch-insert messages with dedup (use transaction for performance).
+      // ConflictAlgorithm.ignore handles duplicate msg_id+room_id at the DB level —
+      // no need to pre-fetch all existing IDs into RAM (O(N) heap allocation).
       final importBatch = db.batch();
-      final existingIds = <String>{};
-      // Pre-fetch existing message IDs to avoid per-row queries.
-      final existingRows = await db.rawQuery(
-        'SELECT msg_id, room_id FROM messages',
-      );
-      for (final r in existingRows) {
-        existingIds.add('${r['msg_id']}|${r['room_id']}');
-      }
 
       for (int i = 0; i < messages.length; i++) {
         try {
@@ -1732,31 +1740,29 @@ class LocalStorageService {
             continue;
           }
 
-          if (!existingIds.contains('$msgId|$entryRoomId')) {
-            // Store plaintext — SQLCipher handles file encryption.
-            importBatch.insert(
-              'messages',
-              {
+          // Store plaintext — SQLCipher handles file encryption.
+          importBatch.insert(
+            'messages',
+            {
+              'msg_id': msgId,
+              'room_id': entryRoomId,
+              'timestamp': timestamp,
+              'data': plainData,
+            },
+            conflictAlgorithm: ConflictAlgorithm.ignore,
+          );
+          // Populate FTS index.
+          if (_fts5Available) {
+            final content = _extractSearchContent(plainData);
+            if (content.isNotEmpty) {
+              importBatch.insert('messages_fts', {
                 'msg_id': msgId,
                 'room_id': entryRoomId,
-                'timestamp': timestamp,
-                'data': plainData,
-              },
-              conflictAlgorithm: ConflictAlgorithm.ignore,
-            );
-            // Populate FTS index.
-            if (_fts5Available) {
-              final content = _extractSearchContent(plainData);
-              if (content.isNotEmpty) {
-                importBatch.insert('messages_fts', {
-                  'msg_id': msgId,
-                  'room_id': entryRoomId,
-                  'content': content,
-                }, conflictAlgorithm: ConflictAlgorithm.replace);
-              }
+                'content': content,
+              }, conflictAlgorithm: ConflictAlgorithm.replace);
             }
-            imported++;
           }
+          imported++;
         } catch (e) {
           failedCount++;
           debugPrint('[Backup] Skipping malformed entry $i: $e');
