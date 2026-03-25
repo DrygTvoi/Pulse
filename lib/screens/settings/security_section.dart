@@ -46,6 +46,8 @@ class _SecuritySectionState extends State<SecuritySection> {
     final controller = TextEditingController();
     bool showPass = false;
     String? error;
+    int attempts = 0;
+    const maxAttempts = 5;
 
     final result = await showDialog<bool>(
       context: context,
@@ -137,11 +139,20 @@ class _SecuritySectionState extends State<SecuritySection> {
                   setS(() => error = 'Security storage error — restart the app');
                   return;
                 }
+                if (attempts >= maxAttempts) return; // already locked
                 if (await PasswordHasher.verify(
                     controller.text, salt, hash)) {
                   if (ctx.mounted) Navigator.of(ctx).pop(true);
                 } else {
-                  setS(() => error = context.l10n.securityIncorrectPassword);
+                  attempts++;
+                  if (attempts >= maxAttempts) {
+                    // Lock the dialog: too many wrong guesses.
+                    setS(() => error = context.l10n.lockTooManyAttempts);
+                    await Future.delayed(const Duration(seconds: 1));
+                    if (ctx.mounted) Navigator.of(ctx).pop(false);
+                  } else {
+                    setS(() => error = context.l10n.securityIncorrectPassword);
+                  }
                 }
               },
               child: Text(
@@ -231,6 +242,16 @@ class _SecuritySectionState extends State<SecuritySection> {
   }
 
   Future<void> _managePanicKey() async {
+    // Require current password before allowing panic key changes — an attacker
+    // with brief physical access to an unlocked phone could otherwise replace
+    // the panic key with their own, defeating the duress wipe mechanism.
+    if (widget.passwordEnabled) {
+      final confirmed = await _showConfirmPasswordDialog(
+        title: context.l10n.panicSetPanicKey,
+        subtitle: context.l10n.settingsEnterCurrentPassword,
+      );
+      if (!confirmed || !mounted) return;
+    }
     await showDialog<void>(
       context: context,
       barrierDismissible: false,
@@ -251,6 +272,15 @@ class _SecuritySectionState extends State<SecuritySection> {
   }
 
   Future<void> _removePanicKey() async {
+    // Same guard as _managePanicKey — prevent attacker from silently
+    // disabling the duress wipe by removing the panic key.
+    if (widget.passwordEnabled) {
+      final confirmed = await _showConfirmPasswordDialog(
+        title: context.l10n.settingsRemovePanicKey,
+        subtitle: context.l10n.settingsEnterCurrentPassword,
+      );
+      if (!confirmed || !mounted) return;
+    }
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog.adaptive(
