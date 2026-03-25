@@ -208,18 +208,29 @@ class GroupSignalingService {
         final data = payload['data'] as Map<String, dynamic>? ?? {};
 
         if (type == 'webrtc_offer') {
-          await pc.setRemoteDescription(RTCSessionDescription(data['sdp'], data['type']));
+          final sdp = data['sdp'] as String? ?? '';
+          if (!sdp.contains('a=fingerprint:')) {
+            debugPrint('[GroupSignaling] Rejected offer without a=fingerprint: (DTLS bypass)');
+            return;
+          }
+          await pc.setRemoteDescription(RTCSessionDescription(sdp, data['type'] as String? ?? 'offer'));
           final answer = await pc.createAnswer();
           await pc.setLocalDescription(answer);
           await _sendSignal(member, 'webrtc_answer', answer.toMap());
         } else if (type == 'webrtc_answer') {
-          await pc.setRemoteDescription(RTCSessionDescription(data['sdp'], data['type']));
+          final sdp = data['sdp'] as String? ?? '';
+          if (!sdp.contains('a=fingerprint:')) {
+            debugPrint('[GroupSignaling] Rejected answer without a=fingerprint: (DTLS bypass)');
+            return;
+          }
+          await pc.setRemoteDescription(RTCSessionDescription(sdp, data['type'] as String? ?? 'answer'));
           // Mark answered and cancel retry timer
           _answeredPeers.add(member.id);
           _offerRetryTimers[member.id]?.cancel();
           _offerRetryTimers.remove(member.id);
         } else if (type == 'webrtc_candidate') {
-          await pc.addCandidate(RTCIceCandidate(data['candidate'], data['sdpMid'], data['sdpMLineIndex']));
+          await pc.addCandidate(RTCIceCandidate(
+              data['candidate'] as String?, data['sdpMid'] as String?, data['sdpMLineIndex'] as int?));
         }
       } catch (e) {
         debugPrint('[GroupSignaling] Signal handler error: $e');

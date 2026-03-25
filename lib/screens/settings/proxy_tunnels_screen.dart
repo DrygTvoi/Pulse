@@ -91,16 +91,19 @@ class _ProxyTunnelsScreenState extends State<ProxyTunnelsScreen> {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('tor_host', _torHostController.text.trim());
     await prefs.setInt('tor_port',
-        int.tryParse(_torPortController.text) ?? 9050);
+        (int.tryParse(_torPortController.text) ?? 9050).clamp(1, 65535));
     await prefs.setString('i2p_host', _i2pHostController.text.trim());
     await prefs.setInt('i2p_port',
-        int.tryParse(_i2pPortController.text) ?? 4447);
+        (int.tryParse(_i2pPortController.text) ?? 4447).clamp(1, 65535));
     await prefs.setString('custom_proxy_host',
         _customProxyHostController.text.trim());
     await prefs.setInt('custom_proxy_port',
-        int.tryParse(_customProxyPortController.text) ?? 10808);
-    await prefs.setString('cf_worker_relay',
-        _cfWorkerRelayController.text.trim());
+        (int.tryParse(_customProxyPortController.text) ?? 10808).clamp(1, 65535));
+    // Cap CF Worker relay URL length to prevent storage bloat
+    final cfWorkerRelay = _cfWorkerRelayController.text.trim();
+    if (cfWorkerRelay.length <= 512) {
+      await prefs.setString('cf_worker_relay', cfWorkerRelay);
+    }
   }
 
   Future<void> _loadSettings() async {

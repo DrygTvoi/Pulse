@@ -72,6 +72,11 @@ class CryptoLayer {
       throw FormatException('Invalid PQC envelope: base64 decode failed — $e');
     }
 
+    // ML-KEM-1024 ciphertext is always 1568 bytes — reject anything else early
+    // to avoid double-decapsulation with _skPrev on obviously malformed input.
+    if (ct.length != 1568) {
+      throw FormatException('Invalid PQC ciphertext: expected 1568 bytes, got ${ct.length}');
+    }
     final ss = PqcService().decapsulate(ct);
     final key = _hkdf(ss);
 

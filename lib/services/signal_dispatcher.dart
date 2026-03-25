@@ -670,7 +670,7 @@ class SignalDispatcher {
             final groupName = payload['name'] as String? ?? '';
             final rawMembers = payload['members'];
             final creatorId = payload['creatorId'] as String?;
-            if (groupId != null && rawMembers is List && !_groupUpdateCtrl.isClosed) {
+            if (groupId != null && rawMembers is List && rawMembers.length <= 200 && !_groupUpdateCtrl.isClosed) {
               _groupUpdateCtrl.add(SignalGroupUpdateEvent(
                   groupId, groupName, rawMembers.whereType<String>().toList(),
                   creatorId: creatorId, senderId: sigSender));
@@ -685,7 +685,7 @@ class SignalDispatcher {
             final creatorId = payload['creatorId'] as String?;
             final senderId = sig['senderId'] as String? ?? '';
             final inviter = _resolveContact(senderId, contactByDbId);
-            if (groupId != null && rawMembers is List && inviter != null &&
+            if (groupId != null && rawMembers is List && rawMembers.length <= 200 && inviter != null &&
                 !_groupInviteCtrl.isClosed) {
               _groupInviteCtrl.add(SignalGroupInviteEvent(
                   inviter, groupId, groupName, rawMembers.whereType<String>().toList(),

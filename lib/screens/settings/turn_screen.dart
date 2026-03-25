@@ -46,9 +46,21 @@ class _TurnScreenState extends State<TurnScreen> {
   }
 
   Future<void> _save() async {
+    final url = _turnUrlController.text.trim();
+    if (url.isNotEmpty) {
+      final validScheme = url.startsWith('turn:') || url.startsWith('turns:');
+      if (!validScheme || url.length > 512) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('TURN URL must start with turn: or turns: (max 512 chars)')),
+          );
+        }
+        return;
+      }
+    }
     await IceServerConfig.saveEnabledPresets(_enabledPresets);
     await IceServerConfig.saveCustomTurn(
-      url: _turnUrlController.text.trim(),
+      url: url,
       username: _turnUsernameController.text.trim(),
       password: _turnPasswordController.text.trim(),
     );

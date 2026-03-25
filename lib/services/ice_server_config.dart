@@ -204,7 +204,7 @@ class IceServerConfig {
     final url  = await ss.read(key: _kCustomUrl)      ?? '';
     final user = await ss.read(key: _kCustomUsername)  ?? '';
     final pass = await ss.read(key: _kCustomPassword)  ?? '';
-    if (url.isNotEmpty) {
+    if (url.isNotEmpty && (url.startsWith('turn:') || url.startsWith('turns:'))) {
       servers.add({
         'urls': url,
         if (user.isNotEmpty) 'username': user,

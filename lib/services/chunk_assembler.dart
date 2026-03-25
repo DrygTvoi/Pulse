@@ -28,6 +28,10 @@ class ChunkAssembler {
 
       final map = jsonDecode(chunkPayload) as Map<String, dynamic>;
       final fid = map['fid'] as String;
+      if (fid.isEmpty || fid.length > 256) {
+        debugPrint('[ChunkAssembler] Rejected: invalid fid length (${fid.length})');
+        return null;
+      }
       final idx = map['idx'] as int;
       final total = map['total'] as int;
       final data = map['d'] as String;
