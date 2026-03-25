@@ -321,6 +321,10 @@ class SignalDispatcher {
     // F4 fix: reactions must be authenticated — an unsigned reaction lets any
     // relay operator attribute emoji reactions to arbitrary contacts.
     'reaction',
+    // Heartbeats already carry _sig/_spk (SignalBroadcaster._sendSignalTo signs
+    // all signals for non-Nostr transports). Without verification a relay can
+    // forge heartbeats to make any contact appear online persistently.
+    'heartbeat',
   };
 
   /// Signal types exempt from the general rate limiter (system-critical or
