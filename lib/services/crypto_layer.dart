@@ -40,6 +40,8 @@ class CryptoLayer {
   /// Returns [signalCt] unchanged when [remotePk] is null (no PQC available).
   static String wrap(String signalCt, Uint8List? remotePk) {
     if (remotePk == null) return signalCt;
+    // ML-KEM-1024 public key must be exactly 1568 bytes.
+    if (remotePk.length != 1568) return signalCt; // silently skip — don't crash sender
 
     // Fresh per-message encapsulation → perfect forward secrecy at PQC layer.
     final (ct, ss) = PqcService().encapsulate(remotePk);

@@ -192,7 +192,9 @@ class IceServerConfig {
     final pulseTurnUrl  = await ss.read(key: 'pulse_turn_url')  ?? '';
     final pulseTurnUser = await ss.read(key: 'pulse_turn_user') ?? '';
     final pulseTurnPass = await ss.read(key: 'pulse_turn_pass') ?? '';
-    if (pulseTurnUrl.isNotEmpty) {
+    if (pulseTurnUrl.isNotEmpty &&
+        (pulseTurnUrl.startsWith('turn:') || pulseTurnUrl.startsWith('turns:')) &&
+        !_isTurnHostPrivate(_extractTurnHost(pulseTurnUrl))) {
       servers.add({
         'urls': pulseTurnUrl,
         if (pulseTurnUser.isNotEmpty) 'username': pulseTurnUser,
