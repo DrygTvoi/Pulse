@@ -29,6 +29,9 @@ class _DeviceTransferScreenState extends State<DeviceTransferScreen> {
   String _verificationCode = '';
   String _errorMessage = '';
 
+  // Holds the background receiveNostrTransfer() future so _doReceive() can await it.
+  Future<void>? _receiveTask;
+
   final _codeController = TextEditingController();
   final _relayController = TextEditingController(text: kDefaultNostrRelay);
 
@@ -117,7 +120,10 @@ class _DeviceTransferScreenState extends State<DeviceTransferScreen> {
       if (code.startsWith('LAN:')) {
         await svc.receiveLanTransfer(code);
       } else if (code.startsWith('NOS:')) {
-        await svc.receiveNostrTransfer(code);
+        // Run the full receive task in the background so the verify screen can
+        // be shown while it waits for user confirmation (_bundleConfirmed gate).
+        _receiveTask = svc.receiveNostrTransfer(code);
+        await svc.exchangeComplete; // resolves when bundle arrives + verification code is set
       } else {
         throw FormatException(context.l10n.transferInvalidCodeFormat);
       }
@@ -138,18 +144,44 @@ class _DeviceTransferScreenState extends State<DeviceTransferScreen> {
   // ─── Verification ──────────────────────────────────────────────────────────
 
   void _confirm() {
-    // Sender must unblock the /confirm-and-get-bundle endpoint so the receiver
-    // can fetch the encrypted key bundle.  Without this call the bundle is
-    // never delivered — _bundleConfirmed Completer waits forever.
     if (_role == _Role.sender) {
+      // Unblock /confirm-and-get-bundle so the receiver can fetch the bundle.
       _service?.confirmTransfer();
+      setState(() => _step = _Step.done);
+    } else {
+      // Receiver: fetch (LAN) or gate-release (Nostr) the key bundle asynchronously.
+      unawaited(_doReceive());
     }
-    setState(() => _step = _Step.done);
+  }
+
+  Future<void> _doReceive() async {
+    setState(() => _step = _Step.inProgress);
+    try {
+      final code = _codeController.text.trim();
+      if (code.startsWith('LAN:')) {
+        // Phase 2: POST to sender's /confirm-and-get-bundle and import keys.
+        await _service?.confirmAndReceiveBundle(code);
+      } else {
+        // Nostr: releasing _bundleConfirmed triggers _importBundle inside
+        // the background receiveNostrTransfer() task; await it to propagate errors.
+        _service?.confirmTransfer();
+        await _receiveTask;
+      }
+      if (mounted) setState(() => _step = _Step.done);
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = e.toString();
+          _step = _Step.error;
+        });
+      }
+    }
   }
 
   void _cancel() {
     _service?.dispose();
     _service = null;
+    _receiveTask = null;
     setState(() {
       _step = _Step.roleSelect;
       _role = _Role.none;
