@@ -545,6 +545,24 @@ class SignalDispatcher {
           final senderId = sig['senderId'] as String? ?? '';
           final p2pContact = _resolveContact(senderId, contactByDbId);
           if (p2pContact != null) {
+            // Verify HMAC on non-Nostr transports — prevents relay from
+            // injecting forged p2p_offer/answer/ice with spoofed senderId.
+            final isNostrVerified = (sig['adapterType'] as String? ?? '') == 'nostr';
+            if (!isNostrVerified) {
+              final payload = sig['payload'];
+              if (payload is Map<String, dynamic>) {
+                final hmac = payload['_sig'] as String?;
+                final senderPub = payload['_spk'] as String?;
+                if (hmac == null || senderPub == null) {
+                  debugPrint('[SignalDispatcher] REJECTED unsigned p2p signal ($sigType) from $senderId');
+                  continue;
+                }
+                if (!await _verifySignature(sigType, payload, hmac, senderPub)) {
+                  debugPrint('[SignalDispatcher] REJECTED forged p2p signal ($sigType) — HMAC invalid');
+                  continue;
+                }
+              }
+            }
             final rawPayload = sig['payload'];
             if (rawPayload is Map<String, dynamic> && !_p2pCtrl.isClosed) {
               _p2pCtrl.add(SignalP2PEvent(p2pContact, sigType, rawPayload));

@@ -184,6 +184,15 @@ class PulseInboxReader implements InboxReader {
         if (type == 'auth_challenge') {
           final nonce = data['nonce'] as String? ?? '';
           final timestamp = data['timestamp']?.toString() ?? '';
+          // Reject stale auth challenges (replayed by MITM).
+          final tsVal = int.tryParse(timestamp) ?? 0;
+          final serverTime = DateTime.fromMillisecondsSinceEpoch(tsVal * 1000);
+          if (DateTime.now().difference(serverTime).abs() > const Duration(minutes: 5)) {
+            debugPrint('[Pulse] Auth challenge timestamp out of range — possible replay');
+            if (!completer.isCompleted) completer.complete(false);
+            sub.cancel();
+            return;
+          }
           final message = 'pulse-auth-v1:$nonce:$timestamp';
           final signature = await _ed25519Sign(_seed, message);
 
@@ -356,16 +365,21 @@ class PulseInboxReader implements InboxReader {
     if (id.isEmpty || _seenIds.contains(id)) return;
     _trackSeenId(id);
 
-    final ts = payload['timestamp'] as int? ??
+    final rawTs = payload['timestamp'] as int? ??
         (DateTime.now().millisecondsSinceEpoch ~/ 1000);
-    unawaited(_updateLastFetchTs(ts));
+    unawaited(_updateLastFetchTs(rawTs));
+
+    // Clamp timestamp to ±7 days of local clock to prevent ordering attacks.
+    final now = DateTime.now();
+    final claimed = DateTime.fromMillisecondsSinceEpoch(rawTs * 1000, isUtc: true);
+    final msgTs = claimed.difference(now).abs() <= const Duration(days: 7) ? claimed : now;
 
     final msg = Message(
       id: id,
       senderId: payload['from'] as String? ?? '',
       receiverId: _pubkeyHex,
       encryptedPayload: payload['payload'] as String? ?? '',
-      timestamp: DateTime.fromMillisecondsSinceEpoch(ts * 1000, isUtc: true),
+      timestamp: msgTs,
       adapterType: 'pulse',
     );
     if (!_msgCtrl.isClosed) _msgCtrl.add([msg]);

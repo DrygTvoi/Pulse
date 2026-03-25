@@ -73,10 +73,16 @@ class DeviceTransferService {
     final prefs = await SharedPreferences.getInstance();
     for (final key in ['signal_id_key', 'signal_reg_id', 'signal_signed_prekey_0', 'nostr_privkey']) {
       if (data[key] != null) {
+        if (data[key] is! String) {
+          throw FormatException('Invalid type for $key in transfer bundle: ${data[key].runtimeType}');
+        }
         await _secureStorage.write(key: key, value: data[key] as String);
       }
     }
     if (data['user_identity'] != null) {
+      if (data['user_identity'] is! String) {
+        throw FormatException('Invalid type for user_identity in transfer bundle');
+      }
       await prefs.setString('user_identity', data['user_identity'] as String);
     }
     // Clear so new device regenerates prekeys on next initialize()
@@ -315,8 +321,8 @@ class DeviceTransferService {
           final event = data[2] as Map<String, dynamic>;
           if (event['kind'] != 4) continue;
           // Target sends its pubkey as plaintext content
-          final kbPubHex = event['content'] as String;
-          if (kbPubHex.length != 64) continue; // sanity check
+          final kbPubHex = event['content'];
+          if (kbPubHex is! String || kbPubHex.length != 64) continue;
           _peerPubHex = kbPubHex;
           verificationCode = _verificationCode(_myPrivHex, _peerPubHex);
           // F1-CRITICAL: Gate bundle transmission on user confirmation.

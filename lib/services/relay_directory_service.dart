@@ -263,8 +263,10 @@ class RelayDirectoryService {
         return [];
       }
 
+      const maxRelays = 500;
       final relays = <String>[];
       for (final item in list) {
+        if (relays.length >= maxRelays) break;
         final url = item is String ? item : (item is Map ? item['url'] as String? ?? '' : '');
         if (url.isEmpty || url.length > 256) continue;
         final uri = Uri.tryParse(url);
