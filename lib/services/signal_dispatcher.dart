@@ -355,6 +355,20 @@ class SignalDispatcher {
     return null;
   }
 
+  /// Returns true if this contact has at least one address with a 64-hex Nostr pubkey.
+  /// Used to determine whether webrtc offer/answer HMAC is expected.
+  static bool _contactHasNostrPubkey(Contact contact) {
+    for (final addr in [contact.databaseId, ...contact.alternateAddresses]) {
+      final atIdx = addr.indexOf('@wss://');
+      if (atIdx != -1) {
+        final pub = addr.substring(0, atIdx);
+        if (RegExp(r'^[0-9a-f]{64}$').hasMatch(pub)) return true;
+      }
+      if (RegExp(r'^[0-9a-f]{64}$').hasMatch(addr)) return true;
+    }
+    return false;
+  }
+
   // ── Main dispatch entry point ────────────────────────────────────────────
 
   /// Process a batch of incoming signals, emitting typed events.
@@ -408,6 +422,36 @@ class SignalDispatcher {
                 debugPrint(
                     '[SignalDispatcher] REJECTED forged signal ($sigType) — HMAC invalid');
                 continue;
+              }
+            }
+          }
+        }
+
+        // webrtc offer/answer HMAC: if the sender contact has a Nostr pubkey
+        // (most Waku/Oxen contacts do), require _sig/_spk to prevent a relay
+        // operator from forging a fake "Incoming call from Alice" event.
+        // Firebase-only contacts cannot use ECDH-HMAC and are allowed unsigned.
+        if (_webrtcOfferTypes.contains(sigType)) {
+          final isNostrVerified = (sig['adapterType'] as String? ?? '') == 'nostr';
+          if (!isNostrVerified) {
+            final rawPayload = sig['payload'];
+            if (rawPayload is Map<String, dynamic>) {
+              final hmac = rawPayload['_sig'] as String?;
+              final senderPub = rawPayload['_spk'] as String?;
+              final senderContact = _resolveContact(sigSender, contactByDbId);
+              final needsSig = senderContact != null &&
+                  _contactHasNostrPubkey(senderContact);
+              if (needsSig && (hmac == null || senderPub == null)) {
+                debugPrint(
+                    '[SignalDispatcher] REJECTED unsigned webrtc signal ($sigType) from $sigSender');
+                continue;
+              }
+              if (hmac != null && senderPub != null) {
+                if (!await _verifySignature(sigType, rawPayload, hmac, senderPub)) {
+                  debugPrint(
+                      '[SignalDispatcher] REJECTED forged webrtc signal ($sigType) — HMAC invalid');
+                  continue;
+                }
               }
             }
           }

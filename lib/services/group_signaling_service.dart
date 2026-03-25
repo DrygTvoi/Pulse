@@ -287,8 +287,42 @@ class GroupSignalingService {
           jsonEncode({'privkey': privkey, 'relay': relay}));
     }
 
+    // HMAC-sign offer/answer on non-Nostr transports to prevent relay forgery.
+    if ((type.endsWith('_offer') || type.endsWith('_answer')) &&
+        target.provider != 'Nostr') {
+      try {
+        final privkey = await _secureStorage.read(key: 'nostr_privkey') ?? '';
+        if (privkey.isNotEmpty) {
+          final recipientPub = _extractPubkeyFor(target);
+          if (recipientPub != null) {
+            final senderPub = deriveNostrPubkeyHex(privkey);
+            final canonical = jsonEncode({'t': type, 'p': payload});
+            final hmac = signSignalPayload(privkey, recipientPub, canonical);
+            payload = {...payload, '_sig': hmac, '_spk': senderPub};
+          }
+        }
+      } catch (e) {
+        debugPrint('[GroupSignaling] HMAC sign failed: $e');
+      }
+    }
+
     await InboxManager().sendSystemMessage(
       target.provider, target.databaseId, target.databaseId, myId, type, payload);
+  }
+
+  /// Extract Nostr pubkey from a contact's addresses for HMAC signing.
+  static String? _extractPubkeyFor(Contact contact) {
+    for (final addr in [contact.databaseId, ...contact.alternateAddresses]) {
+      final atWss = addr.indexOf('@wss://');
+      final atWs  = addr.indexOf('@ws://');
+      final atIdx = atWss != -1 ? atWss : (atWs != -1 ? atWs : -1);
+      if (atIdx != -1) {
+        final pub = addr.substring(0, atIdx);
+        if (RegExp(r'^[0-9a-f]{64}$').hasMatch(pub)) return pub;
+      }
+      if (RegExp(r'^[0-9a-f]{64}$').hasMatch(addr)) return addr;
+    }
+    return null;
   }
 
   /// Replace the video track in all peer connections (for screen share toggle).
