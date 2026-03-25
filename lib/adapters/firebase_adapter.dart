@@ -11,6 +11,27 @@ import 'inbox_manager.dart';
 http.Client _buildFirebaseClient() =>
     psiphon.buildPsiphonHttpClient() ?? tor.buildTorHttpClient() ?? http.Client();
 
+/// Returns true if the Firebase target URL resolves to a private/loopback
+/// address that should never be used as a cross-project relay (SSRF guard).
+bool _isPrivateFirebaseUrl(String url) {
+  final uri = Uri.tryParse(url);
+  if (uri == null) return true;
+  final h = uri.host.toLowerCase();
+  if (h == 'localhost' || h == '::1') return true;
+  if (h.startsWith('127.') || h.startsWith('169.254.')) return true;
+  if (h.startsWith('10.') || h.startsWith('192.168.')) return true;
+  if (h.startsWith('172.')) {
+    final second = int.tryParse(h.split('.').elementAtOrNull(1) ?? '');
+    if (second != null && second >= 16 && second <= 31) return true;
+  }
+  if (h.startsWith('100.')) {
+    final second = int.tryParse(h.split('.').elementAtOrNull(1) ?? '');
+    if (second != null && second >= 64 && second <= 127) return true;
+  }
+  if (h.startsWith('fc') || h.startsWith('fd') || h.startsWith('fe80:')) return true;
+  return false;
+}
+
 class FirebaseInboxReader implements InboxReader {
   late String _dbUrl;
   late String _authKey;
@@ -120,6 +141,10 @@ class FirebaseInboxReader implements InboxReader {
               dataBuffer = null; // reset before parse — prevents stale buffer if JSON fails
               final dataStr = line.substring(6).trim();
               if (dataStr.isEmpty || dataStr == 'null') continue;
+              if (dataStr.length > 10 * 1024 * 1024) {
+                debugPrint('[Firebase] SSE message line too large (${dataStr.length} bytes), skipping');
+                continue;
+              }
               try {
                 dataBuffer = jsonDecode(dataStr);
               } catch (e) {
@@ -208,6 +233,10 @@ class FirebaseInboxReader implements InboxReader {
             if (line.startsWith('data: ')) {
               final dataStr = line.substring(6).trim();
               if (dataStr.isEmpty || dataStr == 'null') continue;
+              if (dataStr.length > 10 * 1024 * 1024) {
+                debugPrint('[Firebase] SSE signal line too large (${dataStr.length} bytes), skipping');
+                continue;
+              }
               try {
                 dataBuffer = jsonDecode(dataStr);
               } catch (e) {
@@ -332,6 +361,10 @@ class FirebaseInboxSender implements MessageSender {
       userId = targetDatabaseId.substring(0, atIdx);
       targetDbUrl = targetDatabaseId.substring(atIdx + 1);
       if (targetDbUrl.endsWith('/')) targetDbUrl = targetDbUrl.substring(0, targetDbUrl.length - 1);
+      if (_isPrivateFirebaseUrl(targetDbUrl)) {
+        debugPrint('[Firebase] SSRF rejected — private target URL: $targetDbUrl');
+        return false;
+      }
     } else {
       userId = targetDatabaseId;
       targetDbUrl = _dbUrl; // same Firebase project
@@ -368,6 +401,10 @@ class FirebaseInboxSender implements MessageSender {
       userId = targetDatabaseId.substring(0, atIdx);
       targetDbUrl = targetDatabaseId.substring(atIdx + 1);
       if (targetDbUrl.endsWith('/')) targetDbUrl = targetDbUrl.substring(0, targetDbUrl.length - 1);
+      if (_isPrivateFirebaseUrl(targetDbUrl)) {
+        debugPrint('[Firebase] SSRF rejected — private target URL: $targetDbUrl');
+        return false;
+      }
     } else {
       userId = targetDatabaseId;
       targetDbUrl = _dbUrl;
