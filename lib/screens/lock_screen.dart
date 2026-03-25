@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../theme/app_theme.dart';
+import '../controllers/chat_controller.dart';
 import '../services/local_storage_service.dart';
 import '../services/password_hasher.dart';
 import 'home_screen.dart';
@@ -148,6 +150,9 @@ class _LockScreenState extends State<LockScreen> {
 
   void _goHome() {
     if (!mounted) return;
+    // Now that the user has authenticated, broadcast our current address.
+    // This was deferred from app startup to avoid leaking presence before unlock.
+    context.read<ChatController>().broadcastAddressUpdate();
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(builder: (_) => const HomeScreen()),
       (_) => false,
