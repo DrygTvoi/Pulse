@@ -115,6 +115,8 @@ bool _isPrivateSnodeIp(String ip) {
   if (ip.startsWith('0.')) return true;
   // IPv6 ULA (fc00::/7)
   if (ip.startsWith('fc') || ip.startsWith('fd')) return true;
+  // IPv6 link-local (fe80::/10)
+  if (RegExp(r'^fe[89ab]', caseSensitive: false).hasMatch(ip)) return true;
   return false;
 }
 
