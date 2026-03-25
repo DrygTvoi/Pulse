@@ -297,7 +297,7 @@ class OxenInboxReader implements InboxReader {
     final data = jsonDecode(res.body) as Map<String, dynamic>;
     final result = data['result'] as Map<String, dynamic>? ?? {};
     final messages =
-        (result['messages'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+        (result['messages'] as List?)?.whereType<Map<String, dynamic>>().toList() ?? [];
 
     for (final item in messages) {
       final hash = item['hash'] as String? ?? '';
