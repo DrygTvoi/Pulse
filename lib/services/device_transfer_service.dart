@@ -222,7 +222,9 @@ class DeviceTransferService {
       throw FormatException('Invalid LAN transfer code: loopback address rejected');
     }
     final port = int.tryParse(parts[2]);
-    if (port == null) throw FormatException('Invalid port in LAN transfer code');
+    if (port == null || port < 1 || port > 65535) {
+      throw FormatException('Invalid port in LAN transfer code');
+    }
 
     _genKeypair();
 
@@ -266,7 +268,9 @@ class DeviceTransferService {
       throw FormatException('Invalid LAN transfer code: loopback address rejected');
     }
     final port = int.tryParse(parts[2]);
-    if (port == null) throw FormatException('Invalid port in LAN transfer code');
+    if (port == null || port < 1 || port > 65535) {
+      throw FormatException('Invalid port in LAN transfer code');
+    }
 
     final client = HttpClient();
     try {
@@ -387,6 +391,18 @@ class DeviceTransferService {
     // ephemeral pubkey exchange in transit.
     if (!relay.startsWith('wss://')) {
       throw FormatException('Invalid Nostr transfer code: relay must use wss:// scheme');
+    }
+    // Reject loopback/private relay hosts: a malicious QR could point to a
+    // local service (e.g. wss://127.0.0.1:6379) that accepts WebSocket frames.
+    final relayHost = Uri.tryParse(relay)?.host ?? '';
+    if (relayHost == '127.0.0.1' || relayHost == '::1' ||
+        relayHost == 'localhost' || relayHost == '0.0.0.0' ||
+        relayHost.startsWith('192.168.') || relayHost.startsWith('10.') ||
+        relayHost.startsWith('172.16.') || relayHost.startsWith('172.17.') ||
+        relayHost.startsWith('172.18.') || relayHost.startsWith('172.19.') ||
+        relayHost.startsWith('172.2') || relayHost.startsWith('172.30.') ||
+        relayHost.startsWith('172.31.')) {
+      throw FormatException('Invalid Nostr transfer code: private/loopback relay rejected');
     }
 
     _genKeypair();
