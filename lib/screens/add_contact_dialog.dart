@@ -507,8 +507,12 @@ class _AddContactDialogState extends State<AddContactDialog> {
           .take(20)
           .map((e) => e.toString())
           .where((e) => e.isNotEmpty && e.length <= 512)
+          .where((e) => e.contains('@') || RegExp(r'^05[0-9a-fA-F]{64}$').hasMatch(e))
           .toList();
     } else if (rawA is String && rawA.isNotEmpty && rawA.length <= 512) {
+      if (!rawA.contains('@') && !RegExp(r'^05[0-9a-fA-F]{64}$').hasMatch(rawA)) {
+        return null;
+      }
       addresses = [rawA];
     } else {
       return null;

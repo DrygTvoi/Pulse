@@ -2100,6 +2100,13 @@ class ChatController extends ChangeNotifier {
           '$senderUuid (declared creator: ${invite.creatorId})');
       return;
     }
+    // Reject invite where our own ID is absent from the member list.
+    // Prevents joining a group in an inconsistent state where we're not
+    // listed as a member (e.g., relay replaying an old invite to someone else).
+    if (_selfId.isNotEmpty && !invite.members.contains(_selfId)) {
+      debugPrint('[Group] Rejected invite: self not listed in members');
+      return;
+    }
     final newGroup = Contact(
       id: invite.groupId,
       name: invite.groupName,

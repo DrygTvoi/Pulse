@@ -327,7 +327,7 @@ class TorService {
       case _PtMode.obfs4:
         buf
           ..writeln('UseBridges 1')
-          ..writeln('ClientTransportPlugin obfs4 exec $ptPath');
+          ..writeln('ClientTransportPlugin obfs4 exec "$ptPath"');
         for (final b in bridges) {
           final safe = b.replaceAll(RegExp(r'[\r\n]'), '');
           if (safe.isNotEmpty) buf.writeln('Bridge $safe');
@@ -338,7 +338,7 @@ class TorService {
         // Uses the same lyrebird/obfs4proxy binary — it ships webtunnel support.
         buf
           ..writeln('UseBridges 1')
-          ..writeln('ClientTransportPlugin webtunnel exec $ptPath');
+          ..writeln('ClientTransportPlugin webtunnel exec "$ptPath"');
         for (final b in bridges) {
           final safe = b.replaceAll(RegExp(r'[\r\n]'), '');
           if (safe.isNotEmpty) buf.writeln('Bridge $safe');
@@ -361,7 +361,7 @@ class TorService {
             'stun:74.125.250.129:19302';
         buf
           ..writeln('UseBridges 1')
-          ..writeln('ClientTransportPlugin snowflake exec $ptPath '
+          ..writeln('ClientTransportPlugin snowflake exec "$ptPath" '
               '-max 1 -ice $sfStun');
         for (final b in bridges) {
           final safe = b.replaceAll(RegExp(r'[\r\n]'), '');
