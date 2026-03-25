@@ -11,6 +11,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/key_export_service.dart';
 import '../../services/local_storage_service.dart';
+import '../../services/password_hasher.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/design_tokens.dart';
 import '../../l10n/l10n_ext.dart';
@@ -184,6 +185,112 @@ class DataSection extends StatelessWidget {
     passCtrl.dispose();
     confirmCtrl.dispose();
     return result;
+  }
+
+  // ── Current-password gate ─────────────────────────────────────────────────
+  //
+  // Used before key export and plaintext identity import to confirm that the
+  // person at the keyboard is the legitimate owner.  Returns true if no app
+  // password is set (gate is a no-op) or if the user enters the correct
+  // password.  Returns false if the user cancels or exceeds 5 attempts.
+
+  Future<bool> _confirmWithAppPassword(BuildContext context) async {
+    final hash = await _secureStorage.read(key: 'app_password_hash');
+    final salt = await _secureStorage.read(key: 'app_password_salt');
+    if (hash == null || salt == null) return true; // no password set
+    if (!context.mounted) return false;
+
+    final ctrl = TextEditingController();
+    bool showPass = false;
+    String? error;
+    int attempts = 0;
+    const maxAttempts = 5;
+
+    final ok = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setS) => AlertDialog.adaptive(
+          backgroundColor: AppTheme.surface,
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(DesignTokens.dialogRadius)),
+          title: Text(context.l10n.settingsCurrentPassword,
+              style: GoogleFonts.inter(
+                  color: AppTheme.textPrimary, fontWeight: FontWeight.w700, fontSize: 16)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(context.l10n.settingsEnterCurrentPassword,
+                  style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: 13)),
+              const SizedBox(height: 16),
+              TextField(
+                controller: ctrl,
+                obscureText: !showPass,
+                autofocus: true,
+                style: GoogleFonts.inter(color: AppTheme.textPrimary, fontSize: 15),
+                decoration: InputDecoration(
+                  hintText: context.l10n.settingsCurrentPassword,
+                  hintStyle: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: 14),
+                  filled: true,
+                  fillColor: AppTheme.surfaceVariant,
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
+                      borderSide: BorderSide.none),
+                  enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
+                      borderSide: BorderSide.none),
+                  focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
+                      borderSide: const BorderSide(color: Color(0xFF60A5FA), width: 1.5)),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      showPass ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+                      color: AppTheme.textSecondary, size: 18),
+                    onPressed: () => setS(() => showPass = !showPass),
+                  ),
+                ),
+                onChanged: (_) => setS(() => error = null),
+              ),
+              if (error != null) ...[
+                const SizedBox(height: 8),
+                Text(error!, style: GoogleFonts.inter(color: const Color(0xFFF87171), fontSize: 12)),
+              ],
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: Text(context.l10n.cancel,
+                  style: GoogleFonts.inter(color: AppTheme.textSecondary)),
+            ),
+            TextButton(
+              onPressed: () async {
+                if (attempts >= maxAttempts) return;
+                if (await PasswordHasher.verify(ctrl.text, salt, hash)) {
+                  if (ctx.mounted) Navigator.of(ctx).pop(true);
+                } else {
+                  attempts++;
+                  if (attempts >= maxAttempts) {
+                    setS(() => error = context.l10n.lockTooManyAttempts);
+                    await Future.delayed(const Duration(seconds: 1));
+                    if (ctx.mounted) Navigator.of(ctx).pop(false);
+                  } else {
+                    setS(() => error = context.l10n.securityIncorrectPassword);
+                  }
+                }
+              },
+              child: Text(context.l10n.confirm,
+                  style: GoogleFonts.inter(
+                      color: const Color(0xFF60A5FA), fontWeight: FontWeight.w600)),
+            ),
+          ],
+        ),
+      ),
+    );
+    ctrl.dispose();
+    return ok == true;
   }
 
   // ── Identity backup ───────────────────────────────────────────────────────
@@ -456,8 +563,13 @@ class DataSection extends StatelessWidget {
                   }
                   data = bundle;
                 } else {
-                  // BUG-3: Legacy plaintext backup — warn user before importing.
-                  // A crafted file could inject arbitrary key material silently.
+                  // BUG-3: Legacy plaintext backup — require current password
+                  // + explicit confirmation before importing unencrypted keys.
+                  // Without the password gate, a social-engineering attack
+                  // (trick user into importing a crafted file) can replace all
+                  // keys with attacker-controlled ones.
+                  if (!context.mounted) return;
+                  if (!await _confirmWithAppPassword(context)) return;
                   if (!context.mounted) return;
                   final confirmed = await showDialog<bool>(
                     context: context,
@@ -896,6 +1008,12 @@ class DataSection extends StatelessWidget {
       ),
     );
     if (proceed != true || !context.mounted) return;
+
+    // Require the current app lock password before exporting private keys.
+    // An attacker with brief access to an unlocked device could otherwise
+    // export all keys without knowing the password.
+    if (!await _confirmWithAppPassword(context)) return;
+    if (!context.mounted) return;
 
     final password = await _showBackupPasswordDialog(
       context,
