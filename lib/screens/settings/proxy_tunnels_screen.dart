@@ -236,8 +236,25 @@ class _ProxyTunnelsScreenState extends State<ProxyTunnelsScreen> {
             onToggleBundledTor: _toggleBundledTor,
             onPreferredPtChanged: (val) async {
               setState(() => _preferredPt = val);
+              // Capture context-derived values before any await.
+              final messenger = ScaffoldMessenger.of(context);
+              final failMsg = context.l10n.settingsTorFailedToStart;
               final prefs = await SharedPreferences.getInstance();
               await prefs.setString('preferred_pt', val);
+              // Auto-restart Tor so new PT takes effect immediately.
+              if (_bundledTorEnabled && TorService.instance.isRunning) {
+                setState(() => _bundledTorLoading = true);
+                final ok = await TorService.instance.restartPersistent();
+                if (!mounted) return;
+                setState(() {
+                  _bundledTorLoading = false;
+                  _bundledTorEnabled = ok;
+                });
+                if (!ok) {
+                  messenger.showSnackBar(
+                      SnackBar(content: Text(failMsg)));
+                }
+              }
             },
             torTimeoutSec: _torTimeoutSec,
             onTorTimeoutChanged: (val) async {

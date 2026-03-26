@@ -136,7 +136,7 @@ class TorService {
     // User preference: auto = full chain, or force a specific PT
     final prefs = await SharedPreferences.getInstance();
     final pref = prefs.getString('preferred_pt') ?? 'auto';
-    final timeoutSec = (prefs.getInt('tor_timeout_sec') ?? 60).clamp(15, 300);
+    final timeoutSec = (prefs.getInt('tor_timeout_sec') ?? 90).clamp(15, 300);
 
     // ── PT chain ───────────────────────────────────────────────────────────
     final obfs4Path = await _findObfs4Proxy();
@@ -195,6 +195,14 @@ class TorService {
     _starting = false;
     _stateCtrl.add(null);
     return false;
+  }
+
+  /// Restart with new settings (e.g. after preferred_pt change).
+  /// No-op if Tor is not currently running as persistent.
+  Future<bool> restartPersistent() async {
+    if (!_persistent) return false;
+    await stop();
+    return startPersistent();
   }
 
   Future<void> stop() async {
@@ -327,9 +335,11 @@ class TorService {
       ..writeln('SocksPort $socksPort')
       ..writeln('DataDirectory $dataDir')
       ..writeln('Log notice stdout')
-      // Faster circuit building
+      // Shorter per-circuit timeout so Tor retries faster on slow/blocked bridges.
+      // Combined with LearnCircuitBuildTimeout, Tor adapts after a few attempts.
+      // The overall _launchTor timeout (90 s default) allows ~3 retry cycles.
       ..writeln('LearnCircuitBuildTimeout 1')
-      ..writeln('CircuitBuildTimeout 60');
+      ..writeln('CircuitBuildTimeout 30');
 
     switch (mode) {
       case _PtMode.obfs4:
