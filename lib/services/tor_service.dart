@@ -289,9 +289,9 @@ class TorService {
       if (await stateFile.exists()) await stateFile.delete();
     } catch (_) {}
 
-    // Shuffle bridge order so Tor distributes attempts across all bridges rather
-    // than always starting with the same one.
-    final shuffledBridges = List.of(bridges)..shuffle();
+    // Shuffle bridge order then cap at 4: fewer bridges = fewer dead-bridge
+    // retries and faster convergence. Tor tries them in parallel anyway.
+    final shuffledBridges = (List.of(bridges)..shuffle()).take(4).toList();
 
     final torrcPath = await _writeTorrc(
       dataDir: dataDir,
