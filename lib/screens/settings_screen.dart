@@ -8,6 +8,7 @@ import '../l10n/l10n_ext.dart';
 import 'settings/profile_section.dart';
 import 'settings/network_section.dart';
 import 'settings/appearance_identity_section.dart';
+import 'settings/language_section.dart';
 import 'settings/data_section.dart';
 import 'settings/security_section.dart';
 import 'settings/about_section.dart';
@@ -67,6 +68,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
           // ─── Network (Provider, TURN, Proxy, LAN, BG) ─────────
           const NetworkSection(),
           const SizedBox(height: 32),
+
+          // ─── Language ──────────────────────────────────────────
+          const LanguageSection(),
+          const SizedBox(height: 12),
 
           // ─── Appearance ────────────────────────────────────────
           const AppearanceIdentitySection(),

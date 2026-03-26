@@ -26,6 +26,7 @@ import 'services/psiphon_turn_proxy.dart';
 import 'services/background_service.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'l10n/app_localizations.dart';
+import 'services/locale_notifier.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -133,6 +134,7 @@ Future<void> main() async {
           providers: [
             Provider<IContactRepository>.value(value: ContactManager()),
             ChangeNotifierProvider.value(value: ThemeNotifier.instance),
+            ChangeNotifierProvider.value(value: LocaleNotifier.instance),
             ChangeNotifierProvider.value(value: chatController),
           ],
           child: PulseApp(
@@ -276,7 +278,8 @@ class _PulseAppState extends State<PulseApp> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     final themeNotifier = context.watch<ThemeNotifier>();
-    
+    final localeNotifier = context.watch<LocaleNotifier>();
+
     // If we receive a deep link and we don't have an identity, pass it to setup
     // For now we just pass it, later we can auto-configure
     Widget homeWidget = widget.hasIdentity
@@ -294,6 +297,7 @@ class _PulseAppState extends State<PulseApp> with WidgetsBindingObserver {
       theme: themeNotifier.lightThemeData,
       darkTheme: themeNotifier.darkThemeData,
       themeMode: themeNotifier.themeMode,
+      locale: localeNotifier.locale,
       localizationsDelegates: const [
         AppLocalizations.delegate,
         GlobalMaterialLocalizations.delegate,
