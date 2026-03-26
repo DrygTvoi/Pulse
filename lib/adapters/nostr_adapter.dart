@@ -19,6 +19,7 @@ import '../services/nip44_service.dart' as nip44;
 import '../services/gift_wrap_service.dart' as giftwrap;
 import '../services/nostr_event_builder.dart' as eb;
 import 'inbox_manager.dart';
+import '../services/adaptive_relay_service.dart';
 
 /// ─────────────────────────────────────────────────────────
 /// Nostr Adapter — Signal Protocol over Nostr transport
@@ -803,6 +804,24 @@ class NostrInboxReader implements InboxReader {
     unawaited(_runSharedLoop());
   }
 
+  /// Attempt to switch to a better relay via AdaptiveRelayService.
+  /// Returns true if a valid alternative was found and _relayUrl was updated.
+  Future<bool> _tryRelaySwitch() async {
+    try {
+      final better = await AdaptiveRelayService.instance
+          .getBestRelay(force: true)
+          .timeout(const Duration(seconds: 12), onTimeout: () => null);
+      if (better != null && better != _relayUrl && _isValidRelayUrl(better)) {
+        debugPrint('[Nostr] Relay switch: $_relayUrl → $better');
+        _relayUrl = better;
+        return true;
+      }
+    } catch (e) {
+      debugPrint('[Nostr] Relay switch failed: $e');
+    }
+    return false;
+  }
+
   Future<void> _runSharedLoop() async {
     while (_running) {
       WebSocketChannel? channel;
@@ -939,7 +958,22 @@ class NostrInboxReader implements InboxReader {
           _isHealthy = false;
           _healthCtrl.add(false);
         }
+
+        // Try switching relay at key failure thresholds
+        if (_consecutiveFailures == 3 || _consecutiveFailures == 10) {
+          if (await _tryRelaySwitch()) {
+            _consecutiveFailures = 0;
+            continue;
+          }
+        }
+
         if (_consecutiveFailures >= _maxConsecutiveFailures) {
+          // Last chance: try relay switch before giving up
+          if (await _tryRelaySwitch()) {
+            debugPrint('[Nostr] Relay switch at circuit breaker — continuing with reduced failures');
+            _consecutiveFailures = 15;
+            continue;
+          }
           debugPrint('[Nostr] Max retries ($_maxConsecutiveFailures) reached, stopping');
           _circuitBroken = true;
           break;
