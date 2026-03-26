@@ -17,6 +17,7 @@ import 'package:convert/convert.dart';
 import '../adapters/nostr_adapter.dart' show deriveNostrPubkeyHex;
 import 'home_screen.dart';
 import '../l10n/l10n_ext.dart';
+import '../services/nip44_service.dart' as nip44;
 
 const _avatarColors = [
   Color(0xFF25D366),
@@ -193,6 +194,14 @@ class _RestoreAccountScreenState extends State<RestoreAccountScreen> {
       'databaseId': sessionId,
       'selfId': sessionId,
     }]));
+
+    // Purge NIP-44 nonce cache so old messages cannot be replayed via the
+    // new device's (empty) nonce table.  Same password → same Nostr privkey
+    // → same ECDH shared secrets; without this, an adversary who recorded
+    // ciphertexts could replay them to a fresh install that has no nonce history.
+    // Signal Protocol would still block decryption (fresh sessions), but
+    // explicit purge ensures no ambiguity at the NIP-44 layer.
+    nip44.clearNonceCache();
 
     // Save as app lock
     final salt = _generateSalt();
