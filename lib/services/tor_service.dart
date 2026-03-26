@@ -267,11 +267,26 @@ class TorService {
       _bootstrapPercent = 0;
     }
 
+    // Delete the Tor state file before each start.
+    // The state file persists per-bridge circuit-success counts. A bridge that
+    // was historically reliable (e.g. 33/34 pb_circ_successes) is preferred by
+    // Tor's guard algorithm even after it becomes blocked — causing Tor to retry
+    // a dead bridge hundreds of times while ignoring 6 working alternatives.
+    // Clearing the state forces fresh guard selection from the current list.
+    try {
+      final stateFile = File('$dataDir/state');
+      if (await stateFile.exists()) await stateFile.delete();
+    } catch (_) {}
+
+    // Shuffle bridge order so Tor distributes attempts across all bridges rather
+    // than always starting with the same one.
+    final shuffledBridges = List.of(bridges)..shuffle();
+
     final torrcPath = await _writeTorrc(
       dataDir: dataDir,
       mode: mode,
       ptPath: ptPath,
-      bridges: bridges,
+      bridges: shuffledBridges,
     );
 
     try {
