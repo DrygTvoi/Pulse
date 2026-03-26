@@ -596,7 +596,7 @@ class ConnectivityProbeService {
           if (!TorService.instance.persistent) {
             if (torNostr.isNotEmpty || directNostr.isEmpty) {
               // Network is censored — keep Tor + Psiphon running so
-              // Firebase/Waku/Oxen adapters can work too.
+              // Firebase/Oxen adapters can work too.
               debugPrint('[Probe] Censored network — keeping Tor/Psiphon alive');
             } else {
               await TorService.instance.stop();

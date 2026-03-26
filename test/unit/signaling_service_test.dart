@@ -5,7 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 /// The production class (lib/services/signaling_service.dart) depends on
 /// flutter_webrtc, which is not available in unit tests. We reimplement
 /// the pure string-processing logic (_applyAudioConstraints) here and test
-/// it thoroughly — same pattern as waku_adapter_test.dart.
+/// it thoroughly.
 void main() {
   // ── Reimplemented SDP manipulation logic ──────────────────────────────────
   //

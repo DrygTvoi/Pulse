@@ -11,7 +11,6 @@ import '../../constants.dart';
 import '../../adapters/nostr_adapter.dart';
 import '../../controllers/chat_controller.dart';
 import '../../l10n/l10n_ext.dart';
-import '../../services/waku_discovery_service.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/design_tokens.dart';
 import 'settings_widgets.dart';
@@ -22,7 +21,6 @@ class ProviderSection extends StatefulWidget {
   final TextEditingController firebaseKeyController;
   final TextEditingController nostrKeyController;
   final TextEditingController nostrRelayController;
-  final TextEditingController wakuNodeUrlController;
   final TextEditingController oxenNodeUrlController;
   final TextEditingController pulseServerUrlController;
   final TextEditingController pulseInviteController;
@@ -39,7 +37,6 @@ class ProviderSection extends StatefulWidget {
     required this.firebaseKeyController,
     required this.nostrKeyController,
     required this.nostrRelayController,
-    required this.wakuNodeUrlController,
     required this.oxenNodeUrlController,
     required this.pulseServerUrlController,
     required this.pulseInviteController,
@@ -57,8 +54,6 @@ class ProviderSection extends StatefulWidget {
 class _ProviderSectionState extends State<ProviderSection> {
   static const _secureStorage = FlutterSecureStorage();
 
-  bool _wakuDiscovering = false;
-  List<WakuNodeInfo>? _wakuNodes;
   bool _showNostrAdvanced = false;
   bool _showOxenAdvanced = false;
   String? _activeNostrRelay;
@@ -91,25 +86,6 @@ class _ProviderSectionState extends State<ProviderSection> {
       debugPrint('[Settings] Failed to parse secondary_adapters: $e');
       return [];
     }
-  }
-
-  Future<void> _discoverWakuNodes() async {
-    setState(() {
-      _wakuDiscovering = true;
-      _wakuNodes = null;
-    });
-    await WakuDiscoveryService.instance.clearCache();
-    final nodes = await WakuDiscoveryService.instance.probeAll();
-    if (!mounted) return;
-    setState(() {
-      _wakuDiscovering = false;
-      _wakuNodes = nodes;
-      if (widget.wakuNodeUrlController.text.trim().isEmpty) {
-        final best =
-            nodes.firstWhere((n) => n.online, orElse: () => nodes.first);
-        if (best.online) widget.wakuNodeUrlController.text = best.url;
-      }
-    });
   }
 
   Future<void> _showAddSecondaryDialog() async {
@@ -321,7 +297,6 @@ class _ProviderSectionState extends State<ProviderSection> {
         color: Color(0xFFFFAB00)
       ),
       (name: 'Nostr', icon: Icons.bolt_rounded, color: Color(0xFF9B59B6)),
-      (name: 'Waku', icon: Icons.hub_rounded, color: Color(0xFF00BCD4)),
       (
         name: 'Oxen',
         icon: Icons.security_rounded,
@@ -335,7 +310,7 @@ class _ProviderSectionState extends State<ProviderSection> {
       children: [
         for (final p in providers)
           SizedBox(
-            width: (MediaQuery.of(context).size.width - 40 - 24) / 5,
+            width: (MediaQuery.of(context).size.width - 40 - 24) / 4,
             child: _providerChip(p.name, p.icon, p.color),
           ),
       ],
@@ -547,142 +522,6 @@ class _ProviderSectionState extends State<ProviderSection> {
           ],
         ],
       );
-    } else if (widget.selectedProvider == 'Waku') {
-      return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-              Expanded(
-                child: settingsField(
-                  controller: widget.wakuNodeUrlController,
-                  hint: context.l10n.providerWakuUrlHint,
-                  label: context.l10n.providerWakuUrlLabel,
-                  icon: Icons.hub_rounded,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Tooltip(
-                message: context.l10n.providerWakuProbeTooltip,
-                child: SizedBox(
-                  height: 48,
-                  child: FilledButton.tonal(
-                    style: FilledButton.styleFrom(
-                      backgroundColor: const Color(0xFF00BCD4)
-                          .withValues(alpha: 0.15),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12)),
-                      padding:
-                          const EdgeInsets.symmetric(horizontal: 14),
-                    ),
-                    onPressed:
-                        _wakuDiscovering ? null : _discoverWakuNodes,
-                    child: _wakuDiscovering
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Color(0xFF00BCD4)),
-                          )
-                        : Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(Icons.radar_rounded,
-                                  size: 16, color: Color(0xFF00BCD4)),
-                              const SizedBox(width: 6),
-                              Text(
-                                context.l10n.settingsDiscover,
-                                style: GoogleFonts.inter(
-                                  color: const Color(0xFF00BCD4),
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
-                  ),
-                ),
-              ),
-            ]),
-            const SizedBox(height: 8),
-            if (_wakuNodes != null) ...[
-              ..._wakuNodes!.map((n) => Padding(
-                    padding: const EdgeInsets.only(bottom: 4),
-                    child: InkWell(
-                      onTap: n.online
-                          ? () => setState(() =>
-                              widget.wakuNodeUrlController.text = n.url)
-                          : null,
-                      borderRadius: BorderRadius.circular(DesignTokens.radiusSmall),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 7),
-                        decoration: BoxDecoration(
-                          color: AppTheme.surfaceVariant,
-                          borderRadius: BorderRadius.circular(DesignTokens.radiusSmall),
-                          border:
-                              widget.wakuNodeUrlController.text == n.url
-                                  ? Border.all(
-                                      color: const Color(0xFF00BCD4),
-                                      width: 1.5)
-                                  : null,
-                        ),
-                        child: Row(children: [
-                          Icon(
-                            n.online
-                                ? Icons.circle
-                                : Icons.circle_outlined,
-                            size: 8,
-                            color: n.online
-                                ? const Color(0xFF4CAF50)
-                                : AppTheme.textSecondary,
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              n.label,
-                              style: GoogleFonts.jetBrainsMono(
-                                color: n.online
-                                    ? AppTheme.textPrimary
-                                    : AppTheme.textSecondary,
-                                fontSize: 11,
-                              ),
-                            ),
-                          ),
-                          Text(
-                            n.latencyLabel,
-                            style: GoogleFonts.inter(
-                              color: n.online
-                                  ? const Color(0xFF4CAF50)
-                                  : AppTheme.textSecondary,
-                              fontSize: 11,
-                            ),
-                          ),
-                          if (n.online) ...[
-                            const SizedBox(width: 6),
-                            Icon(Icons.arrow_forward_ios_rounded,
-                                size: 10,
-                                color: AppTheme.textSecondary),
-                          ],
-                        ]),
-                      ),
-                    ),
-                  )),
-              const SizedBox(height: 4),
-            ],
-            Row(children: [
-              Icon(Icons.info_outline_rounded,
-                  size: 13, color: AppTheme.textSecondary),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  context.l10n.providerWakuAutoDiscovery,
-                  style: GoogleFonts.inter(
-                      color: AppTheme.textSecondary, fontSize: 11),
-                ),
-              ),
-            ]),
-          ]);
     } else if (widget.selectedProvider == 'Pulse') {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,

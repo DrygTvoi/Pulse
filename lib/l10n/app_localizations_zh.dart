@@ -1672,13 +1672,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get providerKeyStoredLocally => '您的密钥存储在本地安全存储中 — 从不发送到任何服务器。';
 
   @override
-  String get providerWakuAutoDiscovery =>
-      '留空 URL 以自动发现最快的公共节点。或在本地运行 nwaku（端口 8645）以获得最大隐私。';
-
-  @override
-  String get providerWakuProbeTooltip => '探测所有已知公共节点';
-
-  @override
   String get providerOxenInfo =>
       'Oxen/Session 网络 — 洋葱路由 E2EE。您的 Session ID 自动生成并安全存储。节点从内置种子节点自动发现。';
 
@@ -1920,12 +1913,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get providerPrivateKeyNsecLabel => '私钥（nsec）';
 
   @override
-  String get providerWakuUrlLabel => 'nwaku 节点 URL（可选）';
-
-  @override
-  String get providerWakuUrlHint => '留空以自动发现';
-
-  @override
   String get providerStorageNodeLabel => '存储节点 URL（可选）';
 
   @override
@@ -2025,7 +2012,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get privacyNetworkBody =>
-      'Pulse 使用联邦传输适配器（Nostr 中继、Session/Oxen 服务节点、Waku 节点、Firebase 实时数据库、局域网）。这些传输层只承载加密密文。中继运营者可以看到您的 IP 地址和流量大小，但无法解密消息内容。\n\n启用 Tor 后，您的 IP 地址对中继运营者也是隐藏的。';
+      'Pulse 使用联邦传输适配器（Nostr 中继、Session/Oxen 服务节点、Firebase 实时数据库、局域网）。这些传输层只承载加密密文。中继运营者可以看到您的 IP 地址和流量大小，但无法解密消息内容。\n\n启用 Tor 后，您的 IP 地址对中继运营者也是隐藏的。';
 
   @override
   String get privacyStunHeading => 'STUN/TURN 服务器';
@@ -2342,10 +2329,6 @@ class AppLocalizationsZh extends AppLocalizations {
       '无效的中继 URL。应为 wss://relay.example.com';
 
   @override
-  String get providerErrorInvalidWakuUrl =>
-      '无效的 Waku 节点 URL。应为 http://host:port';
-
-  @override
   String get providerErrorInvalidPulseUrl =>
       '无效的 Pulse 服务器 URL。应为 https://server:port';
 
@@ -2438,4 +2421,20 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get bubbleGifBadge => 'GIF';
+
+  @override
+  String get settingsLanguage => 'Language';
+
+  @override
+  String get settingsLanguageSubtitle => 'App display language';
+
+  @override
+  String get settingsLanguageSystem => 'System default';
+
+  @override
+  String get onboardingLanguageTitle => 'Choose your language';
+
+  @override
+  String get onboardingLanguageSubtitle =>
+      'You can change this later in Settings';
 }

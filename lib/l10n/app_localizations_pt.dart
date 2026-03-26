@@ -1779,14 +1779,6 @@ class AppLocalizationsPt extends AppLocalizations {
       'Sua chave é armazenada localmente em armazenamento seguro — nunca enviada a nenhum servidor.';
 
   @override
-  String get providerWakuAutoDiscovery =>
-      'Deixe a URL vazia para descobrir automaticamente o nó público mais rápido. Ou execute nwaku localmente (porta 8645) para máxima privacidade.';
-
-  @override
-  String get providerWakuProbeTooltip =>
-      'Sondar todos os nós públicos conhecidos';
-
-  @override
   String get providerOxenInfo =>
       'Rede Oxen/Session — E2EE roteado por cebola. Seu ID de Session é gerado automaticamente e armazenado com segurança. Os nós são descobertos automaticamente a partir dos nós semente integrados.';
 
@@ -2032,12 +2024,6 @@ class AppLocalizationsPt extends AppLocalizations {
   String get providerPrivateKeyNsecLabel => 'Chave privada (nsec)';
 
   @override
-  String get providerWakuUrlLabel => 'URL do nó nwaku (opcional)';
-
-  @override
-  String get providerWakuUrlHint => 'Deixe vazio para descoberta automática';
-
-  @override
   String get providerStorageNodeLabel =>
       'URL do nó de armazenamento (opcional)';
 
@@ -2142,7 +2128,7 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get privacyNetworkBody =>
-      'Pulse usa adaptadores de transporte federados (retransmissores Nostr, nós de serviço Session/Oxen, nós Waku, Firebase Realtime Database, LAN). Esses transportes carregam apenas texto cifrado. Os operadores de retransmissores podem ver seu endereço IP e volume de tráfego, mas não podem descriptografar o conteúdo das mensagens.\n\nQuando o Tor está ativado, seu endereço IP também fica oculto dos operadores de retransmissores.';
+      'Pulse usa adaptadores de transporte federados (retransmissores Nostr, nós de serviço Session/Oxen, Firebase Realtime Database, LAN). Esses transportes carregam apenas texto cifrado. Os operadores de retransmissores podem ver seu endereço IP e volume de tráfego, mas não podem descriptografar o conteúdo das mensagens.\n\nQuando o Tor está ativado, seu endereço IP também fica oculto dos operadores de retransmissores.';
 
   @override
   String get privacyStunHeading => 'Servidores STUN/TURN';
@@ -2470,10 +2456,6 @@ class AppLocalizationsPt extends AppLocalizations {
       'URL do retransmissor inválida. Esperado wss://relay.exemplo.com';
 
   @override
-  String get providerErrorInvalidWakuUrl =>
-      'URL do nó Waku inválida. Esperado http://host:porta';
-
-  @override
   String get providerErrorInvalidPulseUrl =>
       'URL do servidor Pulse inválida. Esperado https://servidor:porta';
 
@@ -2568,4 +2550,20 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get bubbleGifBadge => 'GIF';
+
+  @override
+  String get settingsLanguage => 'Language';
+
+  @override
+  String get settingsLanguageSubtitle => 'App display language';
+
+  @override
+  String get settingsLanguageSystem => 'System default';
+
+  @override
+  String get onboardingLanguageTitle => 'Choose your language';
+
+  @override
+  String get onboardingLanguageSubtitle =>
+      'You can change this later in Settings';
 }

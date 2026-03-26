@@ -5,7 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 /// CallTransportProfile depends on ice_server_config.dart (SharedPreferences)
 /// and tor_turn_proxy.dart (dart:io), so we cannot import it directly.
 /// We reimplement the three profile definitions here for testing —
-/// same pattern as waku_adapter_test.dart.
+/// same pattern as other adapter tests.
 ///
 /// Source: lib/services/call_transport.dart
 ///

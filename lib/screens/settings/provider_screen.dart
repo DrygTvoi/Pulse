@@ -11,7 +11,6 @@ import '../../adapters/nostr_adapter.dart';
 import '../../constants.dart';
 import '../../controllers/chat_controller.dart';
 import '../../l10n/l10n_ext.dart';
-import '../../services/waku_discovery_service.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/design_tokens.dart';
 import '../settings/settings_widgets.dart';
@@ -23,7 +22,6 @@ import '../settings/settings_widgets.dart';
 const _kProviderMeta = <String, (IconData, Color)>{
   'Firebase': (Icons.local_fire_department_rounded, Color(0xFFFFAB00)),
   'Nostr':    (Icons.bolt_rounded,                  Color(0xFF9B59B6)),
-  'Waku':     (Icons.hub_rounded,                   Color(0xFF00BCD4)),
   'Oxen':     (Icons.security_rounded,              Color(0xFF00695C)),
   'Pulse':    (Icons.dns_rounded,                   Color(0xFF2196F3)),
 };
@@ -48,7 +46,6 @@ class _ProviderScreenState extends State<ProviderScreen> {
   final _firebaseKeyCtrl = TextEditingController();
   final _nostrKeyCtrl = TextEditingController();
   final _nostrRelayCtrl = TextEditingController();
-  final _wakuNodeUrlCtrl = TextEditingController(text: 'http://127.0.0.1:8645');
   final _oxenNodeUrlCtrl = TextEditingController();
   final _pulseServerUrlCtrl = TextEditingController();
   final _pulseInviteCtrl = TextEditingController();
@@ -56,9 +53,6 @@ class _ProviderScreenState extends State<ProviderScreen> {
   bool _isSaving = false;
   bool _showNostrAdvanced = false;
   bool _showOxenAdvanced = false;
-
-  bool _wakuDiscovering = false;
-  List<WakuNodeInfo>? _wakuNodes;
 
   // Secondary inboxes
   List<Map<String, String>> _secondaryAdapters = [];
@@ -76,7 +70,6 @@ class _ProviderScreenState extends State<ProviderScreen> {
     _firebaseKeyCtrl.dispose();
     _nostrKeyCtrl.dispose();
     _nostrRelayCtrl.dispose();
-    _wakuNodeUrlCtrl.dispose();
     _oxenNodeUrlCtrl.dispose();
     _pulseServerUrlCtrl.dispose();
     _pulseInviteCtrl.dispose();
@@ -111,9 +104,6 @@ class _ProviderScreenState extends State<ProviderScreen> {
       } else if (provider == 'Nostr') {
         _nostrKeyCtrl.text = nostrPrivkey;
         _nostrRelayCtrl.text = nostrRelay;
-      } else if (provider == 'Waku') {
-        _wakuNodeUrlCtrl.text =
-            prefs.getString('waku_node_url') ?? 'http://127.0.0.1:8645';
       } else if (provider == 'Oxen') {
         _oxenNodeUrlCtrl.text = prefs.getString('oxen_node_url') ?? '';
       } else if (provider == 'Pulse') {
@@ -161,11 +151,6 @@ class _ProviderScreenState extends State<ProviderScreen> {
         if (relay.isNotEmpty && !_isValidUrl(relay, schemes: ['wss', 'ws'])) {
           return context.l10n.providerErrorInvalidRelayUrl;
         }
-      case 'Waku':
-        final url = _wakuNodeUrlCtrl.text.trim();
-        if (url.isNotEmpty && !_isValidUrl(url, schemes: ['http', 'https'])) {
-          return context.l10n.providerErrorInvalidWakuUrl;
-        }
       case 'Pulse':
         final url = _pulseServerUrlCtrl.text.trim();
         if (url.isNotEmpty && !_isValidUrl(url, schemes: ['https', 'http'])) {
@@ -208,13 +193,6 @@ class _ProviderScreenState extends State<ProviderScreen> {
       await prefs.setString('nostr_relay', _nostrRelayCtrl.text.trim());
       finalApiKey = jsonEncode({'relay': _nostrRelayCtrl.text.trim()});
       finalDbId = _nostrRelayCtrl.text.trim();
-    } else if (_selectedProvider == 'Waku') {
-      final nodeUrl = _wakuNodeUrlCtrl.text.trim().isNotEmpty
-          ? _wakuNodeUrlCtrl.text.trim()
-          : 'http://127.0.0.1:8645';
-      await prefs.setString('waku_node_url', nodeUrl);
-      finalApiKey = jsonEncode({'nodeUrl': nodeUrl});
-      finalDbId = nodeUrl;
     } else if (_selectedProvider == 'Pulse') {
       final serverUrl = _pulseServerUrlCtrl.text.trim();
       final invite = _pulseInviteCtrl.text.trim();
@@ -232,7 +210,7 @@ class _ProviderScreenState extends State<ProviderScreen> {
     }
 
     await prefs.setString('byod_provider', _selectedProvider);
-    if (!['Nostr', 'Waku', 'Oxen', 'Pulse'].contains(_selectedProvider)) {
+    if (!['Nostr', 'Oxen', 'Pulse'].contains(_selectedProvider)) {
       await prefs.setString('byod_api_key', finalApiKey);
     }
     await prefs.setString('byod_db_id', finalDbId);
@@ -242,7 +220,6 @@ class _ProviderScreenState extends State<ProviderScreen> {
       const adapterMap = {
         'Firebase': 'firebase',
         'Nostr': 'nostr',
-        'Waku': 'waku',
         'Oxen': 'oxen',
         'Pulse': 'pulse',
       };
@@ -461,27 +438,6 @@ class _ProviderScreenState extends State<ProviderScreen> {
     nostrKeyCtrl.dispose();
   }
 
-  // ── Waku discovery ────────────────────────────────────────────────────────
-
-  Future<void> _discoverWakuNodes() async {
-    setState(() {
-      _wakuDiscovering = true;
-      _wakuNodes = null;
-    });
-    await WakuDiscoveryService.instance.clearCache();
-    final nodes = await WakuDiscoveryService.instance.probeAll();
-    if (!mounted) return;
-    setState(() {
-      _wakuDiscovering = false;
-      _wakuNodes = nodes;
-      if (_wakuNodeUrlCtrl.text.trim().isEmpty) {
-        final best =
-            nodes.firstWhere((n) => n.online, orElse: () => nodes.first);
-        if (best.online) _wakuNodeUrlCtrl.text = best.url;
-      }
-    });
-  }
-
   // ── Widgets ─────────────────────────────────────────────────────────────
 
   Widget _providerToggle(String name, {required bool selected}) {
@@ -514,7 +470,6 @@ class _ProviderScreenState extends State<ProviderScreen> {
     const providers = [
       (name: 'Firebase', icon: Icons.local_fire_department_rounded, color: Color(0xFFFFAB00)),
       (name: 'Nostr',    icon: Icons.bolt_rounded,                   color: Color(0xFF9B59B6)),
-      (name: 'Waku',     icon: Icons.hub_rounded,                    color: Color(0xFF00BCD4)),
       (name: 'Oxen',     icon: Icons.security_rounded,               color: Color(0xFF00695C)),
       (name: 'Pulse',    icon: Icons.dns_rounded,                    color: Color(0xFF2196F3)),
     ];
@@ -524,7 +479,7 @@ class _ProviderScreenState extends State<ProviderScreen> {
       children: [
         for (final p in providers)
           SizedBox(
-            width: (MediaQuery.of(context).size.width - 40 - 24) / 5,
+            width: (MediaQuery.of(context).size.width - 40 - 24) / 4,
             child: _providerChip(p.name, p.icon, p.color),
           ),
       ],
@@ -703,137 +658,6 @@ class _ProviderScreenState extends State<ProviderScreen> {
                 ),
               ]),
             ],
-          ]);
-    }
-
-    if (_selectedProvider == 'Waku') {
-      return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-              Expanded(
-                child: settingsField(
-                  controller: _wakuNodeUrlCtrl,
-                  hint: context.l10n.providerWakuUrlHint,
-                  label: context.l10n.providerWakuUrlLabel,
-                  icon: Icons.hub_rounded,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Tooltip(
-                message: context.l10n.providerWakuProbeTooltip,
-                child: SizedBox(
-                  height: 48,
-                  child: FilledButton.tonal(
-                    style: FilledButton.styleFrom(
-                      backgroundColor:
-                          const Color(0xFF00BCD4).withValues(alpha: 0.15),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12)),
-                      padding:
-                          const EdgeInsets.symmetric(horizontal: 14),
-                    ),
-                    onPressed:
-                        _wakuDiscovering ? null : _discoverWakuNodes,
-                    child: _wakuDiscovering
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Color(0xFF00BCD4)),
-                          )
-                        : Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(Icons.radar_rounded,
-                                  size: 16,
-                                  color: Color(0xFF00BCD4)),
-                              const SizedBox(width: 6),
-                              Text(context.l10n.settingsDiscover,
-                                  style: GoogleFonts.inter(
-                                    color: const Color(0xFF00BCD4),
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w600,
-                                  )),
-                            ]),
-                  ),
-                ),
-              ),
-            ]),
-            if (_wakuNodes != null) ...[
-              const SizedBox(height: 8),
-              ..._wakuNodes!.map((n) => Padding(
-                    padding: const EdgeInsets.only(bottom: 4),
-                    child: InkWell(
-                      onTap: n.online
-                          ? () => setState(
-                              () => _wakuNodeUrlCtrl.text = n.url)
-                          : null,
-                      borderRadius: BorderRadius.circular(
-                          DesignTokens.radiusSmall),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 7),
-                        decoration: BoxDecoration(
-                          color: AppTheme.surfaceVariant,
-                          borderRadius: BorderRadius.circular(
-                              DesignTokens.radiusSmall),
-                          border: _wakuNodeUrlCtrl.text == n.url
-                              ? Border.all(
-                                  color: const Color(0xFF00BCD4),
-                                  width: 1.5)
-                              : null,
-                        ),
-                        child: Row(children: [
-                          Icon(
-                            n.online
-                                ? Icons.circle
-                                : Icons.circle_outlined,
-                            size: 8,
-                            color: n.online
-                                ? const Color(0xFF4CAF50)
-                                : AppTheme.textSecondary,
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(n.label,
-                                style: GoogleFonts.jetBrainsMono(
-                                  color: n.online
-                                      ? AppTheme.textPrimary
-                                      : AppTheme.textSecondary,
-                                  fontSize: 11,
-                                )),
-                          ),
-                          Text(n.latencyLabel,
-                              style: GoogleFonts.inter(
-                                color: n.online
-                                    ? const Color(0xFF4CAF50)
-                                    : AppTheme.textSecondary,
-                                fontSize: 11,
-                              )),
-                          if (n.online) ...[
-                            const SizedBox(width: 6),
-                            Icon(Icons.arrow_forward_ios_rounded,
-                                size: 10,
-                                color: AppTheme.textSecondary),
-                          ],
-                        ]),
-                      ),
-                    ),
-                  )),
-            ],
-            const SizedBox(height: 4),
-            Row(children: [
-              Icon(Icons.info_outline_rounded,
-                  size: 13, color: AppTheme.textSecondary),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(context.l10n.providerWakuAutoDiscovery,
-                    style: GoogleFonts.inter(
-                        color: AppTheme.textSecondary, fontSize: 11)),
-              ),
-            ]),
           ]);
     }
 

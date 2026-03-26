@@ -1430,7 +1430,7 @@ void main() {
     });
 
     test('fetchPublicKeys returns null (no key distribution over LAN)', () {
-      // Keys are fetched via Nostr/Firebase/Waku/Oxen only.
+      // Keys are fetched via Nostr/Firebase/Oxen only.
       final result = null; // fetchPublicKeys() always returns null
       expect(result, isNull);
     });

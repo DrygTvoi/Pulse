@@ -899,7 +899,7 @@
   "settingsAdvanced": "Advanced",
   "@settingsAdvanced": { "description": "Expandable advanced section label" },
   "settingsDiscover": "Discover",
-  "@settingsDiscover": { "description": "Button to discover Waku nodes" },
+  "@settingsDiscover": { "description": "Button to discover nodes" },
 
   "settingsAbout": "About",
   "@settingsAbout": { "description": "Settings section label" },
@@ -1133,10 +1133,6 @@
   "@providerAutoConfigured": { "description": "Info text for Nostr auto configuration" },
   "providerKeyStoredLocally": "Your key is stored locally in secure storage — never sent to any server.",
   "@providerKeyStoredLocally": { "description": "Info text about key storage for Nostr" },
-  "providerWakuAutoDiscovery": "Leave URL empty to auto-discover the fastest public node. Or run nwaku locally (port 8645) for maximum privacy.",
-  "@providerWakuAutoDiscovery": { "description": "Info text for Waku auto discovery" },
-  "providerWakuProbeTooltip": "Probe all known public nodes",
-  "@providerWakuProbeTooltip": { "description": "Tooltip on Waku discover button" },
   "providerOxenInfo": "Oxen/Session network — onion-routed E2EE. Your Session ID is auto-generated and stored securely. Nodes auto-discovered from built-in seed nodes.",
   "@providerOxenInfo": { "description": "Info text for Oxen provider" },
   "providerAdvanced": "Advanced",
@@ -1350,10 +1346,6 @@
   "@providerPrivateKeyLabel": { "description": "Label for Nostr private key field" },
   "providerPrivateKeyNsecLabel": "Private Key (nsec)",
   "@providerPrivateKeyNsecLabel": { "description": "Label for Nostr private key (nsec) field in advanced config" },
-  "providerWakuUrlLabel": "nwaku Node URL (optional)",
-  "@providerWakuUrlLabel": { "description": "Label for Waku node URL field" },
-  "providerWakuUrlHint": "Leave empty for auto-discovery",
-  "@providerWakuUrlHint": { "description": "Hint for Waku node URL field" },
   "providerStorageNodeLabel": "Storage Node URL (optional)",
   "@providerStorageNodeLabel": { "description": "Label for Oxen storage node URL field" },
   "providerStorageNodeHint": "Leave empty for built-in seed nodes",
@@ -1435,7 +1427,7 @@
   "privacyEncryptionHeading": "Encryption",
   "privacyEncryptionBody": "All messages are encrypted using the Signal Protocol (Double Ratchet with X3DH key agreement). Encryption keys are generated and stored exclusively on your device. No one — including the developers — can read your messages.",
   "privacyNetworkHeading": "Network Architecture",
-  "privacyNetworkBody": "Pulse uses federated transport adapters (Nostr relays, Session/Oxen service nodes, Waku nodes, Firebase Realtime Database, LAN). These transports carry only encrypted ciphertext. Relay operators can see your IP address and traffic volume, but cannot decrypt message content.\n\nWhen Tor is enabled, your IP address is also hidden from relay operators.",
+  "privacyNetworkBody": "Pulse uses federated transport adapters (Nostr relays, Session/Oxen service nodes, Firebase Realtime Database, LAN). These transports carry only encrypted ciphertext. Relay operators can see your IP address and traffic volume, but cannot decrypt message content.\n\nWhen Tor is enabled, your IP address is also hidden from relay operators.",
   "privacyStunHeading": "STUN/TURN Servers",
   "privacyStunBody": "Voice and video calls use WebRTC with DTLS-SRTP encryption. STUN servers (used to discover your public IP for peer-to-peer connections) and TURN servers (used to relay media when direct connection fails) can see your IP address and call duration, but cannot decrypt call content.\n\nYou can configure your own TURN server in Settings for maximum privacy.",
   "privacyCrashHeading": "Crash Reporting",
@@ -1546,7 +1538,6 @@
 
   "providerErrorInvalidFirebaseUrl": "Invalid Firebase URL. Expected https://project.firebaseio.com",
   "providerErrorInvalidRelayUrl": "Invalid relay URL. Expected wss://relay.example.com",
-  "providerErrorInvalidWakuUrl": "Invalid Waku node URL. Expected http://host:port",
   "providerErrorInvalidPulseUrl": "Invalid Pulse server URL. Expected https://server:port",
   "providerPulseServerUrlLabel": "Server URL",
   "providerPulseServerUrlHint": "https://your-server:8443",
@@ -1579,5 +1570,11 @@
   "@imageViewerSavedTo": { "placeholders": { "path": { "type": "String" } } },
   "addContactManualHint": "pubkey@wss://relay  ·  05hex…  ·  id@https://...",
   "chatOk": "OK",
-  "bubbleGifBadge": "GIF"
+  "bubbleGifBadge": "GIF",
+
+  "settingsLanguage": "Language",
+  "settingsLanguageSubtitle": "App display language",
+  "settingsLanguageSystem": "System default",
+  "onboardingLanguageTitle": "Choose your language",
+  "onboardingLanguageSubtitle": "You can change this later in Settings"
 }

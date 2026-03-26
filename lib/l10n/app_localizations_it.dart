@@ -1789,14 +1789,6 @@ class AppLocalizationsIt extends AppLocalizations {
       'La tua chiave è memorizzata localmente in modo sicuro — non viene mai inviata a nessun server.';
 
   @override
-  String get providerWakuAutoDiscovery =>
-      'Lascia l\'URL vuoto per individuare automaticamente il nodo più veloce. Oppure esegui nwaku localmente (porta 8645) per la massima privacy.';
-
-  @override
-  String get providerWakuProbeTooltip =>
-      'Testa tutti i nodi pubblici conosciuti';
-
-  @override
   String get providerOxenInfo =>
       'Rete Oxen/Session — E2EE con instradamento onion. Il tuo Session ID è generato automaticamente e memorizzato in modo sicuro. Nodi individuati automaticamente dai nodi seme integrati.';
 
@@ -2040,12 +2032,6 @@ class AppLocalizationsIt extends AppLocalizations {
   String get providerPrivateKeyNsecLabel => 'Chiave privata (nsec)';
 
   @override
-  String get providerWakuUrlLabel => 'URL nodo nwaku (opzionale)';
-
-  @override
-  String get providerWakuUrlHint => 'Lascia vuoto per la scoperta automatica';
-
-  @override
   String get providerStorageNodeLabel =>
       'URL nodo di archiviazione (opzionale)';
 
@@ -2150,7 +2136,7 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get privacyNetworkBody =>
-      'Pulse utilizza adattatori di trasporto federati (relay Nostr, nodi del servizio Session/Oxen, nodi Waku, Firebase Realtime Database, LAN). Questi trasporti trasportano solo testo cifrato. Gli operatori dei relay possono vedere il tuo indirizzo IP e il volume di traffico, ma non possono decifrare il contenuto dei messaggi.\n\nQuando Tor è abilitato, anche il tuo indirizzo IP è nascosto agli operatori dei relay.';
+      'Pulse utilizza adattatori di trasporto federati (relay Nostr, nodi del servizio Session/Oxen, Firebase Realtime Database, LAN). Questi trasporti trasportano solo testo cifrato. Gli operatori dei relay possono vedere il tuo indirizzo IP e il volume di traffico, ma non possono decifrare il contenuto dei messaggi.\n\nQuando Tor è abilitato, anche il tuo indirizzo IP è nascosto agli operatori dei relay.';
 
   @override
   String get privacyStunHeading => 'Server STUN/TURN';
@@ -2480,10 +2466,6 @@ class AppLocalizationsIt extends AppLocalizations {
       'URL relay non valido. Formato previsto: wss://relay.esempio.com';
 
   @override
-  String get providerErrorInvalidWakuUrl =>
-      'URL nodo Waku non valido. Formato previsto: http://host:porta';
-
-  @override
   String get providerErrorInvalidPulseUrl =>
       'URL server Pulse non valido. Formato previsto: https://server:porta';
 
@@ -2578,4 +2560,20 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get bubbleGifBadge => 'GIF';
+
+  @override
+  String get settingsLanguage => 'Language';
+
+  @override
+  String get settingsLanguageSubtitle => 'App display language';
+
+  @override
+  String get settingsLanguageSystem => 'System default';
+
+  @override
+  String get onboardingLanguageTitle => 'Choose your language';
+
+  @override
+  String get onboardingLanguageSubtitle =>
+      'You can change this later in Settings';
 }

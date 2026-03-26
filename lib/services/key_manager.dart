@@ -7,7 +7,6 @@ import '../models/contact.dart';
 import '../adapters/inbox_manager.dart';
 import '../adapters/firebase_adapter.dart';
 import '../adapters/nostr_adapter.dart';
-import '../adapters/waku_adapter.dart';
 import '../adapters/oxen_adapter.dart';
 import '../constants.dart';
 import 'signal_service.dart';
@@ -131,15 +130,6 @@ class KeyManager {
               prefs.getString('nostr_relay') ?? _kDefaultNostrRelay;
           sender = NostrMessageSender();
           senderApiKey = jsonEncode({'privkey': privkey, 'relay': relay});
-        case 'waku':
-          sender = WakuMessageSender();
-          {
-            final prefs = await SharedPreferences.getInstance();
-            final nodeUrl =
-                prefs.getString('waku_node_url') ?? 'http://127.0.0.1:8645';
-            final userId = prefs.getString('waku_identity') ?? '';
-            senderApiKey = jsonEncode({'nodeUrl': nodeUrl, 'userId': userId});
-          }
         case 'oxen':
           sender = OxenMessageSender();
           {
@@ -189,8 +179,6 @@ class KeyManager {
           return;
         }
         sender = NostrMessageSender();
-      } else if (provider == 'Waku') {
-        sender = WakuMessageSender();
       } else if (provider == 'Oxen') {
         sender = OxenMessageSender();
       } else {

@@ -26,7 +26,7 @@ class _P2PConn {
 ///   4. DataChannel opens — [isConnected] returns true
 ///   5. [send] delivers Signal-encrypted payload directly; [messageStream] surfaces received ones
 ///
-/// Signaling messages travel over the contact's normal transport (Firebase/Nostr/Waku)
+/// Signaling messages travel over the contact's normal transport (Firebase/Nostr/Oxen)
 /// only during the ≤2-second handshake.  Subsequent messages bypass all servers.
 class P2PTransportService {
   P2PTransportService._();

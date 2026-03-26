@@ -45,7 +45,7 @@ void main() {
 
     test('preserves unchanged fields', () {
       final original = makeIdentity(id: 'u1', publicKey: 'pk', privateKey: 'sk');
-      final updated = original.copyWith(preferredAdapter: 'waku');
+      final updated = original.copyWith(preferredAdapter: 'nostr');
       expect(updated.id, equals('u1'));
       expect(updated.publicKey, equals('pk'));
       expect(updated.privateKey, equals('sk'));
@@ -67,8 +67,8 @@ void main() {
         id: 'u1',
         publicKey: 'pk1',
         privateKey: 'sk1',
-        preferredAdapter: 'waku',
-        adapterConfig: {'nodeUrl': 'http://localhost:8645'},
+        preferredAdapter: 'nostr',
+        adapterConfig: {'relay': 'wss://relay.damus.io'},
       );
       final json = original.toJson()
         ..['privateKey'] = 'sk1'; // toJson intentionally omits privateKey

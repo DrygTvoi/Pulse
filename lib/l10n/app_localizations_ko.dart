@@ -1685,13 +1685,6 @@ class AppLocalizationsKo extends AppLocalizations {
       '키는 안전한 저장소에 로컬로 저장됩니다 — 어떤 서버로도 전송되지 않습니다.';
 
   @override
-  String get providerWakuAutoDiscovery =>
-      'URL을 비워두면 가장 빠른 공개 노드가 자동 검색됩니다. 또는 최대 프라이버시를 위해 nwaku를 로컬로 실행하세요(포트 8645).';
-
-  @override
-  String get providerWakuProbeTooltip => '모든 알려진 공개 노드 탐색';
-
-  @override
   String get providerOxenInfo =>
       'Oxen/Session 네트워크 — 양파 라우팅 E2EE. Session ID가 자동 생성되어 안전하게 저장됩니다. 내장 시드 노드에서 노드가 자동 검색됩니다.';
 
@@ -1935,12 +1928,6 @@ class AppLocalizationsKo extends AppLocalizations {
   String get providerPrivateKeyNsecLabel => '개인 키 (nsec)';
 
   @override
-  String get providerWakuUrlLabel => 'nwaku 노드 URL (선택 사항)';
-
-  @override
-  String get providerWakuUrlHint => '자동 검색을 위해 비워두세요';
-
-  @override
   String get providerStorageNodeLabel => '스토리지 노드 URL (선택 사항)';
 
   @override
@@ -2042,7 +2029,7 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get privacyNetworkBody =>
-      'Pulse는 연합 전송 어댑터(Nostr 릴레이, Session/Oxen 서비스 노드, Waku 노드, Firebase Realtime Database, LAN)를 사용합니다. 이 전송 수단은 암호화된 암호문만 전달합니다. 릴레이 운영자는 IP 주소와 트래픽 양을 볼 수 있지만 메시지 내용을 복호화할 수 없습니다.\n\nTor가 활성화되면 릴레이 운영자에게 IP 주소도 숨겨집니다.';
+      'Pulse는 연합 전송 어댑터(Nostr 릴레이, Session/Oxen 서비스 노드, Firebase Realtime Database, LAN)를 사용합니다. 이 전송 수단은 암호화된 암호문만 전달합니다. 릴레이 운영자는 IP 주소와 트래픽 양을 볼 수 있지만 메시지 내용을 복호화할 수 없습니다.\n\nTor가 활성화되면 릴레이 운영자에게 IP 주소도 숨겨집니다.';
 
   @override
   String get privacyStunHeading => 'STUN/TURN 서버';
@@ -2361,10 +2348,6 @@ class AppLocalizationsKo extends AppLocalizations {
       '잘못된 릴레이 URL입니다. wss://relay.example.com 형식이어야 합니다';
 
   @override
-  String get providerErrorInvalidWakuUrl =>
-      '잘못된 Waku 노드 URL입니다. http://host:port 형식이어야 합니다';
-
-  @override
   String get providerErrorInvalidPulseUrl =>
       '잘못된 Pulse 서버 URL입니다. https://server:port 형식이어야 합니다';
 
@@ -2457,4 +2440,20 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get bubbleGifBadge => 'GIF';
+
+  @override
+  String get settingsLanguage => 'Language';
+
+  @override
+  String get settingsLanguageSubtitle => 'App display language';
+
+  @override
+  String get settingsLanguageSystem => 'System default';
+
+  @override
+  String get onboardingLanguageTitle => 'Choose your language';
+
+  @override
+  String get onboardingLanguageSubtitle =>
+      'You can change this later in Settings';
 }

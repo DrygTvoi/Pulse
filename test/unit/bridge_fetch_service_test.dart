@@ -5,8 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 ///
 /// The methods under test (_parseBuiltinResponse, _decodeChunked, _isPublicIp,
 /// _postBody) are private in the service, so we reimplement the exact same
-/// logic here — same pattern used in waku_adapter_test.dart and
-/// oxen_adapter_test.dart.
+/// logic here — same pattern used in oxen_adapter_test.dart.
 
 // ── Reimplemented private methods ───────────────────────────────────────────
 

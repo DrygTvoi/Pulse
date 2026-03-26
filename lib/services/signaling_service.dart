@@ -634,7 +634,7 @@ class SignalingService {
     }
 
     // HMAC-sign offer/answer on non-Nostr transports to prevent relay operators
-    // from forging fake "Incoming call" events on Waku/Oxen. ICE candidates are
+    // from forging fake "Incoming call" events on Oxen. ICE candidates are
     // excluded — high-volume and already inside the encrypted SDP session.
     var sendPayload = payload;
     final isOfferOrAnswer = type.endsWith('_offer') || type.endsWith('_answer');

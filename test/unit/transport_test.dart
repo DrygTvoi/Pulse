@@ -55,15 +55,15 @@ void main() {
     const nostr1 = 'pk@wss://relay1.com';
     const nostr2 = 'pk@wss://relay2.com';
     const oxen   = 'abc123def456';
-    const waku   = 'user@http://waku-node';
+    const firebase = 'user@https://project.firebaseio.com';
 
     test('higher success count goes first', () {
-      final counts = {nostr1: 5, nostr2: 2, oxen: 8, waku: 1};
-      final result = sortAlternates([nostr1, nostr2, oxen, waku], counts, seed: 42);
+      final counts = {nostr1: 5, nostr2: 2, oxen: 8, firebase: 1};
+      final result = sortAlternates([nostr1, nostr2, oxen, firebase], counts, seed: 42);
       expect(result.first, oxen);   // 8 successes
       expect(result[1], nostr1);    // 5 successes
       expect(result[2], nostr2);    // 2 successes
-      expect(result.last, waku);    // 1 success
+      expect(result.last, firebase);    // 1 success
     });
 
     test('zero-count addresses all appear (not skipped)', () {
@@ -118,7 +118,7 @@ void main() {
         publicKey: 'pk',
         alternateAddresses: [
           'pk@wss://nostr.wine',
-          'pk123@http://waku-node',
+          'pk123@wss://relay.snort.social',
         ],
       );
     });
@@ -154,7 +154,7 @@ void main() {
         ['pk@wss://relay.snort.social'],
       );
       expect(updated.alternateAddresses, contains('pk@wss://nostr.wine'));
-      expect(updated.alternateAddresses, contains('pk123@http://waku-node'));
+      expect(updated.alternateAddresses, contains('pk123@wss://relay.snort.social'));
     });
 
     test('all addresses from update are added to alternates', () {

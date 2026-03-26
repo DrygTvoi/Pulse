@@ -20,7 +20,6 @@ import '../services/local_storage_service.dart';
 import '../services/media_service.dart';
 import '../adapters/firebase_adapter.dart';
 import '../adapters/nostr_adapter.dart';
-import '../adapters/waku_adapter.dart';
 import '../adapters/oxen_adapter.dart';
 import '../adapters/pulse_adapter.dart';
 import '../adapters/lan_adapter.dart';
@@ -98,13 +97,14 @@ class ChatController extends ChangeNotifier {
   bool _disposed = false; // guards notifyListeners in TTL callbacks
   String? _activeRoomId; // contact ID of the currently open chat screen
 
-  // Microtask-coalesced notifyListeners — collapses rapid-fire updates into one
-  bool _notifyScheduled = false;
+  // Timer-debounced notifyListeners — collapses rapid-fire updates into one
+  // rebuild per 200ms window (≈1 frame at 5fps — imperceptible to users).
+  Timer? _notifyTimer;
   void _scheduleNotify() {
-    if (_notifyScheduled || _disposed) return;
-    _notifyScheduled = true;
-    Future.microtask(() {
-      _notifyScheduled = false;
+    if (_disposed) return;
+    _notifyTimer?.cancel();
+    _notifyTimer = Timer(const Duration(milliseconds: 200), () {
+      _notifyTimer = null;
       if (!_disposed) notifyListeners();
     });
   }
@@ -173,7 +173,6 @@ class ChatController extends ChangeNotifier {
   // Cached sender instances per provider — avoids re-allocating on every send.
   NostrMessageSender? _cachedNostrSender;
   FirebaseInboxSender? _cachedFirebaseSender;
-  WakuMessageSender? _cachedWakuSender;
   OxenMessageSender? _cachedOxenSender;
   PulseMessageSender? _cachedPulseSender;
   String? _cachedNostrPrivkey;
@@ -344,7 +343,6 @@ class ChatController extends ChangeNotifier {
       _cachedNostrSender = null;
       _cachedNostrPrivkey = null;
       _cachedFirebaseSender = null;
-      _cachedWakuSender = null;
       _cachedOxenSender = null;
       _cachedPulseSender = null;
       await _initInbox();
@@ -411,26 +409,6 @@ class ChatController extends ChangeNotifier {
           }
         } else {
           _selfId = '${_identity!.id}@$relay';
-        }
-      case 'waku':
-        providerName = 'Waku';
-        {
-          final prefs = await _getPrefs();
-          String userId = prefs.getString('waku_identity') ?? '';
-          if (userId.isEmpty) {
-            userId = const Uuid().v4().replaceAll('-', '');
-            await prefs.setString('waku_identity', userId);
-          }
-          String nodeUrl = 'http://127.0.0.1:8645';
-          try {
-            final cfg = jsonDecode(apiKey) as Map<String, dynamic>;
-            nodeUrl = (cfg['nodeUrl'] as String? ?? nodeUrl).trim();
-          } catch (e) {
-            debugPrint('[Chat] Failed to parse Waku config: $e');
-          }
-          apiKey = jsonEncode({'nodeUrl': nodeUrl, 'userId': userId});
-          dbId = '$userId@$nodeUrl';
-          _selfId = dbId;
         }
       case 'oxen':
         providerName = 'Oxen';
@@ -661,13 +639,6 @@ class ChatController extends ChangeNotifier {
         _cachedNostrSender ??= NostrMessageSender();
         return (sender: _cachedNostrSender!,
                 apiKey: jsonEncode({'privkey': privkey, 'relay': relay}));
-      case 'Waku':
-        final prefs = await _getPrefs();
-        final nodeUrl = prefs.getString('waku_node_url') ?? 'http://127.0.0.1:8645';
-        final userId = prefs.getString('waku_identity') ?? '';
-        _cachedWakuSender ??= WakuMessageSender();
-        return (sender: _cachedWakuSender!,
-                apiKey: jsonEncode({'nodeUrl': nodeUrl, 'userId': userId}));
       case 'Oxen':
         final prefs = await _getPrefs();
         final nodeUrl = prefs.getString('oxen_node_url') ?? '';
@@ -1160,7 +1131,7 @@ class ChatController extends ChangeNotifier {
         _seenMsgIdsList.add(msg.id);
 
         // Normalise to pubkey prefix so a sender using multiple transports
-        // (nostr, firebase, waku) shares one rate-limit bucket rather than
+        // (nostr, firebase) shares one rate-limit bucket rather than
         // getting a fresh 30-token bucket per transport address.
         final rlKey = msg.senderId.split('@').first;
         if (!_allAddresses.contains(msg.senderId) &&
@@ -1237,13 +1208,13 @@ class ChatController extends ChangeNotifier {
           _repo.getOrCreateRoomWithId(senderContact, msg.senderId, senderContact.provider);
           final room = _repo.getRoomForContact(senderContact.id)!;
 
-          if (!room.messages.any((m) => m.id == msg.id)) {
+          if (!_repo.roomHasMessage(senderContact.id, msg.id)) {
             try {
               String displayText = bodyText;
               Contact targetContact = senderContact;
               String finalText = displayText;
               String? groupReplyToId, groupReplyToText, groupReplyToSender;
-              try {
+              try { if (displayText.startsWith('{')) {
                 var parsed = jsonDecode(displayText) as Map<String, dynamic>;
                 // ── Sender Key decrypt: unwrap _sk envelope ──
                 if (parsed['_sk'] == true) {
@@ -1289,7 +1260,7 @@ class ChatController extends ChangeNotifier {
                     _repo.getOrCreateRoomWithId(groupContact, groupContact.id, 'group');
                   }
                 }
-              } catch (e) { debugPrint('[Chat] Signal JSON parse (treating as plain text): $e'); }
+              } } catch (e) { debugPrint('[Chat] Signal JSON parse (treating as plain text): $e'); }
 
               bool skipMessage = false;
               if (MediaService.isChunkPayload(finalText)) {
@@ -1339,6 +1310,7 @@ class ChatController extends ChangeNotifier {
                     replyToSender: groupReplyToSender ?? env?.replyTo?.sender,
                   );
                   _insertMessageSorted(targetRoom.messages, decryptedMsg);
+                  _repo.trackMessageId(targetContact.id, decryptedMsg.id);
                   await LocalStorageService().saveMessage(
                       targetContact.storageKey, decryptedMsg.toJson());
                   hasUpdates = true;
@@ -1390,6 +1362,7 @@ class ChatController extends ChangeNotifier {
         replyToSender: replyTo?.senderId,
       );
       groupRoom.messages.add(localMsg);
+      _repo.trackMessageId(contact.id, localMsg.id);
       notifyListeners();
 
       final groupMap = <String, dynamic>{'_group': contact.id, 'text': text};
@@ -1539,7 +1512,6 @@ class ChatController extends ChangeNotifier {
     }
 
     final contactAdapterType = contact.provider == 'Nostr' ? 'nostr'
-        : contact.provider == 'Waku' ? 'waku'
         : contact.provider == 'Oxen' ? 'oxen'
         : 'firebase';
 
@@ -1562,12 +1534,13 @@ class ChatController extends ChangeNotifier {
       replyToSender: replyInfo?.sender,
     );
     room.messages.add(localMsg);
+    _repo.trackMessageId(contact.id, localMsg.id);
     final localTtl = _repo.getChatTtlCached(contact.id);
     if (localTtl > 0) _repo.scheduleTtlDelete(contact, localMsg, localTtl, onDeleted: () { if (!_disposed) notifyListeners(); });
     notifyListeners();
 
     if (contact.provider != 'Firebase' && contact.provider != 'Nostr' &&
-        contact.provider != 'Waku' && contact.provider != 'Oxen') {
+        contact.provider != 'Oxen' && contact.provider != 'Pulse') {
       debugPrint('[ChatController] Unknown provider "${contact.provider}" for ${contact.name}');
       final idx2 = room.messages.indexWhere((m) => m.id == msg.id);
       final failedMsg2 = localMsg.copyWith(status: 'failed');
@@ -1613,7 +1586,6 @@ class ChatController extends ChangeNotifier {
     // Pulse: 64-char hex @ https:// (not wss://)
     if (_pulseAddrRegex.hasMatch(lower)) { return 'Pulse'; }
     if (lower.contains('@https://')) { return 'Firebase'; }
-    if (lower.contains('@http://')) { return 'Waku'; }
     return 'Nostr';
   }
 
@@ -1641,13 +1613,6 @@ class ChatController extends ChangeNotifier {
       _cachedNostrSender ??= NostrMessageSender();
       await InboxManager().addSenderPlugin('Nostr', _cachedNostrSender!,
           jsonEncode({'privkey': privkey, 'relay': relay}));
-    } else if (provider == 'Waku') {
-      final prefs = await _getPrefs();
-      final userId = prefs.getString('waku_identity') ?? '';
-      final atIdx = address.indexOf('@http');
-      final nodeUrl = atIdx != -1 ? address.substring(atIdx + 1) : '';
-      await InboxManager().addSenderPlugin('Waku', WakuMessageSender(),
-          jsonEncode({'nodeUrl': nodeUrl, 'userId': userId}));
     } else if (provider == 'Oxen') {
       final prefs = await _getPrefs();
       final nodeUrl = prefs.getString('oxen_node_url') ?? '';
@@ -1686,9 +1651,6 @@ class ChatController extends ChangeNotifier {
           }
         } else if (contact.provider == 'Nostr') {
           contactReader = NostrInboxReader();
-          initApiKey = '';
-        } else if (contact.provider == 'Waku') {
-          contactReader = WakuInboxReader();
           initApiKey = '';
         } else if (contact.provider == 'Oxen') {
           contactReader = OxenInboxReader();
@@ -1732,7 +1694,6 @@ class ChatController extends ChangeNotifier {
       encryptedPayload: encryptedText,
       timestamp: DateTime.now(),
       adapterType: contact.provider == 'Nostr' ? 'nostr'
-          : contact.provider == 'Waku' ? 'waku'
           : contact.provider == 'Oxen' ? 'oxen'
           : 'firebase',
     );
@@ -1810,6 +1771,7 @@ class ChatController extends ChangeNotifier {
       status: 'sending',
     );
     room.messages.add(localMsg);
+    _repo.trackMessageId(contact.id, localMsg.id);
     final localTtl = _repo.getChatTtlCached(contact.id);
     if (localTtl > 0) _repo.scheduleTtlDelete(contact, localMsg, localTtl, onDeleted: () { if (!_disposed) notifyListeners(); });
     notifyListeners();
@@ -1900,6 +1862,7 @@ class ChatController extends ChangeNotifier {
       final senderId = sender?.id ?? fromId;
       if (room.messages[idx].senderId != senderId) return;
       room.messages.removeAt(idx);
+      _repo.untrackMessageId(groupId, msgId);
       unawaited(LocalStorageService().deleteMessage(room.contact.storageKey, msgId));
       _scheduleNotify();
     } else {
@@ -1916,6 +1879,7 @@ class ChatController extends ChangeNotifier {
           final fromPub = fromId.split('@').first;
           if (senderPub != fromPub) break;
           room.messages.removeAt(idx);
+          _repo.untrackMessageId(room.contact.id, msgId);
           unawaited(LocalStorageService().deleteMessage(room.contact.storageKey, msgId));
           _scheduleNotify();
           break;
@@ -1950,6 +1914,7 @@ class ChatController extends ChangeNotifier {
     final room = _repo.getRoomForContact(contact.id);
     if (room == null) return;
     room.messages.removeWhere((m) => m.id == message.id);
+    _repo.untrackMessageId(contact.id, message.id);
     await LocalStorageService().deleteMessage(contact.storageKey, message.id);
     _scheduleNotify();
     await sendMessage(contact, message.encryptedPayload, noAutoRetry: true);
@@ -2081,6 +2046,7 @@ class ChatController extends ChangeNotifier {
       final now = DateTime.now();
       room.messages.removeWhere((m) {
         if (m.timestamp.add(Duration(seconds: seconds)).isBefore(now)) {
+          _repo.untrackMessageId(contact.id, m.id);
           unawaited(LocalStorageService().deleteMessage(contact.storageKey, m.id));
           return true;
         }
@@ -2416,12 +2382,13 @@ class ChatController extends ChangeNotifier {
       encryptedPayload: text,
       timestamp: DateTime.now(),
       adapterType: contact.isGroup ? 'group' : contact.provider == 'Nostr' ? 'nostr' :
-          contact.provider == 'Waku' ? 'waku' : contact.provider == 'Oxen' ? 'oxen' : 'firebase',
+          contact.provider == 'Oxen' ? 'oxen' : 'firebase',
       isRead: true,
       status: 'scheduled',
       scheduledAt: scheduledAt,
     );
     room.messages.add(placeholder);
+    _repo.trackMessageId(contact.id, placeholder.id);
     _scheduleNotify();
 
     final prefs = await _getPrefs();
@@ -2457,7 +2424,10 @@ class ChatController extends ChangeNotifier {
   Future<void> _fireScheduled(Contact contact, Message msg) async {
     _retryTimers.remove(msg.id);
     final room = _repo.getRoomForContact(contact.id);
-    if (room != null) room.messages.removeWhere((m) => m.id == msg.id);
+    if (room != null) {
+      room.messages.removeWhere((m) => m.id == msg.id);
+      _repo.untrackMessageId(contact.id, msg.id);
+    }
     final prefs = await _getPrefs();
     final storageKey = 'scheduled_${contact.id}';
     List list;
@@ -2485,7 +2455,10 @@ class ChatController extends ChangeNotifier {
     _retryTimers[msgId]?.cancel();
     _retryTimers.remove(msgId);
     final room = _repo.getRoomForContact(contact.id);
-    if (room != null) room.messages.removeWhere((m) => m.id == msgId);
+    if (room != null) {
+      room.messages.removeWhere((m) => m.id == msgId);
+      _repo.untrackMessageId(contact.id, msgId);
+    }
     _scheduleNotify();
     final prefs = await _getPrefs();
     final storageKey = 'scheduled_${contact.id}';
@@ -2524,6 +2497,7 @@ class ChatController extends ChangeNotifier {
           if (msg == null || msg.scheduledAt == null) continue;
           final room = _repo.getOrCreateRoom(contact);
           room.messages.add(msg);
+          _repo.trackMessageId(contact.id, msg.id);
           _scheduleTimer(contact, msg);
         }
       } catch (e) {
@@ -2643,6 +2617,7 @@ class ChatController extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    _notifyTimer?.cancel();
     NetworkMonitor.instance.stopMonitoring();
     P2PTransportService.instance.dispose();
     _lanReader?.close();
@@ -2682,7 +2657,6 @@ class ChatController extends ChangeNotifier {
     _cachedNostrSender = null;
     _cachedNostrPrivkey = null;
     _cachedFirebaseSender = null;
-    _cachedWakuSender = null;
     _cachedOxenSender = null;
     _cachedPulseSender = null;
     _contactIndex = null;

@@ -1686,13 +1686,6 @@ class AppLocalizationsJa extends AppLocalizations {
       '鍵はローカルのセキュアストレージに保存されています — サーバーには一切送信されません。';
 
   @override
-  String get providerWakuAutoDiscovery =>
-      'URLを空にすると最速の公開ノードを自動検出します。nwakuをローカルで実行（ポート8645）すると最大のプライバシーが得られます。';
-
-  @override
-  String get providerWakuProbeTooltip => '既知のすべての公開ノードを探索';
-
-  @override
   String get providerOxenInfo =>
       'Oxen/Sessionネットワーク — オニオンルーティングのE2EE。Session IDは自動生成され安全に保存されます。ノードは組み込みのシードノードから自動検出されます。';
 
@@ -1935,12 +1928,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get providerPrivateKeyNsecLabel => '秘密鍵（nsec）';
 
   @override
-  String get providerWakuUrlLabel => 'nwakuノードURL（任意）';
-
-  @override
-  String get providerWakuUrlHint => '自動検出する場合は空にする';
-
-  @override
   String get providerStorageNodeLabel => 'ストレージノードURL（任意）';
 
   @override
@@ -2042,7 +2029,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get privacyNetworkBody =>
-      'Pulseは連合型トランスポートアダプター（Nostrリレー、Session/Oxenサービスノード、Wakuノード、Firebase Realtime Database、LAN）を使用します。これらのトランスポートは暗号化された暗号文のみを転送します。リレー運営者はIPアドレスとトラフィック量を確認できますが、メッセージの内容を復号することはできません。\n\nTorを有効にすると、リレー運営者からIPアドレスも隠されます。';
+      'Pulseは連合型トランスポートアダプター（Nostrリレー、Session/Oxenサービスノード、Firebase Realtime Database、LAN）を使用します。これらのトランスポートは暗号化された暗号文のみを転送します。リレー運営者はIPアドレスとトラフィック量を確認できますが、メッセージの内容を復号することはできません。\n\nTorを有効にすると、リレー運営者からIPアドレスも隠されます。';
 
   @override
   String get privacyStunHeading => 'STUN/TURNサーバー';
@@ -2361,10 +2348,6 @@ class AppLocalizationsJa extends AppLocalizations {
       '無効なリレーURLです。wss://relay.example.com の形式が必要です';
 
   @override
-  String get providerErrorInvalidWakuUrl =>
-      '無効なWakuノードURLです。http://host:port の形式が必要です';
-
-  @override
   String get providerErrorInvalidPulseUrl =>
       '無効なPulseサーバーURLです。https://server:port の形式が必要です';
 
@@ -2458,4 +2441,20 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get bubbleGifBadge => 'GIF';
+
+  @override
+  String get settingsLanguage => 'Language';
+
+  @override
+  String get settingsLanguageSubtitle => 'App display language';
+
+  @override
+  String get settingsLanguageSystem => 'System default';
+
+  @override
+  String get onboardingLanguageTitle => 'Choose your language';
+
+  @override
+  String get onboardingLanguageSubtitle =>
+      'You can change this later in Settings';
 }

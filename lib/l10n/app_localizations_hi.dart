@@ -1764,14 +1764,6 @@ class AppLocalizationsHi extends AppLocalizations {
       'आपकी कुंजी सुरक्षित स्टोरेज में स्थानीय रूप से संग्रहीत है — कभी किसी सर्वर को नहीं भेजी जाती।';
 
   @override
-  String get providerWakuAutoDiscovery =>
-      'सबसे तेज़ सार्वजनिक नोड स्वतः खोजने के लिए URL खाली छोड़ें। या अधिकतम गोपनीयता के लिए स्थानीय रूप से nwaku चलाएँ (पोर्ट 8645)।';
-
-  @override
-  String get providerWakuProbeTooltip =>
-      'सभी ज्ञात सार्वजनिक नोड्स की जाँच करें';
-
-  @override
   String get providerOxenInfo =>
       'Oxen/Session नेटवर्क — ऑनियन-राउटेड E2EE। आपकी Session ID स्वचालित रूप से बनाई जाती है और सुरक्षित रूप से संग्रहीत होती है। नोड्स बिल्ट-इन सीड नोड्स से स्वतः खोजे जाते हैं।';
 
@@ -2015,12 +2007,6 @@ class AppLocalizationsHi extends AppLocalizations {
   String get providerPrivateKeyNsecLabel => 'निजी कुंजी (nsec)';
 
   @override
-  String get providerWakuUrlLabel => 'nwaku नोड URL (वैकल्पिक)';
-
-  @override
-  String get providerWakuUrlHint => 'स्वतः खोज के लिए खाली छोड़ें';
-
-  @override
   String get providerStorageNodeLabel => 'स्टोरेज नोड URL (वैकल्पिक)';
 
   @override
@@ -2123,7 +2109,7 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get privacyNetworkBody =>
-      'Pulse फ़ेडरेटेड ट्रांसपोर्ट एडाप्टर (Nostr रिले, Session/Oxen सर्विस नोड्स, Waku नोड्स, Firebase Realtime Database, LAN) का उपयोग करता है। ये ट्रांसपोर्ट केवल एन्क्रिप्टेड सिफ़रटेक्स्ट ले जाते हैं। रिले ऑपरेटर आपका IP पता और ट्रैफ़िक वॉल्यूम देख सकते हैं, लेकिन संदेश सामग्री को डिक्रिप्ट नहीं कर सकते।\n\nजब Tor सक्षम है, तो आपका IP पता रिले ऑपरेटरों से भी छिपा रहता है।';
+      'Pulse फ़ेडरेटेड ट्रांसपोर्ट एडाप्टर (Nostr रिले, Session/Oxen सर्विस नोड्स, Firebase Realtime Database, LAN) का उपयोग करता है। ये ट्रांसपोर्ट केवल एन्क्रिप्टेड सिफ़रटेक्स्ट ले जाते हैं। रिले ऑपरेटर आपका IP पता और ट्रैफ़िक वॉल्यूम देख सकते हैं, लेकिन संदेश सामग्री को डिक्रिप्ट नहीं कर सकते।\n\nजब Tor सक्षम है, तो आपका IP पता रिले ऑपरेटरों से भी छिपा रहता है।';
 
   @override
   String get privacyStunHeading => 'STUN/TURN सर्वर';
@@ -2453,10 +2439,6 @@ class AppLocalizationsHi extends AppLocalizations {
       'अमान्य रिले URL। अपेक्षित wss://relay.example.com';
 
   @override
-  String get providerErrorInvalidWakuUrl =>
-      'अमान्य Waku नोड URL। अपेक्षित http://host:port';
-
-  @override
   String get providerErrorInvalidPulseUrl =>
       'अमान्य Pulse सर्वर URL। अपेक्षित https://server:port';
 
@@ -2551,4 +2533,20 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get bubbleGifBadge => 'GIF';
+
+  @override
+  String get settingsLanguage => 'Language';
+
+  @override
+  String get settingsLanguageSubtitle => 'App display language';
+
+  @override
+  String get settingsLanguageSystem => 'System default';
+
+  @override
+  String get onboardingLanguageTitle => 'Choose your language';
+
+  @override
+  String get onboardingLanguageSubtitle =>
+      'You can change this later in Settings';
 }

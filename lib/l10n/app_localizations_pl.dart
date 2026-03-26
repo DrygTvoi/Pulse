@@ -1778,14 +1778,6 @@ class AppLocalizationsPl extends AppLocalizations {
       'Twój klucz jest przechowywany lokalnie w bezpiecznym magazynie — nigdy nie jest wysyłany na żaden serwer.';
 
   @override
-  String get providerWakuAutoDiscovery =>
-      'Pozostaw URL pusty, aby automatycznie odkryć najszybszy publiczny węzeł. Lub uruchom nwaku lokalnie (port 8645) dla maksymalnej prywatności.';
-
-  @override
-  String get providerWakuProbeTooltip =>
-      'Sprawdź wszystkie znane publiczne węzły';
-
-  @override
   String get providerOxenInfo =>
       'Sieć Oxen/Session — cebulowe E2EE. Twój identyfikator Session jest generowany automatycznie i przechowywany bezpiecznie. Węzły odkrywane automatycznie z wbudowanych węzłów początkowych.';
 
@@ -2029,13 +2021,6 @@ class AppLocalizationsPl extends AppLocalizations {
   String get providerPrivateKeyNsecLabel => 'Klucz prywatny (nsec)';
 
   @override
-  String get providerWakuUrlLabel => 'URL węzła nwaku (opcjonalnie)';
-
-  @override
-  String get providerWakuUrlHint =>
-      'Pozostaw puste dla automatycznego odkrywania';
-
-  @override
   String get providerStorageNodeLabel =>
       'URL węzła przechowywania (opcjonalnie)';
 
@@ -2140,7 +2125,7 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get privacyNetworkBody =>
-      'Pulse korzysta z federacyjnych adapterów transportu (przekaźniki Nostr, węzły Oxen/Session, węzły Waku, Firebase Realtime Database, LAN). Transporty te przenoszą tylko zaszyfrowany tekst. Operatorzy przekaźników mogą widzieć Twój adres IP i wolumen ruchu, ale nie mogą odszyfrować treści wiadomości.\n\nGdy włączony jest Tor, Twój adres IP jest również ukryty przed operatorami przekaźników.';
+      'Pulse korzysta z federacyjnych adapterów transportu (przekaźniki Nostr, węzły Oxen/Session, Firebase Realtime Database, LAN). Transporty te przenoszą tylko zaszyfrowany tekst. Operatorzy przekaźników mogą widzieć Twój adres IP i wolumen ruchu, ale nie mogą odszyfrować treści wiadomości.\n\nGdy włączony jest Tor, Twój adres IP jest również ukryty przed operatorami przekaźników.';
 
   @override
   String get privacyStunHeading => 'Serwery STUN/TURN';
@@ -2467,10 +2452,6 @@ class AppLocalizationsPl extends AppLocalizations {
       'Nieprawidłowy URL przekaźnika. Oczekiwano wss://relay.example.com';
 
   @override
-  String get providerErrorInvalidWakuUrl =>
-      'Nieprawidłowy URL węzła Waku. Oczekiwano http://host:port';
-
-  @override
   String get providerErrorInvalidPulseUrl =>
       'Nieprawidłowy URL serwera Pulse. Oczekiwano https://serwer:port';
 
@@ -2565,4 +2546,20 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get bubbleGifBadge => 'GIF';
+
+  @override
+  String get settingsLanguage => 'Language';
+
+  @override
+  String get settingsLanguageSubtitle => 'App display language';
+
+  @override
+  String get settingsLanguageSystem => 'System default';
+
+  @override
+  String get onboardingLanguageTitle => 'Choose your language';
+
+  @override
+  String get onboardingLanguageSubtitle =>
+      'You can change this later in Settings';
 }
