@@ -308,7 +308,7 @@ class SignalDispatcher {
     'msg_delete',
     'edit',
     // BUG-2 fix: unauthenticated SKDM injection allows key replacement on
-    // Firebase/Waku/Oxen transports where sender is not a bare Nostr pubkey.
+    // Firebase/Oxen transports where sender is not a bare Nostr pubkey.
     'sender_key_dist',
     // FINDING-2 fix: chunk_req must be authenticated to prevent amplification DoS.
     'chunk_req',
@@ -401,11 +401,11 @@ class SignalDispatcher {
 
         // Verify HMAC signature on security-critical signals.
         // F4-1: The bare-pubkey HMAC bypass must be gated on adapterType=='nostr'
-        // to prevent Waku/Firebase senders from setting senderId to a 64-hex string
+        // to prevent Firebase senders from setting senderId to a 64-hex string
         // and bypassing HMAC. Only signals that went through Nostr Schnorr
         // verification (marked by NostrAdapter with adapterType='nostr') are exempt.
         // The security is in adapterType — set by our adapter code after Schnorr
-        // verification, not attacker-controllable from Waku/Firebase.
+        // verification, not attacker-controllable from Firebase.
         if (_signatureRequiredSignals.contains(sigType)) {
           final isNostrVerified = (sig['adapterType'] as String? ?? '') == 'nostr';
           if (!isNostrVerified) {
@@ -428,7 +428,7 @@ class SignalDispatcher {
         }
 
         // webrtc offer/answer HMAC: if the sender contact has a Nostr pubkey
-        // (most Waku/Oxen contacts do), require _sig/_spk to prevent a relay
+        // (most Oxen contacts do), require _sig/_spk to prevent a relay
         // operator from forging a fake "Incoming call from Alice" event.
         // Firebase-only contacts cannot use ECDH-HMAC and are allowed unsigned.
         if (_webrtcOfferTypes.contains(sigType)) {

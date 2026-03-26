@@ -557,8 +557,6 @@
   "providerRelay": "Реле",
   "providerAutoConfigured": "Настроено автоматически из пароля восстановления. Реле обнаруживается автоматически.",
   "providerKeyStoredLocally": "Ваш ключ хранится локально в защищённом хранилище — никогда не отправляется на сервер.",
-  "providerWakuAutoDiscovery": "Оставьте URL пустым для автоматического обнаружения ближайшего узла. Или запустите nwaku локально (порт 8645) для максимальной конфиденциальности.",
-  "providerWakuProbeTooltip": "Проверить все известные публичные узлы",
   "providerOxenInfo": "Сеть Oxen/Session — E2EE с луковой маршрутизацией. Session ID генерируется и хранится автоматически. Узлы обнаруживаются из встроенных.",
   "providerAdvanced": "Дополнительно",
   "providerSaveAndConnect": "Сохранить и подключиться",
@@ -636,8 +634,6 @@
   "providerRelayUrlLabel": "URL реле",
   "providerPrivateKeyLabel": "Приватный ключ",
   "providerPrivateKeyNsecLabel": "Приватный ключ (nsec)",
-  "providerWakuUrlLabel": "URL узла nwaku (необязательно)",
-  "providerWakuUrlHint": "Оставьте пустым для автообнаружения",
   "providerStorageNodeLabel": "URL узла хранения (необязательно)",
   "providerStorageNodeHint": "Оставьте пустым для встроенных узлов",
 
@@ -680,7 +676,7 @@
   "privacyEncryptionHeading": "Шифрование",
   "privacyEncryptionBody": "Все сообщения шифруются по протоколу Signal (Double Ratchet с согласованием ключей X3DH). Ключи шифрования генерируются и хранятся исключительно на вашем устройстве. Никто — включая разработчиков — не может прочитать ваши сообщения.",
   "privacyNetworkHeading": "Сетевая архитектура",
-  "privacyNetworkBody": "Pulse использует федеративные транспортные адаптеры (Nostr-реле, узлы Session/Oxen, Waku, Firebase Realtime Database, LAN). Через эти транспорты передаётся только зашифрованный текст. Операторы реле видят ваш IP-адрес и объём трафика, но не могут расшифровать содержимое сообщений.\n\nПри включённом Tor ваш IP-адрес скрыт и от операторов реле.",
+  "privacyNetworkBody": "Pulse использует федеративные транспортные адаптеры (Nostr-реле, узлы Session/Oxen, Firebase Realtime Database, LAN). Через эти транспорты передаётся только зашифрованный текст. Операторы реле видят ваш IP-адрес и объём трафика, но не могут расшифровать содержимое сообщений.\n\nПри включённом Tor ваш IP-адрес скрыт и от операторов реле.",
   "privacyStunHeading": "STUN/TURN серверы",
   "privacyStunBody": "Голосовые и видеозвонки используют WebRTC с шифрованием DTLS-SRTP. STUN-серверы (для определения публичного IP при peer-to-peer соединении) и TURN-серверы (для ретрансляции медиа при невозможности прямого соединения) видят ваш IP-адрес и длительность звонка, но не могут расшифровать его содержимое.\n\nВ настройках можно указать собственный TURN-сервер для максимальной приватности.",
   "privacyCrashHeading": "Отчёты об ошибках",
@@ -789,7 +785,6 @@
 
   "providerErrorInvalidFirebaseUrl": "Неверный URL Firebase. Ожидается https://project.firebaseio.com",
   "providerErrorInvalidRelayUrl": "Неверный URL реле. Ожидается wss://relay.example.com",
-  "providerErrorInvalidWakuUrl": "Неверный URL узла Waku. Ожидается http://host:port",
   "providerErrorInvalidPulseUrl": "Неверный URL Pulse-сервера. Ожидается https://server:port",
   "providerPulseServerUrlLabel": "URL сервера",
   "providerPulseServerUrlHint": "https://your-server:8443",
@@ -821,5 +816,11 @@
   "imageViewerSavedTo": "Сохранено в {path}",
   "addContactManualHint": "pubkey@wss://relay  ·  05hex…  ·  id@https://...",
   "chatOk": "ОК",
-  "bubbleGifBadge": "GIF"
+  "bubbleGifBadge": "GIF",
+
+  "settingsLanguage": "Язык",
+  "settingsLanguageSubtitle": "Язык интерфейса",
+  "settingsLanguageSystem": "Системный",
+  "onboardingLanguageTitle": "Выберите язык",
+  "onboardingLanguageSubtitle": "Вы можете изменить это позже в Настройках"
 }

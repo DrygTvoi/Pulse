@@ -1766,13 +1766,6 @@ class AppLocalizationsTr extends AppLocalizations {
       'Anahtarınız güvenli depolamada yerel olarak saklanır — hiçbir sunucuya gönderilmez.';
 
   @override
-  String get providerWakuAutoDiscovery =>
-      'En hızlı genel düğümü otomatik keşfetmek için URL\'yi boş bırakın. Veya maksimum gizlilik için nwaku\'yu yerel olarak çalıştırın (port 8645).';
-
-  @override
-  String get providerWakuProbeTooltip => 'Tüm bilinen genel düğümleri yokla';
-
-  @override
   String get providerOxenInfo =>
       'Oxen/Session ağı — soğan yönlendirmeli E2EE. Session ID\'niz otomatik oluşturulur ve güvenli şekilde saklanır. Düğümler yerleşik tohum düğümlerinden otomatik keşfedilir.';
 
@@ -2018,12 +2011,6 @@ class AppLocalizationsTr extends AppLocalizations {
   String get providerPrivateKeyNsecLabel => 'Özel Anahtar (nsec)';
 
   @override
-  String get providerWakuUrlLabel => 'nwaku Düğüm URL\'si (isteğe bağlı)';
-
-  @override
-  String get providerWakuUrlHint => 'Otomatik keşif için boş bırakın';
-
-  @override
   String get providerStorageNodeLabel =>
       'Depolama Düğümü URL\'si (isteğe bağlı)';
 
@@ -2128,7 +2115,7 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get privacyNetworkBody =>
-      'Pulse federasyon taşıyıcı bağdaştırıcıları kullanır (Nostr aktarıcıları, Session/Oxen hizmet düğümleri, Waku düğümleri, Firebase Realtime Database, LAN). Bu taşıyıcılar yalnızca şifreli metin taşır. Aktarıcı operatörleri IP adresinizi ve trafik hacminizi görebilir ancak mesaj içeriğini çözemez.\n\nTor etkinleştirildiğinde IP adresiniz aktarıcı operatörlerinden de gizlenir.';
+      'Pulse federasyon taşıyıcı bağdaştırıcıları kullanır (Nostr aktarıcıları, Session/Oxen hizmet düğümleri, Firebase Realtime Database, LAN). Bu taşıyıcılar yalnızca şifreli metin taşır. Aktarıcı operatörleri IP adresinizi ve trafik hacminizi görebilir ancak mesaj içeriğini çözemez.\n\nTor etkinleştirildiğinde IP adresiniz aktarıcı operatörlerinden de gizlenir.';
 
   @override
   String get privacyStunHeading => 'STUN/TURN Sunucuları';
@@ -2459,10 +2446,6 @@ class AppLocalizationsTr extends AppLocalizations {
       'Geçersiz aktarıcı URL\'si. Beklenen: wss://relay.example.com';
 
   @override
-  String get providerErrorInvalidWakuUrl =>
-      'Geçersiz Waku düğüm URL\'si. Beklenen: http://host:port';
-
-  @override
   String get providerErrorInvalidPulseUrl =>
       'Geçersiz Pulse sunucu URL\'si. Beklenen: https://sunucu:port';
 
@@ -2557,4 +2540,20 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get bubbleGifBadge => 'GIF';
+
+  @override
+  String get settingsLanguage => 'Language';
+
+  @override
+  String get settingsLanguageSubtitle => 'App display language';
+
+  @override
+  String get settingsLanguageSystem => 'System default';
+
+  @override
+  String get onboardingLanguageTitle => 'Choose your language';
+
+  @override
+  String get onboardingLanguageSubtitle =>
+      'You can change this later in Settings';
 }

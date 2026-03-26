@@ -65,7 +65,7 @@ void main() {
 
     // ─── Test 2: Provider chips are displayed after loading ──────────────────
 
-    testWidgets('displays Firebase, Nostr, Waku, Oxen provider chip texts',
+    testWidgets('displays Firebase, Nostr, Oxen provider chip texts',
         (WidgetTester tester) async {
       await tester.pumpWidget(buildTestableWidget(const ProviderScreen()));
 
@@ -73,11 +73,10 @@ void main() {
       // _load() reads SharedPreferences (mocked) and sets _loading = false.
       await tester.pumpAndSettle();
 
-      // After loading, the four provider chips should be in the tree.
+      // After loading, the provider chips should be in the tree.
       // Each chip renders the provider name as a Text widget inside a Row.
       expect(find.text('Firebase'), findsWidgets);
       expect(find.text('Nostr'), findsWidgets);
-      expect(find.text('Waku'), findsWidgets);
       expect(find.text('Oxen'), findsWidgets);
     },
         // FlutterSecureStorage calls may fail in test environment because

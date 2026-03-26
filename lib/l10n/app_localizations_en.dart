@@ -1754,13 +1754,6 @@ class AppLocalizationsEn extends AppLocalizations {
       'Your key is stored locally in secure storage — never sent to any server.';
 
   @override
-  String get providerWakuAutoDiscovery =>
-      'Leave URL empty to auto-discover the fastest public node. Or run nwaku locally (port 8645) for maximum privacy.';
-
-  @override
-  String get providerWakuProbeTooltip => 'Probe all known public nodes';
-
-  @override
   String get providerOxenInfo =>
       'Oxen/Session network — onion-routed E2EE. Your Session ID is auto-generated and stored securely. Nodes auto-discovered from built-in seed nodes.';
 
@@ -2004,12 +1997,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get providerPrivateKeyNsecLabel => 'Private Key (nsec)';
 
   @override
-  String get providerWakuUrlLabel => 'nwaku Node URL (optional)';
-
-  @override
-  String get providerWakuUrlHint => 'Leave empty for auto-discovery';
-
-  @override
   String get providerStorageNodeLabel => 'Storage Node URL (optional)';
 
   @override
@@ -2112,7 +2099,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get privacyNetworkBody =>
-      'Pulse uses federated transport adapters (Nostr relays, Session/Oxen service nodes, Waku nodes, Firebase Realtime Database, LAN). These transports carry only encrypted ciphertext. Relay operators can see your IP address and traffic volume, but cannot decrypt message content.\n\nWhen Tor is enabled, your IP address is also hidden from relay operators.';
+      'Pulse uses federated transport adapters (Nostr relays, Session/Oxen service nodes, Firebase Realtime Database, LAN). These transports carry only encrypted ciphertext. Relay operators can see your IP address and traffic volume, but cannot decrypt message content.\n\nWhen Tor is enabled, your IP address is also hidden from relay operators.';
 
   @override
   String get privacyStunHeading => 'STUN/TURN Servers';
@@ -2436,10 +2423,6 @@ class AppLocalizationsEn extends AppLocalizations {
       'Invalid relay URL. Expected wss://relay.example.com';
 
   @override
-  String get providerErrorInvalidWakuUrl =>
-      'Invalid Waku node URL. Expected http://host:port';
-
-  @override
   String get providerErrorInvalidPulseUrl =>
       'Invalid Pulse server URL. Expected https://server:port';
 
@@ -2534,4 +2517,20 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get bubbleGifBadge => 'GIF';
+
+  @override
+  String get settingsLanguage => 'Language';
+
+  @override
+  String get settingsLanguageSubtitle => 'App display language';
+
+  @override
+  String get settingsLanguageSystem => 'System default';
+
+  @override
+  String get onboardingLanguageTitle => 'Choose your language';
+
+  @override
+  String get onboardingLanguageSubtitle =>
+      'You can change this later in Settings';
 }

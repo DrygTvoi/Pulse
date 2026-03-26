@@ -5,7 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 ///
 /// KeyExportService depends on FlutterSecureStorage and flutter/foundation
 /// (compute), so we cannot import it directly.  Instead we reimplement the
-/// pure validation/format constants here (same pattern as waku_adapter_test).
+/// pure validation/format constants here.
 ///
 /// File format (v1):
 ///   [4 bytes magic "PLKE"]

@@ -1781,14 +1781,6 @@ class AppLocalizationsDe extends AppLocalizations {
       'Ihr Schlüssel wird lokal im sicheren Speicher gespeichert — niemals an einen Server gesendet.';
 
   @override
-  String get providerWakuAutoDiscovery =>
-      'Lassen Sie die URL leer, um den schnellsten öffentlichen Knoten automatisch zu finden. Oder betreiben Sie nwaku lokal (Port 8645) für maximale Privatsphäre.';
-
-  @override
-  String get providerWakuProbeTooltip =>
-      'Alle bekannten öffentlichen Knoten prüfen';
-
-  @override
   String get providerOxenInfo =>
       'Oxen/Session-Netzwerk — Onion-geroutete E2EE. Ihre Session-ID wird automatisch generiert und sicher gespeichert. Knoten werden automatisch über eingebaute Seed-Knoten entdeckt.';
 
@@ -2036,12 +2028,6 @@ class AppLocalizationsDe extends AppLocalizations {
   String get providerPrivateKeyNsecLabel => 'Privater Schlüssel (nsec)';
 
   @override
-  String get providerWakuUrlLabel => 'nwaku-Knoten-URL (optional)';
-
-  @override
-  String get providerWakuUrlHint => 'Leer lassen für automatische Erkennung';
-
-  @override
   String get providerStorageNodeLabel => 'Speicherknoten-URL (optional)';
 
   @override
@@ -2145,7 +2131,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get privacyNetworkBody =>
-      'Pulse verwendet föderierte Transportadapter (Nostr-Relays, Session/Oxen-Dienstknoten, Waku-Knoten, Firebase Realtime Database, LAN). Diese Transporte übertragen nur verschlüsselten Chiffretext. Relay-Betreiber können Ihre IP-Adresse und das Verkehrsvolumen sehen, aber den Nachrichteninhalt nicht entschlüsseln.\n\nWenn Tor aktiviert ist, wird Ihre IP-Adresse auch vor Relay-Betreibern verborgen.';
+      'Pulse verwendet föderierte Transportadapter (Nostr-Relays, Session/Oxen-Dienstknoten, Firebase Realtime Database, LAN). Diese Transporte übertragen nur verschlüsselten Chiffretext. Relay-Betreiber können Ihre IP-Adresse und das Verkehrsvolumen sehen, aber den Nachrichteninhalt nicht entschlüsseln.\n\nWenn Tor aktiviert ist, wird Ihre IP-Adresse auch vor Relay-Betreibern verborgen.';
 
   @override
   String get privacyStunHeading => 'STUN/TURN-Server';
@@ -2470,10 +2456,6 @@ class AppLocalizationsDe extends AppLocalizations {
       'Ungültige Relay-URL. Erwartet: wss://relay.example.com';
 
   @override
-  String get providerErrorInvalidWakuUrl =>
-      'Ungültige Waku-Knoten-URL. Erwartet: http://host:port';
-
-  @override
   String get providerErrorInvalidPulseUrl =>
       'Ungültige Pulse-Server-URL. Erwartet: https://server:port';
 
@@ -2568,4 +2550,20 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get bubbleGifBadge => 'GIF';
+
+  @override
+  String get settingsLanguage => 'Language';
+
+  @override
+  String get settingsLanguageSubtitle => 'App display language';
+
+  @override
+  String get settingsLanguageSystem => 'System default';
+
+  @override
+  String get onboardingLanguageTitle => 'Choose your language';
+
+  @override
+  String get onboardingLanguageSubtitle =>
+      'You can change this later in Settings';
 }

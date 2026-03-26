@@ -2752,7 +2752,7 @@ abstract class AppLocalizations {
   /// **'Advanced'**
   String get settingsAdvanced;
 
-  /// Button to discover Waku nodes
+  /// Button to discover nodes
   ///
   /// In en, this message translates to:
   /// **'Discover'**
@@ -3214,18 +3214,6 @@ abstract class AppLocalizations {
   /// **'Your key is stored locally in secure storage — never sent to any server.'**
   String get providerKeyStoredLocally;
 
-  /// Info text for Waku auto discovery
-  ///
-  /// In en, this message translates to:
-  /// **'Leave URL empty to auto-discover the fastest public node. Or run nwaku locally (port 8645) for maximum privacy.'**
-  String get providerWakuAutoDiscovery;
-
-  /// Tooltip on Waku discover button
-  ///
-  /// In en, this message translates to:
-  /// **'Probe all known public nodes'**
-  String get providerWakuProbeTooltip;
-
   /// Info text for Oxen provider
   ///
   /// In en, this message translates to:
@@ -3652,18 +3640,6 @@ abstract class AppLocalizations {
   /// **'Private Key (nsec)'**
   String get providerPrivateKeyNsecLabel;
 
-  /// Label for Waku node URL field
-  ///
-  /// In en, this message translates to:
-  /// **'nwaku Node URL (optional)'**
-  String get providerWakuUrlLabel;
-
-  /// Hint for Waku node URL field
-  ///
-  /// In en, this message translates to:
-  /// **'Leave empty for auto-discovery'**
-  String get providerWakuUrlHint;
-
   /// Label for Oxen storage node URL field
   ///
   /// In en, this message translates to:
@@ -3841,7 +3817,7 @@ abstract class AppLocalizations {
   /// No description provided for @privacyNetworkBody.
   ///
   /// In en, this message translates to:
-  /// **'Pulse uses federated transport adapters (Nostr relays, Session/Oxen service nodes, Waku nodes, Firebase Realtime Database, LAN). These transports carry only encrypted ciphertext. Relay operators can see your IP address and traffic volume, but cannot decrypt message content.\n\nWhen Tor is enabled, your IP address is also hidden from relay operators.'**
+  /// **'Pulse uses federated transport adapters (Nostr relays, Session/Oxen service nodes, Firebase Realtime Database, LAN). These transports carry only encrypted ciphertext. Relay operators can see your IP address and traffic volume, but cannot decrypt message content.\n\nWhen Tor is enabled, your IP address is also hidden from relay operators.'**
   String get privacyNetworkBody;
 
   /// No description provided for @privacyStunHeading.
@@ -4432,12 +4408,6 @@ abstract class AppLocalizations {
   /// **'Invalid relay URL. Expected wss://relay.example.com'**
   String get providerErrorInvalidRelayUrl;
 
-  /// No description provided for @providerErrorInvalidWakuUrl.
-  ///
-  /// In en, this message translates to:
-  /// **'Invalid Waku node URL. Expected http://host:port'**
-  String get providerErrorInvalidWakuUrl;
-
   /// No description provided for @providerErrorInvalidPulseUrl.
   ///
   /// In en, this message translates to:
@@ -4617,6 +4587,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'GIF'**
   String get bubbleGifBadge;
+
+  /// No description provided for @settingsLanguage.
+  ///
+  /// In en, this message translates to:
+  /// **'Language'**
+  String get settingsLanguage;
+
+  /// No description provided for @settingsLanguageSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'App display language'**
+  String get settingsLanguageSubtitle;
+
+  /// No description provided for @settingsLanguageSystem.
+  ///
+  /// In en, this message translates to:
+  /// **'System default'**
+  String get settingsLanguageSystem;
+
+  /// No description provided for @onboardingLanguageTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose your language'**
+  String get onboardingLanguageTitle;
+
+  /// No description provided for @onboardingLanguageSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'You can change this later in Settings'**
+  String get onboardingLanguageSubtitle;
 }
 
 class _AppLocalizationsDelegate

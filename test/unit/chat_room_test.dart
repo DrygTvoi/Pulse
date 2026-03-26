@@ -129,16 +129,16 @@ void main() {
       final updatedAt = DateTime.utc(2026, 1, 15, 10, 30, 0);
       final room = _makeChatRoom(
         id: 'room-json',
-        adapterType: 'waku',
-        adapterConfig: {'nodeUrl': 'http://localhost:8545'},
+        adapterType: 'nostr',
+        adapterConfig: {'relay': 'wss://relay.damus.io'},
         updatedAt: updatedAt,
       );
 
       final json = room.toJson();
 
       expect(json['id'], 'room-json');
-      expect(json['adapterType'], 'waku');
-      expect(json['adapterConfig'], {'nodeUrl': 'http://localhost:8545'});
+      expect(json['adapterType'], 'nostr');
+      expect(json['adapterConfig'], {'relay': 'wss://relay.damus.io'});
       expect(json['updatedAt'], updatedAt.toIso8601String());
       expect(json['contact'], isA<Map<String, dynamic>>());
       expect(json['messages'], isA<List>());

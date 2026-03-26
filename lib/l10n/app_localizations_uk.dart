@@ -1771,13 +1771,6 @@ class AppLocalizationsUk extends AppLocalizations {
       'Ваш ключ зберігається локально в захищеному сховищі — ніколи не надсилається на сервер.';
 
   @override
-  String get providerWakuAutoDiscovery =>
-      'Залиште URL порожнім для автоматичного виявлення найближчого вузла. Або запустіть nwaku локально (порт 8645) для максимальної конфіденційності.';
-
-  @override
-  String get providerWakuProbeTooltip => 'Перевірити всі відомі публічні вузли';
-
-  @override
   String get providerOxenInfo =>
       'Мережа Oxen/Session — E2EE з цибулевою маршрутизацією. Session ID генерується та зберігається автоматично. Вузли виявляються з вбудованих.';
 
@@ -2021,12 +2014,6 @@ class AppLocalizationsUk extends AppLocalizations {
   String get providerPrivateKeyNsecLabel => 'Приватний ключ (nsec)';
 
   @override
-  String get providerWakuUrlLabel => 'URL вузла nwaku (необовʼязково)';
-
-  @override
-  String get providerWakuUrlHint => 'Залиште порожнім для автовиявлення';
-
-  @override
   String get providerStorageNodeLabel => 'URL вузла зберігання (необовʼязково)';
 
   @override
@@ -2130,7 +2117,7 @@ class AppLocalizationsUk extends AppLocalizations {
 
   @override
   String get privacyNetworkBody =>
-      'Pulse використовує федеративні транспортні адаптери (Nostr-реле, вузли Session/Oxen, Waku, Firebase Realtime Database, LAN). Через ці транспорти передається лише зашифрований текст. Оператори реле бачать вашу IP-адресу та обсяг трафіку, але не можуть розшифрувати вміст повідомлень.\n\nПри увімкненому Tor ваша IP-адреса прихована і від операторів реле.';
+      'Pulse використовує федеративні транспортні адаптери (Nostr-реле, вузли Session/Oxen, Firebase Realtime Database, LAN). Через ці транспорти передається лише зашифрований текст. Оператори реле бачать вашу IP-адресу та обсяг трафіку, але не можуть розшифрувати вміст повідомлень.\n\nПри увімкненому Tor ваша IP-адреса прихована і від операторів реле.';
 
   @override
   String get privacyStunHeading => 'STUN/TURN сервери';
@@ -2454,10 +2441,6 @@ class AppLocalizationsUk extends AppLocalizations {
       'Невірний URL реле. Очікується wss://relay.example.com';
 
   @override
-  String get providerErrorInvalidWakuUrl =>
-      'Невірний URL вузла Waku. Очікується http://host:port';
-
-  @override
   String get providerErrorInvalidPulseUrl =>
       'Невірний URL Pulse-сервера. Очікується https://server:port';
 
@@ -2552,4 +2535,20 @@ class AppLocalizationsUk extends AppLocalizations {
 
   @override
   String get bubbleGifBadge => 'GIF';
+
+  @override
+  String get settingsLanguage => 'Language';
+
+  @override
+  String get settingsLanguageSubtitle => 'App display language';
+
+  @override
+  String get settingsLanguageSystem => 'System default';
+
+  @override
+  String get onboardingLanguageTitle => 'Choose your language';
+
+  @override
+  String get onboardingLanguageSubtitle =>
+      'You can change this later in Settings';
 }

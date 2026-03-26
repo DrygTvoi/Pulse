@@ -6,7 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 ///
 /// The production class (lib/services/group_signaling_service.dart) depends on
 /// flutter_webrtc, which is not available in unit tests. We reimplement the
-/// testable pure-Dart helpers here — same pattern as waku_adapter_test.dart.
+/// testable pure-Dart helpers here.
 void main() {
   // ── Reimplemented _routingToken ────────────────────────────────────────────
   //

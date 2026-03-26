@@ -1792,13 +1792,6 @@ class AppLocalizationsFr extends AppLocalizations {
       'Votre clé est stockée localement dans un stockage sécurisé — jamais envoyée à un serveur.';
 
   @override
-  String get providerWakuAutoDiscovery =>
-      'Laissez l\'URL vide pour découvrir automatiquement le nœud public le plus rapide. Ou exécutez nwaku localement (port 8645) pour une confidentialité maximale.';
-
-  @override
-  String get providerWakuProbeTooltip => 'Sonder tous les nœuds publics connus';
-
-  @override
   String get providerOxenInfo =>
       'Réseau Oxen/Session — E2EE routé par oignon. Votre identifiant Session est généré automatiquement et stocké de manière sécurisée. Nœuds découverts automatiquement via les nœuds d\'amorçage intégrés.';
 
@@ -2044,13 +2037,6 @@ class AppLocalizationsFr extends AppLocalizations {
   String get providerPrivateKeyNsecLabel => 'Clé privée (nsec)';
 
   @override
-  String get providerWakuUrlLabel => 'URL du nœud nwaku (optionnel)';
-
-  @override
-  String get providerWakuUrlHint =>
-      'Laissez vide pour la découverte automatique';
-
-  @override
   String get providerStorageNodeLabel => 'URL du nœud de stockage (optionnel)';
 
   @override
@@ -2155,7 +2141,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get privacyNetworkBody =>
-      'Pulse utilise des adaptateurs de transport fédérés (relais Nostr, nœuds de service Session/Oxen, nœuds Waku, Firebase Realtime Database, LAN). Ces transports ne véhiculent que du texte chiffré. Les opérateurs de relais peuvent voir votre adresse IP et le volume de trafic, mais ne peuvent pas déchiffrer le contenu des messages.\n\nLorsque Tor est activé, votre adresse IP est également masquée aux opérateurs de relais.';
+      'Pulse utilise des adaptateurs de transport fédérés (relais Nostr, nœuds de service Session/Oxen, Firebase Realtime Database, LAN). Ces transports ne véhiculent que du texte chiffré. Les opérateurs de relais peuvent voir votre adresse IP et le volume de trafic, mais ne peuvent pas déchiffrer le contenu des messages.\n\nLorsque Tor est activé, votre adresse IP est également masquée aux opérateurs de relais.';
 
   @override
   String get privacyStunHeading => 'Serveurs STUN/TURN';
@@ -2480,10 +2466,6 @@ class AppLocalizationsFr extends AppLocalizations {
       'URL de relais invalide. Attendu : wss://relay.example.com';
 
   @override
-  String get providerErrorInvalidWakuUrl =>
-      'URL du nœud Waku invalide. Attendu : http://host:port';
-
-  @override
   String get providerErrorInvalidPulseUrl =>
       'URL du serveur Pulse invalide. Attendu : https://server:port';
 
@@ -2579,4 +2561,20 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get bubbleGifBadge => 'GIF';
+
+  @override
+  String get settingsLanguage => 'Language';
+
+  @override
+  String get settingsLanguageSubtitle => 'App display language';
+
+  @override
+  String get settingsLanguageSystem => 'System default';
+
+  @override
+  String get onboardingLanguageTitle => 'Choose your language';
+
+  @override
+  String get onboardingLanguageSubtitle =>
+      'You can change this later in Settings';
 }

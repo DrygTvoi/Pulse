@@ -1,7 +1,6 @@
 import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'firebase_adapter.dart';
 import 'nostr_adapter.dart';
-import 'waku_adapter.dart';
 import 'oxen_adapter.dart';
 import 'pulse_adapter.dart';
 
@@ -73,8 +72,6 @@ class InboxManager {
       reader = FirebaseInboxReader();
     } else if (provider == 'Nostr') {
       reader = NostrInboxReader();
-    } else if (provider == 'Waku') {
-      reader = WakuInboxReader();
     } else if (provider == 'Oxen') {
       reader = OxenInboxReader();
     } else if (provider == 'Pulse') {
@@ -107,8 +104,6 @@ class InboxManager {
       adhocReader = FirebaseInboxReader();
     } else if (provider == 'Nostr') {
       adhocReader = NostrInboxReader();
-    } else if (provider == 'Waku') {
-      adhocReader = WakuInboxReader();
     } else if (provider == 'Oxen') {
       adhocReader = OxenInboxReader();
     } else if (provider == 'Pulse') {

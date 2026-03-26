@@ -1767,13 +1767,6 @@ class AppLocalizationsAr extends AppLocalizations {
       'مفتاحك مخزّن محليًا في التخزين الآمن — لا يُرسل أبدًا إلى أي خادم.';
 
   @override
-  String get providerWakuAutoDiscovery =>
-      'اترك الرابط فارغًا لاكتشاف أسرع عقدة عامة تلقائيًا. أو شغّل nwaku محليًا (المنفذ 8645) لأقصى خصوصية.';
-
-  @override
-  String get providerWakuProbeTooltip => 'فحص جميع العقد العامة المعروفة';
-
-  @override
   String get providerOxenInfo =>
       'شبكة Oxen/Session — E2EE بتوجيه بصلي. يتم إنشاء معرّف Session تلقائيًا وتخزينه بأمان. يتم اكتشاف العقد تلقائيًا من العقد الأولية المدمجة.';
 
@@ -2017,12 +2010,6 @@ class AppLocalizationsAr extends AppLocalizations {
   String get providerPrivateKeyNsecLabel => 'المفتاح الخاص (nsec)';
 
   @override
-  String get providerWakuUrlLabel => 'رابط عقدة nwaku (اختياري)';
-
-  @override
-  String get providerWakuUrlHint => 'اتركه فارغًا للاكتشاف التلقائي';
-
-  @override
   String get providerStorageNodeLabel => 'رابط عقدة التخزين (اختياري)';
 
   @override
@@ -2126,7 +2113,7 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get privacyNetworkBody =>
-      'يستخدم Pulse محوّلات نقل فيدرالية (وسطاء Nostr، عقد خدمة Session/Oxen، عقد Waku، قاعدة بيانات Firebase Realtime، الشبكة المحلية). هذه الوسائط تحمل فقط نصًا مشفّرًا. يمكن لمشغلي الوسطاء رؤية عنوان IP الخاص بك وحجم الحركة، لكن لا يمكنهم فك تشفير محتوى الرسائل.\n\nعند تفعيل Tor، يتم إخفاء عنوان IP الخاص بك أيضًا عن مشغلي الوسطاء.';
+      'يستخدم Pulse محوّلات نقل فيدرالية (وسطاء Nostr، عقد خدمة Session/Oxen، قاعدة بيانات Firebase Realtime، الشبكة المحلية). هذه الوسائط تحمل فقط نصًا مشفّرًا. يمكن لمشغلي الوسطاء رؤية عنوان IP الخاص بك وحجم الحركة، لكن لا يمكنهم فك تشفير محتوى الرسائل.\n\nعند تفعيل Tor، يتم إخفاء عنوان IP الخاص بك أيضًا عن مشغلي الوسطاء.';
 
   @override
   String get privacyStunHeading => 'خوادم STUN/TURN';
@@ -2449,10 +2436,6 @@ class AppLocalizationsAr extends AppLocalizations {
       'رابط الوسيط غير صالح. المتوقع wss://relay.example.com';
 
   @override
-  String get providerErrorInvalidWakuUrl =>
-      'رابط عقدة Waku غير صالح. المتوقع http://host:port';
-
-  @override
   String get providerErrorInvalidPulseUrl =>
       'رابط خادم Pulse غير صالح. المتوقع https://server:port';
 
@@ -2547,4 +2530,20 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get bubbleGifBadge => 'GIF';
+
+  @override
+  String get settingsLanguage => 'Language';
+
+  @override
+  String get settingsLanguageSubtitle => 'App display language';
+
+  @override
+  String get settingsLanguageSystem => 'System default';
+
+  @override
+  String get onboardingLanguageTitle => 'Choose your language';
+
+  @override
+  String get onboardingLanguageSubtitle =>
+      'You can change this later in Settings';
 }

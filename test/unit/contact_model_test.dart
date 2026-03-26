@@ -142,12 +142,11 @@ void main() {
         alternateAddresses: [
           'pk@wss://relay2',
           'pk@wss://relay3',
-          'pk@http://waku-node',
         ],
       );
       final map = contact.toMap();
       final restored = Contact.fromMap(map);
-      expect(restored.alternateAddresses, hasLength(3));
+      expect(restored.alternateAddresses, hasLength(2));
       expect(restored.alternateAddresses[1], 'pk@wss://relay3');
     });
 

@@ -47,7 +47,6 @@ class _AddContactDialogState extends State<AddContactDialog> {
     // Pulse: 64-char hex @ https:// (not wss://)
     if (RegExp(r'^[0-9a-f]{64}@https://', caseSensitive: false).hasMatch(lower)) { return 'Pulse'; }
     if (lower.contains('@https://')) { return 'Firebase'; }
-    if (lower.contains('@http://')) { return 'Waku'; }
     return 'Nostr';
   }
 
