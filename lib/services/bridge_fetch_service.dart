@@ -83,11 +83,19 @@ class BridgeFetchService {
     return lines.isNotEmpty ? lines : _embeddedObfs4;
   }
 
-  /// Returns webtunnel bridge lines — fresh, cached, or embedded fallback.
+  /// Returns webtunnel bridge lines — fresh, cached, or force-fetched.
+  ///
+  /// WebTunnel bridges are not embedded (they rotate too frequently) so
+  /// if the cache is empty we immediately try a forced network fetch.
+  /// Returns empty list only if the network fetch also fails.
   Future<List<String>> getWebTunnelBridges() async {
     final m = await _getOrFetch();
     final lines = m['webtunnel'] ?? [];
-    return lines.isNotEmpty ? lines : _embeddedWebTunnel;
+    if (lines.isNotEmpty) return lines;
+    // Cache miss — attempt a live fetch so the user isn't left with nothing.
+    debugPrint('[BridgeFetch] WebTunnel cache empty — forcing live fetch');
+    final fresh = await _getOrFetch(force: true);
+    return fresh['webtunnel'] ?? [];
   }
 
   /// Returns a flat map transport → [bridge_lines].
@@ -526,9 +534,4 @@ class BridgeFetchService {
         'cert=jq65/cNMiMPlL/Y4TjNru0KP9pAp31y3wU/Jm1mFK28OhJQ23aQne6Od4nqzUIRaIADBBw iat-mode=0',
   ];
 
-  // WebTunnel bridges — fetched dynamically from MOAT API only.
-  // No embedded fallback: WebTunnel bridges rotate frequently and require
-  // specific server-side deployment. Stale bridges waste 90s timing out.
-  // If MOAT is unreachable, the PT chain falls through to Snowflake gracefully.
-  static const _embeddedWebTunnel = <String>[];
 }
