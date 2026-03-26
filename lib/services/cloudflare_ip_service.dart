@@ -167,6 +167,7 @@ class CloudflareIpService {
         req.headers.set('Accept', 'application/dns-json');
         final resp = await req.close().timeout(const Duration(seconds: 5));
         if (resp.statusCode != 200) {
+          debugPrint('[CF/ECH] $dohIp: HTTP ${resp.statusCode} for $host');
           httpClient.close(force: true);
           continue;
         }
@@ -268,11 +269,14 @@ class CloudflareIpService {
 
   static const _dohProviders = [
     // (ip, sniHost, pathPrefix)
-    ('1.1.1.1',  'cloudflare-dns.com', '/dns-query'),
-    ('1.0.0.1',  'cloudflare-dns.com', '/dns-query'),
-    ('8.8.8.8',  'dns.google',         '/resolve'),
-    ('8.8.4.4',  'dns.google',         '/resolve'),
-    ('9.9.9.9',  'dns.quad9.net',      '/dns-query'),
+    ('1.1.1.1',       'cloudflare-dns.com',  '/dns-query'),
+    ('1.0.0.1',       'cloudflare-dns.com',  '/dns-query'),
+    // AdGuard: independent, accessible from CN/RU where Google/Quad9 are blocked
+    ('94.140.14.14',  'dns.adguard-dns.com', '/dns-query'),
+    ('94.140.15.15',  'dns.adguard-dns.com', '/dns-query'),
+    ('8.8.8.8',       'dns.google',          '/resolve'),
+    ('8.8.4.4',       'dns.google',          '/resolve'),
+    ('9.9.9.9',       'dns.quad9.net',       '/dns-query'),
   ];
 
   // Known TLS certificate issuers for DoH providers.
@@ -280,9 +284,10 @@ class CloudflareIpService {
   // warning but still accept (to avoid bricking the app on CA rotation).
   // A MITM attacker would need a cert from one of these specific CAs.
   static const _trustedIssuers = <String, List<String>>{
-    'cloudflare-dns.com': ['DigiCert', 'Cloudflare', 'Google Trust Services', 'Let\'s Encrypt'],
-    'dns.google':         ['Google Trust Services', 'GTS', 'GlobalSign'],
-    'dns.quad9.net':      ['DigiCert', 'Let\'s Encrypt', 'Sectigo'],
+    'cloudflare-dns.com':  ['DigiCert', 'Cloudflare', 'Google Trust Services', 'Let\'s Encrypt'],
+    'dns.google':          ['Google Trust Services', 'GTS', 'GlobalSign'],
+    'dns.quad9.net':       ['DigiCert', 'Let\'s Encrypt', 'Sectigo'],
+    'dns.adguard-dns.com': ['Let\'s Encrypt', 'DigiCert', 'Sectigo', 'ZeroSSL'],
   };
 
   /// Creates an HttpClient with soft certificate pinning for DoH.
@@ -339,6 +344,7 @@ class CloudflareIpService {
         req.headers.set('Accept', 'application/dns-json');
         final resp = await req.close().timeout(const Duration(seconds: 5));
         if (resp.statusCode != 200) {
+          debugPrint('[CF/DoH] $dohIp: HTTP ${resp.statusCode} for $host');
           httpClient.close(force: true);
           continue;
         }
@@ -497,8 +503,13 @@ class CloudflareIpService {
 
   /// Returns true if [host] is a syntactically valid DNS hostname.
   /// Rejects raw IPs with non-dot/digit chars, parens, brackets, etc.
+  /// Requires at least one dot — all real public internet hostnames have a TLD.
+  /// This prevents accidental URL scheme names (wss, https, etc.) from being
+  /// resolved as hostnames when a malformed relay URL like 'wss://wss' is parsed.
+  /// Exception: raw IPv4 addresses (e.g. 8.8.8.8) also have dots and are valid.
   static bool _isValidHostname(String host) {
     if (host.isEmpty || host.length > 253) return false;
+    if (!host.contains('.')) return false; // no dot → not a real hostname
     return RegExp(r'^[a-zA-Z0-9][a-zA-Z0-9.\-]*$').hasMatch(host);
   }
 

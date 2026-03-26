@@ -46,16 +46,8 @@ void main() {
     });
 
     test('returns null for negative octet', () {
-      // int.parse('-1') succeeds but produces wrong value; still returns a number
-      // The function does not explicitly reject negatives, but it still parses
-      // Check what the implementation actually does
-      final result = CloudflareIpService.ipToInt('1.2.3.-1');
-      // int.parse('-1') throws on fold due to negative OR; implementation catches
-      // Actually int.parse('-1') returns -1 which when OR'd produces weird result
-      // but doesn't throw. Let's just verify it returns *something* (not null).
-      // The validation layer (_isValidIpv4) is what rejects out-of-range octets.
-      // ipToInt is purely mechanical.
-      expect(result, isNotNull);
+      // _ipToInt throws FormatException for n < 0 and returns null via catch.
+      expect(CloudflareIpService.ipToInt('1.2.3.-1'), isNull);
     });
   });
 
@@ -232,9 +224,18 @@ void main() {
       expect(CloudflareIpService.isValidHostname(long), isFalse);
     });
 
-    test('accepts hostname exactly 253 chars', () {
-      final exact = 'a' * 253;
+    test('accepts hostname exactly 253 chars with dot', () {
+      // 253-char hostname must contain a dot to be a real internet hostname.
+      final exact = 'a' * 251 + '.b';  // 253 chars, has dot
       expect(CloudflareIpService.isValidHostname(exact), isTrue);
+    });
+
+    test('rejects single-label hostnames (no dot)', () {
+      // Real internet hostnames always have a TLD — no dot means it's not
+      // a real hostname. This prevents scheme names (wss, https) from passing.
+      expect(CloudflareIpService.isValidHostname('wss'), isFalse);
+      expect(CloudflareIpService.isValidHostname('localhost'), isFalse);
+      expect(CloudflareIpService.isValidHostname('relay'), isFalse);
     });
   });
 
