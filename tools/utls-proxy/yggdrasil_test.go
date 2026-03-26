@@ -180,16 +180,16 @@ func TestYggPacketConn_AddrCacheRoundTrip(t *testing.T) {
 
 	// Simulate a ReadFrom by populating addrCache manually
 	synth := pubkeyToUDPAddr(original)
-	pc.addrCache.Store(synth.IP.String(), original)
+	pc.addrCacheMu.Lock()
+	pc.addrCache[synth.IP.String()] = original
+	pc.addrCacheMu.Unlock()
 
 	// Verify WriteTo can reverse-lookup
-	v, ok := pc.addrCache.Load(synth.IP.String())
+	pc.addrCacheMu.Lock()
+	retrieved, ok := pc.addrCache[synth.IP.String()]
+	pc.addrCacheMu.Unlock()
 	if !ok {
 		t.Fatal("addrCache miss after Store")
-	}
-	retrieved, ok := v.(net.Addr)
-	if !ok {
-		t.Fatal("stored value is not net.Addr")
 	}
 	if retrieved.String() != original.String() {
 		t.Errorf("round-trip mismatch: got %s, want %s", retrieved, original)

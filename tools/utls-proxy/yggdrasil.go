@@ -61,21 +61,145 @@ import (
 	yggcore "github.com/yggdrasil-network/yggdrasil-go/src/core"
 )
 
-// ── Public Yggdrasil bootstrap peers ─────────────────────────────────────────
+// ── Yggdrasil peer discovery ────────────────────────────────────────────────
 //
-// Sourced from https://github.com/yggdrasil-network/public-peers (March 2026).
-// Geographically diverse to maximise reachability from CN/RU/IR.
+// Auto-discovers live peers from https://publicpeers.neilalexander.dev/publicnodes.json
+// Falls back to a small hardcoded bootstrap list if the API is unreachable.
 
-var yggPublicPeers = []string{
-	// Hostname peers — resolve to IPv4 or IPv6 depending on device
-	"tcp://cloudflare-ygg.ib.gg:12345",    // EU / CF CDN
-	"tcp://ygg.mkg20001.io:80",             // Germany, TCP/80 (firewall-friendly)
-	"tcp://ygg.loskiq.ru:17001",            // Russia, dual-stack
-	"tcp://ygg-uplink.thingylabs.io:9999",  // EU, dual-stack
+// Hardcoded fallback — used only when the public peers API is unreachable.
+var yggFallbackPeers = []string{
+	"tcp://ygg.mkg20001.io:80",             // Germany, TCP/80
+	"tls://ygg.mkg20001.io:443",            // Germany, TLS/443
+	"tcp://ygg5.mk16.de:1337",              // Hong Kong
+	"tls://yg-tyo.magicum.net:32333",       // Japan (Tokyo)
+	"tls://ygg.mnpnk.com:443",             // US, TLS/443
+}
 
-	// Raw IPv4 fallbacks for environments where DNS is unavailable
-	"tcp://91.108.4.1:12345",               // community IPv4 peer, EU
-	"tcp://46.151.26.194:12345",            // community IPv4 peer, EU
+const publicPeersURL = "https://publicpeers.neilalexander.dev/publicnodes.json"
+
+// discoverYggPeers fetches live peers from the public peers API.
+// Returns up to maxPeers online tcp/tls peers sorted by latency.
+// Falls back to yggFallbackPeers on any error.
+func discoverYggPeers(maxPeers int) []string {
+	peers, err := fetchPublicPeers(maxPeers)
+	if err != nil || len(peers) == 0 {
+		fmt.Fprintf(os.Stderr, "[ygg] peer discovery failed (%v) — using %d fallback peers\n",
+			err, len(yggFallbackPeers))
+		return yggFallbackPeers
+	}
+	fmt.Fprintf(os.Stderr, "[ygg] discovered %d live peers from API\n", len(peers))
+	return peers
+}
+
+type peerInfo struct {
+	uri        string
+	responseMs int
+	port       int
+}
+
+func fetchPublicPeers(maxPeers int) ([]string, error) {
+	client := &http.Client{Timeout: 8 * time.Second}
+	resp, err := client.Get(publicPeersURL)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("HTTP %d", resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 2*1024*1024))
+	if err != nil {
+		return nil, err
+	}
+
+	// JSON: { "country.md": { "uri": { "up": bool, "response_ms": int, ... } } }
+	var data map[string]map[string]struct {
+		Up         bool `json:"up"`
+		ResponseMs int  `json:"response_ms"`
+	}
+	if err := json.Unmarshal(body, &data); err != nil {
+		return nil, err
+	}
+
+	var candidates []peerInfo
+	for _, country := range data {
+		for uri, info := range country {
+			if !info.Up {
+				continue
+			}
+			// Only tcp:// and tls:// — skip quic://, ws://, wss://
+			// (yggdrasil-go supports tcp and tls natively)
+			if len(uri) < 6 {
+				continue
+			}
+			scheme := uri[:6]
+			if scheme != "tcp://" && scheme != "tls://" {
+				continue
+			}
+			// Parse port for priority sorting (prefer 80/443 — firewall-friendly)
+			port := 0
+			if idx := lastColon(uri); idx > 0 {
+				if p, err := strconv.Atoi(uri[idx+1:]); err == nil {
+					port = p
+				}
+			}
+			candidates = append(candidates, peerInfo{
+				uri:        uri,
+				responseMs: info.ResponseMs,
+				port:       port,
+			})
+		}
+	}
+
+	if len(candidates) == 0 {
+		return nil, fmt.Errorf("no online tcp/tls peers found")
+	}
+
+	// Sort: prefer firewall-friendly ports (80, 443), then by latency
+	sortPeers(candidates)
+
+	result := make([]string, 0, maxPeers)
+	for i, p := range candidates {
+		if i >= maxPeers {
+			break
+		}
+		result = append(result, p.uri)
+	}
+	return result, nil
+}
+
+// lastColon finds the last ':' in a URI (for port extraction).
+func lastColon(s string) int {
+	for i := len(s) - 1; i >= 0; i-- {
+		if s[i] == ':' {
+			return i
+		}
+	}
+	return -1
+}
+
+// sortPeers sorts by: firewall-friendly ports first, then by latency.
+func sortPeers(peers []peerInfo) {
+	// Simple insertion sort — typically <200 entries
+	for i := 1; i < len(peers); i++ {
+		key := peers[i]
+		j := i - 1
+		for j >= 0 && peerLess(key, peers[j]) {
+			peers[j+1] = peers[j]
+			j--
+		}
+		peers[j+1] = key
+	}
+}
+
+func peerLess(a, b peerInfo) bool {
+	aFW := a.port == 80 || a.port == 443
+	bFW := b.port == 80 || b.port == 443
+	if aFW != bFW {
+		return aFW
+	}
+	return a.responseMs < b.responseMs
 }
 
 // ── Singleton state ───────────────────────────────────────────────────────────
@@ -204,10 +328,12 @@ func doStartYggdrasil() error {
 	// F5: Bind Yggdrasil peering listener to loopback only.
 	// Binding to 0.0.0.0 makes the device a full overlay router, advertising
 	// an open port on all interfaces and increasing the fingerprinting surface.
+	peers := discoverYggPeers(20)
+
 	opts := []yggcore.SetupOption{
 		yggcore.ListenAddress("tcp://127.0.0.1:0"),
 	}
-	for _, p := range yggPublicPeers {
+	for _, p := range peers {
 		opts = append(opts, yggcore.Peer{URI: p})
 	}
 

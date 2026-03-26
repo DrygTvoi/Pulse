@@ -44,6 +44,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"math/rand"
@@ -88,8 +89,8 @@ var validHostnameRE = regexp.MustCompile(`^[a-zA-Z0-9.\-_\[\]:]+$`)
 // ─── ECH Config Cache ────────────────────────────────────────────────────────
 
 type echEntry struct {
-	configs   []utls.ECHConfig
-	fetchedAt time.Time
+	configList []byte // raw serialized ECHConfigList
+	fetchedAt  time.Time
 }
 
 var echCache sync.Map // hostname → *echEntry
@@ -316,10 +317,10 @@ func isPrivateIP(ip string) bool {
 // ─── ECH Config Fetching ─────────────────────────────────────────────────────
 //
 // Queries DNS HTTPS record (type=65) via DoH for the ech="..." SvcParam.
-// Parses ECH config bytes via utls.UnmarshalECHConfigs.
+// Returns raw ECHConfigList bytes for EncryptedClientHelloConfigList.
 // Caches results: 1h positive, 5min negative.
 
-func fetchECHConfigs(hostname string) []utls.ECHConfig {
+func fetchECHConfigs(hostname string) []byte {
 	// No ECH for raw IP connections
 	if net.ParseIP(hostname) != nil {
 		return nil
@@ -329,27 +330,27 @@ func fetchECHConfigs(hostname string) []utls.ECHConfig {
 	if v, ok := echCache.Load(hostname); ok {
 		entry := v.(*echEntry)
 		ttl := echCacheTTL
-		if entry.configs == nil {
+		if entry.configList == nil {
 			ttl = echNegativeTTL
 		}
 		if time.Since(entry.fetchedAt) < ttl {
-			return entry.configs
+			return entry.configList
 		}
 	}
 
-	configs := doFetchECH(hostname)
-	echCache.Store(hostname, &echEntry{configs: configs, fetchedAt: time.Now()})
-	return configs
+	configList := doFetchECH(hostname)
+	echCache.Store(hostname, &echEntry{configList: configList, fetchedAt: time.Now()})
+	return configList
 }
 
-func doFetchECH(hostname string) []utls.ECHConfig {
+func doFetchECH(hostname string) []byte {
 	for _, p := range dohProviders {
-		configs, err := queryECHViaDoH(hostname, p.ip, p.sni, p.path)
+		raw, err := queryECHViaDoH(hostname, p.ip, p.sni, p.path)
 		if err != nil {
 			continue
 		}
-		if configs != nil {
-			return configs
+		if raw != nil {
+			return raw
 		}
 		// Provider responded but no ECH record — try next
 		// (CF returns ECH, Google/Quad9 may not serve type=65 SvcParams)
@@ -357,7 +358,7 @@ func doFetchECH(hostname string) []utls.ECHConfig {
 	return nil
 }
 
-func queryECHViaDoH(hostname, dohIP, sniHost, pathPrefix string) ([]utls.ECHConfig, error) {
+func queryECHViaDoH(hostname, dohIP, sniHost, pathPrefix string) ([]byte, error) {
 	transport := makeDohTransport(dohIP, sniHost)
 	client := &http.Client{Transport: transport, Timeout: 5 * time.Second}
 	defer client.CloseIdleConnections()
@@ -406,13 +407,8 @@ func queryECHViaDoH(hostname, dohIP, sniHost, pathPrefix string) ([]utls.ECHConf
 			fmt.Fprintf(os.Stderr, "[ech] base64 decode failed: %v\n", err)
 			continue
 		}
-		configs, err := utls.UnmarshalECHConfigs(raw)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "[ech] UnmarshalECHConfigs failed: %v\n", err)
-			continue
-		}
-		if len(configs) > 0 {
-			return configs, nil
+		if len(raw) > 0 {
+			return raw, nil
 		}
 	}
 	return nil, nil
@@ -422,7 +418,7 @@ func queryECHViaDoH(hostname, dohIP, sniHost, pathPrefix string) ([]utls.ECHConf
 
 // dialTLS connects to ip:port with uTLS + optional ECH + rotating fingerprint.
 // On ECH rejection with retry configs, automatically reconnects once.
-func dialTLS(ip, port, hostname string, echConfigs []utls.ECHConfig) (net.Conn, error) {
+func dialTLS(ip, port, hostname string, echConfigList []byte) (net.Conn, error) {
 	upstream, err := net.DialTimeout("tcp", net.JoinHostPort(ip, port), 10*time.Second)
 	if err != nil {
 		return nil, err
@@ -434,42 +430,39 @@ func dialTLS(ip, port, hostname string, echConfigs []utls.ECHConfig) (net.Conn, 
 	}
 
 	config := &utls.Config{
-		ServerName:         hostname,
-		InsecureSkipVerify: false,
-	}
-	if len(echConfigs) > 0 {
-		config.ECHConfigs = echConfigs
+		ServerName:                      hostname,
+		InsecureSkipVerify:              false,
+		EncryptedClientHelloConfigList:  echConfigList,
 	}
 
 	fp := nextFingerprint()
 	tlsConn := utls.UClient(upstream, config, fp)
 
 	if err := tlsConn.Handshake(); err != nil {
+		tlsConn.Close()
 		// Check for ECH retry configs — server rotated keys and sent new ones
-		state := tlsConn.ConnectionState()
-		if len(state.ECHRetryConfigs) > 0 {
-			tlsConn.Close()
+		var echErr *utls.ECHRejectionError
+		if errors.As(err, &echErr) && len(echErr.RetryConfigList) > 0 {
 			fmt.Fprintf(os.Stderr, "[ech] %s → got retry configs, reconnecting\n", hostname)
 			// Update cache with retry configs
 			echCache.Store(hostname, &echEntry{
-				configs:   state.ECHRetryConfigs,
-				fetchedAt: time.Now(),
+				configList: echErr.RetryConfigList,
+				fetchedAt:  time.Now(),
 			})
 			// One retry with fresh configs
-			return dialTLSWithConfigs(ip, port, hostname, state.ECHRetryConfigs)
+			return dialTLSWithConfigs(ip, port, hostname, echErr.RetryConfigList)
 		}
-		tlsConn.Close()
 		return nil, fmt.Errorf("%s (fp=%s)", err, fp.Client)
 	}
 
-	echUsed := len(echConfigs) > 0
+	echUsed := len(echConfigList) > 0
 	fmt.Fprintf(os.Stderr, "[conn] %s → %s (fp=%s, ech=%v)\n",
 		hostname, ip, fp.Client, echUsed)
 	return tlsConn, nil
 }
 
 // dialTLSWithConfigs does a single retry with specific ECH configs.
-func dialTLSWithConfigs(ip, port, hostname string, echConfigs []utls.ECHConfig) (net.Conn, error) {
+func dialTLSWithConfigs(ip, port, hostname string, echConfigList []byte) (net.Conn, error) {
 	upstream, err := net.DialTimeout("tcp", net.JoinHostPort(ip, port), 10*time.Second)
 	if err != nil {
 		return nil, err
@@ -480,9 +473,9 @@ func dialTLSWithConfigs(ip, port, hostname string, echConfigs []utls.ECHConfig) 
 	}
 
 	config := &utls.Config{
-		ServerName:         hostname,
-		InsecureSkipVerify: false,
-		ECHConfigs:         echConfigs,
+		ServerName:                      hostname,
+		InsecureSkipVerify:              false,
+		EncryptedClientHelloConfigList:  echConfigList,
 	}
 	fp := nextFingerprint()
 	tlsConn := utls.UClient(upstream, config, fp)

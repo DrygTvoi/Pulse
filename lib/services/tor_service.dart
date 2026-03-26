@@ -289,9 +289,23 @@ class TorService {
       if (await stateFile.exists()) await stateFile.delete();
     } catch (_) {}
 
-    // Shuffle bridge order then cap at 4: fewer bridges = fewer dead-bridge
-    // retries and faster convergence. Tor tries them in parallel anyway.
-    final shuffledBridges = (List.of(bridges)..shuffle()).take(4).toList();
+    // Pre-probe bridge IPs to filter dead ones (obfs4/webTunnel only).
+    // Snowflake uses WebRTC (192.0.2.x placeholder), not direct TCP.
+    List<String> liveBridges = bridges;
+    if (bridges.isNotEmpty &&
+        (mode == _PtMode.obfs4 || mode == _PtMode.webTunnel)) {
+      liveBridges = await _probeBridges(bridges, timeoutMs: 2500);
+      debugPrint('[TorService] Pre-probe ($mode): '
+          '${liveBridges.length}/${bridges.length} alive');
+      if (liveBridges.isEmpty) {
+        debugPrint('[TorService] No reachable bridges for $mode — skipping');
+        return false;
+      }
+    }
+
+    // Shuffle live bridges, cap at 6. Dead bridges already removed,
+    // so a larger pool is safe. Tor tries them in parallel.
+    final shuffledBridges = (List.of(liveBridges)..shuffle()).take(6).toList();
 
     final torrcPath = await _writeTorrc(
       dataDir: dataDir,
@@ -304,6 +318,28 @@ class TorService {
       _process = await Process.start(torPath, ['-f', torrcPath]);
       final completer = Completer<bool>();
 
+      // Stall detection: if bootstrap % doesn't advance, bail early so the
+      // PT chain moves to the next transport faster.
+      // Phase-dependent timeouts:
+      //   0-14%  (connection):         45 s — bridge should connect quickly
+      //   15-49% (consensus download): 90 s — ~3 MB through obfs4 is slow
+      //   50%+   (circuit building):   60 s — should be faster once consensus is loaded
+      Timer? stallTimer;
+      int lastPct = 0;
+      int stallSeconds(int pct) =>
+          pct < 15 ? 45 : pct < 50 ? 90 : 60;
+      void resetStall() {
+        stallTimer?.cancel();
+        final secs = stallSeconds(_bootstrapPercent);
+        stallTimer = Timer(Duration(seconds: secs), () {
+          if (!completer.isCompleted) {
+            debugPrint('[TorService] Stall at $_bootstrapPercent% '
+                '(${secs}s timeout) — aborting $mode');
+            completer.complete(false);
+          }
+        });
+      }
+
       _stdoutSub?.cancel();
       _stdoutSub = _process!.stdout
           .transform(utf8.decoder)
@@ -314,12 +350,18 @@ class TorService {
         if (pct != null) {
           _bootstrapPercent = int.parse(pct.group(1)!);
           _stateCtrl.add(null);
+          if (_bootstrapPercent > lastPct) {
+            lastPct = _bootstrapPercent;
+            resetStall();
+          }
         }
         if (line.contains('Bootstrapped 100%') && !completer.isCompleted) {
+          stallTimer?.cancel();
           _bootstrapped = true;
           completer.complete(true);
         }
       });
+      resetStall(); // start initial stall timer
 
       _stderrSub?.cancel();
       _stderrSub = _process!.stderr
@@ -328,11 +370,15 @@ class TorService {
           .listen((line) => debugPrint('[Tor/$mode:err] $line'));
 
       _process!.exitCode.then((_) {
+        stallTimer?.cancel();
         if (!completer.isCompleted) completer.complete(false);
       });
 
       _bootstrapped = await completer.future
-          .timeout(Duration(seconds: timeoutSec), onTimeout: () => false);
+          .timeout(Duration(seconds: timeoutSec), onTimeout: () {
+        stallTimer?.cancel();
+        return false;
+      });
 
       if (_bootstrapped) {
         _activeMode = mode;
@@ -347,6 +393,61 @@ class TorService {
       debugPrint('[TorService] launch error ($mode): $e');
       return false;
     }
+  }
+
+  // ── Bridge pre-probe ──────────────────────────────────────────────────────
+
+  /// TCP-probe bridge IPs in parallel; returns only reachable bridges.
+  /// Bridges whose address can't be parsed (or uses TEST-NET 192.0.2.x)
+  /// are included unconditionally (e.g. Snowflake WebRTC placeholders).
+  Future<List<String>> _probeBridges(List<String> bridges,
+      {int timeoutMs = 2500}) async {
+    if (bridges.isEmpty) return [];
+    final results = await Future.wait(bridges.map((bridge) async {
+      final addr = _parseBridgeAddr(bridge);
+      if (addr == null) return bridge; // unparseable → include as-is
+      final (ip, port) = addr;
+      try {
+        final sock = await Socket.connect(ip, port,
+            timeout: Duration(milliseconds: timeoutMs));
+        sock.destroy();
+        return bridge;
+      } catch (_) {
+        debugPrint('[TorService] ✗ bridge dead: $ip:$port');
+        return null;
+      }
+    }));
+    return results.whereType<String>().toList();
+  }
+
+  /// Extract IP:port from a bridge line like
+  /// `obfs4 85.31.186.98:443 FINGERPRINT cert=… iat-mode=0`.
+  /// Returns null for unparseable lines or TEST-NET IPs (192.0.2.x).
+  static (String, int)? _parseBridgeAddr(String bridge) {
+    final parts = bridge.trim().split(RegExp(r'\s+'));
+    if (parts.length < 2) return null;
+    final addr = parts[1];
+
+    // IPv6: [::1]:443
+    if (addr.startsWith('[')) {
+      final close = addr.indexOf(']');
+      if (close < 0) return null;
+      final ip = addr.substring(1, close);
+      final colon = addr.indexOf(':', close + 1);
+      if (colon < 0) return null;
+      final port = int.tryParse(addr.substring(colon + 1));
+      return port != null ? (ip, port) : null;
+    }
+
+    // IPv4: 1.2.3.4:443
+    final colon = addr.lastIndexOf(':');
+    if (colon < 0) return null;
+    final ip = addr.substring(0, colon);
+    final port = int.tryParse(addr.substring(colon + 1));
+    if (port == null) return null;
+    // Skip TEST-NET IPs (Snowflake placeholder addresses)
+    if (ip.startsWith('192.0.2.')) return null;
+    return (ip, port);
   }
 
   // ── torrc writer ───────────────────────────────────────────────────────────
