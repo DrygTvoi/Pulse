@@ -165,6 +165,17 @@ class TorService {
             timeoutSec: timeoutSec);
         if (ok) return true;
         debugPrint('[TorService] WebTunnel failed — trying Snowflake');
+      } else if (pref == 'webtunnel') {
+        // User explicitly chose WebTunnel but we have no bridges.
+        // Fall through to obfs4 so Tor still starts rather than silently doing nothing.
+        debugPrint('[TorService] WebTunnel: no bridges available — falling back to obfs4');
+        final obs = await BridgeFetchService.instance.getObfs4Bridges();
+        if (obs.isNotEmpty) {
+          final ok = await _launchTor(torPath, dataDir.path,
+              mode: _PtMode.obfs4, ptPath: obfs4Path, bridges: obs,
+              timeoutSec: timeoutSec);
+          if (ok) return true;
+        }
       }
     }
 
