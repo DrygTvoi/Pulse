@@ -10,7 +10,6 @@ import '../models/user_status.dart';
 import '../adapters/inbox_manager.dart';
 import '../adapters/firebase_adapter.dart';
 import '../adapters/nostr_adapter.dart';
-import '../adapters/waku_adapter.dart';
 import '../adapters/oxen_adapter.dart';
 import '../constants.dart';
 import 'key_manager.dart';
@@ -377,6 +376,10 @@ class SignalBroadcaster {
 
   // ── Internal: sender helper ───────────────────────────────────────────────
 
+  /// Signal types that warrant retry through alternate addresses on failure.
+  static bool _isCriticalSignal(String type) =>
+      type == 'addr_update' || type == 'sys_keys' || type == 'relay_exchange';
+
   /// Build a (MessageSender, apiKey) pair for a contact's provider.
   Future<({MessageSender sender, String apiKey})?> _buildSenderFor(
       Contact contact) async {
@@ -396,15 +399,6 @@ class SignalBroadcaster {
           sender: NostrMessageSender(),
           apiKey: jsonEncode({'privkey': privkey, 'relay': relay})
         );
-      case 'Waku':
-        final prefs = await SharedPreferences.getInstance();
-        final nodeUrl =
-            prefs.getString('waku_node_url') ?? 'http://127.0.0.1:8645';
-        final userId = prefs.getString('waku_identity') ?? '';
-        return (
-          sender: WakuMessageSender(),
-          apiKey: jsonEncode({'nodeUrl': nodeUrl, 'userId': userId})
-        );
       case 'Oxen':
         final prefs = await SharedPreferences.getInstance();
         final nodeUrl = prefs.getString('oxen_node_url') ?? '';
@@ -414,31 +408,85 @@ class SignalBroadcaster {
     }
   }
 
-  /// Sign + send a signal to a contact.
+  static final _oxenAddrRegex = RegExp(r'^[0-9a-f]{66}$');
+
+  /// Build a (MessageSender, apiKey) pair from a raw address string.
+  /// Used for retry through alternate addresses when primary delivery fails.
+  Future<({MessageSender sender, String apiKey})?> _buildSenderForAddress(
+      String address) async {
+    final identity = _getIdentity();
+    if (identity == null) return null;
+    final lower = address.toLowerCase();
+    if (lower.startsWith('05') && lower.length == 66 &&
+        _oxenAddrRegex.hasMatch(lower)) {
+      final prefs = await SharedPreferences.getInstance();
+      final nodeUrl = prefs.getString('oxen_node_url') ?? '';
+      return (sender: OxenMessageSender(), apiKey: nodeUrl);
+    }
+    if (lower.contains('@wss://') || lower.contains('@ws://')) {
+      final privkey = await _secureStorage.read(key: 'nostr_privkey') ?? '';
+      final prefs = await SharedPreferences.getInstance();
+      final relay = prefs.getString('nostr_relay') ?? _kDefaultNostrRelay;
+      return (
+        sender: NostrMessageSender(),
+        apiKey: jsonEncode({'privkey': privkey, 'relay': relay})
+      );
+    }
+    if (lower.contains('@https://')) {
+      final token = identity.adapterConfig['token'] ?? '';
+      return (sender: FirebaseInboxSender(), apiKey: token);
+    }
+    return null;
+  }
+
+  /// Sign + send a signal to a contact. For critical signals (addr_update,
+  /// sys_keys, relay_exchange), retries through alternateAddresses on failure.
   Future<void> _sendSignalTo(
       Contact contact, String type, Map<String, dynamic> payload) async {
     final identity = _getIdentity();
     final selfId = _getSelfId();
     if (identity == null || selfId.isEmpty) return;
+
+    bool sent = false;
     try {
       final built = await _buildSenderFor(contact);
-      if (built == null) return;
-      await built.sender.initializeSender(built.apiKey);
+      if (built != null) {
+        await built.sender.initializeSender(built.apiKey);
 
-      var signedPayload = payload;
-      if (contact.provider != 'Nostr') {
-        final privkey =
-            await _secureStorage.read(key: 'nostr_privkey') ?? '';
-        final selfPubkey =
-            privkey.isNotEmpty ? deriveNostrPubkeyHex(privkey) : null;
-        signedPayload = await _keys.signPayload(
-            contact, type, payload, selfPubkey);
+        var signedPayload = payload;
+        if (contact.provider != 'Nostr') {
+          final privkey =
+              await _secureStorage.read(key: 'nostr_privkey') ?? '';
+          final selfPubkey =
+              privkey.isNotEmpty ? deriveNostrPubkeyHex(privkey) : null;
+          signedPayload = await _keys.signPayload(
+              contact, type, payload, selfPubkey);
+        }
+
+        sent = await built.sender.sendSignal(
+            contact.databaseId, contact.databaseId, selfId, type, signedPayload);
       }
-
-      await built.sender.sendSignal(
-          contact.databaseId, contact.databaseId, selfId, type, signedPayload);
     } catch (e) {
       debugPrint('[Broadcaster] Signal $type to ${contact.name} failed: $e');
+    }
+
+    // Retry critical signals through alternate addresses
+    if (!sent && _isCriticalSignal(type) && contact.alternateAddresses.isNotEmpty) {
+      for (final alt in contact.alternateAddresses) {
+        try {
+          final altBuilt = await _buildSenderForAddress(alt);
+          if (altBuilt == null) continue;
+          await altBuilt.sender.initializeSender(altBuilt.apiKey);
+          final altSent = await altBuilt.sender.sendSignal(
+              alt, alt, selfId, type, payload);
+          if (altSent) {
+            debugPrint('[Broadcaster] Signal $type delivered via alternate: $alt');
+            break;
+          }
+        } catch (e) {
+          debugPrint('[Broadcaster] Signal $type alternate $alt failed: $e');
+        }
+      }
     }
   }
 
