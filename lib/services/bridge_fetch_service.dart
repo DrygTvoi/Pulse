@@ -157,7 +157,8 @@ class BridgeFetchService {
       }));
       debugPrint('[BridgeFetch] Fetched: '
           '${fetched['snowflake']?.length ?? 0} snowflake, '
-          '${fetched['obfs4']?.length ?? 0} obfs4');
+          '${fetched['obfs4']?.length ?? 0} obfs4, '
+          '${fetched['webtunnel']?.length ?? 0} webtunnel');
       // Auto-start periodic refresh on successful fetch
       startPeriodicRefresh();
     } else {
