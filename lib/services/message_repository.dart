@@ -16,6 +16,25 @@ class MessageRepository {
   final Map<String, ChatRoom> _chatRooms = {};
   final Map<String, Map<String, Set<String>>> _reactions = {};
 
+  // O(1) message-ID lookup per room (keyed by contact.id)
+  final Map<String, Set<String>> _messageIds = {};
+
+  /// Returns true if this message ID already exists in the room.
+  bool roomHasMessage(String contactId, String msgId) =>
+      _messageIds[contactId]?.contains(msgId) ?? false;
+
+  /// Track a message ID after adding it to a room.
+  void trackMessageId(String contactId, String msgId) =>
+      (_messageIds[contactId] ??= {}).add(msgId);
+
+  /// Remove a message ID from tracking.
+  void untrackMessageId(String contactId, String msgId) =>
+      _messageIds[contactId]?.remove(msgId);
+
+  /// Clear all tracked message IDs for a room.
+  void clearMessageIds(String contactId) =>
+      _messageIds[contactId]?.clear();
+
   // Pagination state
   static const int historyPageSize = 50;
   final Map<String, int> _historyLoaded = {};
@@ -123,8 +142,9 @@ class MessageRepository {
     for (final m in stored) {
       final msg = Message.tryFromJson(m);
       if (msg == null) continue;
-      if (!room.messages.any((x) => x.id == msg.id)) {
+      if (!roomHasMessage(contact.id, msg.id)) {
         room.messages.add(msg);
+        trackMessageId(contact.id, msg.id);
       }
     }
     room.messages.sort((a, b) => a.timestamp.compareTo(b.timestamp));
@@ -151,6 +171,7 @@ class MessageRepository {
       final now = DateTime.now();
       room.messages.removeWhere((m) {
         if (m.timestamp.add(Duration(seconds: ttlSeconds)).isBefore(now)) {
+          untrackMessageId(contact.id, m.id);
           unawaited(LocalStorageService().deleteMessage(storageKey, m.id));
           return true;
         }
@@ -184,8 +205,11 @@ class MessageRepository {
         final toInsert = older
             .map((m) => Message.tryFromJson(m))
             .whereType<Message>()
-            .where((m) => !room.messages.any((x) => x.id == m.id))
+            .where((m) => !roomHasMessage(contact.id, m.id))
             .toList();
+        for (final m in toInsert) {
+          trackMessageId(contact.id, m.id);
+        }
         room.messages.insertAll(0, toInsert);
         _historyLoaded[contact.id] =
             (_historyLoaded[contact.id] ?? 0) + older.length;
@@ -211,6 +235,7 @@ class MessageRepository {
     final storageKey = contact.isGroup ? contact.id : contact.databaseId;
     await LocalStorageService().clearHistory(storageKey);
     room.messages.clear();
+    clearMessageIds(contact.id);
     onChanged?.call();
   }
 
@@ -223,6 +248,7 @@ class MessageRepository {
     final room = _chatRooms[contact.id];
     if (room != null) {
       room.messages.removeWhere((m) => m.id == msgId);
+      untrackMessageId(contact.id, msgId);
     }
     await LocalStorageService().deleteMessage(contact.storageKey, msgId);
     await LocalStorageService().deleteTtlExpiry(contact.storageKey, msgId);
@@ -346,6 +372,7 @@ class MessageRepository {
           if (room.contact.storageKey == item.roomId ||
               room.contact.id == item.roomId) {
             room.messages.removeWhere((m) => m.id == item.msgId);
+            untrackMessageId(room.contact.id, item.msgId);
             break;
           }
         }
@@ -361,6 +388,7 @@ class MessageRepository {
             if (room.contact.storageKey == roomId ||
                 room.contact.id == roomId) {
               room.messages.removeWhere((m) => m.id == msgId);
+              untrackMessageId(room.contact.id, msgId);
               onDeleted();
               break;
             }

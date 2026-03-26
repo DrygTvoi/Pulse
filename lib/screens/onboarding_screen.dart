@@ -4,6 +4,7 @@ import '../theme/app_theme.dart';
 import '../widgets/theme_picker_widget.dart';
 import 'setup_identity_screen.dart';
 import '../l10n/l10n_ext.dart';
+import '../services/locale_notifier.dart';
 
 class OnboardingScreen extends StatefulWidget {
   final String? initialConfig;
@@ -48,9 +49,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     ];
   }
 
-  // Total pages = info pages (4) + theme picker
-  int get _totalPages => 5;
-  bool get _isThemePage => _page == 4;
+  // Total pages = language (1) + info pages (4) + theme picker (1)
+  int get _totalPages => 6;
+  bool get _isThemePage => _page == 5;
 
   @override
   void dispose() {
@@ -102,11 +103,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 onPageChanged: (i) => setState(() => _page = i),
                 itemCount: _totalPages,
                 itemBuilder: (context, i) {
+                  if (i == 0) return const _LanguagePageView();
                   final pages = _infoPages(context);
-                  if (i < pages.length) {
-                    return _InfoPageView(page: pages[i]);
+                  if (i - 1 < pages.length) {
+                    return _InfoPageView(page: pages[i - 1]);
                   }
-                  return _ThemePageView();
+                  return const _ThemePageView();
                 },
               ),
             ),
@@ -157,6 +159,126 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ── Language picker page ──────────────────────────────────────────────────
+
+class _LanguagePageView extends StatefulWidget {
+  const _LanguagePageView();
+
+  @override
+  State<_LanguagePageView> createState() => _LanguagePageViewState();
+}
+
+class _LanguagePageViewState extends State<_LanguagePageView> {
+  String? _selected = LocaleNotifier.instance.locale?.languageCode;
+
+  @override
+  Widget build(BuildContext context) {
+    // Sort languages: system language first, then alphabetical by native name
+    final systemCode = WidgetsBinding.instance.platformDispatcher.locale.languageCode;
+    final entries = LocaleNotifier.nativeNames.entries.toList();
+    entries.sort((a, b) {
+      if (a.key == systemCode && b.key != systemCode) return -1;
+      if (b.key == systemCode && a.key != systemCode) return 1;
+      return a.value.compareTo(b.value);
+    });
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 8),
+      child: Column(
+        children: [
+          const SizedBox(height: 8),
+          Container(
+            width: 80,
+            height: 80,
+            decoration: BoxDecoration(
+              color: const Color(0xFF009688).withValues(alpha: 0.12),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.language_rounded,
+                size: 40, color: Color(0xFF009688)),
+          ),
+          const SizedBox(height: 24),
+          Text(
+            context.l10n.onboardingLanguageTitle,
+            textAlign: TextAlign.center,
+            style: GoogleFonts.inter(
+              fontSize: 26,
+              fontWeight: FontWeight.w700,
+              color: AppTheme.textPrimary,
+              height: 1.2,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            context.l10n.onboardingLanguageSubtitle,
+            textAlign: TextAlign.center,
+            style: GoogleFonts.inter(
+              fontSize: 14,
+              color: AppTheme.textSecondary,
+              height: 1.5,
+            ),
+          ),
+          const SizedBox(height: 20),
+          ...entries.map((e) {
+            final isSelected = _selected == e.key ||
+                (_selected == null && e.key == systemCode);
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              child: Material(
+                color: isSelected
+                    ? AppTheme.primary.withValues(alpha: 0.12)
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(12),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(12),
+                  onTap: () {
+                    setState(() => _selected = e.key);
+                    LocaleNotifier.instance.setLocale(Locale(e.key));
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 12),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            e.value,
+                            style: GoogleFonts.inter(
+                              fontSize: 16,
+                              fontWeight: isSelected
+                                  ? FontWeight.w600
+                                  : FontWeight.w400,
+                              color: AppTheme.textPrimary,
+                            ),
+                          ),
+                        ),
+                        if (e.key == systemCode && _selected != e.key)
+                          Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: Text(
+                              'System',
+                              style: GoogleFonts.inter(
+                                fontSize: 12,
+                                color: AppTheme.textSecondary,
+                              ),
+                            ),
+                          ),
+                        if (isSelected)
+                          Icon(Icons.check_rounded,
+                              color: AppTheme.primary, size: 20),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }),
+        ],
       ),
     );
   }
