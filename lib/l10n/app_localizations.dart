@@ -16,6 +16,7 @@ import 'app_localizations_en.dart';
 import 'app_localizations_es.dart';
 import 'app_localizations_fa.dart';
 import 'app_localizations_fi.dart';
+import 'app_localizations_fil.dart';
 import 'app_localizations_fr.dart';
 import 'app_localizations_he.dart';
 import 'app_localizations_hi.dart';
@@ -32,10 +33,12 @@ import 'app_localizations_pt.dart';
 import 'app_localizations_ro.dart';
 import 'app_localizations_ru.dart';
 import 'app_localizations_sv.dart';
+import 'app_localizations_sw.dart';
 import 'app_localizations_ta.dart';
 import 'app_localizations_th.dart';
 import 'app_localizations_tr.dart';
 import 'app_localizations_uk.dart';
+import 'app_localizations_ur.dart';
 import 'app_localizations_vi.dart';
 import 'app_localizations_zh.dart';
 
@@ -136,6 +139,7 @@ abstract class AppLocalizations {
     Locale('es'),
     Locale('fa'),
     Locale('fi'),
+    Locale('fil'),
     Locale('fr'),
     Locale('he'),
     Locale('hi'),
@@ -152,10 +156,12 @@ abstract class AppLocalizations {
     Locale('ro'),
     Locale('ru'),
     Locale('sv'),
+    Locale('sw'),
     Locale('ta'),
     Locale('th'),
     Locale('tr'),
     Locale('uk'),
+    Locale('ur'),
     Locale('vi'),
     Locale('zh'),
   ];
@@ -4677,6 +4683,7 @@ class _AppLocalizationsDelegate
     'es',
     'fa',
     'fi',
+    'fil',
     'fr',
     'he',
     'hi',
@@ -4693,10 +4700,12 @@ class _AppLocalizationsDelegate
     'ro',
     'ru',
     'sv',
+    'sw',
     'ta',
     'th',
     'tr',
     'uk',
+    'ur',
     'vi',
     'zh',
   ].contains(locale.languageCode);
@@ -4730,6 +4739,8 @@ AppLocalizations lookupAppLocalizations(Locale locale) {
       return AppLocalizationsFa();
     case 'fi':
       return AppLocalizationsFi();
+    case 'fil':
+      return AppLocalizationsFil();
     case 'fr':
       return AppLocalizationsFr();
     case 'he':
@@ -4762,6 +4773,8 @@ AppLocalizations lookupAppLocalizations(Locale locale) {
       return AppLocalizationsRu();
     case 'sv':
       return AppLocalizationsSv();
+    case 'sw':
+      return AppLocalizationsSw();
     case 'ta':
       return AppLocalizationsTa();
     case 'th':
@@ -4770,6 +4783,8 @@ AppLocalizations lookupAppLocalizations(Locale locale) {
       return AppLocalizationsTr();
     case 'uk':
       return AppLocalizationsUk();
+    case 'ur':
+      return AppLocalizationsUr();
     case 'vi':
       return AppLocalizationsVi();
     case 'zh':
