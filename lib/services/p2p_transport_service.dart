@@ -48,6 +48,13 @@ class P2PTransportService {
   Stream<({String contactId, String payload})> get messageStream =>
       _msgCtrl.stream;
 
+  final _binaryCtrl =
+      StreamController<({String contactId, Uint8List data})>.broadcast();
+
+  /// Stream of received binary frames from P2P DataChannel.
+  Stream<({String contactId, Uint8List data})> get binaryStream =>
+      _binaryCtrl.stream;
+
   final Map<String, _P2PConn> _conns = {};
 
   // FINDING-7 fix: rate-limit p2p_offer per contact — rapid offers tear down
@@ -74,6 +81,20 @@ class P2PTransportService {
       return true;
     } catch (e) {
       debugPrint('[P2P] Send error to $contactId: $e');
+      _conns[contactId]?.state = _P2PState.failed;
+      return false;
+    }
+  }
+
+  /// Deliver binary [data] over DataChannel.
+  /// Returns false if no open channel — caller should fall back.
+  bool sendBinary(String contactId, Uint8List data) {
+    if (!isConnected(contactId)) return false;
+    try {
+      _conns[contactId]!.dc!.send(RTCDataChannelMessage.fromBinary(data));
+      return true;
+    } catch (e) {
+      debugPrint('[P2P] SendBinary error to $contactId: $e');
       _conns[contactId]?.state = _P2PState.failed;
       return false;
     }
@@ -133,6 +154,7 @@ class P2PTransportService {
       _closeConn(id);
     }
     if (!_msgCtrl.isClosed) _msgCtrl.close();
+    if (!_binaryCtrl.isClosed) _binaryCtrl.close();
   }
 
   // ── Private ─────────────────────────────────────────────────────────────────
@@ -247,7 +269,12 @@ class P2PTransportService {
       }
     };
     conn.dc?.onMessage = (RTCDataChannelMessage msg) {
-      if (msg.isBinary) return;
+      if (msg.isBinary) {
+        if (!_binaryCtrl.isClosed) {
+          _binaryCtrl.add((contactId: contactId, data: msg.binary));
+        }
+        return;
+      }
       _msgCtrl.add((contactId: contactId, payload: msg.text));
     };
   }
