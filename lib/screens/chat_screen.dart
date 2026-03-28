@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -299,13 +300,6 @@ class _ChatScreenState extends State<ChatScreen> {
         final raw = await MediaService().pickFileRaw();
         if (raw == null) return;
         if (!mounted) return;
-        if (_contact.isGroup && raw.bytes.length > 512 * 1024) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text(context.l10n.chatFileTooLargeGroup),
-            duration: Duration(seconds: 3),
-          ));
-          return;
-        }
         if (raw.bytes.length > 5 * 1024 * 1024) {
           final sizeMB = (raw.bytes.length / (1024 * 1024)).toStringAsFixed(1);
           final confirmed = await showDialog<bool>(
@@ -357,7 +351,18 @@ class _ChatScreenState extends State<ChatScreen> {
   Future<void> _sendVideo() async {
     final payload = await VideoService().pickAndCreatePayload();
     if (payload == null || !mounted) return;
-    await context.read<ChatController>().sendMessage(_contact, payload);
+    final map = jsonDecode(payload) as Map<String, dynamic>;
+    final size = map['sz'] as int? ?? 0;
+    // Route large video notes through smart media (Blossom / relay chunks)
+    if (size >= 48 * 1024) {
+      final bytes = base64Decode(map['d'] as String);
+      await context.read<ChatController>().sendFile(
+        _contact, Uint8List.fromList(bytes), map['n'] as String? ?? 'video.mp4',
+        mediaType: 'video_note',
+      );
+    } else {
+      await context.read<ChatController>().sendMessage(_contact, payload);
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
   }
 

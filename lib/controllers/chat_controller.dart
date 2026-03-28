@@ -1770,8 +1770,9 @@ class ChatController extends ChangeNotifier {
   // ── Smart media routing ─────────────────────────────────────────────────
   //
   //  <48KB          → inline in single message (small photos, gzipped voice)
-  //  ≥48KB, P2P up  → P2P DataChannel (direct, no servers, any NAT if connected)
-  //  ≥48KB, Blossom → Blossom HTTPS upload (works behind any NAT)
+  //  ≥48KB, P2P up  → P2P DataChannel (1-on-1 only)
+  //  ≥48KB, Blossom → Blossom HTTPS upload (1-on-1 + groups: upload once,
+  //                    send E2EE key to each member)
   //  ≥48KB, nothing → relay chunks 32KB (last resort — antisocial to relays)
   //
   static const _inlineThreshold = 48 * 1024; // 48KB
@@ -1786,19 +1787,13 @@ class ChatController extends ChangeNotifier {
       return;
     }
 
-    // Groups: relay chunks only (no P2P/Blossom for groups yet).
-    if (contact.isGroup) {
-      await _sendViaRelayChunks(contact, bytes, name, mediaType: mediaType);
-      return;
-    }
-
-    // Tier 1: P2P DataChannel — direct transfer if already connected.
-    if (P2PTransportService.instance.isConnected(contact.id)) {
+    // Tier 1: P2P DataChannel — direct transfer if already connected (1-on-1 only).
+    if (!contact.isGroup && P2PTransportService.instance.isConnected(contact.id)) {
       final ok = await _sendViaP2PBinary(contact, bytes, name, mediaType);
       if (ok) return;
     }
 
-    // Tier 2: Blossom — HTTPS upload, works behind any NAT.
+    // Tier 2: Blossom — HTTPS upload, works behind any NAT (1-on-1 + groups).
     if (BlossomService.instance.isAvailable) {
       final ok = await _sendViaBlossom(contact, bytes, name, mediaType);
       if (ok) return;
@@ -1809,8 +1804,11 @@ class ChatController extends ChangeNotifier {
   }
 
   /// Tier 2: Encrypt, upload to Blossom, send metadata message.
+  /// Works for both 1-on-1 and group chats. For groups: upload once,
+  /// send E2EE blossom payload (with AES key) to each member individually.
   Future<bool> _sendViaBlossom(Contact contact, Uint8List bytes, String name,
       String mediaType) async {
+    final isGroup = contact.isGroup;
     final room = _repo.getOrCreateRoom(contact);
     final msgId = _uuid.v4();
 
@@ -1835,7 +1833,7 @@ class ChatController extends ChangeNotifier {
       receiverId: contact.id,
       encryptedPayload: displayPayload,
       timestamp: DateTime.now(),
-      adapterType: contact.provider == 'Nostr' ? 'nostr' : 'firebase',
+      adapterType: isGroup ? 'group' : (contact.provider == 'Nostr' ? 'nostr' : 'firebase'),
       isRead: true,
       status: 'sending',
     );
@@ -1874,8 +1872,22 @@ class ChatController extends ChangeNotifier {
         thumbnail: thumbnail,
       );
 
-      // Send via E2EE Signal Protocol
-      final sent = await _sendToContact(contact, payload);
+      // Send via E2EE — group: wrap in _group and send to each member
+      bool sent = false;
+      if (isGroup) {
+        final groupPayload = jsonEncode({'_group': contact.id, 'text': payload});
+        int membersSent = 0;
+        for (final memberId in contact.members) {
+          final memberContact = _contacts.contacts.cast<Contact?>()
+              .firstWhere((c) => c?.id == memberId, orElse: () => null);
+          if (memberContact == null) continue;
+          final ok = await _sendToContact(memberContact, groupPayload);
+          if (ok) membersSent++;
+        }
+        sent = membersSent > 0;
+      } else {
+        sent = await _sendToContact(contact, payload);
+      }
 
       final idx = room.messages.indexWhere((m) => m.id == msgId);
       final finalMsg = localMsg.copyWith(
@@ -1883,7 +1895,7 @@ class ChatController extends ChangeNotifier {
         status: sent ? 'sent' : 'failed',
       );
       if (idx != -1) room.messages[idx] = finalMsg;
-      final storageKey = contact.storageKey;
+      final storageKey = isGroup ? contact.id : contact.storageKey;
       await LocalStorageService().saveMessage(storageKey, finalMsg.toJson());
       _repo.clearUploadProgress(msgId);
       final localTtl = _repo.getChatTtlCached(contact.id);
