@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -12,6 +14,8 @@ import '../theme/design_tokens.dart';
 import '../models/contact.dart';
 import '../models/contact_repository.dart';
 import '../services/media_service.dart';
+import '../services/media_crypto_service.dart';
+import '../services/blossom_service.dart';
 import '../services/media_validator.dart';
 import '../services/video_service.dart';
 import '../services/voice_service.dart';
@@ -76,6 +80,7 @@ class MessageBubble extends StatelessWidget {
 
     // Detect media payload
     final media = MediaService.parse(rawText);
+    final blossomPayload = media == null ? BlossomPayloadHelpers.parseBlossomPayload(rawText) : null;
 
     final Color bgColor = isUnencrypted
         ? const Color(0xFF8B1A1A)
@@ -114,11 +119,14 @@ class MessageBubble extends StatelessWidget {
               right: isMe ? 0 : DesignTokens.chatBubbleMarginOpposite,
             ),
             // No padding for media bubbles that fill the bubble
-            padding: (media?.isImage == true || media?.isGif == true || media?.isVideoNote == true)
+            padding: (media?.isImage == true || media?.isGif == true || media?.isVideoNote == true ||
+                      (blossomPayload != null && (blossomPayload.mediaType == 'img' || blossomPayload.mediaType == 'gif')))
                 ? EdgeInsets.zero
                 : const EdgeInsets.symmetric(horizontal: DesignTokens.chatBubblePaddingH, vertical: DesignTokens.chatBubblePaddingV),
             decoration: BoxDecoration(
-              color: (media?.isImage == true || media?.isGif == true || media?.isVideoNote == true) ? Colors.transparent : bgColor,
+              color: (media?.isImage == true || media?.isGif == true || media?.isVideoNote == true ||
+                      (blossomPayload != null && (blossomPayload.mediaType == 'img' || blossomPayload.mediaType == 'gif')))
+                  ? Colors.transparent : bgColor,
               borderRadius: radius,
               boxShadow: [
                 BoxShadow(
@@ -130,7 +138,9 @@ class MessageBubble extends StatelessWidget {
             ),
             child: media != null
                 ? _buildMediaContent(context, media, bgColor, radius)
-                : _buildTextContent(context, isUnencrypted, rawText),
+                : blossomPayload != null
+                    ? _BlossomMediaWidget(payload: blossomPayload, radius: radius, isMe: isMe)
+                    : _buildTextContent(context, isUnencrypted, rawText),
           ),
           if (hasReactions)
             Padding(
@@ -1076,6 +1086,229 @@ class _WaveformBars extends StatelessWidget {
           borderRadius: BorderRadius.circular(DesignTokens.radiusXs),
         ),
       )).toList(),
+    );
+  }
+}
+
+// ── Blossom lazy-download media widget ────────────────────────────────────
+
+class _BlossomMediaWidget extends StatefulWidget {
+  final BlossomPayload payload;
+  final BorderRadius radius;
+  final bool isMe;
+
+  const _BlossomMediaWidget({
+    required this.payload,
+    required this.radius,
+    required this.isMe,
+  });
+
+  @override
+  State<_BlossomMediaWidget> createState() => _BlossomMediaWidgetState();
+}
+
+class _BlossomMediaWidgetState extends State<_BlossomMediaWidget> {
+  Uint8List? _decryptedBytes;
+  bool _loading = false;
+  double _progress = 0;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkCache();
+  }
+
+  Future<void> _checkCache() async {
+    try {
+      final dir = await getTemporaryDirectory();
+      final ext = _extensionFromName(widget.payload.name);
+      final file = File('${dir.path}/blossom_${widget.payload.hash}$ext');
+      if (await file.exists()) {
+        final bytes = await file.readAsBytes();
+        if (mounted) {
+          setState(() {
+            _decryptedBytes = bytes;
+            // cached on disk
+          });
+        }
+      } else if (widget.payload.mediaType == 'img' || widget.payload.mediaType == 'gif') {
+        // Auto-download images
+        _download();
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _download() async {
+    if (_loading) return;
+    if (widget.payload.hash.isEmpty || widget.payload.key.isEmpty) {
+      setState(() => _error = 'Missing media data');
+      return;
+    }
+    setState(() { _loading = true; _progress = 0.1; _error = null; });
+
+    try {
+      final encrypted = await BlossomService.instance.download(
+        widget.payload.hash,
+        preferredServers: [widget.payload.server],
+      );
+      if (encrypted == null) {
+        if (mounted) setState(() { _loading = false; _error = 'Download failed'; });
+        return;
+      }
+      if (mounted) setState(() => _progress = 0.7);
+
+      final key = base64Decode(widget.payload.key);
+      final iv = base64Decode(widget.payload.iv);
+      final decrypted = MediaCryptoService.decrypt(encrypted, Uint8List.fromList(key), Uint8List.fromList(iv));
+      if (mounted) setState(() => _progress = 0.9);
+
+      // Cache to disk
+      final dir = await getTemporaryDirectory();
+      final ext = _extensionFromName(widget.payload.name);
+      final file = File('${dir.path}/blossom_${widget.payload.hash}$ext');
+      await file.writeAsBytes(decrypted);
+
+      if (mounted) {
+        setState(() {
+          _decryptedBytes = decrypted;
+          _loading = false;
+          _progress = 1.0;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() { _loading = false; _error = 'Decrypt failed'; });
+    }
+  }
+
+  String _extensionFromName(String name) {
+    final dot = name.lastIndexOf('.');
+    if (dot == -1) return '';
+    return name.substring(dot);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final p = widget.payload;
+    final isImage = p.mediaType == 'img' || p.mediaType == 'gif';
+
+    // Already downloaded — show content
+    if (_decryptedBytes != null) {
+      if (isImage) {
+        return ClipRRect(
+          borderRadius: widget.radius,
+          child: GestureDetector(
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                builder: (_) => ImageViewerScreen(imageData: _decryptedBytes!, name: p.name))),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 260, maxHeight: 320),
+              child: Image.memory(_decryptedBytes!, fit: BoxFit.cover),
+            ),
+          ),
+        );
+      }
+      // Non-image file — show download card with "saved" state
+      return _buildFileCard(context, downloaded: true);
+    }
+
+    // Thumbnail preview (if available) or placeholder
+    if (isImage && p.thumbnail != null && p.thumbnail!.isNotEmpty) {
+      return ClipRRect(
+        borderRadius: widget.radius,
+        child: GestureDetector(
+          onTap: _loading ? null : _download,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 260, maxHeight: 320),
+                child: Opacity(
+                  opacity: 0.5,
+                  child: Image.memory(
+                    base64Decode(p.thumbnail!),
+                    fit: BoxFit.cover,
+                    gaplessPlayback: true,
+                  ),
+                ),
+              ),
+              if (_loading)
+                SizedBox(
+                  width: 48, height: 48,
+                  child: CircularProgressIndicator(
+                    value: _progress > 0 ? _progress : null,
+                    strokeWidth: 3,
+                    color: Colors.white,
+                  ),
+                )
+              else if (_error != null)
+                const Icon(Icons.error_outline, color: Colors.red, size: 36)
+              else
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.black54,
+                    borderRadius: BorderRadius.circular(24),
+                  ),
+                  padding: const EdgeInsets.all(10),
+                  child: const Icon(Icons.download, color: Colors.white, size: 28),
+                ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // Generic file card (non-image or no thumbnail)
+    return _buildFileCard(context, downloaded: false);
+  }
+
+  Widget _buildFileCard(BuildContext context, {required bool downloaded}) {
+    final p = widget.payload;
+    return GestureDetector(
+      onTap: downloaded ? null : (_loading ? null : _download),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: DesignTokens.spacing12, vertical: DesignTokens.spacing10),
+        constraints: const BoxConstraints(maxWidth: 260),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              downloaded ? Icons.insert_drive_file : (_loading ? Icons.hourglass_top : Icons.cloud_download),
+              color: Colors.white70,
+              size: DesignTokens.iconMd,
+            ),
+            const SizedBox(width: DesignTokens.spacing8),
+            Flexible(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    p.name,
+                    style: GoogleFonts.inter(fontSize: DesignTokens.fontSm, color: Colors.white),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    _error ?? p.sizeLabel,
+                    style: GoogleFonts.inter(fontSize: DesignTokens.fontXs, color: _error != null ? Colors.red[300] : Colors.white54),
+                  ),
+                  if (_loading)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: LinearProgressIndicator(
+                        value: _progress > 0 ? _progress : null,
+                        minHeight: 2,
+                        backgroundColor: Colors.white12,
+                        color: AppTheme.primary,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

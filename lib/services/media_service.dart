@@ -39,7 +39,7 @@ Uint8List _compressImageIsolate(Uint8List bytes) {
 const int _maxFileSizeBytes = 100 * 1024 * 1024; // 100 MB limit for large files
 const int _targetImageBytes = 500 * 1024;         // ~500 KB after compression
 const int _maxImageDimension = 1280;
-const int _chunkSizeBytes = 512 * 1024;           // 512 KB per chunk
+const int _chunkSizeBytes = 32 * 1024;            // 32 KB per chunk (fits Nostr relay limits after encryption)
 const _uuid = Uuid();
 
 class MediaService {
@@ -369,6 +369,109 @@ class MediaPayload {
     if (size < 1024) return '${size}B';
     if (size < 1024 * 1024) return '${(size / 1024).toStringAsFixed(1)}KB';
     return '${(size / 1024 / 1024).toStringAsFixed(1)}MB';
+  }
+}
+
+// ── Blossom payload ─────────────────────────────────────────────────────────
+
+/// Metadata sent inside a Signal-encrypted message pointing to a Blossom blob.
+class BlossomPayload {
+  final String hash;   // SHA-256 hex of the encrypted blob
+  final String server; // origin server URL
+  final String key;    // AES-256 key, base64
+  final String iv;     // GCM nonce, base64
+  final String name;   // original filename
+  final int size;      // original plaintext size in bytes
+  final String mediaType; // 'img', 'gif', 'file', 'voice', 'video_note'
+  final String? thumbnail; // tiny base64 JPEG (≤64px, quality 40)
+
+  const BlossomPayload({
+    required this.hash,
+    required this.server,
+    required this.key,
+    required this.iv,
+    required this.name,
+    required this.size,
+    required this.mediaType,
+    this.thumbnail,
+  });
+
+  String get sizeLabel {
+    if (size < 1024) return '${size}B';
+    if (size < 1024 * 1024) return '${(size / 1024).toStringAsFixed(1)}KB';
+    return '${(size / 1024 / 1024).toStringAsFixed(1)}MB';
+  }
+
+  /// Deserialise from JSON map. Returns null on invalid data.
+  static BlossomPayload? fromMap(Map<String, dynamic> m) {
+    final h = m['h'] as String?;
+    final s = m['s'] as String?;
+    final k = m['k'] as String?;
+    final iv = m['iv'] as String?;
+    final n = m['n'] as String?;
+    if (h == null || s == null || k == null || iv == null || n == null) {
+      return null;
+    }
+    return BlossomPayload(
+      hash: h,
+      server: s,
+      key: k,
+      iv: iv,
+      name: MediaValidator.sanitizeFilename(n),
+      size: (m['sz'] as num?)?.toInt() ?? 0,
+      mediaType: m['mt'] as String? ?? 'file',
+      thumbnail: m['thumb'] as String?,
+    );
+  }
+}
+
+extension BlossomPayloadHelpers on MediaService {
+  /// Build a Blossom payload JSON string to send as a message body.
+  static String buildBlossomPayload({
+    required String hash,
+    required String server,
+    required String key,
+    required String iv,
+    required String name,
+    required int size,
+    required String mediaType,
+    String? thumbnail,
+  }) {
+    final m = <String, dynamic>{
+      't': 'blossom',
+      'h': hash,
+      's': server,
+      'k': key,
+      'iv': iv,
+      'n': MediaValidator.sanitizeFilename(name),
+      'sz': size,
+      'mt': mediaType,
+    };
+    if (thumbnail != null && thumbnail.isNotEmpty) m['thumb'] = thumbnail;
+    return jsonEncode(m);
+  }
+
+  /// Returns true if [text] is a Blossom payload JSON.
+  static bool isBlossomPayload(String text) {
+    if (!text.startsWith('{')) return false;
+    if (text.length > 500000) return false; // thumbnail + metadata cap
+    try {
+      final m = jsonDecode(text) as Map<String, dynamic>;
+      return m['t'] == 'blossom' && m['h'] is String && m['s'] is String;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Parse a Blossom payload. Returns null for non-Blossom or invalid content.
+  static BlossomPayload? parseBlossomPayload(String text) {
+    if (!isBlossomPayload(text)) return null;
+    try {
+      final m = jsonDecode(text) as Map<String, dynamic>;
+      return BlossomPayload.fromMap(m);
+    } catch (_) {
+      return null;
+    }
   }
 }
 

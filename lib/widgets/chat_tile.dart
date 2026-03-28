@@ -59,6 +59,12 @@ class ChatTile extends StatelessWidget {
         subtitle = '\u26A0\uFE0F ${text.substring('\u26A0\uFE0F UNENCRYPTED: '.length)}';
       } else if (text.startsWith('E2EE||')) {
         subtitle = isMe ? context.l10n.chatTileMessageSent : context.l10n.chatTileEncryptedMessage;
+      } else if (text.startsWith('{"t":"blossom"')) {
+        subtitle = isMe ? context.l10n.chatTileYouPrefix('\uD83D\uDCCE Media') : '\uD83D\uDCCE Media';
+      } else if (text.startsWith('{"t":"img"') || text.startsWith('{"t":"gif"') ||
+                 text.startsWith('{"t":"voice"') || text.startsWith('{"t":"file"') ||
+                 text.startsWith('{"t":"video_note"') || text.startsWith('{"t":"chunk"')) {
+        subtitle = isMe ? context.l10n.chatTileYouPrefix('\uD83D\uDCCE Media') : '\uD83D\uDCCE Media';
       } else {
         subtitle = isMe ? context.l10n.chatTileYouPrefix(text) : text;
       }

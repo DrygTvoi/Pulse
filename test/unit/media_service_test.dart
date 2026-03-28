@@ -195,8 +195,8 @@ void main() {
   });
 
   group('MediaService.chunkPayloads()', () {
-    test('single chunk for data <= 512 KB', () {
-      final data = Uint8List(1024); // 1 KB — well under 512 KB limit
+    test('single chunk for data <= 32 KB', () {
+      final data = Uint8List(1024); // 1 KB — well under 32 KB limit
       final chunks = MediaService.chunkPayloads(data, 'small.bin');
       expect(chunks.length, equals(1));
       final parsed = jsonDecode(chunks.first) as Map<String, dynamic>;
@@ -205,11 +205,10 @@ void main() {
       expect(parsed['sz'], equals(1024));
     });
 
-    test('multiple chunks for data > 512 KB', () {
-      // 1.5 MB => should produce 3 chunks (512KB * 3 = 1.5MB)
-      final data = Uint8List(512 * 1024 + 100); // just over 512 KB
+    test('multiple chunks for data > 32 KB', () {
+      final data = Uint8List(32 * 1024 + 100); // just over 32 KB
       final chunks = MediaService.chunkPayloads(data, 'big.bin');
-      expect(chunks.length, equals(2)); // ceil((512*1024+100) / (512*1024)) = 2
+      expect(chunks.length, equals(2)); // ceil((32*1024+100) / (32*1024)) = 2
       // First chunk should have name and size metadata
       final first = jsonDecode(chunks.first) as Map<String, dynamic>;
       expect(first['t'], equals('chunk'));

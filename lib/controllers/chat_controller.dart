@@ -3,8 +3,10 @@ import 'dart:collection';
 import 'dart:convert';
 import 'package:crypto/crypto.dart' show sha256;
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:convert/convert.dart';
+import 'package:image/image.dart' as img;
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -34,6 +36,8 @@ import '../services/status_service.dart';
 import '../services/connectivity_probe_service.dart';
 import '../services/rate_limiter.dart';
 import '../services/chunk_assembler.dart';
+import '../services/media_crypto_service.dart';
+import '../services/blossom_service.dart';
 import '../services/sentry_service.dart';
 import '../services/voice_service.dart';
 import '../services/sender_key_service.dart';
@@ -572,6 +576,9 @@ class ChatController extends ChangeNotifier {
     _messageSubs.add(P2PTransportService.instance.messageStream.listen((evt) {
       _handleP2PMessage(evt.contactId, evt.payload);
     }));
+    _messageSubs.add(P2PTransportService.instance.binaryStream.listen((evt) {
+      _handleP2PBinaryFrame(evt.contactId, evt.data);
+    }));
 
     _scheduleNotify();
   }
@@ -888,6 +895,10 @@ class ChatController extends ChangeNotifier {
 
     _dispatcherSubs.add(d.turnExchanges.listen((e) async {
       await IceServerConfig.savePeerTurnServers(e.servers);
+    }));
+
+    _dispatcherSubs.add(d.blossomExchanges.listen((e) async {
+      await BlossomService.instance.addPeerServers(e.servers);
     }));
 
     _dispatcherSubs.add(d.statusUpdates.listen((e) async {
@@ -1263,7 +1274,19 @@ class ChatController extends ChangeNotifier {
               } } catch (e) { debugPrint('[Chat] Signal JSON parse (treating as plain text): $e'); }
 
               bool skipMessage = false;
-              if (MediaService.isChunkPayload(finalText)) {
+
+              // P2P file header: initiates binary file transfer (not stored as message)
+              if (finalText.startsWith('{') && finalText.contains('"p2p_file"')) {
+                try {
+                  final hdr = jsonDecode(finalText) as Map<String, dynamic>;
+                  if (hdr['p2p_file'] == true) {
+                    _handleP2PFileHeader(senderContact.id, hdr);
+                    skipMessage = true;
+                  }
+                } catch (_) {}
+              }
+
+              if (!skipMessage && MediaService.isChunkPayload(finalText)) {
                 // Track which contact is sending this file (F7 fix: stall
                 // chunk_req should only go to the actual sender).
                 try {
@@ -1289,6 +1312,7 @@ class ChatController extends ChangeNotifier {
               if (!skipMessage &&
                   !MediaService.isMediaPayload(finalText) &&
                   !MediaService.isChunkPayload(finalText) &&
+                  !BlossomPayloadHelpers.isBlossomPayload(finalText) &&
                   finalText.length > 65536) {
                 debugPrint('[ChatController] Dropped oversized message (${finalText.length} bytes)');
                 skipMessage = true;
@@ -1743,23 +1767,214 @@ class ChatController extends ChangeNotifier {
     return sent;
   }
 
-  Future<void> sendFile(Contact contact, Uint8List bytes, String name) async {
+  // ── Smart media routing ─────────────────────────────────────────────────
+  //
+  //  <48KB          → inline in single message (small photos, gzipped voice)
+  //  ≥48KB, P2P up  → P2P DataChannel (direct, no servers, any NAT if connected)
+  //  ≥48KB, Blossom → Blossom HTTPS upload (works behind any NAT)
+  //  ≥48KB, nothing → relay chunks 32KB (last resort — antisocial to relays)
+  //
+  static const _inlineThreshold = 48 * 1024; // 48KB
+
+  Future<void> sendFile(Contact contact, Uint8List bytes, String name,
+      {String mediaType = 'file'}) async {
     if (_identity == null) return;
 
-    final totalChunks = bytes.length <= 512 * 1024
-        ? 1
-        : (bytes.length / (512 * 1024)).ceil();
-
-    if (totalChunks == 1) {
-      await sendMessage(contact, MediaService.chunkPayloads(bytes, name).first);
+    // Tier 0: small files (<48KB) go inline as a single message.
+    if (bytes.length < _inlineThreshold) {
+      await sendMessage(contact, MediaService.chunkPayloads(bytes, name, mediaType: mediaType).first);
       return;
     }
 
+    // Groups: relay chunks only (no P2P/Blossom for groups yet).
+    if (contact.isGroup) {
+      await _sendViaRelayChunks(contact, bytes, name, mediaType: mediaType);
+      return;
+    }
+
+    // Tier 1: P2P DataChannel — direct transfer if already connected.
+    if (P2PTransportService.instance.isConnected(contact.id)) {
+      final ok = await _sendViaP2PBinary(contact, bytes, name, mediaType);
+      if (ok) return;
+    }
+
+    // Tier 2: Blossom — HTTPS upload, works behind any NAT.
+    if (BlossomService.instance.isAvailable) {
+      final ok = await _sendViaBlossom(contact, bytes, name, mediaType);
+      if (ok) return;
+    }
+
+    // Tier 3: relay chunks — last resort (floods relay with binary events).
+    await _sendViaRelayChunks(contact, bytes, name, mediaType: mediaType);
+  }
+
+  /// Tier 2: Encrypt, upload to Blossom, send metadata message.
+  Future<bool> _sendViaBlossom(Contact contact, Uint8List bytes, String name,
+      String mediaType) async {
+    final room = _repo.getOrCreateRoom(contact);
+    final msgId = _uuid.v4();
+
+    // Generate thumbnail for images/gifs
+    String? thumbnail;
+    if (mediaType == 'img' || mediaType == 'gif') {
+      try {
+        thumbnail = await compute(_generateThumbnailIsolate, bytes);
+      } catch (e) {
+        debugPrint('[Blossom] Thumbnail generation failed: $e');
+      }
+    }
+
+    // Show sending state immediately
+    final displayPayload = BlossomPayloadHelpers.buildBlossomPayload(
+      hash: '', server: '', key: '', iv: '',
+      name: name, size: bytes.length, mediaType: mediaType, thumbnail: thumbnail,
+    );
+    final localMsg = Message(
+      id: msgId,
+      senderId: _identity!.id,
+      receiverId: contact.id,
+      encryptedPayload: displayPayload,
+      timestamp: DateTime.now(),
+      adapterType: contact.provider == 'Nostr' ? 'nostr' : 'firebase',
+      isRead: true,
+      status: 'sending',
+    );
+    room.messages.add(localMsg);
+    _repo.trackMessageId(contact.id, localMsg.id);
+    _repo.setUploadProgress(msgId, 0.1);
+    notifyListeners();
+
+    try {
+      // Encrypt
+      final enc = MediaCryptoService.encrypt(bytes);
+      _repo.setUploadProgress(msgId, 0.3);
+      _scheduleNotify();
+
+      // Upload
+      final result = await BlossomService.instance.upload(enc.ciphertext);
+      if (result == null) {
+        _repo.clearUploadProgress(msgId);
+        // Remove sending placeholder — will fall back to relay chunks
+        room.messages.removeWhere((m) => m.id == msgId);
+        notifyListeners();
+        return false;
+      }
+      _repo.setUploadProgress(msgId, 0.8);
+      _scheduleNotify();
+
+      // Build payload with key material
+      final payload = BlossomPayloadHelpers.buildBlossomPayload(
+        hash: result.hash,
+        server: result.server,
+        key: base64Encode(enc.key),
+        iv: base64Encode(enc.iv),
+        name: name,
+        size: bytes.length,
+        mediaType: mediaType,
+        thumbnail: thumbnail,
+      );
+
+      // Send via E2EE Signal Protocol
+      final sent = await _sendToContact(contact, payload);
+
+      final idx = room.messages.indexWhere((m) => m.id == msgId);
+      final finalMsg = localMsg.copyWith(
+        encryptedPayload: payload,
+        status: sent ? 'sent' : 'failed',
+      );
+      if (idx != -1) room.messages[idx] = finalMsg;
+      final storageKey = contact.storageKey;
+      await LocalStorageService().saveMessage(storageKey, finalMsg.toJson());
+      _repo.clearUploadProgress(msgId);
+      final localTtl = _repo.getChatTtlCached(contact.id);
+      if (localTtl > 0) _repo.scheduleTtlDelete(contact, finalMsg, localTtl, onDeleted: () { if (!_disposed) notifyListeners(); });
+      notifyListeners();
+      return sent;
+    } catch (e) {
+      debugPrint('[Blossom] _sendViaBlossom error: $e');
+      _repo.clearUploadProgress(msgId);
+      room.messages.removeWhere((m) => m.id == msgId);
+      notifyListeners();
+      return false;
+    }
+  }
+
+  /// Tier 1: Send file directly via P2P DataChannel binary frames.
+  Future<bool> _sendViaP2PBinary(Contact contact, Uint8List bytes,
+      String name, String mediaType) async {
+    const chunkSize = 64 * 1024; // 64KB P2P frames
+    final total = (bytes.length / chunkSize).ceil();
+    final fid = _uuid.v4();
+    final fh = sha256.convert(bytes).toString();
+
+    // Send header as text message
+    final header = jsonEncode({
+      'p2p_file': true,
+      'fid': fid,
+      'n': name,
+      'sz': bytes.length,
+      'mt': mediaType,
+      'total': total,
+      'fh': fh,
+    });
+    if (!P2PTransportService.instance.send(contact.id, header)) return false;
+
+    final room = _repo.getOrCreateRoom(contact);
+    final msgId = _uuid.v4();
+    final displayPayload = jsonEncode({'t': mediaType, 'n': name, 'sz': bytes.length, 'd': ''});
+    final localMsg = Message(
+      id: msgId,
+      senderId: _identity!.id,
+      receiverId: contact.id,
+      encryptedPayload: displayPayload,
+      timestamp: DateTime.now(),
+      adapterType: 'p2p',
+      isRead: true,
+      status: 'sending',
+    );
+    room.messages.add(localMsg);
+    _repo.trackMessageId(contact.id, localMsg.id);
+    _repo.setUploadProgress(msgId, 0.0);
+    notifyListeners();
+
+    bool allSent = true;
+    try {
+      for (int i = 0; i < total; i++) {
+        final start = i * chunkSize;
+        final end = (start + chunkSize).clamp(0, bytes.length);
+        final chunk = bytes.sublist(start, end);
+        if (!P2PTransportService.instance.sendBinary(contact.id, chunk)) {
+          allSent = false;
+          break;
+        }
+        _repo.setUploadProgress(msgId, (i + 1) / total);
+        _scheduleNotify();
+        // Yield to event loop periodically to avoid blocking UI
+        if (i % 4 == 3) await Future.delayed(Duration.zero);
+      }
+    } finally {
+      _repo.clearUploadProgress(msgId);
+    }
+
+    final idx = room.messages.indexWhere((m) => m.id == msgId);
+    final finalMsg = localMsg.copyWith(status: allSent ? 'sent' : 'failed');
+    if (idx != -1) room.messages[idx] = finalMsg;
+    await LocalStorageService().saveMessage(contact.storageKey, finalMsg.toJson());
+    final localTtl = _repo.getChatTtlCached(contact.id);
+    if (localTtl > 0) _repo.scheduleTtlDelete(contact, finalMsg, localTtl, onDeleted: () { if (!_disposed) notifyListeners(); });
+    notifyListeners();
+    return allSent;
+  }
+
+  /// Tier 3 / group fallback: relay-based 32KB chunks (original behavior).
+  Future<void> _sendViaRelayChunks(Contact contact, Uint8List bytes, String name,
+      {String mediaType = 'file'}) async {
+    final totalChunks = (bytes.length / (32 * 1024)).ceil();
     final isGroup = contact.isGroup;
     final room = _repo.getOrCreateRoom(contact);
     final msgId = _uuid.v4();
 
-    final displayPayload = jsonEncode({'t': 'file', 'n': name, 'sz': bytes.length, 'd': ''});
+    final displayPayload = jsonEncode({'t': mediaType, 'n': name, 'sz': bytes.length, 'd': ''});
     final localMsg = Message(
       id: msgId,
       senderId: _identity!.id,
@@ -1781,7 +1996,7 @@ class ChatController extends ChangeNotifier {
     int i = 0;
     String? fileId;
     try {
-      for (final chunk in MediaService.chunkIterable(bytes, name)) {
+      for (final chunk in MediaService.chunkIterable(bytes, name, mediaType: mediaType)) {
         if (fileId == null) {
           try {
             final m = jsonDecode(chunk) as Map<String, dynamic>;
@@ -2585,6 +2800,88 @@ class ChatController extends ChangeNotifier {
     ]);
   }
 
+  // ── P2P binary file receive ───────────────────────────────────────────────
+
+  // Active P2P file transfers: fid → header + accumulated frames
+  final _p2pFileTransfers = <String, _P2PFileTransfer>{};
+
+  void _handleP2PBinaryFrame(String contactId, Uint8List data) {
+    // Find which transfer this frame belongs to (most recent from this contact)
+    _P2PFileTransfer? transfer;
+    for (final t in _p2pFileTransfers.values) {
+      if (t.contactId == contactId && t.framesReceived < t.total) {
+        transfer = t;
+        break;
+      }
+    }
+    if (transfer == null) {
+      debugPrint('[P2P] Binary frame from $contactId but no active transfer');
+      return;
+    }
+    transfer.frames.add(data);
+    transfer.framesReceived++;
+
+    if (transfer.framesReceived >= transfer.total) {
+      // Assemble the file
+      final assembled = BytesBuilder(copy: false);
+      for (final f in transfer.frames) {
+        assembled.add(f);
+      }
+      final fileBytes = assembled.toBytes();
+      final fileHash = sha256.convert(fileBytes).toString();
+      _p2pFileTransfers.remove(transfer.fid);
+
+      if (fileHash != transfer.fileHash) {
+        debugPrint('[P2P] File hash mismatch for ${transfer.name}: expected ${transfer.fileHash}, got $fileHash');
+        return;
+      }
+
+      // Deliver as media payload
+      final payload = jsonEncode({
+        't': transfer.mediaType,
+        'd': base64Encode(fileBytes),
+        'n': transfer.name,
+        'sz': fileBytes.length,
+      });
+
+      final contact = _contacts.contacts.cast<Contact?>()
+          .firstWhere((c) => c?.id == contactId, orElse: () => null);
+      if (contact == null) return;
+
+      _handleIncomingMessages([
+        Message(
+          id: _uuid.v4(),
+          senderId: contact.databaseId,
+          receiverId: _selfId,
+          encryptedPayload: payload,
+          timestamp: DateTime.now(),
+          adapterType: 'p2p',
+        ),
+      ]);
+      debugPrint('[P2P] File received: ${transfer.name} (${fileBytes.length}B)');
+    }
+  }
+
+  /// Called when a P2P text message contains a p2p_file header.
+  void _handleP2PFileHeader(String contactId, Map<String, dynamic> header) {
+    final fid = header['fid'] as String? ?? '';
+    final name = header['n'] as String? ?? 'file';
+    final total = header['total'] as int? ?? 0;
+    final fh = header['fh'] as String? ?? '';
+    final mt = header['mt'] as String? ?? 'file';
+    if (fid.isEmpty || total <= 0 || fh.isEmpty) return;
+    if (_p2pFileTransfers.length > 10) return; // limit concurrent transfers
+    _p2pFileTransfers[fid] = _P2PFileTransfer(
+      fid: fid,
+      contactId: contactId,
+      name: name,
+      total: total,
+      fileHash: fh,
+      mediaType: mt,
+    );
+    debugPrint('[P2P] File transfer started: $name ($total frames) from $contactId');
+  }
+
   // ── SmartRouter delivery stats ────────────────────────────────────────────
 
   Future<void> _loadDeliveryStats() async {
@@ -2671,5 +2968,42 @@ class ChatController extends ChangeNotifier {
       if (sender is PulseMessageSender) sender.zeroize();
     }
     super.dispose();
+  }
+}
+
+// ── P2P file transfer state ───────────────────────────────────────────────
+
+class _P2PFileTransfer {
+  final String fid;
+  final String contactId;
+  final String name;
+  final int total;
+  final String fileHash;
+  final String mediaType;
+  final List<Uint8List> frames = [];
+  int framesReceived = 0;
+
+  _P2PFileTransfer({
+    required this.fid,
+    required this.contactId,
+    required this.name,
+    required this.total,
+    required this.fileHash,
+    required this.mediaType,
+  });
+}
+
+// ── Thumbnail generation (runs in isolate) ────────────────────────────────
+
+/// Top-level function for compute(): generates a tiny JPEG thumbnail.
+String? _generateThumbnailIsolate(Uint8List bytes) {
+  try {
+    final decoded = img.decodeImage(bytes);
+    if (decoded == null) return null;
+    final thumb = img.copyResize(decoded, width: 64);
+    final jpeg = img.encodeJpg(thumb, quality: 40);
+    return base64Encode(jpeg);
+  } catch (_) {
+    return null;
   }
 }

@@ -135,6 +135,12 @@ class SignalTurnExchangeEvent {
   SignalTurnExchangeEvent(this.servers);
 }
 
+/// Peer Blossom server exchange.
+class SignalBlossomExchangeEvent {
+  final List<String> servers;
+  SignalBlossomExchangeEvent(this.servers);
+}
+
 /// Status/story update from contact.
 class SignalStatusUpdateEvent {
   final Contact contact;
@@ -254,6 +260,7 @@ class SignalDispatcher {
   final _p2pCtrl = StreamController<SignalP2PEvent>.broadcast();
   final _relayExchangeCtrl = StreamController<SignalRelayExchangeEvent>.broadcast();
   final _turnExchangeCtrl  = StreamController<SignalTurnExchangeEvent>.broadcast();
+  final _blossomExchangeCtrl = StreamController<SignalBlossomExchangeEvent>.broadcast();
   final _statusUpdateCtrl = StreamController<SignalStatusUpdateEvent>.broadcast();
   final _addrUpdateCtrl = StreamController<SignalAddrUpdateEvent>.broadcast();
   final _profileUpdateCtrl = StreamController<SignalProfileUpdateEvent>.broadcast();
@@ -281,6 +288,7 @@ class SignalDispatcher {
   Stream<SignalP2PEvent> get p2pEvents => _p2pCtrl.stream;
   Stream<SignalRelayExchangeEvent> get relayExchanges => _relayExchangeCtrl.stream;
   Stream<SignalTurnExchangeEvent>  get turnExchanges  => _turnExchangeCtrl.stream;
+  Stream<SignalBlossomExchangeEvent> get blossomExchanges => _blossomExchangeCtrl.stream;
   Stream<SignalStatusUpdateEvent> get statusUpdates => _statusUpdateCtrl.stream;
   Stream<SignalAddrUpdateEvent> get addrUpdates => _addrUpdateCtrl.stream;
   Stream<SignalProfileUpdateEvent> get profileUpdates => _profileUpdateCtrl.stream;
@@ -301,6 +309,7 @@ class SignalDispatcher {
     'sys_keys',
     'relay_exchange',
     'turn_exchange',
+    'blossom_exchange',
     'profile_update',
     'group_update',
     'group_invite',
@@ -676,6 +685,42 @@ class SignalDispatcher {
           if (servers.isNotEmpty && !_turnExchangeCtrl.isClosed) {
             _turnExchangeCtrl.add(SignalTurnExchangeEvent(servers));
           }
+        } else if (sigType == 'blossom_exchange') {
+          final blossomContact = _resolveContact(sigSender, contactByDbId);
+          if (blossomContact == null) {
+            debugPrint('[SignalDispatcher] blossom_exchange from unknown sender '
+                '$sigSender — ignored');
+            continue;
+          }
+          final payload = sig['payload'];
+          final rawServers = payload is Map ? payload['servers'] : null;
+          final servers = rawServers is List
+              ? rawServers
+                  .take(20)
+                  .whereType<String>()
+                  .where((u) {
+                    if (!u.startsWith('https://')) return false;
+                    final host = Uri.tryParse(u)?.host ?? '';
+                    if (host.isEmpty || host == 'localhost' ||
+                        host == '127.0.0.1' || host == '::1' ||
+                        host == '0.0.0.0') {
+                      return false;
+                    }
+                    if (host.startsWith('10.') || host.startsWith('192.168.') ||
+                        host.startsWith('169.254.')) {
+                      return false;
+                    }
+                    if (host.startsWith('172.')) {
+                      final seg = int.tryParse(host.split('.').elementAtOrNull(1) ?? '');
+                      if (seg != null && seg >= 16 && seg <= 31) return false;
+                    }
+                    return true;
+                  })
+                  .toList()
+              : <String>[];
+          if (servers.isNotEmpty && !_blossomExchangeCtrl.isClosed) {
+            _blossomExchangeCtrl.add(SignalBlossomExchangeEvent(servers));
+          }
         } else if (sigType == 'status_update') {
           final rawPayload = sig['payload'];
           final statusJson =
@@ -843,6 +888,7 @@ class SignalDispatcher {
     _p2pCtrl.close();
     _relayExchangeCtrl.close();
     _turnExchangeCtrl.close();
+    _blossomExchangeCtrl.close();
     _statusUpdateCtrl.close();
     _addrUpdateCtrl.close();
     _profileUpdateCtrl.close();

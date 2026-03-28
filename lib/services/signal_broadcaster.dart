@@ -223,6 +223,15 @@ class SignalBroadcaster {
         '[Broadcaster] Shared ${relays.length} relay(s) with ${targets.length} contact(s)');
   }
 
+  /// Share known Blossom servers with a contact (peer exchange).
+  Future<void> broadcastBlossomServers(Contact contact, List<String> servers) async {
+    final identity = _getIdentity();
+    final selfId = _getSelfId();
+    if (identity == null || selfId.isEmpty || servers.isEmpty) return;
+    await _sendSignalTo(contact, 'blossom_exchange', {'servers': servers});
+    debugPrint('[Broadcaster] Shared ${servers.length} Blossom server(s) with ${contact.name}');
+  }
+
   // ── Group signals ─────────────────────────────────────────────────────────
 
   Future<void> sendGroupInvite(Contact target, Contact group) async {

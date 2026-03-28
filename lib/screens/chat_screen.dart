@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -281,7 +282,19 @@ class _ChatScreenState extends State<ChatScreen> {
         final result = await MediaService().pickImage();
         if (result == null) return;
         if (!mounted) return;
-        await context.read<ChatController>().sendMessage(_contact, result.payload);
+        // Images ≥48KB go through smart media routing (chunks / P2P / Blossom)
+        if (result.size >= 48 * 1024) {
+          await context.read<ChatController>().sendFile(
+            _contact,
+            Uint8List.fromList(base64Decode(
+              (jsonDecode(result.payload) as Map<String, dynamic>)['d'] as String,
+            )),
+            result.name,
+            mediaType: (jsonDecode(result.payload) as Map<String, dynamic>)['t'] as String? ?? 'img',
+          );
+        } else {
+          await context.read<ChatController>().sendMessage(_contact, result.payload);
+        }
       } else {
         final raw = await MediaService().pickFileRaw();
         if (raw == null) return;
