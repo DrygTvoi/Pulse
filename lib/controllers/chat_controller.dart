@@ -48,6 +48,7 @@ import '../models/contact_repository.dart';
 import '../services/message_repository.dart';
 import '../services/key_manager.dart';
 import '../services/signal_broadcaster.dart';
+import '../services/nip44_service.dart' as nip44;
 
 enum ConnectionStatus { disconnected, connecting, connected }
 
@@ -79,6 +80,10 @@ class ChatController extends ChangeNotifier {
   final Map<String, bool> _adapterHealth = {}; // addr → isHealthy
   List<String> _allAddresses = [];
   SignalDispatcher? _signalDispatcher;
+  // PQC: contacts from whom we've successfully unwrapped a PQC message.
+  // Only PQC-wrap outgoing messages to contacts in this set.
+  final Set<String> _pqcConfirmed = {};
+
 
   // ── Facade services ────────────────────────────────────────────────────────
   late final MessageRepository _repo = MessageRepository();
@@ -152,9 +157,12 @@ class ChatController extends ChangeNotifier {
   final StreamController<String> _tamperWarningCtrl = StreamController.broadcast();
   Stream<String> get tamperWarnings => _tamperWarningCtrl.stream;
 
-  // SmartRouter: per-address delivery success counts (in-memory + persisted).
+  // SmartRouter: per-contact delivery success counts (in-memory + persisted).
+  // Key format: "contactId:address" — scoped per-contact so promotions
+  // only happen when a specific contact's primary is consistently failing.
   final Map<String, int> _deliverySuccessCount = {};
-  static const _kDeliveryStatsKey = 'delivery_stats_v1';
+  static const _kDeliveryStatsKey = 'delivery_stats_v2';
+  static const _kPromotionThreshold = 3; // promote after N alt successes
   Timer? _deliveryStatsHalveTimer;
 
   // File transfer resume
@@ -169,6 +177,7 @@ class ChatController extends ChangeNotifier {
   // ignore: prefer_collection_literals
   final _seenMsgIds = LinkedHashSet<String>();
   final _seenMsgIdsList = <String>[]; // mirrors insertion order for O(1) eviction
+  final _e2eeFailCount = <String, int>{}; // consecutive decrypt failures per contact
 
   // Cached contact index with dirty flag — avoids rebuilding on every call
   HashMap<String, Contact>? _contactIndex;
@@ -238,6 +247,52 @@ class ChatController extends ChangeNotifier {
   Identity? get identity => _identity;
   List<String> get allAddresses => List.unmodifiable(_allAddresses);
 
+  /// Returns addresses enriched with all currently known working relays.
+  /// For Nostr, the pubkey is replicated across identity relay + probed relay +
+  /// adaptive relay so invite links always contain fresh, reachable routes.
+  /// Non-Nostr addresses (Oxen, etc.) are included as-is.
+  List<String> get shareableAddresses {
+    if (_identity == null) return allAddresses;
+    if (_identity!.preferredAdapter != 'nostr') return allAddresses;
+    // Extract pubkey from selfId (pubkey@relay format)
+    final atIdx = _selfId.indexOf('@');
+    if (atIdx <= 0) return allAddresses;
+    final pubkey = _selfId.substring(0, atIdx);
+
+    // Collect all known relays, deduplicated.
+    final relays = <String>{};
+    // 1) Identity relay (creation-time)
+    final idRelay = _identity!.adapterConfig['relay'] ?? '';
+    if (idRelay.isNotEmpty) relays.add(idRelay);
+    // 2-4) Relays from SharedPreferences (cached after first _getPrefs call)
+    final p = _prefs;
+    if (p != null) {
+      final nr = p.getString('nostr_relay') ?? '';
+      if (nr.isNotEmpty) relays.add(nr);
+      // 3) Best probed relay
+      final pr = p.getString('probe_nostr_relay') ?? '';
+      if (pr.isNotEmpty) {
+        relays.add(pr.startsWith('ws') ? pr : 'wss://$pr');
+      }
+      // 4) Best adaptive/CF relay
+      final ar = p.getString('adaptive_cf_relay') ?? '';
+      if (ar.isNotEmpty) relays.add(ar);
+    }
+
+    // Build Nostr addresses: pubkey@relay for each known relay
+    final result = <String>[];
+    for (final relay in relays) {
+      result.add('$pubkey@$relay');
+    }
+    // Add non-Nostr addresses (Oxen session ID, etc.)
+    for (final addr in _allAddresses) {
+      if (!addr.contains('@wss://') && !addr.contains('@ws://')) {
+        result.add(addr);
+      }
+    }
+    return result.isEmpty ? allAddresses : result;
+  }
+
   /// Auto-retry timers keyed by message ID
   final Map<String, Timer> _retryTimers = {};
 
@@ -302,24 +357,56 @@ class ChatController extends ChangeNotifier {
 
   Future<void> initialize() async {
     sentryBreadcrumb('ChatController.initialize() started', category: 'lifecycle');
-    await LocalStorageService().init();
-    unawaited(_repo.restoreScheduledTtls(onDeleted: () { if (!_disposed) notifyListeners(); }));
-    _connectionStatus = ConnectionStatus.connecting;
-    final prefs = await _getPrefs();
-    final identityJson = prefs.getString('user_identity');
-    if (identityJson != null) {
-      try {
-        _identity = Identity.fromJson(jsonDecode(identityJson));
-      } catch (e) {
-        debugPrint('[ChatController] Failed to parse stored identity: $e');
+    _reconnecting = true; // block reconnectInbox() until initial setup completes
+    try {
+      await LocalStorageService().init();
+      unawaited(_repo.restoreScheduledTtls(onDeleted: () { if (!_disposed) notifyListeners(); }));
+      _connectionStatus = ConnectionStatus.connecting;
+      final prefs = await _getPrefs();
+      final identityJson = prefs.getString('user_identity');
+      if (identityJson != null) {
+        try {
+          _identity = Identity.fromJson(jsonDecode(identityJson));
+        } catch (e) {
+          debugPrint('[ChatController] Failed to parse stored identity: $e');
+          _connectionStatus = ConnectionStatus.disconnected;
+          return;
+        }
+        await _signalService.initialize();
+        await PqcService().initialize();
+
+        // One-time migration: delete all stale Signal sessions so they
+        // rebuild from the fresh bundles now published on every start.
+        // Without this, outbound sessions produce ciphertext the receiver
+        // (with new keys) can't decrypt.
+        final prefs2 = await _getPrefs();
+        if (prefs2.getBool('signal_sessions_reset_v4') != true) {
+          debugPrint('[Chat] One-time session+identity reset — clearing stale Signal sessions, identity keys, NIP-44 nonces & seen IDs');
+          await _signalService.deleteAllContactSessions();
+          // Clear NIP-44 nonce cache so old events can be re-decrypted after reset
+          nip44.clearNonceCache();
+          // Clear persistent seen IDs so old events are re-processed
+          await prefs2.remove('nostr_seen_ids');
+          // Clear stored since timestamps so we don't skip events
+          for (final key in prefs2.getKeys()) {
+            if (key.startsWith('nostr_since_')) await prefs2.remove(key);
+          }
+          await prefs2.setBool('signal_sessions_reset_v4', true);
+        }
+
+        // Load contacts BEFORE starting inbox to avoid race condition:
+        // without this, events arrive before contact index is populated,
+        // causing all decrypt lookups to fail with empty index.
+        await _contacts.loadContacts();
+        _invalidateContactIndex();
+        debugPrint('[Chat] Loaded ${_contacts.contacts.length} contacts before inbox start');
+
+        await _initInbox();
+      } else {
         _connectionStatus = ConnectionStatus.disconnected;
-        return;
       }
-      await _signalService.initialize();
-      await PqcService().initialize();
-      await _initInbox();
-    } else {
-      _connectionStatus = ConnectionStatus.disconnected;
+    } finally {
+      _reconnecting = false;
     }
   }
 
@@ -1120,6 +1207,9 @@ class ChatController extends ChangeNotifier {
   }
 
   Future<void> _handleIncomingMessages(List<Message> newMessages) async {
+    if (newMessages.isNotEmpty) {
+      debugPrint('[Chat] _handleIncoming: ${newMessages.length} msgs, sender=${newMessages.first.senderId.length >= 8 ? newMessages.first.senderId.substring(0, 8) : newMessages.first.senderId}…, payload=${newMessages.first.encryptedPayload.substring(0, newMessages.first.encryptedPayload.length.clamp(0, 30))}…');
+    }
     bool hasUpdates = false;
     final contactByDbId = _getContactIndex();
 
@@ -1156,8 +1246,21 @@ class ChatController extends ChangeNotifier {
         if (rawPayload.startsWith('PQC2||')) {
           try {
             rawPayload = CryptoLayer.unwrap(rawPayload);
+            // PQC succeeded — mark sender as confirmed so we PQC-wrap replies.
+            _pqcConfirmed.add(msg.senderId);
+            final senderPub = msg.senderId.split('@').first;
+            for (final c in _contacts.contacts) {
+              if (c.databaseId.split('@').first == senderPub) {
+                _pqcConfirmed.add(c.databaseId);
+                break;
+              }
+            }
           } catch (e) {
-            debugPrint('[PQC] Unwrap failed for ${msg.id}: $e');
+            debugPrint('[PQC] Unwrap failed for ${msg.id}: $e — dropping message');
+            // PQC-wrapped message is irrecoverable — clear sender's cached
+            // Kyber pk so our replies go Signal-only (they'll work).
+            _keys.clearContactKyberPk(msg.senderId);
+            continue; // skip this message entirely — don't show gibberish
           }
         }
 
@@ -1165,6 +1268,10 @@ class ChatController extends ChangeNotifier {
         if (rawPayload.startsWith('E2EE||')) {
           final fastContact = contactByDbId[msg.senderId]
               ?? contactByDbId[msg.senderId.split('@').first];
+          if (fastContact == null) {
+            debugPrint('[Chat] Contact lookup MISS for senderId="${msg.senderId}" '
+                'indexKeys=${contactByDbId.keys.where((k) => k.startsWith(msg.senderId.substring(0, 8))).toList()}');
+          }
           if (fastContact != null) {
             try {
               decryptedRaw = await _signalService.decryptMessage(fastContact.databaseId, rawPayload);
@@ -1184,6 +1291,35 @@ class ChatController extends ChangeNotifier {
               }
             }
           }
+        }
+
+        // Reset fail counter on successful decrypt.
+        if (!decryptedRaw.startsWith('E2EE||')) {
+          final okKey = contactByDbId[msg.senderId]?.databaseId
+              ?? contactByDbId[msg.senderId.split('@').first]?.databaseId
+              ?? msg.senderId;
+          _e2eeFailCount.remove(okKey);
+        }
+
+        // If E2EE decryption failed entirely, drop the message (don't show
+        // ciphertext). Track consecutive failures per contact — only delete the
+        // session after 3+ failures to avoid nuking a valid session due to
+        // stale replayed events from the relay's since window.
+        if (decryptedRaw.startsWith('E2EE||')) {
+          final failContact = contactByDbId[msg.senderId]
+              ?? contactByDbId[msg.senderId.split('@').first];
+          final failKey = failContact?.databaseId ?? msg.senderId;
+          _e2eeFailCount[failKey] = (_e2eeFailCount[failKey] ?? 0) + 1;
+          final failN = _e2eeFailCount[failKey]!;
+          if (failContact != null && failN >= 3) {
+            debugPrint('[Chat] E2EE decrypt failed ${failN}x for ${failContact.name} — '
+                'deleting stale session to force rebuild');
+            unawaited(_signalService.deleteContactData(failContact.databaseId));
+            _e2eeFailCount.remove(failKey);
+          } else {
+            debugPrint('[Chat] E2EE decrypt failed (${failN}x) for ${failContact?.name ?? msg.senderId} — dropping');
+          }
+          continue;
         }
 
         final env = MessageEnvelope.tryUnwrap(decryptedRaw);
@@ -1469,13 +1605,37 @@ class ChatController extends ChangeNotifier {
           : replyTo.encryptedPayload;
       replyInfo = (id: replyTo.id, text: preview, sender: replyTo.senderId);
     }
+
+    // Create local message FIRST so it appears in UI immediately.
+    final msgId = _uuid.v4();
+    final contactAdapterType = contact.provider == 'Nostr' ? 'nostr'
+        : contact.provider == 'Oxen' ? 'oxen'
+        : 'firebase';
+    final room = _repo.getOrCreateRoom(contact);
+    final localMsg = Message(
+      id: msgId, senderId: _identity!.id, receiverId: contact.id,
+      encryptedPayload: text, timestamp: DateTime.now(),
+      adapterType: contactAdapterType, isRead: true, status: 'sending',
+      replyToId: replyInfo?.id,
+      replyToText: replyInfo?.text,
+      replyToSender: replyInfo?.sender,
+    );
+    room.messages.add(localMsg);
+    _repo.trackMessageId(contact.id, localMsg.id);
+    final localTtl = _repo.getChatTtlCached(contact.id);
+    if (localTtl > 0) _repo.scheduleTtlDelete(contact, localMsg, localTtl, onDeleted: () { if (!_disposed) notifyListeners(); });
+    notifyListeners();
+
     final envelope = MessageEnvelope.wrap(
       _selfId.isNotEmpty ? _selfId : _identity!.id, text, replyTo: replyInfo);
 
     String encryptedText;
     try {
+      debugPrint('[Send] Encrypting for ${contact.name} (${contact.databaseId.substring(0, 8)}…)');
       encryptedText = await _signalService.encryptMessage(contact.databaseId, envelope);
+      debugPrint('[Send] Encrypted OK for ${contact.name}');
     } catch (e) {
+      debugPrint('[E2EE] Encrypt failed: $e — rebuilding session');
       try {
         final ourApiKey = _identity!.adapterConfig['token'] ?? '';
         InboxReader contactReader;
@@ -1509,59 +1669,54 @@ class ChatController extends ChangeNotifier {
         } else {
           throw Exception('Unknown provider: ${contact.provider}');
         }
+        debugPrint('[E2EE] Fetching bundle for ${contact.name} via ${contact.provider}');
         await contactReader.initializeReader(initApiKey, initDbId);
+        debugPrint('[E2EE] Reader initialized, fetching keys...');
         final bundle = await contactReader.fetchPublicKeys();
+        debugPrint('[E2EE] fetchPublicKeys: ${bundle != null ? "${bundle.keys.length} keys" : "null"}');
         if (bundle != null) {
           final keyChanged = await _signalService.buildSession(contact.databaseId, bundle);
           _keys.cacheContactKyberPk(contact.databaseId, bundle);
           if (keyChanged && !_keyChangeCtrl.isClosed) {
             _keyChangeCtrl.add((contactName: contact.name, contactId: contact.databaseId));
           }
+          debugPrint('[E2EE] Session built, re-encrypting...');
           encryptedText = await _signalService.encryptMessage(contact.databaseId, envelope);
+          debugPrint('[E2EE] Session rebuilt OK');
         } else {
           debugPrint('[E2EE] No key bundle for ${contact.name} — send aborted');
           if (!_e2eeFailCtrl.isClosed) _e2eeFailCtrl.add(contact.name);
+          final idx = room.messages.indexWhere((m) => m.id == msgId);
+          if (idx != -1) room.messages[idx] = localMsg.copyWith(status: 'failed');
+          await LocalStorageService().saveMessage(contact.id, localMsg.copyWith(status: 'failed').toJson());
+          notifyListeners();
           return;
         }
       } catch (e2) {
         debugPrint('[E2EE] Session build failed for ${contact.name}: $e2 — send aborted');
         sentryBreadcrumb('E2EE session build failed', category: 'encryption');
         if (!_e2eeFailCtrl.isClosed) _e2eeFailCtrl.add(contact.name);
+        final idx = room.messages.indexWhere((m) => m.id == msgId);
+        if (idx != -1) room.messages[idx] = localMsg.copyWith(status: 'failed');
+        await LocalStorageService().saveMessage(contact.id, localMsg.copyWith(status: 'failed').toJson());
+        notifyListeners();
         return;
       }
     }
 
-    if (encryptedText.startsWith('E2EE||')) {
+    if (encryptedText.startsWith('E2EE||') &&
+        _pqcConfirmed.contains(contact.databaseId)) {
       encryptedText = await _keys.pqcWrap(encryptedText, contact.databaseId);
     }
 
-    final contactAdapterType = contact.provider == 'Nostr' ? 'nostr'
-        : contact.provider == 'Oxen' ? 'oxen'
-        : 'firebase';
-
     final msg = Message(
-      id: _uuid.v4(),
+      id: msgId,
       senderId: _selfId.isNotEmpty ? _selfId : _identity!.id,
       receiverId: contact.databaseId,
       encryptedPayload: encryptedText,
-      timestamp: DateTime.now(),
+      timestamp: localMsg.timestamp,
       adapterType: contactAdapterType,
     );
-
-    final room = _repo.getOrCreateRoom(contact);
-    final localMsg = Message(
-      id: msg.id, senderId: _identity!.id, receiverId: contact.id,
-      encryptedPayload: text, timestamp: msg.timestamp,
-      adapterType: msg.adapterType, isRead: true, status: 'sending',
-      replyToId: replyInfo?.id,
-      replyToText: replyInfo?.text,
-      replyToSender: replyInfo?.sender,
-    );
-    room.messages.add(localMsg);
-    _repo.trackMessageId(contact.id, localMsg.id);
-    final localTtl = _repo.getChatTtlCached(contact.id);
-    if (localTtl > 0) _repo.scheduleTtlDelete(contact, localMsg, localTtl, onDeleted: () { if (!_disposed) notifyListeners(); });
-    notifyListeners();
 
     if (contact.provider != 'Firebase' && contact.provider != 'Nostr' &&
         contact.provider != 'Oxen' && contact.provider != 'Pulse') {
@@ -1574,6 +1729,7 @@ class ChatController extends ChangeNotifier {
       return;
     }
 
+    debugPrint('[Send] Routing to ${contact.name}...');
     await _addSenderPlugin(contact);
     bool sent;
     if (!contact.isGroup && P2PTransportService.instance.isConnected(contact.id)) {
@@ -1582,11 +1738,13 @@ class ChatController extends ChangeNotifier {
     } else {
       sent = await InboxManager().routeMessage(
           contact.provider, contact.databaseId, contact.databaseId, msg);
-      if (!contact.isGroup) {
-        unawaited(P2PTransportService.instance.connect(contact.id));
-      }
+      // P2P auto-connect disabled: createPeerConnection triggers SIGSEGV in
+      // native flutter_webrtc CreateIceServers on Linux. P2P still works for
+      // calls (user-initiated) and when the peer sends an offer first.
+      // TODO: re-enable when flutter_webrtc fixes the native ICE server bug.
     }
 
+    debugPrint('[Send] Route result: ${sent ? "SENT" : "FAILED"} for ${contact.name}');
     final idx = room.messages.indexWhere((m) => m.id == msg.id);
     final finalMsg = localMsg.copyWith(status: sent ? 'sent' : 'failed');
     if (idx != -1) room.messages[idx] = finalMsg;
@@ -1708,7 +1866,8 @@ class ChatController extends ChangeNotifier {
         return false;
       }
     }
-    if (encryptedText.startsWith('E2EE||')) {
+    if (encryptedText.startsWith('E2EE||') &&
+        _pqcConfirmed.contains(contact.databaseId)) {
       encryptedText = await _keys.pqcWrap(encryptedText, contact.databaseId);
     }
     final msg = Message(
@@ -1730,21 +1889,29 @@ class ChatController extends ChangeNotifier {
     if (!sent) {
       sent = await InboxManager().routeMessage(
           contact.provider, contact.databaseId, contact.databaseId, msg);
-      if (!contact.isGroup) unawaited(P2PTransportService.instance.connect(contact.id));
+      // P2P auto-connect disabled: SIGSEGV in native CreateIceServers (see above).
     }
 
     if (!sent && contact.alternateAddresses.isNotEmpty) {
       final order = [...contact.alternateAddresses];
       order.shuffle();
+      // Sort by per-contact delivery success count (highest first).
       order.sort((a, b) =>
-          (_deliverySuccessCount[b] ?? 0).compareTo(_deliverySuccessCount[a] ?? 0));
+          (_deliverySuccessCount['${contact.id}:$b'] ?? 0)
+              .compareTo(_deliverySuccessCount['${contact.id}:$a'] ?? 0));
       for (final alt in order) {
         debugPrint('[SmartRouter] Primary failed, trying alternate: $alt');
         sent = await _deliverEncryptedMessage(alt, msg);
         if (sent) {
           debugPrint('[SmartRouter] Delivered via alternate: $alt');
-          _deliverySuccessCount[alt] = (_deliverySuccessCount[alt] ?? 0) + 1;
+          final key = '${contact.id}:$alt';
+          _deliverySuccessCount[key] = (_deliverySuccessCount[key] ?? 0) + 1;
           unawaited(_saveDeliveryStats());
+          // Promote alternate to primary after threshold consecutive successes.
+          if ((_deliverySuccessCount[key] ?? 0) >= _kPromotionThreshold &&
+              !contact.isGroup) {
+            unawaited(_promoteContactAddress(contact, alt));
+          }
           break;
         }
       }
@@ -1775,7 +1942,10 @@ class ChatController extends ChangeNotifier {
   //                    send E2EE key to each member)
   //  ≥48KB, nothing → relay chunks 32KB (last resort — antisocial to relays)
   //
-  static const _inlineThreshold = 48 * 1024; // 48KB
+  // NIP-44 plaintext limit is 65535 bytes (2-byte length prefix). Gift Wrap
+  // uses double NIP-44 (seal + wrap). After base64 + Signal + double NIP-44,
+  // 20KB raw bytes → ~50KB seal JSON — safely under 65535.
+  static const _inlineThreshold = 8 * 1024; // 8KB — must fit in NIP-44 after double Gift Wrap
 
   Future<void> sendFile(Contact contact, Uint8List bytes, String name,
       {String mediaType = 'file'}) async {
@@ -1801,6 +1971,74 @@ class ChatController extends ChangeNotifier {
 
     // Tier 3: relay chunks — last resort (floods relay with binary events).
     await _sendViaRelayChunks(contact, bytes, name, mediaType: mediaType);
+  }
+
+  /// Send a voice message. Short recordings go inline; longer ones are chunked
+  /// but display locally as a proper voice bubble with waveform and duration.
+  Future<void> sendVoice(Contact contact, Uint8List wavBytes, int durationSeconds,
+      List<double> amplitudes) async {
+    if (_identity == null) return;
+    final compressed = gzip.encode(wavBytes);
+    final b64 = base64Encode(compressed);
+    final ampInt = amplitudes.map((v) => (v * 100).round()).toList();
+    final payload = jsonEncode({
+      't': 'voice', 'd': b64, 'dur': durationSeconds,
+      'sz': wavBytes.length, 'amp': ampInt, 'z': true,
+    });
+    final payloadBytes = utf8.encode(payload).length;
+    // Under 6KB payload → fits in a single NIP-44 Gift Wrap event.
+    if (payloadBytes <= 6000) {
+      await sendMessage(contact, payload);
+      return;
+    }
+    // Large voice: show locally as voice bubble (full payload) but send raw
+    // WAV bytes via relay chunks to stay under relay event size limits.
+    final isGroup = contact.isGroup;
+    final room = _repo.getOrCreateRoom(contact);
+    final msgId = _uuid.v4();
+    // Local display: full voice JSON so the bubble renders properly.
+    final localMsg = Message(
+      id: msgId,
+      senderId: _identity!.id,
+      receiverId: contact.id,
+      encryptedPayload: payload,
+      timestamp: DateTime.now(),
+      adapterType: isGroup ? 'group' : (contact.provider == 'Nostr' ? 'nostr' : 'firebase'),
+      isRead: true,
+      status: 'sending',
+    );
+    room.messages.add(localMsg);
+    _repo.trackMessageId(contact.id, localMsg.id);
+    final localTtl = _repo.getChatTtlCached(contact.id);
+    if (localTtl > 0) _repo.scheduleTtlDelete(contact, localMsg, localTtl,
+        onDeleted: () { if (!_disposed) notifyListeners(); });
+    notifyListeners();
+
+    // Send chunks over the wire.
+    bool allSent = true;
+    _repo.setUploadProgress(msgId, 0.0);
+    final chunks = MediaService.chunkPayloads(wavBytes, 'voice_${durationSeconds}s.wav',
+        mediaType: 'voice');
+    int i = 0;
+    for (final chunk in chunks) {
+      final bool ok;
+      if (isGroup) {
+        ok = await _sendGroupChunk(contact, chunk);
+      } else {
+        ok = await _sendToContact(contact, chunk);
+      }
+      if (!ok) { allSent = false; break; }
+      i++;
+      _repo.setUploadProgress(msgId, i / chunks.length);
+      _scheduleNotify();
+    }
+    _repo.clearUploadProgress(msgId);
+
+    final idx = room.messages.indexWhere((m) => m.id == msgId);
+    final finalMsg = localMsg.copyWith(status: allSent ? 'sent' : 'failed');
+    if (idx >= 0) room.messages[idx] = finalMsg;
+    unawaited(LocalStorageService().saveMessage(contact.id, finalMsg.toJson()));
+    notifyListeners();
   }
 
   /// Tier 2: Encrypt, upload to Blossom, send metadata message.
@@ -1981,7 +2219,7 @@ class ChatController extends ChangeNotifier {
   /// Tier 3 / group fallback: relay-based 32KB chunks (original behavior).
   Future<void> _sendViaRelayChunks(Contact contact, Uint8List bytes, String name,
       {String mediaType = 'file'}) async {
-    final totalChunks = (bytes.length / (32 * 1024)).ceil();
+    final totalChunks = (bytes.length / (8 * 1024)).ceil();
     final isGroup = contact.isGroup;
     final room = _repo.getOrCreateRoom(contact);
     final msgId = _uuid.v4();
@@ -2453,6 +2691,61 @@ class ChatController extends ChangeNotifier {
     }
     unawaited(broadcastAddressUpdate());
     _scheduleNotify();
+  }
+
+  // ── SmartRouter: per-contact address promotion ───────────────────────────
+
+  /// Promote [newPrimary] to the contact's main address (databaseId),
+  /// migrating Signal session + message history so nothing breaks.
+  Future<void> _promoteContactAddress(Contact contact, String newPrimary) async {
+    final oldPrimary = contact.databaseId;
+    if (newPrimary == oldPrimary) return;
+    debugPrint('[SmartRouter] Promoting $newPrimary → primary for ${contact.name} '
+        '(was $oldPrimary)');
+
+    // 1. Migrate Signal session from old address to new.
+    await _signalService.migrateSession(oldPrimary, newPrimary);
+
+    // 2. Migrate message history (room_id = storageKey = databaseId for DMs).
+    await LocalStorageService().migrateRoomId(oldPrimary, newPrimary);
+
+    // 3. Swap: newPrimary becomes databaseId, oldPrimary goes into alternates.
+    final updatedAlts = [...contact.alternateAddresses];
+    updatedAlts.remove(newPrimary);
+    updatedAlts.insert(0, oldPrimary); // old primary at the front for easy fallback
+
+    // Determine provider string for the new address.
+    final newProvider = _providerForAddress(newPrimary) ?? contact.provider;
+
+    final updated = contact.copyWith(
+      databaseId: newPrimary,
+      provider: newProvider,
+      alternateAddresses: updatedAlts,
+    );
+    await _contacts.updateContact(updated);
+
+    // 4. Reset per-contact delivery stats so we don't immediately re-promote.
+    _deliverySuccessCount.removeWhere((k, _) => k.startsWith('${contact.id}:'));
+    unawaited(_saveDeliveryStats());
+
+    // 5. Update in-memory room reference so new messages use the correct key.
+    _repo.updateRoomContact(updated);
+
+    debugPrint('[SmartRouter] Promotion complete: ${contact.name} → $newPrimary');
+  }
+
+  /// Infer the provider string ("Nostr", "Oxen", "Firebase", etc.) from an address.
+  String? _providerForAddress(String addr) {
+    if (addr.contains('@wss://') || addr.contains('@ws://')) return 'Nostr';
+    if (addr.contains('@https://') || addr.contains('@http://')) {
+      if (addr.contains('firebaseio.com') || addr.contains('firebase')) {
+        return 'Firebase';
+      }
+      return 'Waku';
+    }
+    if (addr.length == 66 && addr.startsWith('05')) return 'Oxen';
+    if (addr.contains('pulse://') || addr.contains('@pulse://')) return 'Pulse';
+    return null;
   }
 
   // ── Reactions ─────────────────────────────────────────────────────────────

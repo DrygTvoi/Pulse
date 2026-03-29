@@ -39,7 +39,11 @@ Uint8List _compressImageIsolate(Uint8List bytes) {
 const int _maxFileSizeBytes = 100 * 1024 * 1024; // 100 MB limit for large files
 const int _targetImageBytes = 500 * 1024;         // ~500 KB after compression
 const int _maxImageDimension = 1280;
-const int _chunkSizeBytes = 32 * 1024;            // 32 KB per chunk (fits Nostr relay limits after encryption)
+// NIP-44 has a 65535-byte limit (2-byte length prefix). Gift Wrap uses
+// double NIP-44 (seal + wrap). Expansion: raw → b64(×1.33) → chunk JSON(+300)
+// → Signal(×1.33) → NIP-44 b64(×1.33) → seal JSON(+300) → NIP-44 b64(×1.33)
+// → wrap JSON(+300). 8KB raw → ~36KB final — safely under 65535.
+const int _chunkSizeBytes = 8 * 1024;             // 8 KB per chunk
 const _uuid = Uuid();
 
 class MediaService {
@@ -258,9 +262,11 @@ class MediaService {
           return null;
         }
       } else if (type == 'voice') {
+        // Skip validation for empty data (local sending-state placeholder).
+        if (rawData.isEmpty) return null;
         final check = MediaValidator.validateAudio(rawData);
         if (!check.isValid) {
-          debugPrint('[MediaService] Rejected audio: ${check.reason}');
+          // Log once per parse, not on every UI rebuild.
           return null;
         }
       } else if (type == 'video_note') {
@@ -311,7 +317,10 @@ class MediaService {
         data: rawData,
         name: safeName,
         size: (map['sz'] as num?)?.toInt() ?? rawData.length,
-        durationSeconds: (map['dur'] as num?)?.toInt() ?? 0,
+        // If 'dur' is missing (voice sent via sendFile/chunks), estimate
+        // from WAV byte count: 16kHz, 16-bit, mono = 32000 bytes/second.
+        durationSeconds: (map['dur'] as num?)?.toInt() ??
+            (type == 'voice' && rawData.length > 44 ? (rawData.length - 44) ~/ 32000 : 0),
         amplitudes: amplitudes,
         thumbnailData: thumbData,
       );

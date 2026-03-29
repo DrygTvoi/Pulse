@@ -9,6 +9,19 @@ import 'media_validator.dart';
 // Number of amplitude samples stored in the waveform (shown as bars in the bubble).
 const _waveformBars = 30;
 
+/// Raw voice recording data returned by [VoiceService.stopRecordingRaw].
+class VoiceRecording {
+  final Uint8List wavBytes;
+  final int durationSeconds;
+  final List<double> amplitudes; // normalised 0..1
+
+  const VoiceRecording({
+    required this.wavBytes,
+    required this.durationSeconds,
+    required this.amplitudes,
+  });
+}
+
 /// Handles voice message recording.
 /// Playback is handled per-bubble via audioplayers (see message_bubble.dart).
 class VoiceService {
@@ -70,6 +83,29 @@ class VoiceService {
 
   /// Stop recording and return the encoded voice message payload, or null on error.
   Future<String?> stopRecording() async {
+    final raw = await stopRecordingRaw();
+    if (raw == null) return null;
+    try {
+      final compressed = gzip.encode(raw.wavBytes);
+      final b64 = base64Encode(compressed);
+      final ampInt = raw.amplitudes.map((v) => (v * 100).round()).toList();
+      return jsonEncode({
+        't': 'voice',
+        'd': b64,
+        'dur': raw.durationSeconds,
+        'sz': raw.wavBytes.length,
+        'amp': ampInt,
+        'z': true,
+      });
+    } catch (e) {
+      debugPrint('[VoiceService] stopRecording error: $e');
+      return null;
+    }
+  }
+
+  /// Stop recording and return raw WAV bytes + metadata.
+  /// Used by chat_screen to decide inline vs sendFile routing.
+  Future<VoiceRecording?> stopRecordingRaw() async {
     if (!isRecording) return null;
     _ampTimer?.cancel();
     _ampTimer = null;
@@ -82,23 +118,14 @@ class VoiceService {
       final bytes = await File(path).readAsBytes();
       await File(path).delete().catchError((_) => File(path));
       if (bytes.isEmpty) return null;
-      // GZIP compress WAV before base64 — typically ~70% smaller.
-      final compressed = gzip.encode(bytes);
-      final b64 = base64Encode(compressed);
-      // Downsample / upsample to exactly _waveformBars values
       final amp = _resample(_amplitudeSamples, _waveformBars);
-      // Encode as integers 0-100 to keep JSON small
-      final ampInt = amp.map((v) => (v * 100).round()).toList();
-      return jsonEncode({
-        't': 'voice',
-        'd': b64,
-        'dur': duration,
-        'sz': bytes.length, // original uncompressed size
-        'amp': ampInt,
-        'z': true,          // gzip-compressed flag
-      });
+      return VoiceRecording(
+        wavBytes: Uint8List.fromList(bytes),
+        durationSeconds: duration,
+        amplitudes: amp,
+      );
     } catch (e) {
-      debugPrint('[VoiceService] stopRecording error: $e');
+      debugPrint('[VoiceService] stopRecordingRaw error: $e');
       return null;
     }
   }

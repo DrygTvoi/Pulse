@@ -423,9 +423,9 @@ class _ChatScreenState extends State<ChatScreen> {
     HapticFeedback.lightImpact();
     _recordingTimer?.cancel();
     final wasRecording = _recordingSeconds > 0;
-    final payload = await VoiceService().stopRecording();
+    final recording = await VoiceService().stopRecordingRaw();
     setState(() { _isRecording = false; _recordingSeconds = 0; });
-    if (payload == null) {
+    if (recording == null) {
       if (wasRecording && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text(context.l10n.chatVoiceFailed),
@@ -435,7 +435,9 @@ class _ChatScreenState extends State<ChatScreen> {
       return;
     }
     if (!mounted) return;
-    await context.read<ChatController>().sendMessage(_contact, payload);
+    final chat = context.read<ChatController>();
+    await chat.sendVoice(_contact, recording.wavBytes,
+        recording.durationSeconds, recording.amplitudes);
     WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
   }
 
