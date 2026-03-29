@@ -637,6 +637,9 @@ class ConnectivityProbeService {
         }
         // Store as a "probe-suggested" relay; adapters prefer this over default
         await prefs.setString('probe_nostr_relay', relay);
+        // Also update the active relay so future QR/links use the best route.
+        // The identity config is NOT changed — it's just the initial seed.
+        await prefs.setString('nostr_relay', relay);
         debugPrint('[Probe] Best Nostr relay: $relay');
       }
       if (_last.oxenNodes.isNotEmpty) {

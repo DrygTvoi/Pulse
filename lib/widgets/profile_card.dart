@@ -368,9 +368,8 @@ class InboxAddressCard extends StatelessWidget {
                 if (address != addresses.last) const SizedBox(height: 6),
               ],
               const SizedBox(height: 10),
-              // Share All button (multi-address invite link)
-              if (addresses.length > 1)
-                _ShareAllButton(addresses: addresses),
+              // Share button — uses shareableAddresses (multi-relay) for max reachability
+              _ShareAllButton(addresses: ChatController().shareableAddresses),
               const SizedBox(height: 6),
               Text('Share with contacts so they can message you.',
                   style: GoogleFonts.inter(
@@ -400,8 +399,10 @@ class _ShareAllButton extends StatelessWidget {
     final link = 'pulse://add?cfg=${base64Encode(utf8.encode(cfg))}';
     await Clipboard.setData(ClipboardData(text: link));
     if (!context.mounted) return;
+    final n = addresses.length;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text('All ${addresses.length} addresses copied as one link!',
+      content: Text(
+          n > 1 ? '$n addresses copied as one link!' : 'Invite link copied!',
           style: GoogleFonts.inter()),
       backgroundColor: AppTheme.primary,
       behavior: SnackBarBehavior.floating,
@@ -425,7 +426,10 @@ class _ShareAllButton extends StatelessWidget {
         child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
           Icon(Icons.link_rounded, size: 14, color: AppTheme.primary),
           const SizedBox(width: 6),
-          Text('Share All Addresses (SmartRouter)',
+          Text(
+              addresses.length > 1
+                  ? 'Share Invite Link (${addresses.length} routes)'
+                  : 'Share Invite Link',
               style: GoogleFonts.inter(
                   color: AppTheme.primary,
                   fontSize: 12,
