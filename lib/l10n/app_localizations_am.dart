@@ -479,6 +479,15 @@ class AppLocalizationsAm extends AppLocalizations {
   String get setupTapToChangeColor => 'ቀለም ለመቀየር መታ ያድርጉ';
 
   @override
+  String get setupReqMinLength => 'At least 16 characters';
+
+  @override
+  String get setupReqVariety => '3 of 4: uppercase, lowercase, digits, symbols';
+
+  @override
+  String get setupReqMatch => 'Passwords match';
+
+  @override
   String get setupYourNickname => 'ቅጽል ስምዎ';
 
   @override

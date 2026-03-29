@@ -489,6 +489,15 @@ class AppLocalizationsMy extends AppLocalizations {
   String get setupTapToChangeColor => 'အရောင်ပြောင်းရန် နှိပ်ပါ';
 
   @override
+  String get setupReqMinLength => 'At least 16 characters';
+
+  @override
+  String get setupReqVariety => '3 of 4: uppercase, lowercase, digits, symbols';
+
+  @override
+  String get setupReqMatch => 'Passwords match';
+
+  @override
   String get setupYourNickname => 'သင့်အမည်';
 
   @override

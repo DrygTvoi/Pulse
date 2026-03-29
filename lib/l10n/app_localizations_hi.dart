@@ -486,6 +486,15 @@ class AppLocalizationsHi extends AppLocalizations {
   String get setupTapToChangeColor => 'रंग बदलने के लिए टैप करें';
 
   @override
+  String get setupReqMinLength => 'At least 16 characters';
+
+  @override
+  String get setupReqVariety => '3 of 4: uppercase, lowercase, digits, symbols';
+
+  @override
+  String get setupReqMatch => 'Passwords match';
+
+  @override
   String get setupYourNickname => 'आपका उपनाम';
 
   @override

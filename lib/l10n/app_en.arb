@@ -210,6 +210,9 @@
 
   "setupCreateAnonymousAccount": "Create an anonymous account",
   "setupTapToChangeColor": "Tap to change color",
+  "setupReqMinLength": "At least 16 characters",
+  "setupReqVariety": "3 of 4: uppercase, lowercase, digits, symbols",
+  "setupReqMatch": "Passwords match",
   "setupYourNickname": "Your nickname",
   "setupRecoveryPassword": "Recovery password (min. 16)",
   "setupConfirmPassword": "Confirm password",
