@@ -55,14 +55,13 @@ void main() {
     test('filters out non-WebSocket URLs', () {
       final body = jsonEncode([
         'wss://relay.damus.io',
-        'https://example.com',  // not ws/wss
-        'http://plain.com',     // not ws/wss
-        'ws://insecure-relay.com',
+        'https://example.com',  // not wss
+        'http://plain.com',     // not wss
+        'ws://insecure-relay.com', // cleartext ws:// rejected
       ]);
       final result = service.parseApiResponse(body);
-      expect(result, hasLength(2));
+      expect(result, hasLength(1)); // only wss:// allowed
       expect(result, contains('wss://relay.damus.io'));
-      expect(result, contains('ws://insecure-relay.com'));
     });
 
     test('skips empty URLs', () {

@@ -35,7 +35,7 @@ void main() {
     test('cacheContactKyberPk stores key in memory', () {
       final km = KeyManager(SignalService(), PqcService());
       final bundle = <String, dynamic>{
-        'kyberPublicKey': List<int>.filled(32, 0xAB),
+        'kyberPublicKey': List<int>.filled(1568, 0xAB),
       };
       km.cacheContactKyberPk('contact1', bundle);
       expect(km.hasPqcKey('contact1'), isTrue);
@@ -49,11 +49,11 @@ void main() {
 
     test('loadContactKyberPk returns cached value', () async {
       final km = KeyManager(SignalService(), PqcService());
-      final pk = List<int>.filled(16, 0x99);
+      final pk = List<int>.filled(1568, 0x99);
       km.cacheContactKyberPk('contact3', {'kyberPublicKey': pk});
       final loaded = await km.loadContactKyberPk('contact3');
       expect(loaded, isNotNull);
-      expect(loaded!.length, equals(16));
+      expect(loaded!.length, equals(1568));
     });
   });
 
@@ -99,7 +99,7 @@ void main() {
     test('returns true only after caching', () {
       final km = KeyManager(SignalService(), PqcService());
       expect(km.hasPqcKey('x'), isFalse);
-      km.cacheContactKyberPk('x', {'kyberPublicKey': [1, 2, 3]});
+      km.cacheContactKyberPk('x', {'kyberPublicKey': List<int>.filled(1568, 0x42)});
       expect(km.hasPqcKey('x'), isTrue);
     });
   });

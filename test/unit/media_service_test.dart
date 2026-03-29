@@ -205,10 +205,11 @@ void main() {
       expect(parsed['sz'], equals(1024));
     });
 
-    test('multiple chunks for data > 32 KB', () {
-      final data = Uint8List(32 * 1024 + 100); // just over 32 KB
+    test('multiple chunks for data > 8 KB', () {
+      final data = Uint8List(32 * 1024 + 100); // well over 8 KB chunk size
       final chunks = MediaService.chunkPayloads(data, 'big.bin');
-      expect(chunks.length, equals(2)); // ceil((32*1024+100) / (32*1024)) = 2
+      // Chunk size is 8 KB: ceil((32*1024+100) / (8*1024)) = 5
+      expect(chunks.length, equals(5));
       // First chunk should have name and size metadata
       final first = jsonDecode(chunks.first) as Map<String, dynamic>;
       expect(first['t'], equals('chunk'));
@@ -216,7 +217,7 @@ void main() {
       expect(first['sz'], equals(data.length));
       expect(first['mt'], equals('file'));
       expect(first['idx'], equals(0));
-      expect(first['total'], equals(2));
+      expect(first['total'], equals(5));
       expect(first.containsKey('h'), isTrue); // SHA-256 hash present
       // Second chunk should NOT have name/size metadata
       final second = jsonDecode(chunks[1]) as Map<String, dynamic>;
@@ -224,7 +225,7 @@ void main() {
       expect(second.containsKey('n'), isFalse);
       expect(second.containsKey('sz'), isFalse);
       expect(second['idx'], equals(1));
-      expect(second['total'], equals(2));
+      expect(second['total'], equals(5));
     });
 
     test('respects custom mediaType parameter', () {

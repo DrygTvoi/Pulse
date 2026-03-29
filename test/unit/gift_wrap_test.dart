@@ -67,8 +67,9 @@ void main() {
         innerContent: 'test',
       );
       final ts = wrapped['created_at'] as int;
-      // Should be within 1 hour + some slack
-      expect((ts - now).abs(), lessThan(3600 + 10));
+      // Backward-only jitter: ts <= now, ts >= now - 7200
+      expect(ts, lessThanOrEqualTo(now + 5)); // small clock tolerance
+      expect(ts, greaterThanOrEqualTo(now - 7200 - 5));
     });
 
     test('inner event signature is verified', () async {

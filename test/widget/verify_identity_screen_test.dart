@@ -14,6 +14,8 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:flutter_secure_storage/test/test_flutter_secure_storage_platform.dart';
+import 'package:flutter_secure_storage_platform_interface/flutter_secure_storage_platform_interface.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -46,6 +48,10 @@ void main() {
 
   setUp(() {
     setUpSecureStorageMock();
+    // Install a proper platform-level mock so FlutterSecureStorage read/write
+    // calls resolve via the platform interface instead of the method channel.
+    FlutterSecureStoragePlatform.instance =
+        TestFlutterSecureStoragePlatform({});
     createTestChatController();
     SharedPreferences.setMockInitialValues({});
   });
@@ -118,7 +124,10 @@ void main() {
           contactId: 'contact-123',
         ),
       ));
-      await tester.pumpAndSettle();
+      // _load() is async — use runAsync to let futures resolve, then pump
+      // to process the setState that clears the loading spinner.
+      await tester.runAsync(() => Future.delayed(const Duration(milliseconds: 200)));
+      await tester.pump();
 
       // After loading, either the verified or shield icon should appear
       final hasVerified = find.byIcon(Icons.verified_user_rounded);
