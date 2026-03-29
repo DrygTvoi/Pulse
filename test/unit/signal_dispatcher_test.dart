@@ -197,6 +197,7 @@ void main() {
         {
           'type': 'reaction',
           'senderId': 'alice@wss://relay',
+          'adapterType': 'nostr',
           'payload': {
             'msgId': 'msg1',
             'emoji': '👍',
@@ -221,6 +222,7 @@ void main() {
         {
           'type': 'reaction',
           'senderId': 'alice@wss://relay',
+          'adapterType': 'nostr',
           'payload': {
             'msgId': 'msg1',
             'emoji': '👎',
@@ -251,6 +253,7 @@ void main() {
         {
           'type': 'reaction',
           'senderId': 'alice@wss://relay',
+          'adapterType': 'nostr',
           'payload': {
             'msgId': 'msg1',
             'emoji': '❤️',
@@ -274,6 +277,7 @@ void main() {
         {
           'type': 'reaction',
           'senderId': 'alice@wss://relay',
+          'adapterType': 'nostr',
           'payload': {'msgId': '', 'emoji': '👍', 'from': 'alice@wss://relay'},
         },
       ]);
@@ -319,6 +323,7 @@ void main() {
         {
           'type': 'heartbeat',
           'senderId': 'bob@wss://relay',
+          'adapterType': 'nostr',
           'payload': {'from': 'bob@wss://relay'},
         },
       ]);
@@ -760,6 +765,7 @@ void main() {
         {
           'type': 'group_invite_decline',
           'senderId': 'alice@wss://relay',
+          'adapterType': 'nostr',
           'payload': {'groupId': 'g99', 'from': 'alice@wss://relay'},
         },
       ]);

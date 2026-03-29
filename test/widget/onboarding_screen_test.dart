@@ -1,7 +1,7 @@
 // Widget tests for OnboardingScreen (lib/screens/onboarding_screen.dart).
 //
-// Tests focus on: PageView rendering, dot indicators, Skip/Next buttons,
-// page navigation, and the "Get Started" text on the last page.
+// The onboarding screen is a single-page welcome screen with the Pulse logo,
+// app name, subtitle, a "Get Started" button, and a language picker link.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -38,114 +38,98 @@ void main() {
   });
 
   group('OnboardingScreen', () {
-    // ── Test 1: Renders a PageView ────────────────────────────────────────────
+    // ── Test 1: Renders the Pulse app name ──────────────────────────────────
 
-    testWidgets('renders a PageView', (WidgetTester tester) async {
+    testWidgets('renders the Pulse app name', (WidgetTester tester) async {
       await tester.pumpWidget(buildTestableWidget(
         const OnboardingScreen(),
       ));
       await tester.pumpAndSettle();
 
-      expect(find.byType(PageView), findsOneWidget);
+      expect(find.text('Pulse'), findsOneWidget);
     });
 
-    // ── Test 2: Displays Skip button ──────────────────────────────────────────
+    // ── Test 2: Renders the shield logo icon ────────────────────────────────
 
-    testWidgets('displays Skip button', (WidgetTester tester) async {
+    testWidgets('renders the shield logo icon', (WidgetTester tester) async {
       await tester.pumpWidget(buildTestableWidget(
         const OnboardingScreen(),
       ));
       await tester.pumpAndSettle();
 
-      expect(find.text('Skip'), findsOneWidget);
+      expect(find.byIcon(Icons.shield_rounded), findsOneWidget);
     });
 
-    // ── Test 3: Displays Next button on first page ────────────────────────────
+    // ── Test 3: Displays Get Started button ─────────────────────────────────
 
-    testWidgets('displays Next button on first page',
-        (WidgetTester tester) async {
+    testWidgets('displays Get Started button', (WidgetTester tester) async {
       await tester.pumpWidget(buildTestableWidget(
         const OnboardingScreen(),
       ));
       await tester.pumpAndSettle();
-
-      expect(find.text('Next'), findsOneWidget);
-    });
-
-    // ── Test 4: Has 5 dot indicators ──────────────────────────────────────────
-
-    testWidgets('has 5 dot indicators (AnimatedContainer)',
-        (WidgetTester tester) async {
-      await tester.pumpWidget(buildTestableWidget(
-        const OnboardingScreen(),
-      ));
-      await tester.pumpAndSettle();
-
-      // 5 pages = 5 AnimatedContainer dots
-      expect(find.byType(AnimatedContainer), findsNWidgets(5));
-    });
-
-    // ── Test 5: Shows welcome title on first page ─────────────────────────────
-
-    testWidgets('shows welcome title on first page',
-        (WidgetTester tester) async {
-      await tester.pumpWidget(buildTestableWidget(
-        const OnboardingScreen(),
-      ));
-      await tester.pumpAndSettle();
-
-      expect(find.text('Welcome to Pulse'), findsOneWidget);
-    });
-
-    // ── Test 6: Swiping to second page changes content ────────────────────────
-
-    testWidgets('swiping to second page shows Transport-Agnostic title',
-        (WidgetTester tester) async {
-      await tester.pumpWidget(buildTestableWidget(
-        const OnboardingScreen(),
-      ));
-      await tester.pumpAndSettle();
-
-      // Swipe left to go to page 2
-      await tester.drag(find.byType(PageView), const Offset(-400, 0));
-      await tester.pumpAndSettle();
-
-      expect(find.text('Transport-Agnostic'), findsOneWidget);
-    });
-
-    // ── Test 7: Next button advances to the next page ─────────────────────────
-
-    testWidgets('tapping Next advances to the next page',
-        (WidgetTester tester) async {
-      await tester.pumpWidget(buildTestableWidget(
-        const OnboardingScreen(),
-      ));
-      await tester.pumpAndSettle();
-
-      // Tap Next
-      await tester.tap(find.text('Next'));
-      await tester.pumpAndSettle();
-
-      expect(find.text('Transport-Agnostic'), findsOneWidget);
-    });
-
-    // ── Test 8: Last page shows "Get Started" button ──────────────────────────
-
-    testWidgets('last page shows "Get Started" button',
-        (WidgetTester tester) async {
-      await tester.pumpWidget(buildTestableWidget(
-        const OnboardingScreen(),
-      ));
-      await tester.pumpAndSettle();
-
-      // Navigate to the last page (page index 4) by tapping Next 4 times
-      for (int i = 0; i < 4; i++) {
-        final buttonText = i < 4 ? 'Next' : 'Get Started';
-        await tester.tap(find.text(buttonText));
-        await tester.pumpAndSettle();
-      }
 
       expect(find.text('Get Started'), findsOneWidget);
+    });
+
+    // ── Test 4: Has a FilledButton ──────────────────────────────────────────
+
+    testWidgets('has a FilledButton for Get Started',
+        (WidgetTester tester) async {
+      await tester.pumpWidget(buildTestableWidget(
+        const OnboardingScreen(),
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(FilledButton), findsOneWidget);
+    });
+
+    // ── Test 5: Shows subtitle text from l10n ───────────────────────────────
+
+    testWidgets('shows subtitle text', (WidgetTester tester) async {
+      await tester.pumpWidget(buildTestableWidget(
+        const OnboardingScreen(),
+      ));
+      await tester.pumpAndSettle();
+
+      // The subtitle is the first line of onboardingWelcomeBody
+      expect(
+        find.text('A decentralized, end-to-end encrypted messenger.'),
+        findsOneWidget,
+      );
+    });
+
+    // ── Test 6: Shows language picker link ───────────────────────────────────
+
+    testWidgets('shows language picker link', (WidgetTester tester) async {
+      await tester.pumpWidget(buildTestableWidget(
+        const OnboardingScreen(),
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('Continue in'), findsOneWidget);
+    });
+
+    // ── Test 7: Has a language icon ─────────────────────────────────────────
+
+    testWidgets('has a language icon', (WidgetTester tester) async {
+      await tester.pumpWidget(buildTestableWidget(
+        const OnboardingScreen(),
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.byIcon(Icons.language_rounded), findsOneWidget);
+    });
+
+    // ── Test 8: Get Started button is tappable ──────────────────────────────
+
+    testWidgets('Get Started button is tappable', (WidgetTester tester) async {
+      await tester.pumpWidget(buildTestableWidget(
+        const OnboardingScreen(),
+      ));
+      await tester.pumpAndSettle();
+
+      final button = tester.widget<FilledButton>(find.byType(FilledButton));
+      expect(button.onPressed, isNotNull);
     });
   });
 }

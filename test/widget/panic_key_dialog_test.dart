@@ -13,6 +13,8 @@ import 'package:pulse_messenger/l10n/app_localizations.dart';
 import 'package:pulse_messenger/theme/theme_manager.dart';
 import 'package:pulse_messenger/widgets/panic_key_dialog.dart';
 
+import '../helpers/test_mocks.dart';
+
 Widget buildTestableWidget(Widget child) {
   return ChangeNotifierProvider<ThemeNotifier>.value(
     value: ThemeNotifier.instance,
@@ -38,6 +40,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   setUp(() {
+    setUpSecureStorageMock();
     SharedPreferences.setMockInitialValues({});
   });
 
@@ -184,9 +187,11 @@ void main() {
       await tester.enterText(textFields.last, 'validpanic123');
 
       await tester.tap(find.byType(FilledButton));
-      // Use pump (not pumpAndSettle) — dialog may have continuous animation.
+      // Use runAsync to allow real async operations to complete
+      await tester.runAsync(() async {
+        await Future.delayed(const Duration(milliseconds: 500));
+      });
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 300));
 
       expect(savedKey, 'validpanic123');
     });
