@@ -2560,4 +2560,23 @@ class AppLocalizationsUk extends AppLocalizations {
   @override
   String get onboardingLanguageSubtitle =>
       'You can change this later in Settings';
+
+  @override
+  String get videoNoteRecord => 'Записати відеоповідомлення';
+
+  @override
+  String get videoNoteTapToRecord => 'Торкніться для запису';
+
+  @override
+  String get videoNoteTapToStop => 'Торкніться для зупинки';
+
+  @override
+  String get videoNoteCameraPermission => 'Доступ до камери заборонено';
+
+  @override
+  String get videoNoteMaxDuration => 'Максимум 30 секунд';
+
+  @override
+  String get videoNoteNotSupported =>
+      'Відеонотатки не підтримуються на цій платформі';
 }

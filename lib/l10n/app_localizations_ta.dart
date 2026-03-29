@@ -2584,4 +2584,23 @@ class AppLocalizationsTa extends AppLocalizations {
 
   @override
   String get onboardingLanguageSubtitle => 'பின்னர் அமைப்புகளில் மாற்றலாம்';
+
+  @override
+  String get videoNoteRecord => 'வீடியோ செய்தி பதிவு செய்யவும்';
+
+  @override
+  String get videoNoteTapToRecord => 'பதிவு செய்ய தட்டவும்';
+
+  @override
+  String get videoNoteTapToStop => 'நிறுத்த தட்டவும்';
+
+  @override
+  String get videoNoteCameraPermission => 'கேமரா அனுமதி மறுக்கப்பட்டது';
+
+  @override
+  String get videoNoteMaxDuration => 'அதிகபட்சம் 30 வினாடிகள்';
+
+  @override
+  String get videoNoteNotSupported =>
+      'இந்த தளத்தில் வீடியோ குறிப்புகள் ஆதரிக்கப்படவில்லை';
 }

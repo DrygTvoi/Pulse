@@ -748,5 +748,11 @@
   "settingsLanguageSubtitle": "Հավելվածի ցուցադրման լեզուը",
   "settingsLanguageSystem": "Համակարգի լիպելյան",
   "onboardingLanguageTitle": "Ընտրեք ձեր լեզուը",
-  "onboardingLanguageSubtitle": "Դուք կարող եք փոխել հետո կարգավորումներում"
+  "onboardingLanguageSubtitle": "Դուք կարող եք փոխել հետո կարգավորումներում",
+  "videoNoteRecord": "Ձայնագրել վիդեո հաղորդագրություն",
+  "videoNoteTapToRecord": "Հпեք ձայнагрелու համար",
+  "videoNoteTapToStop": "Հпեք կангнецнелու համар",
+  "videoNoteCameraPermission": "Тեсахцикի тհуйлтвутһюнը мерждвад է",
+  "videoNoteMaxDuration": "Аռавелагуйнը 30 вайркян",
+  "videoNoteNotSupported": "Видео ншумнерը чен аджакцвум айс հарդакум"
 }

@@ -2465,4 +2465,22 @@ class AppLocalizationsKo extends AppLocalizations {
   @override
   String get onboardingLanguageSubtitle =>
       'You can change this later in Settings';
+
+  @override
+  String get videoNoteRecord => '동영상 메시지 녹화';
+
+  @override
+  String get videoNoteTapToRecord => '탭하여 녹화';
+
+  @override
+  String get videoNoteTapToStop => '탭하여 중지';
+
+  @override
+  String get videoNoteCameraPermission => '카메라 권한이 거부되었습니다';
+
+  @override
+  String get videoNoteMaxDuration => '최대 30초';
+
+  @override
+  String get videoNoteNotSupported => '이 플랫폼에서는 동영상 노트를 지원하지 않습니다';
 }

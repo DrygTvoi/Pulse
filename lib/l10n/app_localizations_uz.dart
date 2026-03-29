@@ -2574,4 +2574,23 @@ class AppLocalizationsUz extends AppLocalizations {
   @override
   String get onboardingLanguageSubtitle =>
       'Buni keyinroq Sozlamalarda oʻzgartirishingiz mumkin';
+
+  @override
+  String get videoNoteRecord => 'Video xabar yozish';
+
+  @override
+  String get videoNoteTapToRecord => 'Yozish uchun bosing';
+
+  @override
+  String get videoNoteTapToStop => 'To\'xtatish uchun bosing';
+
+  @override
+  String get videoNoteCameraPermission => 'Kameraga ruxsat rad etildi';
+
+  @override
+  String get videoNoteMaxDuration => 'Maksimal 30 soniya';
+
+  @override
+  String get videoNoteNotSupported =>
+      'Video eslatmalar ushbu platformada qo\'llab-quvvatlanmaydi';
 }

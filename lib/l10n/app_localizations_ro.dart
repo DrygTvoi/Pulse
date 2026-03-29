@@ -2567,4 +2567,23 @@ class AppLocalizationsRo extends AppLocalizations {
 
   @override
   String get onboardingLanguageSubtitle => 'Poți schimba mai târziu din Setări';
+
+  @override
+  String get videoNoteRecord => 'Înregistrează mesaj video';
+
+  @override
+  String get videoNoteTapToRecord => 'Atinge pentru a înregistra';
+
+  @override
+  String get videoNoteTapToStop => 'Atinge pentru a opri';
+
+  @override
+  String get videoNoteCameraPermission => 'Permisiunea camerei a fost refuzată';
+
+  @override
+  String get videoNoteMaxDuration => 'Maximum 30 de secunde';
+
+  @override
+  String get videoNoteNotSupported =>
+      'Notele video nu sunt acceptate pe această platformă';
 }

@@ -2549,4 +2549,23 @@ class AppLocalizationsNo extends AppLocalizations {
   @override
   String get onboardingLanguageSubtitle =>
       'Du kan endre dette senere i Innstillinger';
+
+  @override
+  String get videoNoteRecord => 'Ta opp videomelding';
+
+  @override
+  String get videoNoteTapToRecord => 'Trykk for å ta opp';
+
+  @override
+  String get videoNoteTapToStop => 'Trykk for å stoppe';
+
+  @override
+  String get videoNoteCameraPermission => 'Kameratilgang avslått';
+
+  @override
+  String get videoNoteMaxDuration => 'Maks 30 sekunder';
+
+  @override
+  String get videoNoteNotSupported =>
+      'Videonotater støttes ikke på denne plattformen';
 }

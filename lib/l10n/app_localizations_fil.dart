@@ -2575,4 +2575,24 @@ class AppLocalizationsFil extends AppLocalizations {
 
   @override
   String get onboardingLanguageSubtitle => 'Mababago mo ito mamaya sa Settings';
+
+  @override
+  String get videoNoteRecord => 'I-record ang video message';
+
+  @override
+  String get videoNoteTapToRecord => 'I-tap para mag-record';
+
+  @override
+  String get videoNoteTapToStop => 'I-tap para ihinto';
+
+  @override
+  String get videoNoteCameraPermission =>
+      'Tinanggihan ang pahintulot sa camera';
+
+  @override
+  String get videoNoteMaxDuration => 'Maximum na 30 segundo';
+
+  @override
+  String get videoNoteNotSupported =>
+      'Hindi sinusuportahan ang mga video note sa platform na ito';
 }

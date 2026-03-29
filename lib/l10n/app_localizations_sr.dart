@@ -2565,4 +2565,23 @@ class AppLocalizationsSr extends AppLocalizations {
   @override
   String get onboardingLanguageSubtitle =>
       'Можете ово променити касније у Подешавањима';
+
+  @override
+  String get videoNoteRecord => 'Сними видео поруку';
+
+  @override
+  String get videoNoteTapToRecord => 'Додирните за снимање';
+
+  @override
+  String get videoNoteTapToStop => 'Додирните за заустављање';
+
+  @override
+  String get videoNoteCameraPermission => 'Приступ камери одбијен';
+
+  @override
+  String get videoNoteMaxDuration => 'Максимално 30 секунди';
+
+  @override
+  String get videoNoteNotSupported =>
+      'Видео белешке нису подржане на овој платформи';
 }

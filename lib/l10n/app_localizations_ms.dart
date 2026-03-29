@@ -2562,4 +2562,23 @@ class AppLocalizationsMs extends AppLocalizations {
   @override
   String get onboardingLanguageSubtitle =>
       'Anda boleh menukar ini kemudian di Tetapan';
+
+  @override
+  String get videoNoteRecord => 'Rakam mesej video';
+
+  @override
+  String get videoNoteTapToRecord => 'Ketuk untuk merakam';
+
+  @override
+  String get videoNoteTapToStop => 'Ketuk untuk berhenti';
+
+  @override
+  String get videoNoteCameraPermission => 'Kebenaran kamera ditolak';
+
+  @override
+  String get videoNoteMaxDuration => 'Maksimum 30 saat';
+
+  @override
+  String get videoNoteNotSupported =>
+      'Nota video tidak disokong pada platform ini';
 }

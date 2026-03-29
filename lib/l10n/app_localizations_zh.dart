@@ -2446,4 +2446,22 @@ class AppLocalizationsZh extends AppLocalizations {
   @override
   String get onboardingLanguageSubtitle =>
       'You can change this later in Settings';
+
+  @override
+  String get videoNoteRecord => '录制视频消息';
+
+  @override
+  String get videoNoteTapToRecord => '点击开始录制';
+
+  @override
+  String get videoNoteTapToStop => '点击停止';
+
+  @override
+  String get videoNoteCameraPermission => '相机权限被拒绝';
+
+  @override
+  String get videoNoteMaxDuration => '最长30秒';
+
+  @override
+  String get videoNoteNotSupported => '此平台不支持视频备注';
 }

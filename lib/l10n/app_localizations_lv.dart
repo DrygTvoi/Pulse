@@ -2566,4 +2566,23 @@ class AppLocalizationsLv extends AppLocalizations {
   @override
   String get onboardingLanguageSubtitle =>
       'Jūs varat to mainīt vēlāk Iestatījumos';
+
+  @override
+  String get videoNoteRecord => 'Ierakstīt video ziņu';
+
+  @override
+  String get videoNoteTapToRecord => 'Pieskarieties, lai ierakstītu';
+
+  @override
+  String get videoNoteTapToStop => 'Pieskarieties, lai apturētu';
+
+  @override
+  String get videoNoteCameraPermission => 'Kameras atļauja liegta';
+
+  @override
+  String get videoNoteMaxDuration => 'Maksimāli 30 sekundes';
+
+  @override
+  String get videoNoteNotSupported =>
+      'Video piezīmes netiek atbalstītas šajā platformā';
 }

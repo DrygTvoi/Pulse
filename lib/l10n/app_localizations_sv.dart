@@ -2550,4 +2550,23 @@ class AppLocalizationsSv extends AppLocalizations {
   @override
   String get onboardingLanguageSubtitle =>
       'Du kan ändra detta senare i Inställningar';
+
+  @override
+  String get videoNoteRecord => 'Spela in videomeddelande';
+
+  @override
+  String get videoNoteTapToRecord => 'Tryck för att spela in';
+
+  @override
+  String get videoNoteTapToStop => 'Tryck för att stoppa';
+
+  @override
+  String get videoNoteCameraPermission => 'Kameraåtkomst nekad';
+
+  @override
+  String get videoNoteMaxDuration => 'Maximalt 30 sekunder';
+
+  @override
+  String get videoNoteNotSupported =>
+      'Videoanteckningar stöds inte på den här plattformen';
 }

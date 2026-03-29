@@ -2551,4 +2551,23 @@ class AppLocalizationsDa extends AppLocalizations {
   @override
   String get onboardingLanguageSubtitle =>
       'Du kan ændre dette senere i Indstillinger';
+
+  @override
+  String get videoNoteRecord => 'Optag en videobesked';
+
+  @override
+  String get videoNoteTapToRecord => 'Tryk for at optage';
+
+  @override
+  String get videoNoteTapToStop => 'Tryk for at stoppe';
+
+  @override
+  String get videoNoteCameraPermission => 'Kameraadgang nægtet';
+
+  @override
+  String get videoNoteMaxDuration => 'Maksimalt 30 sekunder';
+
+  @override
+  String get videoNoteNotSupported =>
+      'Videonoter understøttes ikke på denne platform';
 }

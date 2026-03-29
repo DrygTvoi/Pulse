@@ -2597,4 +2597,23 @@ class AppLocalizationsCa extends AppLocalizations {
   @override
   String get onboardingLanguageSubtitle =>
       'Pots canviar-ho més tard a Configuració';
+
+  @override
+  String get videoNoteRecord => 'Enregistra un missatge de vídeo';
+
+  @override
+  String get videoNoteTapToRecord => 'Toca per enregistrar';
+
+  @override
+  String get videoNoteTapToStop => 'Toca per aturar';
+
+  @override
+  String get videoNoteCameraPermission => 'Permís de càmera denegat';
+
+  @override
+  String get videoNoteMaxDuration => 'Màxim 30 segons';
+
+  @override
+  String get videoNoteNotSupported =>
+      'Les notes de vídeo no estan admeses en aquesta plataforma';
 }

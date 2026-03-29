@@ -2554,4 +2554,23 @@ class AppLocalizationsKm extends AppLocalizations {
   @override
   String get onboardingLanguageSubtitle =>
       'អ្នកអាចផ្លាស់ប្តូរនេះពេលក្រោយក្នុងការកំណត់';
+
+  @override
+  String get videoNoteRecord => 'ថតសារវីដេអូ';
+
+  @override
+  String get videoNoteTapToRecord => 'ចុចដើម្បីថត';
+
+  @override
+  String get videoNoteTapToStop => 'ចុចដើម្បីឈប់';
+
+  @override
+  String get videoNoteCameraPermission => 'បានបដិសេធការអនុញ្ញាតកាមេរ៉ា';
+
+  @override
+  String get videoNoteMaxDuration => 'អតិបរមា 30 វិនាទី';
+
+  @override
+  String get videoNoteNotSupported =>
+      'កំណត់ចំណាំវីដេអូមិនត្រូវបានគាំទ្រនៅលើវេទិកានេះទេ';
 }

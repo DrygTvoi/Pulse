@@ -2567,4 +2567,23 @@ class AppLocalizationsAz extends AppLocalizations {
   @override
   String get onboardingLanguageSubtitle =>
       'Bunu sonra Parametrlərdən dəyişə bilərsiniz';
+
+  @override
+  String get videoNoteRecord => 'Video mesaj yaz';
+
+  @override
+  String get videoNoteTapToRecord => 'Yazmaq üçün toxunun';
+
+  @override
+  String get videoNoteTapToStop => 'Dayandırmaq üçün toxunun';
+
+  @override
+  String get videoNoteCameraPermission => 'Kamera icazəsi rədd edildi';
+
+  @override
+  String get videoNoteMaxDuration => 'Maksimum 30 saniyə';
+
+  @override
+  String get videoNoteNotSupported =>
+      'Video qeydlər bu platformada dəstəklənmir';
 }

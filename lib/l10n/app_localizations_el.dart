@@ -2585,4 +2585,23 @@ class AppLocalizationsEl extends AppLocalizations {
   @override
   String get onboardingLanguageSubtitle =>
       'Μπορείτε να το αλλάξετε αργότερα στις Ρυθμίσεις';
+
+  @override
+  String get videoNoteRecord => 'Εγγραφή βιντεομηνύματος';
+
+  @override
+  String get videoNoteTapToRecord => 'Πατήστε για εγγραφή';
+
+  @override
+  String get videoNoteTapToStop => 'Πατήστε για διακοπή';
+
+  @override
+  String get videoNoteCameraPermission => 'Άρνηση πρόσβασης κάμερας';
+
+  @override
+  String get videoNoteMaxDuration => 'Μέγιστο 30 δευτερόλεπτα';
+
+  @override
+  String get videoNoteNotSupported =>
+      'Οι σημειώσεις βίντεο δεν υποστηρίζονται σε αυτή την πλατφόρμα';
 }

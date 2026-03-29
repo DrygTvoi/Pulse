@@ -2508,4 +2508,22 @@ class AppLocalizationsAm extends AppLocalizations {
 
   @override
   String get onboardingLanguageSubtitle => 'ይህንን በኋላ በቅንብሮች ውስጥ ሊቀይሩት ይችላሉ';
+
+  @override
+  String get videoNoteRecord => 'ቪዲዮ መልዕክት ቅዳ';
+
+  @override
+  String get videoNoteTapToRecord => 'ለመቅዳት መታ ያድርጉ';
+
+  @override
+  String get videoNoteTapToStop => 'ለማቆም መታ ያድርጉ';
+
+  @override
+  String get videoNoteCameraPermission => 'የካሜራ ፈቃድ ተከልክሏል';
+
+  @override
+  String get videoNoteMaxDuration => 'ከፍተኛ 30 ሰከንዶች';
+
+  @override
+  String get videoNoteNotSupported => 'ቪዲዮ ማስታወሻዎች በዚህ መድረክ አይደገፉም';
 }

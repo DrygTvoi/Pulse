@@ -1579,5 +1579,12 @@
   "settingsLanguageSubtitle": "App display language",
   "settingsLanguageSystem": "System default",
   "onboardingLanguageTitle": "Choose your language",
-  "onboardingLanguageSubtitle": "You can change this later in Settings"
+  "onboardingLanguageSubtitle": "You can change this later in Settings",
+
+  "videoNoteRecord": "Record video message",
+  "videoNoteTapToRecord": "Tap to record",
+  "videoNoteTapToStop": "Tap to stop",
+  "videoNoteCameraPermission": "Camera permission denied",
+  "videoNoteMaxDuration": "Maximum 30 seconds",
+  "videoNoteNotSupported": "Video notes not supported on this platform"
 }

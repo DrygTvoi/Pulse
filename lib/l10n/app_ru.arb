@@ -825,5 +825,12 @@
   "settingsLanguageSubtitle": "Язык интерфейса",
   "settingsLanguageSystem": "Системный",
   "onboardingLanguageTitle": "Выберите язык",
-  "onboardingLanguageSubtitle": "Вы можете изменить это позже в Настройках"
+  "onboardingLanguageSubtitle": "Вы можете изменить это позже в Настройках",
+
+  "videoNoteRecord": "Записать видеосообщение",
+  "videoNoteTapToRecord": "Нажмите для записи",
+  "videoNoteTapToStop": "Нажмите для остановки",
+  "videoNoteCameraPermission": "Нет доступа к камере",
+  "videoNoteMaxDuration": "Максимум 30 секунд",
+  "videoNoteNotSupported": "Видеосообщения не поддерживаются на этой платформе"
 }

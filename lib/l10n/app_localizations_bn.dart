@@ -2531,4 +2531,22 @@ class AppLocalizationsBn extends AppLocalizations {
 
   @override
   String get onboardingLanguageSubtitle => 'পরে সেটিংসে পরিবর্তন করতে পারবেন';
+
+  @override
+  String get videoNoteRecord => 'ভিডিও বার্তা রেকর্ড করুন';
+
+  @override
+  String get videoNoteTapToRecord => 'রেকর্ড করতে ট্যাপ করুন';
+
+  @override
+  String get videoNoteTapToStop => 'থামাতে ট্যাপ করুন';
+
+  @override
+  String get videoNoteCameraPermission => 'ক্যামেরার অনুমতি অস্বীকৃত';
+
+  @override
+  String get videoNoteMaxDuration => 'সর্বোচ্চ ৩০ সেকেন্ড';
+
+  @override
+  String get videoNoteNotSupported => 'এই প্ল্যাটফর্মে ভিডিও নোট সমর্থিত নয়';
 }
