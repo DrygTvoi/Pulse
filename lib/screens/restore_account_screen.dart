@@ -15,6 +15,8 @@ import 'dart:typed_data';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:convert/convert.dart';
 import '../adapters/nostr_adapter.dart' show deriveNostrPubkeyHex;
+import '../controllers/chat_controller.dart';
+import '../services/relay_prober.dart';
 import 'home_screen.dart';
 import '../l10n/l10n_ext.dart';
 import '../services/nip44_service.dart' as nip44;
@@ -43,6 +45,14 @@ class _RestoreAccountScreenState extends State<RestoreAccountScreen> {
   int  _colorIndex   = 0;
   bool _isLoading    = false;
   bool _showPassword = false;
+
+  Future<String>? _relayProbe;
+
+  @override
+  void initState() {
+    super.initState();
+    _relayProbe = probeBootstrapRelays();
+  }
 
   @override
   void dispose() {
@@ -166,8 +176,9 @@ class _RestoreAccountScreenState extends State<RestoreAccountScreen> {
     final realPubKey = base64Encode(
         Uint8List.fromList(List<int>.from(bundle['identityKey'])));
 
-    final relay = kDefaultNostrRelay;
     final prefs = await SharedPreferences.getInstance();
+    final probedRelay = await _relayProbe;
+    final relay = prefs.getString('nostr_relay') ?? probedRelay ?? kDefaultNostrRelay;
     await prefs.setString('nostr_relay', relay);
 
     final pubkeyHex = deriveNostrPubkeyHex(privkeyHex);
@@ -209,6 +220,9 @@ class _RestoreAccountScreenState extends State<RestoreAccountScreen> {
     await ss.write(key: 'app_password_hash',    value: hash);
     await ss.write(key: 'app_password_salt',    value: salt);
     await ss.write(key: 'app_password_enabled', value: 'true');
+
+    // Re-initialize ChatController with the restored identity.
+    await ChatController().initialize();
 
     if (!mounted) return;
     setState(() => _isLoading = false);

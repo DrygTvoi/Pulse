@@ -15,6 +15,8 @@ import 'dart:typed_data';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:convert/convert.dart';
 import '../adapters/nostr_adapter.dart' show deriveNostrPubkeyHex;
+import '../controllers/chat_controller.dart';
+import '../services/relay_prober.dart';
 import 'home_screen.dart';
 import 'restore_account_screen.dart';
 import '../l10n/l10n_ext.dart';
@@ -42,10 +44,20 @@ class _SetupIdentityScreenState extends State<SetupIdentityScreen> {
   final _nameController     = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmController  = TextEditingController();
-  int  _colorIndex   = 0;
   bool _isLoading    = false;
   bool _showPassword = false;
   bool _showConfirm  = false;
+
+  /// Best relay found by background probe (runs while user types).
+  Future<String>? _relayProbe;
+
+  @override
+  void initState() {
+    super.initState();
+    // Start racing bootstrap relays immediately — by the time the user
+    // finishes typing name + password, we'll have the fastest relay.
+    _relayProbe = probeBootstrapRelays();
+  }
 
   @override
   void dispose() {
@@ -197,8 +209,11 @@ class _SetupIdentityScreenState extends State<SetupIdentityScreen> {
     final realPubKey   = base64Encode(
         Uint8List.fromList(List<int>.from(bundle['identityKey'])));
 
-    final relay = kDefaultNostrRelay;
     final prefs = await SharedPreferences.getInstance();
+    // Use the best relay from our background probe, or an earlier probe result,
+    // falling back to the default only if everything failed.
+    final probedRelay = await _relayProbe;
+    final relay = prefs.getString('nostr_relay') ?? probedRelay ?? kDefaultNostrRelay;
     await prefs.setString('nostr_relay', relay);
 
     final pubkeyHex = deriveNostrPubkeyHex(privkeyHex);
@@ -213,7 +228,7 @@ class _SetupIdentityScreenState extends State<SetupIdentityScreen> {
     await prefs.setString('user_profile', jsonEncode({
       'name': name,
       'about': '',
-      'avatar_color': _avatarColors[_colorIndex].toARGB32().toString(),
+      'avatar_color': _avatarColors[Random.secure().nextInt(_avatarColors.length)].toARGB32().toString(),
     }));
 
     // Register Oxen secondary adapter
@@ -237,6 +252,10 @@ class _SetupIdentityScreenState extends State<SetupIdentityScreen> {
     _passwordController.clear();
     _confirmController.clear();
 
+    // Re-initialize ChatController so it picks up the newly created identity.
+    // Without this, _identity remains null and addresses/messaging won't work.
+    await ChatController().initialize();
+
     if (!mounted) return;
     setState(() => _isLoading = false);
     Navigator.of(context).pushReplacement(
@@ -252,12 +271,41 @@ class _SetupIdentityScreenState extends State<SetupIdentityScreen> {
 
   // ── Build ─────────────────────────────────────────────────────────────────
 
+  // ── Password requirements checklist ───────────────────────────────────────
+
+  bool get _hasMinLength => _passwordController.text.length >= 16;
+  bool get _hasMatch =>
+      _confirmController.text.isNotEmpty &&
+      _confirmController.text == _passwordController.text;
+
+  Widget _buildCheck(String label, bool ok) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        children: [
+          Icon(
+            ok ? Icons.check_circle_rounded : Icons.circle_outlined,
+            size: 16,
+            color: ok ? const Color(0xFF34D399) : AppTheme.textSecondary.withValues(alpha: 0.5),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            label,
+            style: GoogleFonts.inter(
+              fontSize: 12,
+              color: ok ? const Color(0xFF34D399) : AppTheme.textSecondary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Build ─────────────────────────────────────────────────────────────────
+
   @override
   Widget build(BuildContext context) {
     const purple = Color(0xFFA78BFA);
-    final color   = _avatarColors[_colorIndex];
-    final name    = _nameController.text.trim();
-    final initial = name.isEmpty ? '?' : name[0].toUpperCase();
 
     return Scaffold(
       backgroundColor: AppTheme.background,
@@ -269,68 +317,26 @@ class _SetupIdentityScreenState extends State<SetupIdentityScreen> {
             children: [
               // Logo
               Container(
-                width: 80, height: 80,
+                width: 72, height: 72,
                 decoration: BoxDecoration(
                   color: AppTheme.primary,
-                  borderRadius: BorderRadius.circular(24),
+                  borderRadius: BorderRadius.circular(20),
                 ),
                 child: const Icon(Icons.shield_rounded,
-                    color: Colors.white, size: 40),
+                    color: Colors.white, size: 36),
               ),
               const SizedBox(height: 16),
-              Text(context.l10n.appTitle,
+              Text(context.l10n.setupCreateAnonymousAccount,
                   style: GoogleFonts.inter(
-                      fontSize: 26,
+                      fontSize: 20,
                       fontWeight: FontWeight.bold,
                       color: AppTheme.textPrimary)),
               const SizedBox(height: 6),
-              Text(context.l10n.setupCreateAnonymousAccount,
+              Text(context.l10n.setupPasswordWarning,
+                  textAlign: TextAlign.center,
                   style: GoogleFonts.inter(
-                      fontSize: 13, color: AppTheme.textSecondary)),
-              const SizedBox(height: 40),
-
-              // Avatar picker
-              GestureDetector(
-                onTap: () => setState(
-                    () => _colorIndex = (_colorIndex + 1) % _avatarColors.length),
-                child: Stack(
-                  alignment: Alignment.bottomRight,
-                  children: [
-                    Container(
-                      width: 88, height: 88,
-                      decoration: BoxDecoration(
-                        color: color,
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                            color: purple.withValues(alpha: 0.4), width: 2),
-                      ),
-                      child: Center(
-                        child: Text(initial,
-                            style: GoogleFonts.inter(
-                                fontSize: 36,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white)),
-                      ),
-                    ),
-                    Container(
-                      width: 26, height: 26,
-                      decoration: BoxDecoration(
-                        color: AppTheme.surface,
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                            color: AppTheme.surfaceVariant, width: 2),
-                      ),
-                      child: const Icon(Icons.color_lens_rounded,
-                          size: 14, color: Colors.white70),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(context.l10n.setupTapToChangeColor,
-                  style: GoogleFonts.inter(
-                      color: AppTheme.textSecondary, fontSize: 11)),
-              const SizedBox(height: 28),
+                      fontSize: 12, color: AppTheme.textSecondary, height: 1.4)),
+              const SizedBox(height: 32),
 
               // Name field
               _buildField(
@@ -360,6 +366,42 @@ class _SetupIdentityScreenState extends State<SetupIdentityScreen> {
                       setState(() => _showPassword = !_showPassword),
                 ),
               ),
+              const SizedBox(height: 14),
+
+              // Confirm field
+              _buildField(
+                controller: _confirmController,
+                hint: context.l10n.setupConfirmPassword,
+                icon: Icons.lock_outline_rounded,
+                obscure: !_showConfirm,
+                errorText: _confirmError,
+                onChanged: (_) => setState(() {}),
+                suffix: IconButton(
+                  icon: Icon(
+                    _showConfirm
+                        ? Icons.visibility_off_outlined
+                        : Icons.visibility_outlined,
+                    color: AppTheme.textSecondary, size: 20,
+                  ),
+                  onPressed: () =>
+                      setState(() => _showConfirm = !_showConfirm),
+                ),
+              ),
+
+              // Requirements checklist
+              if (_passwordController.text.isNotEmpty || _confirmController.text.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 12, left: 4),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildCheck(context.l10n.setupReqMinLength, _hasMinLength),
+                      _buildCheck(context.l10n.setupReqVariety, _hasVariety),
+                      if (_confirmController.text.isNotEmpty)
+                        _buildCheck(context.l10n.setupReqMatch, _hasMatch),
+                    ],
+                  ),
+                ),
               if (_passwordController.text.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.only(top: 6, left: 4),
@@ -383,56 +425,6 @@ class _SetupIdentityScreenState extends State<SetupIdentityScreen> {
                     ],
                   ),
                 ),
-              const SizedBox(height: 14),
-
-              // Confirm field
-              _buildField(
-                controller: _confirmController,
-                hint: context.l10n.setupConfirmPassword,
-                icon: Icons.lock_outline_rounded,
-                obscure: !_showConfirm,
-                errorText: _confirmError,
-                onChanged: (_) => setState(() {}),
-                suffix: IconButton(
-                  icon: Icon(
-                    _showConfirm
-                        ? Icons.visibility_off_outlined
-                        : Icons.visibility_outlined,
-                    color: AppTheme.textSecondary, size: 20,
-                  ),
-                  onPressed: () =>
-                      setState(() => _showConfirm = !_showConfirm),
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // Warning banner
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFBBF24).withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                      color: const Color(0xFFFBBF24).withValues(alpha: 0.3)),
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Icon(Icons.warning_amber_rounded,
-                        color: Color(0xFFFBBF24), size: 16),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        context.l10n.setupPasswordWarning,
-                        style: GoogleFonts.inter(
-                            color: AppTheme.textSecondary,
-                            fontSize: 12,
-                            height: 1.5),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
               const SizedBox(height: 28),
 
               // Create button
