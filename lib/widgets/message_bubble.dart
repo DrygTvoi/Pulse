@@ -426,7 +426,8 @@ class MessageBubble extends StatelessWidget {
       return _VoiceBubble(media: media, isMe: isMe, bgColor: bgColor, radius: radius, buildTimestamp: _buildTimestamp);
     }
     if (media.isVideoNote) {
-      return _VideoNoteBubble(media: media, isMe: isMe, buildTimestamp: _buildTimestamp);
+      return _VideoNoteBubble(media: media, isMe: isMe, buildTimestamp: _buildTimestamp,
+          status: status, uploadProgress: uploadProgress);
     }
     if (media.isGif) {
       return _GifBubble(media: media, isMe: isMe, radius: radius, buildTimestamp: _buildTimestamp);
@@ -864,11 +865,15 @@ class _VideoNoteBubble extends StatefulWidget {
   final MediaPayload media;
   final bool isMe;
   final Widget Function() buildTimestamp;
+  final String status;
+  final double? uploadProgress;
 
   const _VideoNoteBubble({
     required this.media,
     required this.isMe,
     required this.buildTimestamp,
+    this.status = '',
+    this.uploadProgress,
   });
 
   @override
@@ -945,8 +950,21 @@ class _VideoNoteBubbleState extends State<_VideoNoteBubble> {
                   else
                     Container(color: AppTheme.surfaceVariant,
                         child: const Icon(Icons.videocam_rounded, color: Colors.white54, size: 48)),
+                  // Upload progress overlay
+                  if (widget.status == 'sending')
+                    Center(
+                      child: SizedBox(
+                        width: 48, height: 48,
+                        child: CircularProgressIndicator(
+                          value: widget.uploadProgress,
+                          strokeWidth: 3,
+                          color: Colors.white,
+                          backgroundColor: Colors.white24,
+                        ),
+                      ),
+                    )
                   // Play icon overlay
-                  if (!_playing)
+                  else if (!_playing)
                     Center(
                       child: Container(
                         width: 48, height: 48,
