@@ -257,6 +257,13 @@ class SignalService {
     _store = _PersistentSignalStore(_identityKeyPair, _registrationId, _storage);
     await _store.restoreSessions();
 
+    // Migrate old key that collided with _preKeyPrefix ('signal_prekey_next_id' → 'signal_pk_next_id').
+    final oldNextId = await _storage.read(key: 'signal_prekey_next_id');
+    if (oldNextId != null) {
+      await _storage.write(key: _kPreKeyNextIdKey, value: oldNextId);
+      await _storage.delete(key: 'signal_prekey_next_id');
+    }
+
     // PreKeys: first run generates and persists; subsequent runs restore from storage.
     final preKeyCheck = await _storage.read(key: 'signal_prekeys_generated');
     if (preKeyCheck == null) {
@@ -301,7 +308,7 @@ class SignalService {
     unawaited(PqcService().rotateIfNeeded());
   }
 
-  static const _kPreKeyNextIdKey = 'signal_prekey_next_id';
+  static const _kPreKeyNextIdKey = 'signal_pk_next_id';
   static const _kSignedPreKeyRotationDays = 7;
   static const _kSignedPreKeyTsKey = 'signal_signed_prekey_ts';
   static const _kSignedPreKeyIdKey = 'signal_signed_prekey_current_id';
@@ -374,6 +381,44 @@ class SignalService {
     return _storage.read(key: 'signal_contact_idkey_$remoteId');
   }
 
+  /// Delete ALL Signal sessions + identity keys (for every contact).
+  ///
+  /// Used as a one-time migration when the bundle publishing strategy changes
+  /// (e.g. always-publish) to force session rebuilds from fresh bundles.
+  /// Also clears stored identity keys to avoid UntrustedIdentityException
+  /// when contacts publish new bundles with different identity keys.
+  Future<void> deleteAllContactSessions() async {
+    try {
+      final cache = await _store._getAllCached();
+      final toDelete = <String>[];
+      for (final key in cache.keys) {
+        if (key.startsWith(_PersistentSignalStore._sessionPrefix) ||
+            key.startsWith('signal_contact_idkey_') ||
+            key.startsWith('verified_identity_')) {
+          toDelete.add(key);
+        }
+      }
+      for (final key in toDelete) {
+        await _store._secureDelete(key);
+      }
+      // Clear in-memory sessions too.
+      for (final key in toDelete) {
+        if (key.startsWith(_PersistentSignalStore._sessionPrefix)) {
+          final withoutPrefix = key.substring(_PersistentSignalStore._sessionPrefix.length);
+          final lastUnderscore = withoutPrefix.lastIndexOf('_');
+          if (lastUnderscore >= 0) {
+            final name = withoutPrefix.substring(0, lastUnderscore);
+            final deviceId = int.tryParse(withoutPrefix.substring(lastUnderscore + 1)) ?? 1;
+            try { await _store.deleteSession(SignalProtocolAddress(name, deviceId)); } catch (_) {}
+          }
+        }
+      }
+      debugPrint('[SignalService] Deleted ${toDelete.length} session/identity entries (one-time reset)');
+    } catch (e) {
+      debugPrint('[SignalService] deleteAllContactSessions error: $e');
+    }
+  }
+
   /// Delete all Signal sessions and identity material for a removed contact.
   ///
   /// Call this whenever a contact is deleted so that stale sessions cannot
@@ -386,6 +431,39 @@ class SignalService {
       debugPrint('[SignalService] Deleted sessions + idkey for $remoteId');
     } catch (e) {
       debugPrint('[SignalService] deleteContactData error: $e');
+    }
+  }
+
+  /// Migrate all Signal material from [oldAddr] to [newAddr].
+  ///
+  /// Copies session blobs, identity key, and verification flag so that
+  /// a contact address promotion (SmartRouter) preserves the E2EE session.
+  Future<void> migrateSession(String oldAddr, String newAddr) async {
+    try {
+      // Migrate sessions.
+      final oldPrefix = '${_PersistentSignalStore._sessionPrefix}${oldAddr}_';
+      final sessions = await _store._readByPrefix(oldPrefix);
+      for (final entry in sessions.entries) {
+        final suffix = entry.key.substring(oldPrefix.length);
+        final newKey = '${_PersistentSignalStore._sessionPrefix}${newAddr}_$suffix';
+        await _store._secureWrite(newKey, entry.value);
+        // Restore in-memory session for the new address.
+        final deviceId = int.tryParse(suffix) ?? 1;
+        final record = SessionRecord.fromSerialized(base64Decode(entry.value));
+        await _store.storeSession(SignalProtocolAddress(newAddr, deviceId), record);
+      }
+      // Migrate identity key + verification flag.
+      final idKey = await _storage.read(key: 'signal_contact_idkey_$oldAddr');
+      if (idKey != null) {
+        await _storage.write(key: 'signal_contact_idkey_$newAddr', value: idKey);
+      }
+      final verified = await _storage.read(key: 'verified_identity_$oldAddr');
+      if (verified != null) {
+        await _storage.write(key: 'verified_identity_$newAddr', value: verified);
+      }
+      debugPrint('[SignalService] Migrated session $oldAddr → $newAddr');
+    } catch (e) {
+      debugPrint('[SignalService] migrateSession error: $e');
     }
   }
 

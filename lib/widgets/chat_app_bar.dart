@@ -47,7 +47,10 @@ PreferredSizeWidget buildChatAppBar({
     title: GestureDetector(
       onTap: onOpenProfile,
       child: Row(children: [
-        Hero(tag: 'contact_avatar_${contact.id}', child: buildChatAvatar(contact.name, 38)),
+        if (embedded)
+          buildChatAvatar(contact.name, 38)
+        else
+          Hero(tag: 'contact_avatar_${contact.id}', child: buildChatAvatar(contact.name, 38)),
         const SizedBox(width: DesignTokens.spacing10),
         Expanded(
           child: Column(

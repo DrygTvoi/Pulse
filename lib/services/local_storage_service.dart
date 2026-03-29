@@ -9,6 +9,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:pointycastle/export.dart' as pc;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:sqlite3/open.dart' as sqlite3_open;
 
@@ -49,7 +50,13 @@ class LocalStorageService {
     await _loadSqlcipher();
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfi;
-    final dbDir = await databaseFactoryFfi.getDatabasesPath();
+    String dbDir;
+    if (Platform.isAndroid || Platform.isIOS) {
+      final appDir = await getApplicationDocumentsDirectory();
+      dbDir = appDir.path;
+    } else {
+      dbDir = await databaseFactoryFfi.getDatabasesPath();
+    }
     final path = '$dbDir/messages.db';
 
     // Migrate existing plaintext DB → encrypted DB (first-run only).
@@ -902,6 +909,26 @@ class LocalStorageService {
       }
     }
     return result;
+  }
+
+  /// Re-key all messages from [oldRoomId] to [newRoomId].
+  ///
+  /// Used by SmartRouter address promotion: when a contact's primary address
+  /// changes, message history must follow (room_id = contact.storageKey).
+  Future<void> migrateRoomId(String oldRoomId, String newRoomId) async {
+    final count = await _database.rawUpdate(
+      'UPDATE messages SET room_id = ? WHERE room_id = ?',
+      [newRoomId, oldRoomId],
+    );
+    if (_fts5Available) {
+      try {
+        await _database.rawUpdate(
+          'UPDATE messages_fts SET room_id = ? WHERE room_id = ?',
+          [newRoomId, oldRoomId],
+        );
+      } catch (_) {}
+    }
+    debugPrint('[LocalStorage] Migrated $count messages: $oldRoomId → $newRoomId');
   }
 
   /// Efficient row count without loading message data.

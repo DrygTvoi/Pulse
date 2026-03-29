@@ -161,8 +161,9 @@ class IceServerConfig {
     final prefs = await SharedPreferences.getInstance();
 
     final servers = <Map<String, dynamic>>[
-      // All STUN servers in one object — queried in parallel
-      {'urls': _kStunUrls},
+      // STUN servers — one entry per URL to avoid native plugin issues
+      // with List<String> urls on Linux (SIGSEGV in CreateIceServers).
+      for (final url in _kStunUrls) {'urls': url},
     ];
 
     // Community presets — 'openrelay' and 'freestun' enabled by default

@@ -17,7 +17,7 @@ class TorChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (!isRunning && bootstrapPercent == 0) return const SizedBox.shrink();
+    if (!isRunning) return const SizedBox.shrink();
     final isActive = bootstrapPercent == 100;
     final color = isActive ? AppTheme.primary : Colors.orange;
     // Show which PT is active: "Tor·obfs4", "Tor·SF", "Tor·WT", "Tor" (plain)

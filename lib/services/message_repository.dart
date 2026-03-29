@@ -73,6 +73,20 @@ class MessageRepository {
 
   void clearUploadProgress(String msgId) => _uploadProgress.remove(msgId);
 
+  /// Replace the contact reference in an existing room (e.g. after address promotion).
+  void updateRoomContact(Contact updated) {
+    final room = _chatRooms[updated.id];
+    if (room == null) return;
+    _chatRooms[updated.id] = ChatRoom(
+      id: updated.storageKey,
+      contact: updated,
+      messages: room.messages,
+      adapterType: updated.isGroup ? 'group' : updated.provider,
+      adapterConfig: room.adapterConfig,
+      updatedAt: room.updatedAt,
+    );
+  }
+
   /// Returns an existing room or creates a new empty one.
   ChatRoom getOrCreateRoom(Contact contact) {
     if (!_chatRooms.containsKey(contact.id)) {

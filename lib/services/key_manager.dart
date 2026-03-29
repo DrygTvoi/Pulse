@@ -63,6 +63,16 @@ class KeyManager {
   bool hasPqcKey(String contactId) =>
       _contactKyberPks.containsKey(contactId);
 
+  /// Remove a cached Kyber pk (e.g. after PQC unwrap failure).
+  void clearContactKyberPk(String contactId) {
+    _contactKyberPks.remove(contactId);
+    final pub = contactId.split('@').first;
+    _contactKyberPks.removeWhere((k, _) => k.split('@').first == pub);
+    SharedPreferences.getInstance().then((prefs) {
+      prefs.remove('pqc_contact_pk_$contactId');
+    });
+  }
+
   /// Load contact's Kyber pk: in-memory first, then SharedPreferences.
   Future<Uint8List?> loadContactKyberPk(String contactId) async {
     if (_contactKyberPks.containsKey(contactId)) {
@@ -94,17 +104,15 @@ class KeyManager {
 
   // ── Key publishing ───────────────────────────────────────────────────────
 
-  /// Publish Signal bundle to own inbox only if not yet published for this
-  /// adapter+selfId combination.
+  /// Publish Signal+PQC bundle to own inbox on every app start.
+  ///
+  /// Always publishes (not "maybe") because Signal keys may have been
+  /// regenerated after account restore / reinstall while the relay still
+  /// holds the stale bundle.  Cost: one replaceable Nostr event per start.
   Future<void> maybePublishOwnKeys(
       String preferredAdapter, String selfId, String adapterApiKey) async {
     if (selfId.isEmpty) return;
-    final prefs = await SharedPreferences.getInstance();
-    final flag = 'signal_keys_published_${preferredAdapter}_$selfId';
-    if (prefs.getBool(flag) != true) {
-      await publishOwnKeys(preferredAdapter, adapterApiKey, selfId);
-      await prefs.setBool(flag, true);
-    }
+    await publishOwnKeys(preferredAdapter, adapterApiKey, selfId);
   }
 
   /// Publish Signal+PQC public bundle to own inbox.
