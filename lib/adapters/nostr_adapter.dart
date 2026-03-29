@@ -32,6 +32,48 @@ import '../services/adaptive_relay_service.dart';
 
 const _defaultRelay = kDefaultNostrRelay;
 
+/// Global per-relay WebSocket pool.  The first reader to connect to a relay
+/// registers its channel + pending-fetch map here; subsequent readers and
+/// senders reuse the channel instead of opening a second connection (which
+/// many relays rate-limit or reject).
+///
+/// The pending-fetch map is owned by the reader's shared loop, which dispatches
+/// incoming events to matching completers.  This lets other code send REQs on
+/// the shared channel without adding a second `.listen()` (single-subscription
+/// streams only allow one listener).
+final Map<String, ({WebSocketChannel ch, Map<String, Completer<Map<String, dynamic>?>> fetches})> _relayPool = {};
+
+/// Register a connected channel for reuse by other readers/senders on the same relay.
+void _registerRelayChannel(String relayUrl, WebSocketChannel ch,
+    Map<String, Completer<Map<String, dynamic>?>> pendingFetches) {
+  _relayPool[relayUrl] = (ch: ch, fetches: pendingFetches);
+}
+
+/// Remove a closed/dead channel from the pool.
+void _unregisterRelayChannel(String relayUrl) {
+  _relayPool.remove(relayUrl);
+}
+
+/// Get a pooled entry for a relay if one exists and the channel is still open.
+({WebSocketChannel ch, Map<String, Completer<Map<String, dynamic>?>> fetches})? _getSharedRelayEntry(String relayUrl) {
+  final entry = _relayPool[relayUrl];
+  if (entry == null) return null;
+  try {
+    if (entry.ch.closeCode != null) {
+      _relayPool.remove(relayUrl);
+      return null;
+    }
+  } catch (_) {
+    _relayPool.remove(relayUrl);
+    return null;
+  }
+  return entry;
+}
+
+/// Circuit breaker for uTLS proxy — if it fails, skip for 5 minutes.
+/// Prevents resource exhaustion from many concurrent bridge attempts.
+DateTime? _utlsFailedUntil;
+
 /// Connect a WebSocket through the uTLS HTTP CONNECT proxy.
 ///
 /// Mirrors TorService.connectWebSocket (SOCKS5 pattern) but sends an
@@ -40,6 +82,10 @@ const _defaultRelay = kDefaultNostrRelay;
 /// when routing wss:// through an HTTP CONNECT proxy.
 Future<WebSocketChannel> _connectWebSocketViaUtls(
     String url, int proxyPort) async {
+  // Skip if uTLS recently failed — avoids creating many dead bridge sockets.
+  if (_utlsFailedUntil != null && DateTime.now().isBefore(_utlsFailedUntil!)) {
+    throw StateError('uTLS circuit breaker open');
+  }
   final uri = Uri.parse(url);
   final targetHost = uri.host;
   final targetPort =
@@ -124,6 +170,9 @@ Future<WebSocketChannel> _connectWebSocketViaUtls(
           .timeout(const Duration(seconds: 10), onTimeout: () => false);
       if (!ok) {
         debugPrint('[Nostr] uTLS CONNECT to $targetHost:$targetPort refused');
+        // Trip circuit breaker — all hosts share the same Go proxy, so one
+        // failure means the proxy is unreachable or not running.
+        _utlsFailedUntil = DateTime.now().add(const Duration(minutes: 5));
         client.destroy();
         proxy.destroy();
         return;
@@ -141,6 +190,7 @@ Future<WebSocketChannel> _connectWebSocketViaUtls(
       }
     } catch (e) {
       debugPrint('[Nostr] uTLS bridge error: $e');
+      _utlsFailedUntil = DateTime.now().add(const Duration(minutes: 5));
       client.destroy();
       proxy?.destroy();
     }
@@ -167,8 +217,11 @@ Future<WebSocketChannel> _connectWebSocketViaUtls(
       : url;
   try {
     final ws = await WebSocket.connect(normalizedUrl, customClient: httpClient);
+    _utlsFailedUntil = null; // Success — reset circuit breaker.
     return IOWebSocketChannel(ws);
   } catch (e) {
+    _utlsFailedUntil = DateTime.now().add(const Duration(minutes: 5));
+    httpClient.close(force: true);
     try { await server.close(); } catch (_) {}
     rethrow;
   }
@@ -280,11 +333,15 @@ Future<WebSocketChannel> _nostrWsConnect(
   }
 
   // 7. Plain WebSocket — normalize port so Dart doesn't produce an invalid URI.
+  debugPrint('[Nostr] Trying plain WS to $url');
   final wsUri = Uri.parse(url);
   final normalized = (!wsUri.hasPort || wsUri.port == 0)
       ? '${wsUri.scheme}://${wsUri.host}:${wsUri.scheme == 'wss' ? 443 : 80}${wsUri.path}'
       : url;
-  return WebSocketChannel.connect(Uri.parse(normalized));
+  final plainCh = WebSocketChannel.connect(Uri.parse(normalized));
+  await plainCh.ready.timeout(const Duration(seconds: 10));
+  debugPrint('[Nostr] Plain WS connected to $url');
+  return plainCh;
 }
 
 // ─── Secp256k1 key utilities ──────────────────────────────
@@ -649,6 +706,7 @@ class NostrInboxReader implements InboxReader {
   String _publicKeyHex = '';
   String _relayUrl = _defaultRelay;
   final Map<String, DateTime> _seenIds = {};
+  Set<String> _persistentSeenIds = {}; // loaded from disk on init
 
   /// Emits a sender pubkey whenever an incoming signal fails MAC verification.
   /// This indicates a possible tamper attempt or malicious relay injection.
@@ -741,6 +799,16 @@ class NostrInboxReader implements InboxReader {
         }
       }
     }
+
+    // Load persistent seen event IDs to prevent NIP-44 nonce replay on reconnect.
+    // The extended since window re-fetches events that were already decrypted;
+    // their NIP-44 nonces are in the DB, so re-decrypting would trigger replay
+    // detection. Skipping already-seen IDs avoids this entirely.
+    final seenJson = prefs.getString('nostr_seen_ids') ?? '[]';
+    try {
+      _persistentSeenIds = Set<String>.from(jsonDecode(seenJson) as List);
+      _seenIds.addAll({for (final id in _persistentSeenIds) id: DateTime.now()});
+    } catch (_) {}
   }
 
 
@@ -759,6 +827,21 @@ class NostrInboxReader implements InboxReader {
       }
     }
     _seenIds[id] = DateTime.now();
+    // Persist to disk so reconnects with extended since window skip old events.
+    _persistentSeenIds.add(id);
+    // Cap at 2000 most recent
+    if (_persistentSeenIds.length > 2000) {
+      _persistentSeenIds = Set<String>.from(
+          _persistentSeenIds.toList().sublist(_persistentSeenIds.length - 1500));
+    }
+    unawaited(_savePersistentIds());
+  }
+
+  Future<void> _savePersistentIds() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('nostr_seen_ids', jsonEncode(_persistentSeenIds.toList()));
+    } catch (_) {}
   }
 
   // ── Shared WebSocket — one connection for both messages and signals ────────
@@ -829,19 +912,47 @@ class NostrInboxReader implements InboxReader {
       final connectTime = DateTime.now();
       if (!_running) break;
       try {
+        // If another reader already has a connection to this relay, don't open
+        // a second one — many relays rate-limit or reject duplicate connections.
+        // Instead, wait for the existing pool connection to close, then retry.
+        final existingPool = _getSharedRelayEntry(_relayUrl);
+        if (existingPool != null) {
+          _activeChannel = existingPool.ch;
+          debugPrint('[Nostr] Piggybacking on shared pool for $_relayUrl');
+          // Wait until the pool channel closes before trying our own connection.
+          // This avoids duplicate connections while still allowing key fetches
+          // through the _pendingKeyFetches mechanism.
+          while (_running && _getSharedRelayEntry(_relayUrl) != null) {
+            await Future.delayed(const Duration(seconds: 5));
+          }
+          _activeChannel = null;
+          continue; // Pool closed — retry with our own connection.
+        }
+
         channel = await _wsConnect(_relayUrl);
         _activeChannel = channel;
         await channel.ready;
+        _registerRelayChannel(_relayUrl, channel, _pendingKeyFetches);
         debugPrint('[Nostr] Connected to $_relayUrl');
 
         final subId = 'sub_${DateTime.now().millisecondsSinceEpoch}_${Random.secure().nextInt(0xFFFFFF).toRadixString(16)}';
-        final since = await _getSince();
-        channel.sink.add(jsonEncode(['REQ', subId, {
-          'kinds': [4, 20000, 1059],
-          '#p': [_publicKeyHex],
-          'since': since,
-          'limit': 100,
-        }]));
+        // F7: Do NOT include 'since' in the subscription filter.
+        // Nostr relays apply 'since' to BOTH historical AND real-time events.
+        // Gift Wrap ±1h jitter on created_at means ~50% of new events would
+        // have created_at < since and be silently dropped by the relay.
+        // Use only 'limit' for historical backfill; persistent _seenIds
+        // handle dedup for events already processed.
+        debugPrint('[Nostr] SUB (no since, limit=200) pk=${_publicKeyHex.substring(0, 8)}…');
+        try {
+          channel.sink.add(jsonEncode(['REQ', subId, {
+            'kinds': [4, 20000, 1059],
+            '#p': [_publicKeyHex],
+            'limit': 200,
+          }]));
+        } catch (e) {
+          debugPrint('[Nostr] sink.add failed: $e');
+          rethrow;
+        }
 
         cycleSuccess = true;
         if (!_isHealthy && !_healthCtrl.isClosed) {
@@ -910,12 +1021,34 @@ class NostrInboxReader implements InboxReader {
                 }
                 continue;
               }
-              if (data.length < 3 || data[0] != 'EVENT' || data[1] != subId) continue;
+              // Log relay notices and OK responses on subscription channel.
+              if (data[0] == 'NOTICE') {
+                debugPrint('[Nostr] NOTICE from $_relayUrl: ${data.length > 1 ? data[1] : ''}');
+                continue;
+              }
+              if (data[0] == 'OK') {
+                debugPrint('[Nostr] OK on sub channel: id=${data.length > 1 ? data[1] : '?'} accepted=${data.length > 2 ? data[2] : '?'} reason=${data.length > 3 ? data[3] : ''}');
+                continue;
+              }
+              if (data[0] == 'CLOSED') {
+                debugPrint('[Nostr] Subscription CLOSED by relay: ${data.length > 2 ? data[2] : ''}');
+                break; // Exit the stream loop to trigger reconnect
+              }
+              if (data.length < 3 || data[0] != 'EVENT') continue;
+              if (data[1] != subId) {
+                // Could be a fetchPublicKeys response already handled above
+                continue;
+              }
               final event = data[2] as Map<String, dynamic>?;
               if (event == null) continue;
               final id = event['id'] as String?;
               if (id == null || id.isEmpty) continue;
-              if (_seenIds.containsKey(id)) continue;
+              final kind = (event['kind'] as int?) ?? -1;
+              debugPrint('[Nostr] EVENT kind=$kind id=${id.substring(0, 8)}…');
+              if (_seenIds.containsKey(id)) {
+                debugPrint('[Nostr] Dedup: already seen ${id.substring(0, 8)}');
+                continue;
+              }
               // Track AFTER signature verification — a relay sending an invalid-sig
               // event with a real ID would poison the dedup cache and suppress the
               // legitimate event for up to 30 minutes.
@@ -924,15 +1057,12 @@ class NostrInboxReader implements InboxReader {
                 continue;
               }
               _trackSeenId(id);
-              final ts = event['created_at'] as int?;
-              // F6: Only advance 'since' after signature passes; clamp to
-              // local clock + 5 min to reject relay-injected future timestamps
-              // that would cause us to miss legitimate past messages.
-              if (ts != null) {
-                final nowSec = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-                if (ts <= nowSec + 300) unawaited(_updateSince(ts));
-              }
-              final kind = (event['kind'] as int?) ?? -1;
+              // F6: Track wall-clock time, NOT event timestamps.
+              // Gift Wrap (kind 1059) has ±1h jitter on created_at, so using
+              // event timestamps would make 'since' unreliable. Instead, record
+              // the real time when we received events. The _getSince() method
+              // subtracts the jitter window (3600s) to catch all jittered events.
+              unawaited(_updateSince(DateTime.now().millisecondsSinceEpoch ~/ 1000));
               if (kind == 1059) {
                 _dispatchGiftWrap(event);
               } else if (kind == 4) {
@@ -944,6 +1074,7 @@ class NostrInboxReader implements InboxReader {
               debugPrint('[Nostr] Parse error: $e');
             }
           }
+          debugPrint('[Nostr] Subscription stream ended (relay closed connection)');
         } finally {
           unawaited(channel.sink.close());
         }
@@ -1004,18 +1135,26 @@ class NostrInboxReader implements InboxReader {
       }
     }
     _activeChannel = null;
+    _unregisterRelayChannel(_relayUrl);
   }
 
   Future<void> _dispatchGiftWrap(Map<String, dynamic> event) async {
+    final wrapId = ((event['id'] as String?) ?? '').length >= 8
+        ? (event['id'] as String).substring(0, 8) : (event['id'] ?? '?');
+    debugPrint('[Nostr] Gift Wrap: unwrapping $wrapId…');
     try {
       final inner = await giftwrap.unwrapEvent(
         recipientPrivkey: _privateKeyHex,
         wrapEvent: event,
       );
       if (inner == null) {
-        debugPrint('[Nostr] Gift Wrap: failed to unwrap');
+        final wrapPk = (event['pubkey'] as String? ?? '').length >= 8
+            ? (event['pubkey'] as String).substring(0, 8) : event['pubkey'];
+        debugPrint('[Nostr] Gift Wrap: failed to unwrap $wrapId (pk=$wrapPk…)');
         return;
       }
+      final innerKind = (inner['kind'] as int?) ?? -1;
+      debugPrint('[Nostr] Gift Wrap: unwrapped OK $wrapId → inner kind=$innerKind');
       // Reject inner events older than 7 days — the outer envelope timestamp
       // has ±1h jitter for privacy, but the inner event's created_at is
       // authentic (signed by sender). Without this check, an archived inner
@@ -1030,10 +1169,12 @@ class NostrInboxReader implements InboxReader {
       // on every re-broadcast, so we must check the semantic inner ID.
       final innerId = inner['id'] as String? ?? '';
       if (innerId.isNotEmpty) {
-        if (_seenIds.containsKey(innerId)) return;
+        if (_seenIds.containsKey(innerId)) {
+          debugPrint('[Nostr] Gift Wrap: inner dedup $wrapId (innerId=${innerId.substring(0, 8)})');
+          return;
+        }
         _trackSeenId(innerId);
       }
-      final innerKind = (inner['kind'] as int?) ?? -1;
       if (innerKind == 4) {
         _dispatchMessage(inner);
       } else if (innerKind == 20000) {
@@ -1042,7 +1183,7 @@ class NostrInboxReader implements InboxReader {
         debugPrint('[Nostr] Gift Wrap: unknown inner kind $innerKind');
       }
     } catch (e) {
-      debugPrint('[Nostr] Gift Wrap dispatch error: $e');
+      debugPrint('[Nostr] Gift Wrap dispatch error for $wrapId: $e');
     }
   }
 
@@ -1053,6 +1194,7 @@ class NostrInboxReader implements InboxReader {
       final content = event['content'] as String? ?? '';
       final createdAt = event['created_at'] as int?;
       if (id.isEmpty || pubkey.isEmpty || content.isEmpty) return;
+      debugPrint('[Nostr] _dispatchMessage: id=${id.substring(0, 8)} pk=${pubkey.substring(0, 8)} hasListener=${_msgCtrl.hasListener} closed=${_msgCtrl.isClosed}');
       if (_msgCtrl.isClosed) return;
       _msgCtrl.add([Message(
         id: id,
@@ -1167,12 +1309,42 @@ class NostrInboxReader implements InboxReader {
       }
     }
 
-    // Fallback: no active shared loop — open a one-shot connection.
+    // Fallback 2: borrow a shared pool channel from another reader on the same relay.
+    // We inject our completer into the owner reader's _pendingKeyFetches map so its
+    // shared loop dispatches the response — no second .listen() needed.
+    final poolEntry = _getSharedRelayEntry(_relayUrl);
+    if (poolEntry != null) {
+      final poolSubId = 'keys_pool_${DateTime.now().millisecondsSinceEpoch}_${Random.secure().nextInt(0xFFFFFF).toRadixString(16)}';
+      final c2 = Completer<Map<String, dynamic>?>();
+      poolEntry.fetches[poolSubId] = c2;
+      try {
+        poolEntry.ch.sink.add(jsonEncode(['REQ', poolSubId, {
+          'kinds': [10009],
+          'authors': [_publicKeyHex],
+          'limit': 1,
+        }]));
+        final result = await c2.future.timeout(
+          const Duration(seconds: 10),
+          onTimeout: () => null,
+        );
+        try { poolEntry.ch.sink.add(jsonEncode(['CLOSE', poolSubId])); } catch (_) {}
+        return result;
+      } catch (e) {
+        debugPrint('[Nostr] fetchPublicKeys (pool) error: $e');
+        return null;
+      } finally {
+        poolEntry.fetches.remove(poolSubId);
+      }
+    }
+
+    // Fallback 3: no shared pool — open a one-shot connection.
+    debugPrint('[Nostr] fetchPublicKeys: opening one-shot to $_relayUrl');
     final completer = Completer<Map<String, dynamic>?>();
     WebSocketChannel? channel;
     StreamSubscription<dynamic>? sub;
     try {
       channel = await _wsConnect(_relayUrl);
+      debugPrint('[Nostr] fetchPublicKeys: one-shot connected, sending REQ');
       await channel.ready;
       channel.sink.add(jsonEncode(['REQ', subId, {
         'kinds': [10009],
@@ -1219,9 +1391,13 @@ class NostrInboxReader implements InboxReader {
   Future<int> _getSince() async {
     final prefs = await SharedPreferences.getInstance();
     final stored = prefs.getInt(_sinceKey) ?? 0;
-    // Use stored timestamp (minus 60s buffer), but never older than 30 days.
+    // 'stored' is wall-clock time of last successful receive.
+    // Subtract 3660s (1h jitter + 60s safety) so the relay returns ALL
+    // Gift Wrap events whose jittered created_at falls in that window.
+    // Persistent _seenIds (loaded from disk) prevent NIP-44 nonce replay
+    // for events already processed in a previous connection cycle.
     final thirtyDaysAgo = DateTime.now().millisecondsSinceEpoch ~/ 1000 - 30 * 86400;
-    return stored > thirtyDaysAgo ? stored - 60 : thirtyDaysAgo;
+    return stored > thirtyDaysAgo ? stored - 3660 : thirtyDaysAgo;
   }
 
   Future<void> _updateSince(int unixSeconds) async {
@@ -1255,6 +1431,8 @@ class NostrMessageSender implements MessageSender {
   static const _wsPoolTtl = Duration(minutes: 5);
   final Map<String, StreamSubscription> _wsPoolSubs = {};
   Timer? _wsPoolCleanupTimer;
+  /// Pending OK completers for pooled sends, keyed by event ID.
+  final Map<String, Completer<bool>> _pooledOkCompleters = {};
 
   // initializeSender dedup: skip re-reading prefs when apiKey unchanged within TTL.
   String _lastInitApiKey = '';
@@ -1376,7 +1554,9 @@ class NostrMessageSender implements MessageSender {
         (raw) {
           try {
             final data = jsonDecode(raw as String) as List;
-            if (data.isNotEmpty && data[0] == 'AUTH' && data.length >= 2) {
+            if (data.isEmpty) return;
+            final cmd = data[0] as String;
+            if (cmd == 'AUTH' && data.length >= 2) {
               final rawC = data[1] as String?;
               // Reject oversized AUTH challenges — truncating and signing a
               // prefix produces a signature the relay cannot verify.
@@ -1388,6 +1568,16 @@ class NostrMessageSender implements MessageSender {
                 unawaited(_nostrRespondToAuth(
                     ch, relayUrl, rawC, _privateKeyHex));
               }
+            } else if (cmd == 'OK' && data.length >= 3) {
+              final evId = (data[1] as String?) ?? '?';
+              final accepted = data[2] == true;
+              final reason = data.length > 3 ? (data[3] as String? ?? '') : '';
+              final short = evId.length >= 8 ? evId.substring(0, 8) : evId;
+              debugPrint('[Nostr] POOL OK id=$short… accepted=$accepted reason=$reason');
+              final c = _pooledOkCompleters.remove(evId);
+              if (c != null && !c.isCompleted) c.complete(accepted);
+            } else if (cmd == 'NOTICE' && data.length >= 2) {
+              debugPrint('[Nostr] POOL NOTICE: ${data[1]}');
             }
           } catch (_) {}
         },
@@ -1404,12 +1594,21 @@ class NostrMessageSender implements MessageSender {
       _wsPoolSubs[relayUrl] = sub;
       return ch;
     } catch (e) {
-      debugPrint('[Nostr] Pool connect failed: $e');
+      debugPrint('[Nostr] Pool connect failed: $e — trying shared relay pool');
+      // Borrow a reader's connected channel from the shared relay pool.
+      final poolEntry = _getSharedRelayEntry(relayUrl);
+      if (poolEntry != null) {
+        debugPrint('[Nostr] Using shared relay pool for $relayUrl');
+        return poolEntry.ch;
+      }
       return null;
     }
   }
 
   Future<bool> _publishEvent(Map<String, dynamic> event, String relayUrl) async {
+    final evId = ((event['id'] as String?) ?? '').length >= 8
+        ? (event['id'] as String).substring(0, 8) : '?';
+    debugPrint('[Nostr] _publishEvent id=$evId… → $relayUrl');
     try {
       // Try pooled connection first; fall back to one-shot on failure.
       var channel = await _getPooledWs(relayUrl);
@@ -1420,17 +1619,45 @@ class NostrMessageSender implements MessageSender {
         isPooled = false;
       }
 
+      final eventId = event['id'] as String? ?? '';
       channel.sink.add(jsonEncode(['EVENT', event]));
+      debugPrint('[Nostr] _publishEvent sent id=$evId… pooled=$isPooled');
 
-      // For pooled connections, we don't wait for OK (fire-and-forget with pool).
-      // For one-shot, wait for confirmation.
-      if (!isPooled) {
+      if (isPooled) {
+        // Wait for OK via the pooled listener's completer map.
         final completer = Completer<bool>();
-        final sub = channel.stream.listen((raw) {
+        if (eventId.isNotEmpty) _pooledOkCompleters[eventId] = completer;
+        final result = await completer.future.timeout(
+          const Duration(seconds: 10), onTimeout: () {
+            _pooledOkCompleters.remove(eventId);
+            debugPrint('[Nostr] _publishEvent POOL timeout waiting for OK id=$evId…');
+            return false;
+          },
+        );
+        if (!result) {
+          debugPrint('[Nostr] _publishEvent POOL REJECTED id=$evId… evicting pool');
+          _wsPool.remove(relayUrl);
+          _wsPoolSubs.remove(relayUrl)?.cancel();
+          try { channel.sink.close(); } catch (_) {}
+        }
+        return result;
+      } else {
+        // One-shot: wait for OK then close.
+        final ch = channel!;
+        final completer = Completer<bool>();
+        final sub = ch.stream.listen((raw) {
           try {
             final data = jsonDecode(raw as String) as List;
-            if (data[0] == 'OK' && data[1] == event['id']) {
-              if (!completer.isCompleted) completer.complete(data[2] == true);
+            if (data[0] == 'OK' && data[1] == eventId) {
+              final accepted = data[2] == true;
+              final reason = data.length > 3 ? data[3] : '';
+              debugPrint('[Nostr] _publishEvent relay OK id=$evId… accepted=$accepted reason=$reason');
+              if (!completer.isCompleted) completer.complete(accepted);
+            } else if (data[0] == 'AUTH' && data.length >= 2) {
+              final rawC = data[1] as String?;
+              if (rawC != null && rawC.length <= 256 && _privateKeyHex.isNotEmpty) {
+                unawaited(_nostrRespondToAuth(ch, relayUrl, rawC, _privateKeyHex));
+              }
             }
           } catch (e) {
             debugPrint('[Nostr] Sender response parse error: $e');
@@ -1439,13 +1666,15 @@ class NostrMessageSender implements MessageSender {
           if (!completer.isCompleted) completer.complete(false);
         });
         final result = await completer.future.timeout(
-          const Duration(seconds: 10), onTimeout: () => false,
+          const Duration(seconds: 10), onTimeout: () {
+            debugPrint('[Nostr] _publishEvent timeout waiting for OK id=$evId…');
+            return false;
+          },
         );
         sub.cancel();
-        channel.sink.close();
+        ch.sink.close();
         return result;
       }
-      return true;
     } catch (e) {
       debugPrint('[Nostr] Failed to publish: $e');
       // Evict broken pool entry.
@@ -1471,6 +1700,7 @@ class NostrMessageSender implements MessageSender {
     final rawRelay = parts.length > 1 ? parts.sublist(1).join('@') : '';
     final relay = (rawRelay.isNotEmpty && _isValidRelayUrl(rawRelay)) ? rawRelay : _relayUrl;
 
+    debugPrint('[Nostr] sendMessage: recipient=${recipientPubkey.substring(0, 8)}… relay=$relay');
     try {
       // Wrap kind:4 message in Gift Wrap (NIP-59) for metadata privacy
       final event = await giftwrap.wrapEvent(
@@ -1480,6 +1710,8 @@ class NostrMessageSender implements MessageSender {
         innerContent: message.encryptedPayload,
         innerTags: [['p', recipientPubkey]],
       );
+      final wrapTs = event['created_at'];
+      debugPrint('[Nostr] sendMessage: GiftWrap created_at=$wrapTs (jitter=${wrapTs - DateTime.now().millisecondsSinceEpoch ~/ 1000}s)');
       return await _publishEvent(event, relay);
     } catch (e) {
       debugPrint('[Nostr] sendMessage error: $e');
@@ -1501,6 +1733,7 @@ class NostrMessageSender implements MessageSender {
     final recipientPubkey = parts[0];
     final rawRelayS = parts.length > 1 ? parts.sublist(1).join('@') : '';
     final relay = (rawRelayS.isNotEmpty && _isValidRelayUrl(rawRelayS)) ? rawRelayS : _relayUrl;
+    debugPrint('[Nostr] sendSignal: type=$type recipient=${recipientPubkey.substring(0, 8)}… relay=$relay');
 
     // Signal key bundle (sys_keys): must use real key (kind 10009, replaceable by pubkey).
     if (type == 'sys_keys') {
