@@ -1054,6 +1054,24 @@ abstract class AppLocalizations {
   /// **'Tap to change color'**
   String get setupTapToChangeColor;
 
+  /// No description provided for @setupReqMinLength.
+  ///
+  /// In en, this message translates to:
+  /// **'At least 16 characters'**
+  String get setupReqMinLength;
+
+  /// No description provided for @setupReqVariety.
+  ///
+  /// In en, this message translates to:
+  /// **'3 of 4: uppercase, lowercase, digits, symbols'**
+  String get setupReqVariety;
+
+  /// No description provided for @setupReqMatch.
+  ///
+  /// In en, this message translates to:
+  /// **'Passwords match'**
+  String get setupReqMatch;
+
   /// No description provided for @setupYourNickname.
   ///
   /// In en, this message translates to:

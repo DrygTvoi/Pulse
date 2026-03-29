@@ -474,6 +474,15 @@ class AppLocalizationsBn extends AppLocalizations {
   String get setupTapToChangeColor => 'রং পরিবর্তন করতে ট্যাপ করুন';
 
   @override
+  String get setupReqMinLength => 'At least 16 characters';
+
+  @override
+  String get setupReqVariety => '3 of 4: uppercase, lowercase, digits, symbols';
+
+  @override
+  String get setupReqMatch => 'Passwords match';
+
+  @override
   String get setupYourNickname => 'আপনার ডাকনাম';
 
   @override

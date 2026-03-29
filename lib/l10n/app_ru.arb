@@ -155,6 +155,9 @@
 
   "setupCreateAnonymousAccount": "Создайте анонимный аккаунт",
   "setupTapToChangeColor": "Нажмите чтобы сменить цвет",
+  "setupReqMinLength": "Минимум 16 символов",
+  "setupReqVariety": "3 из 4: заглавные, строчные, цифры, спецсимволы",
+  "setupReqMatch": "Пароли совпадают",
   "setupYourNickname": "Ваш псевдоним",
   "setupRecoveryPassword": "Пароль восстановления (мин. 16)",
   "setupConfirmPassword": "Повторите пароль",

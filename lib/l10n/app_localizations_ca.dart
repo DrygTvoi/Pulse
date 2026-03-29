@@ -502,6 +502,15 @@ class AppLocalizationsCa extends AppLocalizations {
   String get setupTapToChangeColor => 'Toca per canviar el color';
 
   @override
+  String get setupReqMinLength => 'At least 16 characters';
+
+  @override
+  String get setupReqVariety => '3 of 4: uppercase, lowercase, digits, symbols';
+
+  @override
+  String get setupReqMatch => 'Passwords match';
+
+  @override
   String get setupYourNickname => 'El teu sobrenom';
 
   @override

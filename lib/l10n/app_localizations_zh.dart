@@ -461,6 +461,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String get setupTapToChangeColor => '点击更换颜色';
 
   @override
+  String get setupReqMinLength => 'At least 16 characters';
+
+  @override
+  String get setupReqVariety => '3 of 4: uppercase, lowercase, digits, symbols';
+
+  @override
+  String get setupReqMatch => 'Passwords match';
+
+  @override
   String get setupYourNickname => '你的昵称';
 
   @override

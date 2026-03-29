@@ -475,6 +475,16 @@ class AppLocalizationsRu extends AppLocalizations {
   String get setupTapToChangeColor => 'Нажмите чтобы сменить цвет';
 
   @override
+  String get setupReqMinLength => 'Минимум 16 символов';
+
+  @override
+  String get setupReqVariety =>
+      '3 из 4: заглавные, строчные, цифры, спецсимволы';
+
+  @override
+  String get setupReqMatch => 'Пароли совпадают';
+
+  @override
   String get setupYourNickname => 'Ваш псевдоним';
 
   @override
