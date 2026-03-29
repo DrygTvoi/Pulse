@@ -25,6 +25,8 @@ import '../widgets/chat_app_bar.dart';
 import '../widgets/connection_banner.dart';
 import '../widgets/emoji_picker_panel.dart';
 import '../services/video_service.dart';
+import '../services/video_note_service.dart';
+import 'video_note_screen.dart';
 import '../l10n/l10n_ext.dart';
 import '../models/contact_repository.dart';
 
@@ -363,6 +365,29 @@ class _ChatScreenState extends State<ChatScreen> {
     } else {
       await context.read<ChatController>().sendMessage(_contact, payload);
     }
+    WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
+  }
+
+  Future<void> _recordVideoNote() async {
+    // On unsupported platforms (Linux/Windows), fall back to file picker
+    if (!VideoNoteService.isSupported) {
+      await _sendVideo();
+      return;
+    }
+    final result = await Navigator.push<VideoNoteRecording>(
+      context,
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (_) => const VideoNoteScreen(),
+      ),
+    );
+    if (result == null || !mounted) return;
+    await context.read<ChatController>().sendVideoNote(
+      _contact,
+      result.mp4Bytes,
+      result.durationSeconds,
+      result.thumbnailJpeg,
+    );
     WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
   }
 
@@ -955,6 +980,7 @@ class _ChatScreenState extends State<ChatScreen> {
             contact: _contact,
           ),
           onToggleEmojiPicker: _toggleEmojiPicker,
+          onRecordVideoNote: _recordVideoNote,
         ),
         if (_showEmojiPicker)
           EmojiPickerPanel(

@@ -31,6 +31,7 @@ class MessageInputBar extends StatelessWidget {
   final VoidCallback onSchedulePicker;
   final VoidCallback onShowScheduledPanel;
   final VoidCallback onToggleEmojiPicker;
+  final VoidCallback? onRecordVideoNote;
 
   const MessageInputBar({
     super.key,
@@ -53,6 +54,7 @@ class MessageInputBar extends StatelessWidget {
     required this.onSchedulePicker,
     required this.onShowScheduledPanel,
     required this.onToggleEmojiPicker,
+    this.onRecordVideoNote,
   });
 
   String _replyPreview() {
@@ -228,7 +230,7 @@ class MessageInputBar extends StatelessWidget {
         ),
       ),
       const SizedBox(width: DesignTokens.spacing8),
-      // Mic button (when text field empty) or Send button
+      // Camera + Mic buttons (when text field empty) or Send button
       ListenableBuilder(
         listenable: controller,
         builder: (context, _) {
@@ -258,21 +260,43 @@ class MessageInputBar extends StatelessWidget {
                       ),
                     ),
                   )
-                : Semantics(
-                    label: context.l10n.inputRecordVoice,
-                    button: true,
-                    child: GestureDetector(
-                      key: const ValueKey('mic'),
-                      onTap: onStartRecording,
-                      child: Container(
-                        width: 46, height: 46,
-                        decoration: BoxDecoration(
-                          color: AppTheme.surfaceVariant,
-                          shape: BoxShape.circle,
+                : Row(
+                    key: const ValueKey('media_buttons'),
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (onRecordVideoNote != null)
+                        Semantics(
+                          label: context.l10n.videoNoteRecord,
+                          button: true,
+                          child: GestureDetector(
+                            onTap: onRecordVideoNote,
+                            child: Container(
+                              width: 40, height: 40,
+                              decoration: BoxDecoration(
+                                color: AppTheme.surfaceVariant,
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(Icons.videocam_rounded, color: AppTheme.textSecondary, size: DesignTokens.iconMd),
+                            ),
+                          ),
                         ),
-                        child: Icon(Icons.mic_rounded, color: AppTheme.textSecondary, size: DesignTokens.fontDisplay),
+                      if (onRecordVideoNote != null) const SizedBox(width: 4),
+                      Semantics(
+                        label: context.l10n.inputRecordVoice,
+                        button: true,
+                        child: GestureDetector(
+                          onTap: onStartRecording,
+                          child: Container(
+                            width: 46, height: 46,
+                            decoration: BoxDecoration(
+                              color: AppTheme.surfaceVariant,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(Icons.mic_rounded, color: AppTheme.textSecondary, size: DesignTokens.fontDisplay),
+                          ),
+                        ),
                       ),
-                    ),
+                    ],
                   ),
           );
         },

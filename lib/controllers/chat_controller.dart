@@ -2041,6 +2041,103 @@ class ChatController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Send a video note (circle). Small recordings go inline; larger ones
+  /// route through the 3-tier media pipeline (P2P → Blossom → relay chunks).
+  Future<void> sendVideoNote(Contact contact, Uint8List mp4Bytes,
+      int durationSeconds, Uint8List? thumbnailJpeg) async {
+    if (_identity == null) return;
+    final thumbB64 = thumbnailJpeg != null ? base64Encode(thumbnailJpeg) : null;
+    final b64 = base64Encode(mp4Bytes);
+    final payload = jsonEncode({
+      't': 'video_note',
+      'd': b64,
+      'dur': durationSeconds,
+      'sz': mp4Bytes.length,
+      'n': 'video_note.mp4',
+      if (thumbB64 != null) 'thumb': thumbB64,
+    });
+    final payloadBytes = utf8.encode(payload).length;
+    // Small video notes: send inline (under NIP-44 limit after Gift Wrap)
+    if (payloadBytes <= 6000) {
+      await sendMessage(contact, payload);
+      return;
+    }
+    // Large video notes: show locally with full payload, send via media pipeline
+    final isGroup = contact.isGroup;
+    final room = _repo.getOrCreateRoom(contact);
+    final msgId = _uuid.v4();
+    final localMsg = Message(
+      id: msgId,
+      senderId: _identity!.id,
+      receiverId: contact.id,
+      encryptedPayload: payload,
+      timestamp: DateTime.now(),
+      adapterType: isGroup ? 'group' : (contact.provider == 'Nostr' ? 'nostr' : 'firebase'),
+      isRead: true,
+      status: 'sending',
+    );
+    room.messages.add(localMsg);
+    _repo.trackMessageId(contact.id, localMsg.id);
+    final localTtl = _repo.getChatTtlCached(contact.id);
+    if (localTtl > 0) _repo.scheduleTtlDelete(contact, localMsg, localTtl,
+        onDeleted: () { if (!_disposed) notifyListeners(); });
+    notifyListeners();
+
+    // Route through sendFile's 3-tier pipeline (P2P → Blossom → relay chunks)
+    // We mark the local message first, then delegate the actual send.
+    _repo.setUploadProgress(msgId, 0.0);
+    bool sent = false;
+
+    // Tier 1: P2P
+    if (!isGroup && P2PTransportService.instance.isConnected(contact.id)) {
+      sent = await _sendViaP2PBinary(contact, mp4Bytes, 'video_note.mp4', 'video_note');
+    }
+
+    // Tier 2: Blossom
+    if (!sent && BlossomService.instance.isAvailable) {
+      // Remove the local placeholder (Blossom creates its own)
+      room.messages.removeWhere((m) => m.id == msgId);
+      notifyListeners();
+      sent = await _sendViaBlossom(contact, mp4Bytes, 'video_note.mp4', 'video_note');
+      if (sent) {
+        _repo.clearUploadProgress(msgId);
+        return;
+      }
+      // Re-add local placeholder for relay chunk fallback
+      room.messages.add(localMsg);
+      notifyListeners();
+    }
+
+    // Tier 3: relay chunks
+    if (!sent) {
+      final chunks = MediaService.chunkPayloads(mp4Bytes, 'video_note.mp4',
+          mediaType: 'video_note');
+      int i = 0;
+      bool allSent = true;
+      for (final chunk in chunks) {
+        final bool ok;
+        if (isGroup) {
+          ok = await _sendGroupChunk(contact, chunk);
+        } else {
+          ok = await _sendToContact(contact, chunk);
+        }
+        if (!ok) { allSent = false; break; }
+        i++;
+        _repo.setUploadProgress(msgId, i / chunks.length);
+        _scheduleNotify();
+      }
+      sent = allSent;
+    }
+
+    _repo.clearUploadProgress(msgId);
+    final idx = room.messages.indexWhere((m) => m.id == msgId);
+    final finalMsg = localMsg.copyWith(status: sent ? 'sent' : 'failed');
+    if (idx >= 0) room.messages[idx] = finalMsg;
+    final storageKey = isGroup ? contact.id : contact.storageKey;
+    unawaited(LocalStorageService().saveMessage(storageKey, finalMsg.toJson()));
+    notifyListeners();
+  }
+
   /// Tier 2: Encrypt, upload to Blossom, send metadata message.
   /// Works for both 1-on-1 and group chats. For groups: upload once,
   /// send E2EE blossom payload (with AES key) to each member individually.
