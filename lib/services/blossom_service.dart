@@ -91,8 +91,6 @@ class BlossomService {
         final uploadUrl = '$server/upload';
         final authEvent = await _buildAuthEvent(
           privkey: privkey,
-          url: uploadUrl,
-          method: 'PUT',
           payloadHash: hash,
         );
         final authHeader = 'Nostr ${base64Encode(utf8.encode(jsonEncode(authEvent)))}';
@@ -175,8 +173,6 @@ class BlossomService {
   /// Build kind:24242 authorization event (BUD-01).
   Future<Map<String, dynamic>> _buildAuthEvent({
     required String privkey,
-    required String url,
-    required String method,
     required String payloadHash,
   }) async {
     final expiration = (DateTime.now().millisecondsSinceEpoch ~/ 1000 + 60).toString();
@@ -186,9 +182,7 @@ class BlossomService {
       content: 'Upload $payloadHash',
       tags: [
         ['t', 'upload'],
-        ['u', url],
-        ['method', method],
-        ['payload', payloadHash],
+        ['x', payloadHash],
         ['expiration', expiration],
       ],
     );
