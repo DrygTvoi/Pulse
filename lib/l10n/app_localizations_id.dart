@@ -2558,4 +2558,23 @@ class AppLocalizationsId extends AppLocalizations {
   @override
   String get onboardingLanguageSubtitle =>
       'Anda bisa mengubahnya nanti di Pengaturan';
+
+  @override
+  String get videoNoteRecord => 'Rekam pesan video';
+
+  @override
+  String get videoNoteTapToRecord => 'Ketuk untuk merekam';
+
+  @override
+  String get videoNoteTapToStop => 'Ketuk untuk berhenti';
+
+  @override
+  String get videoNoteCameraPermission => 'Izin kamera ditolak';
+
+  @override
+  String get videoNoteMaxDuration => 'Maksimal 30 detik';
+
+  @override
+  String get videoNoteNotSupported =>
+      'Catatan video tidak didukung di platform ini';
 }

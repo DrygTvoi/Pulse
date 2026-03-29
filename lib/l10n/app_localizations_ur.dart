@@ -2552,4 +2552,23 @@ class AppLocalizationsUr extends AppLocalizations {
   @override
   String get onboardingLanguageSubtitle =>
       'آپ بعد میں ترتیبات سے تبدیل کر سکتے ہیں';
+
+  @override
+  String get videoNoteRecord => 'ویڈیو پیغام ریکارڈ کریں';
+
+  @override
+  String get videoNoteTapToRecord => 'ریکارڈ کرنے کے لیے ٹیپ کریں';
+
+  @override
+  String get videoNoteTapToStop => 'روکنے کے لیے ٹیپ کریں';
+
+  @override
+  String get videoNoteCameraPermission => 'کیمرے کی اجازت سے انکار';
+
+  @override
+  String get videoNoteMaxDuration => 'زیادہ سے زیادہ 30 سیکنڈ';
+
+  @override
+  String get videoNoteNotSupported =>
+      'اس پلیٹ فارم پر ویڈیو نوٹس سپورٹ نہیں ہیں';
 }

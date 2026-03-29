@@ -2565,4 +2565,23 @@ class AppLocalizationsTr extends AppLocalizations {
   @override
   String get onboardingLanguageSubtitle =>
       'You can change this later in Settings';
+
+  @override
+  String get videoNoteRecord => 'Video mesajı kaydet';
+
+  @override
+  String get videoNoteTapToRecord => 'Kaydetmek için dokunun';
+
+  @override
+  String get videoNoteTapToStop => 'Durdurmak için dokunun';
+
+  @override
+  String get videoNoteCameraPermission => 'Kamera izni reddedildi';
+
+  @override
+  String get videoNoteMaxDuration => 'Maksimum 30 saniye';
+
+  @override
+  String get videoNoteNotSupported =>
+      'Video notlar bu platformda desteklenmiyor';
 }

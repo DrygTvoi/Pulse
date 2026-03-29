@@ -2572,4 +2572,23 @@ class AppLocalizationsLt extends AppLocalizations {
   @override
   String get onboardingLanguageSubtitle =>
       'Tai galite pakeisti vėliau Nustatymuose';
+
+  @override
+  String get videoNoteRecord => 'Įrašyti vaizdo žinutę';
+
+  @override
+  String get videoNoteTapToRecord => 'Bakstelėkite, kad įrašytumėte';
+
+  @override
+  String get videoNoteTapToStop => 'Bakstelėkite, kad sustabdytumėte';
+
+  @override
+  String get videoNoteCameraPermission => 'Prieiga prie kameros uždrausta';
+
+  @override
+  String get videoNoteMaxDuration => 'Daugiausiai 30 sekundžių';
+
+  @override
+  String get videoNoteNotSupported =>
+      'Vaizdo įrašų pastabos nepalaikomos šioje platformoje';
 }

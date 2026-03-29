@@ -2528,4 +2528,23 @@ class AppLocalizationsRu extends AppLocalizations {
   @override
   String get onboardingLanguageSubtitle =>
       'Вы можете изменить это позже в Настройках';
+
+  @override
+  String get videoNoteRecord => 'Записать видеосообщение';
+
+  @override
+  String get videoNoteTapToRecord => 'Нажмите для записи';
+
+  @override
+  String get videoNoteTapToStop => 'Нажмите для остановки';
+
+  @override
+  String get videoNoteCameraPermission => 'Нет доступа к камере';
+
+  @override
+  String get videoNoteMaxDuration => 'Максимум 30 секунд';
+
+  @override
+  String get videoNoteNotSupported =>
+      'Видеосообщения не поддерживаются на этой платформе';
 }

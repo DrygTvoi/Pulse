@@ -2542,4 +2542,23 @@ class AppLocalizationsVi extends AppLocalizations {
   @override
   String get onboardingLanguageSubtitle =>
       'Bạn có thể thay đổi sau trong Cài đặt';
+
+  @override
+  String get videoNoteRecord => 'Ghi tin nhắn video';
+
+  @override
+  String get videoNoteTapToRecord => 'Nhấn để ghi';
+
+  @override
+  String get videoNoteTapToStop => 'Nhấn để dừng';
+
+  @override
+  String get videoNoteCameraPermission => 'Quyền truy cập camera bị từ chối';
+
+  @override
+  String get videoNoteMaxDuration => 'Tối đa 30 giây';
+
+  @override
+  String get videoNoteNotSupported =>
+      'Ghi chú video không được hỗ trợ trên nền tảng này';
 }

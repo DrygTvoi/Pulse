@@ -2466,4 +2466,22 @@ class AppLocalizationsJa extends AppLocalizations {
   @override
   String get onboardingLanguageSubtitle =>
       'You can change this later in Settings';
+
+  @override
+  String get videoNoteRecord => 'ビデオメッセージを録画';
+
+  @override
+  String get videoNoteTapToRecord => 'タップして録画開始';
+
+  @override
+  String get videoNoteTapToStop => 'タップして停止';
+
+  @override
+  String get videoNoteCameraPermission => 'カメラのアクセスが拒否されました';
+
+  @override
+  String get videoNoteMaxDuration => '最大30秒';
+
+  @override
+  String get videoNoteNotSupported => 'このプラットフォームではビデオノートはサポートされていません';
 }

@@ -2569,4 +2569,23 @@ class AppLocalizationsFi extends AppLocalizations {
   @override
   String get onboardingLanguageSubtitle =>
       'Voit muuttaa tämän myöhemmin Asetuksista';
+
+  @override
+  String get videoNoteRecord => 'Tallenna videoviesti';
+
+  @override
+  String get videoNoteTapToRecord => 'Napauta tallentaaksesi';
+
+  @override
+  String get videoNoteTapToStop => 'Napauta lopettaaksesi';
+
+  @override
+  String get videoNoteCameraPermission => 'Kameran käyttöoikeus evätty';
+
+  @override
+  String get videoNoteMaxDuration => 'Enintään 30 sekuntia';
+
+  @override
+  String get videoNoteNotSupported =>
+      'Videomuistiinpanoja ei tueta tällä alustalla';
 }

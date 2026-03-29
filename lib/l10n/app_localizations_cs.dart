@@ -2552,4 +2552,23 @@ class AppLocalizationsCs extends AppLocalizations {
   @override
   String get onboardingLanguageSubtitle =>
       'Můžete to změnit později v Nastavení';
+
+  @override
+  String get videoNoteRecord => 'Nahrát video zprávu';
+
+  @override
+  String get videoNoteTapToRecord => 'Klepnutím zahájíte nahrávání';
+
+  @override
+  String get videoNoteTapToStop => 'Klepnutím zastavíte';
+
+  @override
+  String get videoNoteCameraPermission => 'Přístup ke kameře byl odepřen';
+
+  @override
+  String get videoNoteMaxDuration => 'Maximum 30 sekund';
+
+  @override
+  String get videoNoteNotSupported =>
+      'Video poznámky nejsou na této platformě podporovány';
 }

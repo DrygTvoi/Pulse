@@ -2565,4 +2565,23 @@ class AppLocalizationsHy extends AppLocalizations {
   @override
   String get onboardingLanguageSubtitle =>
       'Դուք կարող եք փոխել հետո կարգավորումներում';
+
+  @override
+  String get videoNoteRecord => 'Ձայնագրել վիդեո հաղորդագրություն';
+
+  @override
+  String get videoNoteTapToRecord => 'Հпեք ձայнагрелու համար';
+
+  @override
+  String get videoNoteTapToStop => 'Հпեք կангнецнелու համар';
+
+  @override
+  String get videoNoteCameraPermission => 'Тեсахцикի тհуйлтвутһюнը мерждвад է';
+
+  @override
+  String get videoNoteMaxDuration => 'Аռавелагуйнը 30 вайркян';
+
+  @override
+  String get videoNoteNotSupported =>
+      'Видео ншумнерը чен аджакцвум айс հарդакум';
 }

@@ -2585,4 +2585,23 @@ class AppLocalizationsIt extends AppLocalizations {
   @override
   String get onboardingLanguageSubtitle =>
       'You can change this later in Settings';
+
+  @override
+  String get videoNoteRecord => 'Registra un messaggio video';
+
+  @override
+  String get videoNoteTapToRecord => 'Tocca per registrare';
+
+  @override
+  String get videoNoteTapToStop => 'Tocca per fermare';
+
+  @override
+  String get videoNoteCameraPermission => 'Autorizzazione fotocamera negata';
+
+  @override
+  String get videoNoteMaxDuration => 'Massimo 30 secondi';
+
+  @override
+  String get videoNoteNotSupported =>
+      'Le note video non sono supportate su questa piattaforma';
 }

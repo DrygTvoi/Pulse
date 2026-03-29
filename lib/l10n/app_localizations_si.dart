@@ -2556,4 +2556,23 @@ class AppLocalizationsSi extends AppLocalizations {
   @override
   String get onboardingLanguageSubtitle =>
       'ඔබට මෙය පසුව සැකසුම් වලින් වෙනස් කළ හැක';
+
+  @override
+  String get videoNoteRecord => 'වීඩියෝ පණිවිඩය පටිගත කරන්න';
+
+  @override
+  String get videoNoteTapToRecord => 'පටිගත කිරීමට තට්ටු කරන්න';
+
+  @override
+  String get videoNoteTapToStop => 'නතර කිරීමට තට්ටු කරන්න';
+
+  @override
+  String get videoNoteCameraPermission => 'කැමරා අවසරය ප්‍රතික්ෂේප විය';
+
+  @override
+  String get videoNoteMaxDuration => 'උපරිම තත්පර 30';
+
+  @override
+  String get videoNoteNotSupported =>
+      'මෙම වේදිකාවේ වීඩියෝ සටහන් සඳහා සහාය නොමැත';
 }

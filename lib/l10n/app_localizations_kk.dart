@@ -2563,4 +2563,23 @@ class AppLocalizationsKk extends AppLocalizations {
   @override
   String get onboardingLanguageSubtitle =>
       'Мұны кейін Параметрлерде өзгертуге болады';
+
+  @override
+  String get videoNoteRecord => 'Бейне хабарлама жазу';
+
+  @override
+  String get videoNoteTapToRecord => 'Жазу үшін түртіңіз';
+
+  @override
+  String get videoNoteTapToStop => 'Тоқтату үшін түртіңіз';
+
+  @override
+  String get videoNoteCameraPermission => 'Камераға рұқсат берілмеді';
+
+  @override
+  String get videoNoteMaxDuration => 'Максимум 30 секунд';
+
+  @override
+  String get videoNoteNotSupported =>
+      'Бейне жазбалар бұл платформада қолданылмайды';
 }

@@ -2565,4 +2565,23 @@ class AppLocalizationsKa extends AppLocalizations {
   @override
   String get onboardingLanguageSubtitle =>
       'ამის შეცვლა მოგვიანებით შეგიძლიათ პარამეტრებში';
+
+  @override
+  String get videoNoteRecord => 'ვიდეო შეტყობინების ჩაწერა';
+
+  @override
+  String get videoNoteTapToRecord => 'ჩასაწერად შეეხეთ';
+
+  @override
+  String get videoNoteTapToStop => 'გასაჩერებლად შეეხეთ';
+
+  @override
+  String get videoNoteCameraPermission => 'კამერის ნებართვა უარყოფილია';
+
+  @override
+  String get videoNoteMaxDuration => 'მაქსიმუმ 30 წამი';
+
+  @override
+  String get videoNoteNotSupported =>
+      'ვიდეო შენიშვნები არ არის მხარდაჭერილი ამ პლატფორმაზე';
 }

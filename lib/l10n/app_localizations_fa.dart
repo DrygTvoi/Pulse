@@ -2545,4 +2545,23 @@ class AppLocalizationsFa extends AppLocalizations {
   @override
   String get onboardingLanguageSubtitle =>
       'بعداً می‌توانید در تنظیمات تغییر دهید';
+
+  @override
+  String get videoNoteRecord => 'ضبط پیام ویدیویی';
+
+  @override
+  String get videoNoteTapToRecord => 'برای ضبط لمس کنید';
+
+  @override
+  String get videoNoteTapToStop => 'برای توقف لمس کنید';
+
+  @override
+  String get videoNoteCameraPermission => 'دسترسی به دوربین رد شد';
+
+  @override
+  String get videoNoteMaxDuration => 'حداکثر ۳۰ ثانیه';
+
+  @override
+  String get videoNoteNotSupported =>
+      'یادداشت‌های ویدیویی در این پلتفرم پشتیبانی نمی‌شوند';
 }

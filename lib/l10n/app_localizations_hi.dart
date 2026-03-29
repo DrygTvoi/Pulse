@@ -2558,4 +2558,23 @@ class AppLocalizationsHi extends AppLocalizations {
   @override
   String get onboardingLanguageSubtitle =>
       'You can change this later in Settings';
+
+  @override
+  String get videoNoteRecord => 'वीडियो संदेश रिकॉर्ड करें';
+
+  @override
+  String get videoNoteTapToRecord => 'रिकॉर्ड करने के लिए टैप करें';
+
+  @override
+  String get videoNoteTapToStop => 'रोकने के लिए टैप करें';
+
+  @override
+  String get videoNoteCameraPermission => 'कैमरा अनुमति अस्वीकृत';
+
+  @override
+  String get videoNoteMaxDuration => 'अधिकतम 30 सेकंड';
+
+  @override
+  String get videoNoteNotSupported =>
+      'इस प्लेटफ़ॉर्म पर वीडियो नोट समर्थित नहीं हैं';
 }

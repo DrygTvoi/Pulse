@@ -2522,4 +2522,22 @@ class AppLocalizationsHe extends AppLocalizations {
 
   @override
   String get onboardingLanguageSubtitle => 'ניתן לשנות זאת מאוחר יותר בהגדרות';
+
+  @override
+  String get videoNoteRecord => 'הקלט הודעת וידאו';
+
+  @override
+  String get videoNoteTapToRecord => 'הקש להקלטה';
+
+  @override
+  String get videoNoteTapToStop => 'הקש לעצירה';
+
+  @override
+  String get videoNoteCameraPermission => 'הרשאת המצלמה נדחתה';
+
+  @override
+  String get videoNoteMaxDuration => 'מקסימום 30 שניות';
+
+  @override
+  String get videoNoteNotSupported => 'הערות וידאו אינן נתמכות בפלטפורמה זו';
 }

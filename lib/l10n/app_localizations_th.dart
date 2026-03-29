@@ -2535,4 +2535,22 @@ class AppLocalizationsTh extends AppLocalizations {
   @override
   String get onboardingLanguageSubtitle =>
       'คุณสามารถเปลี่ยนได้ภายหลังในการตั้งค่า';
+
+  @override
+  String get videoNoteRecord => 'บันทึกข้อความวิดีโอ';
+
+  @override
+  String get videoNoteTapToRecord => 'แตะเพื่อบันทึก';
+
+  @override
+  String get videoNoteTapToStop => 'แตะเพื่อหยุด';
+
+  @override
+  String get videoNoteCameraPermission => 'การอนุญาตใช้กล้องถูกปฏิเสธ';
+
+  @override
+  String get videoNoteMaxDuration => 'สูงสุด 30 วินาที';
+
+  @override
+  String get videoNoteNotSupported => 'ไม่รองรับบันทึกวิดีโอบนแพลตฟอร์มนี้';
 }

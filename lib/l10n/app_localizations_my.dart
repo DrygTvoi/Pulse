@@ -2568,4 +2568,23 @@ class AppLocalizationsMy extends AppLocalizations {
   @override
   String get onboardingLanguageSubtitle =>
       'ဆက်တင်များတွင် နောက်မှ ပြောင်းနိုင်သည်';
+
+  @override
+  String get videoNoteRecord => 'ဗီဒီယိုမက်ဆေ့ချ် ရိုက်ကူးရန်';
+
+  @override
+  String get videoNoteTapToRecord => 'ရိုက်ကူးရန် တို့ပါ';
+
+  @override
+  String get videoNoteTapToStop => 'ရပ်ရန် တို့ပါ';
+
+  @override
+  String get videoNoteCameraPermission => 'ကင်မရာ ခွင့်ပြုချက် ငြင်းပယ်ခြင်း';
+
+  @override
+  String get videoNoteMaxDuration => 'အများဆုံး ၃၀ စက္ကန့်';
+
+  @override
+  String get videoNoteNotSupported =>
+      'ဤပလက်ဖောင်းတွင် ဗီဒီယိုမှတ်ချက်များ ပံ့ပိုးမထားပါ';
 }

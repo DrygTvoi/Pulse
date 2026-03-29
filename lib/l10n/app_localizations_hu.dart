@@ -2572,4 +2572,23 @@ class AppLocalizationsHu extends AppLocalizations {
   @override
   String get onboardingLanguageSubtitle =>
       'Később módosíthatod a Beállításokban';
+
+  @override
+  String get videoNoteRecord => 'Videóüzenet felvétele';
+
+  @override
+  String get videoNoteTapToRecord => 'Koppintson a felvételhez';
+
+  @override
+  String get videoNoteTapToStop => 'Koppintson a leállításhoz';
+
+  @override
+  String get videoNoteCameraPermission => 'Kamera-engedély megtagadva';
+
+  @override
+  String get videoNoteMaxDuration => 'Maximum 30 másodperc';
+
+  @override
+  String get videoNoteNotSupported =>
+      'A videójegyzetek ezen a platformon nem támogatottak';
 }

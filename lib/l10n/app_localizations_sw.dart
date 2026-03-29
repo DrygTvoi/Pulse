@@ -2571,4 +2571,23 @@ class AppLocalizationsSw extends AppLocalizations {
   @override
   String get onboardingLanguageSubtitle =>
       'Unaweza kubadilisha hii baadaye katika Mipangilio';
+
+  @override
+  String get videoNoteRecord => 'Rekodi ujumbe wa video';
+
+  @override
+  String get videoNoteTapToRecord => 'Gonga kurekodi';
+
+  @override
+  String get videoNoteTapToStop => 'Gonga kusimama';
+
+  @override
+  String get videoNoteCameraPermission => 'Ruhusa ya kamera imekataliwa';
+
+  @override
+  String get videoNoteMaxDuration => 'Sekunde 30 upeo';
+
+  @override
+  String get videoNoteNotSupported =>
+      'Vidokezo vya video havitumiki kwenye jukwaa hili';
 }

@@ -2566,4 +2566,23 @@ class AppLocalizationsSk extends AppLocalizations {
   @override
   String get onboardingLanguageSubtitle =>
       'Neskôr to môžete zmeniť v Nastaveniach';
+
+  @override
+  String get videoNoteRecord => 'Nahrať video správu';
+
+  @override
+  String get videoNoteTapToRecord => 'Klepnutím spustíte nahrávanie';
+
+  @override
+  String get videoNoteTapToStop => 'Klepnutím zastavíte';
+
+  @override
+  String get videoNoteCameraPermission => 'Prístup ku kamere bol zamietnutý';
+
+  @override
+  String get videoNoteMaxDuration => 'Maximum 30 sekúnd';
+
+  @override
+  String get videoNoteNotSupported =>
+      'Videopoznámky nie sú na tejto platforme podporované';
 }

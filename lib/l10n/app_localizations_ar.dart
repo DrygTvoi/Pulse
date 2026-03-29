@@ -2555,4 +2555,22 @@ class AppLocalizationsAr extends AppLocalizations {
   @override
   String get onboardingLanguageSubtitle =>
       'You can change this later in Settings';
+
+  @override
+  String get videoNoteRecord => 'تسجيل رسالة فيديو';
+
+  @override
+  String get videoNoteTapToRecord => 'اضغط للتسجيل';
+
+  @override
+  String get videoNoteTapToStop => 'اضغط للإيقاف';
+
+  @override
+  String get videoNoteCameraPermission => 'تم رفض إذن الكاميرا';
+
+  @override
+  String get videoNoteMaxDuration => 'الحد الأقصى 30 ثانية';
+
+  @override
+  String get videoNoteNotSupported => 'رسائل الفيديو غير مدعومة على هذه المنصة';
 }

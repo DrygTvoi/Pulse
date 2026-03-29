@@ -4707,6 +4707,42 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'You can change this later in Settings'**
   String get onboardingLanguageSubtitle;
+
+  /// No description provided for @videoNoteRecord.
+  ///
+  /// In en, this message translates to:
+  /// **'Record video message'**
+  String get videoNoteRecord;
+
+  /// No description provided for @videoNoteTapToRecord.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap to record'**
+  String get videoNoteTapToRecord;
+
+  /// No description provided for @videoNoteTapToStop.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap to stop'**
+  String get videoNoteTapToStop;
+
+  /// No description provided for @videoNoteCameraPermission.
+  ///
+  /// In en, this message translates to:
+  /// **'Camera permission denied'**
+  String get videoNoteCameraPermission;
+
+  /// No description provided for @videoNoteMaxDuration.
+  ///
+  /// In en, this message translates to:
+  /// **'Maximum 30 seconds'**
+  String get videoNoteMaxDuration;
+
+  /// No description provided for @videoNoteNotSupported.
+  ///
+  /// In en, this message translates to:
+  /// **'Video notes not supported on this platform'**
+  String get videoNoteNotSupported;
 }
 
 class _AppLocalizationsDelegate
