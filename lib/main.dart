@@ -71,7 +71,6 @@ Future<void> main() async {
       }
       final hasIdentity = prefs.containsKey('user_identity');
       final onboardingDone = prefs.getBool('onboarding_done') ?? false;
-      if (!onboardingDone) await prefs.setBool('onboarding_done', true);
 
       // Check if app-level password lock is enabled
       const ss = FlutterSecureStorage();
@@ -94,14 +93,20 @@ Future<void> main() async {
       // Background connectivity probe — finds reachable relays/nodes.
       // Runs silently; if connection is already working, does nothing extra.
       // If tor is installed and direct probes fail, uses it for bootstrap only.
+      // Capture relay BEFORE probe runs — probe updates the pref, so comparing
+      // after would always match.
+      final relayBeforeProbe = prefs.getString('nostr_relay') ?? '';
       unawaited(ConnectivityProbeService.instance.runIfNeeded());
 
-      // After probe finishes, reconnect ChatController if a better relay was found.
-      // Fixes race: ChatController connects with default relay before probe discovers better ones.
+      // After probe finishes, reconnect only if a DIFFERENT relay was discovered.
       unawaited(ConnectivityProbeService.instance.firstRunDone.then((result) {
-        if (result.bestNostrRelay != null) {
-          debugPrint('[Main] Probe found relay: ${result.bestNostrRelay} — reconnecting');
+        if (result.bestNostrRelay != null &&
+            result.bestNostrRelay != relayBeforeProbe) {
+          debugPrint('[Main] Probe found better relay: ${result.bestNostrRelay} '
+              '(was $relayBeforeProbe) — reconnecting');
           chatController.reconnectInbox();
+        } else {
+          debugPrint('[Main] Probe relay matches current — no reconnect needed');
         }
       }));
       unawaited(UTLSService.instance.ensureRunning());

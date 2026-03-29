@@ -107,10 +107,10 @@ class _AddContactDialogState extends State<AddContactDialog> {
         if (name.isNotEmpty && _nameController.text.isEmpty) {
           _nameController.text = name;
         }
+        // Pulse links are trusted — no NIP-0 lookup needed.
+        _profileFetchStatus = null;
+        _fetchingProfile = false;
       });
-      if (_nameController.text.isEmpty && _detectProvider(addresses.first) == 'Nostr') {
-        _tryScheduleNostrFetch(addresses.first);
-      }
     } catch (e) {
       // F3: Do NOT call _onInput(link) here — that causes infinite recursion
       // when the link starts with pulse:// (re-enters _parsePulseLink → throws → recurse).
