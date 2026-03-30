@@ -343,11 +343,17 @@ class _GroupCallScreenState extends State<GroupCallScreen> {
     _audioLevelTimer?.cancel();
     _groupUpdateSub?.cancel();
     await _groupSignaling?.hangUp();
-    _localRenderer.dispose();
-    for (final r in _remoteRenderers.values) {
-      r.dispose();
-    }
+    _disposeRenderers();
     if (mounted) Navigator.pop(context);
+  }
+
+  void _disposeRenderers() {
+    try { _localRenderer.srcObject = null; } catch (_) {}
+    try { _localRenderer.dispose(); } catch (_) {}
+    for (final r in _remoteRenderers.values) {
+      try { r.srcObject = null; } catch (_) {}
+      try { r.dispose(); } catch (_) {}
+    }
   }
 
   @override
@@ -359,10 +365,7 @@ class _GroupCallScreenState extends State<GroupCallScreen> {
       _audioLevelTimer?.cancel();
       _groupUpdateSub?.cancel();
       _groupSignaling?.hangUp();
-      _localRenderer.dispose();
-      for (final r in _remoteRenderers.values) {
-        r.dispose();
-      }
+      _disposeRenderers();
     }
     super.dispose();
   }

@@ -137,8 +137,7 @@ class _CallScreenState extends State<CallScreen> {
       _signaling?.hangUp();
       _signaling = null;
       if (renderersInitialized) {
-        try { _localRenderer.dispose(); } catch (_) {}
-        try { _remoteRenderer.dispose(); } catch (_) {}
+        _disposeRenderers();
       }
       if (mounted) {
         setState(() {
@@ -433,12 +432,15 @@ class _CallScreenState extends State<CallScreen> {
     _disconnectTimer?.cancel();
     _secondaryWatchdog?.cancel();
     _signaling?.hangUp();
-    // Renderers are already disposed if _initError is set (catch block cleaned up)
-    if (_initError == null) {
-      _localRenderer.dispose();
-      _remoteRenderer.dispose();
-    }
+    _disposeRenderers();
     if (mounted) Navigator.pop(context);
+  }
+
+  void _disposeRenderers() {
+    try { _localRenderer.srcObject = null; } catch (_) {}
+    try { _remoteRenderer.srcObject = null; } catch (_) {}
+    try { _localRenderer.dispose(); } catch (_) {}
+    try { _remoteRenderer.dispose(); } catch (_) {}
   }
 
   void _startDurationTimer() {
@@ -468,11 +470,7 @@ class _CallScreenState extends State<CallScreen> {
       _disconnectTimer?.cancel();
       _secondaryWatchdog?.cancel();
       _signaling?.hangUp();
-      // Renderers are already disposed if _initError is set (catch block cleaned up)
-      if (_initError == null) {
-        _localRenderer.dispose();
-        _remoteRenderer.dispose();
-      }
+      _disposeRenderers();
     }
     super.dispose();
   }
