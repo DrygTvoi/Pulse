@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -318,7 +319,31 @@ class _GroupCallScreenState extends State<GroupCallScreen> {
         _groupSignaling?.localStream = camStream;
         if (mounted) setState(() => _isScreenSharing = false);
       } else {
-        final screen = await navigator.mediaDevices.getDisplayMedia({'video': true, 'audio': false});
+        MediaStream screen;
+        if (Platform.isLinux || Platform.isMacOS || Platform.isWindows) {
+          // Desktop: must enumerate sources first, then pass source ID
+          // Only enumerate Screen sources — Window enumeration crashes
+          // on Wayland (libwebrtc X11 window capture segfaults).
+          final sources = await desktopCapturer.getSources(
+            types: [SourceType.Screen],
+          );
+          if (sources.isEmpty) {
+            debugPrint('[GroupCall] No desktop sources found');
+            return;
+          }
+          final screenSources = sources.where((s) => s.type == SourceType.Screen).toList();
+          final screenSource = screenSources.isNotEmpty ? screenSources.first : sources.first;
+          debugPrint('[GroupCall] Using desktop source: ${screenSource.name} (${screenSource.id})');
+          screen = await navigator.mediaDevices.getDisplayMedia({
+            'video': {
+              'deviceId': {'exact': screenSource.id},
+              'mandatory': {'frameRate': 30.0},
+            },
+            'audio': false,
+          });
+        } else {
+          screen = await navigator.mediaDevices.getDisplayMedia({'video': true, 'audio': false});
+        }
         final track = screen.getVideoTracks().first;
         await _groupSignaling?.replaceVideoTrack(track);
         _localRenderer.srcObject = screen;

@@ -101,7 +101,18 @@ class SignalingService {
     }
 
     _attachPeerCallbacks();
-    await _listenForSignalingData();
+    // NOTE: _listenForSignalingData is NOT called here.
+    // CallScreen must call startListening() AFTER _openUserMedia + replayPendingSignals
+    // so the answer SDP includes audio tracks and cached signals aren't processed twice.
+  }
+
+  /// Start listening for live signaling data on ChatController.signalStream.
+  /// Must be called AFTER local media tracks are added to the PC and after
+  /// replayPendingSignals() for the callee, so that:
+  ///   1. The answer SDP includes audio tracks.
+  ///   2. Cached signals are not processed twice (once live, once replayed).
+  void startListening() {
+    _listenForSignalingData();
   }
 
   // ── ICE restart with a different transport profile ────────────────────────
@@ -323,7 +334,7 @@ class SignalingService {
     if (senderBase != expectedBase) return;
     try {
       final type = sig['type'] as String?;
-      if (type == null || type == 'sys_keys' || type == 'sys_kick') return;
+      if (type == null || !type.startsWith('webrtc')) return;
 
       // Hangup signal — no encrypted payload needed
       if (type == 'webrtc_hangup') {

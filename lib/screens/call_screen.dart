@@ -134,15 +134,19 @@ class _CallScreenState extends State<CallScreen> {
       debugPrint('[CallScreen] user media opened');
 
       if (widget.isCaller) {
+        // Start live signal listener (answer will arrive after offer is sent)
+        _signaling!.startListening();
         debugPrint('[CallScreen] creating offer…');
         await _signaling!.createOffer();
         debugPrint('[CallScreen] offer sent');
       } else {
         // Callee: replay cached offer/candidates AFTER tracks are on the PC,
         // so the answer SDP includes our audio tracks.
+        // Start live listener AFTER replay to avoid processing signals twice.
         debugPrint('[CallScreen] callee: replaying pending signals…');
         await _signaling!.replayPendingSignals();
-        debugPrint('[CallScreen] callee: pending signals replayed');
+        _signaling!.startListening();
+        debugPrint('[CallScreen] callee: pending signals replayed, listening');
       }
       if (_disposed) { unawaited(_signaling!.hangUp()); return; }
 
@@ -388,80 +392,121 @@ class _CallScreenState extends State<CallScreen> {
   RTCRtpSender? _videoSender;
 
   Future<void> _openUserMedia() async {
-    // Get audio + video, but disable video track immediately (camera off by default).
-    // Having a video track from the start lets us use replaceTrack later
-    // instead of addTrack/removeTrack which is unreliable cross-platform.
-    final constraints = <String, dynamic>{
-      'audio': true,
-      'video': {
-        'mandatory': {
-          'minWidth': '640',
-          'minHeight': '480',
-          'minFrameRate': '30',
-        },
-        'facingMode': 'user',
-        'optional': [],
-      },
-    };
-    MediaStream stream;
-    try {
-      stream = await navigator.mediaDevices.getUserMedia(constraints)
-          .timeout(const Duration(seconds: 10),
-              onTimeout: () => throw TimeoutException('getUserMedia timed out'));
-    } catch (e) {
-      // Camera unavailable — fall back to audio-only
-      debugPrint('[CallScreen] getUserMedia with video failed, trying audio-only: $e');
-      stream = await navigator.mediaDevices.getUserMedia({'audio': true, 'video': false})
-          .timeout(const Duration(seconds: 10),
-              onTimeout: () => throw TimeoutException('getUserMedia timed out'));
-    }
-    _signaling?.localStream = stream;
+    // Get audio SEPARATELY from video to avoid clock contamination
+    // (mixed audio+video getUserMedia can cause audio speed issues on some platforms).
+    final audioStream = await navigator.mediaDevices.getUserMedia({
+      'audio': true, 'video': false,
+    }).timeout(const Duration(seconds: 10),
+        onTimeout: () => throw TimeoutException('getUserMedia(audio) timed out'));
+    _signaling?.localStream = audioStream;
+
     final pc = _signaling?.peerConnection;
-    if (pc != null) {
-      for (final t in stream.getTracks()) {
-        final sender = await pc.addTrack(t, stream);
-        if (t.kind == 'video') {
-          _videoSender = sender;
-          t.enabled = false; // camera off by default
-        }
+    if (pc == null) return;
+
+    // Add audio tracks
+    for (final t in audioStream.getAudioTracks()) {
+      await pc.addTrack(t, audioStream);
+    }
+
+    // Try to get a video track (camera) — disabled immediately.
+    // Having a video sender from the start lets replaceTrack work for camera/screen toggle.
+    try {
+      final videoStream = await navigator.mediaDevices.getUserMedia({
+        'audio': false,
+        'video': {'facingMode': 'user'},
+      }).timeout(const Duration(seconds: 5),
+          onTimeout: () => throw TimeoutException('getUserMedia(video) timed out'));
+      final videoTrack = videoStream.getVideoTracks().first;
+      videoTrack.enabled = false; // camera off by default
+      _videoSender = await pc.addTrack(videoTrack, audioStream);
+    } catch (e) {
+      // No camera available — create an empty video transceiver so
+      // replaceTrack works later for camera toggle and screen sharing.
+      debugPrint('[CallScreen] No camera, creating video transceiver: $e');
+      try {
+        final transceiver = await pc.addTransceiver(
+          kind: RTCRtpMediaType.RTCRtpMediaTypeVideo,
+          init: RTCRtpTransceiverInit(direction: TransceiverDirection.SendRecv),
+        );
+        _videoSender = transceiver.sender;
+      } catch (e2) {
+        debugPrint('[CallScreen] addTransceiver failed: $e2');
       }
     }
     if (mounted) setState(() {});
   }
 
   Future<void> _toggleScreenShare() async {
-    if (_videoSender == null) {
-      debugPrint('[CallScreen] No video sender — cannot share screen');
-      return;
-    }
     try {
       if (_isScreenSharing) {
-        // Stop screen share — switch back to camera (disabled)
-        final camStream = await navigator.mediaDevices.getUserMedia({
-          'audio': false,
-          'video': {
-            'mandatory': {'minWidth': '640', 'minHeight': '480', 'minFrameRate': '30'},
-            'facingMode': 'user',
-            'optional': [],
-          },
-        });
-        final camTrack = camStream.getVideoTracks().first;
-        camTrack.enabled = false; // camera stays off after screen share ends
-        await _videoSender!.replaceTrack(camTrack);
+        // Stop screen share — remove video track (camera stays off)
+        if (_videoSender != null) {
+          // Try to get camera back; if no camera, just clear the track
+          try {
+            final camStream = await navigator.mediaDevices.getUserMedia({
+              'audio': false,
+              'video': {'facingMode': 'user'},
+            });
+            final camTrack = camStream.getVideoTracks().first;
+            camTrack.enabled = false;
+            await _videoSender!.replaceTrack(camTrack);
+          } catch (_) {
+            // No camera — just null out the track
+            try { await _videoSender!.replaceTrack(null); } catch (_) {}
+          }
+        }
         _localRenderer.srcObject = null;
         setState(() {
           _isScreenSharing = false;
           _isCameraOff = true;
         });
       } else {
-        // Start screen share — replace video track with screen capture
-        final stream = await navigator.mediaDevices.getDisplayMedia({'video': true, 'audio': false});
+        // Start screen share
+        MediaStream stream;
+        if (Platform.isLinux || Platform.isMacOS || Platform.isWindows) {
+          // Desktop: must enumerate sources first, then pass source ID
+          // Only enumerate Screen sources — Window enumeration crashes
+          // on Wayland (libwebrtc X11 window capture segfaults).
+          final sources = await desktopCapturer.getSources(
+            types: [SourceType.Screen],
+          );
+          if (sources.isEmpty) {
+            debugPrint('[CallScreen] No desktop sources found');
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                content: Text('No screen sources available'),
+                duration: Duration(seconds: 2),
+              ));
+            }
+            return;
+          }
+          // Auto-select first screen source (or first available)
+          final screenSources = sources.where((s) => s.type == SourceType.Screen).toList();
+          final screenSource = screenSources.isNotEmpty ? screenSources.first : sources.first;
+          debugPrint('[CallScreen] Using desktop source: ${screenSource.name} (${screenSource.id})');
+          stream = await navigator.mediaDevices.getDisplayMedia({
+            'video': {
+              'deviceId': {'exact': screenSource.id},
+              'mandatory': {'frameRate': 30.0},
+            },
+            'audio': false,
+          });
+        } else {
+          // Mobile: getDisplayMedia works directly
+          stream = await navigator.mediaDevices.getDisplayMedia({'video': true, 'audio': false});
+        }
         final screenTracks = stream.getVideoTracks();
         if (screenTracks.isEmpty) return;
         final screenTrack = screenTracks.first;
-        await _videoSender!.replaceTrack(screenTrack);
+        if (_videoSender != null) {
+          await _videoSender!.replaceTrack(screenTrack);
+        } else {
+          // No video sender at all — add track directly
+          final pc = _signaling?.peerConnection;
+          if (pc == null) return;
+          _videoSender = await pc.addTrack(screenTrack, stream);
+        }
         _localRenderer.srcObject = stream;
-        // Listen for native "stop sharing" button on Android/desktop
         screenTrack.onEnded = () {
           if (!_disposed && mounted && _isScreenSharing) {
             _toggleScreenShare();
@@ -495,26 +540,31 @@ class _CallScreenState extends State<CallScreen> {
 
     if (_isCameraOff) {
       // Turn camera ON
-      // If we have an existing video sender, just enable the track.
-      // If no video sender (audio-only fallback), get a new camera stream.
-      if (_videoSender?.track != null) {
+      if (_videoSender?.track != null && _videoSender!.track!.kind == 'video') {
+        // Existing video track — just enable it
         _videoSender!.track!.enabled = true;
         _localRenderer.srcObject = _signaling?.localStream;
         setState(() => _isCameraOff = false);
       } else {
+        // No video track (transceiver or audio-only) — get camera via replaceTrack
         try {
-          final pc = _signaling?.peerConnection;
-          if (pc == null) return;
           final videoStream = await navigator.mediaDevices.getUserMedia({
             'audio': false,
-            'video': {
-              'mandatory': {'minWidth': '640', 'minHeight': '480', 'minFrameRate': '30'},
-              'facingMode': 'user',
-              'optional': [],
-            },
+            'video': {'facingMode': 'user'},
           });
-          final videoTrack = videoStream.getVideoTracks().first;
-          _videoSender = await pc.addTrack(videoTrack, videoStream);
+          final videoTracks = videoStream.getVideoTracks();
+          if (videoTracks.isEmpty) {
+            debugPrint('[CallScreen] getUserMedia returned no video tracks');
+            return;
+          }
+          final videoTrack = videoTracks.first;
+          if (_videoSender != null) {
+            await _videoSender!.replaceTrack(videoTrack);
+          } else {
+            final pc = _signaling?.peerConnection;
+            if (pc == null) return;
+            _videoSender = await pc.addTrack(videoTrack, videoStream);
+          }
           _localRenderer.srcObject = videoStream;
           setState(() => _isCameraOff = false);
         } catch (e) {
@@ -522,8 +572,10 @@ class _CallScreenState extends State<CallScreen> {
         }
       }
     } else {
-      // Turn camera OFF — just disable the track (don't remove it)
-      _videoSender?.track?.enabled = false;
+      // Turn camera OFF
+      if (_videoSender?.track != null) {
+        _videoSender!.track!.enabled = false;
+      }
       _localRenderer.srcObject = null;
       setState(() => _isCameraOff = true);
     }
