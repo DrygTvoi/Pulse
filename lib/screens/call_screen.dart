@@ -365,15 +365,11 @@ class _CallScreenState extends State<CallScreen> {
             }
           : false,
     };
-    try {
-      final stream = await navigator.mediaDevices.getUserMedia(constraints);
-      _localRenderer.srcObject = stream;
-      _signaling?.localStream = stream;
-      stream.getTracks().forEach((t) => _signaling?.peerConnection?.addTrack(t, stream));
-      if (mounted) setState(() {});
-    } catch (e) {
-      debugPrint('getUserMedia error: $e');
-    }
+    final stream = await navigator.mediaDevices.getUserMedia(constraints);
+    _localRenderer.srcObject = stream;
+    _signaling?.localStream = stream;
+    stream.getTracks().forEach((t) => _signaling?.peerConnection?.addTrack(t, stream));
+    if (mounted) setState(() {});
   }
 
   Future<void> _toggleScreenShare() async {
