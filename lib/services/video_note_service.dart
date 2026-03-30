@@ -70,10 +70,14 @@ class VideoNoteService {
       final dir = await getTemporaryDirectory();
       _outputPath = '${dir.path}/vn_${DateTime.now().millisecondsSinceEpoch}.mp4';
       _recorder = MediaRecorder();
-      final videoTrack = _localStream!.getVideoTracks().first;
+      final videoTracks = _localStream!.getVideoTracks();
+      if (videoTracks.isEmpty) {
+        debugPrint('[VideoNote] No video tracks available (no camera?)');
+        return false;
+      }
       await _recorder!.start(
         _outputPath!,
-        videoTrack: videoTrack,
+        videoTrack: videoTracks.first,
         audioChannel: RecorderAudioChannel.INPUT,
       );
       _startTime = DateTime.now();

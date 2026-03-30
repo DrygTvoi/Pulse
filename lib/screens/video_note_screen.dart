@@ -89,8 +89,12 @@ class _VideoNoteScreenState extends State<VideoNoteScreen> {
       await _service.cancelRecording();
     }
     await _service.dispose();
-    _renderer.srcObject = null;
-    await _renderer.dispose();
+    try {
+      _renderer.srcObject = null;
+    } catch (_) {}
+    try {
+      await _renderer.dispose();
+    } catch (_) {}
     if (mounted) Navigator.pop(context);
   }
 
@@ -101,8 +105,12 @@ class _VideoNoteScreenState extends State<VideoNoteScreen> {
   void dispose() {
     _timer?.cancel();
     _service.dispose();
-    _renderer.srcObject = null;
-    _renderer.dispose();
+    try {
+      _renderer.srcObject = null;
+    } catch (_) {}
+    try {
+      _renderer.dispose();
+    } catch (_) {}
     super.dispose();
   }
 
