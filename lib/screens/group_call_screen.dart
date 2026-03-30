@@ -13,21 +13,18 @@ import '../controllers/chat_controller.dart';
 import '../theme/app_theme.dart';
 import '../l10n/l10n_ext.dart';
 
-/// Group video/audio call screen.
-/// Video: ≤4 participants → WebRTC mesh (E2EE). 5+ → Jitsi fallback (NOT E2EE).
-/// Audio: ≤6 participants → WebRTC mesh (E2EE). 7+ → Jitsi fallback (NOT E2EE).
+/// Group call screen — camera off by default, can be toggled on.
+/// ≤6 participants → WebRTC mesh (E2EE). 7+ → Jitsi fallback (NOT E2EE).
 class GroupCallScreen extends StatefulWidget {
   final Contact group;
   final String myId;
   final bool isCaller;
-  final bool isVideoCall;
 
   const GroupCallScreen({
     super.key,
     required this.group,
     required this.myId,
     this.isCaller = true,
-    this.isVideoCall = true,
   });
 
   @override
@@ -42,7 +39,7 @@ class _GroupCallScreenState extends State<GroupCallScreen> {
   final Map<String, RTCIceConnectionState> _peerStates = {};
 
   bool _isMuted = false;
-  bool _isCameraOff = false;
+  bool _isCameraOff = true;  // camera OFF by default
   bool _isSpeakerOn = true; // default to speaker for group audio calls
   bool _isScreenSharing = false;
 
@@ -82,7 +79,7 @@ class _GroupCallScreenState extends State<GroupCallScreen> {
     // total = other members + self
     final total = memberContacts.length + 1;
 
-    final meshLimit = widget.isVideoCall ? 4 : 6;
+    final meshLimit = 6;
     if (total > meshLimit) {
       // ── Jitsi fallback ──────────────────────────────────────────────────
       // Warn the user before opening Jitsi (not E2EE, opens external browser)
@@ -141,7 +138,6 @@ class _GroupCallScreenState extends State<GroupCallScreen> {
       group: widget.group,
       myId: widget.myId,
       members: memberContacts,
-      isVideoCall: widget.isVideoCall,
     );
 
     _groupSignaling!.onRemoteStream = (memberId, stream) {
@@ -175,7 +171,7 @@ class _GroupCallScreenState extends State<GroupCallScreen> {
         'echoCancellation': true,
         'autoGainControl': true,
       },
-      'video': widget.isVideoCall,
+      'video': false,  // camera off by default, toggled on via button
     });
     if (_disposed) {
       localStream.getTracks().forEach((t) => t.stop());
@@ -312,7 +308,6 @@ class _GroupCallScreenState extends State<GroupCallScreen> {
   }
 
   Future<void> _toggleScreenShare() async {
-    if (!widget.isVideoCall) return;
     try {
       if (_isScreenSharing) {
         final camStream = await navigator.mediaDevices.getUserMedia({'audio': false, 'video': true});
@@ -790,48 +785,29 @@ class _GroupCallScreenState extends State<GroupCallScreen> {
                 color: Colors.white, size: 28),
           ),
         ),
-        if (widget.isVideoCall)
-          _controlBtn(
-            icon: _isCameraOff
-                ? Icons.videocam_off_rounded
-                : Icons.videocam_rounded,
-            label: _isCameraOff ? context.l10n.callCamOff : context.l10n.callCamOn,
-            active: _isCameraOff,
-            onTap: () {
-              setState(() => _isCameraOff = !_isCameraOff);
-              _groupSignaling?.localStream
-                  ?.getVideoTracks()
-                  .forEach((t) => t.enabled = !_isCameraOff);
-            },
-          )
-        else
-          _controlBtn(
-            icon: _isSpeakerOn
-                ? Icons.volume_up_rounded
-                : Icons.volume_off_rounded,
-            label: context.l10n.callSpeaker,
-            active: !_isSpeakerOn,
-            onTap: () async {
-              final next = !_isSpeakerOn;
-              setState(() => _isSpeakerOn = next);
-              try {
-                await Helper.setSpeakerphoneOn(next);
-              } catch (e) {
-                debugPrint('[GroupCall] setSpeakerphoneOn failed: $e');
-              }
-            },
-          ),
-        if (widget.isVideoCall)
-          _controlBtn(
-            icon: _isScreenSharing
-                ? Icons.stop_screen_share_rounded
-                : Icons.screen_share_rounded,
-            label: _isScreenSharing
-                ? context.l10n.callStopShare
-                : context.l10n.callShareScreen,
-            active: _isScreenSharing,
-            onTap: _toggleScreenShare,
-          ),
+        _controlBtn(
+          icon: _isCameraOff
+              ? Icons.videocam_off_rounded
+              : Icons.videocam_rounded,
+          label: _isCameraOff ? context.l10n.callCamOff : context.l10n.callCamOn,
+          active: !_isCameraOff,
+          onTap: () {
+            setState(() => _isCameraOff = !_isCameraOff);
+            _groupSignaling?.localStream
+                ?.getVideoTracks()
+                .forEach((t) => t.enabled = !_isCameraOff);
+          },
+        ),
+        _controlBtn(
+          icon: _isScreenSharing
+              ? Icons.stop_screen_share_rounded
+              : Icons.screen_share_rounded,
+          label: _isScreenSharing
+              ? context.l10n.callStopShare
+              : context.l10n.callShareScreen,
+          active: _isScreenSharing,
+          onTap: _toggleScreenShare,
+        ),
       ]),
     );
   }

@@ -244,6 +244,27 @@ class ChatController extends ChangeNotifier {
   final StreamController<Map<String, dynamic>> _signalStreamController = StreamController.broadcast();
   Stream<Map<String, dynamic>> get signalStream => _signalStreamController.stream;
 
+  // Cache pending webrtc_offer/candidate signals so callee can replay after subscribing.
+  // Key: senderBase (bare pubkey). Value: list of signals (offer + candidates).
+  final Map<String, List<Map<String, dynamic>>> _pendingCallSignals = {};
+
+  /// Cache a call signal for late subscribers (callee accepts after offer emitted).
+  void _cacheCallSignal(Map<String, dynamic> sig) {
+    final rawSender = sig['senderId'] as String? ?? '';
+    final senderBase = rawSender.contains('@') ? rawSender.split('@').first : rawSender;
+    if (senderBase.isEmpty) return;
+    _pendingCallSignals.putIfAbsent(senderBase, () => []).add(sig);
+    // Cap at 50 signals per sender to prevent unbounded growth
+    final list = _pendingCallSignals[senderBase]!;
+    if (list.length > 50) list.removeRange(0, list.length - 50);
+  }
+
+  /// Consume (get and clear) pending call signals for a given sender.
+  List<Map<String, dynamic>> consumePendingCallSignals(String senderBase) {
+    final signals = _pendingCallSignals.remove(senderBase);
+    return signals ?? [];
+  }
+
   Identity? get identity => _identity;
   List<String> get allAddresses => List.unmodifiable(_allAddresses);
 
@@ -874,6 +895,11 @@ class ChatController extends ChangeNotifier {
 
     _dispatcherSubs.add(d.rawSignals.listen((e) {
       if (!_signalStreamController.isClosed) _signalStreamController.add(e.signal);
+      // Cache webrtc signals so callee can replay them after accepting the call
+      final sigType = e.signal['type'] as String? ?? '';
+      if (sigType.startsWith('webrtc_')) {
+        _cacheCallSignal(e.signal);
+      }
     }));
 
     _dispatcherSubs.add(d.incomingCalls.listen((e) {

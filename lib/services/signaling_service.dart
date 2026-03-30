@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -53,6 +54,8 @@ class SignalingService {
   StreamSubscription? _signalSubscription;
   Function(MediaStream stream)? onAddRemoteStream;
   Function(RTCIceConnectionState state)? onConnectionState;
+  /// Fires when the remote peer sends a hangup signal.
+  VoidCallback? onRemoteHangUp;
 
   SignalingService({required this.contact, required this.myId, required this.isCaller});
 
@@ -61,7 +64,42 @@ class SignalingService {
   Future<void> init({CallTransportProfile profile = CallTransportProfile.auto}) async {
     _primaryRestricted = profile.isRestricted;
     final config = await profile.peerConfig();
-    peerConnection = await createPeerConnection(config);
+    final servers = config['iceServers'] as List? ?? [];
+    debugPrint('[Signaling] init: ${servers.length} ICE servers, policy=${config['iceTransportPolicy']}');
+
+    if (Platform.isLinux) {
+      // Linux native libwebrtc segfaults with certain ICE configs.
+      // Start with minimal STUN-only config, add TURN after PC is created.
+      final turnServers = servers.where((s) {
+        final u = (s as Map)['urls']?.toString() ?? '';
+        return u.startsWith('turn:') || u.startsWith('turns:');
+      }).toList();
+      config['iceServers'] = [
+        {'urls': 'stun:stun.l.google.com:19302'},
+      ];
+      debugPrint('[Signaling] Linux: creating PC with 1 STUN, will add ${turnServers.length} TURN via setConfiguration');
+      peerConnection = await createPeerConnection(config);
+      // Now add TURN servers via setConfiguration (avoids the constructor crash)
+      if (turnServers.isNotEmpty) {
+        try {
+          final fullConfig = <String, dynamic>{
+            'iceServers': [
+              {'urls': 'stun:stun.l.google.com:19302'},
+              {'urls': 'stun:stun.cloudflare.com:3478'},
+              ...turnServers,
+            ],
+            'iceTransportPolicy': config['iceTransportPolicy'] ?? 'all',
+          };
+          await peerConnection!.setConfiguration(fullConfig);
+          debugPrint('[Signaling] Linux: setConfiguration OK with ${turnServers.length + 2} servers');
+        } catch (e) {
+          debugPrint('[Signaling] Linux: setConfiguration failed (non-fatal): $e');
+        }
+      }
+    } else {
+      peerConnection = await createPeerConnection(config);
+    }
+
     _attachPeerCallbacks();
     await _listenForSignalingData();
   }
@@ -250,42 +288,74 @@ class SignalingService {
   Future<void> _listenForSignalingData() async {
     if (contact.isGroup) return;
 
+    final expectedBase = contact.databaseId.contains('@')
+        ? contact.databaseId.split('@').first
+        : contact.databaseId;
+
     _signalSubscription = ChatController().signalStream.listen((sig) async {
-      // F1-9: strip @relay suffix before comparing senderId (different transport formats)
-      final rawSender = sig['senderId'] as String? ?? '';
-      final senderBase = rawSender.contains('@') ? rawSender.split('@').first : rawSender;
-      final expectedBase = contact.databaseId.contains('@')
-          ? contact.databaseId.split('@').first
-          : contact.databaseId;
-      if (sig['roomId'] != contact.id || senderBase != expectedBase) return;
-      try {
-        final type = sig['type'] as String?;
-        if (type == null || type == 'sys_keys' || type == 'sys_kick') return;
-
-        final rawPayload = sig['payload'];
-        final payload = await _decryptPayload(rawPayload);
-        if (payload == null) return;
-
-        // Primary WebRTC signals
-        if (type == 'webrtc_offer' && !isCaller) {
-          await _handleOffer(payload);
-        } else if (type == 'webrtc_answer' && isCaller) {
-          await _handleAnswer(payload);
-        } else if (type == 'webrtc_candidate') {
-          await _handleCandidate(payload);
-        }
-        // Secondary (Tor backup) WebRTC signals
-        else if (type == 'webrtc2_offer' && !isCaller) {
-          await _handleSecondaryOffer(payload);
-        } else if (type == 'webrtc2_answer' && isCaller) {
-          await _handleSecondaryAnswer(payload);
-        } else if (type == 'webrtc2_candidate') {
-          await _handleSecondaryCandidate(payload);
-        }
-      } catch (e) {
-        debugPrint('Error processing signal: $e');
-      }
+      await _processSignal(sig, expectedBase);
     });
+
+  }
+
+  /// Replay any pending signals cached before we subscribed.
+  /// Must be called AFTER local media tracks are added to the PC,
+  /// otherwise the answer SDP will have no audio tracks (one-way audio).
+  Future<void> replayPendingSignals() async {
+    if (contact.isGroup) return;
+    final expectedBase = contact.databaseId.contains('@')
+        ? contact.databaseId.split('@').first
+        : contact.databaseId;
+    final pending = ChatController().consumePendingCallSignals(expectedBase);
+    if (pending.isNotEmpty) {
+      debugPrint('[Signaling] Replaying ${pending.length} cached signals from $expectedBase');
+      for (final sig in pending) {
+        await _processSignal(sig, expectedBase);
+      }
+    }
+  }
+
+  Future<void> _processSignal(Map<String, dynamic> sig, String expectedBase) async {
+    // F1-9: strip @relay suffix before comparing senderId (different transport formats)
+    final rawSender = sig['senderId'] as String? ?? '';
+    final senderBase = rawSender.contains('@') ? rawSender.split('@').first : rawSender;
+    // Match on sender identity only — roomId uses caller's local UUID which
+    // differs from callee's local UUID, so it can never match.
+    if (senderBase != expectedBase) return;
+    try {
+      final type = sig['type'] as String?;
+      if (type == null || type == 'sys_keys' || type == 'sys_kick') return;
+
+      // Hangup signal — no encrypted payload needed
+      if (type == 'webrtc_hangup') {
+        debugPrint('[Signaling] Remote hangup received');
+        onRemoteHangUp?.call();
+        return;
+      }
+
+      final rawPayload = sig['payload'];
+      final payload = await _decryptPayload(rawPayload);
+      if (payload == null) return;
+
+      // Primary WebRTC signals
+      if (type == 'webrtc_offer' && !isCaller) {
+        await _handleOffer(payload);
+      } else if (type == 'webrtc_answer' && isCaller) {
+        await _handleAnswer(payload);
+      } else if (type == 'webrtc_candidate') {
+        await _handleCandidate(payload);
+      }
+      // Secondary (Tor backup) WebRTC signals
+      else if (type == 'webrtc2_offer' && !isCaller) {
+        await _handleSecondaryOffer(payload);
+      } else if (type == 'webrtc2_answer' && isCaller) {
+        await _handleSecondaryAnswer(payload);
+      } else if (type == 'webrtc2_candidate') {
+        await _handleSecondaryCandidate(payload);
+      }
+    } catch (e) {
+      debugPrint('Error processing signal: $e');
+    }
   }
 
   Future<Map<String, dynamic>?> _decryptPayload(dynamic raw) async {
@@ -600,6 +670,7 @@ class SignalingService {
       'offer':     '${prefix}_offer',
       'answer':    '${prefix}_answer',
       'candidate': '${prefix}_candidate',
+      'hangup':    '${prefix}_hangup',
     };
     final type = typeMap[actionType] ?? '${prefix}_candidate';
 
@@ -690,8 +761,14 @@ class SignalingService {
     return null;
   }
 
-  Future<void> hangUp() async {
+  Future<void> hangUp({bool notify = true}) async {
     try {
+      if (notify && peerConnection != null) {
+        // Notify remote peer before tearing down
+        try {
+          await _sendSignalingData('hangup', {'reason': 'user'});
+        } catch (_) {}
+      }
       _signalSubscription?.cancel();
       localStream?.getTracks().forEach((t) => t.stop());
       await localStream?.dispose();

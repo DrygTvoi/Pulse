@@ -20,7 +20,6 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 class GroupSignalingService {
   final Contact group;
   final String myId;
-  final bool isVideoCall;
   List<Contact> members; // mutable — updated on roster changes
 
   static const _secureStorage = FlutterSecureStorage();
@@ -49,7 +48,6 @@ class GroupSignalingService {
     required this.group,
     required this.myId,
     required List<Contact> members,
-    this.isVideoCall = true,
   }) : members = List<Contact>.from(members);
 
   /// SHA-256(groupId) hex — used as routing token so relay can't see group UUID.
@@ -260,7 +258,7 @@ class GroupSignalingService {
     Map<String, dynamic> innerPayload = {'groupId': group.id, 'data': data};
 
     // Try to encrypt; outer wrapper uses hashed token so relay can't see group UUID.
-    // groupId and isVideoCall are included in clear so receivers can show incoming-call UI
+    // groupId is included in clear so receivers can show incoming-call UI
     // before decryption (the relay already knows the sender/receiver pair anyway).
     Map<String, dynamic> payload;
     try {
@@ -268,7 +266,7 @@ class GroupSignalingService {
       final envelope = await SignalService().encryptMessage(target.databaseId, plain);
       payload = {
         'e2ee': envelope, '_g': token,
-        'groupId': group.id, 'isVideoCall': isVideoCall,
+        'groupId': group.id,
       };
     } catch (e) {
       // F12: Abort instead of falling back to cleartext SDP.

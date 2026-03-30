@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -13,14 +14,12 @@ import '../controllers/chat_controller.dart';
 class CallScreen extends StatefulWidget {
   final Contact contact;
   final String myId;
-  final bool isVideoCall;
   final bool isCaller;
 
   const CallScreen({
     super.key,
     required this.contact,
     required this.myId,
-    required this.isVideoCall,
     this.isCaller = true,
   });
 
@@ -34,7 +33,7 @@ class _CallScreenState extends State<CallScreen> {
   final RTCVideoRenderer _remoteRenderer = RTCVideoRenderer();
 
   bool _isMuted       = false;
-  bool _isCameraOff   = false;
+  bool _isCameraOff   = true;  // camera OFF by default — user can enable anytime
   bool _isScreenSharing = false;
   bool _showControls  = true;
 
@@ -83,9 +82,12 @@ class _CallScreenState extends State<CallScreen> {
   }) async {
     bool renderersInitialized = false;
     try {
+      debugPrint('[CallScreen] _initWebRTC start (isCaller=${widget.isCaller})');
+
       await _localRenderer.initialize();
       await _remoteRenderer.initialize();
       renderersInitialized = true;
+      debugPrint('[CallScreen] renderers initialized');
 
       _signaling = SignalingService(
         contact: widget.contact,
@@ -98,6 +100,11 @@ class _CallScreenState extends State<CallScreen> {
       };
 
       _signaling!.onConnectionState = _onIceState;
+
+      _signaling!.onRemoteHangUp = () {
+        debugPrint('[CallScreen] Remote peer hung up');
+        if (!_disposed && mounted) _hangUp(remoteInitiated: true);
+      };
 
       // Secondary path callbacks
       _signaling!.onSecondaryRemoteStream = (stream) {
@@ -116,24 +123,49 @@ class _CallScreenState extends State<CallScreen> {
         }
       };
 
+      debugPrint('[CallScreen] creating peer connection…');
       await _signaling!.init(profile: profile);
       if (_disposed) { unawaited(_signaling!.hangUp()); return; }
+      debugPrint('[CallScreen] peer connection created');
 
+      debugPrint('[CallScreen] opening user media…');
       await _openUserMedia();
       if (_disposed) { unawaited(_signaling!.hangUp()); return; }
+      debugPrint('[CallScreen] user media opened');
 
-      if (widget.isCaller) await _signaling!.createOffer();
+      if (widget.isCaller) {
+        debugPrint('[CallScreen] creating offer…');
+        await _signaling!.createOffer();
+        debugPrint('[CallScreen] offer sent');
+      } else {
+        // Callee: replay cached offer/candidates AFTER tracks are on the PC,
+        // so the answer SDP includes our audio tracks.
+        debugPrint('[CallScreen] callee: replaying pending signals…');
+        await _signaling!.replayPendingSignals();
+        debugPrint('[CallScreen] callee: pending signals replayed');
+      }
       if (_disposed) { unawaited(_signaling!.hangUp()); return; }
 
-      // Start secondary audio path in background — will be ready if primary fails
-      unawaited(_signaling!.startSecondaryAudio().catchError((e) {
-        debugPrint('[CallScreen] startSecondaryAudio failed: $e');
-      }));
+      // Start secondary audio path in background — will be ready if primary fails.
+      // On Linux, delay to avoid concurrent native WebRTC operations that crash.
+      if (Platform.isLinux) {
+        Future.delayed(const Duration(seconds: 3), () {
+          if (_disposed || _signaling == null) return;
+          _signaling!.startSecondaryAudio().catchError((e) {
+            debugPrint('[CallScreen] startSecondaryAudio failed: $e');
+          });
+        });
+      } else {
+        unawaited(_signaling!.startSecondaryAudio().catchError((e) {
+          debugPrint('[CallScreen] startSecondaryAudio failed: $e');
+        }));
+      }
 
       if (mounted) {
         setState(() => _ready = true);
         _resetHideControlsTimer();
       }
+      debugPrint('[CallScreen] _initWebRTC complete');
     } catch (e) {
       debugPrint('[CallScreen] _initWebRTC failed: $e');
       _signaling?.hangUp();
@@ -352,62 +384,105 @@ class _CallScreenState extends State<CallScreen> {
 
   // ── Media ──────────────────────────────────────────────────────────────────
 
+  // The video sender — kept to allow replaceTrack for camera/screen toggle.
+  RTCRtpSender? _videoSender;
+
   Future<void> _openUserMedia() async {
+    // Get audio + video, but disable video track immediately (camera off by default).
+    // Having a video track from the start lets us use replaceTrack later
+    // instead of addTrack/removeTrack which is unreliable cross-platform.
     final constraints = <String, dynamic>{
       'audio': true,
-      'video': widget.isVideoCall
-          ? {
-              'mandatory': {
-                'minWidth':     '640',
-                'minHeight':    '480',
-                'minFrameRate': '30',
-              },
-              'facingMode': 'user',
-              'optional': [],
-            }
-          : false,
+      'video': {
+        'mandatory': {
+          'minWidth': '640',
+          'minHeight': '480',
+          'minFrameRate': '30',
+        },
+        'facingMode': 'user',
+        'optional': [],
+      },
     };
-    final stream = await navigator.mediaDevices.getUserMedia(constraints);
-    _localRenderer.srcObject = stream;
+    MediaStream stream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia(constraints)
+          .timeout(const Duration(seconds: 10),
+              onTimeout: () => throw TimeoutException('getUserMedia timed out'));
+    } catch (e) {
+      // Camera unavailable — fall back to audio-only
+      debugPrint('[CallScreen] getUserMedia with video failed, trying audio-only: $e');
+      stream = await navigator.mediaDevices.getUserMedia({'audio': true, 'video': false})
+          .timeout(const Duration(seconds: 10),
+              onTimeout: () => throw TimeoutException('getUserMedia timed out'));
+    }
     _signaling?.localStream = stream;
-    stream.getTracks().forEach((t) => _signaling?.peerConnection?.addTrack(t, stream));
+    final pc = _signaling?.peerConnection;
+    if (pc != null) {
+      for (final t in stream.getTracks()) {
+        final sender = await pc.addTrack(t, stream);
+        if (t.kind == 'video') {
+          _videoSender = sender;
+          t.enabled = false; // camera off by default
+        }
+      }
+    }
     if (mounted) setState(() {});
   }
 
   Future<void> _toggleScreenShare() async {
-    if (!widget.isVideoCall) return;
-    try {
-      if (_isScreenSharing) {
-        final stream = await navigator.mediaDevices.getUserMedia({'audio': false, 'video': true});
-        await _replaceVideoTrack(stream);
-        setState(() => _isScreenSharing = false);
-      } else {
-        final stream = await navigator.mediaDevices.getDisplayMedia({'video': true, 'audio': false});
-        await _replaceVideoTrack(stream);
-        setState(() => _isScreenSharing = true);
-      }
-    } catch (e) {
-      debugPrint('Screen share error: $e');
-    }
-  }
-
-  Future<void> _replaceVideoTrack(MediaStream newStream) async {
-    final videoTracks = newStream.getVideoTracks();
-    // F1-11: Guard against empty track list (e.g. camera permission revoked)
-    if (videoTracks.isEmpty) {
-      debugPrint('[CallScreen] _replaceVideoTrack: stream has no video tracks');
+    if (_videoSender == null) {
+      debugPrint('[CallScreen] No video sender — cannot share screen');
       return;
     }
-    final newTrack = videoTracks.first;
-    final senders = await _signaling?.peerConnection?.getSenders();
-    final videoSender = senders?.cast<RTCRtpSender?>().firstWhere(
-      (s) => s?.track?.kind == 'video',
-      orElse: () => null,
-    );
-    await videoSender?.replaceTrack(newTrack);
-    _localRenderer.srcObject = newStream;
-    _signaling?.localStream?.getVideoTracks().forEach((t) => t.stop());
-    _signaling?.localStream = newStream;
+    try {
+      if (_isScreenSharing) {
+        // Stop screen share — switch back to camera (disabled)
+        final camStream = await navigator.mediaDevices.getUserMedia({
+          'audio': false,
+          'video': {
+            'mandatory': {'minWidth': '640', 'minHeight': '480', 'minFrameRate': '30'},
+            'facingMode': 'user',
+            'optional': [],
+          },
+        });
+        final camTrack = camStream.getVideoTracks().first;
+        camTrack.enabled = false; // camera stays off after screen share ends
+        await _videoSender!.replaceTrack(camTrack);
+        _localRenderer.srcObject = null;
+        setState(() {
+          _isScreenSharing = false;
+          _isCameraOff = true;
+        });
+      } else {
+        // Start screen share — replace video track with screen capture
+        final stream = await navigator.mediaDevices.getDisplayMedia({'video': true, 'audio': false});
+        final screenTracks = stream.getVideoTracks();
+        if (screenTracks.isEmpty) return;
+        final screenTrack = screenTracks.first;
+        await _videoSender!.replaceTrack(screenTrack);
+        _localRenderer.srcObject = stream;
+        // Listen for native "stop sharing" button on Android/desktop
+        screenTrack.onEnded = () {
+          if (!_disposed && mounted && _isScreenSharing) {
+            _toggleScreenShare();
+          }
+        };
+        setState(() {
+          _isScreenSharing = true;
+          _isCameraOff = true;
+        });
+      }
+    } catch (e) {
+      debugPrint('[CallScreen] Screen share error: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(Platform.isAndroid
+              ? 'Screen sharing requires permission'
+              : 'Screen sharing unavailable'),
+          duration: const Duration(seconds: 2),
+        ));
+      }
+    }
   }
 
   void _toggleMute() {
@@ -415,13 +490,46 @@ class _CallScreenState extends State<CallScreen> {
     _signaling?.localStream?.getAudioTracks().forEach((t) => t.enabled = !_isMuted);
   }
 
-  void _toggleCamera() {
-    if (!widget.isVideoCall || _isScreenSharing) return;
-    setState(() => _isCameraOff = !_isCameraOff);
-    _signaling?.localStream?.getVideoTracks().forEach((t) => t.enabled = !_isCameraOff);
+  Future<void> _toggleCamera() async {
+    if (_isScreenSharing) return;
+
+    if (_isCameraOff) {
+      // Turn camera ON
+      // If we have an existing video sender, just enable the track.
+      // If no video sender (audio-only fallback), get a new camera stream.
+      if (_videoSender?.track != null) {
+        _videoSender!.track!.enabled = true;
+        _localRenderer.srcObject = _signaling?.localStream;
+        setState(() => _isCameraOff = false);
+      } else {
+        try {
+          final pc = _signaling?.peerConnection;
+          if (pc == null) return;
+          final videoStream = await navigator.mediaDevices.getUserMedia({
+            'audio': false,
+            'video': {
+              'mandatory': {'minWidth': '640', 'minHeight': '480', 'minFrameRate': '30'},
+              'facingMode': 'user',
+              'optional': [],
+            },
+          });
+          final videoTrack = videoStream.getVideoTracks().first;
+          _videoSender = await pc.addTrack(videoTrack, videoStream);
+          _localRenderer.srcObject = videoStream;
+          setState(() => _isCameraOff = false);
+        } catch (e) {
+          debugPrint('[CallScreen] Failed to enable camera: $e');
+        }
+      }
+    } else {
+      // Turn camera OFF — just disable the track (don't remove it)
+      _videoSender?.track?.enabled = false;
+      _localRenderer.srcObject = null;
+      setState(() => _isCameraOff = true);
+    }
   }
 
-  void _hangUp() {
+  void _hangUp({bool remoteInitiated = false}) {
     if (_disposed) return;
     _disposed = true;
     _durationTimer?.cancel();
@@ -429,7 +537,7 @@ class _CallScreenState extends State<CallScreen> {
     _mediaWatchdog?.cancel();
     _disconnectTimer?.cancel();
     _secondaryWatchdog?.cancel();
-    _signaling?.hangUp();
+    _signaling?.hangUp(notify: !remoteInitiated);
     _disposeRenderers();
     if (mounted) Navigator.pop(context);
   }
@@ -452,7 +560,7 @@ class _CallScreenState extends State<CallScreen> {
     _hideControlsTimer?.cancel();
     if (!_showControls) setState(() => _showControls = true);
     _hideControlsTimer = Timer(const Duration(seconds: 4), () {
-      if (mounted && widget.isVideoCall && _remoteRenderer.srcObject != null) {
+      if (mounted && _remoteRenderer.srcObject != null) {
         setState(() => _showControls = false);
       }
     });
@@ -556,8 +664,9 @@ class _CallScreenState extends State<CallScreen> {
   Widget build(BuildContext context) {
     if (!_ready) return _buildLoading();
 
-    final hasRemoteVideo = widget.isVideoCall && _remoteRenderer.srcObject != null;
-    final hasLocalVideo  = widget.isVideoCall && _localRenderer.srcObject != null;
+    final hasRemoteVideo = _remoteRenderer.srcObject != null &&
+        (_remoteRenderer.srcObject!.getVideoTracks().isNotEmpty);
+    final hasLocalVideo  = _localRenderer.srcObject != null;
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -614,23 +723,23 @@ class _CallScreenState extends State<CallScreen> {
                 ),
 
               // ── Top bar ──────────────────────────────────────────────────
-              AnimatedOpacity(
-                opacity: _showControls || !hasRemoteVideo ? 1.0 : 0.0,
-                duration: const Duration(milliseconds: 300),
-                child: Positioned(
-                  top: (_currentProfile.isRestricted || _isRetrying || _usingSecondary) ? 28 : 0,
-                  left: 0,
-                  right: 0,
+              Positioned(
+                top: (_currentProfile.isRestricted || _isRetrying || _usingSecondary) ? 28 : 0,
+                left: 0,
+                right: 0,
+                child: AnimatedOpacity(
+                  opacity: _showControls || !hasRemoteVideo ? 1.0 : 0.0,
+                  duration: const Duration(milliseconds: 300),
                   child: _buildTopBar(),
                 ),
               ),
 
               // ── Bottom controls ──────────────────────────────────────────
-              AnimatedOpacity(
-                opacity: _showControls || !hasRemoteVideo ? 1.0 : 0.0,
-                duration: const Duration(milliseconds: 300),
-                child: Positioned(
-                  bottom: 0, left: 0, right: 0,
+              Positioned(
+                bottom: 0, left: 0, right: 0,
+                child: AnimatedOpacity(
+                  opacity: _showControls || !hasRemoteVideo ? 1.0 : 0.0,
+                  duration: const Duration(milliseconds: 300),
                   child: _buildControlBar(),
                 ),
               ),
@@ -853,26 +962,25 @@ class _CallScreenState extends State<CallScreen> {
         ),
       ),
       child: Column(mainAxisSize: MainAxisSize.min, children: [
-        if (widget.isVideoCall)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 16),
-            child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-              _buildSmallButton(
-                icon:        _isScreenSharing ? Icons.stop_screen_share_rounded : Icons.screen_share_rounded,
-                label:       _isScreenSharing ? context.l10n.callStopShare : context.l10n.callShareScreen,
-                active:      _isScreenSharing,
-                activeColor: Colors.blueAccent,
-                onTap:       _toggleScreenShare,
-              ),
-              const SizedBox(width: 24),
-              _buildSmallButton(
-                icon:  _isCameraOff ? Icons.videocam_off_rounded : Icons.videocam_rounded,
-                label: _isCameraOff ? context.l10n.callCameraOff : context.l10n.callCameraOn,
-                active: _isCameraOff,
-                onTap:  _toggleCamera,
-              ),
-            ]),
-          ),
+        Padding(
+          padding: const EdgeInsets.only(bottom: 16),
+          child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+            _buildSmallButton(
+              icon:        _isScreenSharing ? Icons.stop_screen_share_rounded : Icons.screen_share_rounded,
+              label:       _isScreenSharing ? context.l10n.callStopShare : context.l10n.callShareScreen,
+              active:      _isScreenSharing,
+              activeColor: Colors.blueAccent,
+              onTap:       _toggleScreenShare,
+            ),
+            const SizedBox(width: 24),
+            _buildSmallButton(
+              icon:  _isCameraOff ? Icons.videocam_off_rounded : Icons.videocam_rounded,
+              label: _isCameraOff ? context.l10n.callCameraOff : context.l10n.callCameraOn,
+              active: !_isCameraOff,
+              onTap:  _toggleCamera,
+            ),
+          ]),
+        ),
         Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
           _buildControlButton(
             icon:      _isMuted ? Icons.mic_off_rounded : Icons.mic_rounded,

@@ -109,17 +109,8 @@ PreferredSizeWidget buildChatAppBar({
         tooltip: context.l10n.appBarVoiceCall,
         onPressed: () => Navigator.push(context, MaterialPageRoute(
           builder: (_) => contact.isGroup
-              ? GroupCallScreen(group: contact, myId: myId, isVideoCall: false, isCaller: true)
-              : CallScreen(contact: contact, myId: myId, isVideoCall: false, isCaller: true),
-        )),
-      ),
-      IconButton(
-        icon: Icon(Icons.videocam_rounded, color: AppTheme.textSecondary),
-        tooltip: context.l10n.appBarVideoCall,
-        onPressed: () => Navigator.push(context, MaterialPageRoute(
-          builder: (_) => contact.isGroup
-              ? GroupCallScreen(group: contact, myId: myId, isVideoCall: true, isCaller: true)
-              : CallScreen(contact: contact, myId: myId, isVideoCall: true, isCaller: true),
+              ? GroupCallScreen(group: contact, myId: myId, isCaller: true)
+              : CallScreen(contact: contact, myId: myId, isCaller: true),
         )),
       ),
       PopupMenuButton<String>(

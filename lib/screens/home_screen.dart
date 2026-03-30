@@ -360,8 +360,17 @@ class _HomeScreenState extends State<HomeScreen> {
     _signalSubscription = ChatController().incomingCalls.listen((sig) async {
       if (sig['type'] != 'webrtc_offer') return;
       if (!mounted) return;
+      final senderId = sig['senderId'] as String? ?? '';
+      // Strip @relay suffix: senderId from Nostr is bare pubkey but
+      // contact.databaseId includes @wss://relay — compare base parts.
+      final senderBase = senderId.contains('@') ? senderId.split('@').first : senderId;
       final callerContact = context.read<IContactRepository>().contacts.cast<Contact?>().firstWhere(
-        (c) => c?.databaseId == sig['senderId'] || c?.id == sig['roomId'],
+        (c) {
+          final dbBase = (c?.databaseId ?? '').contains('@')
+              ? c!.databaseId.split('@').first
+              : (c?.databaseId ?? '');
+          return dbBase == senderBase || c?.id == sig['roomId'];
+        },
         orElse: () => null,
       );
       if (callerContact != null) {
@@ -400,7 +409,7 @@ class _HomeScreenState extends State<HomeScreen> {
             onPressed: () {
               Navigator.pop(context);
               Navigator.push(context, MaterialPageRoute(
-                builder: (_) => CallScreen(contact: caller, myId: myId, isVideoCall: false, isCaller: false),
+                builder: (_) => CallScreen(contact: caller, myId: myId, isCaller: false),
               ));
             },
           ),
@@ -420,12 +429,11 @@ class _HomeScreenState extends State<HomeScreen> {
       );
       if (groupContact == null || !mounted) return;
       final myId = ChatController().identity?.id ?? '';
-      final isVideoCall = sig['isVideoCall'] as bool? ?? true;
-      _showIncomingGroupCallDialog(groupContact, myId, isVideoCall: isVideoCall);
+      _showIncomingGroupCallDialog(groupContact, myId);
     }, onError: (e) => debugPrint('[HomeScreen] incomingGroupCalls stream error: $e'));
   }
 
-  void _showIncomingGroupCallDialog(Contact group, String myId, {bool isVideoCall = true}) {
+  void _showIncomingGroupCallDialog(Contact group, String myId) {
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -441,8 +449,7 @@ class _HomeScreenState extends State<HomeScreen> {
               color: const Color(0xFF26A69A).withValues(alpha: 0.15),
               shape: BoxShape.circle,
             ),
-            child: Icon(
-              isVideoCall ? Icons.video_call_rounded : Icons.call_rounded,
+            child: Icon(Icons.call_rounded,
               color: const Color(0xFF26A69A),
               size: DesignTokens.iconLg,
             ),
@@ -460,8 +467,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         fontWeight: FontWeight.w700)),
                 const SizedBox(height: DesignTokens.spacing4),
                 Text(
-                  context.l10n.homeGroupCallIncoming(
-                      isVideoCall ? context.l10n.callVideo : context.l10n.callAudio),
+                  context.l10n.homeGroupCallIncoming(context.l10n.callAudio),
                   style: GoogleFonts.inter(
                       color: AppTheme.textSecondary,
                       fontSize: DesignTokens.fontBody),
@@ -477,8 +483,7 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Text(context.l10n.homeDecline, style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
           ),
           ElevatedButton.icon(
-            icon: Icon(isVideoCall ? Icons.video_call_rounded : Icons.call_rounded,
-                size: DesignTokens.iconSm),
+            icon: Icon(Icons.call_rounded, size: DesignTokens.iconSm),
             label: Text(context.l10n.homeAccept, style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF26A69A),
@@ -491,7 +496,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   group: group,
                   myId: myId,
                   isCaller: false,
-                  isVideoCall: isVideoCall,
                 ),
               ));
             },
