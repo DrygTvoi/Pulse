@@ -126,7 +126,9 @@ class _CallScreenState extends State<CallScreen> {
       if (_disposed) { unawaited(_signaling!.hangUp()); return; }
 
       // Start secondary audio path in background — will be ready if primary fails
-      unawaited(_signaling!.startSecondaryAudio());
+      unawaited(_signaling!.startSecondaryAudio().catchError((e) {
+        debugPrint('[CallScreen] startSecondaryAudio failed: $e');
+      }));
 
       if (mounted) {
         setState(() => _ready = true);

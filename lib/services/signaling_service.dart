@@ -144,14 +144,23 @@ class SignalingService {
       debugPrint('[Secondary] Starting secondary audio path (Tor relay)');
 
       final config = await CallTransportProfile.torRelay.peerConfig();
+      final servers = config['iceServers'] as List? ?? [];
+      if (servers.isEmpty) {
+        debugPrint('[Secondary] No Tor TURN proxies available — skipping');
+        return;
+      }
       _secondaryPc = await createPeerConnection(config);
       _attachSecondaryCallbacks();
 
       // Add local audio tracks only (secondary is audio-only backup)
-      if (localStream != null) {
-        for (final track in localStream!.getAudioTracks()) {
-          await _secondaryPc!.addTrack(track, localStream!);
-        }
+      if (localStream == null) {
+        debugPrint('[Secondary] No local stream — skipping secondary');
+        await _secondaryPc!.close();
+        _secondaryPc = null;
+        return;
+      }
+      for (final track in localStream!.getAudioTracks()) {
+        await _secondaryPc!.addTrack(track, localStream!);
       }
 
       if (isCaller) {
