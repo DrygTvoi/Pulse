@@ -1433,6 +1433,8 @@ class NostrMessageSender implements MessageSender {
   Timer? _wsPoolCleanupTimer;
   /// Pending OK completers for pooled sends, keyed by event ID.
   final Map<String, Completer<bool>> _pooledOkCompleters = {};
+  /// Backoff: relay URL → earliest time to reconnect (prevents reconnect storms).
+  final Map<String, DateTime> _wsPoolBackoff = {};
 
   // initializeSender dedup: skip re-reading prefs when apiKey unchanged within TTL.
   String _lastInitApiKey = '';
@@ -1545,10 +1547,18 @@ class NostrMessageSender implements MessageSender {
       _wsPoolSubs.remove(relayUrl)?.cancel();
       try { cachedCh.sink.close(); } catch (_) {}
     }
+    // Backoff: don't reconnect too soon after a rejection/block.
+    final backoffUntil = _wsPoolBackoff[relayUrl];
+    if (backoffUntil != null && DateTime.now().isBefore(backoffUntil)) {
+      debugPrint('[Nostr] Pool backoff active for $relayUrl — using shared relay');
+      final poolEntry = _getSharedRelayEntry(relayUrl);
+      return poolEntry?.ch;
+    }
     try {
       final ch = await _wsConnect(relayUrl);
       await ch.ready;
       _wsPool[relayUrl] = (ch: ch, ts: DateTime.now());
+      _wsPoolBackoff.remove(relayUrl);
       // Listen for close/errors to evict from pool; also handle NIP-42 AUTH.
       final sub = ch.stream.listen(
         (raw) {
@@ -1635,10 +1645,10 @@ class NostrMessageSender implements MessageSender {
           },
         );
         if (!result) {
-          debugPrint('[Nostr] _publishEvent POOL REJECTED id=$evId… evicting pool');
-          _wsPool.remove(relayUrl);
-          _wsPoolSubs.remove(relayUrl)?.cancel();
-          try { channel.sink.close(); } catch (_) {}
+          debugPrint('[Nostr] _publishEvent POOL REJECTED id=$evId… backoff 60s');
+          _wsPoolBackoff[relayUrl] = DateTime.now().add(const Duration(seconds: 60));
+          // Don't evict — keep the existing connection alive to avoid reconnect storms.
+          // The relay rejected this event but the WS may still be valid for future events.
         }
         return result;
       } else {
@@ -1677,9 +1687,10 @@ class NostrMessageSender implements MessageSender {
       }
     } catch (e) {
       debugPrint('[Nostr] Failed to publish: $e');
-      // Evict broken pool entry.
+      // Evict broken pool entry and backoff.
       _wsPool.remove(relayUrl);
       _wsPoolSubs.remove(relayUrl)?.cancel();
+      _wsPoolBackoff[relayUrl] = DateTime.now().add(const Duration(seconds: 30));
       return false;
     }
   }
