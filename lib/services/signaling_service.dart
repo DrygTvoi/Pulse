@@ -67,33 +67,33 @@ class SignalingService {
     final servers = config['iceServers'] as List? ?? [];
     debugPrint('[Signaling] init: ${servers.length} ICE servers, policy=${config['iceTransportPolicy']}');
 
-    if (Platform.isLinux) {
-      // Linux native libwebrtc segfaults with certain ICE configs.
-      // Start with minimal STUN-only config, add TURN after PC is created.
+    if (Platform.isLinux && servers.length > 10) {
+      // Linux native libwebrtc segfaults with many ICE servers (>30).
+      // Create PC with a small safe set, then add the rest via setConfiguration.
+      final stunServers = servers.where((s) {
+        final u = (s as Map)['urls']?.toString() ?? '';
+        return u.startsWith('stun:');
+      }).take(3).toList();
       final turnServers = servers.where((s) {
         final u = (s as Map)['urls']?.toString() ?? '';
         return u.startsWith('turn:') || u.startsWith('turns:');
       }).toList();
-      config['iceServers'] = [
-        {'urls': 'stun:stun.l.google.com:19302'},
-      ];
-      debugPrint('[Signaling] Linux: creating PC with 1 STUN, will add ${turnServers.length} TURN via setConfiguration');
+      // Safe initial set: 3 STUN + first 2 TURN (≤5 total — never crashes)
+      final safeServers = [...stunServers, ...turnServers.take(2)];
+      config['iceServers'] = safeServers;
+      debugPrint('[Signaling] Linux: creating PC with ${safeServers.length} safe servers, ${servers.length} total');
       peerConnection = await createPeerConnection(config);
-      // Now add TURN servers via setConfiguration (avoids the constructor crash)
-      if (turnServers.isNotEmpty) {
+      // Add remaining servers via setConfiguration
+      if (turnServers.length > 2) {
         try {
           final fullConfig = <String, dynamic>{
-            'iceServers': [
-              {'urls': 'stun:stun.l.google.com:19302'},
-              {'urls': 'stun:stun.cloudflare.com:3478'},
-              ...turnServers,
-            ],
+            'iceServers': [...stunServers, ...turnServers],
             'iceTransportPolicy': config['iceTransportPolicy'] ?? 'all',
           };
           await peerConnection!.setConfiguration(fullConfig);
-          debugPrint('[Signaling] Linux: setConfiguration OK with ${turnServers.length + 2} servers');
+          debugPrint('[Signaling] Linux: setConfiguration OK with ${stunServers.length + turnServers.length} servers');
         } catch (e) {
-          debugPrint('[Signaling] Linux: setConfiguration failed (non-fatal): $e');
+          debugPrint('[Signaling] Linux: setConfiguration failed (non-fatal, using ${safeServers.length} servers): $e');
         }
       }
     } else {
@@ -295,7 +295,6 @@ class SignalingService {
     _signalSubscription = ChatController().signalStream.listen((sig) async {
       await _processSignal(sig, expectedBase);
     });
-
   }
 
   /// Replay any pending signals cached before we subscribed.

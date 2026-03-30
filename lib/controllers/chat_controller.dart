@@ -250,9 +250,16 @@ class ChatController extends ChangeNotifier {
 
   /// Cache a call signal for late subscribers (callee accepts after offer emitted).
   void _cacheCallSignal(Map<String, dynamic> sig) {
+    final sigType = sig['type'] as String? ?? '';
+    // Never cache hangup — stale hangup from a previous call kills the next one.
+    if (sigType == 'webrtc_hangup') return;
     final rawSender = sig['senderId'] as String? ?? '';
     final senderBase = rawSender.contains('@') ? rawSender.split('@').first : rawSender;
     if (senderBase.isEmpty) return;
+    // New offer = new call attempt — discard stale signals from previous attempt.
+    if (sigType == 'webrtc_offer') {
+      _pendingCallSignals.remove(senderBase);
+    }
     _pendingCallSignals.putIfAbsent(senderBase, () => []).add(sig);
     // Cap at 50 signals per sender to prevent unbounded growth
     final list = _pendingCallSignals[senderBase]!;
