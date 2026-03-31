@@ -356,10 +356,12 @@ class _HomeScreenState extends State<HomeScreen> {
     await _loadAll();
   }
 
+  bool _inCallScreen = false; // prevent duplicate incoming call dialogs
+
   void _listenForIncomingCalls() {
     _signalSubscription = ChatController().incomingCalls.listen((sig) async {
       if (sig['type'] != 'webrtc_offer') return;
-      if (!mounted) return;
+      if (!mounted || _inCallScreen) return;
       final senderId = sig['senderId'] as String? ?? '';
       // Strip @relay suffix: senderId from Nostr is bare pubkey but
       // contact.databaseId includes @wss://relay — compare base parts.
@@ -376,7 +378,7 @@ class _HomeScreenState extends State<HomeScreen> {
       if (callerContact != null) {
         final prefs = await SharedPreferences.getInstance();
         final myId = prefs.getString('my_device_id') ?? ChatController().identity?.id ?? '';
-        if (mounted) _showIncomingCallDialog(callerContact, myId);
+        if (mounted && !_inCallScreen) _showIncomingCallDialog(callerContact, myId);
       }
     }, onError: (e) => debugPrint('[HomeScreen] incomingCalls stream error: $e'));
   }
@@ -408,9 +410,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.radiusMedium))),
             onPressed: () {
               Navigator.pop(context);
+              _inCallScreen = true;
               Navigator.push(context, MaterialPageRoute(
                 builder: (_) => CallScreen(contact: caller, myId: myId, isCaller: false),
-              ));
+              )).then((_) => _inCallScreen = false);
             },
           ),
         ],

@@ -272,6 +272,17 @@ class ChatController extends ChangeNotifier {
     return signals ?? [];
   }
 
+  /// Force-reconnect the Nostr subscription if it appears dead.
+  /// Returns true if an actual reconnect was triggered, false if skipped
+  /// (subscription is healthy — no need to disrupt it).
+  bool forceReconnectSubscription() {
+    final reader = InboxManager().reader;
+    if (reader is NostrInboxReader) {
+      return reader.forceReconnect();
+    }
+    return false;
+  }
+
   Identity? get identity => _identity;
   List<String> get allAddresses => List.unmodifiable(_allAddresses);
 
@@ -618,6 +629,23 @@ class ChatController extends ChangeNotifier {
       _signalSubs.add(r.listenForSignals().listen(_signalDispatcher!.dispatch));
       _adapterHealth[myAddress] = true;
       _healthSubs.add(r.healthChanges.listen((h) => _onAdapterHealthChange(myAddress, h)));
+    }
+
+    // Register contact relays as secondary subscriptions so fallback publishes
+    // (when a contact's relay rate-limits us) are still received by both sides.
+    final mainReader = InboxManager().reader;
+    if (mainReader is NostrInboxReader) {
+      for (final c in _contacts.contacts) {
+        if (c.provider != 'Nostr') continue;
+        final dbId = c.databaseId;
+        final wsIdx = dbId.indexOf('@wss://');
+        final wsIdx2 = dbId.indexOf('@ws://');
+        final atIdx = wsIdx != -1 ? wsIdx : (wsIdx2 != -1 ? wsIdx2 : -1);
+        if (atIdx != -1) {
+          final contactRelay = dbId.substring(atIdx + 1);
+          mainReader.addSecondaryRelay(contactRelay);
+        }
+      }
     }
 
     // Subscribe to tamper warnings from the Nostr layer.

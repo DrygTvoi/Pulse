@@ -35,6 +35,7 @@ class _CallScreenState extends State<CallScreen> {
   bool _isMuted       = false;
   bool _isCameraOff   = true;  // camera OFF by default — user can enable anytime
   bool _isScreenSharing = false;
+  bool _screenShareToggling = false; // debounce guard for _toggleScreenShare
   bool _showControls  = true;
 
   RTCIceConnectionState _iceState =
@@ -83,6 +84,15 @@ class _CallScreenState extends State<CallScreen> {
     bool renderersInitialized = false;
     try {
       debugPrint('[CallScreen] _initWebRTC start (isCaller=${widget.isCaller})');
+
+      // Force-reconnect subscription if it appears dead (no data in 30s).
+      // If subscription is alive, forceReconnect is a no-op — no disruptive close.
+      // Dead subscription = lost signaling = call stuck on "Connecting".
+      final didReconnect = ChatController().forceReconnectSubscription();
+      if (didReconnect) {
+        // Wait for the reconnection to establish before sending offers.
+        await Future.delayed(const Duration(milliseconds: 1500));
+      }
 
       await _localRenderer.initialize();
       await _remoteRenderer.initialize();
@@ -391,6 +401,10 @@ class _CallScreenState extends State<CallScreen> {
   // The video sender — kept to allow replaceTrack for camera/screen toggle.
   RTCRtpSender? _videoSender;
 
+  // Desktop sources cache — populated on first getSources call to avoid
+  // double PipeWire portal dialog when screen sharing again.
+  List<DesktopCapturerSource>? _cachedDesktopSources;
+
   Future<void> _openUserMedia() async {
     // Get audio SEPARATELY from video to avoid clock contamination
     // (mixed audio+video getUserMedia can cause audio speed issues on some platforms).
@@ -437,11 +451,13 @@ class _CallScreenState extends State<CallScreen> {
   }
 
   Future<void> _toggleScreenShare() async {
+    // Debounce: prevent double-invocation (two picker windows on rapid tap)
+    if (_screenShareToggling) return;
+    _screenShareToggling = true;
     try {
       if (_isScreenSharing) {
-        // Stop screen share — remove video track (camera stays off)
+        // Stop screen share — replace with disabled camera or null track
         if (_videoSender != null) {
-          // Try to get camera back; if no camera, just clear the track
           try {
             final camStream = await navigator.mediaDevices.getUserMedia({
               'audio': false,
@@ -451,7 +467,6 @@ class _CallScreenState extends State<CallScreen> {
             camTrack.enabled = false;
             await _videoSender!.replaceTrack(camTrack);
           } catch (_) {
-            // No camera — just null out the track
             try { await _videoSender!.replaceTrack(null); } catch (_) {}
           }
         }
@@ -464,12 +479,15 @@ class _CallScreenState extends State<CallScreen> {
         // Start screen share
         MediaStream stream;
         if (Platform.isLinux || Platform.isMacOS || Platform.isWindows) {
-          // Desktop: must enumerate sources first, then pass source ID
-          // Only enumerate Screen sources — Window enumeration crashes
-          // on Wayland (libwebrtc X11 window capture segfaults).
-          final sources = await desktopCapturer.getSources(
-            types: [SourceType.Screen],
-          );
+          // Use cached sources to avoid double PipeWire portal dialog.
+          // First screen share call populates the cache; subsequent ones skip getSources.
+          var sources = _cachedDesktopSources;
+          if (sources == null || sources.isEmpty) {
+            sources = await desktopCapturer.getSources(
+              types: [SourceType.Screen],
+            );
+            _cachedDesktopSources = sources;
+          }
           if (sources.isEmpty) {
             debugPrint('[CallScreen] No desktop sources found');
             if (mounted) {
@@ -480,7 +498,6 @@ class _CallScreenState extends State<CallScreen> {
             }
             return;
           }
-          // Auto-select first screen source (or first available)
           final screenSources = sources.where((s) => s.type == SourceType.Screen).toList();
           final screenSource = screenSources.isNotEmpty ? screenSources.first : sources.first;
           debugPrint('[CallScreen] Using desktop source: ${screenSource.name} (${screenSource.id})');
@@ -498,14 +515,50 @@ class _CallScreenState extends State<CallScreen> {
         final screenTracks = stream.getVideoTracks();
         if (screenTracks.isEmpty) return;
         final screenTrack = screenTracks.first;
+        screenTrack.enabled = true;
+
+        final pc = _signaling?.peerConnection;
+        if (pc == null) return;
+
         if (_videoSender != null) {
+          // Enable existing track before replacing to ensure RTP pipeline is active
+          if (_videoSender!.track != null) {
+            _videoSender!.track!.enabled = true;
+          }
           await _videoSender!.replaceTrack(screenTrack);
+          debugPrint('[CallScreen] replaceTrack done');
         } else {
-          // No video sender at all — add track directly
-          final pc = _signaling?.peerConnection;
-          if (pc == null) return;
           _videoSender = await pc.addTrack(screenTrack, stream);
+          debugPrint('[CallScreen] addTrack for screen share');
         }
+
+        // Ensure video transceiver direction is sendrecv
+        try {
+          final transceivers = await pc.getTransceivers();
+          for (final t in transceivers) {
+            if (t.sender.track?.kind == 'video') {
+              await t.setDirection(TransceiverDirection.SendRecv);
+              break;
+            }
+          }
+        } catch (e) {
+          debugPrint('[CallScreen] transceiver direction check: $e');
+        }
+
+        // Force sender to be active by re-setting parameters with active encoding
+        try {
+          final params = _videoSender!.parameters;
+          if (params.encodings != null && params.encodings!.isNotEmpty) {
+            for (final enc in params.encodings!) {
+              enc.active = true;
+            }
+            await _videoSender!.setParameters(params);
+            debugPrint('[CallScreen] sender params set active');
+          }
+        } catch (e) {
+          debugPrint('[CallScreen] setParameters: $e');
+        }
+
         _localRenderer.srcObject = stream;
         screenTrack.onEnded = () {
           if (!_disposed && mounted && _isScreenSharing) {
@@ -516,6 +569,15 @@ class _CallScreenState extends State<CallScreen> {
           _isScreenSharing = true;
           _isCameraOff = true;
         });
+
+        // Send reoffer so remote gets updated SDP with active video track.
+        // Uses webrtc_reoffer (not webrtc_offer) to avoid triggering incoming
+        // call notification on the remote side.
+        try {
+          await _signaling?.renegotiate();
+        } catch (e) {
+          debugPrint('[CallScreen] renegotiate after screen share: $e');
+        }
       }
     } catch (e) {
       debugPrint('[CallScreen] Screen share error: $e');
@@ -527,6 +589,8 @@ class _CallScreenState extends State<CallScreen> {
           duration: const Duration(seconds: 2),
         ));
       }
+    } finally {
+      _screenShareToggling = false;
     }
   }
 

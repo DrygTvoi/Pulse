@@ -335,6 +335,7 @@ class SignalingService {
     try {
       final type = sig['type'] as String?;
       if (type == null || !type.startsWith('webrtc')) return;
+      debugPrint('[Signaling] _processSignal: type=$type from=$senderBase (expected=$expectedBase, isCaller=$isCaller)');
 
       // Hangup signal — no encrypted payload needed
       if (type == 'webrtc_hangup') {
@@ -354,6 +355,14 @@ class SignalingService {
         await _handleAnswer(payload);
       } else if (type == 'webrtc_candidate') {
         await _handleCandidate(payload);
+      }
+      // Mid-call renegotiation (screen share etc.) — uses separate signal types
+      // so SignalDispatcher doesn't trigger incoming call notification.
+      // Either side can send a reoffer.
+      else if (type == 'webrtc_reoffer') {
+        await _handleReoffer(payload);
+      } else if (type == 'webrtc_reanswer') {
+        await _handleReanswer(payload);
       }
       // Secondary (Tor backup) WebRTC signals
       else if (type == 'webrtc2_offer' && !isCaller) {
@@ -450,6 +459,55 @@ class SignalingService {
     }
   }
 
+  /// Mid-call renegotiation: handle a re-offer from either peer.
+  /// Used after replaceTrack (screen share) to update remote SDP.
+  Future<void> _handleReoffer(Map<String, dynamic> data) async {
+    try {
+      final sdp = data['sdp'] as String? ?? '';
+      if (!sdp.contains('a=fingerprint:')) {
+        debugPrint('[Signaling] Rejected reoffer SDP without fingerprint');
+        return;
+      }
+      await peerConnection?.setRemoteDescription(
+          RTCSessionDescription(sdp, 'offer'));
+      // Create and send reanswer
+      final answer = await peerConnection!.createAnswer();
+      final constrained = _applyAudioConstraints(answer, restricted: _primaryRestricted);
+      await peerConnection!.setLocalDescription(constrained);
+      await _sendSignalingData('reanswer', constrained.toMap());
+      debugPrint('[Signaling] reoffer handled, reanswer sent');
+    } catch (e) {
+      debugPrint('[Signaling] handleReoffer error: $e');
+    }
+  }
+
+  /// Mid-call renegotiation: handle a re-answer from the peer.
+  Future<void> _handleReanswer(Map<String, dynamic> data) async {
+    try {
+      final sdp = data['sdp'] as String? ?? '';
+      if (!sdp.contains('a=fingerprint:')) {
+        debugPrint('[Signaling] Rejected reanswer SDP without fingerprint');
+        return;
+      }
+      await peerConnection?.setRemoteDescription(
+          RTCSessionDescription(sdp, 'answer'));
+      debugPrint('[Signaling] reanswer handled');
+    } catch (e) {
+      debugPrint('[Signaling] handleReanswer error: $e');
+    }
+  }
+
+  /// Trigger mid-call SDP renegotiation (e.g. after screen share replaceTrack).
+  /// Uses webrtc_reoffer/reanswer to avoid triggering incoming call notification.
+  Future<void> renegotiate() async {
+    if (peerConnection == null) return;
+    final offer = await peerConnection!.createOffer();
+    final constrained = _applyAudioConstraints(offer, restricted: _primaryRestricted);
+    await peerConnection!.setLocalDescription(constrained);
+    await _sendSignalingData('reoffer', constrained.toMap());
+    debugPrint('[Signaling] renegotiation offer sent');
+  }
+
   Future<void> _handleCandidate(Map<String, dynamic> data) async {
     try {
       // FINDING-7: Reject excess candidates — prevents CPU/memory flood
@@ -457,10 +515,22 @@ class SignalingService {
         debugPrint('[Signaling] ICE candidate limit reached, dropping');
         return;
       }
+      final pc = peerConnection;
+      if (pc == null) return;
+      // Guard: ensure remote description is set before adding candidates.
+      // Adding candidates without remote description crashes native WebRTC
+      // on some Android builds (SIGABRT in nativeAddIceCandidate).
+      final remoteDesc = await pc.getRemoteDescription();
+      if (remoteDesc == null || remoteDesc.sdp == null || remoteDesc.sdp!.isEmpty) {
+        debugPrint('[Signaling] Dropping candidate — no remote description yet');
+        return;
+      }
+      final candidateStr = data['candidate'] as String?;
+      if (candidateStr == null || candidateStr.isEmpty) return;
       final raw = RTCIceCandidate(
-          data['candidate'] as String?, data['sdpMid'] as String?, data['sdpMLineIndex'] as int?);
+          candidateStr, data['sdpMid'] as String?, data['sdpMLineIndex'] as int?);
       final candidate = await _interceptYggCandidate(raw);
-      await peerConnection?.addCandidate(candidate);
+      await pc.addCandidate(candidate);
     } catch (e) {
       debugPrint('[Signaling] handleCandidate error: $e');
     }

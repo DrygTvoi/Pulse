@@ -337,20 +337,27 @@ class SignalDispatcher {
   };
 
   /// Signal types exempt from the general rate limiter (system-critical or
-  /// high-volume per call).  webrtc_candidate is exempt because a single ICE
-  /// negotiation produces 10-20 candidates in rapid succession.  Offer/answer
-  /// are NOT exempt — they get their own stricter per-sender limiter below.
+  /// high-volume per call).  All webrtc_* signals are exempt from the general
+  /// limiter — offer/answer have their own stricter per-sender limiter below,
+  /// and candidates are high-volume during ICE negotiation.
   static const _rateLimitExemptSignals = <String>{
     'sys_keys',
     'addr_update',
+    'webrtc_offer',
+    'webrtc_answer',
+    'webrtc2_offer',
+    'webrtc2_answer',
     'webrtc_candidate',
     'webrtc2_candidate',
+    'webrtc_reoffer',
+    'webrtc_reanswer',
   };
 
   /// Per-sender rate limiter for webrtc offer/answer — max 6 per minute.
   /// Prevents relay-based call-flood DoS while allowing normal re-negotiation.
   static const _webrtcOfferTypes = <String>{
     'webrtc_offer', 'webrtc_answer', 'webrtc2_offer', 'webrtc2_answer',
+    'webrtc_reoffer', 'webrtc_reanswer',
   };
 
   // ── Contact resolution ───────────────────────────────────────────────────
