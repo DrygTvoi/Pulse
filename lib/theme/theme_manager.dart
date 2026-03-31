@@ -1,3 +1,4 @@
+import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -37,6 +38,10 @@ class ThemeNotifier extends ChangeNotifier {
   Color get surfaceVariant=> _customSurfVar    ?? (isDark ? const Color(0xFF2A3942) : const Color(0xFFE9ECEF));
   Color get textPrimary   => _customTextPrimary    ?? (isDark ? const Color(0xFFE9EDEF) : const Color(0xFF111B21));
   Color get textSecondary => _customTextSecondary  ?? (isDark ? const Color(0xFF8696A0) : const Color(0xFF667781));
+
+  // ── Bubble colors (WhatsApp 2025) ───────────────────────────────────────
+  Color get outgoingBubble => isDark ? const Color(0xFF005C4B) : const Color(0xFFD9FDD3);
+  Color get incomingBubble => isDark ? surfaceVariant : const Color(0xFFFFFFFF);
 
   ThemeNotifier._internal() {
     _loadFromPrefs();
@@ -176,7 +181,35 @@ class ThemeNotifier extends ChangeNotifier {
     fontFn  = ({TextStyle? textStyle}) => GoogleFonts.inter(textStyle: textStyle);
     themeFn = GoogleFonts.interTextTheme;
 
-    final textTheme = themeFn(base.textTheme).copyWith(
+    // On Linux, add Noto Color Emoji as fallback so emoji glyphs render
+    // correctly instead of showing as white tofu boxes.
+    final emojiFallback = Platform.isLinux
+        ? const ['Noto Color Emoji'] : const <String>[];
+
+    TextTheme _applyFallback(TextTheme t) {
+      if (emojiFallback.isEmpty) return t;
+      TextStyle _fb(TextStyle? s) =>
+          (s ?? const TextStyle()).copyWith(fontFamilyFallback: emojiFallback);
+      return t.copyWith(
+        displayLarge: _fb(t.displayLarge),
+        displayMedium: _fb(t.displayMedium),
+        displaySmall: _fb(t.displaySmall),
+        headlineLarge: _fb(t.headlineLarge),
+        headlineMedium: _fb(t.headlineMedium),
+        headlineSmall: _fb(t.headlineSmall),
+        titleLarge: _fb(t.titleLarge),
+        titleMedium: _fb(t.titleMedium),
+        titleSmall: _fb(t.titleSmall),
+        bodyLarge: _fb(t.bodyLarge),
+        bodyMedium: _fb(t.bodyMedium),
+        bodySmall: _fb(t.bodySmall),
+        labelLarge: _fb(t.labelLarge),
+        labelMedium: _fb(t.labelMedium),
+        labelSmall: _fb(t.labelSmall),
+      );
+    }
+
+    final textTheme = _applyFallback(themeFn(base.textTheme).copyWith(
       displayLarge:  fontFn(textStyle: TextStyle(color: txtPri, fontWeight: FontWeight.bold, fontSize: 32)),
       displayMedium: fontFn(textStyle: TextStyle(color: txtPri, fontWeight: FontWeight.bold, fontSize: 26)),
       titleLarge:    fontFn(textStyle: TextStyle(color: txtPri, fontWeight: FontWeight.w600, fontSize: 20)),
@@ -186,7 +219,7 @@ class ThemeNotifier extends ChangeNotifier {
       bodyMedium:    fontFn(textStyle: TextStyle(color: txtSec, fontSize: 14, height: 1.4)),
       bodySmall:     fontFn(textStyle: TextStyle(color: txtSec, fontSize: 12)),
       labelLarge:    fontFn(textStyle: TextStyle(color: txtPri, fontWeight: FontWeight.w600, fontSize: 16)),
-    );
+    ));
 
     return ThemeData(
       useMaterial3: false,
@@ -246,6 +279,12 @@ class ThemeNotifier extends ChangeNotifier {
           borderSide: BorderSide(color: pri, width: 1.5),
         ),
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      ),
+      floatingActionButtonTheme: FloatingActionButtonThemeData(
+        backgroundColor: pri,
+        foregroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        elevation: 3,
       ),
       dividerColor: surfVar,
       cardColor: surf,

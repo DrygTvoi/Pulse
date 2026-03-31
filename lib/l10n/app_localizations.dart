@@ -4743,6 +4743,72 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Video notes not supported on this platform'**
   String get videoNoteNotSupported;
+
+  /// No description provided for @navChats.
+  ///
+  /// In en, this message translates to:
+  /// **'Chats'**
+  String get navChats;
+
+  /// No description provided for @navUpdates.
+  ///
+  /// In en, this message translates to:
+  /// **'Updates'**
+  String get navUpdates;
+
+  /// No description provided for @navCalls.
+  ///
+  /// In en, this message translates to:
+  /// **'Calls'**
+  String get navCalls;
+
+  /// No description provided for @filterAll.
+  ///
+  /// In en, this message translates to:
+  /// **'All'**
+  String get filterAll;
+
+  /// No description provided for @filterUnread.
+  ///
+  /// In en, this message translates to:
+  /// **'Unread'**
+  String get filterUnread;
+
+  /// No description provided for @filterGroups.
+  ///
+  /// In en, this message translates to:
+  /// **'Groups'**
+  String get filterGroups;
+
+  /// No description provided for @callsNoRecent.
+  ///
+  /// In en, this message translates to:
+  /// **'No recent calls'**
+  String get callsNoRecent;
+
+  /// No description provided for @callsEmptySubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Your call history will appear here'**
+  String get callsEmptySubtitle;
+
+  /// No description provided for @appBarEncrypted.
+  ///
+  /// In en, this message translates to:
+  /// **'end-to-end encrypted'**
+  String get appBarEncrypted;
+
+  /// No description provided for @newStatus.
+  ///
+  /// In en, this message translates to:
+  /// **'New status'**
+  String get newStatus;
+
+  /// No description provided for @newCall.
+  ///
+  /// In en, this message translates to:
+  /// **'New call'**
+  String get newCall;
 }
 
 class _AppLocalizationsDelegate

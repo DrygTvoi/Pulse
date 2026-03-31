@@ -11,6 +11,8 @@ class AppTheme {
   static Color get error => ThemeNotifier.instance.error;
   static Color get textPrimary => ThemeNotifier.instance.textPrimary;
   static Color get textSecondary => ThemeNotifier.instance.textSecondary;
+  static Color get outgoingBubble => ThemeNotifier.instance.outgoingBubble;
+  static Color get incomingBubble => ThemeNotifier.instance.incomingBubble;
 
   static ThemeData get darkTheme => ThemeNotifier.instance.themeData;
 }

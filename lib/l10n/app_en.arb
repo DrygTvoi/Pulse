@@ -1586,5 +1586,17 @@
   "videoNoteTapToStop": "Tap to stop",
   "videoNoteCameraPermission": "Camera permission denied",
   "videoNoteMaxDuration": "Maximum 30 seconds",
-  "videoNoteNotSupported": "Video notes not supported on this platform"
+  "videoNoteNotSupported": "Video notes not supported on this platform",
+
+  "navChats": "Chats",
+  "navUpdates": "Updates",
+  "navCalls": "Calls",
+  "filterAll": "All",
+  "filterUnread": "Unread",
+  "filterGroups": "Groups",
+  "callsNoRecent": "No recent calls",
+  "callsEmptySubtitle": "Your call history will appear here",
+  "appBarEncrypted": "end-to-end encrypted",
+  "newStatus": "New status",
+  "newCall": "New call"
 }

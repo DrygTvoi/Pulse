@@ -58,8 +58,8 @@ class DesignTokens {
   static const double iconXl = 32.0;
 
   // ── Chat-specific ────────────────────────────────────────
-  static const double chatBubbleRadius = 18.0;
-  static const double chatBubbleTailRadius = 4.0;
+  static const double chatBubbleRadius = 22.0;
+  static const double chatBubbleTailRadius = 22.0;
   static const double chatBubblePaddingH = 12.0;
   static const double chatBubblePaddingV = 8.0;
   static const double chatBubbleMarginOpposite = 60.0;
@@ -67,6 +67,13 @@ class DesignTokens {
   static const double chatInputPaddingH = 18.0;
   static const double chatInputPaddingV = 11.0;
   static const double chatDateChipRadius = 12.0;
+
+  // ── Navigation / Chips ──────────────────────────────────
+  static const double navBarHeight = 80.0;
+  static const double navBarIndicatorRadius = 16.0;
+  static const double filterChipRadius = 16.0;
+  static const double filterChipHeight = 32.0;
+  static const double fabRadius = 16.0;
 
   // ── Dialog ───────────────────────────────────────────────
   static const double dialogRadius = 20.0;

@@ -26,6 +26,7 @@ import '../widgets/chat_tile.dart';
 import '../widgets/connection_banner.dart';
 import '../widgets/tor_chip.dart';
 import '../widgets/chat_list_skeleton.dart';
+import '../widgets/chat_filter_chips.dart';
 import 'call_screen.dart';
 import 'group_call_screen.dart';
 import '../services/connectivity_probe_service.dart';
@@ -87,6 +88,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final _avatarLoadRequested = <String>{}; // tracks lazy-load requests to avoid duplicates
   bool _loading = true;
   Contact? _selectedContact; // currently open chat in wide (split) mode
+  ChatFilter _chatFilter = ChatFilter.all;
 
   // Sorted rooms cache — avoids re-sorting on every build when rooms haven't changed
   List<Contact>? _sortedRoomsCache;
@@ -696,6 +698,17 @@ class _HomeScreenState extends State<HomeScreen> {
     return count;
   }
 
+  List<Contact> _applyFilter(List<Contact> contacts, String myId, ChatController chatCtrl) {
+    switch (_chatFilter) {
+      case ChatFilter.all:
+        return contacts;
+      case ChatFilter.unread:
+        return contacts.where((c) => _getUnreadCount(c.id, myId, chatCtrl) > 0).toList();
+      case ChatFilter.groups:
+        return contacts.where((c) => c.isGroup).toList();
+    }
+  }
+
   Widget _buildLeftPanel(ChatController chatCtrl, {required bool isWide}) {
     final contacts = context.read<IContactRepository>().contacts;
     final myId = chatCtrl.identity?.id ?? '';
@@ -707,9 +720,10 @@ class _HomeScreenState extends State<HomeScreen> {
     });
 
     final allSorted = _getSortedContacts(contacts, totalMsgCount, chatCtrl);
-    final sorted = _searchQuery.isEmpty
+    final searchFiltered = _searchQuery.isEmpty
         ? allSorted
         : allSorted.where((c) => c.name.toLowerCase().contains(_searchQuery)).toList();
+    final sorted = _applyFilter(searchFiltered, myId, chatCtrl);
 
     return Scaffold(
       backgroundColor: AppTheme.background,
@@ -722,7 +736,7 @@ class _HomeScreenState extends State<HomeScreen> {
               title: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(context.l10n.homeChats,
+                  Text('Pulse',
                       style: GoogleFonts.inter(color: AppTheme.textPrimary, fontSize: DesignTokens.fontDisplay, fontWeight: FontWeight.w700)),
                   const SizedBox(width: DesignTokens.spacing8),
                   _buildConnectionDot(chatCtrl.connectionStatus),
@@ -796,85 +810,7 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
           _searchActive && _searchQuery.isNotEmpty
               ? _buildGlobalSearchBody(contacts, chatCtrl, isWide)
-              : _loading && contacts.isEmpty
-              ? const ChatListSkeleton()
-              : contacts.isEmpty
-              ? _buildEmptyState()
-              : Column(
-                  children: [
-                    StatusRow(
-                      contacts: contacts,
-                      ownStatus: _ownStatus,
-                      contactStatuses: _contactStatuses,
-                      onOwnStatusTap: () async {
-                        final result = await Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (_) => const StatusCreatorScreen()),
-                        );
-                        if (result == true) _loadStatuses();
-                      },
-                      onContactStatusTap: (contact, contactsWithStatus) {
-                        final entries = contactsWithStatus.map((cc) {
-                          final s = _contactStatuses[cc.id]!;
-                          return (contactId: cc.id, contactName: cc.name, status: s);
-                        }).toList();
-                        final idx = contactsWithStatus.indexOf(contact);
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => StatusViewerScreen(
-                              entries: entries,
-                              initialIndex: idx,
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                    Expanded(
-                      child: RefreshIndicator(
-                        color: AppTheme.primary,
-                        backgroundColor: AppTheme.surface,
-                        onRefresh: _onRefresh,
-                        child: sorted.isEmpty
-                            ? LayoutBuilder(
-                                builder: (ctx, box) => SingleChildScrollView(
-                                  physics: const AlwaysScrollableScrollPhysics(),
-                                  child: ConstrainedBox(
-                                    constraints: BoxConstraints(minHeight: box.maxHeight),
-                                    child: _buildNoResults(),
-                                  ),
-                                ),
-                              )
-                            : ListView.builder(
-                                physics: const AlwaysScrollableScrollPhysics(),
-                                itemCount: sorted.length,
-                                itemBuilder: (context, index) {
-                                  final c = sorted[index];
-                                  final room = chatCtrl.getRoomForContact(c.id);
-                                  final messages = room?.messages ?? [];
-                                  Message? lastMsg = messages.isNotEmpty ? messages.last : null;
-                                  final unread = _getUnreadCount(c.id, myId, chatCtrl);
-
-                                  // Lazy-load avatar when tile becomes visible
-                                  _ensureAvatarLoaded(c.id);
-
-                                  return ChatTile(
-                                    contact: c,
-                                    lastMsg: lastMsg,
-                                    unreadCount: unread,
-                                    myId: myId,
-                                    isOnline: chatCtrl.isOnline(c.id),
-                                    isMuted: _mutedContactIds.contains(c.id),
-                                    avatarBytes: _avatarCache[c.id],
-                                    selected: isWide && _selectedContact?.id == c.id,
-                                    onTap: () => isWide ? _openChatWide(c) : _openChatNarrow(c),
-                                  );
-                                },
-                              ),
-                      ),
-                    ),
-                  ],
-                ),
+              : _buildChatsTab(contacts, sorted, chatCtrl, myId, isWide),
           if (_banner != null)
             Positioned(
               top: 0, left: 0, right: 0,
@@ -903,13 +839,97 @@ class _HomeScreenState extends State<HomeScreen> {
       floatingActionButton: FloatingActionButton(
         backgroundColor: AppTheme.primary,
         elevation: 3,
-        shape: const CircleBorder(),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.fabRadius)),
         tooltip: context.l10n.homeNewChatTooltip,
         child: const Icon(Icons.chat_rounded, color: Colors.white, size: DesignTokens.fontDisplay),
-        onPressed: () => Navigator.push(
-          context, _slideRoute(const ContactsScreen()),
-        ).then((_) => _loadAll()),
+        onPressed: () {
+          Navigator.push(context, _slideRoute(const ContactsScreen())).then((_) => _loadAll());
+        },
       ).animate().scale(delay: 300.ms, curve: Curves.easeOutBack),
+    );
+  }
+
+  Widget _buildChatsTab(List<Contact> contacts, List<Contact> sorted, ChatController chatCtrl, String myId, bool isWide) {
+    if (_loading && contacts.isEmpty) return const ChatListSkeleton();
+    if (contacts.isEmpty) return _buildEmptyState();
+    return Column(
+      children: [
+        StatusRow(
+          contacts: contacts,
+          ownStatus: _ownStatus,
+          contactStatuses: _contactStatuses,
+          onOwnStatusTap: () async {
+            final result = await Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const StatusCreatorScreen()),
+            );
+            if (result == true) _loadStatuses();
+          },
+          onContactStatusTap: (contact, contactsWithStatus) {
+            final entries = contactsWithStatus.map((cc) {
+              final s = _contactStatuses[cc.id]!;
+              return (contactId: cc.id, contactName: cc.name, status: s);
+            }).toList();
+            final idx = contactsWithStatus.indexOf(contact);
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => StatusViewerScreen(
+                  entries: entries,
+                  initialIndex: idx,
+                ),
+              ),
+            );
+          },
+        ),
+        ChatFilterChips(
+          selected: _chatFilter,
+          onChanged: (f) => setState(() => _chatFilter = f),
+        ),
+        Expanded(
+          child: RefreshIndicator(
+            color: AppTheme.primary,
+            backgroundColor: AppTheme.surface,
+            onRefresh: _onRefresh,
+            child: sorted.isEmpty
+                ? LayoutBuilder(
+                    builder: (ctx, box) => SingleChildScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(minHeight: box.maxHeight),
+                        child: _buildNoResults(),
+                      ),
+                    ),
+                  )
+                : ListView.builder(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    itemCount: sorted.length,
+                    itemBuilder: (context, index) {
+                      final c = sorted[index];
+                      final room = chatCtrl.getRoomForContact(c.id);
+                      final messages = room?.messages ?? [];
+                      Message? lastMsg = messages.isNotEmpty ? messages.last : null;
+                      final unread = _getUnreadCount(c.id, myId, chatCtrl);
+
+                      // Lazy-load avatar when tile becomes visible
+                      _ensureAvatarLoaded(c.id);
+
+                      return ChatTile(
+                        contact: c,
+                        lastMsg: lastMsg,
+                        unreadCount: unread,
+                        myId: myId,
+                        isOnline: chatCtrl.isOnline(c.id),
+                        isMuted: _mutedContactIds.contains(c.id),
+                        avatarBytes: _avatarCache[c.id],
+                        selected: isWide && _selectedContact?.id == c.id,
+                        onTap: () => isWide ? _openChatWide(c) : _openChatNarrow(c),
+                      );
+                    },
+                  ),
+          ),
+        ),
+      ],
     );
   }
 

@@ -48,9 +48,9 @@ PreferredSizeWidget buildChatAppBar({
       onTap: onOpenProfile,
       child: Row(children: [
         if (embedded)
-          buildChatAvatar(contact.name, 38)
+          buildChatAvatar(contact.name, 40)
         else
-          Hero(tag: 'contact_avatar_${contact.id}', child: buildChatAvatar(contact.name, 38)),
+          Hero(tag: 'contact_avatar_${contact.id}', child: buildChatAvatar(contact.name, 40)),
         const SizedBox(width: DesignTokens.spacing10),
         Expanded(
           child: Column(
@@ -74,10 +74,8 @@ PreferredSizeWidget buildChatAppBar({
                           ? Text(lastSeen,
                               style: GoogleFonts.inter(fontSize: DesignTokens.fontSm, color: AppTheme.textSecondary))
                           : Row(children: [
-                              Icon(Icons.lock_rounded, size: DesignTokens.fontXs, color: AppTheme.primary),
-                              const SizedBox(width: 3),
-                              Text(context.l10n.appBarSignalE2ee,
-                                  style: GoogleFonts.inter(fontSize: DesignTokens.fontSm, color: AppTheme.primary, fontWeight: FontWeight.w500)),
+                              Text(context.l10n.appBarEncrypted,
+                                  style: GoogleFonts.inter(fontSize: DesignTokens.fontSm, color: AppTheme.textSecondary)),
                               if (hasPqc) ...[
                                 const SizedBox(width: DesignTokens.spacing4),
                                 Container(
@@ -105,7 +103,7 @@ PreferredSizeWidget buildChatAppBar({
         onPressed: onSearchActivate,
       ),
       IconButton(
-        icon: Icon(Icons.call_rounded, color: AppTheme.textSecondary),
+        icon: Icon(Icons.call_outlined, color: AppTheme.textSecondary),
         tooltip: context.l10n.appBarVoiceCall,
         onPressed: () => Navigator.push(context, MaterialPageRoute(
           builder: (_) => contact.isGroup

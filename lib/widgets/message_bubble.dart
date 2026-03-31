@@ -11,6 +11,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:video_player/video_player.dart';
 import '../theme/app_theme.dart';
 import '../theme/design_tokens.dart';
+import '../theme/theme_manager.dart';
 import '../models/contact.dart';
 import '../models/contact_repository.dart';
 import '../services/media_service.dart';
@@ -84,14 +85,9 @@ class MessageBubble extends StatelessWidget {
 
     final Color bgColor = isUnencrypted
         ? const Color(0xFF8B1A1A)
-        : (isMe ? AppTheme.primary : AppTheme.surfaceVariant);
+        : (isMe ? AppTheme.outgoingBubble : AppTheme.incomingBubble);
 
-    final radius = BorderRadius.only(
-      topLeft: const Radius.circular(DesignTokens.chatBubbleRadius),
-      topRight: const Radius.circular(DesignTokens.chatBubbleRadius),
-      bottomRight: Radius.circular(isMe && showTail ? DesignTokens.chatBubbleTailRadius : DesignTokens.chatBubbleRadius),
-      bottomLeft: Radius.circular(!isMe && showTail ? DesignTokens.chatBubbleTailRadius : DesignTokens.chatBubbleRadius),
-    );
+    final radius = BorderRadius.circular(DesignTokens.chatBubbleRadius);
 
     final hasReactions = reactions != null && reactions!.isNotEmpty;
 
@@ -128,13 +124,6 @@ class MessageBubble extends StatelessWidget {
                       (blossomPayload != null && (blossomPayload.mediaType == 'img' || blossomPayload.mediaType == 'gif')))
                   ? Colors.transparent : bgColor,
               borderRadius: radius,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.10),
-                  blurRadius: 2,
-                  offset: const Offset(0, 1),
-                ),
-              ],
             ),
             child: media != null
                 ? _buildMediaContent(context, media, bgColor, radius)
@@ -282,7 +271,11 @@ class MessageBubble extends StatelessWidget {
   }
 
   Widget _buildLinkedText(BuildContext context, String text) {
-    final baseStyle = GoogleFonts.inter(color: Colors.white, fontSize: DesignTokens.fontInput, height: 1.35);
+    final bubbleTextColor = isMe
+        ? (ThemeNotifier.instance.isDark ? Colors.white : const Color(0xFF111B21))
+        : (ThemeNotifier.instance.isDark ? Colors.white : const Color(0xFF111B21));
+    final baseStyle = GoogleFonts.inter(color: bubbleTextColor, fontSize: DesignTokens.fontInput, height: 1.35)
+        .copyWith(fontFamilyFallback: const ['Noto Color Emoji']);
     final matches = _urlRegex.allMatches(text).toList();
     if (matches.isEmpty) return Text(text, style: baseStyle);
     return _LinkedText(text: text, matches: matches, baseStyle: baseStyle);
@@ -560,7 +553,7 @@ class MessageBubble extends StatelessWidget {
     return Row(mainAxisSize: MainAxisSize.min, children: [
       Text(
         '${timestamp.hour.toString().padLeft(2, '0')}:${timestamp.minute.toString().padLeft(2, '0')}',
-        style: GoogleFonts.inter(color: Colors.white.withValues(alpha: 0.55), fontSize: DesignTokens.fontSm),
+        style: GoogleFonts.inter(color: Colors.white.withValues(alpha: 0.70), fontSize: DesignTokens.fontSm),
       ),
       if (isMe && status.isNotEmpty) ...[
         const SizedBox(width: DesignTokens.spacing4),

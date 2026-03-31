@@ -2575,4 +2575,37 @@ class AppLocalizationsSi extends AppLocalizations {
   @override
   String get videoNoteNotSupported =>
       'මෙම වේදිකාවේ වීඩියෝ සටහන් සඳහා සහාය නොමැත';
+
+  @override
+  String get navChats => 'Chats';
+
+  @override
+  String get navUpdates => 'Updates';
+
+  @override
+  String get navCalls => 'Calls';
+
+  @override
+  String get filterAll => 'All';
+
+  @override
+  String get filterUnread => 'Unread';
+
+  @override
+  String get filterGroups => 'Groups';
+
+  @override
+  String get callsNoRecent => 'No recent calls';
+
+  @override
+  String get callsEmptySubtitle => 'Your call history will appear here';
+
+  @override
+  String get appBarEncrypted => 'end-to-end encrypted';
+
+  @override
+  String get newStatus => 'New status';
+
+  @override
+  String get newCall => 'New call';
 }

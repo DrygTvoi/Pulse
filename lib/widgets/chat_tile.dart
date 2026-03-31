@@ -76,9 +76,12 @@ class ChatTile extends StatelessWidget {
         onTap: onTap,
         splashColor: AppTheme.primary.withValues(alpha: 0.07),
         highlightColor: AppTheme.primary.withValues(alpha: 0.04),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: DesignTokens.spacing12, vertical: DesignTokens.spacing8),
-          child: Row(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: DesignTokens.spacing12, vertical: DesignTokens.spacing8),
+              child: Row(
             children: [
               // Avatar
               Hero(
@@ -146,9 +149,6 @@ class ChatTile extends StatelessWidget {
                     ]),
                     const SizedBox(height: 3),
                     Row(children: [
-                      // E2EE lock
-                      Icon(Icons.lock_rounded, size: DesignTokens.fontSm, color: AppTheme.primary.withValues(alpha: 0.7)),
-                      const SizedBox(width: DesignTokens.spacing4),
                       Expanded(
                         child: Text(subtitle,
                             maxLines: 1,
@@ -157,7 +157,7 @@ class ChatTile extends StatelessWidget {
                               color: unreadCount > 0 ? AppTheme.textPrimary : AppTheme.textSecondary,
                               fontSize: DesignTokens.fontMd,
                               fontWeight: unreadCount > 0 ? FontWeight.w500 : FontWeight.normal,
-                            )),
+                            ).copyWith(fontFamilyFallback: const ['Noto Color Emoji'])),
                       ),
                       // Unread badge
                       if (unreadCount > 0) ...[
@@ -193,6 +193,17 @@ class ChatTile extends StatelessWidget {
               ),
             ],
           ),
+        ),
+            // Subtle indented divider (past avatar)
+            Padding(
+              padding: const EdgeInsets.only(left: DesignTokens.avatarMd + DesignTokens.spacing12 + DesignTokens.spacing14),
+              child: Divider(
+                height: 1,
+                thickness: 0.5,
+                color: AppTheme.surfaceVariant.withValues(alpha: 0.5),
+              ),
+            ),
+          ],
         ),
       ),
     );

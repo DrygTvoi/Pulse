@@ -832,5 +832,17 @@
   "videoNoteTapToStop": "Нажмите для остановки",
   "videoNoteCameraPermission": "Нет доступа к камере",
   "videoNoteMaxDuration": "Максимум 30 секунд",
-  "videoNoteNotSupported": "Видеосообщения не поддерживаются на этой платформе"
+  "videoNoteNotSupported": "Видеосообщения не поддерживаются на этой платформе",
+
+  "navChats": "Чаты",
+  "navUpdates": "Обновления",
+  "navCalls": "Звонки",
+  "filterAll": "Все",
+  "filterUnread": "Непрочитанные",
+  "filterGroups": "Группы",
+  "callsNoRecent": "Нет недавних звонков",
+  "callsEmptySubtitle": "История звонков появится здесь",
+  "appBarEncrypted": "сквозное шифрование",
+  "newStatus": "Новый статус",
+  "newCall": "Новый звонок"
 }

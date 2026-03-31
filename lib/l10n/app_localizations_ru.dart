@@ -2547,4 +2547,37 @@ class AppLocalizationsRu extends AppLocalizations {
   @override
   String get videoNoteNotSupported =>
       'Видеосообщения не поддерживаются на этой платформе';
+
+  @override
+  String get navChats => 'Чаты';
+
+  @override
+  String get navUpdates => 'Обновления';
+
+  @override
+  String get navCalls => 'Звонки';
+
+  @override
+  String get filterAll => 'Все';
+
+  @override
+  String get filterUnread => 'Непрочитанные';
+
+  @override
+  String get filterGroups => 'Группы';
+
+  @override
+  String get callsNoRecent => 'Нет недавних звонков';
+
+  @override
+  String get callsEmptySubtitle => 'История звонков появится здесь';
+
+  @override
+  String get appBarEncrypted => 'сквозное шифрование';
+
+  @override
+  String get newStatus => 'Новый статус';
+
+  @override
+  String get newCall => 'Новый звонок';
 }

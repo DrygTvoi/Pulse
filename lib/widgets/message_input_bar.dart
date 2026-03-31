@@ -153,7 +153,7 @@ class MessageInputBar extends StatelessWidget {
                 ),
               ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(DesignTokens.spacing8, DesignTokens.spacing6, DesignTokens.spacing12, DesignTokens.spacing12),
+              padding: const EdgeInsets.fromLTRB(4, 4, 6, 8),
               child: isRecording ? _buildRecordingBar(context) : _buildNormalInputBar(context),
             ),
           ],
@@ -162,146 +162,103 @@ class MessageInputBar extends StatelessWidget {
     );
   }
 
+  static const _icon = 24.0;
+  static const _sendSize = 44.0;
+
+  Widget _buildBarIcon(IconData icon, VoidCallback onTap, String label) {
+    return Semantics(
+      label: label,
+      button: true,
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
+          child: Icon(icon, color: AppTheme.textSecondary, size: _icon),
+        ),
+      ),
+    );
+  }
+
   Widget _buildNormalInputBar(BuildContext context) {
-    return Row(children: [
-      // Emoji toggle
-      Semantics(
-        label: 'Emoji picker',
-        button: true,
-        child: GestureDetector(
-          onTap: onToggleEmojiPicker,
-          child: Container(
-            width: 38, height: 38,
-            margin: const EdgeInsets.only(left: DesignTokens.spacing4),
-            decoration: BoxDecoration(color: AppTheme.surfaceVariant, shape: BoxShape.circle),
-            child: Icon(
-              showEmojiPicker ? Icons.keyboard_rounded : Icons.emoji_emotions_outlined,
-              color: AppTheme.textSecondary, size: DesignTokens.iconMd,
+    return ListenableBuilder(
+      listenable: controller,
+      builder: (context, _) {
+        final hasText = controller.text.trim().isNotEmpty;
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            _buildBarIcon(Icons.add, onAttach, context.l10n.inputAttachFile),
+            Expanded(
+              child: Container(
+                decoration: BoxDecoration(
+                  color: AppTheme.surfaceVariant,
+                  borderRadius: BorderRadius.circular(DesignTokens.chatInputRadius),
+                ),
+                child: TextField(
+                  controller: controller,
+                  focusNode: focusNode,
+                  style: GoogleFonts.inter(color: AppTheme.textPrimary, fontSize: DesignTokens.fontInput)
+                      .copyWith(fontFamilyFallback: const ['Noto Color Emoji']),
+                  textInputAction: TextInputAction.send,
+                  minLines: 1,
+                  maxLines: 5,
+                  onSubmitted: (_) => onSend(),
+                  decoration: InputDecoration(
+                    hintText: context.l10n.inputMessage,
+                    hintStyle: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: DesignTokens.fontInput),
+                    border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    fillColor: Colors.transparent,
+                    filled: true,
+                  ),
+                ),
+              ),
             ),
-          ),
-        ),
-      ),
-      // Attach button
-      Semantics(
-        label: context.l10n.inputAttachFile,
-        button: true,
-        child: GestureDetector(
-          onTap: onAttach,
-          child: Container(
-            width: 42, height: 42,
-            margin: const EdgeInsets.only(left: DesignTokens.spacing4, right: DesignTokens.spacing4),
-            decoration: BoxDecoration(color: AppTheme.surfaceVariant, shape: BoxShape.circle),
-            child: Icon(Icons.attach_file_rounded, color: AppTheme.textSecondary, size: DesignTokens.iconMd),
-          ),
-        ),
-      ),
-      Expanded(
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          decoration: BoxDecoration(
-            color: AppTheme.surfaceVariant,
-            borderRadius: BorderRadius.circular(DesignTokens.chatInputRadius),
-            border: Border.all(
-              color: inputFocused
-                  ? AppTheme.primary.withValues(alpha: 0.5)
-                  : Colors.transparent,
-              width: 1.5,
-            ),
-          ),
-          child: TextField(
-            controller: controller,
-            focusNode: focusNode,
-            style: GoogleFonts.inter(color: AppTheme.textPrimary, fontSize: DesignTokens.fontInput),
-            textInputAction: TextInputAction.send,
-            minLines: 1,
-            maxLines: 5,
-            onSubmitted: (_) => onSend(),
-            decoration: InputDecoration(
-              hintText: context.l10n.inputMessage,
-              hintStyle: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: DesignTokens.fontInput),
-              border: InputBorder.none,
-              enabledBorder: InputBorder.none,
-              focusedBorder: InputBorder.none,
-              contentPadding: const EdgeInsets.symmetric(horizontal: DesignTokens.chatInputPaddingH, vertical: DesignTokens.chatInputPaddingV),
-              fillColor: Colors.transparent,
-              filled: true,
-            ),
-          ),
-        ),
-      ),
-      const SizedBox(width: DesignTokens.spacing8),
-      // Camera + Mic buttons (when text field empty) or Send button
-      ListenableBuilder(
-        listenable: controller,
-        builder: (context, _) {
-          final hasText = controller.text.trim().isNotEmpty;
-          return AnimatedSwitcher(
-            duration: const Duration(milliseconds: 200),
-            transitionBuilder: (child, anim) => ScaleTransition(
-              scale: anim,
-              child: FadeTransition(opacity: anim, child: child),
-            ),
-            child: hasText
-                ? Semantics(
-                    label: context.l10n.inputSendMessage,
-                    button: true,
-                    child: GestureDetector(
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 200),
+              transitionBuilder: (child, anim) => FadeTransition(opacity: anim, child: child),
+              child: hasText
+                  ? Semantics(
                       key: const ValueKey('send'),
-                      onTap: onSend,
-                      onLongPress: onSchedulePicker,
-                      child: Container(
-                        width: 46, height: 46,
-                        decoration: BoxDecoration(
-                          color: AppTheme.primary,
-                          shape: BoxShape.circle,
-                          boxShadow: [BoxShadow(color: AppTheme.primary.withValues(alpha: 0.4), blurRadius: 8, offset: const Offset(0, 3))],
-                        ),
-                        child: const Icon(Icons.send_rounded, color: Colors.white, size: DesignTokens.iconMd),
-                      ),
-                    ),
-                  )
-                : Row(
-                    key: const ValueKey('media_buttons'),
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (onRecordVideoNote != null)
-                        Semantics(
-                          label: context.l10n.videoNoteRecord,
-                          button: true,
-                          child: GestureDetector(
-                            onTap: onRecordVideoNote,
-                            child: Container(
-                              width: 40, height: 40,
-                              decoration: BoxDecoration(
-                                color: AppTheme.surfaceVariant,
-                                shape: BoxShape.circle,
-                              ),
-                              child: Icon(Icons.videocam_rounded, color: AppTheme.textSecondary, size: DesignTokens.iconMd),
-                            ),
-                          ),
-                        ),
-                      if (onRecordVideoNote != null) const SizedBox(width: 4),
-                      Semantics(
-                        label: context.l10n.inputRecordVoice,
-                        button: true,
-                        child: GestureDetector(
-                          onTap: onStartRecording,
+                      label: context.l10n.inputSendMessage,
+                      button: true,
+                      child: GestureDetector(
+                        onTap: onSend,
+                        onLongPress: onSchedulePicker,
+                        child: Padding(
+                          padding: const EdgeInsets.only(left: 4),
                           child: Container(
-                            width: 46, height: 46,
+                            width: _sendSize, height: _sendSize,
                             decoration: BoxDecoration(
-                              color: AppTheme.surfaceVariant,
+                              color: AppTheme.primary,
                               shape: BoxShape.circle,
                             ),
-                            child: Icon(Icons.mic_rounded, color: AppTheme.textSecondary, size: DesignTokens.fontDisplay),
+                            child: const Icon(Icons.send_rounded, color: Colors.white, size: 20),
                           ),
                         ),
                       ),
-                    ],
-                  ),
-          );
-        },
-      ),
-    ]);
+                    )
+                  : Row(
+                      key: const ValueKey('actions'),
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _buildBarIcon(
+                          showEmojiPicker ? Icons.keyboard_rounded : Icons.emoji_emotions_outlined,
+                          onToggleEmojiPicker, 'Emoji',
+                        ),
+                        if (onRecordVideoNote != null)
+                          _buildBarIcon(Icons.camera_alt_outlined, onRecordVideoNote!, context.l10n.videoNoteRecord),
+                        _buildBarIcon(Icons.mic_none_rounded, onStartRecording, context.l10n.inputRecordVoice),
+                      ],
+                    ),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   Widget _buildRecordingBar(BuildContext context) {
