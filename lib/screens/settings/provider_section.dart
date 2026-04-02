@@ -21,7 +21,7 @@ class ProviderSection extends StatefulWidget {
   final TextEditingController firebaseKeyController;
   final TextEditingController nostrKeyController;
   final TextEditingController nostrRelayController;
-  final TextEditingController oxenNodeUrlController;
+  final TextEditingController sessionNodeUrlController;
   final TextEditingController pulseServerUrlController;
   final TextEditingController pulseInviteController;
   final bool isSaving;
@@ -37,7 +37,7 @@ class ProviderSection extends StatefulWidget {
     required this.firebaseKeyController,
     required this.nostrKeyController,
     required this.nostrRelayController,
-    required this.oxenNodeUrlController,
+    required this.sessionNodeUrlController,
     required this.pulseServerUrlController,
     required this.pulseInviteController,
     required this.isSaving,
@@ -55,7 +55,7 @@ class _ProviderSectionState extends State<ProviderSection> {
   static const _secureStorage = FlutterSecureStorage();
 
   bool _showNostrAdvanced = false;
-  bool _showOxenAdvanced = false;
+  bool _showSessionAdvanced = false;
   String? _activeNostrRelay;
 
   @override
@@ -298,7 +298,7 @@ class _ProviderSectionState extends State<ProviderSection> {
       ),
       (name: 'Nostr', icon: Icons.bolt_rounded, color: Color(0xFF9B59B6)),
       (
-        name: 'Oxen',
+        name: 'Session',
         icon: Icons.security_rounded,
         color: Color(0xFF00695C)
       ),
@@ -552,7 +552,7 @@ class _ProviderSectionState extends State<ProviderSection> {
           ]),
         ],
       );
-    } else if (widget.selectedProvider == 'Oxen') {
+    } else if (widget.selectedProvider == 'Session') {
       return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -562,7 +562,7 @@ class _ProviderSectionState extends State<ProviderSection> {
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
-                  context.l10n.providerOxenInfo,
+                  context.l10n.providerSessionInfo,
                   style: GoogleFonts.inter(
                       color: AppTheme.textSecondary, fontSize: 11),
                 ),
@@ -601,11 +601,11 @@ class _ProviderSectionState extends State<ProviderSection> {
             }),
             const SizedBox(height: 4),
             GestureDetector(
-              onTap: () => setState(() => _showOxenAdvanced = !_showOxenAdvanced),
+              onTap: () => setState(() => _showSessionAdvanced = !_showSessionAdvanced),
               child: Row(
                 children: [
                   Icon(
-                    _showOxenAdvanced
+                    _showSessionAdvanced
                         ? Icons.expand_less_rounded
                         : Icons.expand_more_rounded,
                     size: 16,
@@ -623,10 +623,10 @@ class _ProviderSectionState extends State<ProviderSection> {
                 ],
               ),
             ),
-            if (_showOxenAdvanced) ...[
+            if (_showSessionAdvanced) ...[
               const SizedBox(height: 12),
               settingsField(
-                controller: widget.oxenNodeUrlController,
+                controller: widget.sessionNodeUrlController,
                 hint: context.l10n.providerStorageNodeHint,
                 label: context.l10n.providerStorageNodeLabel,
                 icon: Icons.security_rounded,

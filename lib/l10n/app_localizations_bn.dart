@@ -1749,8 +1749,8 @@ class AppLocalizationsBn extends AppLocalizations {
       'আপনার কী স্থানীয়ভাবে সিকিউর স্টোরেজে সংরক্ষিত — কোনো সার্ভারে কখনো পাঠানো হয় না।';
 
   @override
-  String get providerOxenInfo =>
-      'Oxen/Session নেটওয়ার্ক — অনিয়ন-রাউটেড E2EE। আপনার Session ID স্বয়ংক্রিয়ভাবে তৈরি এবং নিরাপদে সংরক্ষিত। নোড বিল্ট-ইন সিড নোড থেকে স্বয়ংক্রিয়ভাবে আবিষ্কৃত।';
+  String get providerSessionInfo =>
+      'Session Network — onion-routed E2EE. Your Session ID is auto-generated and stored securely. Nodes auto-discovered from built-in seed nodes.';
 
   @override
   String get providerAdvanced => 'উন্নত';
@@ -1855,7 +1855,7 @@ class AppLocalizationsBn extends AppLocalizations {
   String get networkDiagnosticsInfrastructure => 'অবকাঠামো';
 
   @override
-  String get networkDiagnosticsOxenNodes => 'Oxen নোড';
+  String get networkDiagnosticsSessionNodes => 'Session nodes';
 
   @override
   String get networkDiagnosticsTurnServers => 'TURN সার্ভার';

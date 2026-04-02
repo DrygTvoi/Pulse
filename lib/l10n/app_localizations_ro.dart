@@ -1785,8 +1785,8 @@ class AppLocalizationsRo extends AppLocalizations {
       'Cheia ta este stocată local în stocare securizată — nu este trimisă niciodată la vreun server.';
 
   @override
-  String get providerOxenInfo =>
-      'Rețeaua Oxen/Session — E2EE rutat onion. ID-ul tău Session este generat automat și stocat în siguranță. Nodurile sunt descoperite automat din nodurile seed integrate.';
+  String get providerSessionInfo =>
+      'Session Network — onion-routed E2EE. Your Session ID is auto-generated and stored securely. Nodes auto-discovered from built-in seed nodes.';
 
   @override
   String get providerAdvanced => 'Avansat';
@@ -1891,7 +1891,7 @@ class AppLocalizationsRo extends AppLocalizations {
   String get networkDiagnosticsInfrastructure => 'Infrastructură';
 
   @override
-  String get networkDiagnosticsOxenNodes => 'Noduri Oxen';
+  String get networkDiagnosticsSessionNodes => 'Session nodes';
 
   @override
   String get networkDiagnosticsTurnServers => 'Servere TURN';

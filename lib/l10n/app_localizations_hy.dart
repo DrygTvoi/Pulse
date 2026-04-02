@@ -1782,8 +1782,8 @@ class AppLocalizationsHy extends AppLocalizations {
       'Ձեր բանալիը պահվում է տեղականորեն ապահով պահոցում — երբեք չի ուղարկվում սերվերի։';
 
   @override
-  String get providerOxenInfo =>
-      'Oxen/Session ցանց — սոխ-ուղղորդված E2EE։ Ձեր Session IDն ինքնաբերաբար ստեղծվում և ապահով պահվում է։ Հանգույցները ինքնաբերաբար հայտնաբերվում են ներկառուցված սերմերի հանգույցներից։';
+  String get providerSessionInfo =>
+      'Session Network — onion-routed E2EE. Your Session ID is auto-generated and stored securely. Nodes auto-discovered from built-in seed nodes.';
 
   @override
   String get providerAdvanced => 'Ընդլայնված';
@@ -1888,7 +1888,7 @@ class AppLocalizationsHy extends AppLocalizations {
   String get networkDiagnosticsInfrastructure => 'Ենթակառուցվածք';
 
   @override
-  String get networkDiagnosticsOxenNodes => 'Oxen հանգույցներ';
+  String get networkDiagnosticsSessionNodes => 'Session nodes';
 
   @override
   String get networkDiagnosticsTurnServers => 'TURN սերվերներ';

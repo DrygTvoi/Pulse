@@ -1783,8 +1783,8 @@ class AppLocalizationsMy extends AppLocalizations {
       'သင့်သော့ချက်ကို စက်တွင်း လုံခြုံရေးသိုလှေညှာတွင် သိမ်းထားသည် — ဆာဗာမည်သည့်သို့မျှ မပို့ပါ။';
 
   @override
-  String get providerOxenInfo =>
-      'Oxen/Session ကွန်ရက် — onion-routed E2EE။ သင့် Session ID ကို အလိုအလျောက်ဖန်တီးပြီး လုံခြုံစွာ သိမ်းထားသည်။ Node များကို ပါဝင်သော seed node များမှ အလိုအလျောက်ရှာဖွေသည်။';
+  String get providerSessionInfo =>
+      'Session Network — onion-routed E2EE. Your Session ID is auto-generated and stored securely. Nodes auto-discovered from built-in seed nodes.';
 
   @override
   String get providerAdvanced => 'အဆင့်မြင့်';
@@ -1889,7 +1889,7 @@ class AppLocalizationsMy extends AppLocalizations {
   String get networkDiagnosticsInfrastructure => 'အခြေခံအဆောက်အအုံ';
 
   @override
-  String get networkDiagnosticsOxenNodes => 'Oxen node များ';
+  String get networkDiagnosticsSessionNodes => 'Session nodes';
 
   @override
   String get networkDiagnosticsTurnServers => 'TURN ဆာဗာများ';

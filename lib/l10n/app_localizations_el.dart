@@ -1796,8 +1796,8 @@ class AppLocalizationsEl extends AppLocalizations {
       'Το κλειδί σας αποθηκεύεται τοπικά σε ασφαλή αποθήκευση — δεν αποστέλλεται ποτέ σε κανέναν διακομιστή.';
 
   @override
-  String get providerOxenInfo =>
-      'Δίκτυο Oxen/Session — E2EE δρομολογημένο μέσω onion. Το Session ID σας δημιουργείται αυτόματα και αποθηκεύεται με ασφάλεια. Οι κόμβοι ανακαλύπτονται αυτόματα από τους ενσωματωμένους κόμβους εκκίνησης.';
+  String get providerSessionInfo =>
+      'Session Network — onion-routed E2EE. Your Session ID is auto-generated and stored securely. Nodes auto-discovered from built-in seed nodes.';
 
   @override
   String get providerAdvanced => 'Για προχωρημένους';
@@ -1903,7 +1903,7 @@ class AppLocalizationsEl extends AppLocalizations {
   String get networkDiagnosticsInfrastructure => 'Υποδομή';
 
   @override
-  String get networkDiagnosticsOxenNodes => 'Κόμβοι Oxen';
+  String get networkDiagnosticsSessionNodes => 'Session nodes';
 
   @override
   String get networkDiagnosticsTurnServers => 'Διακομιστές TURN';

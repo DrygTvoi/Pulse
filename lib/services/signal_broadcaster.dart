@@ -10,7 +10,7 @@ import '../models/user_status.dart';
 import '../adapters/inbox_manager.dart';
 import '../adapters/firebase_adapter.dart';
 import '../adapters/nostr_adapter.dart';
-import '../adapters/oxen_adapter.dart';
+import '../adapters/session_adapter.dart';
 import '../constants.dart';
 import 'key_manager.dart';
 import 'connectivity_probe_service.dart';
@@ -218,7 +218,7 @@ class SignalBroadcaster {
     final targets = contacts
         .where((c) =>
             !c.isGroup &&
-            (c.provider == 'Nostr' || c.provider == 'Oxen'))
+            (c.provider == 'Nostr' || c.provider == 'Session'))
         .toList();
     await Future.wait(
         targets.map((c) => _sendSignalTo(c, 'relay_exchange', {'relays': relays})));
@@ -411,16 +411,16 @@ class SignalBroadcaster {
           sender: NostrMessageSender(),
           apiKey: jsonEncode({'privkey': privkey, 'relay': relay})
         );
-      case 'Oxen':
+      case 'Session':
         final prefs = await SharedPreferences.getInstance();
-        final nodeUrl = prefs.getString('oxen_node_url') ?? '';
-        return (sender: OxenMessageSender(), apiKey: nodeUrl);
+        final nodeUrl = prefs.getString('session_node_url') ?? prefs.getString('oxen_node_url') ?? '';
+        return (sender: SessionMessageSender(), apiKey: nodeUrl);
       default:
         return null;
     }
   }
 
-  static final _oxenAddrRegex = RegExp(r'^[0-9a-f]{66}$');
+  static final _sessionAddrRegex = RegExp(r'^[0-9a-f]{66}$');
 
   /// Build a (MessageSender, apiKey) pair from a raw address string.
   /// Used for retry through alternate addresses when primary delivery fails.
@@ -430,10 +430,10 @@ class SignalBroadcaster {
     if (identity == null) return null;
     final lower = address.toLowerCase();
     if (lower.startsWith('05') && lower.length == 66 &&
-        _oxenAddrRegex.hasMatch(lower)) {
+        _sessionAddrRegex.hasMatch(lower)) {
       final prefs = await SharedPreferences.getInstance();
-      final nodeUrl = prefs.getString('oxen_node_url') ?? '';
-      return (sender: OxenMessageSender(), apiKey: nodeUrl);
+      final nodeUrl = prefs.getString('session_node_url') ?? prefs.getString('oxen_node_url') ?? '';
+      return (sender: SessionMessageSender(), apiKey: nodeUrl);
     }
     if (lower.contains('@wss://') || lower.contains('@ws://')) {
       final privkey = await _secureStorage.read(key: 'nostr_privkey') ?? '';

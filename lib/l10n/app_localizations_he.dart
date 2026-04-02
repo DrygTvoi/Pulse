@@ -1746,8 +1746,8 @@ class AppLocalizationsHe extends AppLocalizations {
       'המפתח שלך מאוחסן מקומית באחסון מאובטח — לא נשלח לשום שרת.';
 
   @override
-  String get providerOxenInfo =>
-      'רשת Oxen/Session — E2EE מנותב בצל. מזהה ה-Session שלך נוצר אוטומטית ומאוחסן בבטחה. צמתים מתגלים אוטומטית מצמתי זרע מובנים.';
+  String get providerSessionInfo =>
+      'Session Network — onion-routed E2EE. Your Session ID is auto-generated and stored securely. Nodes auto-discovered from built-in seed nodes.';
 
   @override
   String get providerAdvanced => 'מתקדם';
@@ -1852,7 +1852,7 @@ class AppLocalizationsHe extends AppLocalizations {
   String get networkDiagnosticsInfrastructure => 'תשתית';
 
   @override
-  String get networkDiagnosticsOxenNodes => 'צמתי Oxen';
+  String get networkDiagnosticsSessionNodes => 'Session nodes';
 
   @override
   String get networkDiagnosticsTurnServers => 'שרתי TURN';

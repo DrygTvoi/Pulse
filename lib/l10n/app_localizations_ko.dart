@@ -1694,8 +1694,8 @@ class AppLocalizationsKo extends AppLocalizations {
       '키는 안전한 저장소에 로컬로 저장됩니다 — 어떤 서버로도 전송되지 않습니다.';
 
   @override
-  String get providerOxenInfo =>
-      'Oxen/Session 네트워크 — 양파 라우팅 E2EE. Session ID가 자동 생성되어 안전하게 저장됩니다. 내장 시드 노드에서 노드가 자동 검색됩니다.';
+  String get providerSessionInfo =>
+      'Session Network — onion-routed E2EE. Your Session ID is auto-generated and stored securely. Nodes auto-discovered from built-in seed nodes.';
 
   @override
   String get providerAdvanced => '고급';
@@ -1800,7 +1800,7 @@ class AppLocalizationsKo extends AppLocalizations {
   String get networkDiagnosticsInfrastructure => '인프라';
 
   @override
-  String get networkDiagnosticsOxenNodes => 'Oxen 노드';
+  String get networkDiagnosticsSessionNodes => 'Session nodes';
 
   @override
   String get networkDiagnosticsTurnServers => 'TURN 서버';

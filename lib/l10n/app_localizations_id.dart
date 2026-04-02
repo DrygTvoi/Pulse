@@ -1778,8 +1778,8 @@ class AppLocalizationsId extends AppLocalizations {
       'Kunci Anda disimpan secara lokal di penyimpanan aman — tidak pernah dikirim ke server mana pun.';
 
   @override
-  String get providerOxenInfo =>
-      'Jaringan Oxen/Session — E2EE melalui routing onion. Session ID Anda dibuat otomatis dan disimpan dengan aman. Node ditemukan otomatis dari seed node bawaan.';
+  String get providerSessionInfo =>
+      'Session Network — onion-routed E2EE. Your Session ID is auto-generated and stored securely. Nodes auto-discovered from built-in seed nodes.';
 
   @override
   String get providerAdvanced => 'Lanjutan';
@@ -1884,7 +1884,7 @@ class AppLocalizationsId extends AppLocalizations {
   String get networkDiagnosticsInfrastructure => 'Infrastruktur';
 
   @override
-  String get networkDiagnosticsOxenNodes => 'Node Oxen';
+  String get networkDiagnosticsSessionNodes => 'Session nodes';
 
   @override
   String get networkDiagnosticsTurnServers => 'Server TURN';

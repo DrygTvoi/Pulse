@@ -8,7 +8,7 @@ import '../theme/app_theme.dart';
 import '../services/signal_service.dart';
 import '../services/key_derivation_service.dart';
 import '../services/password_hasher.dart';
-import '../services/oxen_key_service.dart';
+import '../services/session_key_service.dart';
 import 'dart:math';
 import 'dart:convert';
 import 'dart:typed_data';
@@ -157,15 +157,15 @@ class _RestoreAccountScreenState extends State<RestoreAccountScreen> {
 
     // Derive the same keys from the recovery password.
     final nostrKeyBytes = await KeyDerivationService.deriveNostrKey(password);
-    final oxenSeedBytes = await KeyDerivationService.deriveOxenSeed(password);
+    final sessionSeedBytes = await KeyDerivationService.deriveSessionSeed(password);
 
     final privkeyHex = hex.encode(nostrKeyBytes);
     await ss.write(key: 'nostr_privkey', value: privkeyHex);
     nostrKeyBytes.fillRange(0, nostrKeyBytes.length, 0);
 
-    final oxenHex = hex.encode(oxenSeedBytes);
-    await ss.write(key: 'oxen_seed', value: oxenHex);
-    oxenSeedBytes.fillRange(0, oxenSeedBytes.length, 0);
+    final sessionHex = hex.encode(sessionSeedBytes);
+    await ss.write(key: 'session_seed', value: sessionHex);
+    sessionSeedBytes.fillRange(0, sessionSeedBytes.length, 0);
 
     // Fresh Signal keys — old sessions will re-establish automatically.
     final signalService = SignalService();
@@ -196,11 +196,11 @@ class _RestoreAccountScreenState extends State<RestoreAccountScreen> {
       'avatar_color': _avatarColors[_colorIndex].toARGB32().toString(),
     }));
 
-    // Re-initialise Oxen with restored seed
-    await OxenKeyService.instance.initialize();
-    final sessionId = OxenKeyService.instance.sessionId;
+    // Re-initialise Session with restored seed
+    await SessionKeyService.instance.initialize();
+    final sessionId = SessionKeyService.instance.sessionId;
     await prefs.setString('secondary_adapters', jsonEncode([{
-      'provider': 'Oxen',
+      'provider': 'Session',
       'apiKey': '',
       'databaseId': sessionId,
       'selfId': sessionId,

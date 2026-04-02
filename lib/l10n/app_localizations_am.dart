@@ -1733,8 +1733,8 @@ class AppLocalizationsAm extends AppLocalizations {
       'ቁልፍዎ በአካባቢው ደኅንነቱ በተጠበቀ ማከማቻ ውስጥ ተቀምጧል — ፈጽሞ ወደ ማንኛውም አገልጋይ አይላክም።';
 
   @override
-  String get providerOxenInfo =>
-      'Oxen/Session አውታረ መረብ — onion-routed E2EE። የSession መታወቂያዎ በራስ-ሰር ይመነጫል እና በደኅንነት ይቀመጣል። ኖዶች ከአብሮ-የተገነቡ ዘር ኖዶች በራስ-ሰር ይገኛሉ።';
+  String get providerSessionInfo =>
+      'Session Network — onion-routed E2EE. Your Session ID is auto-generated and stored securely. Nodes auto-discovered from built-in seed nodes.';
 
   @override
   String get providerAdvanced => 'የላቀ';
@@ -1839,7 +1839,7 @@ class AppLocalizationsAm extends AppLocalizations {
   String get networkDiagnosticsInfrastructure => 'መሠረተ ልማት';
 
   @override
-  String get networkDiagnosticsOxenNodes => 'Oxen ኖዶች';
+  String get networkDiagnosticsSessionNodes => 'Session nodes';
 
   @override
   String get networkDiagnosticsTurnServers => 'TURN አገልጋዮች';

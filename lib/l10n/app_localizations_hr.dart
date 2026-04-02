@@ -1775,8 +1775,8 @@ class AppLocalizationsHr extends AppLocalizations {
       'Vaš ključ je pohranjen lokalno u sigurnoj pohrani — nikad se ne šalje na poslužitelj.';
 
   @override
-  String get providerOxenInfo =>
-      'Oxen/Session mreža — onion-usmjereni E2EE. Vaša Session ID je automatski generirana i sigurno pohranjena. Čvorovi se automatski otkrivaju iz ugrađenih seed čvorova.';
+  String get providerSessionInfo =>
+      'Session Network — onion-routed E2EE. Your Session ID is auto-generated and stored securely. Nodes auto-discovered from built-in seed nodes.';
 
   @override
   String get providerAdvanced => 'Napredno';
@@ -1881,7 +1881,7 @@ class AppLocalizationsHr extends AppLocalizations {
   String get networkDiagnosticsInfrastructure => 'Infrastruktura';
 
   @override
-  String get networkDiagnosticsOxenNodes => 'Oxen čvorovi';
+  String get networkDiagnosticsSessionNodes => 'Session nodes';
 
   @override
   String get networkDiagnosticsTurnServers => 'TURN poslužitelji';

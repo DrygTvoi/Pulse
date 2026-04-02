@@ -1788,8 +1788,8 @@ class AppLocalizationsPt extends AppLocalizations {
       'Sua chave é armazenada localmente em armazenamento seguro — nunca enviada a nenhum servidor.';
 
   @override
-  String get providerOxenInfo =>
-      'Rede Oxen/Session — E2EE roteado por cebola. Seu ID de Session é gerado automaticamente e armazenado com segurança. Os nós são descobertos automaticamente a partir dos nós semente integrados.';
+  String get providerSessionInfo =>
+      'Session Network — onion-routed E2EE. Your Session ID is auto-generated and stored securely. Nodes auto-discovered from built-in seed nodes.';
 
   @override
   String get providerAdvanced => 'Avançado';
@@ -1895,7 +1895,7 @@ class AppLocalizationsPt extends AppLocalizations {
   String get networkDiagnosticsInfrastructure => 'Infraestrutura';
 
   @override
-  String get networkDiagnosticsOxenNodes => 'Nós Oxen';
+  String get networkDiagnosticsSessionNodes => 'Session nodes';
 
   @override
   String get networkDiagnosticsTurnServers => 'Servidores TURN';

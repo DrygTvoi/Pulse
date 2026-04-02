@@ -1780,8 +1780,8 @@ class AppLocalizationsKa extends AppLocalizations {
       'თქვენი გასაღები ლოკალურად ინახება უსაფრთხო საცავში — არასოდეს იგზავნება სერვერზე.';
 
   @override
-  String get providerOxenInfo =>
-      'Oxen/Session ქსელი — ბოლოდან ბოლომდე დაშიფრული onion-მარშრუტიზაცია. თქვენი Session ID ავტომატურად გენერირდება და უსაფრთხოდ ინახება. კვანძები ავტომატურად აღმოჩენილია ჩაშენებული seed კვანძებიდან.';
+  String get providerSessionInfo =>
+      'Session Network — onion-routed E2EE. Your Session ID is auto-generated and stored securely. Nodes auto-discovered from built-in seed nodes.';
 
   @override
   String get providerAdvanced => 'გაფართოებული';
@@ -1886,7 +1886,7 @@ class AppLocalizationsKa extends AppLocalizations {
   String get networkDiagnosticsInfrastructure => 'ინფრასტრუქტურა';
 
   @override
-  String get networkDiagnosticsOxenNodes => 'Oxen კვანძები';
+  String get networkDiagnosticsSessionNodes => 'Session nodes';
 
   @override
   String get networkDiagnosticsTurnServers => 'TURN სერვერები';

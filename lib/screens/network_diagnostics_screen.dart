@@ -102,7 +102,7 @@ class _NetworkDiagnosticsScreenState extends State<NetworkDiagnosticsScreen> {
         log('    $r');
       }
     }
-    log('  Oxen nodes: ${probe.oxenNodes.length}');
+    log('  Session nodes: ${probe.sessionNodes.length}');
     log('  TURN servers: ${probe.turnServers.length}');
     log('  Last probe: ${probe.timestamp}');
 
@@ -147,7 +147,7 @@ class _NetworkDiagnosticsScreenState extends State<NetworkDiagnosticsScreen> {
           ]),
           const SizedBox(height: DesignTokens.spacing10),
           _card(context.l10n.networkDiagnosticsInfrastructure, [
-            _kv(context.l10n.networkDiagnosticsOxenNodes, '${probe.oxenNodes.length}'),
+            _kv(context.l10n.networkDiagnosticsSessionNodes, '${probe.sessionNodes.length}'),
             _kv(context.l10n.networkDiagnosticsTurnServers, '${probe.turnServers.length}'),
             _kv(context.l10n.networkDiagnosticsLastProbe, _formatAge(context, probe.timestamp)),
           ]),

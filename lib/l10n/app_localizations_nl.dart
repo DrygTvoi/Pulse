@@ -1776,8 +1776,8 @@ class AppLocalizationsNl extends AppLocalizations {
       'Je sleutel wordt lokaal opgeslagen in beveiligde opslag — nooit naar een server verzonden.';
 
   @override
-  String get providerOxenInfo =>
-      'Oxen/Session-netwerk — onion-gerouteerde E2EE. Je Session-ID wordt automatisch gegenereerd en veilig opgeslagen. Nodes automatisch ontdekt via ingebouwde seed-nodes.';
+  String get providerSessionInfo =>
+      'Session Network — onion-routed E2EE. Your Session ID is auto-generated and stored securely. Nodes auto-discovered from built-in seed nodes.';
 
   @override
   String get providerAdvanced => 'Geavanceerd';
@@ -1882,7 +1882,7 @@ class AppLocalizationsNl extends AppLocalizations {
   String get networkDiagnosticsInfrastructure => 'Infrastructuur';
 
   @override
-  String get networkDiagnosticsOxenNodes => 'Oxen-nodes';
+  String get networkDiagnosticsSessionNodes => 'Session nodes';
 
   @override
   String get networkDiagnosticsTurnServers => 'TURN-servers';

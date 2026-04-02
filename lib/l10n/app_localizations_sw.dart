@@ -1781,8 +1781,8 @@ class AppLocalizationsSw extends AppLocalizations {
       'Ufunguo wako umehifadhiwa ndani ya kifaa kwenye hifadhi salama — haujatumwa kamwe kwa seva yoyote.';
 
   @override
-  String get providerOxenInfo =>
-      'Mtandao wa Oxen/Session — E2EE kupitia njia za vitunguu. Kitambulisho chako cha Session kimeundwa kiotomatiki na kuhifadhiwa kwa usalama. Nodi zimegunduliwa kiotomatiki kutoka nodi za mbegu zilizojengwa ndani.';
+  String get providerSessionInfo =>
+      'Session Network — onion-routed E2EE. Your Session ID is auto-generated and stored securely. Nodes auto-discovered from built-in seed nodes.';
 
   @override
   String get providerAdvanced => 'Ya Juu';
@@ -1887,7 +1887,7 @@ class AppLocalizationsSw extends AppLocalizations {
   String get networkDiagnosticsInfrastructure => 'Miundombinu';
 
   @override
-  String get networkDiagnosticsOxenNodes => 'Nodi za Oxen';
+  String get networkDiagnosticsSessionNodes => 'Session nodes';
 
   @override
   String get networkDiagnosticsTurnServers => 'Seva za TURN';

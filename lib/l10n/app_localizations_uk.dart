@@ -1780,8 +1780,8 @@ class AppLocalizationsUk extends AppLocalizations {
       'Ваш ключ зберігається локально в захищеному сховищі — ніколи не надсилається на сервер.';
 
   @override
-  String get providerOxenInfo =>
-      'Мережа Oxen/Session — E2EE з цибулевою маршрутизацією. Session ID генерується та зберігається автоматично. Вузли виявляються з вбудованих.';
+  String get providerSessionInfo =>
+      'Session Network — onion-routed E2EE. Your Session ID is auto-generated and stored securely. Nodes auto-discovered from built-in seed nodes.';
 
   @override
   String get providerAdvanced => 'Додатково';
@@ -1886,7 +1886,7 @@ class AppLocalizationsUk extends AppLocalizations {
   String get networkDiagnosticsInfrastructure => 'Інфраструктура';
 
   @override
-  String get networkDiagnosticsOxenNodes => 'Вузли Oxen';
+  String get networkDiagnosticsSessionNodes => 'Session nodes';
 
   @override
   String get networkDiagnosticsTurnServers => 'TURN-сервери';

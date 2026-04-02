@@ -1787,8 +1787,8 @@ class AppLocalizationsHu extends AppLocalizations {
       'A kulcsod biztonságos helyi tárolóban van — soha nem kerül elküldésre semmilyen szerverre.';
 
   @override
-  String get providerOxenInfo =>
-      'Oxen/Session hálózat — onion-útvonalú E2EE. A Session ID-d automatikusan generálva és biztonságosan tárolva. A csomópontok automatikusan felfedezésre kerülnek a beépített seed csomópontokból.';
+  String get providerSessionInfo =>
+      'Session Network — onion-routed E2EE. Your Session ID is auto-generated and stored securely. Nodes auto-discovered from built-in seed nodes.';
 
   @override
   String get providerAdvanced => 'Speciális';
@@ -1893,7 +1893,7 @@ class AppLocalizationsHu extends AppLocalizations {
   String get networkDiagnosticsInfrastructure => 'Infrastruktúra';
 
   @override
-  String get networkDiagnosticsOxenNodes => 'Oxen csomópontok';
+  String get networkDiagnosticsSessionNodes => 'Session nodes';
 
   @override
   String get networkDiagnosticsTurnServers => 'TURN szerverek';

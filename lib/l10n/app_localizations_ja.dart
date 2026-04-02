@@ -1695,8 +1695,8 @@ class AppLocalizationsJa extends AppLocalizations {
       '鍵はローカルのセキュアストレージに保存されています — サーバーには一切送信されません。';
 
   @override
-  String get providerOxenInfo =>
-      'Oxen/Sessionネットワーク — オニオンルーティングのE2EE。Session IDは自動生成され安全に保存されます。ノードは組み込みのシードノードから自動検出されます。';
+  String get providerSessionInfo =>
+      'Session Network — onion-routed E2EE. Your Session ID is auto-generated and stored securely. Nodes auto-discovered from built-in seed nodes.';
 
   @override
   String get providerAdvanced => '詳細設定';
@@ -1801,7 +1801,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get networkDiagnosticsInfrastructure => 'インフラストラクチャ';
 
   @override
-  String get networkDiagnosticsOxenNodes => 'Oxenノード';
+  String get networkDiagnosticsSessionNodes => 'Session nodes';
 
   @override
   String get networkDiagnosticsTurnServers => 'TURNサーバー';

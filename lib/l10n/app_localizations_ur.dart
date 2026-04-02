@@ -1771,8 +1771,8 @@ class AppLocalizationsUr extends AppLocalizations {
       'آپ کی کلید مقامی طور پر محفوظ اسٹوریج میں محفوظ ہے — کبھی کسی سرور کو نہیں بھیجی جاتی۔';
 
   @override
-  String get providerOxenInfo =>
-      'Oxen/Session نیٹ ورک — اونین روٹڈ E2EE۔ آپ کی Session ID خودکار طور پر بنائی اور محفوظ طور پر محفوظ کی جاتی ہے۔ نوڈز بلٹ ان سیڈ نوڈز سے خودکار دریافت ہوتے ہیں۔';
+  String get providerSessionInfo =>
+      'Session Network — onion-routed E2EE. Your Session ID is auto-generated and stored securely. Nodes auto-discovered from built-in seed nodes.';
 
   @override
   String get providerAdvanced => 'ایڈوانسڈ';
@@ -1877,7 +1877,7 @@ class AppLocalizationsUr extends AppLocalizations {
   String get networkDiagnosticsInfrastructure => 'بنیادی ڈھانچہ';
 
   @override
-  String get networkDiagnosticsOxenNodes => 'Oxen نوڈز';
+  String get networkDiagnosticsSessionNodes => 'Session nodes';
 
   @override
   String get networkDiagnosticsTurnServers => 'TURN سرورز';

@@ -1784,8 +1784,8 @@ class AppLocalizationsSk extends AppLocalizations {
       'Váš kľúč je uložený lokálne v bezpečnom úložisku — nikdy nie je odoslaný na žiadny server.';
 
   @override
-  String get providerOxenInfo =>
-      'Sieť Oxen/Session — cibuľové smerovanie E2EE. Vaše Session ID je automaticky generované a bezpečne uložené. Uzly sú automaticky objavované zo vstavaných seed uzlov.';
+  String get providerSessionInfo =>
+      'Session Network — onion-routed E2EE. Your Session ID is auto-generated and stored securely. Nodes auto-discovered from built-in seed nodes.';
 
   @override
   String get providerAdvanced => 'Rozšírené';
@@ -1891,7 +1891,7 @@ class AppLocalizationsSk extends AppLocalizations {
   String get networkDiagnosticsInfrastructure => 'Infraštruktúra';
 
   @override
-  String get networkDiagnosticsOxenNodes => 'Oxen uzly';
+  String get networkDiagnosticsSessionNodes => 'Session nodes';
 
   @override
   String get networkDiagnosticsTurnServers => 'TURN servery';

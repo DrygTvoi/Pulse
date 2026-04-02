@@ -7,7 +7,7 @@ import '../models/contact.dart';
 import '../adapters/inbox_manager.dart';
 import '../adapters/firebase_adapter.dart';
 import '../adapters/nostr_adapter.dart';
-import '../adapters/oxen_adapter.dart';
+import '../adapters/session_adapter.dart';
 import '../constants.dart';
 import 'signal_service.dart';
 import 'pqc_service.dart';
@@ -150,13 +150,13 @@ class KeyManager {
               debugPrint('[KeyManager] Key publish to $relay failed: $e');
             }
           }
-        case 'oxen':
-          final sender = OxenMessageSender();
+        case 'session':
+          final sender = SessionMessageSender();
           final prefs = await SharedPreferences.getInstance();
-          final senderApiKey = prefs.getString('oxen_node_url') ?? '';
+          final senderApiKey = prefs.getString('session_node_url') ?? prefs.getString('oxen_node_url') ?? '';
           await sender.initializeSender(senderApiKey);
           await sender.sendSignal(selfId, selfId, selfId, 'sys_keys', bundle);
-          debugPrint('[KeyManager] Published Signal keys for Oxen/$selfId');
+          debugPrint('[KeyManager] Published Signal keys for Session/$selfId');
         default:
           return;
       }
@@ -197,8 +197,8 @@ class KeyManager {
           return;
         }
         sender = NostrMessageSender();
-      } else if (provider == 'Oxen') {
-        sender = OxenMessageSender();
+      } else if (provider == 'Session') {
+        sender = SessionMessageSender();
       } else {
         return;
       }
@@ -211,8 +211,8 @@ class KeyManager {
     }
   }
 
-  /// Push our own Signal bundle to [contact]'s Oxen inbox (in-band key exchange).
-  Future<void> publishOxenKeysTo(Contact contact, String selfId) async {
+  /// Push our own Signal bundle to [contact]'s Session inbox (in-band key exchange).
+  Future<void> publishSessionKeysTo(Contact contact, String selfId) async {
     if (selfId.isEmpty) return;
     try {
       final bundle = await _signalService.getPublicBundle();
@@ -220,13 +220,13 @@ class KeyManager {
         bundle['kyberPublicKey'] = _pqcService.publicKey.toList();
       }
       final prefs = await SharedPreferences.getInstance();
-      final nodeUrl = prefs.getString('oxen_node_url') ?? '';
-      final sender = OxenMessageSender();
+      final nodeUrl = prefs.getString('session_node_url') ?? prefs.getString('oxen_node_url') ?? '';
+      final sender = SessionMessageSender();
       await sender.initializeSender(nodeUrl);
       await sender.sendSignal(
           contact.databaseId, contact.databaseId, selfId, 'sys_keys', bundle);
     } catch (e) {
-      debugPrint('[KeyManager] Oxen key push to ${contact.name} failed: $e');
+      debugPrint('[KeyManager] Session key push to ${contact.name} failed: $e');
     }
   }
 

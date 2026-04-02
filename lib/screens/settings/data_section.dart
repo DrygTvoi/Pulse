@@ -153,7 +153,7 @@ class DataSection extends StatelessWidget {
                   setS(() => error = context.l10n.settingsPasswordCannotBeEmpty);
                   return;
                 }
-                // BUG-2: backup file protects all private keys (Signal, Nostr, Oxen,
+                // BUG-2: backup file protects all private keys (Signal, Nostr, Session,
                 // PQC) — enforce the same 16-char minimum as identity creation.
                 if (pw.length < 16) {
                   setS(() => error = context.l10n.settingsPasswordMin4Chars
@@ -362,7 +362,7 @@ class DataSection extends StatelessWidget {
         'signal_signed_prekey_0',
         'signal_prekeys_generated',
         'nostr_privkey',
-        'oxen_seed',
+        'session_seed',
       ]) {
         final val = await _secureStorage.read(key: key);
         if (val != null && val.isNotEmpty) data[key] = val;
@@ -611,7 +611,7 @@ class DataSection extends StatelessWidget {
                   'signal_signed_prekey_0',
                   'signal_prekeys_generated',
                   'nostr_privkey',
-                  'oxen_seed',
+                  'session_seed',
                 ]) {
                   if (!data.containsKey(key)) continue;
                   final value = data[key] as String? ?? '';
@@ -620,8 +620,8 @@ class DataSection extends StatelessWidget {
                     debugPrint('[Import] Invalid nostr_privkey format — skipping');
                     continue;
                   }
-                  if (key == 'oxen_seed' && !_isValidHex(value, 64)) {
-                    debugPrint('[Import] Invalid oxen_seed format — skipping');
+                  if (key == 'session_seed' && !_isValidHex(value, 64)) {
+                    debugPrint('[Import] Invalid session_seed format — skipping');
                     continue;
                   }
                   if (key.startsWith('signal_') && !_isValidBase64(value)) {
@@ -629,7 +629,7 @@ class DataSection extends StatelessWidget {
                     continue;
                   }
                   // Normalise hex keys to lowercase for internal consistency.
-                  final normalised = (key == 'nostr_privkey' || key == 'oxen_seed')
+                  final normalised = (key == 'nostr_privkey' || key == 'session_seed')
                       ? value.toLowerCase()
                       : value;
                   await _secureStorage.write(key: key, value: normalised);

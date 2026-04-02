@@ -1770,8 +1770,8 @@ class AppLocalizationsSi extends AppLocalizations {
       'ඔබේ යතුර ආරක්ෂිත ගබඩාවේ දේශීයව ගබඩා කර ඇත — කිසිදු සේවාදායකයකට යවනු නොලැබේ.';
 
   @override
-  String get providerOxenInfo =>
-      'Oxen/Session ජාලය — onion-routed E2EE. ඔබේ Session ID ස්වයංක්‍රීයව ජනනය කර ආරක්ෂිතව ගබඩා කර ඇත. ගොඩනඟන ලද seed node වලින් node ස්වයංක්‍රීයව සොයා ගනී.';
+  String get providerSessionInfo =>
+      'Session Network — onion-routed E2EE. Your Session ID is auto-generated and stored securely. Nodes auto-discovered from built-in seed nodes.';
 
   @override
   String get providerAdvanced => 'උසස්';
@@ -1876,7 +1876,7 @@ class AppLocalizationsSi extends AppLocalizations {
   String get networkDiagnosticsInfrastructure => 'යටිතල පහසුකම්';
 
   @override
-  String get networkDiagnosticsOxenNodes => 'Oxen node';
+  String get networkDiagnosticsSessionNodes => 'Session nodes';
 
   @override
   String get networkDiagnosticsTurnServers => 'TURN සේවාදායක';

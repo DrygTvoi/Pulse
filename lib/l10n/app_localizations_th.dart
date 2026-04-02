@@ -1755,8 +1755,8 @@ class AppLocalizationsTh extends AppLocalizations {
       'คีย์ของคุณถูกจัดเก็บในเครื่องอย่างปลอดภัย — ไม่เคยถูกส่งไปยังเซิร์ฟเวอร์ใดๆ';
 
   @override
-  String get providerOxenInfo =>
-      'เครือข่าย Oxen/Session — E2EE ผ่านเส้นทาง onion Session ID ของคุณถูกสร้างและจัดเก็บอย่างปลอดภัยโดยอัตโนมัติ โหนดค้นพบอัตโนมัติจาก seed nodes ในตัว';
+  String get providerSessionInfo =>
+      'Session Network — onion-routed E2EE. Your Session ID is auto-generated and stored securely. Nodes auto-discovered from built-in seed nodes.';
 
   @override
   String get providerAdvanced => 'ขั้นสูง';
@@ -1861,7 +1861,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get networkDiagnosticsInfrastructure => 'โครงสร้างพื้นฐาน';
 
   @override
-  String get networkDiagnosticsOxenNodes => 'โหนด Oxen';
+  String get networkDiagnosticsSessionNodes => 'Session nodes';
 
   @override
   String get networkDiagnosticsTurnServers => 'เซิร์ฟเวอร์ TURN';

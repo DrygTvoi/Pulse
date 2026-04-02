@@ -1793,8 +1793,8 @@ class AppLocalizationsTa extends AppLocalizations {
       'உங்கள் விசை பாதுகாப்பான சேமிப்பகத்தில் உள்ளூரில் சேமிக்கப்பட்டுள்ளது — எந்த சேவையகத்திற்கும் ஒருபோதும் அனுப்பப்படாது.';
 
   @override
-  String get providerOxenInfo =>
-      'Oxen/Session நெட்வொர்க் — ஒனியன்-வழிமுறை E2EE. உங்கள் Session ID தானாக உருவாக்கப்பட்டு பாதுகாப்பாக சேமிக்கப்படுகிறது. நோட்கள் உள்ளமைக்கப்பட்ட விதை நோட்களிலிருந்து தானாகக் கண்டறியப்படுகின்றன.';
+  String get providerSessionInfo =>
+      'Session Network — onion-routed E2EE. Your Session ID is auto-generated and stored securely. Nodes auto-discovered from built-in seed nodes.';
 
   @override
   String get providerAdvanced => 'மேம்பட்டது';
@@ -1900,7 +1900,7 @@ class AppLocalizationsTa extends AppLocalizations {
   String get networkDiagnosticsInfrastructure => 'உள்கட்டமைப்பு';
 
   @override
-  String get networkDiagnosticsOxenNodes => 'Oxen நோட்கள்';
+  String get networkDiagnosticsSessionNodes => 'Session nodes';
 
   @override
   String get networkDiagnosticsTurnServers => 'TURN சேவையகங்கள்';

@@ -1775,8 +1775,8 @@ class AppLocalizationsTr extends AppLocalizations {
       'Anahtarınız güvenli depolamada yerel olarak saklanır — hiçbir sunucuya gönderilmez.';
 
   @override
-  String get providerOxenInfo =>
-      'Oxen/Session ağı — soğan yönlendirmeli E2EE. Session ID\'niz otomatik oluşturulur ve güvenli şekilde saklanır. Düğümler yerleşik tohum düğümlerinden otomatik keşfedilir.';
+  String get providerSessionInfo =>
+      'Session Network — onion-routed E2EE. Your Session ID is auto-generated and stored securely. Nodes auto-discovered from built-in seed nodes.';
 
   @override
   String get providerAdvanced => 'Gelişmiş';
@@ -1882,7 +1882,7 @@ class AppLocalizationsTr extends AppLocalizations {
   String get networkDiagnosticsInfrastructure => 'Altyapı';
 
   @override
-  String get networkDiagnosticsOxenNodes => 'Oxen düğümleri';
+  String get networkDiagnosticsSessionNodes => 'Session nodes';
 
   @override
   String get networkDiagnosticsTurnServers => 'TURN sunucuları';

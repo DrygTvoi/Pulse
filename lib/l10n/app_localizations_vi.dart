@@ -1763,8 +1763,8 @@ class AppLocalizationsVi extends AppLocalizations {
       'Khóa được lưu cục bộ trong bộ nhớ an toàn — không bao giờ gửi đến máy chủ nào.';
 
   @override
-  String get providerOxenInfo =>
-      'Mạng Oxen/Session — E2EE qua định tuyến onion. Session ID được tạo tự động và lưu trữ an toàn. Các node được tìm tự động từ seed node tích hợp.';
+  String get providerSessionInfo =>
+      'Session Network — onion-routed E2EE. Your Session ID is auto-generated and stored securely. Nodes auto-discovered from built-in seed nodes.';
 
   @override
   String get providerAdvanced => 'Nâng cao';
@@ -1869,7 +1869,7 @@ class AppLocalizationsVi extends AppLocalizations {
   String get networkDiagnosticsInfrastructure => 'Hạ tầng';
 
   @override
-  String get networkDiagnosticsOxenNodes => 'Node Oxen';
+  String get networkDiagnosticsSessionNodes => 'Session nodes';
 
   @override
   String get networkDiagnosticsTurnServers => 'Máy chủ TURN';

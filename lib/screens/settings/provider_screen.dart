@@ -22,7 +22,7 @@ import '../settings/settings_widgets.dart';
 const _kProviderMeta = <String, (IconData, Color)>{
   'Firebase': (Icons.local_fire_department_rounded, Color(0xFFFFAB00)),
   'Nostr':    (Icons.bolt_rounded,                  Color(0xFF9B59B6)),
-  'Oxen':     (Icons.security_rounded,              Color(0xFF00695C)),
+  'Session':  (Icons.security_rounded,              Color(0xFF00695C)),
   'Pulse':    (Icons.dns_rounded,                   Color(0xFF2196F3)),
 };
 
@@ -46,13 +46,13 @@ class _ProviderScreenState extends State<ProviderScreen> {
   final _firebaseKeyCtrl = TextEditingController();
   final _nostrKeyCtrl = TextEditingController();
   final _nostrRelayCtrl = TextEditingController();
-  final _oxenNodeUrlCtrl = TextEditingController();
+  final _sessionNodeUrlCtrl = TextEditingController();
   final _pulseServerUrlCtrl = TextEditingController();
   final _pulseInviteCtrl = TextEditingController();
 
   bool _isSaving = false;
   bool _showNostrAdvanced = false;
-  bool _showOxenAdvanced = false;
+  bool _showSessionAdvanced = false;
 
   // Secondary inboxes
   List<Map<String, String>> _secondaryAdapters = [];
@@ -70,7 +70,7 @@ class _ProviderScreenState extends State<ProviderScreen> {
     _firebaseKeyCtrl.dispose();
     _nostrKeyCtrl.dispose();
     _nostrRelayCtrl.dispose();
-    _oxenNodeUrlCtrl.dispose();
+    _sessionNodeUrlCtrl.dispose();
     _pulseServerUrlCtrl.dispose();
     _pulseInviteCtrl.dispose();
     super.dispose();
@@ -104,8 +104,8 @@ class _ProviderScreenState extends State<ProviderScreen> {
       } else if (provider == 'Nostr') {
         _nostrKeyCtrl.text = nostrPrivkey;
         _nostrRelayCtrl.text = nostrRelay;
-      } else if (provider == 'Oxen') {
-        _oxenNodeUrlCtrl.text = prefs.getString('oxen_node_url') ?? '';
+      } else if (provider == 'Session') {
+        _sessionNodeUrlCtrl.text = prefs.getString('session_node_url') ?? prefs.getString('oxen_node_url') ?? '';
       } else if (provider == 'Pulse') {
         _pulseServerUrlCtrl.text = prefs.getString('pulse_server_url') ?? '';
         _pulseInviteCtrl.text = prefs.getString('pulse_invite_code') ?? '';
@@ -203,14 +203,14 @@ class _ProviderScreenState extends State<ProviderScreen> {
       finalApiKey = jsonEncode({'privkey': privkey, 'serverUrl': serverUrl, 'invite': invite});
       finalDbId = serverUrl;
     } else {
-      final nodeUrl = _oxenNodeUrlCtrl.text.trim();
-      await prefs.setString('oxen_node_url', nodeUrl);
+      final nodeUrl = _sessionNodeUrlCtrl.text.trim();
+      await prefs.setString('session_node_url', nodeUrl);
       finalApiKey = nodeUrl;
       finalDbId = ChatController().myAddress;
     }
 
     await prefs.setString('byod_provider', _selectedProvider);
-    if (!['Nostr', 'Oxen', 'Pulse'].contains(_selectedProvider)) {
+    if (!['Nostr', 'Session', 'Pulse'].contains(_selectedProvider)) {
       await prefs.setString('byod_api_key', finalApiKey);
     }
     await prefs.setString('byod_db_id', finalDbId);
@@ -220,7 +220,7 @@ class _ProviderScreenState extends State<ProviderScreen> {
       const adapterMap = {
         'Firebase': 'firebase',
         'Nostr': 'nostr',
-        'Oxen': 'oxen',
+        'Session': 'session',
         'Pulse': 'pulse',
       };
       chatCtrl.identity!.preferredAdapter =
@@ -470,7 +470,7 @@ class _ProviderScreenState extends State<ProviderScreen> {
     const providers = [
       (name: 'Firebase', icon: Icons.local_fire_department_rounded, color: Color(0xFFFFAB00)),
       (name: 'Nostr',    icon: Icons.bolt_rounded,                   color: Color(0xFF9B59B6)),
-      (name: 'Oxen',     icon: Icons.security_rounded,               color: Color(0xFF00695C)),
+      (name: 'Session',  icon: Icons.security_rounded,               color: Color(0xFF00695C)),
       (name: 'Pulse',    icon: Icons.dns_rounded,                    color: Color(0xFF2196F3)),
     ];
     return Wrap(
@@ -492,7 +492,7 @@ class _ProviderScreenState extends State<ProviderScreen> {
       onTap: () => setState(() {
         _selectedProvider = name;
         _showNostrAdvanced = false;
-        _showOxenAdvanced = false;
+        _showSessionAdvanced = false;
       }),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
@@ -693,14 +693,14 @@ class _ProviderScreenState extends State<ProviderScreen> {
           ]);
     }
 
-    // Oxen
+    // Session
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(children: [
         const Icon(Icons.info_outline_rounded,
             size: 13, color: Color(0xFF00695C)),
         const SizedBox(width: 6),
         Expanded(
-          child: Text(context.l10n.providerOxenInfo,
+          child: Text(context.l10n.providerSessionInfo,
               style: GoogleFonts.inter(
                   color: AppTheme.textSecondary, fontSize: 11)),
         ),
@@ -737,10 +737,10 @@ class _ProviderScreenState extends State<ProviderScreen> {
       const SizedBox(height: 4),
       GestureDetector(
         onTap: () =>
-            setState(() => _showOxenAdvanced = !_showOxenAdvanced),
+            setState(() => _showSessionAdvanced = !_showSessionAdvanced),
         child: Row(children: [
           Icon(
-            _showOxenAdvanced
+            _showSessionAdvanced
                 ? Icons.expand_less_rounded
                 : Icons.expand_more_rounded,
             size: 16,
@@ -754,10 +754,10 @@ class _ProviderScreenState extends State<ProviderScreen> {
                   fontWeight: FontWeight.w600)),
         ]),
       ),
-      if (_showOxenAdvanced) ...[
+      if (_showSessionAdvanced) ...[
         const SizedBox(height: 12),
         settingsField(
-          controller: _oxenNodeUrlCtrl,
+          controller: _sessionNodeUrlCtrl,
           hint: context.l10n.providerStorageNodeHint,
           label: context.l10n.providerStorageNodeLabel,
           icon: Icons.security_rounded,

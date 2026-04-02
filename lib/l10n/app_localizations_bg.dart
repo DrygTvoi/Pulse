@@ -1789,8 +1789,8 @@ class AppLocalizationsBg extends AppLocalizations {
       'Вашият ключ се съхранява локално в защитено хранилище — никога не се изпраща на сървър.';
 
   @override
-  String get providerOxenInfo =>
-      'Oxen/Session мрежа — E2EE с маршрутизиране през onion. Вашият Session ID се генерира автоматично и се съхранява сигурно. Възлите се откриват автоматично от вградените seed възли.';
+  String get providerSessionInfo =>
+      'Session Network — onion-routed E2EE. Your Session ID is auto-generated and stored securely. Nodes auto-discovered from built-in seed nodes.';
 
   @override
   String get providerAdvanced => 'Разширени';
@@ -1896,7 +1896,7 @@ class AppLocalizationsBg extends AppLocalizations {
   String get networkDiagnosticsInfrastructure => 'Инфраструктура';
 
   @override
-  String get networkDiagnosticsOxenNodes => 'Oxen възли';
+  String get networkDiagnosticsSessionNodes => 'Session nodes';
 
   @override
   String get networkDiagnosticsTurnServers => 'TURN сървъри';

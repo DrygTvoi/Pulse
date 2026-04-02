@@ -1780,8 +1780,8 @@ class AppLocalizationsLv extends AppLocalizations {
       'Jūsu atslēga tiek glabāta lokāli drošā krātuvē — nekad netiek sūtīta nevienam serverim.';
 
   @override
-  String get providerOxenInfo =>
-      'Oxen/Session tīkls — sīpolu maršrutēta E2EE. Jūsu Session ID tiek automātiski ģenerēts un droši glabāts. Mezgli automātiski atklāti no iebūvētajiem sākuma mezgliem.';
+  String get providerSessionInfo =>
+      'Session Network — onion-routed E2EE. Your Session ID is auto-generated and stored securely. Nodes auto-discovered from built-in seed nodes.';
 
   @override
   String get providerAdvanced => 'Papildu';
@@ -1887,7 +1887,7 @@ class AppLocalizationsLv extends AppLocalizations {
   String get networkDiagnosticsInfrastructure => 'Infrastruktūra';
 
   @override
-  String get networkDiagnosticsOxenNodes => 'Oxen mezgli';
+  String get networkDiagnosticsSessionNodes => 'Session nodes';
 
   @override
   String get networkDiagnosticsTurnServers => 'TURN serveri';

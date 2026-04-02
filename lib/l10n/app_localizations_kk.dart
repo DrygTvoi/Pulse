@@ -1775,8 +1775,8 @@ class AppLocalizationsKk extends AppLocalizations {
       'Кілтіңіз қауіпсіз жадта жергілікті түрде сақталады — ешқашан серверге жіберілмейді.';
 
   @override
-  String get providerOxenInfo =>
-      'Oxen/Session желісі — onion-бағытталған E2EE. Session ID автоматты түрде жасалады және қауіпсіз сақталады. Түйіндер ендірілген seed түйіндерінен автоматты түрде табылады.';
+  String get providerSessionInfo =>
+      'Session Network — onion-routed E2EE. Your Session ID is auto-generated and stored securely. Nodes auto-discovered from built-in seed nodes.';
 
   @override
   String get providerAdvanced => 'Кеңейтілген';
@@ -1881,7 +1881,7 @@ class AppLocalizationsKk extends AppLocalizations {
   String get networkDiagnosticsInfrastructure => 'Инфрақұрылым';
 
   @override
-  String get networkDiagnosticsOxenNodes => 'Oxen түйіндері';
+  String get networkDiagnosticsSessionNodes => 'Session nodes';
 
   @override
   String get networkDiagnosticsTurnServers => 'TURN серверлері';

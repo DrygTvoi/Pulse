@@ -1785,8 +1785,8 @@ class AppLocalizationsLt extends AppLocalizations {
       'Jūsų raktas saugomas vietinėje saugioje saugykloje — niekada nesiunčiamas jokiam serveriui.';
 
   @override
-  String get providerOxenInfo =>
-      'Oxen/Session tinklas — svogūninis E2EE maršrutizavimas. Jūsų Session ID automatiškai sugeneruotas ir saugiai saugomas. Mazgai automatiškai aptinkami iš įtaisytų pradinių mazgų.';
+  String get providerSessionInfo =>
+      'Session Network — onion-routed E2EE. Your Session ID is auto-generated and stored securely. Nodes auto-discovered from built-in seed nodes.';
 
   @override
   String get providerAdvanced => 'Išplėstiniai';
@@ -1892,7 +1892,7 @@ class AppLocalizationsLt extends AppLocalizations {
   String get networkDiagnosticsInfrastructure => 'Infrastruktūra';
 
   @override
-  String get networkDiagnosticsOxenNodes => 'Oxen mazgai';
+  String get networkDiagnosticsSessionNodes => 'Session nodes';
 
   @override
   String get networkDiagnosticsTurnServers => 'TURN serveriai';

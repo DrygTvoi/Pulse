@@ -1681,8 +1681,8 @@ class AppLocalizationsZh extends AppLocalizations {
   String get providerKeyStoredLocally => '您的密钥存储在本地安全存储中 — 从不发送到任何服务器。';
 
   @override
-  String get providerOxenInfo =>
-      'Oxen/Session 网络 — 洋葱路由 E2EE。您的 Session ID 自动生成并安全存储。节点从内置种子节点自动发现。';
+  String get providerSessionInfo =>
+      'Session Network — onion-routed E2EE. Your Session ID is auto-generated and stored securely. Nodes auto-discovered from built-in seed nodes.';
 
   @override
   String get providerAdvanced => '高级';
@@ -1787,7 +1787,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get networkDiagnosticsInfrastructure => '基础设施';
 
   @override
-  String get networkDiagnosticsOxenNodes => 'Oxen 节点';
+  String get networkDiagnosticsSessionNodes => 'Session nodes';
 
   @override
   String get networkDiagnosticsTurnServers => 'TURN 服务器';

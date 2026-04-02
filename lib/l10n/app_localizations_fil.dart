@@ -1789,8 +1789,8 @@ class AppLocalizationsFil extends AppLocalizations {
       'Ang iyong key ay lokal na naka-store sa secure storage — hindi kailanman ipinapadala sa anumang server.';
 
   @override
-  String get providerOxenInfo =>
-      'Oxen/Session network — onion-routed E2EE. Ang iyong Session ID ay awtomatikong nage-generate at ligtas na naka-store. Awtomatikong nadidiskubre ang mga node mula sa built-in na seed node.';
+  String get providerSessionInfo =>
+      'Session Network — onion-routed E2EE. Your Session ID is auto-generated and stored securely. Nodes auto-discovered from built-in seed nodes.';
 
   @override
   String get providerAdvanced => 'Advanced';
@@ -1896,7 +1896,7 @@ class AppLocalizationsFil extends AppLocalizations {
   String get networkDiagnosticsInfrastructure => 'Imprastruktura';
 
   @override
-  String get networkDiagnosticsOxenNodes => 'Mga Oxen node';
+  String get networkDiagnosticsSessionNodes => 'Session nodes';
 
   @override
   String get networkDiagnosticsTurnServers => 'Mga TURN server';

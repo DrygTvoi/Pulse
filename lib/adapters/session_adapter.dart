@@ -5,10 +5,10 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/io_client.dart';
 import '../models/message.dart';
-import '../services/oxen_key_service.dart';
+import '../services/session_key_service.dart';
 import 'inbox_manager.dart';
 
-// Session network seed nodes — clearnet, standard TLS.
+// Session Network seed nodes — clearnet, standard TLS.
 // These return the active snode pool via json_rpc.
 const _seedNodes = [
   'https://seed1.getsession.org',
@@ -55,11 +55,11 @@ Future<List<String>> _discoverSnodes() async {
       if (res.statusCode != 200) continue;
       const maxBodyBytes = 10 * 1024 * 1024; // 10 MB
       if (res.contentLength != null && res.contentLength! > maxBodyBytes) {
-        debugPrint('[Oxen] Seed response too large — skipping $seed');
+        debugPrint('[Session] Seed response too large — skipping $seed');
         continue;
       }
       if (res.body.length > maxBodyBytes) {
-        debugPrint('[Oxen] Seed response body too large — skipping $seed');
+        debugPrint('[Session] Seed response body too large — skipping $seed');
         continue;
       }
       final data = jsonDecode(res.body) as Map<String, dynamic>;
@@ -70,18 +70,17 @@ Future<List<String>> _discoverSnodes() async {
         final ip = s['public_ip'] as String? ?? '';
         final port = s['storage_port'];
         if (ip.isEmpty || port == null) continue;
-        // F10: Reject private/loopback IPs returned by seed nodes.
         if (_isPrivateSnodeIp(ip)) continue;
         final portNum = port is int ? port : int.tryParse(port.toString()) ?? -1;
         if (portNum < 1 || portNum > 65535) continue;
         nodes.add('https://$ip:$portNum');
       }
       if (nodes.isNotEmpty) {
-        debugPrint('[Oxen] Discovered ${nodes.length} snodes via $seed');
+        debugPrint('[Session] Discovered ${nodes.length} snodes via $seed');
         return nodes;
       }
     } catch (e) {
-      debugPrint('[Oxen] Seed $seed error: $e');
+      debugPrint('[Session] Seed $seed error: $e');
     }
   }
   } finally {
@@ -122,10 +121,10 @@ bool _isPrivateSnodeIp(String ip) {
 
 // ─── InboxReader ──────────────────────────────────────────────────────────────
 
-/// Polls an Oxen/Session storage snode every 2 s and dispatches messages
+/// Polls a Session Network storage snode every 2–300 s and dispatches messages
 /// and signals. Authentication uses Ed25519 derived from the same seed as the
 /// Session ID so only the key owner can retrieve.
-class OxenInboxReader implements InboxReader {
+class SessionInboxReader implements InboxReader {
   String _nodeUrl = '';
   String _sessionId = '';
   bool _usingDiscovery = false; // true when using auto-discovered snodes
@@ -175,17 +174,14 @@ class OxenInboxReader implements InboxReader {
   @override
   Future<void> initializeReader(String apiKey, String databaseId) async {
     if (databaseId.isNotEmpty && !_sessionIdRegex.hasMatch(databaseId)) {
-      debugPrint('[Oxen] Rejected invalid session ID format: $databaseId');
+      debugPrint('[Session] Rejected invalid session ID format: $databaseId');
       return;
     }
     _sessionId = databaseId;
-    await OxenKeyService.instance.initialize();
+    await SessionKeyService.instance.initialize();
     if (apiKey.isNotEmpty) {
-      // BUG-04 fix: validate the node URL starts with https:// before storing.
-      // An attacker-controlled apiKey with a crafted URL could redirect
-      // Oxen JSON-RPC calls (including auth signatures) to a malicious server.
       if (!apiKey.startsWith('https://')) {
-        debugPrint('[Oxen] Rejected non-HTTPS node URL: $apiKey');
+        debugPrint('[Session] Rejected non-HTTPS node URL: $apiKey');
         _usingDiscovery = true;
         return;
       }
@@ -193,9 +189,8 @@ class OxenInboxReader implements InboxReader {
       _usingDiscovery = false;
     } else {
       _usingDiscovery = true;
-      // Discovery happens lazily in _runLoop
     }
-    if (_sessionId == OxenKeyService.instance.sessionId) {
+    if (_sessionId == SessionKeyService.instance.sessionId) {
       _ensureLoop();
     }
   }
@@ -207,16 +202,15 @@ class OxenInboxReader implements InboxReader {
   }
 
   Future<void> _runLoop() async {
-    // If using discovery, fetch snodes first (bounded retries)
     if (_usingDiscovery) {
       for (int attempt = 0; attempt < 10; attempt++) {
         _snodes = await _discoverSnodes();
         if (_snodes.isNotEmpty) break;
-        debugPrint('[Oxen] No snodes discovered (attempt ${attempt + 1}/10)');
+        debugPrint('[Session] No snodes discovered (attempt ${attempt + 1}/10)');
         await Future.delayed(const Duration(seconds: 60));
       }
       if (_snodes.isEmpty) {
-        debugPrint('[Oxen] Discovery failed after 10 attempts — stopping');
+        debugPrint('[Session] Discovery failed after 10 attempts — stopping');
         _circuitBroken = true;
         return;
       }
@@ -241,9 +235,9 @@ class OxenInboxReader implements InboxReader {
         if (isConnErr && _usingDiscovery && _snodes.isNotEmpty) {
           _snodeIndex = (_snodeIndex + 1) % _snodes.length;
           _nodeUrl = _snodes[_snodeIndex];
-          debugPrint('[Oxen] Switching snode → $_nodeUrl');
+          debugPrint('[Session] Switching snode → $_nodeUrl');
         } else {
-          debugPrint('[Oxen] Poll error: $e');
+          debugPrint('[Session] Poll error: $e');
         }
         _consecutiveFailures++;
         if (_consecutiveFailures >= _failureThreshold && _isHealthy && !_healthCtrl.isClosed) {
@@ -251,11 +245,10 @@ class OxenInboxReader implements InboxReader {
           _healthCtrl.add(false);
         }
         if (_consecutiveFailures >= _maxConsecutiveFailures) {
-          debugPrint('[Oxen] Max retries ($_maxConsecutiveFailures) reached, stopping');
+          debugPrint('[Session] Max retries ($_maxConsecutiveFailures) reached, stopping');
           _circuitBroken = true;
           break;
         }
-        // Tiered delay: 5s for first 5 failures, 30s up to 15, then 5min
         pollDelay = (_consecutiveFailures < 5) ? 5
             : (_consecutiveFailures < 15) ? 30
             : 300;
@@ -266,14 +259,20 @@ class OxenInboxReader implements InboxReader {
 
   Future<void> _poll() async {
     final tsMs = DateTime.now().millisecondsSinceEpoch;
-    final msg = 'retrieve$_sessionId$tsMs';
-    final sigBytes = await OxenKeyService.instance.sign(utf8.encode(msg));
+
+    // Session Network signature format (namespace 0 = default DM inbox):
+    // sign("retrieve" + timestamp)  — namespace omitted when 0
+    const namespace = 0;
+    final msgToSign = 'retrieve${namespace == 0 ? '' : namespace}$tsMs';
+    final sigBytes = await SessionKeyService.instance.sign(utf8.encode(msgToSign));
     final sig = base64.encode(sigBytes);
 
     final jsonBody = jsonEncode({
       'method': 'retrieve',
       'params': {
         'pubkey': _sessionId,
+        'pubkey_ed25519': SessionKeyService.instance.ed25519PublicKeyHex,
+        'namespace': namespace,
         'last_hash': _lastHash,
         'timestamp': tsMs,
         'signature': sig,
@@ -291,10 +290,10 @@ class OxenInboxReader implements InboxReader {
 
     const maxBodyBytes = 10 * 1024 * 1024; // 10 MB
     if (res.contentLength != null && res.contentLength! > maxBodyBytes) {
-      throw Exception('[Oxen] Response too large: ${res.contentLength} bytes');
+      throw Exception('[Session] Response too large: ${res.contentLength} bytes');
     }
     if (res.body.length > maxBodyBytes) {
-      throw Exception('[Oxen] Response body too large');
+      throw Exception('[Session] Response body too large');
     }
     final data = jsonDecode(res.body) as Map<String, dynamic>;
     final result = data['result'] as Map<String, dynamic>? ?? {};
@@ -344,11 +343,11 @@ class OxenInboxReader implements InboxReader {
           receiverId: _sessionId,
           encryptedPayload: outer['payload'] as String? ?? '',
           timestamp: DateTime.fromMillisecondsSinceEpoch(ts),
-          adapterType: 'oxen',
+          adapterType: 'session',
         )]);
       }
     } catch (e) {
-      debugPrint('[Oxen] Dispatch error: $e');
+      debugPrint('[Session] Dispatch error: $e');
     }
   }
 
@@ -377,10 +376,10 @@ class OxenInboxReader implements InboxReader {
 
       const maxBodyBytes = 10 * 1024 * 1024; // 10 MB
       if (res.contentLength != null && res.contentLength! > maxBodyBytes) {
-        throw Exception('[Oxen] Response too large: ${res.contentLength} bytes');
+        throw Exception('[Session] Response too large: ${res.contentLength} bytes');
       }
       if (res.body.length > maxBodyBytes) {
-        throw Exception('[Oxen] Response body too large');
+        throw Exception('[Session] Response body too large');
       }
       final data = jsonDecode(res.body) as Map<String, dynamic>;
       final result = data['result'] as Map<String, dynamic>? ?? {};
@@ -399,11 +398,11 @@ class OxenInboxReader implements InboxReader {
             if (p is Map<String, dynamic>) return p;
           }
         } catch (e) {
-          debugPrint('[Oxen] fetchPublicKeys item parse error: $e');
+          debugPrint('[Session] fetchPublicKeys item parse error: $e');
         }
       }
     } catch (e) {
-      debugPrint('[Oxen] fetchPublicKeys error: $e');
+      debugPrint('[Session] fetchPublicKeys error: $e');
     }
     return null;
   }
@@ -414,7 +413,7 @@ class OxenInboxReader implements InboxReader {
 
 // ─── MessageSender ────────────────────────────────────────────────────────────
 
-class OxenMessageSender implements MessageSender {
+class SessionMessageSender implements MessageSender {
   String _nodeUrl = '';
   String _selfSessionId = '';
   List<String> _snodes = [];
@@ -429,18 +428,15 @@ class OxenMessageSender implements MessageSender {
 
   @override
   Future<void> initializeSender(String apiKey) async {
-    await OxenKeyService.instance.initialize();
-    _selfSessionId = OxenKeyService.instance.sessionId;
+    await SessionKeyService.instance.initialize();
+    _selfSessionId = SessionKeyService.instance.sessionId;
     if (apiKey.isNotEmpty) {
-      // FINDING-14 fix: same https:// guard as initializeReader — prevents
-      // outgoing encrypted messages being sent to a plain-http attacker server.
       if (!apiKey.startsWith('https://')) {
-        debugPrint('[Oxen] Rejected non-HTTPS node URL in sender: $apiKey');
+        debugPrint('[Session] Rejected non-HTTPS node URL in sender: $apiKey');
         return;
       }
       _nodeUrl = apiKey;
     } else {
-      // Discover snodes lazily on first send
       _snodes = await _discoverSnodes();
       if (_snodes.isNotEmpty) _nodeUrl = _snodes.first;
     }
@@ -448,7 +444,6 @@ class OxenMessageSender implements MessageSender {
 
   Future<bool> _store(
       String recipientSessionId, Map<String, dynamic> body) async {
-    // Build candidate list: configured node first, then discovered snodes
     final candidates = <String>{
       if (_nodeUrl.isNotEmpty) _nodeUrl,
       ..._snodes,
@@ -481,7 +476,7 @@ class OxenMessageSender implements MessageSender {
       ).timeout(const Duration(seconds: 10));
       return res.statusCode == 200;
     } catch (e) {
-      debugPrint('[Oxen] Store error on $node: $e');
+      debugPrint('[Session] Store error on $node: $e');
       return false;
     }
   }

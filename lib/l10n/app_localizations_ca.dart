@@ -1807,8 +1807,8 @@ class AppLocalizationsCa extends AppLocalizations {
       'La teva clau s\'emmagatzema localment en l\'emmagatzematge segur — mai s\'envia a cap servidor.';
 
   @override
-  String get providerOxenInfo =>
-      'Xarxa Oxen/Session — E2EE encaminat per capes. El teu Session ID es genera automàticament i s\'emmagatzema de forma segura. Els nodes es descobreixen automàticament des dels nodes llavor integrats.';
+  String get providerSessionInfo =>
+      'Session Network — onion-routed E2EE. Your Session ID is auto-generated and stored securely. Nodes auto-discovered from built-in seed nodes.';
 
   @override
   String get providerAdvanced => 'Avançat';
@@ -1915,7 +1915,7 @@ class AppLocalizationsCa extends AppLocalizations {
   String get networkDiagnosticsInfrastructure => 'Infraestructura';
 
   @override
-  String get networkDiagnosticsOxenNodes => 'Nodes Oxen';
+  String get networkDiagnosticsSessionNodes => 'Session nodes';
 
   @override
   String get networkDiagnosticsTurnServers => 'Servidors TURN';

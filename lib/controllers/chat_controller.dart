@@ -22,10 +22,10 @@ import '../services/local_storage_service.dart';
 import '../services/media_service.dart';
 import '../adapters/firebase_adapter.dart';
 import '../adapters/nostr_adapter.dart';
-import '../adapters/oxen_adapter.dart';
+import '../adapters/session_adapter.dart';
 import '../adapters/pulse_adapter.dart';
 import '../adapters/lan_adapter.dart';
-import '../services/oxen_key_service.dart';
+import '../services/session_key_service.dart';
 import '../services/p2p_transport_service.dart';
 import '../services/signal_service.dart';
 import '../services/pqc_service.dart';
@@ -192,7 +192,7 @@ class ChatController extends ChangeNotifier {
   // Cached sender instances per provider — avoids re-allocating on every send.
   NostrMessageSender? _cachedNostrSender;
   FirebaseInboxSender? _cachedFirebaseSender;
-  OxenMessageSender? _cachedOxenSender;
+  SessionMessageSender? _cachedSessionSender;
   PulseMessageSender? _cachedPulseSender;
   String? _cachedNostrPrivkey;
 
@@ -295,7 +295,7 @@ class ChatController extends ChangeNotifier {
   /// Returns addresses enriched with all currently known working relays.
   /// For Nostr, the pubkey is replicated across identity relay + probed relay +
   /// adaptive relay so invite links always contain fresh, reachable routes.
-  /// Non-Nostr addresses (Oxen, etc.) are included as-is.
+  /// Non-Nostr addresses (Session, etc.) are included as-is.
   List<String> get shareableAddresses {
     if (_identity == null) return allAddresses;
     if (_identity!.preferredAdapter != 'nostr') return allAddresses;
@@ -329,7 +329,7 @@ class ChatController extends ChangeNotifier {
     for (final relay in relays) {
       result.add('$pubkey@$relay');
     }
-    // Add non-Nostr addresses (Oxen session ID, etc.)
+    // Add non-Nostr addresses (Session ID, etc.)
     for (final addr in _allAddresses) {
       if (!addr.contains('@wss://') && !addr.contains('@ws://')) {
         result.add(addr);
@@ -479,7 +479,7 @@ class ChatController extends ChangeNotifier {
       _cachedNostrSender = null;
       _cachedNostrPrivkey = null;
       _cachedFirebaseSender = null;
-      _cachedOxenSender = null;
+      _cachedSessionSender = null;
       _cachedPulseSender = null;
       await _initInbox();
     } finally {
@@ -546,13 +546,13 @@ class ChatController extends ChangeNotifier {
         } else {
           _selfId = '${_identity!.id}@$relay';
         }
-      case 'oxen':
-        providerName = 'Oxen';
+      case 'session':
+        providerName = 'Session';
         {
-          await OxenKeyService.instance.initialize();
-          _selfId = OxenKeyService.instance.sessionId;
+          await SessionKeyService.instance.initialize();
+          _selfId = SessionKeyService.instance.sessionId;
           final prefs = await _getPrefs();
-          final nodeUrl = prefs.getString('oxen_node_url') ?? '';
+          final nodeUrl = prefs.getString('session_node_url') ?? prefs.getString('oxen_node_url') ?? '';
           apiKey = nodeUrl;
           dbId = _selfId;
         }
@@ -817,11 +817,11 @@ class ChatController extends ChangeNotifier {
         _cachedNostrSender ??= NostrMessageSender();
         return (sender: _cachedNostrSender!,
                 apiKey: jsonEncode({'privkey': privkey, 'relay': relay}));
-      case 'Oxen':
+      case 'Session':
         final prefs = await _getPrefs();
-        final nodeUrl = prefs.getString('oxen_node_url') ?? '';
-        _cachedOxenSender ??= OxenMessageSender();
-        return (sender: _cachedOxenSender!, apiKey: nodeUrl);
+        final nodeUrl = prefs.getString('session_node_url') ?? prefs.getString('oxen_node_url') ?? '';
+        _cachedSessionSender ??= SessionMessageSender();
+        return (sender: _cachedSessionSender!, apiKey: nodeUrl);
       case 'Pulse':
         final privkey = await _secureStorage.read(key: 'pulse_privkey') ?? '';
         final prefs = await _getPrefs();
@@ -1063,8 +1063,8 @@ class ChatController extends ChangeNotifier {
       if (keyChanged && !_keyChangeCtrl.isClosed) {
         _keyChangeCtrl.add((contactName: e.contact.name, contactId: e.contact.databaseId));
       }
-      if (e.contact.provider == 'Oxen') {
-        unawaited(_keys.publishOxenKeysTo(e.contact, _selfId));
+      if (e.contact.provider == 'Session') {
+        unawaited(_keys.publishSessionKeysTo(e.contact, _selfId));
       }
     }));
 
@@ -1710,7 +1710,7 @@ class ChatController extends ChangeNotifier {
     // Create local message FIRST so it appears in UI immediately.
     final msgId = _uuid.v4();
     final contactAdapterType = contact.provider == 'Nostr' ? 'nostr'
-        : contact.provider == 'Oxen' ? 'oxen'
+        : contact.provider == 'Session' ? 'session'
         : 'firebase';
     final room = _repo.getOrCreateRoom(contact);
     final localMsg = Message(
@@ -1755,12 +1755,12 @@ class ChatController extends ChangeNotifier {
           contactReader = NostrInboxReader();
           initApiKey = '';
           initDbId = contact.databaseId;
-        } else if (contact.provider == 'Oxen') {
-          contactReader = OxenInboxReader();
+        } else if (contact.provider == 'Session') {
+          contactReader = SessionInboxReader();
           final prefs = await _getPrefs();
-          initApiKey = prefs.getString('oxen_node_url') ?? '';
+          initApiKey = prefs.getString('session_node_url') ?? prefs.getString('oxen_node_url') ?? '';
           initDbId = contact.databaseId;
-          unawaited(_keys.publishOxenKeysTo(contact, _selfId));
+          unawaited(_keys.publishSessionKeysTo(contact, _selfId));
         } else if (contact.provider == 'Pulse') {
           contactReader = PulseInboxReader();
           final privkey = await _secureStorage.read(key: 'pulse_privkey') ?? '';
@@ -1821,7 +1821,7 @@ class ChatController extends ChangeNotifier {
     );
 
     if (contact.provider != 'Firebase' && contact.provider != 'Nostr' &&
-        contact.provider != 'Oxen' && contact.provider != 'Pulse') {
+        contact.provider != 'Session' && contact.provider != 'Pulse') {
       debugPrint('[ChatController] Unknown provider "${contact.provider}" for ${contact.name}');
       final idx2 = room.messages.indexWhere((m) => m.id == msg.id);
       final failedMsg2 = localMsg.copyWith(status: 'failed');
@@ -1857,14 +1857,14 @@ class ChatController extends ChangeNotifier {
 
   // ── Smart Router helpers ──────────────────────────────────────────────────
 
-  static final _oxenAddrRegex = RegExp(r'^[0-9a-f]{66}$');
+  static final _sessionAddrRegex = RegExp(r'^[0-9a-f]{66}$');
   static final _nostrPubRegex = RegExp(r'^[0-9a-f]{64}$');
   static final _pulseAddrRegex = RegExp(r'^[0-9a-f]{64}@https://', caseSensitive: false);
 
   static String _providerFromAddress(String address) {
     final lower = address.toLowerCase();
     if (lower.startsWith('05') && lower.length == 66 &&
-        _oxenAddrRegex.hasMatch(lower)) { return 'Oxen'; }
+        _sessionAddrRegex.hasMatch(lower)) { return 'Session'; }
     if (lower.contains('@wss://') || lower.contains('@ws://') ||
         _nostrPubRegex.hasMatch(lower)) { return 'Nostr'; }
     // Pulse: 64-char hex @ https:// (not wss://)
@@ -1904,10 +1904,10 @@ class ChatController extends ChangeNotifier {
       _cachedNostrSender ??= NostrMessageSender();
       await InboxManager().addSenderPlugin('Nostr', _cachedNostrSender!,
           jsonEncode({'privkey': privkey, 'relay': relay}));
-    } else if (provider == 'Oxen') {
+    } else if (provider == 'Session') {
       final prefs = await _getPrefs();
-      final nodeUrl = prefs.getString('oxen_node_url') ?? '';
-      await InboxManager().addSenderPlugin('Oxen', OxenMessageSender(), nodeUrl);
+      final nodeUrl = prefs.getString('session_node_url') ?? prefs.getString('oxen_node_url') ?? '';
+      await InboxManager().addSenderPlugin('Session', SessionMessageSender(), nodeUrl);
     } else if (provider == 'Pulse') {
       final privkey = await _secureStorage.read(key: 'pulse_privkey') ?? '';
       final prefs = await _getPrefs();
@@ -1943,11 +1943,11 @@ class ChatController extends ChangeNotifier {
         } else if (contact.provider == 'Nostr') {
           contactReader = NostrInboxReader();
           initApiKey = '';
-        } else if (contact.provider == 'Oxen') {
-          contactReader = OxenInboxReader();
+        } else if (contact.provider == 'Session') {
+          contactReader = SessionInboxReader();
           final prefs = await _getPrefs();
-          initApiKey = prefs.getString('oxen_node_url') ?? '';
-          unawaited(_keys.publishOxenKeysTo(contact, _selfId));
+          initApiKey = prefs.getString('session_node_url') ?? prefs.getString('oxen_node_url') ?? '';
+          unawaited(_keys.publishSessionKeysTo(contact, _selfId));
         } else if (contact.provider == 'Pulse') {
           contactReader = PulseInboxReader();
           final privkey = await _secureStorage.read(key: 'pulse_privkey') ?? '';
@@ -1986,7 +1986,7 @@ class ChatController extends ChangeNotifier {
       encryptedPayload: encryptedText,
       timestamp: DateTime.now(),
       adapterType: contact.provider == 'Nostr' ? 'nostr'
-          : contact.provider == 'Oxen' ? 'oxen'
+          : contact.provider == 'Session' ? 'session'
           : 'firebase',
     );
     await _addSenderPlugin(contact);
@@ -2973,7 +2973,7 @@ class ChatController extends ChangeNotifier {
     debugPrint('[SmartRouter] Promotion complete: ${contact.name} → $newPrimary');
   }
 
-  /// Infer the provider string ("Nostr", "Oxen", "Firebase", etc.) from an address.
+  /// Infer the provider string ("Nostr", "Session", "Firebase", etc.) from an address.
   String? _providerForAddress(String addr) {
     if (addr.contains('@wss://') || addr.contains('@ws://')) return 'Nostr';
     if (addr.contains('@https://') || addr.contains('@http://')) {
@@ -2982,7 +2982,7 @@ class ChatController extends ChangeNotifier {
       }
       return 'Waku';
     }
-    if (addr.length == 66 && addr.startsWith('05')) return 'Oxen';
+    if (addr.length == 66 && addr.startsWith('05')) return 'Session';
     if (addr.contains('pulse://') || addr.contains('@pulse://')) return 'Pulse';
     return null;
   }
@@ -3142,7 +3142,7 @@ class ChatController extends ChangeNotifier {
       encryptedPayload: text,
       timestamp: DateTime.now(),
       adapterType: contact.isGroup ? 'group' : contact.provider == 'Nostr' ? 'nostr' :
-          contact.provider == 'Oxen' ? 'oxen' : 'firebase',
+          contact.provider == 'Session' ? 'session' : 'firebase',
       isRead: true,
       status: 'scheduled',
       scheduledAt: scheduledAt,
@@ -3499,7 +3499,7 @@ class ChatController extends ChangeNotifier {
     _cachedNostrSender = null;
     _cachedNostrPrivkey = null;
     _cachedFirebaseSender = null;
-    _cachedOxenSender = null;
+    _cachedSessionSender = null;
     _cachedPulseSender = null;
     _contactIndex = null;
     unawaited(VoiceService().dispose());

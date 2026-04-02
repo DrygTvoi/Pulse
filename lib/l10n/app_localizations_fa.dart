@@ -1762,8 +1762,8 @@ class AppLocalizationsFa extends AppLocalizations {
       'کلید شما به صورت محلی در حافظه امن ذخیره شده — هرگز به هیچ سروری ارسال نمی‌شود.';
 
   @override
-  String get providerOxenInfo =>
-      'شبکه Oxen/Session — رمزگذاری سرتاسری با مسیریابی پیازی. شناسه Session شما به طور خودکار تولید و به صورت امن ذخیره می‌شود. گره‌ها به طور خودکار از گره‌های بذر داخلی کشف می‌شوند.';
+  String get providerSessionInfo =>
+      'Session Network — onion-routed E2EE. Your Session ID is auto-generated and stored securely. Nodes auto-discovered from built-in seed nodes.';
 
   @override
   String get providerAdvanced => 'پیشرفته';
@@ -1868,7 +1868,7 @@ class AppLocalizationsFa extends AppLocalizations {
   String get networkDiagnosticsInfrastructure => 'زیرساخت';
 
   @override
-  String get networkDiagnosticsOxenNodes => 'گره‌های Oxen';
+  String get networkDiagnosticsSessionNodes => 'Session nodes';
 
   @override
   String get networkDiagnosticsTurnServers => 'سرورهای TURN';

@@ -1773,8 +1773,8 @@ class AppLocalizationsHi extends AppLocalizations {
       'आपकी कुंजी सुरक्षित स्टोरेज में स्थानीय रूप से संग्रहीत है — कभी किसी सर्वर को नहीं भेजी जाती।';
 
   @override
-  String get providerOxenInfo =>
-      'Oxen/Session नेटवर्क — ऑनियन-राउटेड E2EE। आपकी Session ID स्वचालित रूप से बनाई जाती है और सुरक्षित रूप से संग्रहीत होती है। नोड्स बिल्ट-इन सीड नोड्स से स्वतः खोजे जाते हैं।';
+  String get providerSessionInfo =>
+      'Session Network — onion-routed E2EE. Your Session ID is auto-generated and stored securely. Nodes auto-discovered from built-in seed nodes.';
 
   @override
   String get providerAdvanced => 'उन्नत';
@@ -1879,7 +1879,7 @@ class AppLocalizationsHi extends AppLocalizations {
   String get networkDiagnosticsInfrastructure => 'अवसंरचना';
 
   @override
-  String get networkDiagnosticsOxenNodes => 'Oxen नोड्स';
+  String get networkDiagnosticsSessionNodes => 'Session nodes';
 
   @override
   String get networkDiagnosticsTurnServers => 'TURN सर्वर';

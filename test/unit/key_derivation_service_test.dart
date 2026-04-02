@@ -22,7 +22,7 @@ void main() {
     });
 
     test('deriveOxenSeed returns exactly 32 bytes', () async {
-      final key = await KeyDerivationService.deriveOxenSeed('password12345678');
+      final key = await KeyDerivationService.deriveSessionSeed('password12345678');
       expect(key.length, equals(32));
     });
   });
@@ -40,8 +40,8 @@ void main() {
     });
 
     test('deriveOxenSeed is deterministic for same password', () async {
-      final k1 = await KeyDerivationService.deriveOxenSeed('recovery phrase!1');
-      final k2 = await KeyDerivationService.deriveOxenSeed('recovery phrase!1');
+      final k1 = await KeyDerivationService.deriveSessionSeed('recovery phrase!1');
+      final k2 = await KeyDerivationService.deriveSessionSeed('recovery phrase!1');
       expect(k1, equals(k2));
     });
   });
@@ -59,8 +59,8 @@ void main() {
     });
 
     test('different passwords produce different Oxen seeds', () async {
-      final k1 = await KeyDerivationService.deriveOxenSeed('password1_secure!');
-      final k2 = await KeyDerivationService.deriveOxenSeed('password2_secure!');
+      final k1 = await KeyDerivationService.deriveSessionSeed('password1_secure!');
+      final k2 = await KeyDerivationService.deriveSessionSeed('password2_secure!');
       expect(k1, isNot(equals(k2)));
     });
 
@@ -80,8 +80,8 @@ void main() {
   group('KeyDerivationService domain separation', () {
     test('same password yields different Nostr key and Oxen seed', () async {
       final nostrKey = await KeyDerivationService.deriveNostrKey('shared-password!1');
-      final oxenSeed = await KeyDerivationService.deriveOxenSeed('shared-password!1');
-      expect(nostrKey, isNot(equals(oxenSeed)));
+      final sessionSeed = await KeyDerivationService.deriveSessionSeed('shared-password!1');
+      expect(nostrKey, isNot(equals(sessionSeed)));
     });
   });
 
@@ -96,7 +96,7 @@ void main() {
     });
 
     test('Oxen seed is not all-zero bytes', () async {
-      final seed = await KeyDerivationService.deriveOxenSeed('any password!1234');
+      final seed = await KeyDerivationService.deriveSessionSeed('any password!1234');
       expect(seed.any((b) => b != 0), isTrue);
     });
 
@@ -115,7 +115,7 @@ void main() {
     });
 
     test('deriveOxenSeed returns Uint8List', () async {
-      final seed = await KeyDerivationService.deriveOxenSeed('test_password_16!');
+      final seed = await KeyDerivationService.deriveSessionSeed('test_password_16!');
       expect(seed, isA<Uint8List>());
     });
   });
@@ -132,7 +132,7 @@ void main() {
 
     test('deriveOxenSeed rejects short password', () async {
       expect(
-        () => KeyDerivationService.deriveOxenSeed('short'),
+        () => KeyDerivationService.deriveSessionSeed('short'),
         throwsA(isA<ArgumentError>()),
       );
     });

@@ -36,7 +36,7 @@ class _DeveloperSectionState extends State<DeveloperSection> {
   static const _adapters = [
     ('Nostr',    Icons.flash_on_outlined,    'Nostr relays (wss://)'),
     ('Firebase', Icons.cloud_outlined,       'Firebase Realtime DB'),
-    ('Oxen',     Icons.security_outlined,    'Oxen / Session'),
+    ('Session',  Icons.security_outlined,    'Session Network'),
     ('Pulse',    Icons.hub_outlined,         'Pulse self-hosted relay'),
     ('LAN',      Icons.lan_outlined,         'Local network (UDP/TCP)'),
   ];

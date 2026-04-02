@@ -8,7 +8,7 @@ import '../theme/app_theme.dart';
 import '../services/signal_service.dart';
 import '../services/key_derivation_service.dart';
 import '../services/password_hasher.dart';
-import '../services/oxen_key_service.dart';
+import '../services/session_key_service.dart';
 import 'dart:math';
 import 'dart:convert';
 import 'dart:typed_data';
@@ -185,20 +185,20 @@ class _SetupIdentityScreenState extends State<SetupIdentityScreen> {
     final name     = _nameController.text.trim();
     final password = _passwordController.text;
 
-    // Derive Nostr key and Oxen seed from the recovery password.
+    // Derive Nostr key and Session seed from the recovery password.
     // This runs in isolates so the UI stays responsive during 600k iterations.
     final nostrKeyBytes = await KeyDerivationService.deriveNostrKey(password);
-    final oxenSeedBytes = await KeyDerivationService.deriveOxenSeed(password);
+    final sessionSeedBytes = await KeyDerivationService.deriveSessionSeed(password);
 
     // Store Nostr private key; zero key bytes immediately after encoding
     final privkeyHex = hex.encode(nostrKeyBytes);
     await ss.write(key: 'nostr_privkey', value: privkeyHex);
     nostrKeyBytes.fillRange(0, nostrKeyBytes.length, 0);
 
-    // Store Oxen seed so OxenKeyService picks it up on initialize()
-    final oxenHex = hex.encode(oxenSeedBytes);
-    await ss.write(key: 'oxen_seed', value: oxenHex);
-    oxenSeedBytes.fillRange(0, oxenSeedBytes.length, 0);
+    // Store Session seed so SessionKeyService picks it up on initialize()
+    final sessionHex = hex.encode(sessionSeedBytes);
+    await ss.write(key: 'session_seed', value: sessionHex);
+    sessionSeedBytes.fillRange(0, sessionSeedBytes.length, 0);
 
     // Signal identity keys — generated fresh (per-device; re-published on connect)
     final signalService = SignalService();
@@ -231,11 +231,11 @@ class _SetupIdentityScreenState extends State<SetupIdentityScreen> {
       'avatar_color': _avatarColors[Random.secure().nextInt(_avatarColors.length)].toARGB32().toString(),
     }));
 
-    // Register Oxen secondary adapter
-    await OxenKeyService.instance.initialize();
-    final sessionId = OxenKeyService.instance.sessionId;
+    // Register Session secondary adapter
+    await SessionKeyService.instance.initialize();
+    final sessionId = SessionKeyService.instance.sessionId;
     await prefs.setString('secondary_adapters', jsonEncode([{
-      'provider': 'Oxen',
+      'provider': 'Session',
       'apiKey': '',
       'databaseId': sessionId,
       'selfId': sessionId,

@@ -41,7 +41,7 @@ class _AddContactDialogState extends State<AddContactDialog> {
   static String _detectProvider(String address) {
     final lower = address.toLowerCase();
     if (lower.startsWith('05') && lower.length == 66 &&
-        RegExp(r'^[0-9a-f]{66}$').hasMatch(lower)) { return 'Oxen'; }
+        RegExp(r'^[0-9a-f]{66}$').hasMatch(lower)) { return 'Session'; }
     if (lower.contains('@wss://') || lower.contains('@ws://') ||
         RegExp(r'^[0-9a-f]{64}$').hasMatch(lower)) { return 'Nostr'; }
     // Pulse: 64-char hex @ https:// (not wss://)

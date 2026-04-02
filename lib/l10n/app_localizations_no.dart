@@ -1769,8 +1769,8 @@ class AppLocalizationsNo extends AppLocalizations {
       'Nøkkelen din lagres lokalt i sikker lagring — sendes aldri til noen server.';
 
   @override
-  String get providerOxenInfo =>
-      'Oxen/Session-nettverk — løkrutet E2EE. Din Session-ID genereres automatisk og lagres sikkert. Noder oppdages automatisk fra innebygde frønoder.';
+  String get providerSessionInfo =>
+      'Session Network — onion-routed E2EE. Your Session ID is auto-generated and stored securely. Nodes auto-discovered from built-in seed nodes.';
 
   @override
   String get providerAdvanced => 'Avansert';
@@ -1875,7 +1875,7 @@ class AppLocalizationsNo extends AppLocalizations {
   String get networkDiagnosticsInfrastructure => 'Infrastruktur';
 
   @override
-  String get networkDiagnosticsOxenNodes => 'Oxen-noder';
+  String get networkDiagnosticsSessionNodes => 'Session nodes';
 
   @override
   String get networkDiagnosticsTurnServers => 'TURN-servere';

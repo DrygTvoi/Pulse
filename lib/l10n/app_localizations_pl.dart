@@ -1787,8 +1787,8 @@ class AppLocalizationsPl extends AppLocalizations {
       'Twój klucz jest przechowywany lokalnie w bezpiecznym magazynie — nigdy nie jest wysyłany na żaden serwer.';
 
   @override
-  String get providerOxenInfo =>
-      'Sieć Oxen/Session — cebulowe E2EE. Twój identyfikator Session jest generowany automatycznie i przechowywany bezpiecznie. Węzły odkrywane automatycznie z wbudowanych węzłów początkowych.';
+  String get providerSessionInfo =>
+      'Session Network — onion-routed E2EE. Your Session ID is auto-generated and stored securely. Nodes auto-discovered from built-in seed nodes.';
 
   @override
   String get providerAdvanced => 'Zaawansowane';
@@ -1893,7 +1893,7 @@ class AppLocalizationsPl extends AppLocalizations {
   String get networkDiagnosticsInfrastructure => 'Infrastruktura';
 
   @override
-  String get networkDiagnosticsOxenNodes => 'Węzły Oxen';
+  String get networkDiagnosticsSessionNodes => 'Session nodes';
 
   @override
   String get networkDiagnosticsTurnServers => 'Serwery TURN';

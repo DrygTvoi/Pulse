@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'firebase_adapter.dart';
 import 'nostr_adapter.dart';
-import 'oxen_adapter.dart';
+import 'session_adapter.dart';
 import 'pulse_adapter.dart';
 
 import '../models/message.dart';
@@ -72,8 +72,8 @@ class InboxManager {
       reader = FirebaseInboxReader();
     } else if (provider == 'Nostr') {
       reader = NostrInboxReader();
-    } else if (provider == 'Oxen') {
-      reader = OxenInboxReader();
+    } else if (provider == 'Session') {
+      reader = SessionInboxReader();
     } else if (provider == 'Pulse') {
       reader = PulseInboxReader();
     }
@@ -104,8 +104,8 @@ class InboxManager {
       adhocReader = FirebaseInboxReader();
     } else if (provider == 'Nostr') {
       adhocReader = NostrInboxReader();
-    } else if (provider == 'Oxen') {
-      adhocReader = OxenInboxReader();
+    } else if (provider == 'Session') {
+      adhocReader = SessionInboxReader();
     } else if (provider == 'Pulse') {
       adhocReader = PulseInboxReader();
     }

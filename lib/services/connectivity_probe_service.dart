@@ -39,14 +39,14 @@ class ProbeStatus {
 
 class ProbeResult {
   final List<String> nostrRelays;   // ws(s):// URLs, direct
-  final List<String> oxenNodes;     // host:port strings, direct
+  final List<String> sessionNodes;     // host:port strings, direct
   final List<String> turnServers;   // host:port strings, direct
   final List<String> torNostrRelays; // reachable only via Tor
   final DateTime timestamp;
 
   const ProbeResult({
     required this.nostrRelays,
-    required this.oxenNodes,
+    required this.sessionNodes,
     required this.turnServers,
     required this.torNostrRelays,
     required this.timestamp,
@@ -61,7 +61,7 @@ class ProbeResult {
 
   Map<String, dynamic> toJson() => {
     'nostrRelays':    nostrRelays,
-    'oxenNodes':      oxenNodes,
+    'sessionNodes':    sessionNodes,
     'turnServers':    turnServers,
     'torNostrRelays': torNostrRelays,
     'timestamp':      timestamp.toIso8601String(),
@@ -69,14 +69,14 @@ class ProbeResult {
 
   factory ProbeResult.fromJson(Map<String, dynamic> j) => ProbeResult(
     nostrRelays:    List<String>.from(j['nostrRelays']    ?? []),
-    oxenNodes:      List<String>.from(j['oxenNodes']      ?? []),
+    sessionNodes:    List<String>.from(j['sessionNodes']      ?? []),
     turnServers:    List<String>.from(j['turnServers']    ?? []),
     torNostrRelays: List<String>.from(j['torNostrRelays'] ?? []),
     timestamp:      DateTime.parse(j['timestamp'] as String),
   );
 
   static ProbeResult empty() => ProbeResult(
-    nostrRelays: [], oxenNodes: [], turnServers: [],
+    nostrRelays: [], sessionNodes: [], turnServers: [],
     torNostrRelays: [], timestamp: DateTime(2000),
   );
 }
@@ -109,8 +109,8 @@ const _kNostrCandidates = [
   ('nostr.fmt.wired.mn',     443), // global
 ];
 
-/// Oxen/Session network seed nodes (public, from Session open source).
-const _kOxenCandidates = [
+/// Session Network seed nodes (public, from Session open source).
+const _kSessionCandidates = [
   ('seed1.getsession.org', 22023),
   ('seed2.getsession.org', 22023),
   ('seed3.getsession.org', 22023),
@@ -336,7 +336,7 @@ class ConnectivityProbeService {
       debugPrint('[Probe/Health] ${_last.nostrRelays.length - alive.length} dead relay(s) removed');
       _last = ProbeResult(
         nostrRelays: alive,
-        oxenNodes: _last.oxenNodes,
+        sessionNodes: _last.sessionNodes,
         turnServers: _last.turnServers,
         torNostrRelays: _last.torNostrRelays,
         timestamp: _last.timestamp,
@@ -374,13 +374,13 @@ class ConnectivityProbeService {
           label: 'nostr', timeoutSec: 3);
       // IMPORTANT: convert to full wss:// URLs — _probeAll returns bare hostnames
       final directNostr = directNostrHosts.map((h) => 'wss://$h').toList();
-      final directOxen  = await _probeAll(_kOxenCandidates,
-          label: 'oxen',  timeoutSec: 3);
+      final directSession = await _probeAll(_kSessionCandidates,
+          label: 'session', timeoutSec: 3);
       final (directTurnHosts, directTurnConfigs) =
           await _probeAllTurn(timeoutSec: 3);
 
       debugPrint('[Probe] Static: nostr=${directNostr.length} '
-          'oxen=${directOxen.length} turn=${directTurnHosts.length}');
+          'session=${directSession.length} turn=${directTurnHosts.length}');
 
       // ── Early Tor start (parallel with phase 1.5) ────────────────────────
       // If direct probes found fewer than enough relays, the network is likely
@@ -426,7 +426,7 @@ class ConnectivityProbeService {
         if (!_firstRunCompleter.isCompleted) {
           _firstRunCompleter.complete(ProbeResult(
             nostrRelays: List.of(directNostr),
-            oxenNodes: directOxen,
+            sessionNodes: directSession,
             turnServers: directTurnHosts,
             torNostrRelays: [],
             timestamp: DateTime.now(),
@@ -596,7 +596,7 @@ class ConnectivityProbeService {
           if (!TorService.instance.persistent) {
             if (torNostr.isNotEmpty || directNostr.isEmpty) {
               // Network is censored — keep Tor + Psiphon running so
-              // Firebase/Oxen adapters can work too.
+              // Firebase/Session adapters can work too.
               debugPrint('[Probe] Censored network — keeping Tor/Psiphon alive');
             } else {
               await TorService.instance.stop();
@@ -614,7 +614,7 @@ class ConnectivityProbeService {
       // ── Save result ────────────────────────────────────────────────────────
       _last = ProbeResult(
         nostrRelays:    directNostr,
-        oxenNodes:      directOxen,
+        sessionNodes:    directSession,
         turnServers:    directTurnHosts,
         torNostrRelays: torNostr,
         timestamp:      DateTime.now(),
@@ -642,9 +642,9 @@ class ConnectivityProbeService {
         await prefs.setString('nostr_relay', relay);
         debugPrint('[Probe] Best Nostr relay: $relay');
       }
-      if (_last.oxenNodes.isNotEmpty) {
+      if (_last.sessionNodes.isNotEmpty) {
         await prefs.setString(
-            'probe_oxen_node', _last.oxenNodes.first);
+            'probe_session_node', _last.sessionNodes.first);
       }
       // Persist full TURN ICE configs for IceServerConfig to pick up
       if (directTurnConfigs.isNotEmpty) {

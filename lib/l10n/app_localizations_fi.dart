@@ -1780,8 +1780,8 @@ class AppLocalizationsFi extends AppLocalizations {
       'Avaimesi tallennetaan paikallisesti turvalliseen tallennustilaan — sitä ei koskaan lähetetä palvelimelle.';
 
   @override
-  String get providerOxenInfo =>
-      'Oxen/Session-verkko — sipulireititetty E2EE. Session-tunnuksesi luodaan automaattisesti ja tallennetaan turvallisesti. Solmut löydetään automaattisesti sisäänrakennetuista siemensolmuista.';
+  String get providerSessionInfo =>
+      'Session Network — onion-routed E2EE. Your Session ID is auto-generated and stored securely. Nodes auto-discovered from built-in seed nodes.';
 
   @override
   String get providerAdvanced => 'Lisäasetukset';
@@ -1886,7 +1886,7 @@ class AppLocalizationsFi extends AppLocalizations {
   String get networkDiagnosticsInfrastructure => 'Infrastruktuuri';
 
   @override
-  String get networkDiagnosticsOxenNodes => 'Oxen-solmut';
+  String get networkDiagnosticsSessionNodes => 'Session nodes';
 
   @override
   String get networkDiagnosticsTurnServers => 'TURN-palvelimet';

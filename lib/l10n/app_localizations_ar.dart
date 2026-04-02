@@ -1776,8 +1776,8 @@ class AppLocalizationsAr extends AppLocalizations {
       'مفتاحك مخزّن محليًا في التخزين الآمن — لا يُرسل أبدًا إلى أي خادم.';
 
   @override
-  String get providerOxenInfo =>
-      'شبكة Oxen/Session — E2EE بتوجيه بصلي. يتم إنشاء معرّف Session تلقائيًا وتخزينه بأمان. يتم اكتشاف العقد تلقائيًا من العقد الأولية المدمجة.';
+  String get providerSessionInfo =>
+      'Session Network — onion-routed E2EE. Your Session ID is auto-generated and stored securely. Nodes auto-discovered from built-in seed nodes.';
 
   @override
   String get providerAdvanced => 'متقدم';
@@ -1882,7 +1882,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get networkDiagnosticsInfrastructure => 'البنية التحتية';
 
   @override
-  String get networkDiagnosticsOxenNodes => 'عقد Oxen';
+  String get networkDiagnosticsSessionNodes => 'Session nodes';
 
   @override
   String get networkDiagnosticsTurnServers => 'خوادم TURN';

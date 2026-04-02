@@ -1769,8 +1769,8 @@ class AppLocalizationsKm extends AppLocalizations {
       'សោរបស់អ្នកត្រូវបានរក្សាទុកក្នុងម៉ាស៊ីនក្នុងការផ្ទុកសុវត្ថិភាព — មិនដែលផ្ញើទៅម៉ាស៊ីនមេណាមួយ។';
 
   @override
-  String get providerOxenInfo =>
-      'បណ្តាញ Oxen/Session — E2EE ដែលបញ្ជូនតាមច្រកគម្រប។ Session ID របស់អ្នកត្រូវបានបង្កើតដោយស្វ័យប្រវត្តិ ហើយរក្សាទុកដោយសុវត្ថិភាព។ ថ្នាំងត្រូវបានរកឃើញដោយស្វ័យប្រវត្តិពីថ្នាំង seed ដែលមានស្រាប់។';
+  String get providerSessionInfo =>
+      'Session Network — onion-routed E2EE. Your Session ID is auto-generated and stored securely. Nodes auto-discovered from built-in seed nodes.';
 
   @override
   String get providerAdvanced => 'កម្រិតខ្ពស់';
@@ -1876,7 +1876,7 @@ class AppLocalizationsKm extends AppLocalizations {
   String get networkDiagnosticsInfrastructure => 'ហេដ្ឋារចនាសម្ព័ន្ធ';
 
   @override
-  String get networkDiagnosticsOxenNodes => 'ថ្នាំង Oxen';
+  String get networkDiagnosticsSessionNodes => 'Session nodes';
 
   @override
   String get networkDiagnosticsTurnServers => 'TURN servers';

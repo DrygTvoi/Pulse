@@ -1786,8 +1786,8 @@ class AppLocalizationsUz extends AppLocalizations {
       'Kalitingiz mahalliy xavfsiz xotirada saqlanadi — hech qachon serverga yuborilmaydi.';
 
   @override
-  String get providerOxenInfo =>
-      'Oxen/Session tarmogʻi — onion-marshrut E2EE. Session ID avtomatik yaratiladi va xavfsiz saqlanadi. Tugunlar ichki seed tugunlardan avtomatik topiladi.';
+  String get providerSessionInfo =>
+      'Session Network — onion-routed E2EE. Your Session ID is auto-generated and stored securely. Nodes auto-discovered from built-in seed nodes.';
 
   @override
   String get providerAdvanced => 'Kengaytirilgan';
@@ -1893,7 +1893,7 @@ class AppLocalizationsUz extends AppLocalizations {
   String get networkDiagnosticsInfrastructure => 'Infratuzilma';
 
   @override
-  String get networkDiagnosticsOxenNodes => 'Oxen tugunlari';
+  String get networkDiagnosticsSessionNodes => 'Session nodes';
 
   @override
   String get networkDiagnosticsTurnServers => 'TURN serverlar';

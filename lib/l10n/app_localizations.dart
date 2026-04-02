@@ -3304,11 +3304,11 @@ abstract class AppLocalizations {
   /// **'Your key is stored locally in secure storage — never sent to any server.'**
   String get providerKeyStoredLocally;
 
-  /// Info text for Oxen provider
+  /// Info text for Session provider
   ///
   /// In en, this message translates to:
-  /// **'Oxen/Session network — onion-routed E2EE. Your Session ID is auto-generated and stored securely. Nodes auto-discovered from built-in seed nodes.'**
-  String get providerOxenInfo;
+  /// **'Session Network — onion-routed E2EE. Your Session ID is auto-generated and stored securely. Nodes auto-discovered from built-in seed nodes.'**
+  String get providerSessionInfo;
 
   /// Expandable advanced label in provider config
   ///
@@ -3502,11 +3502,11 @@ abstract class AppLocalizations {
   /// **'Infrastructure'**
   String get networkDiagnosticsInfrastructure;
 
-  /// Label for Oxen node count
+  /// Label for Session node count
   ///
   /// In en, this message translates to:
-  /// **'Oxen nodes'**
-  String get networkDiagnosticsOxenNodes;
+  /// **'Session nodes'**
+  String get networkDiagnosticsSessionNodes;
 
   /// Label for TURN server count
   ///

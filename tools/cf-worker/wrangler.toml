@@ -1,0 +1,8 @@
+name = "pulse-relay"
+main = "worker.js"
+compatibility_date = "2024-01-01"
+
+# Set these in Cloudflare dashboard → Settings → Variables (NOT here, to keep secret out of repo)
+# [vars]
+# SECRET = "your-random-secret-here"
+# COVER_URL = "https://some-real-website.com"

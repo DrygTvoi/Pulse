@@ -1749,8 +1749,8 @@ class AppLocalizationsRu extends AppLocalizations {
       'Ваш ключ хранится локально в защищённом хранилище — никогда не отправляется на сервер.';
 
   @override
-  String get providerOxenInfo =>
-      'Сеть Oxen/Session — E2EE с луковой маршрутизацией. Session ID генерируется и хранится автоматически. Узлы обнаруживаются из встроенных.';
+  String get providerSessionInfo =>
+      'Session Network — E2EE с луковой маршрутизацией. Session ID генерируется и хранится автоматически. Узлы обнаруживаются из встроенных.';
 
   @override
   String get providerAdvanced => 'Дополнительно';
@@ -1855,7 +1855,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get networkDiagnosticsInfrastructure => 'Инфраструктура';
 
   @override
-  String get networkDiagnosticsOxenNodes => 'Узлы Oxen';
+  String get networkDiagnosticsSessionNodes => 'Узлы Session';
 
   @override
   String get networkDiagnosticsTurnServers => 'TURN-серверы';
@@ -2094,7 +2094,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get privacyNetworkBody =>
-      'Pulse использует федеративные транспортные адаптеры (Nostr-реле, узлы Session/Oxen, Firebase Realtime Database, LAN). Через эти транспорты передаётся только зашифрованный текст. Операторы реле видят ваш IP-адрес и объём трафика, но не могут расшифровать содержимое сообщений.\n\nПри включённом Tor ваш IP-адрес скрыт и от операторов реле.';
+      'Pulse использует федеративные транспортные адаптеры (Nostr-реле, узлы Session Network, Firebase Realtime Database, LAN). Через эти транспорты передаётся только зашифрованный текст. Операторы реле видят ваш IP-адрес и объём трафика, но не могут расшифровать содержимое сообщений.\n\nПри включённом Tor ваш IP-адрес скрыт и от операторов реле.';
 
   @override
   String get privacyStunHeading => 'STUN/TURN серверы';

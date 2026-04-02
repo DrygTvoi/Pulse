@@ -1783,8 +1783,8 @@ class AppLocalizationsSr extends AppLocalizations {
       'Ваш кључ је ускладиштен локално у безбедном складишту — никад се не шаље серверу.';
 
   @override
-  String get providerOxenInfo =>
-      'Oxen/Session мрежа — E2EE рутирано кроз луковичасту мрежу. Ваш Session ID је аутоматски генерисан и безбедно ускладиштен. Чворови аутоматски откривени од уграђених сид чворова.';
+  String get providerSessionInfo =>
+      'Session Network — onion-routed E2EE. Your Session ID is auto-generated and stored securely. Nodes auto-discovered from built-in seed nodes.';
 
   @override
   String get providerAdvanced => 'Напредно';
@@ -1889,7 +1889,7 @@ class AppLocalizationsSr extends AppLocalizations {
   String get networkDiagnosticsInfrastructure => 'Инфраструктура';
 
   @override
-  String get networkDiagnosticsOxenNodes => 'Oxen чворови';
+  String get networkDiagnosticsSessionNodes => 'Session nodes';
 
   @override
   String get networkDiagnosticsTurnServers => 'TURN сервери';

@@ -1779,8 +1779,8 @@ class AppLocalizationsMs extends AppLocalizations {
       'Kunci anda disimpan secara tempatan dalam storan selamat — tidak pernah dihantar ke mana-mana pelayan.';
 
   @override
-  String get providerOxenInfo =>
-      'Rangkaian Oxen/Session — E2EE berorientasi bawang. ID Session anda dijana secara automatik dan disimpan dengan selamat. Nod ditemui secara automatik daripada nod benih terbina dalam.';
+  String get providerSessionInfo =>
+      'Session Network — onion-routed E2EE. Your Session ID is auto-generated and stored securely. Nodes auto-discovered from built-in seed nodes.';
 
   @override
   String get providerAdvanced => 'Lanjutan';
@@ -1885,7 +1885,7 @@ class AppLocalizationsMs extends AppLocalizations {
   String get networkDiagnosticsInfrastructure => 'Infrastruktur';
 
   @override
-  String get networkDiagnosticsOxenNodes => 'Nod Oxen';
+  String get networkDiagnosticsSessionNodes => 'Session nodes';
 
   @override
   String get networkDiagnosticsTurnServers => 'Pelayan TURN';

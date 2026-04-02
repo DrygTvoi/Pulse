@@ -22,7 +22,7 @@ final _argon2 = DartArgon2id(
 // always produces the same keys (brain-wallet pattern).
 // The salt is NOT secret; the password is the only secret.
 final _kNostrSalt = utf8.encode('pulse_nostr_key_v1');
-final _kOxenSalt  = utf8.encode('pulse_oxen_seed_v1');
+final _kSessionSalt = utf8.encode('pulse_oxen_seed_v1'); // salt value MUST NOT change — brain-wallet determinism
 final _kPulseSalt = utf8.encode('pulse_server_key_v1');
 
 /// Derives deterministic cryptographic keys from a recovery password.
@@ -50,8 +50,8 @@ class KeyDerivationService {
     }
   }
 
-  /// 32-byte Oxen/Session seed derived from [password].
-  static Future<Uint8List> deriveOxenSeed(String password) async {
+  /// 32-byte Session Network seed derived from [password].
+  static Future<Uint8List> deriveSessionSeed(String password) async {
     if (password.length < 16) {
       throw ArgumentError('Password must be at least 16 characters for secure key derivation');
     }
@@ -59,7 +59,7 @@ class KeyDerivationService {
     try {
       final sk = await _argon2.deriveKey(
         secretKey: SecretKey(passwordBytes),
-        nonce: _kOxenSalt,
+        nonce: _kSessionSalt,
       );
       return Uint8List.fromList(await sk.extractBytes());
     } finally {
