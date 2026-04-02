@@ -797,6 +797,14 @@ class ChatController extends ChangeNotifier {
   }
 
   Future<({MessageSender sender, String apiKey})?> _buildSenderFor(Contact contact) async {
+    // Developer mode: skip disabled adapters.
+    final prefs = await _getPrefs();
+    if (prefs.getBool('dev_mode_enabled') ?? false) {
+      if (!(prefs.getBool('dev_adapter_${contact.provider}') ?? true)) {
+        debugPrint('[Dev] Adapter ${contact.provider} disabled — skipping send');
+        return null;
+      }
+    }
     switch (contact.provider) {
       case 'Firebase':
         final token = _identity!.adapterConfig['token'] ?? '';
@@ -1868,6 +1876,13 @@ class ChatController extends ChangeNotifier {
   Future<bool> _deliverEncryptedMessage(String address, Message msg) async {
     if (_identity == null) return false;
     final provider = _providerFromAddress(address);
+    // Developer mode: skip disabled adapters.
+    final prefs = await _getPrefs();
+    if ((prefs.getBool('dev_mode_enabled') ?? false) &&
+        !(prefs.getBool('dev_adapter_$provider') ?? true)) {
+      debugPrint('[Dev] Adapter $provider disabled — skipping deliver to $address');
+      return false;
+    }
     final sendMsg = Message(
       id: msg.id,
       senderId: msg.senderId,
