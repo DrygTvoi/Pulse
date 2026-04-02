@@ -106,6 +106,11 @@ class ChatController extends ChangeNotifier {
   bool _disposed = false; // guards notifyListeners in TTL callbacks
   String? _activeRoomId; // contact ID of the currently open chat screen
 
+  // Reaction version — incremented on every local/remote reaction change
+  // so chat_screen can select on it for granular rebuilds.
+  int _reactionVersion = 0;
+  int get reactionVersion => _reactionVersion;
+
   // Timer-debounced notifyListeners — collapses rapid-fire updates into one
   // rebuild per 200ms window (≈1 frame at 5fps — imperceptible to users).
   Timer? _notifyTimer;
@@ -647,6 +652,20 @@ class ChatController extends ChangeNotifier {
           mainReader.addSecondaryRelay(contactRelay);
         }
       }
+      // Subscribe to probe/adaptive relays for own inbox redundancy.
+      final prefs = await _getPrefs();
+      final probeRelay = prefs.getString('probe_nostr_relay') ?? '';
+      final adaptiveRelay = prefs.getString('adaptive_cf_relay') ?? '';
+      if (probeRelay.isNotEmpty) {
+        mainReader.addSecondaryRelay(
+            probeRelay.startsWith('ws') ? probeRelay : 'wss://$probeRelay');
+      }
+      if (adaptiveRelay.isNotEmpty) {
+        mainReader.addSecondaryRelay(adaptiveRelay);
+      }
+      // Always subscribe to the hardcoded default relay so that fallback
+      // publishes (when primary relay rate-limits/rejects) are received.
+      mainReader.addSecondaryRelay(_kDefaultNostrRelay);
     }
 
     // Subscribe to tamper warnings from the Nostr layer.
@@ -980,12 +999,14 @@ class ChatController extends ChangeNotifier {
 
     // Reactions — delegate to repo
     _dispatcherSubs.add(d.reactions.listen((e) {
+      debugPrint('[Chat] Reaction received: storageKey=${e.storageKey} msgId=${e.msgId} emoji=${e.emoji} from=${e.from} remove=${e.remove}');
       _repo.applyRemoteReaction(e.storageKey, e.msgId, '${e.emoji}_${e.from}', e.remove);
       if (e.remove) {
         unawaited(LocalStorageService().removeReaction(e.storageKey, e.msgId, e.emoji, e.from));
       } else {
         unawaited(LocalStorageService().addReaction(e.storageKey, e.msgId, e.emoji, e.from));
       }
+      _reactionVersion++;
       _scheduleNotify();
     }));
 
@@ -1524,9 +1545,13 @@ class ChatController extends ChangeNotifier {
 
               if (!skipMessage) {
                 final targetRoom = _repo.getRoomForContact(targetContact.id) ?? room;
-                if (!targetRoom.messages.any((m) => m.id == msg.id)) {
+                // Use sender's local UUID from envelope (_id field) if present,
+                // so reactions/deletes use the same ID on both devices.
+                // Fall back to transport-level ID (Nostr event hash, etc.).
+                final resolvedId = env?.msgId ?? msg.id;
+                if (!targetRoom.messages.any((m) => m.id == resolvedId)) {
                   final decryptedMsg = Message(
-                    id: msg.id,
+                    id: resolvedId,
                     senderId: msg.senderId,
                     receiverId: msg.receiverId,
                     encryptedPayload: finalText,
@@ -1695,7 +1720,8 @@ class ChatController extends ChangeNotifier {
     notifyListeners();
 
     final envelope = MessageEnvelope.wrap(
-      _selfId.isNotEmpty ? _selfId : _identity!.id, text, replyTo: replyInfo);
+      _selfId.isNotEmpty ? _selfId : _identity!.id, text,
+      msgId: msgId, replyTo: replyInfo);
 
     String encryptedText;
     try {
@@ -2469,14 +2495,29 @@ class ChatController extends ChangeNotifier {
   }
 
   Future<void> deleteMessage(Contact contact, Message message) async {
+    debugPrint('[Chat] deleteMessage: msgId=${message.id} senderId=${message.senderId} selfId=$_selfId isGroup=${contact.isGroup}');
     await deleteLocalMessage(contact, message.id);
-    if (contact.isGroup && message.senderId == _selfId) {
+    // senderId may be identity.id (UUID) or _selfId (pubkey@relay) depending
+    // on when the message was created. Accept either.
+    final selfBare = _selfId.contains('@') ? _selfId.split('@').first : _selfId;
+    final isMine = message.senderId == _selfId ||
+        message.senderId == _identity!.id ||
+        message.senderId == selfBare;
+    if (!isMine) {
+      debugPrint('[Chat] deleteMessage: NOT my message — skip remote delete (senderId=${message.senderId} selfId=$_selfId identityId=${_identity!.id})');
+      return;
+    }
+    if (contact.isGroup) {
       unawaited(_broadcaster.broadcastGroupDelete(
           contact, message.id, _contacts.contacts));
+    } else {
+      debugPrint('[Chat] deleteMessage: sending 1:1 delete to ${contact.name} (${contact.databaseId})');
+      unawaited(_broadcaster.sendDeleteSignal(contact, message.id));
     }
   }
 
   void _handleRemoteDelete(String fromId, String msgId, {String? groupId}) {
+    debugPrint('[Chat] _handleRemoteDelete: fromId=$fromId msgId=$msgId groupId=$groupId');
     if (groupId != null) {
       final room = _repo.getRoomForContact(groupId);
       if (room == null) return;
@@ -2496,10 +2537,15 @@ class ChatController extends ChangeNotifier {
       unawaited(LocalStorageService().deleteMessage(room.contact.storageKey, msgId));
       _scheduleNotify();
     } else {
+      debugPrint('[Chat] _handleRemoteDelete 1:1: scanning ${_repo.rooms.length} rooms for fromId=$fromId');
+      bool found = false;
       for (final room in _repo.rooms) {
         if (room.contact.isGroup) continue;
         final cId = room.contact.databaseId;
-        if (cId != fromId && cId.split('@').first != fromId) continue;
+        if (cId != fromId && cId.split('@').first != fromId) {
+          continue;
+        }
+        debugPrint('[Chat] _handleRemoteDelete: matched room cId=$cId');
         final idx = room.messages.indexWhere((m) => m.id == msgId);
         if (idx != -1) {
           // FINDING-1 fix: verify the message was sent by this contact.
@@ -2507,14 +2553,23 @@ class ChatController extends ChangeNotifier {
           final msg = room.messages[idx];
           final senderPub = msg.senderId.split('@').first;
           final fromPub = fromId.split('@').first;
-          if (senderPub != fromPub) break;
+          debugPrint('[Chat] _handleRemoteDelete: msg.senderId=${msg.senderId} senderPub=$senderPub fromPub=$fromPub');
+          if (senderPub != fromPub) {
+            debugPrint('[Chat] _handleRemoteDelete: sender mismatch — REJECTED');
+            break;
+          }
           room.messages.removeAt(idx);
           _repo.untrackMessageId(room.contact.id, msgId);
           unawaited(LocalStorageService().deleteMessage(room.contact.storageKey, msgId));
           _scheduleNotify();
+          found = true;
+          debugPrint('[Chat] _handleRemoteDelete: SUCCESS — removed msgId=$msgId');
           break;
+        } else {
+          debugPrint('[Chat] _handleRemoteDelete: msgId=$msgId NOT found in room (${room.messages.length} msgs)');
         }
       }
+      if (!found) debugPrint('[Chat] _handleRemoteDelete: NO matching room/msg found');
     }
   }
 
@@ -2693,6 +2748,10 @@ class ChatController extends ChangeNotifier {
 
   Future<void> sendTypingSignal(Contact contact) =>
       _broadcaster.sendTypingSignal(contact, () => _contacts.contacts);
+
+  /// Send a hangup signal to a contact (used when declining an incoming call).
+  Future<void> sendHangupSignal(Contact contact) =>
+      _sendSignalTo(contact, 'webrtc_hangup', {'action': 'hangup'});
 
   Future<void> broadcastStatus(UserStatus status) =>
       _broadcaster.broadcastStatus(status, _contacts.contacts);
@@ -2931,6 +2990,7 @@ class ChatController extends ChangeNotifier {
       unawaited(LocalStorageService().addReaction(storageKey, msgId, emoji, _selfId)
           .catchError((Object e) => debugPrint('[Chat] addReaction DB failed: $e')));
     }
+    _reactionVersion++;
     _scheduleNotify();
 
     if (contact.isGroup) {

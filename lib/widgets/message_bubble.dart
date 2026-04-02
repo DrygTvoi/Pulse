@@ -49,6 +49,8 @@ class MessageBubble extends StatelessWidget {
   final VoidCallback? onGroupStatusTap;
   /// Pre-built contact lookup index — avoids rebuilding per bubble.
   final Map<String, Contact>? contactIndex;
+  /// Current user's selfId — used to highlight own reactions.
+  final String? selfId;
 
   const MessageBubble({
     super.key,
@@ -70,6 +72,7 @@ class MessageBubble extends StatelessWidget {
     this.onRetry,
     this.onGroupStatusTap,
     this.contactIndex,
+    this.selfId,
   });
 
   static const _unencryptedPrefix = '⚠️ UNENCRYPTED: ';
@@ -144,13 +147,19 @@ class MessageBubble extends StatelessWidget {
                 children: reactions!.entries.map((entry) {
                   final emoji = entry.key;
                   final count = entry.value.length;
+                  final selfBare = selfId != null && selfId!.contains('@')
+                      ? selfId!.split('@').first : selfId;
+                  final isMine = selfId != null && entry.value.any((s) =>
+                      s == selfId || s == selfBare);
                   return GestureDetector(
                     onTap: () => onReact?.call(emoji),
                     onLongPress: () => onReactLongPress?.call(emoji),
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: DesignTokens.spacing6, vertical: 3),
                       decoration: BoxDecoration(
-                        color: AppTheme.surfaceVariant,
+                        color: isMine
+                            ? AppTheme.primary.withValues(alpha: 0.3)
+                            : AppTheme.surfaceVariant,
                         borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
                       ),
                       child: Row(

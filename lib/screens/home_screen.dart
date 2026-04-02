@@ -386,41 +386,68 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _showIncomingCallDialog(Contact caller, String myId) {
+    StreamSubscription? hangupSub;
+    final callerBase = caller.databaseId.contains('@')
+        ? caller.databaseId.split('@').first
+        : caller.databaseId;
+
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => AlertDialog.adaptive(
-        backgroundColor: AppTheme.surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.dialogRadius)),
-        title: Text(context.l10n.homeIncomingCallTitle, style: GoogleFonts.inter(color: AppTheme.textPrimary, fontWeight: FontWeight.w700)),
-        content: Row(children: [
-          AvatarWidget(name: caller.name, size: 48, fontSize: DesignTokens.fontXxl),
-          const SizedBox(width: DesignTokens.spacing14),
-          Expanded(child: Text(context.l10n.homeIncomingCall(caller.name),
-              style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: DesignTokens.fontLg))),
-        ]),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            style: TextButton.styleFrom(foregroundColor: AppTheme.error),
-            child: Text(context.l10n.homeDecline, style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
-          ),
-          ElevatedButton.icon(
-            icon: const Icon(Icons.call, size: DesignTokens.iconSm),
-            label: Text(context.l10n.homeAccept, style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primary,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.radiusMedium))),
-            onPressed: () {
-              Navigator.pop(context);
-              _inCallScreen = true;
-              Navigator.push(context, MaterialPageRoute(
-                builder: (_) => CallScreen(contact: caller, myId: myId, isCaller: false),
-              )).then((_) => _inCallScreen = false);
-            },
-          ),
-        ],
-      ).animate().scale(curve: Curves.easeOutBack),
-    );
+      builder: (dialogCtx) {
+        // Listen for remote hangup while the dialog is open
+        hangupSub = ChatController().signalStream.listen((sig) {
+          final sigType = sig['type'] as String? ?? '';
+          if (sigType != 'webrtc_hangup') return;
+          final sigSender = sig['senderId'] as String? ?? '';
+          final sigBase = sigSender.contains('@') ? sigSender.split('@').first : sigSender;
+          if (sigBase == callerBase) {
+            hangupSub?.cancel();
+            if (Navigator.canPop(dialogCtx)) Navigator.pop(dialogCtx);
+          }
+        });
+
+        return AlertDialog.adaptive(
+          backgroundColor: AppTheme.surface,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.dialogRadius)),
+          title: Text(dialogCtx.l10n.homeIncomingCallTitle, style: GoogleFonts.inter(color: AppTheme.textPrimary, fontWeight: FontWeight.w700)),
+          content: Row(children: [
+            AvatarWidget(name: caller.name, size: 48, fontSize: DesignTokens.fontXxl),
+            const SizedBox(width: DesignTokens.spacing14),
+            Expanded(child: Text(dialogCtx.l10n.homeIncomingCall(caller.name),
+                style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: DesignTokens.fontLg))),
+          ]),
+          actions: [
+            TextButton(
+              onPressed: () {
+                hangupSub?.cancel();
+                Navigator.pop(dialogCtx);
+                ChatController().sendHangupSignal(caller);
+              },
+              style: TextButton.styleFrom(foregroundColor: AppTheme.error),
+              child: Text(dialogCtx.l10n.homeDecline, style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+            ),
+            ElevatedButton.icon(
+              icon: const Icon(Icons.call, size: DesignTokens.iconSm),
+              label: Text(dialogCtx.l10n.homeAccept, style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primary,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.radiusMedium))),
+              onPressed: () {
+                hangupSub?.cancel();
+                Navigator.pop(dialogCtx);
+                _inCallScreen = true;
+                Navigator.push(context, MaterialPageRoute(
+                  builder: (_) => CallScreen(contact: caller, myId: myId, isCaller: false),
+                )).then((_) => _inCallScreen = false);
+              },
+            ),
+          ],
+        ).animate().scale(curve: Curves.easeOutBack);
+      },
+    ).then((_) {
+      // Ensure subscription is cancelled if dialog dismissed by any other means
+      hangupSub?.cancel();
+    });
   }
 
   void _listenForIncomingGroupCalls() {

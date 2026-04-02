@@ -116,6 +116,7 @@ class KeyManager {
   }
 
   /// Publish Signal+PQC public bundle to own inbox.
+  /// For Nostr: publishes to up to 3 known relays for redundancy.
   Future<void> publishOwnKeys(
       String provider, String apiKey, String selfId) async {
     if (selfId.isEmpty) return;
@@ -124,32 +125,41 @@ class KeyManager {
       if (_pqcService.isInitialized) {
         bundle['kyberPublicKey'] = _pqcService.publicKey.toList();
       }
-      MessageSender sender;
-      String senderApiKey = apiKey;
       switch (provider.toLowerCase()) {
         case 'firebase':
-          sender = FirebaseInboxSender();
+          final sender = FirebaseInboxSender();
+          await sender.initializeSender(apiKey);
+          await sender.sendSignal(selfId, selfId, selfId, 'sys_keys', bundle);
+          debugPrint('[KeyManager] Published Signal keys for Firebase/$selfId');
         case 'nostr':
           final privkey =
               await _secureStorage.read(key: 'nostr_privkey') ?? '';
           if (privkey.isEmpty) return;
           final prefs = await SharedPreferences.getInstance();
-          final relay =
+          final primaryRelay =
               prefs.getString('nostr_relay') ?? _kDefaultNostrRelay;
-          sender = NostrMessageSender();
-          senderApiKey = jsonEncode({'privkey': privkey, 'relay': relay});
-        case 'oxen':
-          sender = OxenMessageSender();
-          {
-            final prefs = await SharedPreferences.getInstance();
-            senderApiKey = prefs.getString('oxen_node_url') ?? '';
+          final relays = await gatherKnownRelays(primaryRelay, limit: 3);
+          for (final relay in relays) {
+            try {
+              final sender = NostrMessageSender();
+              final senderApiKey = jsonEncode({'privkey': privkey, 'relay': relay});
+              await sender.initializeSender(senderApiKey);
+              await sender.sendSignal(selfId, selfId, selfId, 'sys_keys', bundle);
+              debugPrint('[KeyManager] Published Signal keys to $relay');
+            } catch (e) {
+              debugPrint('[KeyManager] Key publish to $relay failed: $e');
+            }
           }
+        case 'oxen':
+          final sender = OxenMessageSender();
+          final prefs = await SharedPreferences.getInstance();
+          final senderApiKey = prefs.getString('oxen_node_url') ?? '';
+          await sender.initializeSender(senderApiKey);
+          await sender.sendSignal(selfId, selfId, selfId, 'sys_keys', bundle);
+          debugPrint('[KeyManager] Published Signal keys for Oxen/$selfId');
         default:
           return;
       }
-      await sender.initializeSender(senderApiKey);
-      await sender.sendSignal(selfId, selfId, selfId, 'sys_keys', bundle);
-      debugPrint('[KeyManager] Published Signal keys for $provider/$selfId');
     } catch (e) {
       debugPrint('[KeyManager] Key publishing failed: $e');
     }

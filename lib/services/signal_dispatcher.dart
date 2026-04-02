@@ -554,6 +554,7 @@ class SignalDispatcher {
             final from = sig['senderId'] as String? ?? '';
             final remove = payload['remove'] == true;
             final groupId = payload['groupId'] as String?;
+            debugPrint('[SignalDispatcher] reaction: msgId=$msgId emoji=$emoji from=$from groupId=$groupId');
             if (msgId.isNotEmpty && emoji.isNotEmpty && from.isNotEmpty) {
               String storageKey;
               if (groupId != null) {
@@ -562,9 +563,11 @@ class SignalDispatcher {
               } else {
                 final reactionContact =
                     _resolveContact(from, contactByDbId);
+                debugPrint('[SignalDispatcher] reaction resolve: contact=${reactionContact?.name} storageKey=${reactionContact?.storageKey}');
                 storageKey = reactionContact?.storageKey ?? '';
               }
               if (storageKey.isNotEmpty && !_reactionCtrl.isClosed) {
+                debugPrint('[SignalDispatcher] reaction emitted: storageKey=$storageKey');
                 _reactionCtrl.add(SignalReactionEvent(
                   storageKey: storageKey,
                   msgId: msgId,
@@ -572,6 +575,8 @@ class SignalDispatcher {
                   from: from,
                   remove: remove,
                 ));
+              } else {
+                debugPrint('[SignalDispatcher] reaction DROPPED: storageKey empty or ctrl closed');
               }
             }
           }
@@ -831,10 +836,12 @@ class SignalDispatcher {
           }
         } else if (sigType == 'msg_delete') {
           final payload = sig['payload'];
+          debugPrint('[SignalDispatcher] msg_delete received: payload=$payload senderId=${sig['senderId']}');
           if (payload is Map) {
             final msgId = payload['msgId'] as String?;
             final deleteGroupId = payload['groupId'] as String?;
             final senderId = sig['senderId'] as String? ?? '';
+            debugPrint('[SignalDispatcher] msg_delete: msgId=$msgId deleteGroupId=$deleteGroupId senderId=$senderId');
             if (msgId != null && senderId.isNotEmpty && !_msgDeleteCtrl.isClosed) {
               _msgDeleteCtrl.add(SignalMsgDeleteEvent(senderId, msgId, groupId: deleteGroupId));
             }

@@ -97,7 +97,7 @@ class SignalBroadcaster {
 
   void startHeartbeats(List<Contact> Function() contactsGetter) {
     _heartbeatTimer?.cancel();
-    _heartbeatTimer = Timer.periodic(const Duration(minutes: 1), (_) {
+    _heartbeatTimer = Timer.periodic(const Duration(minutes: 2), (_) {
       unawaited(_sendHeartbeats(contactsGetter()));
     });
   }
@@ -111,11 +111,14 @@ class SignalBroadcaster {
     final identity = _getIdentity();
     final selfId = _getSelfId();
     if (identity == null || selfId.isEmpty) return;
+    final ts = DateTime.now().millisecondsSinceEpoch;
+    final futures = <Future>[];
     for (final contact in contacts) {
       if (contact.isGroup) continue;
-      await _sendSignalTo(contact, 'heartbeat',
-          {'from': selfId, 'ts': DateTime.now().millisecondsSinceEpoch});
+      futures.add(_sendSignalTo(contact, 'heartbeat',
+          {'from': selfId, 'ts': ts}));
     }
+    await Future.wait(futures);
   }
 
   // ── Typing ────────────────────────────────────────────────────────────────

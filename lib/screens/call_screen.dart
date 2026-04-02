@@ -220,6 +220,12 @@ class _CallScreenState extends State<CallScreen> {
           _switchToSecondary();
         } else if (!_autoRetried && !_isRetrying) {
           _retryRestricted();
+        } else {
+          // All retries exhausted — auto-hangup after 15s
+          _disconnectTimer?.cancel();
+          _disconnectTimer = Timer(const Duration(seconds: 15), () {
+            if (!_disposed && mounted) _hangUp();
+          });
         }
       }
     }

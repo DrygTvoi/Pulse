@@ -751,6 +751,8 @@ class SignalingService {
       'answer':    '${prefix}_answer',
       'candidate': '${prefix}_candidate',
       'hangup':    '${prefix}_hangup',
+      'reoffer':   '${prefix}_reoffer',
+      'reanswer':  '${prefix}_reanswer',
     };
     final type = typeMap[actionType] ?? '${prefix}_candidate';
 

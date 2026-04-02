@@ -13,22 +13,29 @@ class MessageEnvelope {
   static const String _keyFrom = '_from';
   static const String _keyBody = 'body';
   static const String _keyReplyTo = '_replyTo';
+  static const String _keyMsgId = '_id';
 
   final String from;
   final String body;
   final ({String id, String text, String sender})? replyTo;
+  /// Sender's local message UUID — allows receiver to store the message under
+  /// the same ID regardless of transport-layer message ID (Nostr event hash,
+  /// Firebase push key, etc.). Required for cross-device reactions/deletes.
+  final String? msgId;
 
-  const MessageEnvelope({required this.from, required this.body, this.replyTo});
+  const MessageEnvelope({required this.from, required this.body, this.replyTo, this.msgId});
 
   /// Wrap [body] with sender address [from] into an envelope JSON string.
   static String wrap(String from, String body, {
     ({String id, String text, String sender})? replyTo,
+    String? msgId,
   }) {
     final map = <String, dynamic>{
       _keyVersion: _version,
       _keyFrom: from,
       _keyBody: body,
     };
+    if (msgId != null && msgId.isNotEmpty) map[_keyMsgId] = msgId;
     if (replyTo != null) {
       map[_keyReplyTo] = {
         'id': replyTo.id,
@@ -48,6 +55,7 @@ class MessageEnvelope {
       final from = map[_keyFrom] as String?;
       final body = map[_keyBody] as String?;
       if (from == null || from.isEmpty || body == null) return null;
+      final msgId = map[_keyMsgId] as String?;
       ({String id, String text, String sender})? replyTo;
       final replyMap = map[_keyReplyTo];
       if (replyMap is Map) {
@@ -56,7 +64,7 @@ class MessageEnvelope {
         final sender = replyMap['sender'] as String? ?? '';
         if (id.isNotEmpty) replyTo = (id: id, text: text, sender: sender);
       }
-      return MessageEnvelope(from: from, body: body, replyTo: replyTo);
+      return MessageEnvelope(from: from, body: body, replyTo: replyTo, msgId: msgId);
     } catch (_) {
       return null;
     }

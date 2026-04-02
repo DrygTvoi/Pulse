@@ -32,6 +32,35 @@ import '../services/adaptive_relay_service.dart';
 
 const _defaultRelay = kDefaultNostrRelay;
 
+/// Gather up to [limit] deduplicated known relays from SharedPrefs in priority order:
+/// 1. [primary] (passed in)
+/// 2. `nostr_relay` (user-configured)
+/// 3. `probe_nostr_relay` (connectivity probe, ~6h TTL)
+/// 4. `adaptive_cf_relay` (CF-aware, ~15min TTL)
+/// 5. `kDefaultNostrRelay` (hardcoded fallback)
+Future<List<String>> gatherKnownRelays(String primary, {int limit = 3}) async {
+  final prefs = await SharedPreferences.getInstance();
+  final candidates = <String>[
+    primary,
+    prefs.getString('nostr_relay') ?? '',
+    prefs.getString('probe_nostr_relay') ?? '',
+    prefs.getString('adaptive_cf_relay') ?? '',
+    kDefaultNostrRelay,
+  ];
+  final seen = <String>{};
+  final result = <String>[];
+  for (var url in candidates) {
+    if (url.isEmpty) continue;
+    if (!url.startsWith('ws://') && !url.startsWith('wss://')) {
+      url = 'wss://$url';
+    }
+    if (!_isValidRelayUrl(url) || !seen.add(url)) continue;
+    result.add(url);
+    if (result.length >= limit) break;
+  }
+  return result;
+}
+
 /// Global per-relay WebSocket pool.  The first reader to connect to a relay
 /// registers its channel + pending-fetch map here; subsequent readers and
 /// senders reuse the channel instead of opening a second connection (which
@@ -1055,6 +1084,23 @@ class NostrInboxReader implements InboxReader {
     } catch (e) {
       debugPrint('[Nostr] Relay switch failed: $e');
     }
+    // Fallback: try probe_nostr_relay if adaptive returned nothing
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      var probed = prefs.getString('probe_nostr_relay') ?? '';
+      if (probed.isNotEmpty) {
+        if (!probed.startsWith('ws://') && !probed.startsWith('wss://')) {
+          probed = 'wss://$probed';
+        }
+        if (probed != _relayUrl && _isValidRelayUrl(probed)) {
+          debugPrint('[Nostr] Relay switch (probe fallback): $_relayUrl → $probed');
+          _relayUrl = probed;
+          return true;
+        }
+      }
+    } catch (e) {
+      debugPrint('[Nostr] Probe relay fallback failed: $e');
+    }
     return false;
   }
 
@@ -1824,12 +1870,14 @@ class NostrMessageSender implements MessageSender {
       final completer = Completer<bool>();
       if (eventId.isNotEmpty) _publishOkCompleters[eventId] = completer;
       final result = await completer.future.timeout(
-        const Duration(seconds: 10), onTimeout: () {
+        const Duration(seconds: 3), onTimeout: () {
           _publishOkCompleters.remove(eventId);
           debugPrint('[Nostr] _publishEvent timeout waiting for OK id=$evId…');
           // Evict stale pool entry — the WS is likely dead.
           _wsPool.remove(relayUrl);
           _wsPoolSubs.remove(relayUrl)?.cancel();
+          // Back off so we don't immediately reconnect and block again.
+          _wsPoolBackoff[relayUrl] = DateTime.now().add(const Duration(seconds: 60));
           return false;
         },
       );
@@ -1881,7 +1929,15 @@ class NostrMessageSender implements MessageSender {
       // Fallback: publish to own relay if target relay failed (rate-limited, down, etc.)
       if (relay != _relayUrl) {
         debugPrint('[Nostr] sendMessage: target relay failed, trying own relay $_relayUrl');
-        return await _publishEvent(event, _relayUrl);
+        if (await _publishEvent(event, _relayUrl)) return true;
+      }
+      // Fallback: try all known relays (skip already tried)
+      final tried = <String>{relay, _relayUrl};
+      final fallbacks = await gatherKnownRelays(_relayUrl);
+      for (final fb in fallbacks) {
+        if (tried.contains(fb)) continue;
+        debugPrint('[Nostr] sendMessage: trying fallback relay $fb');
+        if (await _publishEvent(event, fb)) return true;
       }
       return false;
     } catch (e) {
@@ -1943,7 +1999,15 @@ class NostrMessageSender implements MessageSender {
       // Fallback: publish to own relay if target relay failed (rate-limited, down, etc.)
       if (relay != _relayUrl) {
         debugPrint('[Nostr] sendSignal: target relay failed, trying own relay $_relayUrl');
-        return await _publishEvent(event, _relayUrl);
+        if (await _publishEvent(event, _relayUrl)) return true;
+      }
+      // Fallback: try all known relays (skip already tried)
+      final tried = <String>{relay, _relayUrl};
+      final fallbacks = await gatherKnownRelays(_relayUrl);
+      for (final fb in fallbacks) {
+        if (tried.contains(fb)) continue;
+        debugPrint('[Nostr] sendSignal: trying fallback relay $fb');
+        if (await _publishEvent(event, fb)) return true;
       }
       return false;
     } catch (e) {

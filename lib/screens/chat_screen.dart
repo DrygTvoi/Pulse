@@ -647,6 +647,8 @@ class _ChatScreenState extends State<ChatScreen> {
         (c) => c.isLoadingMoreHistory(_contact.id));
     final connectionStatus = context.select<ChatController, ConnectionStatus>(
         (c) => c.connectionStatus);
+    // Rebuild when any reaction changes (local or remote)
+    context.select<ChatController, int>((c) => c.reactionVersion);
 
     // Use read() for actual data access and method calls (non-reactive).
     final chatController = context.read<ChatController>();
@@ -796,15 +798,29 @@ class _ChatScreenState extends State<ChatScreen> {
                         }
                         String? replyFromName;
                         if (msg.replyToSender != null) {
-                          if (msg.replyToSender == myId) {
+                          final selfAddr = chatController.myAddress;
+                          final replyBare = msg.replyToSender!.contains('@')
+                              ? msg.replyToSender!.split('@').first
+                              : msg.replyToSender!;
+                          final selfBare = selfAddr.contains('@')
+                              ? selfAddr.split('@').first
+                              : selfAddr;
+                          if (msg.replyToSender == myId ||
+                              msg.replyToSender == selfAddr ||
+                              replyBare == selfBare) {
                             replyFromName = context.l10n.chatYou;
                           } else {
                             final rs = context.read<IContactRepository>().contacts.cast<Contact?>().firstWhere(
                               (c) => c?.databaseId == msg.replyToSender ||
-                                  c?.databaseId.split('@').first == msg.replyToSender,
+                                  c?.databaseId.split('@').first == msg.replyToSender ||
+                                  c?.databaseId.split('@').first == replyBare ||
+                                  c?.databaseId == replyBare,
                               orElse: () => null,
                             );
-                            replyFromName = rs?.name ?? msg.replyToSender;
+                            replyFromName = rs?.name ??
+                                (msg.replyToSender!.length > 12
+                                    ? '${msg.replyToSender!.substring(0, 8)}\u2026'
+                                    : msg.replyToSender!);
                           }
                         }
                         return SwipeableBubble(
@@ -857,6 +873,7 @@ class _ChatScreenState extends State<ChatScreen> {
                                 senderName: senderName,
                                 isEdited: msg.isEdited,
                                 contactIndex: _contactIndex,
+                                selfId: chatController.myAddress,
                                 reactions: chatController.getReactions(_contact.storageKey, msg.id),
                                 onReact: (e) { HapticFeedback.selectionClick(); chatController.toggleReaction(_contact, msg.id, e); },
                                 onReactLongPress: (e) {
