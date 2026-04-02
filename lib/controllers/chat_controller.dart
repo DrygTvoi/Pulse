@@ -182,6 +182,7 @@ class ChatController extends ChangeNotifier {
   // Cached contact index with dirty flag — avoids rebuilding on every call
   HashMap<String, Contact>? _contactIndex;
   bool _contactIndexDirty = true;
+  int _contactIndexCount = 0;
 
   // Cached sender instances per provider — avoids re-allocating on every send.
   NostrMessageSender? _cachedNostrSender;
@@ -888,6 +889,11 @@ class ChatController extends ChangeNotifier {
 
   /// Returns the cached contact index, rebuilding only when dirty.
   Map<String, Contact> _getContactIndex() {
+    // Auto-invalidate when contact list size changed (e.g. contact added via UI).
+    final currentCount = _contacts.contacts.length;
+    if (currentCount != _contactIndexCount) {
+      _contactIndexDirty = true;
+    }
     if (!_contactIndexDirty && _contactIndex != null) return _contactIndex!;
     final contactByDbId = HashMap<String, Contact>();
     for (final c in _contacts.contacts) {
@@ -899,6 +905,7 @@ class ChatController extends ChangeNotifier {
     }
     _contactIndex = contactByDbId;
     _contactIndexDirty = false;
+    _contactIndexCount = currentCount;
     return contactByDbId;
   }
 

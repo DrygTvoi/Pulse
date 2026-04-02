@@ -13,6 +13,12 @@ import 'package:path_provider/path_provider.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:sqlite3/open.dart' as sqlite3_open;
 
+/// Top-level ffiInit for Android — called inside the DB isolate.
+void _androidFfiInit() {
+  sqlite3_open.open.overrideForAll(
+      () => DynamicLibrary.open('libsqlcipher.so'));
+}
+
 class LocalStorageService {
   static LocalStorageService _instance = LocalStorageService._internal();
   factory LocalStorageService() => _instance;
@@ -46,16 +52,22 @@ class LocalStorageService {
     // Init encryption key before opening DB (needed for migration).
     _encKey = await _getOrCreateEncKey();
 
-    // Load SQLCipher on all platforms (bundled via sqlcipher_flutter_libs).
+    // Load SQLCipher on all platforms.
+    // Android: isolate-safe ffiInit passes libsqlcipher.so override into DB isolate.
+    // Linux: SONAME-patched libsqlite3.so.0 in bundle; standard sqfliteFfiInit.
     await _loadSqlcipher();
-    sqfliteFfiInit();
-    databaseFactory = databaseFactoryFfi;
+    if (Platform.isAndroid) {
+      databaseFactory = createDatabaseFactoryFfi(ffiInit: _androidFfiInit);
+    } else {
+      sqfliteFfiInit();
+      databaseFactory = databaseFactoryFfi;
+    }
     String dbDir;
     if (Platform.isAndroid || Platform.isIOS) {
       final appDir = await getApplicationDocumentsDirectory();
       dbDir = appDir.path;
     } else {
-      dbDir = await databaseFactoryFfi.getDatabasesPath();
+      dbDir = await databaseFactory.getDatabasesPath();
     }
     final path = '$dbDir/messages.db';
 
@@ -410,7 +422,7 @@ class LocalStorageService {
       // Verify the key actually opens the DB (guard against crash mid-migration
       // where the key was written but the DB was not yet re-encrypted).
       try {
-        final testDb = await databaseFactoryFfi.openDatabase(
+        final testDb = await databaseFactory.openDatabase(
           path,
           options: OpenDatabaseOptions(
             onConfigure: (db) async {
@@ -1455,7 +1467,7 @@ class LocalStorageService {
   /// FlutterSecureStorage (e.g. via ADB backup on an unencrypted device).
   /// Falls back to table-clearing if file deletion fails.
   Future<void> deleteAndClose() async {
-    final dbDir = await databaseFactoryFfi.getDatabasesPath();
+    final dbDir = await databaseFactory.getDatabasesPath();
     final path = '$dbDir/messages.db';
     try {
       if (_db != null) {

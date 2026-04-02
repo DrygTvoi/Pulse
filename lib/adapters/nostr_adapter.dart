@@ -1827,6 +1827,9 @@ class NostrMessageSender implements MessageSender {
         const Duration(seconds: 10), onTimeout: () {
           _publishOkCompleters.remove(eventId);
           debugPrint('[Nostr] _publishEvent timeout waiting for OK id=$evId…');
+          // Evict stale pool entry — the WS is likely dead.
+          _wsPool.remove(relayUrl);
+          _wsPoolSubs.remove(relayUrl)?.cancel();
           return false;
         },
       );
@@ -1871,6 +1874,9 @@ class NostrMessageSender implements MessageSender {
       );
       final wrapTs = event['created_at'];
       debugPrint('[Nostr] sendMessage: GiftWrap created_at=$wrapTs (jitter=${wrapTs - DateTime.now().millisecondsSinceEpoch ~/ 1000}s)');
+      if (await _publishEvent(event, relay)) return true;
+      // Retry once on same relay (pool entry was evicted on timeout, fresh WS).
+      debugPrint('[Nostr] sendMessage: first attempt failed, retrying $relay');
       if (await _publishEvent(event, relay)) return true;
       // Fallback: publish to own relay if target relay failed (rate-limited, down, etc.)
       if (relay != _relayUrl) {
