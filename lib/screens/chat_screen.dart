@@ -461,8 +461,20 @@ class _ChatScreenState extends State<ChatScreen> {
     }
     if (!mounted) return;
     final chat = context.read<ChatController>();
-    await chat.sendVoice(_contact, recording.wavBytes,
-        recording.durationSeconds, recording.amplitudes);
+    bool sent;
+    try {
+      sent = await chat.sendVoice(_contact, recording.wavBytes,
+          recording.durationSeconds, recording.amplitudes);
+    } catch (e) {
+      sent = false;
+      debugPrint('[Chat] sendVoice threw: $e');
+    }
+    if (!sent && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(context.l10n.chatVoiceFailed),
+        duration: const Duration(seconds: 3),
+      ));
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
   }
 

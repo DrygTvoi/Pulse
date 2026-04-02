@@ -747,7 +747,13 @@ class _VoiceBubbleState extends State<_VoiceBubble> {
     } else {
       await _player.play(DeviceFileSource(_tmpPath!));
     }
-    await _player.setPlaybackRate(_speed);
+    // Only send a rate-change seek event when speed differs from the GStreamer
+    // default (1.0). Calling setPlaybackRate(1.0) right after play() triggers
+    // a pipeline flush before qtdemux finishes initialising M4A files, which
+    // causes a premature EOS on the first play on Linux.
+    if (_speed != 1.0) {
+      await _player.setPlaybackRate(_speed);
+    }
   }
 
   Future<void> _cycleSpeed() async {

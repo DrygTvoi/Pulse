@@ -27,6 +27,8 @@ import 'services/background_service.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'l10n/app_localizations.dart';
 import 'services/locale_notifier.dart';
+import 'services/blossom_service.dart';
+import 'constants.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -97,6 +99,12 @@ Future<void> main() async {
       // after would always match.
       final relayBeforeProbe = prefs.getString('nostr_relay') ?? '';
       unawaited(ConnectivityProbeService.instance.runIfNeeded());
+
+      // Background Blossom server discovery — probes seed servers and queries
+      // Nostr kind:10063 events to find active servers. Results cached 24 h.
+      unawaited(BlossomService.instance.discoverServers(
+        nostrRelays: [prefs.getString('nostr_relay') ?? kDefaultNostrRelay],
+      ));
 
       // After probe finishes, reconnect only if a DIFFERENT relay was discovered.
       unawaited(ConnectivityProbeService.instance.firstRunDone.then((result) {

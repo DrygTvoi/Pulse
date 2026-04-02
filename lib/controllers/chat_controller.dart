@@ -2082,30 +2082,67 @@ class ChatController extends ChangeNotifier {
     await _sendViaRelayChunks(contact, bytes, name, mediaType: mediaType);
   }
 
-  /// Send a voice message. Short recordings go inline; longer ones are chunked
-  /// but display locally as a proper voice bubble with waveform and duration.
-  Future<void> sendVoice(Contact contact, Uint8List wavBytes, int durationSeconds,
+  /// Send a voice message using a 3-tier routing strategy:
+  /// 1. Inline (single NIP-44 event) for short clips — full waveform preserved.
+  /// 2. P2P DataChannel if connected (1-on-1 only).
+  /// 3. Blossom HTTPS upload (works behind any NAT, 1-on-1 + groups).
+  /// 4. Relay chunks as last resort (8 KB each, well within NIP-44 limit).
+  ///
+  /// OPUS inline threshold: 34 KB JSON (≈ 8–10 s at 24 kbps) — safely fits
+  /// through double NIP-44 Gift Wrap (max ~36 KB raw before hitting 65535).
+  /// WAV inline threshold: 6 KB (gzip-compressed short clips only).
+  Future<bool> sendVoice(Contact contact, Uint8List audioBytes, int durationSeconds,
       List<double> amplitudes) async {
-    if (_identity == null) return;
-    final compressed = gzip.encode(wavBytes);
-    final b64 = base64Encode(compressed);
-    final ampInt = amplitudes.map((v) => (v * 100).round()).toList();
-    final payload = jsonEncode({
-      't': 'voice', 'd': b64, 'dur': durationSeconds,
-      'sz': wavBytes.length, 'amp': ampInt, 'z': true,
-    });
-    final payloadBytes = utf8.encode(payload).length;
-    // Under 6KB payload → fits in a single NIP-44 Gift Wrap event.
-    if (payloadBytes <= 6000) {
-      await sendMessage(contact, payload);
-      return;
+    if (_identity == null) return false;
+
+    // Detect format from magic bytes.
+    // OggS (4F 67 67 53) = OPUS; ftyp at offset 4 (66 74 79 70) = AAC/M4A; else WAV.
+    final bool isCompressed;
+    final String encField;
+    final String fileExt;
+    if (audioBytes.length >= 4 &&
+        audioBytes[0] == 0x4F && audioBytes[1] == 0x67 &&
+        audioBytes[2] == 0x67 && audioBytes[3] == 0x53) {
+      isCompressed = true; encField = 'opus'; fileExt = 'opus';
+    } else if (audioBytes.length >= 8 &&
+        audioBytes[4] == 0x66 && audioBytes[5] == 0x74 &&
+        audioBytes[6] == 0x79 && audioBytes[7] == 0x70) {
+      isCompressed = true; encField = 'aac'; fileExt = 'm4a';
+    } else {
+      isCompressed = false; encField = 'wav'; fileExt = 'wav';
     }
-    // Large voice: show locally as voice bubble (full payload) but send raw
-    // WAV bytes via relay chunks to stay under relay event size limits.
+
+    final ampInt = amplitudes.map((v) => (v * 100).round()).toList();
+    final String payload;
+    if (isCompressed) {
+      final b64 = base64Encode(audioBytes);
+      payload = jsonEncode({
+        't': 'voice', 'd': b64, 'dur': durationSeconds,
+        'sz': audioBytes.length, 'amp': ampInt, 'enc': encField,
+      });
+    } else {
+      final compressed = gzip.encode(audioBytes);
+      final b64 = base64Encode(compressed);
+      payload = jsonEncode({
+        't': 'voice', 'd': b64, 'dur': durationSeconds,
+        'sz': audioBytes.length, 'amp': ampInt, 'z': true,
+      });
+    }
+
+    final payloadBytes = utf8.encode(payload).length;
+    // Inline threshold: NIP-44 double gift-wrap expands payload ~2.7×; nos.lol
+    // hard-rejects events > 65535 bytes. 20 KB payload → ~55 KB final event (safe).
+    // Larger messages go via Blossom (single HTTP upload, no size limit).
+    final inlineLimit = isCompressed ? 20000 : 6000;
+    if (payloadBytes <= inlineLimit) {
+      await sendMessage(contact, payload);
+      return true;
+    }
+
+    // Large voice — show locally as a full voice bubble, then route via tiers.
     final isGroup = contact.isGroup;
     final room = _repo.getOrCreateRoom(contact);
     final msgId = _uuid.v4();
-    // Local display: full voice JSON so the bubble renders properly.
     final localMsg = Message(
       id: msgId,
       senderId: _identity!.id,
@@ -2123,31 +2160,50 @@ class ChatController extends ChangeNotifier {
         onDeleted: () { if (!_disposed) notifyListeners(); });
     notifyListeners();
 
-    // Send chunks over the wire.
-    bool allSent = true;
-    _repo.setUploadProgress(msgId, 0.0);
-    final chunks = MediaService.chunkPayloads(wavBytes, 'voice_${durationSeconds}s.wav',
-        mediaType: 'voice');
-    int i = 0;
-    for (final chunk in chunks) {
-      final bool ok;
-      if (isGroup) {
-        ok = await _sendGroupChunk(contact, chunk);
-      } else {
-        ok = await _sendToContact(contact, chunk);
-      }
-      if (!ok) { allSent = false; break; }
-      i++;
-      _repo.setUploadProgress(msgId, i / chunks.length);
-      _scheduleNotify();
+    final voiceName = 'voice_${durationSeconds}s.$fileExt';
+
+    // Tier 1: Blossom HTTPS upload.
+    if (BlossomService.instance.isAvailable) {
+      room.messages.removeWhere((m) => m.id == msgId);
+      notifyListeners();
+      final ok = await _sendViaBlossom(contact, audioBytes, voiceName, 'voice');
+      if (ok) return true;
+      // Re-add local placeholder for relay chunk fallback.
+      room.messages.add(localMsg);
+      notifyListeners();
     }
-    _repo.clearUploadProgress(msgId);
+
+    // Tier 3: relay chunks (8 KB each — always fits NIP-44).
+    bool allSent = true;
+    try {
+      _repo.setUploadProgress(msgId, 0.0);
+      final chunks = MediaService.chunkPayloads(audioBytes, voiceName, mediaType: 'voice');
+      int i = 0;
+      for (final chunk in chunks) {
+        final bool ok;
+        if (isGroup) {
+          ok = await _sendGroupChunk(contact, chunk);
+        } else {
+          ok = await _sendToContact(contact, chunk);
+        }
+        if (!ok) { allSent = false; break; }
+        i++;
+        _repo.setUploadProgress(msgId, i / chunks.length);
+        _scheduleNotify();
+      }
+    } catch (e) {
+      debugPrint('[Voice] sendVoice chunk loop error: $e');
+      allSent = false;
+    } finally {
+      _repo.clearUploadProgress(msgId);
+    }
 
     final idx = room.messages.indexWhere((m) => m.id == msgId);
     final finalMsg = localMsg.copyWith(status: allSent ? 'sent' : 'failed');
     if (idx >= 0) room.messages[idx] = finalMsg;
     unawaited(LocalStorageService().saveMessage(contact.id, finalMsg.toJson()));
     notifyListeners();
+    return allSent;
   }
 
   /// Send a video note (circle). Small recordings go inline; larger ones

@@ -101,13 +101,13 @@ class MediaValidator {
 
   // ── Audio ─────────────────────────────────────────────────────────────────
 
-  /// Validates WAV bytes. Returns a [MediaValidationResult].
+  /// Validates WAV, OGG/OPUS, or AAC/M4A audio bytes. Returns a [MediaValidationResult].
   static MediaValidationResult validateAudio(Uint8List bytes) {
     if (bytes.length > maxVoiceBytes) {
       return MediaValidationResult.reject('Voice message exceeds ${maxVoiceBytes ~/ 1024 ~/ 1024} MB limit');
     }
-    if (!_hasWavMagic(bytes)) {
-      return MediaValidationResult.reject('Audio is not a valid WAV file');
+    if (!_hasWavMagic(bytes) && !_hasOggMagic(bytes) && !_hasM4aMagic(bytes)) {
+      return MediaValidationResult.reject('Audio is not a valid WAV, OGG/OPUS, or AAC/M4A file');
     }
     return MediaValidationResult.ok;
   }
@@ -117,6 +117,20 @@ class MediaValidator {
     if (b.length < 12) return false;
     return b[0] == 0x52 && b[1] == 0x49 && b[2] == 0x46 && b[3] == 0x46 && // RIFF
            b[8] == 0x57 && b[9] == 0x41 && b[10] == 0x56 && b[11] == 0x45;  // WAVE
+  }
+
+  /// OGG sync word magic check (OggS = 0x4F 0x67 0x67 0x53).
+  /// OGG/Opus files always start with this 4-byte capture pattern.
+  static bool _hasOggMagic(Uint8List b) {
+    if (b.length < 4) return false;
+    return b[0] == 0x4F && b[1] == 0x67 && b[2] == 0x67 && b[3] == 0x53;
+  }
+
+  /// M4A/AAC magic: 'ftyp' box (66 74 79 70) at offset 4.
+  /// MP4/M4A containers always have this 4-byte marker at bytes 4–7.
+  static bool _hasM4aMagic(Uint8List b) {
+    if (b.length < 8) return false;
+    return b[4] == 0x66 && b[5] == 0x74 && b[6] == 0x79 && b[7] == 0x70;
   }
 
   // ── Video ─────────────────────────────────────────────────────────────────
@@ -219,6 +233,15 @@ class MediaValidator {
     if (text.length > maxJsonBytes) {
       return MediaValidationResult.reject('Payload too large');
     }
+    if (_jsonDepth(text) > maxJsonDepth) {
+      return MediaValidationResult.reject('Payload nesting too deep');
+    }
+    return MediaValidationResult.ok;
+  }
+
+  /// Guards against only deeply-nested JSON (no size check).
+  /// Use this for media payloads which are size-checked per type.
+  static MediaValidationResult validateJsonDepth(String text) {
     if (_jsonDepth(text) > maxJsonDepth) {
       return MediaValidationResult.reject('Payload nesting too deep');
     }

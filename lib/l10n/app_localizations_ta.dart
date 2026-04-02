@@ -745,6 +745,14 @@ class AppLocalizationsTa extends AppLocalizations {
   }
 
   @override
+  String get chatTileVoiceMessage => '🎤 Voice message';
+
+  @override
+  String chatTileVoiceMessageDuration(String duration) {
+    return '🎤 Voice message ($duration)';
+  }
+
+  @override
   String get bannerEncryptedMessage => 'குறியாக்கம் செய்யப்பட்ட செய்தி';
 
   @override

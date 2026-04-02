@@ -34,6 +34,29 @@ class ChatTile extends StatelessWidget {
     this.selected = false,
   });
 
+  /// Returns a localised voice message label, optionally with duration.
+  /// Parses `dur` from inline voice JSON, or extracts seconds from the
+  /// filename in assembled-chunk JSON (e.g. "voice_15s.wav" → 15 s).
+  String _voiceLabel(BuildContext context, String text) {
+    int? secs;
+    try {
+      // Fast path: look for "dur":N without full JSON decode.
+      final durMatch = RegExp(r'"dur"\s*:\s*(\d+)').firstMatch(text);
+      if (durMatch != null) {
+        secs = int.tryParse(durMatch.group(1)!);
+      } else {
+        // Assembled chunk: filename is "voice_15s.wav"
+        final nameMatch = RegExp(r'"n"\s*:\s*"voice_(\d+)s').firstMatch(text);
+        if (nameMatch != null) secs = int.tryParse(nameMatch.group(1)!);
+      }
+    } catch (_) {}
+
+    if (secs == null || secs <= 0) return context.l10n.chatTileVoiceMessage;
+    final m = secs ~/ 60;
+    final s = (secs % 60).toString().padLeft(2, '0');
+    return context.l10n.chatTileVoiceMessageDuration('$m:$s');
+  }
+
   String _formatTime(BuildContext context, DateTime t) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
@@ -61,9 +84,13 @@ class ChatTile extends StatelessWidget {
         subtitle = isMe ? context.l10n.chatTileMessageSent : context.l10n.chatTileEncryptedMessage;
       } else if (text.startsWith('{"t":"blossom"')) {
         subtitle = isMe ? context.l10n.chatTileYouPrefix('\uD83D\uDCCE Media') : '\uD83D\uDCCE Media';
+      } else if (text.startsWith('{"t":"voice"') ||
+                 (text.startsWith('{"t":"chunk"') && text.contains('"mt":"voice"'))) {
+        final voiceLabel = _voiceLabel(context, text);
+        subtitle = isMe ? context.l10n.chatTileYouPrefix(voiceLabel) : voiceLabel;
       } else if (text.startsWith('{"t":"img"') || text.startsWith('{"t":"gif"') ||
-                 text.startsWith('{"t":"voice"') || text.startsWith('{"t":"file"') ||
-                 text.startsWith('{"t":"video_note"') || text.startsWith('{"t":"chunk"')) {
+                 text.startsWith('{"t":"file"') || text.startsWith('{"t":"video_note"') ||
+                 text.startsWith('{"t":"chunk"')) {
         subtitle = isMe ? context.l10n.chatTileYouPrefix('\uD83D\uDCCE Media') : '\uD83D\uDCCE Media';
       } else {
         subtitle = isMe ? context.l10n.chatTileYouPrefix(text) : text;

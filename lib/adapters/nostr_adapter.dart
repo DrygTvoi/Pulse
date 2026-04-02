@@ -1171,6 +1171,23 @@ class NostrInboxReader implements InboxReader {
               final data = jsonDecode(raw as String) as List;
               if (data.isEmpty) continue;
 
+              // OK responses: ["OK", event_id, accepted, reason]
+              // MUST be handled BEFORE the subId routing block below because
+              // data[1] is a 64-char event ID, not a subscription ID — it is
+              // always != subId, so the routing block would silently swallow it
+              // with `continue` and the publish completer would never fire,
+              // causing every _publishEvent on the shared channel to time out.
+              if (data[0] == 'OK') {
+                final okId = (data.length > 1 ? data[1] as String? : null) ?? '';
+                final accepted = data.length > 2 && data[2] == true;
+                final reason = data.length > 3 ? data[3] : '';
+                final short = okId.length >= 8 ? okId.substring(0, 8) : okId;
+                debugPrint('[Nostr] OK on sub channel: id=$short… accepted=$accepted reason=$reason');
+                final c = _publishOkCompleters.remove(okId);
+                if (c != null && !c.isCompleted) c.complete(accepted);
+                continue;
+              }
+
               // Issue 6: dispatch events/EOSE for pending fetchPublicKeys requests
               // before the main subscription filters them out.
               if (data.length >= 2) {
@@ -1876,8 +1893,10 @@ class NostrMessageSender implements MessageSender {
           // Evict stale pool entry — the WS is likely dead.
           _wsPool.remove(relayUrl);
           _wsPoolSubs.remove(relayUrl)?.cancel();
-          // Back off so we don't immediately reconnect and block again.
-          _wsPoolBackoff[relayUrl] = DateTime.now().add(const Duration(seconds: 60));
+          // Short backoff: 8 s is enough to avoid hammering a slow relay but
+          // allows the next voice chunk to retry quickly (60 s was too long and
+          // caused multi-chunk voice sends to stall for minutes).
+          _wsPoolBackoff[relayUrl] = DateTime.now().add(const Duration(seconds: 8));
           return false;
         },
       );
@@ -1889,7 +1908,7 @@ class NostrMessageSender implements MessageSender {
       debugPrint('[Nostr] Failed to publish: $e');
       _wsPool.remove(relayUrl);
       _wsPoolSubs.remove(relayUrl)?.cancel();
-      _wsPoolBackoff[relayUrl] = DateTime.now().add(const Duration(seconds: 30));
+      _wsPoolBackoff[relayUrl] = DateTime.now().add(const Duration(seconds: 5));
       return false;
     }
   }

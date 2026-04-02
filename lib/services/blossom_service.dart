@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:io' show WebSocket;
 
 import 'package:crypto/crypto.dart' as crypto;
 import 'package:flutter/foundation.dart';
@@ -21,12 +23,36 @@ class BlossomService {
   static final instance = BlossomService._();
 
   static const _prefsKey = 'blossom_servers_v1';
+  static const _discoveryCacheKey = 'blossom_disc_ts';
+  static const _discoveryCacheTtlH = 24;
   static const _secureStorage = FlutterSecureStorage();
 
+  /// Bootstrap defaults — always reachable, used before discovery runs.
   static const _defaultServers = [
     'https://blossom.primal.net',
     'https://cdn.hzrd149.com',
     'https://blossom.band',
+  ];
+
+  /// Broader seed list probed during discovery.
+  static const _seedServers = [
+    'https://blossom.primal.net',
+    'https://cdn.hzrd149.com',
+    'https://blossom.band',
+    'https://cdn.satellite.earth',
+    'https://blossom.nostr.build',
+    'https://media.nostr.band',
+    'https://blossom.oxtr.dev',
+    'https://files.sovbit.host',
+    'https://blossom.swarmstr.com',
+    'https://nostr.download',
+  ];
+
+  /// Nostr relays used for kind:10063 queries when no app relay is available.
+  static const _bootstrapRelays = [
+    'wss://relay.damus.io',
+    'wss://relay.nostr.wirednet.jp',
+    'wss://nos.lol',
   ];
 
   /// Known servers sorted by health (failures push to back).
@@ -59,6 +85,73 @@ class BlossomService {
     } catch (e) {
       debugPrint('[Blossom] loadServers error: $e');
     }
+  }
+
+  /// Discover Blossom servers in the background.
+  ///
+  /// Strategy (mirrors RelayDirectoryService):
+  /// 1. Probe all known seed servers with a lightweight HEAD request.
+  /// 2. Query Nostr relays for kind:10063 events (user server preference lists)
+  ///    and probe any URLs found there.
+  /// 3. Results are cached for 24 h — safe to call on every app launch.
+  ///
+  /// [nostrRelays] — the app's current active relay URLs; used as primary
+  /// query targets. Falls back to a set of bootstrap public relays.
+  Future<void> discoverServers({List<String> nostrRelays = const []}) async {
+    await loadServers();
+
+    // Throttle: skip if discovery ran within the last 24 hours.
+    final prefs = await SharedPreferences.getInstance();
+    final lastTsStr = prefs.getString(_discoveryCacheKey);
+    if (lastTsStr != null) {
+      final last = DateTime.tryParse(lastTsStr);
+      if (last != null &&
+          DateTime.now().difference(last).inHours < _discoveryCacheTtlH) {
+        return;
+      }
+    }
+
+    debugPrint('[Blossom] Starting server discovery...');
+    final candidates = <String>{..._seedServers};
+
+    // Query Nostr for kind:10063 server-preference events.
+    final relaysToQuery = [
+      ...nostrRelays.where((r) => r.startsWith('wss://')).take(2),
+      ..._bootstrapRelays,
+    ].toSet().take(4).toList();
+
+    final nostrResults = await Future.wait(
+      relaysToQuery.map((r) => _fetchFromNostr(r).catchError((_) => <String>[])),
+    );
+    for (final list in nostrResults) {
+      candidates.addAll(list);
+    }
+
+    debugPrint('[Blossom] Probing ${candidates.length} candidate(s)...');
+
+    // Parallel health probe — keep only servers that respond.
+    final probeResults = await Future.wait(
+      candidates.map((url) async {
+        if (!_isValidServerUrl(url)) return null;
+        return await _probeServer(url) ? url : null;
+      }),
+    );
+
+    int added = 0;
+    for (final url in probeResults.whereType<String>()) {
+      if (!_servers.contains(url)) {
+        _servers.add(url);
+        added++;
+      }
+    }
+
+    if (added > 0) {
+      await _persist();
+      debugPrint('[Blossom] Discovery done: +$added server(s), total ${_servers.length}');
+    } else {
+      debugPrint('[Blossom] Discovery done: no new servers found');
+    }
+    await prefs.setString(_discoveryCacheKey, DateTime.now().toIso8601String());
   }
 
   /// Add servers discovered from peers (blossom_exchange signal).
@@ -206,6 +299,81 @@ class BlossomService {
 
   void _recordFailure(String server) {
     _failCount[server] = (_failCount[server] ?? 0) + 1;
+  }
+
+  /// Query a Nostr relay for kind:10063 events and extract server URLs.
+  /// Closes the WS and returns whatever was found within 8 seconds.
+  static Future<List<String>> _fetchFromNostr(String relayUrl) async {
+    final servers = <String>{};
+    final subId = 'bdisc_${DateTime.now().millisecondsSinceEpoch}';
+    final completer = Completer<List<String>>();
+    WebSocket? ws;
+
+    void finish() {
+      if (!completer.isCompleted) completer.complete(servers.toList());
+      ws?.close().catchError((_) {});
+    }
+
+    try {
+      ws = await WebSocket.connect(relayUrl)
+          .timeout(const Duration(seconds: 5));
+      ws.add(jsonEncode([
+        'REQ', subId,
+        {'kinds': [10063], 'limit': 200},
+      ]));
+
+      late StreamSubscription sub;
+      sub = ws.listen(
+        (data) {
+          try {
+            final msg = jsonDecode(data as String);
+            if (msg is! List || msg.isEmpty) return;
+            if (msg[0] == 'EOSE') { sub.cancel(); finish(); return; }
+            if (msg[0] != 'EVENT' || msg.length < 3) return;
+            final event = msg[2];
+            if (event is! Map) return;
+            final tags = event['tags'];
+            if (tags is! List) return;
+            for (final tag in tags) {
+              if (tag is! List || tag.length < 2) continue;
+              if (tag[0] == 'server') {
+                var url = tag[1];
+                if (url is! String || !url.startsWith('https://')) continue;
+                if (url.endsWith('/')) url = url.substring(0, url.length - 1);
+                servers.add(url);
+              }
+            }
+          } catch (_) {}
+        },
+        onDone: finish,
+        onError: (_) => finish(),
+      );
+    } catch (e) {
+      debugPrint('[Blossom] Nostr query $relayUrl: $e');
+      finish();
+    }
+
+    return completer.future.timeout(
+      const Duration(seconds: 8),
+      onTimeout: () { finish(); return servers.toList(); },
+    );
+  }
+
+  /// HEAD-probe a server. Returns true if it responds with HTTP < 500.
+  Future<bool> _probeServer(String url) async {
+    try {
+      final client = _httpClient();
+      try {
+        final resp = await client
+            .head(Uri.parse(url))
+            .timeout(const Duration(seconds: 5));
+        return resp.statusCode < 500;
+      } finally {
+        client.close();
+      }
+    } catch (_) {
+      return false;
+    }
   }
 
   Future<void> _persist() async {

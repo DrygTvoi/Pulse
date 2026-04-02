@@ -187,8 +187,11 @@ class MediaService {
   static MediaPayload? parse(String text) {
     if (!isMediaPayload(text)) return null;
     try {
-      // JSON depth guard
-      final depthCheck = MediaValidator.validateJsonPayload(text);
+      // JSON depth guard — size is already checked by isMediaPayload() (≤2MB)
+      // and by the per-type estimatedBytes limit below.  The 512 KB
+      // validateJsonPayload limit would incorrectly drop assembled voice
+      // payloads for recordings longer than ~12 s.
+      final depthCheck = MediaValidator.validateJsonDepth(text);
       if (!depthCheck.isValid) {
         debugPrint('[MediaService] Rejected payload: ${depthCheck.reason}');
         return null;
@@ -317,9 +320,10 @@ class MediaService {
         data: rawData,
         name: safeName,
         size: (map['sz'] as num?)?.toInt() ?? rawData.length,
-        // If 'dur' is missing (voice sent via sendFile/chunks), estimate
-        // from WAV byte count: 16kHz, 16-bit, mono = 32000 bytes/second.
+        // Duration priority: explicit 'dur' field > filename (voice_Ns.opus/wav) >
+        // WAV byte-count estimate (16kHz/16-bit/mono = 32000 bytes/s).
         durationSeconds: (map['dur'] as num?)?.toInt() ??
+            _parseDurFromName(map['n'] as String?) ??
             (type == 'voice' && rawData.length > 44 ? (rawData.length - 44) ~/ 32000 : 0),
         amplitudes: amplitudes,
         thumbnailData: thumbData,
@@ -482,6 +486,13 @@ extension BlossomPayloadHelpers on MediaService {
       return null;
     }
   }
+}
+
+/// Extract duration seconds from filenames like "voice_15s.wav" or "voice_60s.opus".
+int? _parseDurFromName(String? name) {
+  if (name == null) return null;
+  final m = RegExp(r'voice_(\d+)s\.').firstMatch(name);
+  return m != null ? int.tryParse(m.group(1)!) : null;
 }
 
 /// Streaming sink used for gzip decompression bomb guard.

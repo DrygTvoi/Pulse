@@ -233,6 +233,8 @@
   "chatTileMessageSent": "Сообщение отправлено",
   "chatTileEncryptedMessage": "Зашифрованное сообщение",
   "chatTileYouPrefix": "Вы: {text}",
+  "chatTileVoiceMessage": "🎤 Голосовое сообщение",
+  "chatTileVoiceMessageDuration": "🎤 Голосовое сообщение ({duration})",
 
   "bannerEncryptedMessage": "Зашифрованное сообщение",
 

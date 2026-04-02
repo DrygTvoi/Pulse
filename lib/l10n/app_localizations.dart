@@ -1486,6 +1486,18 @@ abstract class AppLocalizations {
   /// **'You: {text}'**
   String chatTileYouPrefix(String text);
 
+  /// No description provided for @chatTileVoiceMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'🎤 Voice message'**
+  String get chatTileVoiceMessage;
+
+  /// No description provided for @chatTileVoiceMessageDuration.
+  ///
+  /// In en, this message translates to:
+  /// **'🎤 Voice message ({duration})'**
+  String chatTileVoiceMessageDuration(String duration);
+
   /// No description provided for @bannerEncryptedMessage.
   ///
   /// In en, this message translates to:

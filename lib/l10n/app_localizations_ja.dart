@@ -708,6 +708,14 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
+  String get chatTileVoiceMessage => '🎤 Voice message';
+
+  @override
+  String chatTileVoiceMessageDuration(String duration) {
+    return '🎤 Voice message ($duration)';
+  }
+
+  @override
   String get bannerEncryptedMessage => '暗号化されたメッセージ';
 
   @override

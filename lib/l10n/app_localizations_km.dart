@@ -737,6 +737,14 @@ class AppLocalizationsKm extends AppLocalizations {
   }
 
   @override
+  String get chatTileVoiceMessage => '🎤 Voice message';
+
+  @override
+  String chatTileVoiceMessageDuration(String duration) {
+    return '🎤 Voice message ($duration)';
+  }
+
+  @override
   String get bannerEncryptedMessage => 'សារអ៊ិនគ្រីប';
 
   @override

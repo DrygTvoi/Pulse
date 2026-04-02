@@ -345,6 +345,13 @@
       "text": { "type": "String" }
     }
   },
+  "chatTileVoiceMessage": "🎤 Voice message",
+  "chatTileVoiceMessageDuration": "🎤 Voice message ({duration})",
+  "@chatTileVoiceMessageDuration": {
+    "placeholders": {
+      "duration": { "type": "String" }
+    }
+  },
 
   "bannerEncryptedMessage": "Encrypted message",
 

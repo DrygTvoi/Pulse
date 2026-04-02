@@ -723,6 +723,14 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
+  String get chatTileVoiceMessage => '🎤 Голосовое сообщение';
+
+  @override
+  String chatTileVoiceMessageDuration(String duration) {
+    return '🎤 Голосовое сообщение ($duration)';
+  }
+
+  @override
   String get bannerEncryptedMessage => 'Зашифрованное сообщение';
 
   @override

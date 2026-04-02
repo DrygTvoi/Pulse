@@ -101,6 +101,11 @@ class NotificationService {
       final String preview;
       if (text.startsWith('E2EE||')) {
         preview = '🔒 Encrypted message';
+      } else if (text.contains('"t":"voice"') ||
+                 (text.contains('"t":"chunk"') && text.contains('"mt":"voice"'))) {
+        // Fast path: detect voice without full parse (avoids 96KB base64-decode
+        // + WAV validation on every notification just to get "Voice message").
+        preview = '🎤 Voice message';
       } else if (MediaService.isMediaPayload(text)) {
         final m = MediaService.parse(text);
         if (m?.isImage == true) {

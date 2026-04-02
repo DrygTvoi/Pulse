@@ -740,6 +740,14 @@ class AppLocalizationsTr extends AppLocalizations {
   }
 
   @override
+  String get chatTileVoiceMessage => '🎤 Voice message';
+
+  @override
+  String chatTileVoiceMessageDuration(String duration) {
+    return '🎤 Voice message ($duration)';
+  }
+
+  @override
   String get bannerEncryptedMessage => 'Şifreli mesaj';
 
   @override

@@ -744,6 +744,14 @@ class AppLocalizationsMy extends AppLocalizations {
   }
 
   @override
+  String get chatTileVoiceMessage => '🎤 Voice message';
+
+  @override
+  String chatTileVoiceMessageDuration(String duration) {
+    return '🎤 Voice message ($duration)';
+  }
+
+  @override
   String get bannerEncryptedMessage => 'ကုဒ်ဝှက်ထားသည့် မက်ဆက်';
 
   @override

@@ -746,6 +746,14 @@ class AppLocalizationsEl extends AppLocalizations {
   }
 
   @override
+  String get chatTileVoiceMessage => '🎤 Voice message';
+
+  @override
+  String chatTileVoiceMessageDuration(String duration) {
+    return '🎤 Voice message ($duration)';
+  }
+
+  @override
   String get bannerEncryptedMessage => 'Κρυπτογραφημένο μήνυμα';
 
   @override
