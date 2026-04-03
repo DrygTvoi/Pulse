@@ -975,10 +975,10 @@ class _CallScreenState extends State<CallScreen> {
 
   /// Maps resolution width to a bitrate cap for the video sender.
   static int _resWidthToBitrate(int width) {
-    if (width <= 0) return 0;       // Auto — let WebRTC congestion control decide
-    if (width <= 1280) return 2500000; // 720p  → 2.5 Mbps
-    if (width <= 1920) return 5000000; // 1080p → 5 Mbps
-    return 8000000;                    // 1440p → 8 Mbps
+    if (width <= 0) return 0;        // Auto — let WebRTC congestion control decide
+    if (width <= 1280) return 5000000;  // 720p  → 5 Mbps
+    if (width <= 1920) return 12000000; // 1080p → 12 Mbps
+    return 20000000;                    // 1440p → 20 Mbps
   }
 
   Widget _buildQualityChips({
@@ -1247,9 +1247,12 @@ class _CallScreenState extends State<CallScreen> {
               // ── Background / Remote ──────────────────────────────────────
               hasRemoteVideo
                   ? Positioned.fill(
-                      child: RTCVideoView(
-                        _remoteRenderer,
-                        objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
+                      child: Container(
+                        color: Colors.black,
+                        child: RTCVideoView(
+                          _remoteRenderer,
+                          objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitContain,
+                        ),
                       ),
                     )
                   : _buildAudioBackground(),
