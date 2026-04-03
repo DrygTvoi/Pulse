@@ -38,7 +38,7 @@ void main() {
       expect(find.byType(EmojiPicker), findsOneWidget);
     });
 
-    testWidgets('has height of 280', (WidgetTester tester) async {
+    testWidgets('has height of 250', (WidgetTester tester) async {
       await tester.pumpWidget(_buildTestApp(
         EmojiPickerPanel(
           onEmojiSelected: (_) {},
@@ -53,7 +53,7 @@ void main() {
           matching: find.byType(SizedBox),
         ).first,
       );
-      expect(sizedBox.height, equals(280));
+      expect(sizedBox.height, equals(250));
     });
 
     testWidgets('wraps content in SizedBox', (WidgetTester tester) async {

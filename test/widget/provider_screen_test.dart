@@ -65,7 +65,7 @@ void main() {
 
     // ─── Test 2: Provider chips are displayed after loading ──────────────────
 
-    testWidgets('displays Firebase, Nostr, Oxen provider chip texts',
+    testWidgets('displays Firebase, Nostr, Session provider chip texts',
         (WidgetTester tester) async {
       await tester.pumpWidget(buildTestableWidget(const ProviderScreen()));
 
@@ -77,7 +77,7 @@ void main() {
       // Each chip renders the provider name as a Text widget inside a Row.
       expect(find.text('Firebase'), findsWidgets);
       expect(find.text('Nostr'), findsWidgets);
-      expect(find.text('Oxen'), findsWidgets);
+      expect(find.text('Session'), findsWidgets);
     },
         // FlutterSecureStorage calls may fail in test environment because
         // there is no platform channel mock for it. Skip gracefully if so.

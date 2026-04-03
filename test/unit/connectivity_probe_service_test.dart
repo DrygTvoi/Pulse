@@ -82,13 +82,13 @@ void main() {
         final ts = DateTime(2026, 3, 21, 12, 0, 0);
         final r = ProbeResult(
           nostrRelays: ['wss://relay.damus.io'],
-          oxenNodes: ['seed1.getsession.org:22023'],
+          sessionNodes: ['seed1.getsession.org:22023'],
           turnServers: ['openrelay.metered.ca:443'],
           torNostrRelays: ['wss://hidden.example.onion'],
           timestamp: ts,
         );
         expect(r.nostrRelays, ['wss://relay.damus.io']);
-        expect(r.oxenNodes, ['seed1.getsession.org:22023']);
+        expect(r.sessionNodes, ['seed1.getsession.org:22023']);
         expect(r.turnServers, ['openrelay.metered.ca:443']);
         expect(r.torNostrRelays, ['wss://hidden.example.onion']);
         expect(r.timestamp, ts);
@@ -97,13 +97,13 @@ void main() {
       test('accepts empty lists', () {
         final r = ProbeResult(
           nostrRelays: [],
-          oxenNodes: [],
+          sessionNodes: [],
           turnServers: [],
           torNostrRelays: [],
           timestamp: DateTime(2000),
         );
         expect(r.nostrRelays, isEmpty);
-        expect(r.oxenNodes, isEmpty);
+        expect(r.sessionNodes, isEmpty);
         expect(r.turnServers, isEmpty);
         expect(r.torNostrRelays, isEmpty);
       });
@@ -111,13 +111,13 @@ void main() {
       test('accepts multiple items per list', () {
         final r = ProbeResult(
           nostrRelays: ['wss://a', 'wss://b', 'wss://c'],
-          oxenNodes: ['x:1', 'y:2'],
+          sessionNodes: ['x:1', 'y:2'],
           turnServers: ['t1:443', 't2:3479'],
           torNostrRelays: ['wss://tor1', 'wss://tor2'],
           timestamp: DateTime(2026),
         );
         expect(r.nostrRelays.length, 3);
-        expect(r.oxenNodes.length, 2);
+        expect(r.sessionNodes.length, 2);
         expect(r.turnServers.length, 2);
         expect(r.torNostrRelays.length, 2);
       });
@@ -132,7 +132,7 @@ void main() {
       test('true when nostrRelays non-empty', () {
         final r = ProbeResult(
           nostrRelays: ['wss://relay.damus.io'],
-          oxenNodes: [],
+          sessionNodes: [],
           turnServers: [],
           torNostrRelays: [],
           timestamp: DateTime(2026),
@@ -143,7 +143,7 @@ void main() {
       test('true when torNostrRelays non-empty', () {
         final r = ProbeResult(
           nostrRelays: [],
-          oxenNodes: [],
+          sessionNodes: [],
           turnServers: [],
           torNostrRelays: ['wss://tor-only.example.onion'],
           timestamp: DateTime(2026),
@@ -154,7 +154,7 @@ void main() {
       test('true when both non-empty', () {
         final r = ProbeResult(
           nostrRelays: ['wss://a'],
-          oxenNodes: [],
+          sessionNodes: [],
           turnServers: [],
           torNostrRelays: ['wss://b'],
           timestamp: DateTime(2026),
@@ -167,7 +167,7 @@ void main() {
       test('false when nostrRelays empty (even if torNostrRelays non-empty)', () {
         final r = ProbeResult(
           nostrRelays: [],
-          oxenNodes: [],
+          sessionNodes: [],
           turnServers: [],
           torNostrRelays: ['wss://tor'],
           timestamp: DateTime(2026),
@@ -178,7 +178,7 @@ void main() {
       test('true when nostrRelays non-empty', () {
         final r = ProbeResult(
           nostrRelays: ['wss://direct'],
-          oxenNodes: [],
+          sessionNodes: [],
           turnServers: [],
           torNostrRelays: [],
           timestamp: DateTime(2026),
@@ -191,7 +191,7 @@ void main() {
       test('returns first nostrRelay when available', () {
         final r = ProbeResult(
           nostrRelays: ['wss://first', 'wss://second'],
-          oxenNodes: [],
+          sessionNodes: [],
           turnServers: [],
           torNostrRelays: ['wss://tor1'],
           timestamp: DateTime(2026),
@@ -202,7 +202,7 @@ void main() {
       test('returns null when nostrRelays empty (does not fall back to tor)', () {
         final r = ProbeResult(
           nostrRelays: [],
-          oxenNodes: [],
+          sessionNodes: [],
           turnServers: [],
           torNostrRelays: ['wss://tor-only'],
           timestamp: DateTime(2026),
@@ -219,7 +219,7 @@ void main() {
       test('returns single relay when list has exactly one', () {
         final r = ProbeResult(
           nostrRelays: ['wss://only'],
-          oxenNodes: [],
+          sessionNodes: [],
           turnServers: [],
           torNostrRelays: [],
           timestamp: DateTime(2026),
@@ -232,7 +232,7 @@ void main() {
       test('all lists are empty', () {
         final r = ProbeResult.empty();
         expect(r.nostrRelays, isEmpty);
-        expect(r.oxenNodes, isEmpty);
+        expect(r.sessionNodes, isEmpty);
         expect(r.turnServers, isEmpty);
         expect(r.torNostrRelays, isEmpty);
       });
@@ -260,14 +260,14 @@ void main() {
         final ts = DateTime.utc(2026, 3, 21, 10, 30, 0);
         final r = ProbeResult(
           nostrRelays: ['wss://a', 'wss://b'],
-          oxenNodes: ['ox:1'],
+          sessionNodes: ['ox:1'],
           turnServers: ['turn:443'],
           torNostrRelays: ['wss://tor'],
           timestamp: ts,
         );
         final j = r.toJson();
         expect(j['nostrRelays'], ['wss://a', 'wss://b']);
-        expect(j['oxenNodes'], ['ox:1']);
+        expect(j['sessionNodes'], ['ox:1']);
         expect(j['turnServers'], ['turn:443']);
         expect(j['torNostrRelays'], ['wss://tor']);
         expect(j['timestamp'], ts.toIso8601String());
@@ -276,7 +276,7 @@ void main() {
       test('empty result produces map with empty lists', () {
         final j = ProbeResult.empty().toJson();
         expect(j['nostrRelays'], isEmpty);
-        expect(j['oxenNodes'], isEmpty);
+        expect(j['sessionNodes'], isEmpty);
         expect(j['turnServers'], isEmpty);
         expect(j['torNostrRelays'], isEmpty);
         expect(j['timestamp'], isA<String>());
@@ -285,7 +285,7 @@ void main() {
       test('toJson result is JSON-encodable', () {
         final r = ProbeResult(
           nostrRelays: ['wss://relay.damus.io'],
-          oxenNodes: [],
+          sessionNodes: [],
           turnServers: [],
           torNostrRelays: [],
           timestamp: DateTime.utc(2026, 1, 1),
@@ -301,14 +301,14 @@ void main() {
       test('parses all fields correctly', () {
         final j = {
           'nostrRelays': ['wss://r1', 'wss://r2'],
-          'oxenNodes': ['ox1'],
+          'sessionNodes': ['ox1'],
           'turnServers': ['t1'],
           'torNostrRelays': ['wss://tor1'],
           'timestamp': '2026-03-21T12:00:00.000',
         };
         final r = ProbeResult.fromJson(j);
         expect(r.nostrRelays, ['wss://r1', 'wss://r2']);
-        expect(r.oxenNodes, ['ox1']);
+        expect(r.sessionNodes, ['ox1']);
         expect(r.turnServers, ['t1']);
         expect(r.torNostrRelays, ['wss://tor1']);
         expect(r.timestamp, DateTime(2026, 3, 21, 12, 0, 0));
@@ -318,7 +318,7 @@ void main() {
         final j = {'timestamp': '2026-01-01T00:00:00.000'};
         final r = ProbeResult.fromJson(j);
         expect(r.nostrRelays, isEmpty);
-        expect(r.oxenNodes, isEmpty);
+        expect(r.sessionNodes, isEmpty);
         expect(r.turnServers, isEmpty);
         expect(r.torNostrRelays, isEmpty);
       });
@@ -326,14 +326,14 @@ void main() {
       test('null values default to empty lists', () {
         final j = <String, dynamic>{
           'nostrRelays': null,
-          'oxenNodes': null,
+          'sessionNodes': null,
           'turnServers': null,
           'torNostrRelays': null,
           'timestamp': '2026-01-01T00:00:00.000',
         };
         final r = ProbeResult.fromJson(j);
         expect(r.nostrRelays, isEmpty);
-        expect(r.oxenNodes, isEmpty);
+        expect(r.sessionNodes, isEmpty);
         expect(r.turnServers, isEmpty);
         expect(r.torNostrRelays, isEmpty);
       });
@@ -356,7 +356,7 @@ void main() {
       test('full result survives roundtrip', () {
         final original = ProbeResult(
           nostrRelays: ['wss://relay.damus.io', 'wss://nos.lol'],
-          oxenNodes: ['seed1.getsession.org:22023'],
+          sessionNodes: ['seed1.getsession.org:22023'],
           turnServers: ['openrelay.metered.ca:443', 'freestun.net:3479'],
           torNostrRelays: ['wss://hidden.onion'],
           timestamp: DateTime.utc(2026, 3, 21, 12, 0, 0),
@@ -365,7 +365,7 @@ void main() {
         final decoded = ProbeResult.fromJson(jsonDecode(json));
 
         expect(decoded.nostrRelays, original.nostrRelays);
-        expect(decoded.oxenNodes, original.oxenNodes);
+        expect(decoded.sessionNodes, original.sessionNodes);
         expect(decoded.turnServers, original.turnServers);
         expect(decoded.torNostrRelays, original.torNostrRelays);
         expect(decoded.timestamp, original.timestamp);
@@ -377,7 +377,7 @@ void main() {
         final decoded = ProbeResult.fromJson(jsonDecode(json));
 
         expect(decoded.nostrRelays, isEmpty);
-        expect(decoded.oxenNodes, isEmpty);
+        expect(decoded.sessionNodes, isEmpty);
         expect(decoded.turnServers, isEmpty);
         expect(decoded.torNostrRelays, isEmpty);
         expect(decoded.timestamp, original.timestamp);
@@ -386,7 +386,7 @@ void main() {
       test('getters match after roundtrip', () {
         final original = ProbeResult(
           nostrRelays: ['wss://relay.damus.io'],
-          oxenNodes: [],
+          sessionNodes: [],
           turnServers: [],
           torNostrRelays: ['wss://tor.relay.onion'],
           timestamp: DateTime.utc(2026, 6, 15),
@@ -402,7 +402,7 @@ void main() {
       test('double roundtrip produces identical JSON', () {
         final original = ProbeResult(
           nostrRelays: ['wss://a', 'wss://b'],
-          oxenNodes: ['x:1'],
+          sessionNodes: ['x:1'],
           turnServers: ['t:443'],
           torNostrRelays: ['wss://tor'],
           timestamp: DateTime.utc(2026, 1, 1),
@@ -419,7 +419,7 @@ void main() {
         final relays = List.generate(50, (i) => 'wss://relay-$i.example.com');
         final r = ProbeResult(
           nostrRelays: relays,
-          oxenNodes: [],
+          sessionNodes: [],
           turnServers: [],
           torNostrRelays: [],
           timestamp: DateTime.now(),
@@ -432,7 +432,7 @@ void main() {
       test('only torNostrRelays — hasNostr true, hasDirectNostr false, bestNostrRelay null', () {
         final r = ProbeResult(
           nostrRelays: [],
-          oxenNodes: [],
+          sessionNodes: [],
           turnServers: [],
           torNostrRelays: ['wss://tor1', 'wss://tor2'],
           timestamp: DateTime.now(),
@@ -445,7 +445,7 @@ void main() {
       test('fromJson with extra unknown keys ignores them', () {
         final j = {
           'nostrRelays': ['wss://x'],
-          'oxenNodes': [],
+          'sessionNodes': [],
           'turnServers': [],
           'torNostrRelays': [],
           'timestamp': '2026-01-01T00:00:00.000',
@@ -460,7 +460,7 @@ void main() {
         final ts = DateTime.utc(2026, 3, 21, 12, 34, 56, 789);
         final r = ProbeResult(
           nostrRelays: [],
-          oxenNodes: [],
+          sessionNodes: [],
           turnServers: [],
           torNostrRelays: [],
           timestamp: ts,
@@ -474,7 +474,7 @@ void main() {
         final relays = ['wss://a'];
         final r = ProbeResult(
           nostrRelays: relays,
-          oxenNodes: [],
+          sessionNodes: [],
           turnServers: [],
           torNostrRelays: [],
           timestamp: DateTime(2026),

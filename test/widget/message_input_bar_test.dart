@@ -86,7 +86,7 @@ void main() {
       await tester.pumpWidget(buildTestableWidget(_makeInputBar()));
       await tester.pumpAndSettle();
 
-      expect(find.byIcon(Icons.attach_file_rounded), findsOneWidget);
+      expect(find.byIcon(Icons.add), findsOneWidget);
     });
 
     // ── Test 4: Shows mic button when text is empty ───────────────────────────
@@ -96,7 +96,7 @@ void main() {
       await tester.pumpWidget(buildTestableWidget(_makeInputBar()));
       await tester.pumpAndSettle();
 
-      expect(find.byIcon(Icons.mic_rounded), findsOneWidget);
+      expect(find.byIcon(Icons.mic_none_rounded), findsOneWidget);
     });
 
     // ── Test 5: Shows send button when text is entered ────────────────────────
