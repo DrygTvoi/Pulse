@@ -801,6 +801,23 @@ class SignalingService {
   String _pruneReoferSdp(String sdp) {
     final allLines = sdp.split(RegExp(r'\r?\n'));
 
+    // ── Pre-pass: find VP9 payload type and its RTX partner ──────────────────
+    // GStreamer advertises VP8 before VP9, but VP9 gives ~50% better quality
+    // at the same bitrate.  Promote VP9 + RTX to the front so it wins
+    // negotiation even after we prune to 4 payload types.
+    String? vp9Pt;
+    String? vp9RtxPt;
+    for (final line in allLines) {
+      final m = RegExp(r'^a=rtpmap:(\d+) VP9/').firstMatch(line);
+      if (m != null) { vp9Pt = m.group(1); break; }
+    }
+    if (vp9Pt != null) {
+      for (final line in allLines) {
+        final m = RegExp(r'^a=fmtp:(\d+) apt=$vp9Pt\b').firstMatch(line);
+        if (m != null) { vp9RtxPt = m.group(1); break; }
+      }
+    }
+
     // ── Pass 1: find video m-line and pick first 4 payload types ─────────────
     Set<String> keptVideoPts = {};
     String? reducedVideoMLine;
@@ -808,7 +825,15 @@ class SignalingService {
       if (line.startsWith('m=video ')) {
         final parts = line.split(' ');
         if (parts.length > 3) {
-          final pts = parts.sublist(3);
+          var pts = parts.sublist(3);
+          // Promote VP9 (+ its RTX) to the front before taking the first 4.
+          if (vp9Pt != null && pts.contains(vp9Pt)) {
+            pts = [
+              vp9Pt!,
+              if (vp9RtxPt != null && pts.contains(vp9RtxPt)) vp9RtxPt!,
+              ...pts.where((p) => p != vp9Pt && p != vp9RtxPt),
+            ];
+          }
           // Keep first 4 payload types (covers primary codec + RTX at minimum).
           final kept = pts.length > 4 ? pts.sublist(0, 4) : pts;
           keptVideoPts = kept.toSet();

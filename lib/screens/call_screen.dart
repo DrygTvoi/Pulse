@@ -739,15 +739,30 @@ class _CallScreenState extends State<CallScreen> {
         final resHeight = resWidth > 0 ? (resWidth * 9 ~/ 16) : 0;
         final bitratePreset = _resWidthToBitrate(resWidth);
 
+        final Map<String, dynamic> videoConstraints = {
+          'mandatory': <String, dynamic>{
+            'maxFrameRate': fps,
+            if (resWidth > 0) ...{
+              'maxWidth': resWidth,
+              'maxHeight': resHeight,
+            },
+          },
+        };
+
         MediaStream stream;
-        if (Platform.isLinux || Platform.isMacOS || Platform.isWindows) {
-          // Use cached sources to avoid double PipeWire portal dialog.
-          // First screen share call populates the cache; subsequent ones skip getSources.
+        if (Platform.isLinux) {
+          // On Linux/PipeWire, getDisplayMedia() already opens the native
+          // source-picker portal by itself.  Calling desktopCapturer.getSources()
+          // first opens a SECOND portal dialog — so we skip it entirely.
+          stream = await navigator.mediaDevices.getDisplayMedia({
+            'video': videoConstraints,
+            'audio': false,
+          });
+        } else if (Platform.isMacOS || Platform.isWindows) {
+          // macOS/Windows: enumerate sources and pick the first screen manually.
           var sources = _cachedDesktopSources;
           if (sources == null || sources.isEmpty) {
-            sources = await desktopCapturer.getSources(
-              types: [SourceType.Screen],
-            );
+            sources = await desktopCapturer.getSources(types: [SourceType.Screen]);
             _cachedDesktopSources = sources;
           }
           if (sources.isEmpty) {
@@ -763,32 +778,14 @@ class _CallScreenState extends State<CallScreen> {
           final screenSources = sources.where((s) => s.type == SourceType.Screen).toList();
           final screenSource = screenSources.isNotEmpty ? screenSources.first : sources.first;
           debugPrint('[CallScreen] Using desktop source: ${screenSource.name} (${screenSource.id})');
-          final videoConstraints = <String, dynamic>{
-            'deviceId': {'exact': screenSource.id},
-            'mandatory': <String, dynamic>{
-              'maxFrameRate': fps,
-              if (resWidth > 0) ...{
-                'maxWidth': resWidth,
-                'maxHeight': resHeight,
-              },
-            },
-          };
           stream = await navigator.mediaDevices.getDisplayMedia({
-            'video': videoConstraints,
+            'video': {'deviceId': {'exact': screenSource.id}, ...videoConstraints},
             'audio': false,
           });
         } else {
-          // Mobile: getDisplayMedia works directly
+          // Mobile: getDisplayMedia works directly.
           stream = await navigator.mediaDevices.getDisplayMedia({
-            'video': {
-              'mandatory': <String, dynamic>{
-                'maxFrameRate': fps,
-                if (resWidth > 0) ...{
-                  'maxWidth': resWidth,
-                  'maxHeight': resHeight,
-                },
-              },
-            },
+            'video': videoConstraints,
             'audio': false,
           });
         }
