@@ -31,6 +31,7 @@ class VideoNoteService {
   String? _outputPath;
   DateTime? _startTime;
   bool _recording = false;
+  bool _disposing = false; // guard against double-dispose
 
   bool get isRecording => _recording;
   int get maxDuration => _maxDurationSeconds;
@@ -157,8 +158,10 @@ class VideoNoteService {
     }
   }
 
-  /// Switch between front and back camera.
+  /// Switch between front and back camera (mobile only).
   Future<void> switchCamera() async {
+    // Helper.switchCamera is not implemented on Linux/Windows.
+    if (Platform.isLinux || Platform.isWindows || Platform.isMacOS) return;
     final tracks = _localStream?.getVideoTracks();
     if (tracks == null || tracks.isEmpty) return;
     try {
@@ -170,6 +173,8 @@ class VideoNoteService {
 
   /// Release camera resources.
   Future<void> dispose() async {
+    if (_disposing) return; // prevent double-dispose
+    _disposing = true;
     await cancelRecording();
     if (_localStream != null) {
       for (final track in _localStream!.getTracks()) {
@@ -178,5 +183,6 @@ class VideoNoteService {
       await _localStream!.dispose();
       _localStream = null;
     }
+    _disposing = false;
   }
 }
