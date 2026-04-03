@@ -490,13 +490,14 @@ class AppLocalizationsPt extends AppLocalizations {
   String get setupTapToChangeColor => 'Toque para mudar a cor';
 
   @override
-  String get setupReqMinLength => 'At least 16 characters';
+  String get setupReqMinLength => 'Pelo menos 16 caracteres';
 
   @override
-  String get setupReqVariety => '3 of 4: uppercase, lowercase, digits, symbols';
+  String get setupReqVariety =>
+      '3 de 4: maiúsculas, minúsculas, dígitos, símbolos';
 
   @override
-  String get setupReqMatch => 'Passwords match';
+  String get setupReqMatch => 'Senhas coincidem';
 
   @override
   String get setupYourNickname => 'Seu apelido';
@@ -745,11 +746,11 @@ class AppLocalizationsPt extends AppLocalizations {
   }
 
   @override
-  String get chatTileVoiceMessage => '🎤 Voice message';
+  String get chatTileVoiceMessage => '🎤 Mensagem de voz';
 
   @override
   String chatTileVoiceMessageDuration(String duration) {
-    return '🎤 Voice message ($duration)';
+    return '🎤 Mensagem de voz ($duration)';
   }
 
   @override
@@ -1797,7 +1798,7 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get providerSessionInfo =>
-      'Session Network — onion-routed E2EE. Your Session ID is auto-generated and stored securely. Nodes auto-discovered from built-in seed nodes.';
+      'Session Network — E2EE com roteamento onion. Seu ID de Session é gerado automaticamente e armazenado com segurança. Os nós são descobertos automaticamente a partir dos nós semente integrados.';
 
   @override
   String get providerAdvanced => 'Avançado';
@@ -1903,7 +1904,7 @@ class AppLocalizationsPt extends AppLocalizations {
   String get networkDiagnosticsInfrastructure => 'Infraestrutura';
 
   @override
-  String get networkDiagnosticsSessionNodes => 'Session nodes';
+  String get networkDiagnosticsSessionNodes => 'Nós Session';
 
   @override
   String get networkDiagnosticsTurnServers => 'Servidores TURN';
@@ -2569,20 +2570,20 @@ class AppLocalizationsPt extends AppLocalizations {
   String get bubbleGifBadge => 'GIF';
 
   @override
-  String get settingsLanguage => 'Language';
+  String get settingsLanguage => 'Idioma';
 
   @override
-  String get settingsLanguageSubtitle => 'App display language';
+  String get settingsLanguageSubtitle => 'Idioma de exibição do aplicativo';
 
   @override
-  String get settingsLanguageSystem => 'System default';
+  String get settingsLanguageSystem => 'Padrão do sistema';
 
   @override
-  String get onboardingLanguageTitle => 'Choose your language';
+  String get onboardingLanguageTitle => 'Escolha seu idioma';
 
   @override
   String get onboardingLanguageSubtitle =>
-      'You can change this later in Settings';
+      'Você pode alterar isso mais tarde nas Configurações';
 
   @override
   String get videoNoteRecord => 'Gravar mensagem de vídeo';
@@ -2604,35 +2605,35 @@ class AppLocalizationsPt extends AppLocalizations {
       'Notas de vídeo não são suportadas nesta plataforma';
 
   @override
-  String get navChats => 'Chats';
+  String get navChats => 'Conversas';
 
   @override
-  String get navUpdates => 'Updates';
+  String get navUpdates => 'Atualizações';
 
   @override
-  String get navCalls => 'Calls';
+  String get navCalls => 'Chamadas';
 
   @override
-  String get filterAll => 'All';
+  String get filterAll => 'Todos';
 
   @override
-  String get filterUnread => 'Unread';
+  String get filterUnread => 'Não lidas';
 
   @override
-  String get filterGroups => 'Groups';
+  String get filterGroups => 'Grupos';
 
   @override
-  String get callsNoRecent => 'No recent calls';
+  String get callsNoRecent => 'Sem chamadas recentes';
 
   @override
-  String get callsEmptySubtitle => 'Your call history will appear here';
+  String get callsEmptySubtitle => 'Seu histórico de chamadas aparecerá aqui';
 
   @override
-  String get appBarEncrypted => 'end-to-end encrypted';
+  String get appBarEncrypted => 'criptografia de ponta a ponta';
 
   @override
-  String get newStatus => 'New status';
+  String get newStatus => 'Novo status';
 
   @override
-  String get newCall => 'New call';
+  String get newCall => 'Nova chamada';
 }

@@ -464,13 +464,13 @@ class AppLocalizationsKo extends AppLocalizations {
   String get setupTapToChangeColor => '탭하여 색상 변경';
 
   @override
-  String get setupReqMinLength => 'At least 16 characters';
+  String get setupReqMinLength => '최소 16자';
 
   @override
-  String get setupReqVariety => '3 of 4: uppercase, lowercase, digits, symbols';
+  String get setupReqVariety => '4가지 중 3가지: 대문자, 소문자, 숫자, 기호';
 
   @override
-  String get setupReqMatch => 'Passwords match';
+  String get setupReqMatch => '비밀번호 일치';
 
   @override
   String get setupYourNickname => '닉네임';
@@ -709,11 +709,11 @@ class AppLocalizationsKo extends AppLocalizations {
   }
 
   @override
-  String get chatTileVoiceMessage => '🎤 Voice message';
+  String get chatTileVoiceMessage => '🎤 음성 메시지';
 
   @override
   String chatTileVoiceMessageDuration(String duration) {
-    return '🎤 Voice message ($duration)';
+    return '🎤 음성 메시지 ($duration)';
   }
 
   @override
@@ -1703,7 +1703,7 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get providerSessionInfo =>
-      'Session Network — onion-routed E2EE. Your Session ID is auto-generated and stored securely. Nodes auto-discovered from built-in seed nodes.';
+      'Session Network — 양파 라우팅 E2EE. 귀하의 Session ID는 자동으로 생성되어 안전하게 저장됩니다. 노드는 내장된 시드 노드에서 자동으로 검색됩니다.';
 
   @override
   String get providerAdvanced => '고급';
@@ -1808,7 +1808,7 @@ class AppLocalizationsKo extends AppLocalizations {
   String get networkDiagnosticsInfrastructure => '인프라';
 
   @override
-  String get networkDiagnosticsSessionNodes => 'Session nodes';
+  String get networkDiagnosticsSessionNodes => 'Session 노드';
 
   @override
   String get networkDiagnosticsTurnServers => 'TURN 서버';
@@ -2459,20 +2459,19 @@ class AppLocalizationsKo extends AppLocalizations {
   String get bubbleGifBadge => 'GIF';
 
   @override
-  String get settingsLanguage => 'Language';
+  String get settingsLanguage => '언어';
 
   @override
-  String get settingsLanguageSubtitle => 'App display language';
+  String get settingsLanguageSubtitle => '앱 표시 언어';
 
   @override
-  String get settingsLanguageSystem => 'System default';
+  String get settingsLanguageSystem => '시스템 기본값';
 
   @override
-  String get onboardingLanguageTitle => 'Choose your language';
+  String get onboardingLanguageTitle => '언어 선택';
 
   @override
-  String get onboardingLanguageSubtitle =>
-      'You can change this later in Settings';
+  String get onboardingLanguageSubtitle => '나중에 설정에서 변경할 수 있습니다';
 
   @override
   String get videoNoteRecord => '동영상 메시지 녹화';
@@ -2493,35 +2492,35 @@ class AppLocalizationsKo extends AppLocalizations {
   String get videoNoteNotSupported => '이 플랫폼에서는 동영상 노트를 지원하지 않습니다';
 
   @override
-  String get navChats => 'Chats';
+  String get navChats => '채팅';
 
   @override
-  String get navUpdates => 'Updates';
+  String get navUpdates => '업데이트';
 
   @override
-  String get navCalls => 'Calls';
+  String get navCalls => '통화';
 
   @override
-  String get filterAll => 'All';
+  String get filterAll => '전체';
 
   @override
-  String get filterUnread => 'Unread';
+  String get filterUnread => '읽지 않음';
 
   @override
-  String get filterGroups => 'Groups';
+  String get filterGroups => '그룹';
 
   @override
-  String get callsNoRecent => 'No recent calls';
+  String get callsNoRecent => '최근 통화 없음';
 
   @override
-  String get callsEmptySubtitle => 'Your call history will appear here';
+  String get callsEmptySubtitle => '통화 기록이 여기에 표시됩니다';
 
   @override
-  String get appBarEncrypted => 'end-to-end encrypted';
+  String get appBarEncrypted => '종단 간 암호화';
 
   @override
-  String get newStatus => 'New status';
+  String get newStatus => '새 상태';
 
   @override
-  String get newCall => 'New call';
+  String get newCall => '새 통화';
 }

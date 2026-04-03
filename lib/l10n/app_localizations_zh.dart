@@ -461,13 +461,13 @@ class AppLocalizationsZh extends AppLocalizations {
   String get setupTapToChangeColor => '点击更换颜色';
 
   @override
-  String get setupReqMinLength => 'At least 16 characters';
+  String get setupReqMinLength => '至少16个字符';
 
   @override
-  String get setupReqVariety => '3 of 4: uppercase, lowercase, digits, symbols';
+  String get setupReqVariety => '4选3：大写、小写、数字、符号';
 
   @override
-  String get setupReqMatch => 'Passwords match';
+  String get setupReqMatch => '密码匹配';
 
   @override
   String get setupYourNickname => '你的昵称';
@@ -704,11 +704,11 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get chatTileVoiceMessage => '🎤 Voice message';
+  String get chatTileVoiceMessage => '🎤 语音消息';
 
   @override
   String chatTileVoiceMessageDuration(String duration) {
-    return '🎤 Voice message ($duration)';
+    return '🎤 语音消息 ($duration)';
   }
 
   @override
@@ -1690,7 +1690,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get providerSessionInfo =>
-      'Session Network — onion-routed E2EE. Your Session ID is auto-generated and stored securely. Nodes auto-discovered from built-in seed nodes.';
+      'Session Network — 洋葱路由E2EE。您的Session ID自动生成并安全存储。节点从内置种子节点自动发现。';
 
   @override
   String get providerAdvanced => '高级';
@@ -1795,7 +1795,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get networkDiagnosticsInfrastructure => '基础设施';
 
   @override
-  String get networkDiagnosticsSessionNodes => 'Session nodes';
+  String get networkDiagnosticsSessionNodes => 'Session 节点';
 
   @override
   String get networkDiagnosticsTurnServers => 'TURN 服务器';
@@ -2440,20 +2440,19 @@ class AppLocalizationsZh extends AppLocalizations {
   String get bubbleGifBadge => 'GIF';
 
   @override
-  String get settingsLanguage => 'Language';
+  String get settingsLanguage => '语言';
 
   @override
-  String get settingsLanguageSubtitle => 'App display language';
+  String get settingsLanguageSubtitle => '应用显示语言';
 
   @override
-  String get settingsLanguageSystem => 'System default';
+  String get settingsLanguageSystem => '系统默认';
 
   @override
-  String get onboardingLanguageTitle => 'Choose your language';
+  String get onboardingLanguageTitle => '选择您的语言';
 
   @override
-  String get onboardingLanguageSubtitle =>
-      'You can change this later in Settings';
+  String get onboardingLanguageSubtitle => '您可以稍后在设置中更改';
 
   @override
   String get videoNoteRecord => '录制视频消息';
@@ -2474,35 +2473,35 @@ class AppLocalizationsZh extends AppLocalizations {
   String get videoNoteNotSupported => '此平台不支持视频备注';
 
   @override
-  String get navChats => 'Chats';
+  String get navChats => '聊天';
 
   @override
-  String get navUpdates => 'Updates';
+  String get navUpdates => '动态';
 
   @override
-  String get navCalls => 'Calls';
+  String get navCalls => '通话';
 
   @override
-  String get filterAll => 'All';
+  String get filterAll => '全部';
 
   @override
-  String get filterUnread => 'Unread';
+  String get filterUnread => '未读';
 
   @override
-  String get filterGroups => 'Groups';
+  String get filterGroups => '群组';
 
   @override
-  String get callsNoRecent => 'No recent calls';
+  String get callsNoRecent => '没有最近通话';
 
   @override
-  String get callsEmptySubtitle => 'Your call history will appear here';
+  String get callsEmptySubtitle => '您的通话记录将显示在这里';
 
   @override
-  String get appBarEncrypted => 'end-to-end encrypted';
+  String get appBarEncrypted => '端对端加密';
 
   @override
-  String get newStatus => 'New status';
+  String get newStatus => '新状态';
 
   @override
-  String get newCall => 'New call';
+  String get newCall => '新通话';
 }

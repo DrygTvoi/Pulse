@@ -491,13 +491,14 @@ class AppLocalizationsLt extends AppLocalizations {
   String get setupTapToChangeColor => 'Bakstelėkite, kad pakeistumėte spalvą';
 
   @override
-  String get setupReqMinLength => 'At least 16 characters';
+  String get setupReqMinLength => 'Mažiausiai 16 simbolių';
 
   @override
-  String get setupReqVariety => '3 of 4: uppercase, lowercase, digits, symbols';
+  String get setupReqVariety =>
+      '3 iš 4: didžiosios, mažosios raidės, skaitmenys, simboliai';
 
   @override
-  String get setupReqMatch => 'Passwords match';
+  String get setupReqMatch => 'Slaptažodžiai sutampa';
 
   @override
   String get setupYourNickname => 'Jūsų slapyvardis';
@@ -745,11 +746,11 @@ class AppLocalizationsLt extends AppLocalizations {
   }
 
   @override
-  String get chatTileVoiceMessage => '🎤 Voice message';
+  String get chatTileVoiceMessage => '🎤 Balso žinutė';
 
   @override
   String chatTileVoiceMessageDuration(String duration) {
-    return '🎤 Voice message ($duration)';
+    return '🎤 Balso žinutė ($duration)';
   }
 
   @override
@@ -1794,7 +1795,7 @@ class AppLocalizationsLt extends AppLocalizations {
 
   @override
   String get providerSessionInfo =>
-      'Session Network — onion-routed E2EE. Your Session ID is auto-generated and stored securely. Nodes auto-discovered from built-in seed nodes.';
+      'Session Network — E2EE su svogūnų maršrutizavimu. Jūsų Session ID generuojamas automatiškai ir saugiai saugomas. Mazgai automatiškai aptinkami iš įdiegtų pradinių mazgų.';
 
   @override
   String get providerAdvanced => 'Išplėstiniai';
@@ -1900,7 +1901,7 @@ class AppLocalizationsLt extends AppLocalizations {
   String get networkDiagnosticsInfrastructure => 'Infrastruktūra';
 
   @override
-  String get networkDiagnosticsSessionNodes => 'Session nodes';
+  String get networkDiagnosticsSessionNodes => 'Session mazgai';
 
   @override
   String get networkDiagnosticsTurnServers => 'TURN serveriai';
@@ -2601,35 +2602,35 @@ class AppLocalizationsLt extends AppLocalizations {
       'Vaizdo įrašų pastabos nepalaikomos šioje platformoje';
 
   @override
-  String get navChats => 'Chats';
+  String get navChats => 'Pokalbiai';
 
   @override
-  String get navUpdates => 'Updates';
+  String get navUpdates => 'Atnaujinimai';
 
   @override
-  String get navCalls => 'Calls';
+  String get navCalls => 'Skambučiai';
 
   @override
-  String get filterAll => 'All';
+  String get filterAll => 'Visi';
 
   @override
-  String get filterUnread => 'Unread';
+  String get filterUnread => 'Neskaityti';
 
   @override
-  String get filterGroups => 'Groups';
+  String get filterGroups => 'Grupės';
 
   @override
-  String get callsNoRecent => 'No recent calls';
+  String get callsNoRecent => 'Nėra pastarųjų skambučių';
 
   @override
-  String get callsEmptySubtitle => 'Your call history will appear here';
+  String get callsEmptySubtitle => 'Jūsų skambučių istorija pasirodys čia';
 
   @override
-  String get appBarEncrypted => 'end-to-end encrypted';
+  String get appBarEncrypted => 'visiškai šifruota';
 
   @override
-  String get newStatus => 'New status';
+  String get newStatus => 'Nauja būsena';
 
   @override
-  String get newCall => 'New call';
+  String get newCall => 'Naujas skambutis';
 }

@@ -494,13 +494,13 @@ class AppLocalizationsLv extends AppLocalizations {
   String get setupTapToChangeColor => 'Pieskarieties, lai mainītu krāsu';
 
   @override
-  String get setupReqMinLength => 'At least 16 characters';
+  String get setupReqMinLength => 'Vismaz 16 rakstzīmes';
 
   @override
-  String get setupReqVariety => '3 of 4: uppercase, lowercase, digits, symbols';
+  String get setupReqVariety => '3 no 4: lielie, mazie burti, cipari, simboli';
 
   @override
-  String get setupReqMatch => 'Passwords match';
+  String get setupReqMatch => 'Paroles sakrīt';
 
   @override
   String get setupYourNickname => 'Jūsu segvārds';
@@ -747,11 +747,11 @@ class AppLocalizationsLv extends AppLocalizations {
   }
 
   @override
-  String get chatTileVoiceMessage => '🎤 Voice message';
+  String get chatTileVoiceMessage => '🎤 Balss ziņa';
 
   @override
   String chatTileVoiceMessageDuration(String duration) {
-    return '🎤 Voice message ($duration)';
+    return '🎤 Balss ziņa ($duration)';
   }
 
   @override
@@ -1789,7 +1789,7 @@ class AppLocalizationsLv extends AppLocalizations {
 
   @override
   String get providerSessionInfo =>
-      'Session Network — onion-routed E2EE. Your Session ID is auto-generated and stored securely. Nodes auto-discovered from built-in seed nodes.';
+      'Session Network — sīpolu maršrutizācijas E2EE. Jūsu Session ID tiek automātiski ģenerēts un droši uzglabāts. Mezgli tiek automātiski atklāti no iebūvētajiem sēklas mezgliem.';
 
   @override
   String get providerAdvanced => 'Papildu';
@@ -1895,7 +1895,7 @@ class AppLocalizationsLv extends AppLocalizations {
   String get networkDiagnosticsInfrastructure => 'Infrastruktūra';
 
   @override
-  String get networkDiagnosticsSessionNodes => 'Session nodes';
+  String get networkDiagnosticsSessionNodes => 'Session mezgli';
 
   @override
   String get networkDiagnosticsTurnServers => 'TURN serveri';
@@ -2595,35 +2595,35 @@ class AppLocalizationsLv extends AppLocalizations {
       'Video piezīmes netiek atbalstītas šajā platformā';
 
   @override
-  String get navChats => 'Chats';
+  String get navChats => 'Tērzēšanas';
 
   @override
-  String get navUpdates => 'Updates';
+  String get navUpdates => 'Atjauninājumi';
 
   @override
-  String get navCalls => 'Calls';
+  String get navCalls => 'Zvani';
 
   @override
-  String get filterAll => 'All';
+  String get filterAll => 'Visi';
 
   @override
-  String get filterUnread => 'Unread';
+  String get filterUnread => 'Nelasīti';
 
   @override
-  String get filterGroups => 'Groups';
+  String get filterGroups => 'Grupas';
 
   @override
-  String get callsNoRecent => 'No recent calls';
+  String get callsNoRecent => 'Nav nesenu zvanu';
 
   @override
-  String get callsEmptySubtitle => 'Your call history will appear here';
+  String get callsEmptySubtitle => 'Jūsu zvanu vēsture parādīsies šeit';
 
   @override
-  String get appBarEncrypted => 'end-to-end encrypted';
+  String get appBarEncrypted => 'pilnībā šifrēts';
 
   @override
-  String get newStatus => 'New status';
+  String get newStatus => 'Jauns statuss';
 
   @override
-  String get newCall => 'New call';
+  String get newCall => 'Jauns zvans';
 }

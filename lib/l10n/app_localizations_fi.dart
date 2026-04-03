@@ -489,13 +489,14 @@ class AppLocalizationsFi extends AppLocalizations {
   String get setupTapToChangeColor => 'Napauta vaihtaaksesi väriä';
 
   @override
-  String get setupReqMinLength => 'At least 16 characters';
+  String get setupReqMinLength => 'Vähintään 16 merkkiä';
 
   @override
-  String get setupReqVariety => '3 of 4: uppercase, lowercase, digits, symbols';
+  String get setupReqVariety =>
+      '3/4: isot, pienet kirjaimet, numerot, symbolit';
 
   @override
-  String get setupReqMatch => 'Passwords match';
+  String get setupReqMatch => 'Salasanat täsmäävät';
 
   @override
   String get setupYourNickname => 'Lempinimesi';
@@ -743,11 +744,11 @@ class AppLocalizationsFi extends AppLocalizations {
   }
 
   @override
-  String get chatTileVoiceMessage => '🎤 Voice message';
+  String get chatTileVoiceMessage => '🎤 Ääniviesti';
 
   @override
   String chatTileVoiceMessageDuration(String duration) {
-    return '🎤 Voice message ($duration)';
+    return '🎤 Ääniviesti ($duration)';
   }
 
   @override
@@ -1789,7 +1790,7 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String get providerSessionInfo =>
-      'Session Network — onion-routed E2EE. Your Session ID is auto-generated and stored securely. Nodes auto-discovered from built-in seed nodes.';
+      'Session Network — sipulireititys E2EE. Session ID:si luodaan automaattisesti ja tallennetaan turvallisesti. Solmut löydetään automaattisesti sisäisistä seed-solmuista.';
 
   @override
   String get providerAdvanced => 'Lisäasetukset';
@@ -1894,7 +1895,7 @@ class AppLocalizationsFi extends AppLocalizations {
   String get networkDiagnosticsInfrastructure => 'Infrastruktuuri';
 
   @override
-  String get networkDiagnosticsSessionNodes => 'Session nodes';
+  String get networkDiagnosticsSessionNodes => 'Session-solmut';
 
   @override
   String get networkDiagnosticsTurnServers => 'TURN-palvelimet';
@@ -2598,35 +2599,35 @@ class AppLocalizationsFi extends AppLocalizations {
       'Videomuistiinpanoja ei tueta tällä alustalla';
 
   @override
-  String get navChats => 'Chats';
+  String get navChats => 'Keskustelut';
 
   @override
-  String get navUpdates => 'Updates';
+  String get navUpdates => 'Päivitykset';
 
   @override
-  String get navCalls => 'Calls';
+  String get navCalls => 'Puhelut';
 
   @override
-  String get filterAll => 'All';
+  String get filterAll => 'Kaikki';
 
   @override
-  String get filterUnread => 'Unread';
+  String get filterUnread => 'Lukematon';
 
   @override
-  String get filterGroups => 'Groups';
+  String get filterGroups => 'Ryhmät';
 
   @override
-  String get callsNoRecent => 'No recent calls';
+  String get callsNoRecent => 'Ei viimeaikaisia puheluita';
 
   @override
-  String get callsEmptySubtitle => 'Your call history will appear here';
+  String get callsEmptySubtitle => 'Puheluhistoriasi näkyy täällä';
 
   @override
-  String get appBarEncrypted => 'end-to-end encrypted';
+  String get appBarEncrypted => 'päästä päähän salattu';
 
   @override
-  String get newStatus => 'New status';
+  String get newStatus => 'Uusi tila';
 
   @override
-  String get newCall => 'New call';
+  String get newCall => 'Uusi puhelu';
 }

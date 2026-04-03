@@ -489,13 +489,14 @@ class AppLocalizationsSw extends AppLocalizations {
   String get setupTapToChangeColor => 'Gusa kubadilisha rangi';
 
   @override
-  String get setupReqMinLength => 'At least 16 characters';
+  String get setupReqMinLength => 'Angalau herufi 16';
 
   @override
-  String get setupReqVariety => '3 of 4: uppercase, lowercase, digits, symbols';
+  String get setupReqVariety =>
+      '3 kati ya 4: herufi kubwa, ndogo, nambari, alama';
 
   @override
-  String get setupReqMatch => 'Passwords match';
+  String get setupReqMatch => 'Manenosiri yanafanana';
 
   @override
   String get setupYourNickname => 'Jina lako la utani';
@@ -743,11 +744,11 @@ class AppLocalizationsSw extends AppLocalizations {
   }
 
   @override
-  String get chatTileVoiceMessage => '🎤 Voice message';
+  String get chatTileVoiceMessage => '🎤 Ujumbe wa sauti';
 
   @override
   String chatTileVoiceMessageDuration(String duration) {
-    return '🎤 Voice message ($duration)';
+    return '🎤 Ujumbe wa sauti ($duration)';
   }
 
   @override
@@ -1790,7 +1791,7 @@ class AppLocalizationsSw extends AppLocalizations {
 
   @override
   String get providerSessionInfo =>
-      'Session Network — onion-routed E2EE. Your Session ID is auto-generated and stored securely. Nodes auto-discovered from built-in seed nodes.';
+      'Session Network — E2EE yenye uelekezaji wa vitunguu. Kitambulisho chako cha Session kinaundwa kiotomatiki na kuhifadhiwa salama. Nodi zinagunduliwa kiotomatiki kutoka kwa nodi za mbegu zilizojengwa ndani.';
 
   @override
   String get providerAdvanced => 'Ya Juu';
@@ -1895,7 +1896,7 @@ class AppLocalizationsSw extends AppLocalizations {
   String get networkDiagnosticsInfrastructure => 'Miundombinu';
 
   @override
-  String get networkDiagnosticsSessionNodes => 'Session nodes';
+  String get networkDiagnosticsSessionNodes => 'Nodi za Session';
 
   @override
   String get networkDiagnosticsTurnServers => 'Seva za TURN';
@@ -2600,35 +2601,35 @@ class AppLocalizationsSw extends AppLocalizations {
       'Vidokezo vya video havitumiki kwenye jukwaa hili';
 
   @override
-  String get navChats => 'Chats';
+  String get navChats => 'Mazungumzo';
 
   @override
-  String get navUpdates => 'Updates';
+  String get navUpdates => 'Masasisho';
 
   @override
-  String get navCalls => 'Calls';
+  String get navCalls => 'Simu';
 
   @override
-  String get filterAll => 'All';
+  String get filterAll => 'Zote';
 
   @override
-  String get filterUnread => 'Unread';
+  String get filterUnread => 'Ambayo Hayajasomwa';
 
   @override
-  String get filterGroups => 'Groups';
+  String get filterGroups => 'Makundi';
 
   @override
-  String get callsNoRecent => 'No recent calls';
+  String get callsNoRecent => 'Hakuna simu za hivi karibuni';
 
   @override
-  String get callsEmptySubtitle => 'Your call history will appear here';
+  String get callsEmptySubtitle => 'Historia yako ya simu itaonekana hapa';
 
   @override
-  String get appBarEncrypted => 'end-to-end encrypted';
+  String get appBarEncrypted => 'imesimbwa kutoka mwisho hadi mwisho';
 
   @override
-  String get newStatus => 'New status';
+  String get newStatus => 'Hali mpya';
 
   @override
-  String get newCall => 'New call';
+  String get newCall => 'Simu mpya';
 }

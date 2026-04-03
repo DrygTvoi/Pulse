@@ -487,13 +487,13 @@ class AppLocalizationsCs extends AppLocalizations {
   String get setupTapToChangeColor => 'Klepněte pro změnu barvy';
 
   @override
-  String get setupReqMinLength => 'At least 16 characters';
+  String get setupReqMinLength => 'Alespoň 16 znaků';
 
   @override
-  String get setupReqVariety => '3 of 4: uppercase, lowercase, digits, symbols';
+  String get setupReqVariety => '3 ze 4: velká, malá písmena, číslice, symboly';
 
   @override
-  String get setupReqMatch => 'Passwords match';
+  String get setupReqMatch => 'Hesla se shodují';
 
   @override
   String get setupYourNickname => 'Vaše přezdívka';
@@ -739,11 +739,11 @@ class AppLocalizationsCs extends AppLocalizations {
   }
 
   @override
-  String get chatTileVoiceMessage => '🎤 Voice message';
+  String get chatTileVoiceMessage => '🎤 Hlasová zpráva';
 
   @override
   String chatTileVoiceMessageDuration(String duration) {
-    return '🎤 Voice message ($duration)';
+    return '🎤 Hlasová zpráva ($duration)';
   }
 
   @override
@@ -1781,7 +1781,7 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String get providerSessionInfo =>
-      'Session Network — onion-routed E2EE. Your Session ID is auto-generated and stored securely. Nodes auto-discovered from built-in seed nodes.';
+      'Session Network — E2EE s cibulkovým směrováním. Vaše Session ID se generuje automaticky a ukládá se bezpečně. Uzly se automaticky zjišťují z vestavěných základních uzlů.';
 
   @override
   String get providerAdvanced => 'Pokročilé';
@@ -1886,7 +1886,7 @@ class AppLocalizationsCs extends AppLocalizations {
   String get networkDiagnosticsInfrastructure => 'Infrastruktura';
 
   @override
-  String get networkDiagnosticsSessionNodes => 'Session nodes';
+  String get networkDiagnosticsSessionNodes => 'Session uzly';
 
   @override
   String get networkDiagnosticsTurnServers => 'TURN servery';
@@ -2581,35 +2581,35 @@ class AppLocalizationsCs extends AppLocalizations {
       'Video poznámky nejsou na této platformě podporovány';
 
   @override
-  String get navChats => 'Chats';
+  String get navChats => 'Chaty';
 
   @override
-  String get navUpdates => 'Updates';
+  String get navUpdates => 'Aktualizace';
 
   @override
-  String get navCalls => 'Calls';
+  String get navCalls => 'Hovory';
 
   @override
-  String get filterAll => 'All';
+  String get filterAll => 'Vše';
 
   @override
-  String get filterUnread => 'Unread';
+  String get filterUnread => 'Nepřečtené';
 
   @override
-  String get filterGroups => 'Groups';
+  String get filterGroups => 'Skupiny';
 
   @override
-  String get callsNoRecent => 'No recent calls';
+  String get callsNoRecent => 'Žádná nedávná volání';
 
   @override
-  String get callsEmptySubtitle => 'Your call history will appear here';
+  String get callsEmptySubtitle => 'Vaše historie hovorů se zobrazí zde';
 
   @override
-  String get appBarEncrypted => 'end-to-end encrypted';
+  String get appBarEncrypted => 'šifrováno end-to-end';
 
   @override
-  String get newStatus => 'New status';
+  String get newStatus => 'Nový stav';
 
   @override
-  String get newCall => 'New call';
+  String get newCall => 'Nový hovor';
 }

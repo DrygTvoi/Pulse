@@ -494,13 +494,13 @@ class AppLocalizationsAr extends AppLocalizations {
   String get setupTapToChangeColor => 'اضغط لتغيير اللون';
 
   @override
-  String get setupReqMinLength => 'At least 16 characters';
+  String get setupReqMinLength => '16 حرفًا على الأقل';
 
   @override
-  String get setupReqVariety => '3 of 4: uppercase, lowercase, digits, symbols';
+  String get setupReqVariety => '3 من 4: أحرف كبيرة، صغيرة، أرقام، رموز';
 
   @override
-  String get setupReqMatch => 'Passwords match';
+  String get setupReqMatch => 'كلمتا المرور متطابقتان';
 
   @override
   String get setupYourNickname => 'اسمك المستعار';
@@ -752,11 +752,11 @@ class AppLocalizationsAr extends AppLocalizations {
   }
 
   @override
-  String get chatTileVoiceMessage => '🎤 Voice message';
+  String get chatTileVoiceMessage => '🎤 رسالة صوتية';
 
   @override
   String chatTileVoiceMessageDuration(String duration) {
-    return '🎤 Voice message ($duration)';
+    return '🎤 رسالة صوتية ($duration)';
   }
 
   @override
@@ -1785,7 +1785,7 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get providerSessionInfo =>
-      'Session Network — onion-routed E2EE. Your Session ID is auto-generated and stored securely. Nodes auto-discovered from built-in seed nodes.';
+      'Session Network — تشفير E2EE بالتوجيه البصلي. يتم إنشاء معرف Session تلقائيًا وتخزينه بأمان. يتم اكتشاف العقد تلقائيًا من عقد البذور المدمجة.';
 
   @override
   String get providerAdvanced => 'متقدم';
@@ -1890,7 +1890,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get networkDiagnosticsInfrastructure => 'البنية التحتية';
 
   @override
-  String get networkDiagnosticsSessionNodes => 'Session nodes';
+  String get networkDiagnosticsSessionNodes => 'عقد Session';
 
   @override
   String get networkDiagnosticsTurnServers => 'خوادم TURN';
@@ -2549,20 +2549,20 @@ class AppLocalizationsAr extends AppLocalizations {
   String get bubbleGifBadge => 'GIF';
 
   @override
-  String get settingsLanguage => 'Language';
+  String get settingsLanguage => 'اللغة';
 
   @override
-  String get settingsLanguageSubtitle => 'App display language';
+  String get settingsLanguageSubtitle => 'لغة عرض التطبيق';
 
   @override
-  String get settingsLanguageSystem => 'System default';
+  String get settingsLanguageSystem => 'افتراضي النظام';
 
   @override
-  String get onboardingLanguageTitle => 'Choose your language';
+  String get onboardingLanguageTitle => 'اختر لغتك';
 
   @override
   String get onboardingLanguageSubtitle =>
-      'You can change this later in Settings';
+      'يمكنك تغيير هذا لاحقًا في الإعدادات';
 
   @override
   String get videoNoteRecord => 'تسجيل رسالة فيديو';
@@ -2583,35 +2583,35 @@ class AppLocalizationsAr extends AppLocalizations {
   String get videoNoteNotSupported => 'رسائل الفيديو غير مدعومة على هذه المنصة';
 
   @override
-  String get navChats => 'Chats';
+  String get navChats => 'المحادثات';
 
   @override
-  String get navUpdates => 'Updates';
+  String get navUpdates => 'التحديثات';
 
   @override
-  String get navCalls => 'Calls';
+  String get navCalls => 'المكالمات';
 
   @override
-  String get filterAll => 'All';
+  String get filterAll => 'الكل';
 
   @override
-  String get filterUnread => 'Unread';
+  String get filterUnread => 'غير مقروء';
 
   @override
-  String get filterGroups => 'Groups';
+  String get filterGroups => 'المجموعات';
 
   @override
-  String get callsNoRecent => 'No recent calls';
+  String get callsNoRecent => 'لا توجد مكالمات حديثة';
 
   @override
-  String get callsEmptySubtitle => 'Your call history will appear here';
+  String get callsEmptySubtitle => 'سيظهر سجل مكالماتك هنا';
 
   @override
-  String get appBarEncrypted => 'end-to-end encrypted';
+  String get appBarEncrypted => 'مشفر من طرف إلى طرف';
 
   @override
-  String get newStatus => 'New status';
+  String get newStatus => 'حالة جديدة';
 
   @override
-  String get newCall => 'New call';
+  String get newCall => 'مكالمة جديدة';
 }

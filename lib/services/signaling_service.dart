@@ -1068,22 +1068,30 @@ class SignalingService {
   }
 
   Future<void> hangUp({bool notify = true}) async {
-    try {
-      if (notify && peerConnection != null) {
-        // Notify remote peer before tearing down
-        try {
-          await _sendSignalingData('hangup', {'reason': 'user'});
-        } catch (_) {}
-      }
-      _signalSubscription?.cancel();
-      localStream?.getTracks().forEach((t) => t.stop());
-      await localStream?.dispose();
-      remoteStream?.getTracks().forEach((t) => t.stop());
-      await remoteStream?.dispose();
-      await peerConnection?.close();
-      await _secondaryPc?.close();
-    } catch (e) {
-      debugPrint('Error during hangUp: $e');
+    // Each step is wrapped individually so a failure in one (e.g. native
+    // "stream not found") never skips the remaining cleanup — especially
+    // peerConnection.close() which must always run to release audio resources.
+    if (notify && peerConnection != null) {
+      try { await _sendSignalingData('hangup', {'reason': 'user'}); } catch (_) {}
+    }
+    _signalSubscription?.cancel();
+    try { localStream?.getTracks().forEach((t) => t.stop()); } catch (e) {
+      debugPrint('Error stopping localStream tracks: $e');
+    }
+    try { await localStream?.dispose(); } catch (e) {
+      debugPrint('Error disposing localStream: $e');
+    }
+    try { remoteStream?.getTracks().forEach((t) => t.stop()); } catch (e) {
+      debugPrint('Error stopping remoteStream tracks: $e');
+    }
+    try { await remoteStream?.dispose(); } catch (e) {
+      debugPrint('Error disposing remoteStream: $e');
+    }
+    try { await peerConnection?.close(); } catch (e) {
+      debugPrint('Error closing peerConnection: $e');
+    }
+    try { await _secondaryPc?.close(); } catch (e) {
+      debugPrint('Error closing secondaryPc: $e');
     }
   }
 }

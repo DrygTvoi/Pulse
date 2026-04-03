@@ -503,13 +503,14 @@ class AppLocalizationsEs extends AppLocalizations {
   String get setupTapToChangeColor => 'Toca para cambiar el color';
 
   @override
-  String get setupReqMinLength => 'At least 16 characters';
+  String get setupReqMinLength => 'Al menos 16 caracteres';
 
   @override
-  String get setupReqVariety => '3 of 4: uppercase, lowercase, digits, symbols';
+  String get setupReqVariety =>
+      '3 de 4: mayúsculas, minúsculas, dígitos, símbolos';
 
   @override
-  String get setupReqMatch => 'Passwords match';
+  String get setupReqMatch => 'Las contraseñas coinciden';
 
   @override
   String get setupYourNickname => 'Tu apodo';
@@ -757,11 +758,11 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
-  String get chatTileVoiceMessage => '🎤 Voice message';
+  String get chatTileVoiceMessage => '🎤 Mensaje de voz';
 
   @override
   String chatTileVoiceMessageDuration(String duration) {
-    return '🎤 Voice message ($duration)';
+    return '🎤 Mensaje de voz ($duration)';
   }
 
   @override
@@ -1810,7 +1811,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get providerSessionInfo =>
-      'Session Network — onion-routed E2EE. Your Session ID is auto-generated and stored securely. Nodes auto-discovered from built-in seed nodes.';
+      'Session Network — E2EE con enrutamiento cebolla. Su ID de Session se genera automáticamente y se almacena de forma segura. Los nodos se descubren automáticamente desde nodos semilla integrados.';
 
   @override
   String get providerAdvanced => 'Avanzado';
@@ -1915,7 +1916,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get networkDiagnosticsInfrastructure => 'Infraestructura';
 
   @override
-  String get networkDiagnosticsSessionNodes => 'Session nodes';
+  String get networkDiagnosticsSessionNodes => 'Nodos de Session';
 
   @override
   String get networkDiagnosticsTurnServers => 'Servidores TURN';
@@ -2581,20 +2582,20 @@ class AppLocalizationsEs extends AppLocalizations {
   String get bubbleGifBadge => 'GIF';
 
   @override
-  String get settingsLanguage => 'Language';
+  String get settingsLanguage => 'Idioma';
 
   @override
-  String get settingsLanguageSubtitle => 'App display language';
+  String get settingsLanguageSubtitle => 'Idioma de visualización de la app';
 
   @override
-  String get settingsLanguageSystem => 'System default';
+  String get settingsLanguageSystem => 'Predeterminado del sistema';
 
   @override
-  String get onboardingLanguageTitle => 'Choose your language';
+  String get onboardingLanguageTitle => 'Elige tu idioma';
 
   @override
   String get onboardingLanguageSubtitle =>
-      'You can change this later in Settings';
+      'Puedes cambiar esto más tarde en Configuración';
 
   @override
   String get videoNoteRecord => 'Grabar mensaje de vídeo';
@@ -2619,32 +2620,32 @@ class AppLocalizationsEs extends AppLocalizations {
   String get navChats => 'Chats';
 
   @override
-  String get navUpdates => 'Updates';
+  String get navUpdates => 'Actualizaciones';
 
   @override
-  String get navCalls => 'Calls';
+  String get navCalls => 'Llamadas';
 
   @override
-  String get filterAll => 'All';
+  String get filterAll => 'Todo';
 
   @override
-  String get filterUnread => 'Unread';
+  String get filterUnread => 'No leídos';
 
   @override
-  String get filterGroups => 'Groups';
+  String get filterGroups => 'Grupos';
 
   @override
-  String get callsNoRecent => 'No recent calls';
+  String get callsNoRecent => 'Sin llamadas recientes';
 
   @override
-  String get callsEmptySubtitle => 'Your call history will appear here';
+  String get callsEmptySubtitle => 'Tu historial de llamadas aparecerá aquí';
 
   @override
-  String get appBarEncrypted => 'end-to-end encrypted';
+  String get appBarEncrypted => 'cifrado de extremo a extremo';
 
   @override
-  String get newStatus => 'New status';
+  String get newStatus => 'Nuevo estado';
 
   @override
-  String get newCall => 'New call';
+  String get newCall => 'Nueva llamada';
 }

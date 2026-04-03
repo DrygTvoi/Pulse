@@ -487,13 +487,14 @@ class AppLocalizationsKa extends AppLocalizations {
   String get setupTapToChangeColor => 'შეეხეთ ფერის შესაცვლელად';
 
   @override
-  String get setupReqMinLength => 'At least 16 characters';
+  String get setupReqMinLength => 'მინიმუმ 16 სიმბოლო';
 
   @override
-  String get setupReqVariety => '3 of 4: uppercase, lowercase, digits, symbols';
+  String get setupReqVariety =>
+      '4-დან 3: დიდი, პატარა ასოები, ციფრები, სიმბოლოები';
 
   @override
-  String get setupReqMatch => 'Passwords match';
+  String get setupReqMatch => 'პაროლები ემთხვევა';
 
   @override
   String get setupYourNickname => 'თქვენი მეტსახელი';
@@ -741,11 +742,11 @@ class AppLocalizationsKa extends AppLocalizations {
   }
 
   @override
-  String get chatTileVoiceMessage => '🎤 Voice message';
+  String get chatTileVoiceMessage => '🎤 ხმოვანი შეტყობინება';
 
   @override
   String chatTileVoiceMessageDuration(String duration) {
-    return '🎤 Voice message ($duration)';
+    return '🎤 ხმოვანი შეტყობინება ($duration)';
   }
 
   @override
@@ -1789,7 +1790,7 @@ class AppLocalizationsKa extends AppLocalizations {
 
   @override
   String get providerSessionInfo =>
-      'Session Network — onion-routed E2EE. Your Session ID is auto-generated and stored securely. Nodes auto-discovered from built-in seed nodes.';
+      'Session Network — ხახვის მარშრუტიზაციით E2EE. თქვენი Session ID ავტომატურად იქმნება და უსაფრთხოდ ინახება. კვანძები ავტომატურად აღმოჩენილია ჩაშენებული seed კვანძებიდან.';
 
   @override
   String get providerAdvanced => 'გაფართოებული';
@@ -1894,7 +1895,7 @@ class AppLocalizationsKa extends AppLocalizations {
   String get networkDiagnosticsInfrastructure => 'ინფრასტრუქტურა';
 
   @override
-  String get networkDiagnosticsSessionNodes => 'Session nodes';
+  String get networkDiagnosticsSessionNodes => 'Session კვანძები';
 
   @override
   String get networkDiagnosticsTurnServers => 'TURN სერვერები';
@@ -2594,35 +2595,35 @@ class AppLocalizationsKa extends AppLocalizations {
       'ვიდეო შენიშვნები არ არის მხარდაჭერილი ამ პლატფორმაზე';
 
   @override
-  String get navChats => 'Chats';
+  String get navChats => 'ჩატები';
 
   @override
-  String get navUpdates => 'Updates';
+  String get navUpdates => 'განახლებები';
 
   @override
-  String get navCalls => 'Calls';
+  String get navCalls => 'ზარები';
 
   @override
-  String get filterAll => 'All';
+  String get filterAll => 'ყველა';
 
   @override
-  String get filterUnread => 'Unread';
+  String get filterUnread => 'წაუკითხავი';
 
   @override
-  String get filterGroups => 'Groups';
+  String get filterGroups => 'ჯგუფები';
 
   @override
-  String get callsNoRecent => 'No recent calls';
+  String get callsNoRecent => 'ბოლო ზარები არ არის';
 
   @override
-  String get callsEmptySubtitle => 'Your call history will appear here';
+  String get callsEmptySubtitle => 'თქვენი ზარების ისტორია გამოჩნდება აქ';
 
   @override
-  String get appBarEncrypted => 'end-to-end encrypted';
+  String get appBarEncrypted => 'ბოლო-ბოლო დაშიფრული';
 
   @override
-  String get newStatus => 'New status';
+  String get newStatus => 'ახალი სტატუსი';
 
   @override
-  String get newCall => 'New call';
+  String get newCall => 'ახალი ზარი';
 }

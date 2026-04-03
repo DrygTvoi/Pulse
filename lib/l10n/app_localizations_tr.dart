@@ -486,13 +486,14 @@ class AppLocalizationsTr extends AppLocalizations {
   String get setupTapToChangeColor => 'Renk değiştirmek için dokunun';
 
   @override
-  String get setupReqMinLength => 'At least 16 characters';
+  String get setupReqMinLength => 'En az 16 karakter';
 
   @override
-  String get setupReqVariety => '3 of 4: uppercase, lowercase, digits, symbols';
+  String get setupReqVariety =>
+      '4\'ten 3\'ü: büyük harf, küçük harf, rakam, sembol';
 
   @override
-  String get setupReqMatch => 'Passwords match';
+  String get setupReqMatch => 'Parolalar eşleşiyor';
 
   @override
   String get setupYourNickname => 'Takma adınız';
@@ -740,11 +741,11 @@ class AppLocalizationsTr extends AppLocalizations {
   }
 
   @override
-  String get chatTileVoiceMessage => '🎤 Voice message';
+  String get chatTileVoiceMessage => '🎤 Sesli mesaj';
 
   @override
   String chatTileVoiceMessageDuration(String duration) {
-    return '🎤 Voice message ($duration)';
+    return '🎤 Sesli mesaj ($duration)';
   }
 
   @override
@@ -1784,7 +1785,7 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get providerSessionInfo =>
-      'Session Network — onion-routed E2EE. Your Session ID is auto-generated and stored securely. Nodes auto-discovered from built-in seed nodes.';
+      'Session Network — soğan yönlendirmeli E2EE. Session ID\'niz otomatik olarak oluşturulur ve güvenli şekilde saklanır. Düğümler, yerleşik seed düğümlerinden otomatik olarak keşfedilir.';
 
   @override
   String get providerAdvanced => 'Gelişmiş';
@@ -1890,7 +1891,7 @@ class AppLocalizationsTr extends AppLocalizations {
   String get networkDiagnosticsInfrastructure => 'Altyapı';
 
   @override
-  String get networkDiagnosticsSessionNodes => 'Session nodes';
+  String get networkDiagnosticsSessionNodes => 'Session düğümleri';
 
   @override
   String get networkDiagnosticsTurnServers => 'TURN sunucuları';
@@ -2559,20 +2560,20 @@ class AppLocalizationsTr extends AppLocalizations {
   String get bubbleGifBadge => 'GIF';
 
   @override
-  String get settingsLanguage => 'Language';
+  String get settingsLanguage => 'Dil';
 
   @override
-  String get settingsLanguageSubtitle => 'App display language';
+  String get settingsLanguageSubtitle => 'Uygulama görüntüleme dili';
 
   @override
-  String get settingsLanguageSystem => 'System default';
+  String get settingsLanguageSystem => 'Sistem varsayılanı';
 
   @override
-  String get onboardingLanguageTitle => 'Choose your language';
+  String get onboardingLanguageTitle => 'Dilinizi seçin';
 
   @override
   String get onboardingLanguageSubtitle =>
-      'You can change this later in Settings';
+      'Bunu daha sonra Ayarlar\'dan değiştirebilirsiniz';
 
   @override
   String get videoNoteRecord => 'Video mesajı kaydet';
@@ -2594,35 +2595,35 @@ class AppLocalizationsTr extends AppLocalizations {
       'Video notlar bu platformda desteklenmiyor';
 
   @override
-  String get navChats => 'Chats';
+  String get navChats => 'Sohbetler';
 
   @override
-  String get navUpdates => 'Updates';
+  String get navUpdates => 'Güncellemeler';
 
   @override
-  String get navCalls => 'Calls';
+  String get navCalls => 'Aramalar';
 
   @override
-  String get filterAll => 'All';
+  String get filterAll => 'Tümü';
 
   @override
-  String get filterUnread => 'Unread';
+  String get filterUnread => 'Okunmamış';
 
   @override
-  String get filterGroups => 'Groups';
+  String get filterGroups => 'Gruplar';
 
   @override
-  String get callsNoRecent => 'No recent calls';
+  String get callsNoRecent => 'Son arama yok';
 
   @override
-  String get callsEmptySubtitle => 'Your call history will appear here';
+  String get callsEmptySubtitle => 'Arama geçmişiniz burada görünecek';
 
   @override
-  String get appBarEncrypted => 'end-to-end encrypted';
+  String get appBarEncrypted => 'uçtan uca şifreli';
 
   @override
-  String get newStatus => 'New status';
+  String get newStatus => 'Yeni durum';
 
   @override
-  String get newCall => 'New call';
+  String get newCall => 'Yeni arama';
 }

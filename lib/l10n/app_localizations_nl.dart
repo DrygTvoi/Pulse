@@ -489,13 +489,14 @@ class AppLocalizationsNl extends AppLocalizations {
   String get setupTapToChangeColor => 'Tik om kleur te wijzigen';
 
   @override
-  String get setupReqMinLength => 'At least 16 characters';
+  String get setupReqMinLength => 'Minimaal 16 tekens';
 
   @override
-  String get setupReqVariety => '3 of 4: uppercase, lowercase, digits, symbols';
+  String get setupReqVariety =>
+      '3 van 4: hoofdletters, kleine letters, cijfers, symbolen';
 
   @override
-  String get setupReqMatch => 'Passwords match';
+  String get setupReqMatch => 'Wachtwoorden komen overeen';
 
   @override
   String get setupYourNickname => 'Je bijnaam';
@@ -743,11 +744,11 @@ class AppLocalizationsNl extends AppLocalizations {
   }
 
   @override
-  String get chatTileVoiceMessage => '🎤 Voice message';
+  String get chatTileVoiceMessage => '🎤 Spraakbericht';
 
   @override
   String chatTileVoiceMessageDuration(String duration) {
-    return '🎤 Voice message ($duration)';
+    return '🎤 Spraakbericht ($duration)';
   }
 
   @override
@@ -1785,7 +1786,7 @@ class AppLocalizationsNl extends AppLocalizations {
 
   @override
   String get providerSessionInfo =>
-      'Session Network — onion-routed E2EE. Your Session ID is auto-generated and stored securely. Nodes auto-discovered from built-in seed nodes.';
+      'Session Network — ui-gerouteerde E2EE. Uw Session ID wordt automatisch aangemaakt en veilig opgeslagen. Knooppunten worden automatisch ontdekt van ingebouwde zaadknooppunten.';
 
   @override
   String get providerAdvanced => 'Geavanceerd';
@@ -1890,7 +1891,7 @@ class AppLocalizationsNl extends AppLocalizations {
   String get networkDiagnosticsInfrastructure => 'Infrastructuur';
 
   @override
-  String get networkDiagnosticsSessionNodes => 'Session nodes';
+  String get networkDiagnosticsSessionNodes => 'Session-knooppunten';
 
   @override
   String get networkDiagnosticsTurnServers => 'TURN-servers';
@@ -2598,29 +2599,29 @@ class AppLocalizationsNl extends AppLocalizations {
   String get navUpdates => 'Updates';
 
   @override
-  String get navCalls => 'Calls';
+  String get navCalls => 'Oproepen';
 
   @override
-  String get filterAll => 'All';
+  String get filterAll => 'Alles';
 
   @override
-  String get filterUnread => 'Unread';
+  String get filterUnread => 'Ongelezen';
 
   @override
-  String get filterGroups => 'Groups';
+  String get filterGroups => 'Groepen';
 
   @override
-  String get callsNoRecent => 'No recent calls';
+  String get callsNoRecent => 'Geen recente oproepen';
 
   @override
-  String get callsEmptySubtitle => 'Your call history will appear here';
+  String get callsEmptySubtitle => 'Uw belgeschiedenis verschijnt hier';
 
   @override
-  String get appBarEncrypted => 'end-to-end encrypted';
+  String get appBarEncrypted => 'eind-tot-eind versleuteld';
 
   @override
-  String get newStatus => 'New status';
+  String get newStatus => 'Nieuwe status';
 
   @override
-  String get newCall => 'New call';
+  String get newCall => 'Nieuw gesprek';
 }

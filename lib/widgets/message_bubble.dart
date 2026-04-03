@@ -77,10 +77,89 @@ class MessageBubble extends StatelessWidget {
 
   static const _unencryptedPrefix = '⚠️ UNENCRYPTED: ';
 
+  /// Try to parse a call record JSON payload.
+  /// Returns the decoded map or null if this is not a call record.
+  static Map<String, dynamic>? _tryParseCallRecord(String text) {
+    if (!text.startsWith('{')) return null;
+    try {
+      final m = jsonDecode(text) as Map<String, dynamic>;
+      if (m['t'] == 'call') return m;
+    } catch (_) {}
+    return null;
+  }
+
+  /// Renders a WhatsApp-style call history row — no bubble, centered.
+  Widget _buildCallRow(BuildContext context, Map<String, dynamic> record) {
+    final outgoing = record['outgoing'] as bool? ?? true;
+    final connected = record['connected'] as bool? ?? false;
+    final dur = record['duration'] as int? ?? 0;
+
+    final IconData icon;
+    final Color iconColor;
+    final String label;
+
+    if (!connected && !outgoing) {
+      icon = Icons.call_missed_rounded;
+      iconColor = Colors.redAccent;
+      label = 'Missed call';
+    } else if (outgoing) {
+      icon = Icons.call_made_rounded;
+      iconColor = connected ? Colors.green : Colors.grey;
+      label = 'Outgoing call';
+    } else {
+      icon = Icons.call_received_rounded;
+      iconColor = Colors.green;
+      label = 'Incoming call';
+    }
+
+    final durationStr = connected && dur > 0
+        ? ' · ${dur ~/ 60}:${(dur % 60).toString().padLeft(2, '0')}'
+        : '';
+
+    final timeStr = _fmtTime(timestamp);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 16),
+      child: Center(
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: iconColor, size: 16),
+            const SizedBox(width: 5),
+            Text(
+              '$label$durationStr',
+              style: GoogleFonts.inter(
+                color: AppTheme.textSecondary,
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              timeStr,
+              style: GoogleFonts.inter(
+                color: AppTheme.textSecondary.withValues(alpha: 0.6),
+                fontSize: 11,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  static String _fmtTime(DateTime t) {
+    return '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+  }
+
   @override
   Widget build(BuildContext context) {
     final isUnencrypted = message.startsWith(_unencryptedPrefix);
     final rawText = isUnencrypted ? message.substring(_unencryptedPrefix.length) : message;
+
+    // Call history record — render as centered system row, not a bubble.
+    final callRecord = _tryParseCallRecord(rawText);
+    if (callRecord != null) return _buildCallRow(context, callRecord);
 
     // Detect media payload
     final media = MediaService.parse(rawText);

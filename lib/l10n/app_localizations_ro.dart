@@ -487,13 +487,14 @@ class AppLocalizationsRo extends AppLocalizations {
   String get setupTapToChangeColor => 'Atinge pentru a schimba culoarea';
 
   @override
-  String get setupReqMinLength => 'At least 16 characters';
+  String get setupReqMinLength => 'Cel puțin 16 caractere';
 
   @override
-  String get setupReqVariety => '3 of 4: uppercase, lowercase, digits, symbols';
+  String get setupReqVariety =>
+      '3 din 4: majuscule, minuscule, cifre, simboluri';
 
   @override
-  String get setupReqMatch => 'Passwords match';
+  String get setupReqMatch => 'Parolele se potrivesc';
 
   @override
   String get setupYourNickname => 'Porecla ta';
@@ -741,11 +742,11 @@ class AppLocalizationsRo extends AppLocalizations {
   }
 
   @override
-  String get chatTileVoiceMessage => '🎤 Voice message';
+  String get chatTileVoiceMessage => '🎤 Mesaj vocal';
 
   @override
   String chatTileVoiceMessageDuration(String duration) {
-    return '🎤 Voice message ($duration)';
+    return '🎤 Mesaj vocal ($duration)';
   }
 
   @override
@@ -1794,7 +1795,7 @@ class AppLocalizationsRo extends AppLocalizations {
 
   @override
   String get providerSessionInfo =>
-      'Session Network — onion-routed E2EE. Your Session ID is auto-generated and stored securely. Nodes auto-discovered from built-in seed nodes.';
+      'Session Network — E2EE cu rutare onion. ID-ul tău de Session este generat automat și stocat în siguranță. Nodurile sunt descoperite automat din nodurile seed integrate.';
 
   @override
   String get providerAdvanced => 'Avansat';
@@ -1899,7 +1900,7 @@ class AppLocalizationsRo extends AppLocalizations {
   String get networkDiagnosticsInfrastructure => 'Infrastructură';
 
   @override
-  String get networkDiagnosticsSessionNodes => 'Session nodes';
+  String get networkDiagnosticsSessionNodes => 'Noduri Session';
 
   @override
   String get networkDiagnosticsTurnServers => 'Servere TURN';
@@ -2596,35 +2597,35 @@ class AppLocalizationsRo extends AppLocalizations {
       'Notele video nu sunt acceptate pe această platformă';
 
   @override
-  String get navChats => 'Chats';
+  String get navChats => 'Conversații';
 
   @override
-  String get navUpdates => 'Updates';
+  String get navUpdates => 'Actualizări';
 
   @override
-  String get navCalls => 'Calls';
+  String get navCalls => 'Apeluri';
 
   @override
-  String get filterAll => 'All';
+  String get filterAll => 'Toate';
 
   @override
-  String get filterUnread => 'Unread';
+  String get filterUnread => 'Necitite';
 
   @override
-  String get filterGroups => 'Groups';
+  String get filterGroups => 'Grupuri';
 
   @override
-  String get callsNoRecent => 'No recent calls';
+  String get callsNoRecent => 'Niciun apel recent';
 
   @override
-  String get callsEmptySubtitle => 'Your call history will appear here';
+  String get callsEmptySubtitle => 'Istoricul apelurilor va apărea aici';
 
   @override
-  String get appBarEncrypted => 'end-to-end encrypted';
+  String get appBarEncrypted => 'criptat de la capăt la capăt';
 
   @override
-  String get newStatus => 'New status';
+  String get newStatus => 'Stare nouă';
 
   @override
-  String get newCall => 'New call';
+  String get newCall => 'Apel nou';
 }

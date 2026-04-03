@@ -486,13 +486,13 @@ class AppLocalizationsVi extends AppLocalizations {
   String get setupTapToChangeColor => 'Nhấn để đổi màu';
 
   @override
-  String get setupReqMinLength => 'At least 16 characters';
+  String get setupReqMinLength => 'Ít nhất 16 ký tự';
 
   @override
-  String get setupReqVariety => '3 of 4: uppercase, lowercase, digits, symbols';
+  String get setupReqVariety => '3 trong 4: chữ hoa, thường, chữ số, ký hiệu';
 
   @override
-  String get setupReqMatch => 'Passwords match';
+  String get setupReqMatch => 'Mật khẩu khớp';
 
   @override
   String get setupYourNickname => 'Biệt danh của bạn';
@@ -739,11 +739,11 @@ class AppLocalizationsVi extends AppLocalizations {
   }
 
   @override
-  String get chatTileVoiceMessage => '🎤 Voice message';
+  String get chatTileVoiceMessage => '🎤 Tin nhắn thoại';
 
   @override
   String chatTileVoiceMessageDuration(String duration) {
-    return '🎤 Voice message ($duration)';
+    return '🎤 Tin nhắn thoại ($duration)';
   }
 
   @override
@@ -1772,7 +1772,7 @@ class AppLocalizationsVi extends AppLocalizations {
 
   @override
   String get providerSessionInfo =>
-      'Session Network — onion-routed E2EE. Your Session ID is auto-generated and stored securely. Nodes auto-discovered from built-in seed nodes.';
+      'Session Network — E2EE định tuyến hành. ID Session của bạn được tạo tự động và lưu trữ an toàn. Các nút được khám phá tự động từ các nút hạt giống tích hợp.';
 
   @override
   String get providerAdvanced => 'Nâng cao';
@@ -1877,7 +1877,7 @@ class AppLocalizationsVi extends AppLocalizations {
   String get networkDiagnosticsInfrastructure => 'Hạ tầng';
 
   @override
-  String get networkDiagnosticsSessionNodes => 'Session nodes';
+  String get networkDiagnosticsSessionNodes => 'Nút Session';
 
   @override
   String get networkDiagnosticsTurnServers => 'Máy chủ TURN';
@@ -2571,35 +2571,36 @@ class AppLocalizationsVi extends AppLocalizations {
       'Ghi chú video không được hỗ trợ trên nền tảng này';
 
   @override
-  String get navChats => 'Chats';
+  String get navChats => 'Trò chuyện';
 
   @override
-  String get navUpdates => 'Updates';
+  String get navUpdates => 'Cập nhật';
 
   @override
-  String get navCalls => 'Calls';
+  String get navCalls => 'Cuộc gọi';
 
   @override
-  String get filterAll => 'All';
+  String get filterAll => 'Tất cả';
 
   @override
-  String get filterUnread => 'Unread';
+  String get filterUnread => 'Chưa đọc';
 
   @override
-  String get filterGroups => 'Groups';
+  String get filterGroups => 'Nhóm';
 
   @override
-  String get callsNoRecent => 'No recent calls';
+  String get callsNoRecent => 'Không có cuộc gọi gần đây';
 
   @override
-  String get callsEmptySubtitle => 'Your call history will appear here';
+  String get callsEmptySubtitle =>
+      'Lịch sử cuộc gọi của bạn sẽ xuất hiện ở đây';
 
   @override
-  String get appBarEncrypted => 'end-to-end encrypted';
+  String get appBarEncrypted => 'mã hóa đầu cuối';
 
   @override
-  String get newStatus => 'New status';
+  String get newStatus => 'Trạng thái mới';
 
   @override
-  String get newCall => 'New call';
+  String get newCall => 'Cuộc gọi mới';
 }

@@ -485,13 +485,13 @@ class AppLocalizationsTh extends AppLocalizations {
   String get setupTapToChangeColor => 'แตะเพื่อเปลี่ยนสี';
 
   @override
-  String get setupReqMinLength => 'At least 16 characters';
+  String get setupReqMinLength => 'อย่างน้อย 16 ตัวอักษร';
 
   @override
-  String get setupReqVariety => '3 of 4: uppercase, lowercase, digits, symbols';
+  String get setupReqVariety => '3 ใน 4: ตัวพิมพ์ใหญ่ เล็ก ตัวเลข สัญลักษณ์';
 
   @override
-  String get setupReqMatch => 'Passwords match';
+  String get setupReqMatch => 'รหัสผ่านตรงกัน';
 
   @override
   String get setupYourNickname => 'ชื่อเล่นของคุณ';
@@ -737,11 +737,11 @@ class AppLocalizationsTh extends AppLocalizations {
   }
 
   @override
-  String get chatTileVoiceMessage => '🎤 Voice message';
+  String get chatTileVoiceMessage => '🎤 ข้อความเสียง';
 
   @override
   String chatTileVoiceMessageDuration(String duration) {
-    return '🎤 Voice message ($duration)';
+    return '🎤 ข้อความเสียง ($duration)';
   }
 
   @override
@@ -1764,7 +1764,7 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String get providerSessionInfo =>
-      'Session Network — onion-routed E2EE. Your Session ID is auto-generated and stored securely. Nodes auto-discovered from built-in seed nodes.';
+      'Session Network — E2EE แบบ onion routing รหัส Session ของคุณถูกสร้างโดยอัตโนมัติและเก็บไว้อย่างปลอดภัย โหนดถูกค้นพบโดยอัตโนมัติจาก seed nodes ที่ฝังไว้';
 
   @override
   String get providerAdvanced => 'ขั้นสูง';
@@ -1869,7 +1869,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get networkDiagnosticsInfrastructure => 'โครงสร้างพื้นฐาน';
 
   @override
-  String get networkDiagnosticsSessionNodes => 'Session nodes';
+  String get networkDiagnosticsSessionNodes => 'โหนด Session';
 
   @override
   String get networkDiagnosticsTurnServers => 'เซิร์ฟเวอร์ TURN';
@@ -2563,35 +2563,35 @@ class AppLocalizationsTh extends AppLocalizations {
   String get videoNoteNotSupported => 'ไม่รองรับบันทึกวิดีโอบนแพลตฟอร์มนี้';
 
   @override
-  String get navChats => 'Chats';
+  String get navChats => 'แชท';
 
   @override
-  String get navUpdates => 'Updates';
+  String get navUpdates => 'อัปเดต';
 
   @override
-  String get navCalls => 'Calls';
+  String get navCalls => 'การโทร';
 
   @override
-  String get filterAll => 'All';
+  String get filterAll => 'ทั้งหมด';
 
   @override
-  String get filterUnread => 'Unread';
+  String get filterUnread => 'ยังไม่ได้อ่าน';
 
   @override
-  String get filterGroups => 'Groups';
+  String get filterGroups => 'กลุ่ม';
 
   @override
-  String get callsNoRecent => 'No recent calls';
+  String get callsNoRecent => 'ไม่มีการโทรล่าสุด';
 
   @override
-  String get callsEmptySubtitle => 'Your call history will appear here';
+  String get callsEmptySubtitle => 'ประวัติการโทรของคุณจะแสดงที่นี่';
 
   @override
-  String get appBarEncrypted => 'end-to-end encrypted';
+  String get appBarEncrypted => 'เข้ารหัสจากต้นทางถึงปลายทาง';
 
   @override
-  String get newStatus => 'New status';
+  String get newStatus => 'สถานะใหม่';
 
   @override
-  String get newCall => 'New call';
+  String get newCall => 'การโทรใหม่';
 }

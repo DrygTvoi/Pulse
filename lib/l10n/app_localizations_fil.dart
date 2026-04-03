@@ -491,13 +491,14 @@ class AppLocalizationsFil extends AppLocalizations {
   String get setupTapToChangeColor => 'I-tap para palitan ang kulay';
 
   @override
-  String get setupReqMinLength => 'At least 16 characters';
+  String get setupReqMinLength => 'Hindi bababa sa 16 na karakter';
 
   @override
-  String get setupReqVariety => '3 of 4: uppercase, lowercase, digits, symbols';
+  String get setupReqVariety =>
+      '3 sa 4: malaking titik, maliit na titik, numero, simbolo';
 
   @override
-  String get setupReqMatch => 'Passwords match';
+  String get setupReqMatch => 'Magkatugma ang mga password';
 
   @override
   String get setupYourNickname => 'Ang iyong palayaw';
@@ -1798,7 +1799,7 @@ class AppLocalizationsFil extends AppLocalizations {
 
   @override
   String get providerSessionInfo =>
-      'Session Network — onion-routed E2EE. Your Session ID is auto-generated and stored securely. Nodes auto-discovered from built-in seed nodes.';
+      'Session Network — onion-routed E2EE. Ang iyong Session ID ay awtomatikong nagagawa at naka-imbak nang ligtas. Ang mga node ay awtomatikong natuklasan mula sa mga built-in na seed node.';
 
   @override
   String get providerAdvanced => 'Advanced';
@@ -1904,7 +1905,7 @@ class AppLocalizationsFil extends AppLocalizations {
   String get networkDiagnosticsInfrastructure => 'Imprastruktura';
 
   @override
-  String get networkDiagnosticsSessionNodes => 'Session nodes';
+  String get networkDiagnosticsSessionNodes => 'Mga Session node';
 
   @override
   String get networkDiagnosticsTurnServers => 'Mga TURN server';
@@ -2605,35 +2606,36 @@ class AppLocalizationsFil extends AppLocalizations {
       'Hindi sinusuportahan ang mga video note sa platform na ito';
 
   @override
-  String get navChats => 'Chats';
+  String get navChats => 'Mga Chat';
 
   @override
-  String get navUpdates => 'Updates';
+  String get navUpdates => 'Mga Update';
 
   @override
-  String get navCalls => 'Calls';
+  String get navCalls => 'Mga Tawag';
 
   @override
-  String get filterAll => 'All';
+  String get filterAll => 'Lahat';
 
   @override
-  String get filterUnread => 'Unread';
+  String get filterUnread => 'Hindi pa nabasa';
 
   @override
-  String get filterGroups => 'Groups';
+  String get filterGroups => 'Mga Grupo';
 
   @override
-  String get callsNoRecent => 'No recent calls';
+  String get callsNoRecent => 'Walang mga kamakailang tawag';
 
   @override
-  String get callsEmptySubtitle => 'Your call history will appear here';
+  String get callsEmptySubtitle =>
+      'Ang kasaysayan ng iyong mga tawag ay lilitaw dito';
 
   @override
-  String get appBarEncrypted => 'end-to-end encrypted';
+  String get appBarEncrypted => 'end-to-end na naka-encrypt';
 
   @override
-  String get newStatus => 'New status';
+  String get newStatus => 'Bagong status';
 
   @override
-  String get newCall => 'New call';
+  String get newCall => 'Bagong tawag';
 }

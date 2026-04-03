@@ -485,13 +485,14 @@ class AppLocalizationsKm extends AppLocalizations {
   String get setupTapToChangeColor => 'ចុចដើម្បីប្តូរពណ៌';
 
   @override
-  String get setupReqMinLength => 'At least 16 characters';
+  String get setupReqMinLength => 'យ៉ាងហោចណាស់ 16 តួអក្សរ';
 
   @override
-  String get setupReqVariety => '3 of 4: uppercase, lowercase, digits, symbols';
+  String get setupReqVariety =>
+      '3 ក្នុងចំណោម 4: អក្សរធំ តូច លេខ និងនិមិត្តសញ្ញា';
 
   @override
-  String get setupReqMatch => 'Passwords match';
+  String get setupReqMatch => 'ពាក្យសម្ងាត់ត្រូវគ្នា';
 
   @override
   String get setupYourNickname => 'ឈ្មោះហៅក្រៅរបស់អ្នក';
@@ -737,11 +738,11 @@ class AppLocalizationsKm extends AppLocalizations {
   }
 
   @override
-  String get chatTileVoiceMessage => '🎤 Voice message';
+  String get chatTileVoiceMessage => '🎤 សារជាសំឡេង';
 
   @override
   String chatTileVoiceMessageDuration(String duration) {
-    return '🎤 Voice message ($duration)';
+    return '🎤 សារជាសំឡេង ($duration)';
   }
 
   @override
@@ -1778,7 +1779,7 @@ class AppLocalizationsKm extends AppLocalizations {
 
   @override
   String get providerSessionInfo =>
-      'Session Network — onion-routed E2EE. Your Session ID is auto-generated and stored securely. Nodes auto-discovered from built-in seed nodes.';
+      'Session Network — E2EE ដែលផ្ញើតាមផ្លូវវង្វែង។ Session ID របស់អ្នកត្រូវបានបង្កើតដោយស្វ័យប្រវត្តិ និងរក្សាទុកដោយសុវត្ថិភាព។ ថ្នាំងត្រូវបានស្វែងរកដោយស្វ័យប្រវត្តិពីថ្នាំង seed ដែលភ្ជាប់មកជាមួយ។';
 
   @override
   String get providerAdvanced => 'កម្រិតខ្ពស់';
@@ -1884,7 +1885,7 @@ class AppLocalizationsKm extends AppLocalizations {
   String get networkDiagnosticsInfrastructure => 'ហេដ្ឋារចនាសម្ព័ន្ធ';
 
   @override
-  String get networkDiagnosticsSessionNodes => 'Session nodes';
+  String get networkDiagnosticsSessionNodes => 'ថ្នាំង Session';
 
   @override
   String get networkDiagnosticsTurnServers => 'TURN servers';
@@ -2583,35 +2584,35 @@ class AppLocalizationsKm extends AppLocalizations {
       'កំណត់ចំណាំវីដេអូមិនត្រូវបានគាំទ្រនៅលើវេទិកានេះទេ';
 
   @override
-  String get navChats => 'Chats';
+  String get navChats => 'ការជជែក';
 
   @override
-  String get navUpdates => 'Updates';
+  String get navUpdates => 'បច្ចុប្បន្នភាព';
 
   @override
-  String get navCalls => 'Calls';
+  String get navCalls => 'ការហៅ';
 
   @override
-  String get filterAll => 'All';
+  String get filterAll => 'ទាំងអស់';
 
   @override
-  String get filterUnread => 'Unread';
+  String get filterUnread => 'មិនទាន់អាន';
 
   @override
-  String get filterGroups => 'Groups';
+  String get filterGroups => 'ក្រុម';
 
   @override
-  String get callsNoRecent => 'No recent calls';
+  String get callsNoRecent => 'គ្មានការហៅថ្មីៗ';
 
   @override
-  String get callsEmptySubtitle => 'Your call history will appear here';
+  String get callsEmptySubtitle => 'ប្រវត្តិការហៅរបស់អ្នកនឹងបង្ហាញនៅទីនេះ';
 
   @override
-  String get appBarEncrypted => 'end-to-end encrypted';
+  String get appBarEncrypted => 'ការអ៊ិនគ្រីបពីចុងដល់ចុង';
 
   @override
-  String get newStatus => 'New status';
+  String get newStatus => 'ស្ថានភាពថ្មី';
 
   @override
-  String get newCall => 'New call';
+  String get newCall => 'ការហៅថ្មី';
 }

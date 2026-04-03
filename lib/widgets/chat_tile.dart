@@ -88,6 +88,21 @@ class ChatTile extends StatelessWidget {
                  (text.startsWith('{"t":"chunk"') && text.contains('"mt":"voice"'))) {
         final voiceLabel = _voiceLabel(context, text);
         subtitle = isMe ? context.l10n.chatTileYouPrefix(voiceLabel) : voiceLabel;
+      } else if (text.startsWith('{"t":"call"')) {
+        // Call history record — show a phone icon + label
+        final outgoing = text.contains('"outgoing":true');
+        final connected = text.contains('"connected":true');
+        final durMatch = RegExp(r'"duration"\s*:\s*(\d+)').firstMatch(text);
+        final dur = durMatch != null ? int.tryParse(durMatch.group(1)!) ?? 0 : 0;
+        final durStr = connected && dur > 0
+            ? ' · ${dur ~/ 60}:${(dur % 60).toString().padLeft(2, '0')}'
+            : '';
+        final label = (!connected && !outgoing)
+            ? '📵 Missed call'
+            : outgoing
+                ? '📞 Outgoing call$durStr'
+                : '📞 Incoming call$durStr';
+        subtitle = label;
       } else if (text.startsWith('{"t":"img"') || text.startsWith('{"t":"gif"') ||
                  text.startsWith('{"t":"file"') || text.startsWith('{"t":"video_note"') ||
                  text.startsWith('{"t":"chunk"')) {

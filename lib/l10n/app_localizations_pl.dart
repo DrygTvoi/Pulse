@@ -491,13 +491,13 @@ class AppLocalizationsPl extends AppLocalizations {
   String get setupTapToChangeColor => 'Kliknij, aby zmienić kolor';
 
   @override
-  String get setupReqMinLength => 'At least 16 characters';
+  String get setupReqMinLength => 'Co najmniej 16 znaków';
 
   @override
-  String get setupReqVariety => '3 of 4: uppercase, lowercase, digits, symbols';
+  String get setupReqVariety => '3 z 4: wielkie, małe litery, cyfry, symbole';
 
   @override
-  String get setupReqMatch => 'Passwords match';
+  String get setupReqMatch => 'Hasła są zgodne';
 
   @override
   String get setupYourNickname => 'Twój pseudonim';
@@ -745,11 +745,11 @@ class AppLocalizationsPl extends AppLocalizations {
   }
 
   @override
-  String get chatTileVoiceMessage => '🎤 Voice message';
+  String get chatTileVoiceMessage => '🎤 Wiadomość głosowa';
 
   @override
   String chatTileVoiceMessageDuration(String duration) {
-    return '🎤 Voice message ($duration)';
+    return '🎤 Wiadomość głosowa ($duration)';
   }
 
   @override
@@ -1796,7 +1796,7 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get providerSessionInfo =>
-      'Session Network — onion-routed E2EE. Your Session ID is auto-generated and stored securely. Nodes auto-discovered from built-in seed nodes.';
+      'Session Network — E2EE z routingiem cebulowym. Twój Session ID jest generowany automatycznie i przechowywany bezpiecznie. Węzły są automatycznie wykrywane z wbudowanych węzłów bazowych.';
 
   @override
   String get providerAdvanced => 'Zaawansowane';
@@ -1901,7 +1901,7 @@ class AppLocalizationsPl extends AppLocalizations {
   String get networkDiagnosticsInfrastructure => 'Infrastruktura';
 
   @override
-  String get networkDiagnosticsSessionNodes => 'Session nodes';
+  String get networkDiagnosticsSessionNodes => 'Węzły Session';
 
   @override
   String get networkDiagnosticsTurnServers => 'Serwery TURN';
@@ -2565,20 +2565,20 @@ class AppLocalizationsPl extends AppLocalizations {
   String get bubbleGifBadge => 'GIF';
 
   @override
-  String get settingsLanguage => 'Language';
+  String get settingsLanguage => 'Język';
 
   @override
-  String get settingsLanguageSubtitle => 'App display language';
+  String get settingsLanguageSubtitle => 'Język wyświetlania aplikacji';
 
   @override
-  String get settingsLanguageSystem => 'System default';
+  String get settingsLanguageSystem => 'Domyślny systemowy';
 
   @override
-  String get onboardingLanguageTitle => 'Choose your language';
+  String get onboardingLanguageTitle => 'Wybierz język';
 
   @override
   String get onboardingLanguageSubtitle =>
-      'You can change this later in Settings';
+      'Możesz to zmienić później w Ustawieniach';
 
   @override
   String get videoNoteRecord => 'Nagraj wiadomość wideo';
@@ -2600,35 +2600,35 @@ class AppLocalizationsPl extends AppLocalizations {
       'Notatki wideo nie są obsługiwane na tej platformie';
 
   @override
-  String get navChats => 'Chats';
+  String get navChats => 'Czaty';
 
   @override
-  String get navUpdates => 'Updates';
+  String get navUpdates => 'Aktualizacje';
 
   @override
-  String get navCalls => 'Calls';
+  String get navCalls => 'Połączenia';
 
   @override
-  String get filterAll => 'All';
+  String get filterAll => 'Wszystkie';
 
   @override
-  String get filterUnread => 'Unread';
+  String get filterUnread => 'Nieprzeczytane';
 
   @override
-  String get filterGroups => 'Groups';
+  String get filterGroups => 'Grupy';
 
   @override
-  String get callsNoRecent => 'No recent calls';
+  String get callsNoRecent => 'Brak ostatnich połączeń';
 
   @override
-  String get callsEmptySubtitle => 'Your call history will appear here';
+  String get callsEmptySubtitle => 'Twoja historia połączeń pojawi się tutaj';
 
   @override
-  String get appBarEncrypted => 'end-to-end encrypted';
+  String get appBarEncrypted => 'szyfrowanie end-to-end';
 
   @override
-  String get newStatus => 'New status';
+  String get newStatus => 'Nowy status';
 
   @override
-  String get newCall => 'New call';
+  String get newCall => 'Nowe połączenie';
 }

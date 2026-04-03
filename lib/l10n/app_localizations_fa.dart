@@ -483,13 +483,13 @@ class AppLocalizationsFa extends AppLocalizations {
   String get setupTapToChangeColor => 'برای تغییر رنگ ضربه بزنید';
 
   @override
-  String get setupReqMinLength => 'At least 16 characters';
+  String get setupReqMinLength => 'حداقل ۱۶ کاراکتر';
 
   @override
-  String get setupReqVariety => '3 of 4: uppercase, lowercase, digits, symbols';
+  String get setupReqVariety => '۳ از ۴: حروف بزرگ، کوچک، اعداد، نمادها';
 
   @override
-  String get setupReqMatch => 'Passwords match';
+  String get setupReqMatch => 'رمزهای عبور مطابقت دارند';
 
   @override
   String get setupYourNickname => 'نام مستعار شما';
@@ -735,11 +735,11 @@ class AppLocalizationsFa extends AppLocalizations {
   }
 
   @override
-  String get chatTileVoiceMessage => '🎤 Voice message';
+  String get chatTileVoiceMessage => '🎤 پیام صوتی';
 
   @override
   String chatTileVoiceMessageDuration(String duration) {
-    return '🎤 Voice message ($duration)';
+    return '🎤 پیام صوتی ($duration)';
   }
 
   @override
@@ -1771,7 +1771,7 @@ class AppLocalizationsFa extends AppLocalizations {
 
   @override
   String get providerSessionInfo =>
-      'Session Network — onion-routed E2EE. Your Session ID is auto-generated and stored securely. Nodes auto-discovered from built-in seed nodes.';
+      'Session Network — E2EE با مسیریابی پیازی. شناسه Session شما به طور خودکار تولید و به صورت امن ذخیره می‌شود. گره‌ها به طور خودکار از گره‌های seed داخلی کشف می‌شوند.';
 
   @override
   String get providerAdvanced => 'پیشرفته';
@@ -1876,7 +1876,7 @@ class AppLocalizationsFa extends AppLocalizations {
   String get networkDiagnosticsInfrastructure => 'زیرساخت';
 
   @override
-  String get networkDiagnosticsSessionNodes => 'Session nodes';
+  String get networkDiagnosticsSessionNodes => 'گره‌های Session';
 
   @override
   String get networkDiagnosticsTurnServers => 'سرورهای TURN';
@@ -2574,35 +2574,36 @@ class AppLocalizationsFa extends AppLocalizations {
       'یادداشت‌های ویدیویی در این پلتفرم پشتیبانی نمی‌شوند';
 
   @override
-  String get navChats => 'Chats';
+  String get navChats => 'چت‌ها';
 
   @override
-  String get navUpdates => 'Updates';
+  String get navUpdates => 'به‌روزرسانی‌ها';
 
   @override
-  String get navCalls => 'Calls';
+  String get navCalls => 'تماس‌ها';
 
   @override
-  String get filterAll => 'All';
+  String get filterAll => 'همه';
 
   @override
-  String get filterUnread => 'Unread';
+  String get filterUnread => 'خوانده نشده';
 
   @override
-  String get filterGroups => 'Groups';
+  String get filterGroups => 'گروه‌ها';
 
   @override
-  String get callsNoRecent => 'No recent calls';
+  String get callsNoRecent => 'هیچ تماس اخیری وجود ندارد';
 
   @override
-  String get callsEmptySubtitle => 'Your call history will appear here';
+  String get callsEmptySubtitle =>
+      'تاریخچه تماس‌های شما اینجا نمایش داده می‌شود';
 
   @override
-  String get appBarEncrypted => 'end-to-end encrypted';
+  String get appBarEncrypted => 'رمزگذاری سرتاسر';
 
   @override
-  String get newStatus => 'New status';
+  String get newStatus => 'وضعیت جدید';
 
   @override
-  String get newCall => 'New call';
+  String get newCall => 'تماس جدید';
 }

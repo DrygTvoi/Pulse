@@ -488,13 +488,14 @@ class AppLocalizationsSv extends AppLocalizations {
   String get setupTapToChangeColor => 'Tryck för att ändra färg';
 
   @override
-  String get setupReqMinLength => 'At least 16 characters';
+  String get setupReqMinLength => 'Minst 16 tecken';
 
   @override
-  String get setupReqVariety => '3 of 4: uppercase, lowercase, digits, symbols';
+  String get setupReqVariety =>
+      '3 av 4: stora, små bokstäver, siffror, symboler';
 
   @override
-  String get setupReqMatch => 'Passwords match';
+  String get setupReqMatch => 'Lösenorden stämmer överens';
 
   @override
   String get setupYourNickname => 'Ditt smeknamn';
@@ -740,11 +741,11 @@ class AppLocalizationsSv extends AppLocalizations {
   }
 
   @override
-  String get chatTileVoiceMessage => '🎤 Voice message';
+  String get chatTileVoiceMessage => '🎤 Röstmeddelande';
 
   @override
   String chatTileVoiceMessageDuration(String duration) {
-    return '🎤 Voice message ($duration)';
+    return '🎤 Röstmeddelande ($duration)';
   }
 
   @override
@@ -1777,7 +1778,7 @@ class AppLocalizationsSv extends AppLocalizations {
 
   @override
   String get providerSessionInfo =>
-      'Session Network — onion-routed E2EE. Your Session ID is auto-generated and stored securely. Nodes auto-discovered from built-in seed nodes.';
+      'Session Network — lök-rutad E2EE. Ditt Session ID genereras automatiskt och lagras säkert. Noder upptäcks automatiskt från inbyggda frönoder.';
 
   @override
   String get providerAdvanced => 'Avancerat';
@@ -1882,7 +1883,7 @@ class AppLocalizationsSv extends AppLocalizations {
   String get networkDiagnosticsInfrastructure => 'Infrastruktur';
 
   @override
-  String get networkDiagnosticsSessionNodes => 'Session nodes';
+  String get networkDiagnosticsSessionNodes => 'Session-noder';
 
   @override
   String get networkDiagnosticsTurnServers => 'TURN-servrar';
@@ -2579,35 +2580,35 @@ class AppLocalizationsSv extends AppLocalizations {
       'Videoanteckningar stöds inte på den här plattformen';
 
   @override
-  String get navChats => 'Chats';
+  String get navChats => 'Chattar';
 
   @override
-  String get navUpdates => 'Updates';
+  String get navUpdates => 'Uppdateringar';
 
   @override
-  String get navCalls => 'Calls';
+  String get navCalls => 'Samtal';
 
   @override
-  String get filterAll => 'All';
+  String get filterAll => 'Alla';
 
   @override
-  String get filterUnread => 'Unread';
+  String get filterUnread => 'Oläst';
 
   @override
-  String get filterGroups => 'Groups';
+  String get filterGroups => 'Grupper';
 
   @override
-  String get callsNoRecent => 'No recent calls';
+  String get callsNoRecent => 'Inga senaste samtal';
 
   @override
-  String get callsEmptySubtitle => 'Your call history will appear here';
+  String get callsEmptySubtitle => 'Din samtalshistorik visas här';
 
   @override
-  String get appBarEncrypted => 'end-to-end encrypted';
+  String get appBarEncrypted => 'ände-till-ände krypterat';
 
   @override
-  String get newStatus => 'New status';
+  String get newStatus => 'Ny status';
 
   @override
-  String get newCall => 'New call';
+  String get newCall => 'Nytt samtal';
 }

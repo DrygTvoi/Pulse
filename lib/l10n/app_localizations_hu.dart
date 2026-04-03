@@ -490,13 +490,14 @@ class AppLocalizationsHu extends AppLocalizations {
   String get setupTapToChangeColor => 'Koppints a szín megváltoztatásához';
 
   @override
-  String get setupReqMinLength => 'At least 16 characters';
+  String get setupReqMinLength => 'Legalább 16 karakter';
 
   @override
-  String get setupReqVariety => '3 of 4: uppercase, lowercase, digits, symbols';
+  String get setupReqVariety =>
+      '4-ből 3: nagy-, kisbetűk, számjegyek, szimbólumok';
 
   @override
-  String get setupReqMatch => 'Passwords match';
+  String get setupReqMatch => 'A jelszavak egyeznek';
 
   @override
   String get setupYourNickname => 'A beceneved';
@@ -743,11 +744,11 @@ class AppLocalizationsHu extends AppLocalizations {
   }
 
   @override
-  String get chatTileVoiceMessage => '🎤 Voice message';
+  String get chatTileVoiceMessage => '🎤 Hangüzenet';
 
   @override
   String chatTileVoiceMessageDuration(String duration) {
-    return '🎤 Voice message ($duration)';
+    return '🎤 Hangüzenet ($duration)';
   }
 
   @override
@@ -1796,7 +1797,7 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get providerSessionInfo =>
-      'Session Network — onion-routed E2EE. Your Session ID is auto-generated and stored securely. Nodes auto-discovered from built-in seed nodes.';
+      'Session Network — hagymás útválasztású E2EE. A Session ID-je automatikusan generálódik és biztonságosan tárolódik. A csomópontok automatikusan felfedezhetők a beépített kezdő csomópontokból.';
 
   @override
   String get providerAdvanced => 'Speciális';
@@ -1901,7 +1902,7 @@ class AppLocalizationsHu extends AppLocalizations {
   String get networkDiagnosticsInfrastructure => 'Infrastruktúra';
 
   @override
-  String get networkDiagnosticsSessionNodes => 'Session nodes';
+  String get networkDiagnosticsSessionNodes => 'Session csomópontok';
 
   @override
   String get networkDiagnosticsTurnServers => 'TURN szerverek';
@@ -2601,35 +2602,35 @@ class AppLocalizationsHu extends AppLocalizations {
       'A videójegyzetek ezen a platformon nem támogatottak';
 
   @override
-  String get navChats => 'Chats';
+  String get navChats => 'Csevegések';
 
   @override
-  String get navUpdates => 'Updates';
+  String get navUpdates => 'Frissítések';
 
   @override
-  String get navCalls => 'Calls';
+  String get navCalls => 'Hívások';
 
   @override
-  String get filterAll => 'All';
+  String get filterAll => 'Összes';
 
   @override
-  String get filterUnread => 'Unread';
+  String get filterUnread => 'Olvasatlan';
 
   @override
-  String get filterGroups => 'Groups';
+  String get filterGroups => 'Csoportok';
 
   @override
-  String get callsNoRecent => 'No recent calls';
+  String get callsNoRecent => 'Nincs legutóbbi hívás';
 
   @override
-  String get callsEmptySubtitle => 'Your call history will appear here';
+  String get callsEmptySubtitle => 'A hívási előzmények itt fognak megjelenni';
 
   @override
-  String get appBarEncrypted => 'end-to-end encrypted';
+  String get appBarEncrypted => 'végponttól végpontig titkosított';
 
   @override
-  String get newStatus => 'New status';
+  String get newStatus => 'Új állapot';
 
   @override
-  String get newCall => 'New call';
+  String get newCall => 'Új hívás';
 }

@@ -487,13 +487,14 @@ class AppLocalizationsAz extends AppLocalizations {
   String get setupTapToChangeColor => 'Rəngi dəyişmək üçün toxunun';
 
   @override
-  String get setupReqMinLength => 'At least 16 characters';
+  String get setupReqMinLength => 'Ən azı 16 simvol';
 
   @override
-  String get setupReqVariety => '3 of 4: uppercase, lowercase, digits, symbols';
+  String get setupReqVariety =>
+      '4-dən 3-ü: böyük, kiçik hərflər, rəqəmlər, simvollar';
 
   @override
-  String get setupReqMatch => 'Passwords match';
+  String get setupReqMatch => 'Şifrələr uyğun gəlir';
 
   @override
   String get setupYourNickname => 'Ləqəbiniz';
@@ -740,11 +741,11 @@ class AppLocalizationsAz extends AppLocalizations {
   }
 
   @override
-  String get chatTileVoiceMessage => '🎤 Voice message';
+  String get chatTileVoiceMessage => '🎤 Səs mesajı';
 
   @override
   String chatTileVoiceMessageDuration(String duration) {
-    return '🎤 Voice message ($duration)';
+    return '🎤 Səs mesajı ($duration)';
   }
 
   @override
@@ -1786,7 +1787,7 @@ class AppLocalizationsAz extends AppLocalizations {
 
   @override
   String get providerSessionInfo =>
-      'Session Network — onion-routed E2EE. Your Session ID is auto-generated and stored securely. Nodes auto-discovered from built-in seed nodes.';
+      'Session Network — soğan yönləndirilmiş E2EE. Session ID-niz avtomatik yaradılır və təhlükəsiz saxlanılır. Qovşaqlar daxili toxum qovşaqlarından avtomatik kəşf edilir.';
 
   @override
   String get providerAdvanced => 'Ətraflı';
@@ -1893,7 +1894,7 @@ class AppLocalizationsAz extends AppLocalizations {
   String get networkDiagnosticsInfrastructure => 'İnfrastruktur';
 
   @override
-  String get networkDiagnosticsSessionNodes => 'Session nodes';
+  String get networkDiagnosticsSessionNodes => 'Session qovşaqları';
 
   @override
   String get networkDiagnosticsTurnServers => 'TURN serverləri';
@@ -2596,35 +2597,35 @@ class AppLocalizationsAz extends AppLocalizations {
       'Video qeydlər bu platformada dəstəklənmir';
 
   @override
-  String get navChats => 'Chats';
+  String get navChats => 'Söhbətlər';
 
   @override
-  String get navUpdates => 'Updates';
+  String get navUpdates => 'Yeniləmələr';
 
   @override
-  String get navCalls => 'Calls';
+  String get navCalls => 'Zənglər';
 
   @override
-  String get filterAll => 'All';
+  String get filterAll => 'Hamısı';
 
   @override
-  String get filterUnread => 'Unread';
+  String get filterUnread => 'Oxunmamış';
 
   @override
-  String get filterGroups => 'Groups';
+  String get filterGroups => 'Qruplar';
 
   @override
-  String get callsNoRecent => 'No recent calls';
+  String get callsNoRecent => 'Son zənglər yoxdur';
 
   @override
-  String get callsEmptySubtitle => 'Your call history will appear here';
+  String get callsEmptySubtitle => 'Zəng tarixçəniz burada görünəcək';
 
   @override
-  String get appBarEncrypted => 'end-to-end encrypted';
+  String get appBarEncrypted => 'başdan-başa şifrələnmiş';
 
   @override
-  String get newStatus => 'New status';
+  String get newStatus => 'Yeni status';
 
   @override
-  String get newCall => 'New call';
+  String get newCall => 'Yeni zəng';
 }

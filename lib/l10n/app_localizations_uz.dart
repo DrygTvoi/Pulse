@@ -488,13 +488,14 @@ class AppLocalizationsUz extends AppLocalizations {
   String get setupTapToChangeColor => 'Rangni oʻzgartirish uchun bosing';
 
   @override
-  String get setupReqMinLength => 'At least 16 characters';
+  String get setupReqMinLength => 'Kamida 16 ta belgi';
 
   @override
-  String get setupReqVariety => '3 of 4: uppercase, lowercase, digits, symbols';
+  String get setupReqVariety =>
+      '4 tadan 3: katta, kichik harflar, raqamlar, belgilar';
 
   @override
-  String get setupReqMatch => 'Passwords match';
+  String get setupReqMatch => 'Parollar mos keladi';
 
   @override
   String get setupYourNickname => 'Sizning taxallusingiz';
@@ -742,11 +743,11 @@ class AppLocalizationsUz extends AppLocalizations {
   }
 
   @override
-  String get chatTileVoiceMessage => '🎤 Voice message';
+  String get chatTileVoiceMessage => '🎤 Ovozli xabar';
 
   @override
   String chatTileVoiceMessageDuration(String duration) {
-    return '🎤 Voice message ($duration)';
+    return '🎤 Ovozli xabar ($duration)';
   }
 
   @override
@@ -1795,7 +1796,7 @@ class AppLocalizationsUz extends AppLocalizations {
 
   @override
   String get providerSessionInfo =>
-      'Session Network — onion-routed E2EE. Your Session ID is auto-generated and stored securely. Nodes auto-discovered from built-in seed nodes.';
+      'Session Network — piyoz-yo\'naltirish E2EE. Session ID\'ingiz avtomatik ravishda yaratiladi va xavfsiz saqlanadi. Tugunlar o\'rnatilgan seed tugunlardan avtomatik ravishda kashf etiladi.';
 
   @override
   String get providerAdvanced => 'Kengaytirilgan';
@@ -1901,7 +1902,7 @@ class AppLocalizationsUz extends AppLocalizations {
   String get networkDiagnosticsInfrastructure => 'Infratuzilma';
 
   @override
-  String get networkDiagnosticsSessionNodes => 'Session nodes';
+  String get networkDiagnosticsSessionNodes => 'Session tugunlari';
 
   @override
   String get networkDiagnosticsTurnServers => 'TURN serverlar';
@@ -2603,35 +2604,36 @@ class AppLocalizationsUz extends AppLocalizations {
       'Video eslatmalar ushbu platformada qo\'llab-quvvatlanmaydi';
 
   @override
-  String get navChats => 'Chats';
+  String get navChats => 'Chatlar';
 
   @override
-  String get navUpdates => 'Updates';
+  String get navUpdates => 'Yangilanishlar';
 
   @override
-  String get navCalls => 'Calls';
+  String get navCalls => 'Qo\'ng\'iroqlar';
 
   @override
-  String get filterAll => 'All';
+  String get filterAll => 'Barchasi';
 
   @override
-  String get filterUnread => 'Unread';
+  String get filterUnread => 'O\'qilmagan';
 
   @override
-  String get filterGroups => 'Groups';
+  String get filterGroups => 'Guruhlar';
 
   @override
-  String get callsNoRecent => 'No recent calls';
+  String get callsNoRecent => 'So\'nggi qo\'ng\'iroqlar yo\'q';
 
   @override
-  String get callsEmptySubtitle => 'Your call history will appear here';
+  String get callsEmptySubtitle =>
+      'Qo\'ng\'iroqlar tarixingiz bu yerda ko\'rinadi';
 
   @override
-  String get appBarEncrypted => 'end-to-end encrypted';
+  String get appBarEncrypted => 'uchdan-uchga shifrlangan';
 
   @override
-  String get newStatus => 'New status';
+  String get newStatus => 'Yangi holat';
 
   @override
-  String get newCall => 'New call';
+  String get newCall => 'Yangi qo\'ng\'iroq';
 }

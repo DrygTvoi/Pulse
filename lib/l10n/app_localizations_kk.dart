@@ -485,13 +485,13 @@ class AppLocalizationsKk extends AppLocalizations {
   String get setupTapToChangeColor => 'Түсті өзгерту үшін басыңыз';
 
   @override
-  String get setupReqMinLength => 'At least 16 characters';
+  String get setupReqMinLength => 'Кемінде 16 таңба';
 
   @override
-  String get setupReqVariety => '3 of 4: uppercase, lowercase, digits, symbols';
+  String get setupReqVariety => '4-тен 3: бас, кіші әріптер, сандар, белгілер';
 
   @override
-  String get setupReqMatch => 'Passwords match';
+  String get setupReqMatch => 'Парольдер сәйкес келеді';
 
   @override
   String get setupYourNickname => 'Сіздің лақап атыңыз';
@@ -737,11 +737,11 @@ class AppLocalizationsKk extends AppLocalizations {
   }
 
   @override
-  String get chatTileVoiceMessage => '🎤 Voice message';
+  String get chatTileVoiceMessage => '🎤 Дыбыстық хабарлама';
 
   @override
   String chatTileVoiceMessageDuration(String duration) {
-    return '🎤 Voice message ($duration)';
+    return '🎤 Дыбыстық хабарлама ($duration)';
   }
 
   @override
@@ -1784,7 +1784,7 @@ class AppLocalizationsKk extends AppLocalizations {
 
   @override
   String get providerSessionInfo =>
-      'Session Network — onion-routed E2EE. Your Session ID is auto-generated and stored securely. Nodes auto-discovered from built-in seed nodes.';
+      'Session Network — пияз-бағытталған E2EE. Сіздің Session ID автоматты түрде жасалады және қауіпсіз сақталады. Түйіндер кіріктірілген тұқым түйіндерінен автоматты түрде анықталады.';
 
   @override
   String get providerAdvanced => 'Кеңейтілген';
@@ -1889,7 +1889,7 @@ class AppLocalizationsKk extends AppLocalizations {
   String get networkDiagnosticsInfrastructure => 'Инфрақұрылым';
 
   @override
-  String get networkDiagnosticsSessionNodes => 'Session nodes';
+  String get networkDiagnosticsSessionNodes => 'Session түйіндері';
 
   @override
   String get networkDiagnosticsTurnServers => 'TURN серверлері';
@@ -2592,35 +2592,35 @@ class AppLocalizationsKk extends AppLocalizations {
       'Бейне жазбалар бұл платформада қолданылмайды';
 
   @override
-  String get navChats => 'Chats';
+  String get navChats => 'Чаттар';
 
   @override
-  String get navUpdates => 'Updates';
+  String get navUpdates => 'Жаңартулар';
 
   @override
-  String get navCalls => 'Calls';
+  String get navCalls => 'Қоңыраулар';
 
   @override
-  String get filterAll => 'All';
+  String get filterAll => 'Барлық';
 
   @override
-  String get filterUnread => 'Unread';
+  String get filterUnread => 'Оқылмаған';
 
   @override
-  String get filterGroups => 'Groups';
+  String get filterGroups => 'Топтар';
 
   @override
-  String get callsNoRecent => 'No recent calls';
+  String get callsNoRecent => 'Соңғы қоңыраулар жоқ';
 
   @override
-  String get callsEmptySubtitle => 'Your call history will appear here';
+  String get callsEmptySubtitle => 'Қоңырау тарихыңыз мұнда пайда болады';
 
   @override
-  String get appBarEncrypted => 'end-to-end encrypted';
+  String get appBarEncrypted => 'ұштан-ұшқа шифрланған';
 
   @override
-  String get newStatus => 'New status';
+  String get newStatus => 'Жаңа күй';
 
   @override
-  String get newCall => 'New call';
+  String get newCall => 'Жаңа қоңырау';
 }

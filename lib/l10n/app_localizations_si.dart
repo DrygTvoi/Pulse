@@ -486,13 +486,13 @@ class AppLocalizationsSi extends AppLocalizations {
   String get setupTapToChangeColor => 'වර්ණය වෙනස් කිරීමට තට්ටු කරන්න';
 
   @override
-  String get setupReqMinLength => 'At least 16 characters';
+  String get setupReqMinLength => 'අවම වශයෙන් අකුරු 16ක්';
 
   @override
-  String get setupReqVariety => '3 of 4: uppercase, lowercase, digits, symbols';
+  String get setupReqVariety => '4 න් 3: කැපිටල්, කුඩා අකුරු, ඉලක්කම්, සංකේත';
 
   @override
-  String get setupReqMatch => 'Passwords match';
+  String get setupReqMatch => 'මුරපද ගැළපේ';
 
   @override
   String get setupYourNickname => 'ඔබේ අන්වර්ථ නාමය';
@@ -738,11 +738,11 @@ class AppLocalizationsSi extends AppLocalizations {
   }
 
   @override
-  String get chatTileVoiceMessage => '🎤 Voice message';
+  String get chatTileVoiceMessage => '🎤 හඬ පණිවිඩය';
 
   @override
   String chatTileVoiceMessageDuration(String duration) {
-    return '🎤 Voice message ($duration)';
+    return '🎤 හඬ පණිවිඩය ($duration)';
   }
 
   @override
@@ -1779,7 +1779,7 @@ class AppLocalizationsSi extends AppLocalizations {
 
   @override
   String get providerSessionInfo =>
-      'Session Network — onion-routed E2EE. Your Session ID is auto-generated and stored securely. Nodes auto-discovered from built-in seed nodes.';
+      'Session Network — ළූනු-මාර්ගගත E2EE. ඔබේ Session ID ස්වයංක්‍රීයව ජනනය වී ආරක්ෂිතව ගබඩා කෙරේ. Node ස්වයංක්‍රීයව ගොඩනඟන ලද seed nodes වලින් සොයා ගැනේ.';
 
   @override
   String get providerAdvanced => 'උසස්';
@@ -1884,7 +1884,7 @@ class AppLocalizationsSi extends AppLocalizations {
   String get networkDiagnosticsInfrastructure => 'යටිතල පහසුකම්';
 
   @override
-  String get networkDiagnosticsSessionNodes => 'Session nodes';
+  String get networkDiagnosticsSessionNodes => 'Session නෝඩ්';
 
   @override
   String get networkDiagnosticsTurnServers => 'TURN සේවාදායක';
@@ -2585,35 +2585,35 @@ class AppLocalizationsSi extends AppLocalizations {
       'මෙම වේදිකාවේ වීඩියෝ සටහන් සඳහා සහාය නොමැත';
 
   @override
-  String get navChats => 'Chats';
+  String get navChats => 'කතාබස්';
 
   @override
-  String get navUpdates => 'Updates';
+  String get navUpdates => 'යාවත්කාලීන';
 
   @override
-  String get navCalls => 'Calls';
+  String get navCalls => 'ඇමතුම්';
 
   @override
-  String get filterAll => 'All';
+  String get filterAll => 'සියල්ල';
 
   @override
-  String get filterUnread => 'Unread';
+  String get filterUnread => 'නොකියවූ';
 
   @override
-  String get filterGroups => 'Groups';
+  String get filterGroups => 'කණ්ඩායම්';
 
   @override
-  String get callsNoRecent => 'No recent calls';
+  String get callsNoRecent => 'මෑත ඇමතුම් නැත';
 
   @override
-  String get callsEmptySubtitle => 'Your call history will appear here';
+  String get callsEmptySubtitle => 'ඔබේ ඇමතුම් ඉතිහාසය මෙහි දිස්වේ';
 
   @override
-  String get appBarEncrypted => 'end-to-end encrypted';
+  String get appBarEncrypted => 'අවසාන-සිට-අවසාන ගුප්තකේතනය';
 
   @override
-  String get newStatus => 'New status';
+  String get newStatus => 'නව තත්වය';
 
   @override
-  String get newCall => 'New call';
+  String get newCall => 'නව ඇමතුම';
 }

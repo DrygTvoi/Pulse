@@ -489,13 +489,13 @@ class AppLocalizationsBg extends AppLocalizations {
   String get setupTapToChangeColor => 'Натиснете, за да смените цвета';
 
   @override
-  String get setupReqMinLength => 'At least 16 characters';
+  String get setupReqMinLength => 'Поне 16 символа';
 
   @override
-  String get setupReqVariety => '3 of 4: uppercase, lowercase, digits, symbols';
+  String get setupReqVariety => '3 от 4: главни, малки букви, цифри, символи';
 
   @override
-  String get setupReqMatch => 'Passwords match';
+  String get setupReqMatch => 'Паролите съвпадат';
 
   @override
   String get setupYourNickname => 'Вашият псевдоним';
@@ -744,11 +744,11 @@ class AppLocalizationsBg extends AppLocalizations {
   }
 
   @override
-  String get chatTileVoiceMessage => '🎤 Voice message';
+  String get chatTileVoiceMessage => '🎤 Гласово съобщение';
 
   @override
   String chatTileVoiceMessageDuration(String duration) {
-    return '🎤 Voice message ($duration)';
+    return '🎤 Гласово съобщение ($duration)';
   }
 
   @override
@@ -1798,7 +1798,7 @@ class AppLocalizationsBg extends AppLocalizations {
 
   @override
   String get providerSessionInfo =>
-      'Session Network — onion-routed E2EE. Your Session ID is auto-generated and stored securely. Nodes auto-discovered from built-in seed nodes.';
+      'Session Network — E2EE с лукова маршрутизация. Вашият Session ID се генерира автоматично и се съхранява сигурно. Възлите се откриват автоматично от вградените начални възли.';
 
   @override
   String get providerAdvanced => 'Разширени';
@@ -1904,7 +1904,7 @@ class AppLocalizationsBg extends AppLocalizations {
   String get networkDiagnosticsInfrastructure => 'Инфраструктура';
 
   @override
-  String get networkDiagnosticsSessionNodes => 'Session nodes';
+  String get networkDiagnosticsSessionNodes => 'Session възли';
 
   @override
   String get networkDiagnosticsTurnServers => 'TURN сървъри';
@@ -2606,35 +2606,36 @@ class AppLocalizationsBg extends AppLocalizations {
       'Видео бележките не се поддържат на тази платформа';
 
   @override
-  String get navChats => 'Chats';
+  String get navChats => 'Чатове';
 
   @override
-  String get navUpdates => 'Updates';
+  String get navUpdates => 'Обновления';
 
   @override
-  String get navCalls => 'Calls';
+  String get navCalls => 'Обаждания';
 
   @override
-  String get filterAll => 'All';
+  String get filterAll => 'Всички';
 
   @override
-  String get filterUnread => 'Unread';
+  String get filterUnread => 'Непрочетени';
 
   @override
-  String get filterGroups => 'Groups';
+  String get filterGroups => 'Групи';
 
   @override
-  String get callsNoRecent => 'No recent calls';
+  String get callsNoRecent => 'Няма последни обаждания';
 
   @override
-  String get callsEmptySubtitle => 'Your call history will appear here';
+  String get callsEmptySubtitle =>
+      'Историята на обажданията ви ще се появи тук';
 
   @override
-  String get appBarEncrypted => 'end-to-end encrypted';
+  String get appBarEncrypted => 'криптирано от край до край';
 
   @override
-  String get newStatus => 'New status';
+  String get newStatus => 'Нов статус';
 
   @override
-  String get newCall => 'New call';
+  String get newCall => 'Ново обаждане';
 }

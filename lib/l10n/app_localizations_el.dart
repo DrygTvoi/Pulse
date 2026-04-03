@@ -492,13 +492,13 @@ class AppLocalizationsEl extends AppLocalizations {
   String get setupTapToChangeColor => 'Πατήστε για αλλαγή χρώματος';
 
   @override
-  String get setupReqMinLength => 'At least 16 characters';
+  String get setupReqMinLength => 'Τουλάχιστον 16 χαρακτήρες';
 
   @override
-  String get setupReqVariety => '3 of 4: uppercase, lowercase, digits, symbols';
+  String get setupReqVariety => '3 από 4: κεφαλαία, πεζά, ψηφία, σύμβολα';
 
   @override
-  String get setupReqMatch => 'Passwords match';
+  String get setupReqMatch => 'Οι κωδικοί ταιριάζουν';
 
   @override
   String get setupYourNickname => 'Το ψευδώνυμό σας';
@@ -746,11 +746,11 @@ class AppLocalizationsEl extends AppLocalizations {
   }
 
   @override
-  String get chatTileVoiceMessage => '🎤 Voice message';
+  String get chatTileVoiceMessage => '🎤 Φωνητικό μήνυμα';
 
   @override
   String chatTileVoiceMessageDuration(String duration) {
-    return '🎤 Voice message ($duration)';
+    return '🎤 Φωνητικό μήνυμα ($duration)';
   }
 
   @override
@@ -1805,7 +1805,7 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String get providerSessionInfo =>
-      'Session Network — onion-routed E2EE. Your Session ID is auto-generated and stored securely. Nodes auto-discovered from built-in seed nodes.';
+      'Session Network — E2EE με δρομολόγηση onion. Το Session ID σας δημιουργείται αυτόματα και αποθηκεύεται με ασφάλεια. Οι κόμβοι ανακαλύπτονται αυτόματα από ενσωματωμένους κόμβους αρχής.';
 
   @override
   String get providerAdvanced => 'Για προχωρημένους';
@@ -1911,7 +1911,7 @@ class AppLocalizationsEl extends AppLocalizations {
   String get networkDiagnosticsInfrastructure => 'Υποδομή';
 
   @override
-  String get networkDiagnosticsSessionNodes => 'Session nodes';
+  String get networkDiagnosticsSessionNodes => 'Κόμβοι Session';
 
   @override
   String get networkDiagnosticsTurnServers => 'Διακομιστές TURN';
@@ -2614,35 +2614,35 @@ class AppLocalizationsEl extends AppLocalizations {
       'Οι σημειώσεις βίντεο δεν υποστηρίζονται σε αυτή την πλατφόρμα';
 
   @override
-  String get navChats => 'Chats';
+  String get navChats => 'Συνομιλίες';
 
   @override
-  String get navUpdates => 'Updates';
+  String get navUpdates => 'Ενημερώσεις';
 
   @override
-  String get navCalls => 'Calls';
+  String get navCalls => 'Κλήσεις';
 
   @override
-  String get filterAll => 'All';
+  String get filterAll => 'Όλα';
 
   @override
-  String get filterUnread => 'Unread';
+  String get filterUnread => 'Αδιάβαστα';
 
   @override
-  String get filterGroups => 'Groups';
+  String get filterGroups => 'Ομάδες';
 
   @override
-  String get callsNoRecent => 'No recent calls';
+  String get callsNoRecent => 'Δεν υπάρχουν πρόσφατες κλήσεις';
 
   @override
-  String get callsEmptySubtitle => 'Your call history will appear here';
+  String get callsEmptySubtitle => 'Το ιστορικό κλήσεων σας θα εμφανιστεί εδώ';
 
   @override
-  String get appBarEncrypted => 'end-to-end encrypted';
+  String get appBarEncrypted => 'κρυπτογραφημένο από άκρο σε άκρο';
 
   @override
-  String get newStatus => 'New status';
+  String get newStatus => 'Νέα κατάσταση';
 
   @override
-  String get newCall => 'New call';
+  String get newCall => 'Νέα κλήση';
 }

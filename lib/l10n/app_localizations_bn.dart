@@ -474,13 +474,14 @@ class AppLocalizationsBn extends AppLocalizations {
   String get setupTapToChangeColor => 'রং পরিবর্তন করতে ট্যাপ করুন';
 
   @override
-  String get setupReqMinLength => 'At least 16 characters';
+  String get setupReqMinLength => 'কমপক্ষে ১৬টি অক্ষর';
 
   @override
-  String get setupReqVariety => '3 of 4: uppercase, lowercase, digits, symbols';
+  String get setupReqVariety =>
+      '৪টির মধ্যে ৩টি: বড় হাতের, ছোট হাতের, সংখ্যা, চিহ্ন';
 
   @override
-  String get setupReqMatch => 'Passwords match';
+  String get setupReqMatch => 'পাসওয়ার্ড মিলেছে';
 
   @override
   String get setupYourNickname => 'আপনার ডাকনাম';
@@ -721,11 +722,11 @@ class AppLocalizationsBn extends AppLocalizations {
   }
 
   @override
-  String get chatTileVoiceMessage => '🎤 Voice message';
+  String get chatTileVoiceMessage => '🎤 ভয়েস বার্তা';
 
   @override
   String chatTileVoiceMessageDuration(String duration) {
-    return '🎤 Voice message ($duration)';
+    return '🎤 ভয়েস বার্তা ($duration)';
   }
 
   @override
@@ -1758,7 +1759,7 @@ class AppLocalizationsBn extends AppLocalizations {
 
   @override
   String get providerSessionInfo =>
-      'Session Network — onion-routed E2EE. Your Session ID is auto-generated and stored securely. Nodes auto-discovered from built-in seed nodes.';
+      'Session Network — পেঁয়াজ-রুটেড E2EE। আপনার Session ID স্বয়ংক্রিয়ভাবে তৈরি হয় এবং নিরাপদে সংরক্ষিত হয়। নোডগুলো বিল্ট-ইন সিড নোড থেকে স্বয়ংক্রিয়ভাবে আবিষ্কৃত হয়।';
 
   @override
   String get providerAdvanced => 'উন্নত';
@@ -1863,7 +1864,7 @@ class AppLocalizationsBn extends AppLocalizations {
   String get networkDiagnosticsInfrastructure => 'অবকাঠামো';
 
   @override
-  String get networkDiagnosticsSessionNodes => 'Session nodes';
+  String get networkDiagnosticsSessionNodes => 'Session নোড';
 
   @override
   String get networkDiagnosticsTurnServers => 'TURN সার্ভার';
@@ -2559,35 +2560,35 @@ class AppLocalizationsBn extends AppLocalizations {
   String get videoNoteNotSupported => 'এই প্ল্যাটফর্মে ভিডিও নোট সমর্থিত নয়';
 
   @override
-  String get navChats => 'Chats';
+  String get navChats => 'চ্যাট';
 
   @override
-  String get navUpdates => 'Updates';
+  String get navUpdates => 'আপডেট';
 
   @override
-  String get navCalls => 'Calls';
+  String get navCalls => 'কল';
 
   @override
-  String get filterAll => 'All';
+  String get filterAll => 'সব';
 
   @override
-  String get filterUnread => 'Unread';
+  String get filterUnread => 'অপঠিত';
 
   @override
-  String get filterGroups => 'Groups';
+  String get filterGroups => 'গ্রুপ';
 
   @override
-  String get callsNoRecent => 'No recent calls';
+  String get callsNoRecent => 'সাম্প্রতিক কল নেই';
 
   @override
-  String get callsEmptySubtitle => 'Your call history will appear here';
+  String get callsEmptySubtitle => 'আপনার কল ইতিহাস এখানে দেখা যাবে';
 
   @override
-  String get appBarEncrypted => 'end-to-end encrypted';
+  String get appBarEncrypted => 'এন্ড-টু-এন্ড এনক্রিপ্টেড';
 
   @override
-  String get newStatus => 'New status';
+  String get newStatus => 'নতুন স্ট্যাটাস';
 
   @override
-  String get newCall => 'New call';
+  String get newCall => 'নতুন কল';
 }

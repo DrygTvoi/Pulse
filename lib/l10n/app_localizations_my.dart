@@ -489,13 +489,14 @@ class AppLocalizationsMy extends AppLocalizations {
   String get setupTapToChangeColor => 'အရောင်ပြောင်းရန် နှိပ်ပါ';
 
   @override
-  String get setupReqMinLength => 'At least 16 characters';
+  String get setupReqMinLength => 'အနည်းဆုံး ၁၆ လုံး';
 
   @override
-  String get setupReqVariety => '3 of 4: uppercase, lowercase, digits, symbols';
+  String get setupReqVariety =>
+      '၄ ထဲမှ ၃ ခု: စာလုံးကြီး၊ ငယ်၊ ကိန်းဂဏန်း၊ သင်္ကေတ';
 
   @override
-  String get setupReqMatch => 'Passwords match';
+  String get setupReqMatch => 'စကားဝှက်များ ကိုက်ညီသည်';
 
   @override
   String get setupYourNickname => 'သင့်အမည်';
@@ -744,11 +745,11 @@ class AppLocalizationsMy extends AppLocalizations {
   }
 
   @override
-  String get chatTileVoiceMessage => '🎤 Voice message';
+  String get chatTileVoiceMessage => '🎤 အသံမက်ဆေ့ဂျ်';
 
   @override
   String chatTileVoiceMessageDuration(String duration) {
-    return '🎤 Voice message ($duration)';
+    return '🎤 အသံမက်ဆေ့ဂျ် ($duration)';
   }
 
   @override
@@ -1792,7 +1793,7 @@ class AppLocalizationsMy extends AppLocalizations {
 
   @override
   String get providerSessionInfo =>
-      'Session Network — onion-routed E2EE. Your Session ID is auto-generated and stored securely. Nodes auto-discovered from built-in seed nodes.';
+      'Session Network — ကြက်သွန်-လမ်းကြောင်းညွှန် E2EE။ သင်၏ Session ID ကို အလိုအလျောက် ဖန်တီးကာ လုံခြုံစွာ သိမ်းဆည်းသည်။ Node များကို ကြိုတင်ထည့်သွင်းထားသော seed node များမှ အလိုအလျောက် ရှာဖွေတွေ့ရှိသည်။';
 
   @override
   String get providerAdvanced => 'အဆင့်မြင့်';
@@ -1897,7 +1898,7 @@ class AppLocalizationsMy extends AppLocalizations {
   String get networkDiagnosticsInfrastructure => 'အခြေခံအဆောက်အအုံ';
 
   @override
-  String get networkDiagnosticsSessionNodes => 'Session nodes';
+  String get networkDiagnosticsSessionNodes => 'Session နှိုင်ဆိုင်ရာ';
 
   @override
   String get networkDiagnosticsTurnServers => 'TURN ဆာဗာများ';
@@ -2597,35 +2598,36 @@ class AppLocalizationsMy extends AppLocalizations {
       'ဤပလက်ဖောင်းတွင် ဗီဒီယိုမှတ်ချက်များ ပံ့ပိုးမထားပါ';
 
   @override
-  String get navChats => 'Chats';
+  String get navChats => 'ချတ်များ';
 
   @override
-  String get navUpdates => 'Updates';
+  String get navUpdates => 'မွန်းမံချက်များ';
 
   @override
-  String get navCalls => 'Calls';
+  String get navCalls => 'ခေါ်ဆိုမှုများ';
 
   @override
-  String get filterAll => 'All';
+  String get filterAll => 'အားလုံး';
 
   @override
-  String get filterUnread => 'Unread';
+  String get filterUnread => 'မဖတ်ရသေး';
 
   @override
-  String get filterGroups => 'Groups';
+  String get filterGroups => 'အုပ်စုများ';
 
   @override
-  String get callsNoRecent => 'No recent calls';
+  String get callsNoRecent => 'မကြာသေးမီ ခေါ်ဆိုမှု မရှိ';
 
   @override
-  String get callsEmptySubtitle => 'Your call history will appear here';
+  String get callsEmptySubtitle =>
+      'သင်၏ ခေါ်ဆိုမှု မှတ်တမ်းသည် ဤနေရာတွင် ပေါ်လာမည်';
 
   @override
-  String get appBarEncrypted => 'end-to-end encrypted';
+  String get appBarEncrypted => 'အဆုံး-မှ-အဆုံး ကုဒ်ဝှက်';
 
   @override
-  String get newStatus => 'New status';
+  String get newStatus => 'အသစ် အခြေအနေ';
 
   @override
-  String get newCall => 'New call';
+  String get newCall => 'ခေါ်ဆိုမှု အသစ်';
 }

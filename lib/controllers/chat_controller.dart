@@ -366,6 +366,17 @@ class ChatController extends ChangeNotifier {
 
   ChatRoom? getRoomForContact(String contactId) => _repo.getRoomForContact(contactId);
 
+  /// Adds a system-generated message (e.g. call history record) to the room
+  /// without sending it over the network.  Deduplicates by message ID.
+  void addSystemMessage(Contact contact, Message msg) {
+    final room = _repo.getOrCreateRoom(contact);
+    if (!_repo.roomHasMessage(contact.id, msg.id)) {
+      room.messages.add(msg);
+      _repo.trackMessageId(contact.id, msg.id);
+    }
+    if (!_disposed) notifyListeners();
+  }
+
   int getChatTtlCached(String contactId) => _repo.getChatTtlCached(contactId);
 
   double? getUploadProgress(String msgId) => _repo.getUploadProgress(msgId);

@@ -502,13 +502,14 @@ class AppLocalizationsCa extends AppLocalizations {
   String get setupTapToChangeColor => 'Toca per canviar el color';
 
   @override
-  String get setupReqMinLength => 'At least 16 characters';
+  String get setupReqMinLength => 'Almenys 16 caràcters';
 
   @override
-  String get setupReqVariety => '3 of 4: uppercase, lowercase, digits, symbols';
+  String get setupReqVariety =>
+      '3 de 4: majúscules, minúscules, dígits, símbols';
 
   @override
-  String get setupReqMatch => 'Passwords match';
+  String get setupReqMatch => 'Les contrasenyes coincideixen';
 
   @override
   String get setupYourNickname => 'El teu sobrenom';
@@ -754,11 +755,11 @@ class AppLocalizationsCa extends AppLocalizations {
   }
 
   @override
-  String get chatTileVoiceMessage => '🎤 Voice message';
+  String get chatTileVoiceMessage => '🎤 Missatge de veu';
 
   @override
   String chatTileVoiceMessageDuration(String duration) {
-    return '🎤 Voice message ($duration)';
+    return '🎤 Missatge de veu ($duration)';
   }
 
   @override
@@ -1816,7 +1817,7 @@ class AppLocalizationsCa extends AppLocalizations {
 
   @override
   String get providerSessionInfo =>
-      'Session Network — onion-routed E2EE. Your Session ID is auto-generated and stored securely. Nodes auto-discovered from built-in seed nodes.';
+      'Session Network — E2EE amb enrutament ceba. El vostre ID de Session es genera automàticament i s\'emmagatzema de forma segura. Els nodes es descobreixen automàticament des dels nodes llavor integrats.';
 
   @override
   String get providerAdvanced => 'Avançat';
@@ -1923,7 +1924,7 @@ class AppLocalizationsCa extends AppLocalizations {
   String get networkDiagnosticsInfrastructure => 'Infraestructura';
 
   @override
-  String get networkDiagnosticsSessionNodes => 'Session nodes';
+  String get networkDiagnosticsSessionNodes => 'Nodes Session';
 
   @override
   String get networkDiagnosticsTurnServers => 'Servidors TURN';
@@ -2626,35 +2627,36 @@ class AppLocalizationsCa extends AppLocalizations {
       'Les notes de vídeo no estan admeses en aquesta plataforma';
 
   @override
-  String get navChats => 'Chats';
+  String get navChats => 'Xats';
 
   @override
-  String get navUpdates => 'Updates';
+  String get navUpdates => 'Actualitzacions';
 
   @override
-  String get navCalls => 'Calls';
+  String get navCalls => 'Trucades';
 
   @override
-  String get filterAll => 'All';
+  String get filterAll => 'Tot';
 
   @override
-  String get filterUnread => 'Unread';
+  String get filterUnread => 'No llegits';
 
   @override
-  String get filterGroups => 'Groups';
+  String get filterGroups => 'Grups';
 
   @override
-  String get callsNoRecent => 'No recent calls';
+  String get callsNoRecent => 'Cap trucada recent';
 
   @override
-  String get callsEmptySubtitle => 'Your call history will appear here';
+  String get callsEmptySubtitle =>
+      'El vostre historial de trucades apareixerà aquí';
 
   @override
-  String get appBarEncrypted => 'end-to-end encrypted';
+  String get appBarEncrypted => 'xifrat d\'extrem a extrem';
 
   @override
-  String get newStatus => 'New status';
+  String get newStatus => 'Nou estat';
 
   @override
-  String get newCall => 'New call';
+  String get newCall => 'Nova trucada';
 }

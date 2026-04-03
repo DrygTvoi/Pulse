@@ -1,15 +1,20 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:uuid/uuid.dart';
 import '../services/signaling_service.dart';
 import '../services/call_transport.dart';
+import '../services/local_storage_service.dart';
+import '../services/active_call_service.dart';
 import '../theme/app_theme.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../models/contact.dart';
+import '../models/message.dart';
 import '../l10n/l10n_ext.dart';
 import '../controllers/chat_controller.dart';
 
@@ -19,12 +24,19 @@ class CallScreen extends StatefulWidget {
   final Contact contact;
   final String myId;
   final bool isCaller;
+  /// When restoring a minimized call, pass the existing SignalingService so
+  /// we skip re-initialisation and re-attach callbacks instead.
+  final SignalingService? existingSignaling;
+  /// Elapsed duration carried over from the minimized state.
+  final Duration? resumedDuration;
 
   const CallScreen({
     super.key,
     required this.contact,
     required this.myId,
     this.isCaller = true,
+    this.existingSignaling,
+    this.resumedDuration,
   });
 
   @override
@@ -77,7 +89,168 @@ class _CallScreenState extends State<CallScreen> {
   @override
   void initState() {
     super.initState();
-    _initWebRTC();
+    if (widget.existingSignaling != null) {
+      _restoreFromMinimized();
+    } else {
+      _initWebRTC();
+    }
+  }
+
+  /// Restores a minimized call: re-attaches callbacks without creating a new PC.
+  Future<void> _restoreFromMinimized() async {
+    try {
+      await _localRenderer.initialize();
+      await _remoteRenderer.initialize();
+      _signaling = widget.existingSignaling!;
+      _callDuration = widget.resumedDuration ?? Duration.zero;
+      // Sync ICE state from the live PeerConnection so the UI reflects the
+      // real connection state (Connected/Completed) instead of showing "Connecting…".
+      final liveState = _signaling!.peerConnection?.iceConnectionState;
+      if (liveState != null) _iceState = liveState;
+      _reattachCallbacks();
+      // If there is already a remote stream, show it immediately.
+      if (_signaling!.remoteStream != null) {
+        setState(() => _remoteRenderer.srcObject = _signaling!.remoteStream);
+      }
+      if (mounted) {
+        setState(() => _ready = true);
+        // Only start the duration timer if actually connected.
+        if (_iceState == RTCIceConnectionState.RTCIceConnectionStateConnected ||
+            _iceState == RTCIceConnectionState.RTCIceConnectionStateCompleted) {
+          _startDurationTimer();
+        }
+        _resetHideControlsTimer();
+      }
+    } catch (e) {
+      debugPrint('[CallScreen] _restoreFromMinimized failed: $e');
+      if (mounted) setState(() => _initError = 'Failed to restore call.');
+    }
+  }
+
+  /// Re-attach all SignalingService callbacks after restoring from minimized.
+  void _reattachCallbacks() {
+    _signaling!.onAddRemoteStream = (stream) async {
+      if (!mounted) return;
+      if (stream.getVideoTracks().isNotEmpty &&
+          _remoteRenderer.srcObject != null) {
+        setState(() => _remoteRenderer.srcObject = null);
+        await Future.delayed(const Duration(milliseconds: 80));
+        if (mounted) setState(() => _remoteRenderer.srcObject = stream);
+      } else {
+        setState(() => _remoteRenderer.srcObject = stream);
+      }
+    };
+
+    _signaling!.onConnectionState = _onIceState;
+
+    _signaling!.onRemoteVideoStopped = () {
+      if (!mounted) return;
+      setState(() => _remoteRenderer.srcObject = null);
+      debugPrint('[CallScreen] Remote video stopped — renderer cleared');
+    };
+
+    _signaling!.onRemoteHangUp = () {
+      debugPrint('[CallScreen] Remote peer hung up');
+      if (!_disposed && mounted) _hangUp(remoteInitiated: true);
+    };
+
+    _signaling!.onSecondaryRemoteStream = (stream) {
+      if (!mounted) return;
+      setState(() => _secondaryReady = true);
+      if (_iceState == RTCIceConnectionState.RTCIceConnectionStateFailed &&
+          !_usingSecondary) {
+        _switchToSecondary();
+      }
+    };
+    _signaling!.onSecondaryConnectionState = (state) {
+      if (state == RTCIceConnectionState.RTCIceConnectionStateConnected ||
+          state == RTCIceConnectionState.RTCIceConnectionStateCompleted) {
+        if (mounted) setState(() => _secondaryReady = true);
+      }
+    };
+
+    _ready = true;
+  }
+
+  /// Minimizes the call — hands off the SignalingService to [ActiveCallService]
+  /// and pops the CallScreen without hanging up.
+  void _minimize() {
+    if (_disposed) return;
+    // Mark disposed so dispose() doesn't call hangUp().
+    _disposed = true;
+    _durationTimer?.cancel();
+    _hideControlsTimer?.cancel();
+    _mediaWatchdog?.cancel();
+    _disconnectTimer?.cancel();
+    _secondaryWatchdog?.cancel();
+    final sig = _signaling;
+    _signaling = null; // prevent dispose() from calling hangUp() via null-check
+    if (sig == null) {
+      if (mounted) Navigator.pop(context);
+      return;
+    }
+    final capturedDuration = _callDuration;
+    final capturedContact = widget.contact;
+    final capturedMyId = widget.myId;
+    final capturedIsCaller = widget.isCaller;
+    ActiveCallService.instance.minimize(
+      sig: sig,
+      contact: capturedContact,
+      myId: capturedMyId,
+      isCaller: capturedIsCaller,
+      elapsed: capturedDuration,
+      onRemoteHangUp: () {
+        // Called by ActiveCallService when remote hangs up while minimized.
+        _saveCallRecordStatic(
+          contact: capturedContact,
+          myId: capturedMyId,
+          isCaller: capturedIsCaller,
+          duration: ActiveCallService.instance.elapsed,
+        );
+      },
+    );
+    if (mounted) Navigator.pop(context);
+  }
+
+  /// Saves a call history record to local storage and in-memory room.
+  Future<void> _saveCallRecord() async {
+    await _saveCallRecordStatic(
+      contact: widget.contact,
+      myId: widget.myId,
+      isCaller: widget.isCaller,
+      duration: _callDuration,
+    );
+  }
+
+  static Future<void> _saveCallRecordStatic({
+    required Contact contact,
+    required String myId,
+    required bool isCaller,
+    required Duration duration,
+  }) async {
+    try {
+      final dur = duration.inSeconds;
+      final payload = jsonEncode({
+        't': 'call',
+        'duration': dur,
+        'outgoing': isCaller,
+        'connected': dur > 0,
+      });
+      final msg = Message(
+        id: const Uuid().v4(),
+        senderId: isCaller ? myId : contact.databaseId,
+        receiverId: isCaller ? contact.databaseId : myId,
+        encryptedPayload: payload,
+        timestamp: DateTime.now(),
+        adapterType: contact.provider.toLowerCase(),
+        isRead: true,
+        status: '',
+      );
+      await LocalStorageService().saveMessage(contact.storageKey, msg.toJson());
+      ChatController().addSystemMessage(contact, msg);
+    } catch (e) {
+      debugPrint('[CallScreen] _saveCallRecord failed: $e');
+    }
   }
 
   // ── Initialise / reinitialise ──────────────────────────────────────────────
@@ -888,6 +1061,8 @@ class _CallScreenState extends State<CallScreen> {
     _disconnectTimer?.cancel();
     _secondaryWatchdog?.cancel();
     _signaling?.hangUp(notify: !remoteInitiated);
+    ActiveCallService.instance.endCall();
+    unawaited(_saveCallRecord());
     _disposeRenderers();
     if (mounted) Navigator.pop(context);
   }
@@ -926,8 +1101,10 @@ class _CallScreenState extends State<CallScreen> {
       _disconnectTimer?.cancel();
       _secondaryWatchdog?.cancel();
       _signaling?.hangUp();
-      _disposeRenderers();
     }
+    // Always dispose renderers — even when minimized (_disposed=true) the
+    // Flutter platform-channel renderers must be released to avoid leaks.
+    _disposeRenderers();
     super.dispose();
   }
 
@@ -1018,7 +1195,12 @@ class _CallScreenState extends State<CallScreen> {
         (_remoteRenderer.srcObject!.getVideoTracks().isNotEmpty);
     final hasLocalVideo  = _localRenderer.srcObject != null;
 
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _minimize();
+      },
+      child: Scaffold(
       backgroundColor: Colors.black,
       body: SafeArea(
         child: GestureDetector(
@@ -1097,7 +1279,7 @@ class _CallScreenState extends State<CallScreen> {
           ),
         ),
       ),
-    );
+    )); // Scaffold + PopScope
   }
 
   // ── Restricted-mode banner ─────────────────────────────────────────────────
@@ -1249,7 +1431,7 @@ class _CallScreenState extends State<CallScreen> {
         IconButton(
           icon: const Icon(Icons.arrow_back_ios_rounded, color: Colors.white),
           tooltip: context.l10n.back,
-          onPressed: () => Navigator.pop(context),
+          onPressed: _minimize,
         ),
         const SizedBox(width: 4),
         Expanded(

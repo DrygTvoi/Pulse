@@ -486,13 +486,13 @@ class AppLocalizationsHr extends AppLocalizations {
   String get setupTapToChangeColor => 'Dodirnite za promjenu boje';
 
   @override
-  String get setupReqMinLength => 'At least 16 characters';
+  String get setupReqMinLength => 'Najmanje 16 znakova';
 
   @override
-  String get setupReqVariety => '3 of 4: uppercase, lowercase, digits, symbols';
+  String get setupReqVariety => '3 od 4: velika, mala slova, znamenke, simboli';
 
   @override
-  String get setupReqMatch => 'Passwords match';
+  String get setupReqMatch => 'Lozinke se podudaraju';
 
   @override
   String get setupYourNickname => 'Vaš nadimak';
@@ -738,11 +738,11 @@ class AppLocalizationsHr extends AppLocalizations {
   }
 
   @override
-  String get chatTileVoiceMessage => '🎤 Voice message';
+  String get chatTileVoiceMessage => '🎤 Glasovna poruka';
 
   @override
   String chatTileVoiceMessageDuration(String duration) {
-    return '🎤 Voice message ($duration)';
+    return '🎤 Glasovna poruka ($duration)';
   }
 
   @override
@@ -1784,7 +1784,7 @@ class AppLocalizationsHr extends AppLocalizations {
 
   @override
   String get providerSessionInfo =>
-      'Session Network — onion-routed E2EE. Your Session ID is auto-generated and stored securely. Nodes auto-discovered from built-in seed nodes.';
+      'Session Network — E2EE s onion usmjeravanjem. Vaš Session ID generira se automatski i pohranjuje sigurno. Čvorovi se automatski otkrivaju iz ugrađenih početnih čvorova.';
 
   @override
   String get providerAdvanced => 'Napredno';
@@ -1889,7 +1889,7 @@ class AppLocalizationsHr extends AppLocalizations {
   String get networkDiagnosticsInfrastructure => 'Infrastruktura';
 
   @override
-  String get networkDiagnosticsSessionNodes => 'Session nodes';
+  String get networkDiagnosticsSessionNodes => 'Session čvorovi';
 
   @override
   String get networkDiagnosticsTurnServers => 'TURN poslužitelji';
@@ -2589,35 +2589,35 @@ class AppLocalizationsHr extends AppLocalizations {
       'Video bilješke nisu podržane na ovoj platformi';
 
   @override
-  String get navChats => 'Chats';
+  String get navChats => 'Razgovori';
 
   @override
-  String get navUpdates => 'Updates';
+  String get navUpdates => 'Ažuriranja';
 
   @override
-  String get navCalls => 'Calls';
+  String get navCalls => 'Pozivi';
 
   @override
-  String get filterAll => 'All';
+  String get filterAll => 'Sve';
 
   @override
-  String get filterUnread => 'Unread';
+  String get filterUnread => 'Nepročitano';
 
   @override
-  String get filterGroups => 'Groups';
+  String get filterGroups => 'Grupe';
 
   @override
-  String get callsNoRecent => 'No recent calls';
+  String get callsNoRecent => 'Nema nedavnih poziva';
 
   @override
-  String get callsEmptySubtitle => 'Your call history will appear here';
+  String get callsEmptySubtitle => 'Vaša povijest poziva pojavit će se ovdje';
 
   @override
-  String get appBarEncrypted => 'end-to-end encrypted';
+  String get appBarEncrypted => 'šifrirano s kraja na kraj';
 
   @override
-  String get newStatus => 'New status';
+  String get newStatus => 'Novi status';
 
   @override
-  String get newCall => 'New call';
+  String get newCall => 'Novi poziv';
 }

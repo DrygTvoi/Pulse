@@ -487,13 +487,14 @@ class AppLocalizationsHy extends AppLocalizations {
   String get setupTapToChangeColor => 'Սեղմեք գույնը փոխելու համար';
 
   @override
-  String get setupReqMinLength => 'At least 16 characters';
+  String get setupReqMinLength => 'Առնվազն 16 նիշ';
 
   @override
-  String get setupReqVariety => '3 of 4: uppercase, lowercase, digits, symbols';
+  String get setupReqVariety =>
+      '4-ից 3: մեծատառ, փոքրատառ, թվեր, խորհրդանիշներ';
 
   @override
-  String get setupReqMatch => 'Passwords match';
+  String get setupReqMatch => 'Գաղտնաբառերը համընկնում են';
 
   @override
   String get setupYourNickname => 'Ձեր մականունը';
@@ -741,11 +742,11 @@ class AppLocalizationsHy extends AppLocalizations {
   }
 
   @override
-  String get chatTileVoiceMessage => '🎤 Voice message';
+  String get chatTileVoiceMessage => '🎤 Ձայնային հաղորդագրություն';
 
   @override
   String chatTileVoiceMessageDuration(String duration) {
-    return '🎤 Voice message ($duration)';
+    return '🎤 Ձայնային հաղորդագրություն ($duration)';
   }
 
   @override
@@ -1791,7 +1792,7 @@ class AppLocalizationsHy extends AppLocalizations {
 
   @override
   String get providerSessionInfo =>
-      'Session Network — onion-routed E2EE. Your Session ID is auto-generated and stored securely. Nodes auto-discovered from built-in seed nodes.';
+      'Session Network — սոխ-երթուղիչ E2EE: Ձեր Session ID-ն ավտոմատ կերպով ստեղծվում և ապահով կերպով պահվում է: Հանգույցներն ավտոմատ կերպով հայտնաբերվում են ներկառուցված seed հանգույցներից:';
 
   @override
   String get providerAdvanced => 'Ընդլայնված';
@@ -1896,7 +1897,7 @@ class AppLocalizationsHy extends AppLocalizations {
   String get networkDiagnosticsInfrastructure => 'Ենթակառուցվածք';
 
   @override
-  String get networkDiagnosticsSessionNodes => 'Session nodes';
+  String get networkDiagnosticsSessionNodes => 'Session հանգույցներ';
 
   @override
   String get networkDiagnosticsTurnServers => 'TURN սերվերներ';
@@ -2594,35 +2595,35 @@ class AppLocalizationsHy extends AppLocalizations {
       'Видео ншумнерը чен аджакцвум айс հарդакум';
 
   @override
-  String get navChats => 'Chats';
+  String get navChats => 'Զրույցներ';
 
   @override
-  String get navUpdates => 'Updates';
+  String get navUpdates => 'Թարմացումներ';
 
   @override
-  String get navCalls => 'Calls';
+  String get navCalls => 'Զանգեր';
 
   @override
-  String get filterAll => 'All';
+  String get filterAll => 'Բոլոր';
 
   @override
-  String get filterUnread => 'Unread';
+  String get filterUnread => 'Չկարդացված';
 
   @override
-  String get filterGroups => 'Groups';
+  String get filterGroups => 'Խմբեր';
 
   @override
-  String get callsNoRecent => 'No recent calls';
+  String get callsNoRecent => 'Վերջին զանգեր չկան';
 
   @override
-  String get callsEmptySubtitle => 'Your call history will appear here';
+  String get callsEmptySubtitle => 'Ձեր զանգերի պատմությունը կհայտնվի այստեղ';
 
   @override
-  String get appBarEncrypted => 'end-to-end encrypted';
+  String get appBarEncrypted => 'ծայրից ծայր կոդավորված';
 
   @override
-  String get newStatus => 'New status';
+  String get newStatus => 'Նոր կարգավիճակ';
 
   @override
-  String get newCall => 'New call';
+  String get newCall => 'Նոր զանգ';
 }

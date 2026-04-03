@@ -479,13 +479,13 @@ class AppLocalizationsAm extends AppLocalizations {
   String get setupTapToChangeColor => 'ቀለም ለመቀየር መታ ያድርጉ';
 
   @override
-  String get setupReqMinLength => 'At least 16 characters';
+  String get setupReqMinLength => 'ቢያንስ 16 ቁምፊዎች';
 
   @override
-  String get setupReqVariety => '3 of 4: uppercase, lowercase, digits, symbols';
+  String get setupReqVariety => 'ከ4 ውስጥ 3፡ ትልቅ፣ ትንሽ ፊደሎች፣ ቁጥሮች፣ ምልክቶች';
 
   @override
-  String get setupReqMatch => 'Passwords match';
+  String get setupReqMatch => 'የይለፍ ቃሎቹ ይዛመዳሉ';
 
   @override
   String get setupYourNickname => 'ቅጽል ስምዎ';
@@ -730,11 +730,11 @@ class AppLocalizationsAm extends AppLocalizations {
   }
 
   @override
-  String get chatTileVoiceMessage => '🎤 Voice message';
+  String get chatTileVoiceMessage => '🎤 የድምፅ መልዕክት';
 
   @override
   String chatTileVoiceMessageDuration(String duration) {
-    return '🎤 Voice message ($duration)';
+    return '🎤 የድምፅ መልዕክት ($duration)';
   }
 
   @override
@@ -1742,7 +1742,7 @@ class AppLocalizationsAm extends AppLocalizations {
 
   @override
   String get providerSessionInfo =>
-      'Session Network — onion-routed E2EE. Your Session ID is auto-generated and stored securely. Nodes auto-discovered from built-in seed nodes.';
+      'Session Network — ሽንኩርት-ተዘዋዋሪ E2EE። የእርስዎ Session ID አውቶማቲክ ተፈጥሮ ደህንነቱ በተጠበቀ ሁኔታ ይቀመጣል። ኖዶች ከውስጣዊ ዘር ኖዶች አውቶማቲክ ይፈሰሳሉ።';
 
   @override
   String get providerAdvanced => 'የላቀ';
@@ -1847,7 +1847,7 @@ class AppLocalizationsAm extends AppLocalizations {
   String get networkDiagnosticsInfrastructure => 'መሠረተ ልማት';
 
   @override
-  String get networkDiagnosticsSessionNodes => 'Session nodes';
+  String get networkDiagnosticsSessionNodes => 'Session ኖዶች';
 
   @override
   String get networkDiagnosticsTurnServers => 'TURN አገልጋዮች';
@@ -2536,35 +2536,35 @@ class AppLocalizationsAm extends AppLocalizations {
   String get videoNoteNotSupported => 'ቪዲዮ ማስታወሻዎች በዚህ መድረክ አይደገፉም';
 
   @override
-  String get navChats => 'Chats';
+  String get navChats => 'ውይይቶች';
 
   @override
-  String get navUpdates => 'Updates';
+  String get navUpdates => 'ዝማኔዎች';
 
   @override
-  String get navCalls => 'Calls';
+  String get navCalls => 'ጥሪዎች';
 
   @override
-  String get filterAll => 'All';
+  String get filterAll => 'ሁሉም';
 
   @override
-  String get filterUnread => 'Unread';
+  String get filterUnread => 'ያልተነበቡ';
 
   @override
-  String get filterGroups => 'Groups';
+  String get filterGroups => 'ቡድኖች';
 
   @override
-  String get callsNoRecent => 'No recent calls';
+  String get callsNoRecent => 'የቅርብ ጊዜ ጥሪዎች የሉም';
 
   @override
-  String get callsEmptySubtitle => 'Your call history will appear here';
+  String get callsEmptySubtitle => 'የጥሪ ታሪክዎ እዚህ ይታያል';
 
   @override
-  String get appBarEncrypted => 'end-to-end encrypted';
+  String get appBarEncrypted => 'ከጫፍ-እስከ-ጫፍ ምስጢር';
 
   @override
-  String get newStatus => 'New status';
+  String get newStatus => 'አዲስ ሁኔታ';
 
   @override
-  String get newCall => 'New call';
+  String get newCall => 'አዲስ ጥሪ';
 }

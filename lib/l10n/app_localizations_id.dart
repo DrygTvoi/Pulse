@@ -487,13 +487,13 @@ class AppLocalizationsId extends AppLocalizations {
   String get setupTapToChangeColor => 'Ketuk untuk ganti warna';
 
   @override
-  String get setupReqMinLength => 'At least 16 characters';
+  String get setupReqMinLength => 'Minimal 16 karakter';
 
   @override
-  String get setupReqVariety => '3 of 4: uppercase, lowercase, digits, symbols';
+  String get setupReqVariety => '3 dari 4: huruf besar, kecil, angka, simbol';
 
   @override
-  String get setupReqMatch => 'Passwords match';
+  String get setupReqMatch => 'Kata sandi cocok';
 
   @override
   String get setupYourNickname => 'Nama panggilan Anda';
@@ -740,11 +740,11 @@ class AppLocalizationsId extends AppLocalizations {
   }
 
   @override
-  String get chatTileVoiceMessage => '🎤 Voice message';
+  String get chatTileVoiceMessage => '🎤 Pesan suara';
 
   @override
   String chatTileVoiceMessageDuration(String duration) {
-    return '🎤 Voice message ($duration)';
+    return '🎤 Pesan suara ($duration)';
   }
 
   @override
@@ -1787,7 +1787,7 @@ class AppLocalizationsId extends AppLocalizations {
 
   @override
   String get providerSessionInfo =>
-      'Session Network — onion-routed E2EE. Your Session ID is auto-generated and stored securely. Nodes auto-discovered from built-in seed nodes.';
+      'Session Network — E2EE dengan onion routing. ID Session Anda dibuat secara otomatis dan disimpan dengan aman. Node ditemukan secara otomatis dari node seed bawaan.';
 
   @override
   String get providerAdvanced => 'Lanjutan';
@@ -1892,7 +1892,7 @@ class AppLocalizationsId extends AppLocalizations {
   String get networkDiagnosticsInfrastructure => 'Infrastruktur';
 
   @override
-  String get networkDiagnosticsSessionNodes => 'Session nodes';
+  String get networkDiagnosticsSessionNodes => 'Node Session';
 
   @override
   String get networkDiagnosticsTurnServers => 'Server TURN';
@@ -2587,35 +2587,35 @@ class AppLocalizationsId extends AppLocalizations {
       'Catatan video tidak didukung di platform ini';
 
   @override
-  String get navChats => 'Chats';
+  String get navChats => 'Obrolan';
 
   @override
-  String get navUpdates => 'Updates';
+  String get navUpdates => 'Pembaruan';
 
   @override
-  String get navCalls => 'Calls';
+  String get navCalls => 'Panggilan';
 
   @override
-  String get filterAll => 'All';
+  String get filterAll => 'Semua';
 
   @override
-  String get filterUnread => 'Unread';
+  String get filterUnread => 'Belum dibaca';
 
   @override
-  String get filterGroups => 'Groups';
+  String get filterGroups => 'Grup';
 
   @override
-  String get callsNoRecent => 'No recent calls';
+  String get callsNoRecent => 'Tidak ada panggilan terbaru';
 
   @override
-  String get callsEmptySubtitle => 'Your call history will appear here';
+  String get callsEmptySubtitle => 'Riwayat panggilan Anda akan muncul di sini';
 
   @override
-  String get appBarEncrypted => 'end-to-end encrypted';
+  String get appBarEncrypted => 'dienkripsi ujung-ke-ujung';
 
   @override
-  String get newStatus => 'New status';
+  String get newStatus => 'Status baru';
 
   @override
-  String get newCall => 'New call';
+  String get newCall => 'Panggilan baru';
 }

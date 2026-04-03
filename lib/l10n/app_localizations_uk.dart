@@ -491,13 +491,13 @@ class AppLocalizationsUk extends AppLocalizations {
   String get setupTapToChangeColor => 'Натисніть, щоб змінити колір';
 
   @override
-  String get setupReqMinLength => 'At least 16 characters';
+  String get setupReqMinLength => 'Щонайменше 16 символів';
 
   @override
-  String get setupReqVariety => '3 of 4: uppercase, lowercase, digits, symbols';
+  String get setupReqVariety => '3 з 4: великі, малі літери, цифри, символи';
 
   @override
-  String get setupReqMatch => 'Passwords match';
+  String get setupReqMatch => 'Паролі збігаються';
 
   @override
   String get setupYourNickname => 'Ваш псевдонім';
@@ -746,11 +746,11 @@ class AppLocalizationsUk extends AppLocalizations {
   }
 
   @override
-  String get chatTileVoiceMessage => '🎤 Voice message';
+  String get chatTileVoiceMessage => '🎤 Голосове повідомлення';
 
   @override
   String chatTileVoiceMessageDuration(String duration) {
-    return '🎤 Voice message ($duration)';
+    return '🎤 Голосове повідомлення ($duration)';
   }
 
   @override
@@ -1789,7 +1789,7 @@ class AppLocalizationsUk extends AppLocalizations {
 
   @override
   String get providerSessionInfo =>
-      'Session Network — onion-routed E2EE. Your Session ID is auto-generated and stored securely. Nodes auto-discovered from built-in seed nodes.';
+      'Session Network — E2EE з цибулевою маршрутизацією. Ваш Session ID генерується автоматично і зберігається безпечно. Вузли автоматично знаходяться з вбудованих початкових вузлів.';
 
   @override
   String get providerAdvanced => 'Додатково';
@@ -1894,7 +1894,7 @@ class AppLocalizationsUk extends AppLocalizations {
   String get networkDiagnosticsInfrastructure => 'Інфраструктура';
 
   @override
-  String get networkDiagnosticsSessionNodes => 'Session nodes';
+  String get networkDiagnosticsSessionNodes => 'Session вузли';
 
   @override
   String get networkDiagnosticsTurnServers => 'TURN-сервери';
@@ -2554,20 +2554,20 @@ class AppLocalizationsUk extends AppLocalizations {
   String get bubbleGifBadge => 'GIF';
 
   @override
-  String get settingsLanguage => 'Language';
+  String get settingsLanguage => 'Мова';
 
   @override
-  String get settingsLanguageSubtitle => 'App display language';
+  String get settingsLanguageSubtitle => 'Мова відображення застосунку';
 
   @override
-  String get settingsLanguageSystem => 'System default';
+  String get settingsLanguageSystem => 'Системний за замовчуванням';
 
   @override
-  String get onboardingLanguageTitle => 'Choose your language';
+  String get onboardingLanguageTitle => 'Виберіть мову';
 
   @override
   String get onboardingLanguageSubtitle =>
-      'You can change this later in Settings';
+      'Ви можете змінити це пізніше в Налаштуваннях';
 
   @override
   String get videoNoteRecord => 'Записати відеоповідомлення';
@@ -2589,35 +2589,35 @@ class AppLocalizationsUk extends AppLocalizations {
       'Відеонотатки не підтримуються на цій платформі';
 
   @override
-  String get navChats => 'Chats';
+  String get navChats => 'Чати';
 
   @override
-  String get navUpdates => 'Updates';
+  String get navUpdates => 'Оновлення';
 
   @override
-  String get navCalls => 'Calls';
+  String get navCalls => 'Дзвінки';
 
   @override
-  String get filterAll => 'All';
+  String get filterAll => 'Усі';
 
   @override
-  String get filterUnread => 'Unread';
+  String get filterUnread => 'Непрочитані';
 
   @override
-  String get filterGroups => 'Groups';
+  String get filterGroups => 'Групи';
 
   @override
-  String get callsNoRecent => 'No recent calls';
+  String get callsNoRecent => 'Немає нещодавніх дзвінків';
 
   @override
-  String get callsEmptySubtitle => 'Your call history will appear here';
+  String get callsEmptySubtitle => 'Ваша історія дзвінків з\'явиться тут';
 
   @override
-  String get appBarEncrypted => 'end-to-end encrypted';
+  String get appBarEncrypted => 'наскрізне шифрування';
 
   @override
-  String get newStatus => 'New status';
+  String get newStatus => 'Новий статус';
 
   @override
-  String get newCall => 'New call';
+  String get newCall => 'Новий дзвінок';
 }

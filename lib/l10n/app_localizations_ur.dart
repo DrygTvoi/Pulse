@@ -488,13 +488,13 @@ class AppLocalizationsUr extends AppLocalizations {
   String get setupTapToChangeColor => 'رنگ بدلنے کے لیے ٹیپ کریں';
 
   @override
-  String get setupReqMinLength => 'At least 16 characters';
+  String get setupReqMinLength => 'کم از کم 16 حروف';
 
   @override
-  String get setupReqVariety => '3 of 4: uppercase, lowercase, digits, symbols';
+  String get setupReqVariety => '4 میں سے 3: بڑے، چھوٹے حروف، اعداد، علامات';
 
   @override
-  String get setupReqMatch => 'Passwords match';
+  String get setupReqMatch => 'پاس ورڈ ملتے ہیں';
 
   @override
   String get setupYourNickname => 'آپ کا عرفی نام';
@@ -741,11 +741,11 @@ class AppLocalizationsUr extends AppLocalizations {
   }
 
   @override
-  String get chatTileVoiceMessage => '🎤 Voice message';
+  String get chatTileVoiceMessage => '🎤 وائس میسج';
 
   @override
   String chatTileVoiceMessageDuration(String duration) {
-    return '🎤 Voice message ($duration)';
+    return '🎤 وائس میسج ($duration)';
   }
 
   @override
@@ -1780,7 +1780,7 @@ class AppLocalizationsUr extends AppLocalizations {
 
   @override
   String get providerSessionInfo =>
-      'Session Network — onion-routed E2EE. Your Session ID is auto-generated and stored securely. Nodes auto-discovered from built-in seed nodes.';
+      'Session Network — پیاز-روٹڈ E2EE۔ آپ کا Session ID خودبخود بنایا جاتا ہے اور محفوظ طریقے سے ذخیرہ کیا جاتا ہے۔ نوڈز خودبخود بلٹ-ان سیڈ نوڈز سے دریافت ہوتے ہیں۔';
 
   @override
   String get providerAdvanced => 'ایڈوانسڈ';
@@ -1885,7 +1885,7 @@ class AppLocalizationsUr extends AppLocalizations {
   String get networkDiagnosticsInfrastructure => 'بنیادی ڈھانچہ';
 
   @override
-  String get networkDiagnosticsSessionNodes => 'Session nodes';
+  String get networkDiagnosticsSessionNodes => 'Session نوڈز';
 
   @override
   String get networkDiagnosticsTurnServers => 'TURN سرورز';
@@ -2581,35 +2581,35 @@ class AppLocalizationsUr extends AppLocalizations {
       'اس پلیٹ فارم پر ویڈیو نوٹس سپورٹ نہیں ہیں';
 
   @override
-  String get navChats => 'Chats';
+  String get navChats => 'چیٹس';
 
   @override
-  String get navUpdates => 'Updates';
+  String get navUpdates => 'اپ ڈیٹس';
 
   @override
-  String get navCalls => 'Calls';
+  String get navCalls => 'کالز';
 
   @override
-  String get filterAll => 'All';
+  String get filterAll => 'سب';
 
   @override
-  String get filterUnread => 'Unread';
+  String get filterUnread => 'غیر پڑھا';
 
   @override
-  String get filterGroups => 'Groups';
+  String get filterGroups => 'گروپس';
 
   @override
-  String get callsNoRecent => 'No recent calls';
+  String get callsNoRecent => 'کوئی حالیہ کال نہیں';
 
   @override
-  String get callsEmptySubtitle => 'Your call history will appear here';
+  String get callsEmptySubtitle => 'آپ کی کال ہسٹری یہاں ظاہر ہوگی';
 
   @override
-  String get appBarEncrypted => 'end-to-end encrypted';
+  String get appBarEncrypted => 'اینڈ-ٹو-اینڈ انکرپٹڈ';
 
   @override
-  String get newStatus => 'New status';
+  String get newStatus => 'نیا اسٹیٹس';
 
   @override
-  String get newCall => 'New call';
+  String get newCall => 'نئی کال';
 }

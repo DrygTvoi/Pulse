@@ -464,13 +464,13 @@ class AppLocalizationsJa extends AppLocalizations {
   String get setupTapToChangeColor => 'タップして色を変更';
 
   @override
-  String get setupReqMinLength => 'At least 16 characters';
+  String get setupReqMinLength => '16文字以上';
 
   @override
-  String get setupReqVariety => '3 of 4: uppercase, lowercase, digits, symbols';
+  String get setupReqVariety => '4種類中3種類: 大文字、小文字、数字、記号';
 
   @override
-  String get setupReqMatch => 'Passwords match';
+  String get setupReqMatch => 'パスワードが一致';
 
   @override
   String get setupYourNickname => 'ニックネーム';
@@ -708,11 +708,11 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
-  String get chatTileVoiceMessage => '🎤 Voice message';
+  String get chatTileVoiceMessage => '🎤 音声メッセージ';
 
   @override
   String chatTileVoiceMessageDuration(String duration) {
-    return '🎤 Voice message ($duration)';
+    return '🎤 音声メッセージ ($duration)';
   }
 
   @override
@@ -1704,7 +1704,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get providerSessionInfo =>
-      'Session Network — onion-routed E2EE. Your Session ID is auto-generated and stored securely. Nodes auto-discovered from built-in seed nodes.';
+      'Session Network — オニオンルーティングE2EE。Session IDは自動生成され、安全に保存されます。ノードは組み込みシードノードから自動的に検出されます。';
 
   @override
   String get providerAdvanced => '詳細設定';
@@ -1809,7 +1809,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get networkDiagnosticsInfrastructure => 'インフラストラクチャ';
 
   @override
-  String get networkDiagnosticsSessionNodes => 'Session nodes';
+  String get networkDiagnosticsSessionNodes => 'Sessionノード';
 
   @override
   String get networkDiagnosticsTurnServers => 'TURNサーバー';
@@ -2460,20 +2460,19 @@ class AppLocalizationsJa extends AppLocalizations {
   String get bubbleGifBadge => 'GIF';
 
   @override
-  String get settingsLanguage => 'Language';
+  String get settingsLanguage => '言語';
 
   @override
-  String get settingsLanguageSubtitle => 'App display language';
+  String get settingsLanguageSubtitle => 'アプリの表示言語';
 
   @override
-  String get settingsLanguageSystem => 'System default';
+  String get settingsLanguageSystem => 'システムデフォルト';
 
   @override
-  String get onboardingLanguageTitle => 'Choose your language';
+  String get onboardingLanguageTitle => '言語を選択';
 
   @override
-  String get onboardingLanguageSubtitle =>
-      'You can change this later in Settings';
+  String get onboardingLanguageSubtitle => '後で設定から変更できます';
 
   @override
   String get videoNoteRecord => 'ビデオメッセージを録画';
@@ -2494,35 +2493,35 @@ class AppLocalizationsJa extends AppLocalizations {
   String get videoNoteNotSupported => 'このプラットフォームではビデオノートはサポートされていません';
 
   @override
-  String get navChats => 'Chats';
+  String get navChats => 'チャット';
 
   @override
-  String get navUpdates => 'Updates';
+  String get navUpdates => 'アップデート';
 
   @override
-  String get navCalls => 'Calls';
+  String get navCalls => '通話';
 
   @override
-  String get filterAll => 'All';
+  String get filterAll => 'すべて';
 
   @override
-  String get filterUnread => 'Unread';
+  String get filterUnread => '未読';
 
   @override
-  String get filterGroups => 'Groups';
+  String get filterGroups => 'グループ';
 
   @override
-  String get callsNoRecent => 'No recent calls';
+  String get callsNoRecent => '最近の通話なし';
 
   @override
-  String get callsEmptySubtitle => 'Your call history will appear here';
+  String get callsEmptySubtitle => '通話履歴がここに表示されます';
 
   @override
-  String get appBarEncrypted => 'end-to-end encrypted';
+  String get appBarEncrypted => 'エンドツーエンド暗号化';
 
   @override
-  String get newStatus => 'New status';
+  String get newStatus => '新しいステータス';
 
   @override
-  String get newCall => 'New call';
+  String get newCall => '新しい通話';
 }

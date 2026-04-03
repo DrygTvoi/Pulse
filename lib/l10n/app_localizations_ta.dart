@@ -492,13 +492,14 @@ class AppLocalizationsTa extends AppLocalizations {
   String get setupTapToChangeColor => 'நிறம் மாற்ற தட்டவும்';
 
   @override
-  String get setupReqMinLength => 'At least 16 characters';
+  String get setupReqMinLength => 'குறைந்தது 16 எழுத்துகள்';
 
   @override
-  String get setupReqVariety => '3 of 4: uppercase, lowercase, digits, symbols';
+  String get setupReqVariety =>
+      '4 இல் 3: பெரிய, சிறிய எழுத்துகள், இலக்கங்கள், சின்னங்கள்';
 
   @override
-  String get setupReqMatch => 'Passwords match';
+  String get setupReqMatch => 'கடவுச்சொற்கள் பொருந்துகின்றன';
 
   @override
   String get setupYourNickname => 'உங்கள் புனைப்பெயர்';
@@ -745,11 +746,11 @@ class AppLocalizationsTa extends AppLocalizations {
   }
 
   @override
-  String get chatTileVoiceMessage => '🎤 Voice message';
+  String get chatTileVoiceMessage => '🎤 குரல் செய்தி';
 
   @override
   String chatTileVoiceMessageDuration(String duration) {
-    return '🎤 Voice message ($duration)';
+    return '🎤 குரல் செய்தி ($duration)';
   }
 
   @override
@@ -1802,7 +1803,7 @@ class AppLocalizationsTa extends AppLocalizations {
 
   @override
   String get providerSessionInfo =>
-      'Session Network — onion-routed E2EE. Your Session ID is auto-generated and stored securely. Nodes auto-discovered from built-in seed nodes.';
+      'Session Network — வெங்காயம்-திசைமாற்றப்பட்ட E2EE. உங்கள் Session ID தானாக உருவாக்கப்பட்டு பாதுகாப்பாக சேமிக்கப்படுகிறது. நோட்கள் உள்ளமைக்கப்பட்ட seed நோட்களில் இருந்து தானாக கண்டறியப்படுகின்றன.';
 
   @override
   String get providerAdvanced => 'மேம்பட்டது';
@@ -1908,7 +1909,7 @@ class AppLocalizationsTa extends AppLocalizations {
   String get networkDiagnosticsInfrastructure => 'உள்கட்டமைப்பு';
 
   @override
-  String get networkDiagnosticsSessionNodes => 'Session nodes';
+  String get networkDiagnosticsSessionNodes => 'Session நோட்கள்';
 
   @override
   String get networkDiagnosticsTurnServers => 'TURN சேவையகங்கள்';
@@ -2613,35 +2614,35 @@ class AppLocalizationsTa extends AppLocalizations {
       'இந்த தளத்தில் வீடியோ குறிப்புகள் ஆதரிக்கப்படவில்லை';
 
   @override
-  String get navChats => 'Chats';
+  String get navChats => 'அரட்டைகள்';
 
   @override
-  String get navUpdates => 'Updates';
+  String get navUpdates => 'புதுப்பிப்புகள்';
 
   @override
-  String get navCalls => 'Calls';
+  String get navCalls => 'அழைப்புகள்';
 
   @override
-  String get filterAll => 'All';
+  String get filterAll => 'அனைத்தும்';
 
   @override
-  String get filterUnread => 'Unread';
+  String get filterUnread => 'படிக்காதவை';
 
   @override
-  String get filterGroups => 'Groups';
+  String get filterGroups => 'குழுக்கள்';
 
   @override
-  String get callsNoRecent => 'No recent calls';
+  String get callsNoRecent => 'சமீபத்திய அழைப்புகள் இல்லை';
 
   @override
-  String get callsEmptySubtitle => 'Your call history will appear here';
+  String get callsEmptySubtitle => 'உங்கள் அழைப்பு வரலாறு இங்கே தோன்றும்';
 
   @override
-  String get appBarEncrypted => 'end-to-end encrypted';
+  String get appBarEncrypted => 'முனை-முனை மறைகுறியீடு';
 
   @override
-  String get newStatus => 'New status';
+  String get newStatus => 'புதிய நிலை';
 
   @override
-  String get newCall => 'New call';
+  String get newCall => 'புதிய அழைப்பு';
 }

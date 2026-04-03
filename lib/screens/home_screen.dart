@@ -29,7 +29,9 @@ import '../widgets/chat_list_skeleton.dart';
 import '../widgets/chat_filter_chips.dart';
 import 'call_screen.dart';
 import 'group_call_screen.dart';
+import '../services/active_call_service.dart';
 import '../services/connectivity_probe_service.dart';
+import '../widgets/minimized_call_banner.dart';
 import '../services/tor_service.dart';
 import '../services/utls_service.dart';
 import '../l10n/l10n_ext.dart';
@@ -171,6 +173,9 @@ class _HomeScreenState extends State<HomeScreen> {
     };
     UTLSService.instance.available.addListener(_utlsListener!);
 
+    // Listen for minimized call state changes so the banner appears/disappears.
+    ActiveCallService.instance.addListener(_onActiveCallChanged);
+
     _loadStatuses();
     _loadMutedChats();
     _loadContactAvatars();
@@ -198,8 +203,13 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  void _onActiveCallChanged() {
+    if (mounted) setState(() {});
+  }
+
   @override
   void dispose() {
+    ActiveCallService.instance.removeListener(_onActiveCallChanged);
     _signalSubscription?.cancel();
     _groupCallSubscription?.cancel();
     _groupInviteSubscription?.cancel();
@@ -838,9 +848,40 @@ class _HomeScreenState extends State<HomeScreen> {
           _searchActive && _searchQuery.isNotEmpty
               ? _buildGlobalSearchBody(contacts, chatCtrl, isWide)
               : _buildChatsTab(contacts, sorted, chatCtrl, myId, isWide),
-          if (_banner != null)
+          if (ActiveCallService.instance.isMinimized)
             Positioned(
               top: 0, left: 0, right: 0,
+              child: MinimizedCallBanner(
+                contact: ActiveCallService.instance.contact!,
+                onTap: () {
+                  final svc = ActiveCallService.instance;
+                  final sig = svc.signaling;
+                  final contact = svc.contact!;
+                  final myId = svc.myId!;
+                  final isCaller = svc.isCaller!;
+                  final elapsed = svc.elapsed;
+                  svc.restore();
+                  Navigator.push(context, MaterialPageRoute(
+                    builder: (_) => CallScreen(
+                      contact: contact,
+                      myId: myId,
+                      isCaller: isCaller,
+                      existingSignaling: sig,
+                      resumedDuration: elapsed,
+                    ),
+                  ));
+                },
+                onHangUp: () {
+                  final svc = ActiveCallService.instance;
+                  svc.signaling?.hangUp();
+                  svc.endCall();
+                },
+              ),
+            ),
+          if (_banner != null)
+            Positioned(
+              top: ActiveCallService.instance.isMinimized ? 56 : 0,
+              left: 0, right: 0,
               child: NewMessageBanner(
                 contact: _banner!.contact,
                 message: _banner!.message,

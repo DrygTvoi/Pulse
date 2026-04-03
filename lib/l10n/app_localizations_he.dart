@@ -480,13 +480,13 @@ class AppLocalizationsHe extends AppLocalizations {
   String get setupTapToChangeColor => 'הקש לשינוי צבע';
 
   @override
-  String get setupReqMinLength => 'At least 16 characters';
+  String get setupReqMinLength => 'לפחות 16 תווים';
 
   @override
-  String get setupReqVariety => '3 of 4: uppercase, lowercase, digits, symbols';
+  String get setupReqVariety => '3 מתוך 4: אותיות גדולות, קטנות, ספרות, סמלים';
 
   @override
-  String get setupReqMatch => 'Passwords match';
+  String get setupReqMatch => 'הסיסמאות תואמות';
 
   @override
   String get setupYourNickname => 'הכינוי שלך';
@@ -732,11 +732,11 @@ class AppLocalizationsHe extends AppLocalizations {
   }
 
   @override
-  String get chatTileVoiceMessage => '🎤 Voice message';
+  String get chatTileVoiceMessage => '🎤 הודעה קולית';
 
   @override
   String chatTileVoiceMessageDuration(String duration) {
-    return '🎤 Voice message ($duration)';
+    return '🎤 הודעה קולית ($duration)';
   }
 
   @override
@@ -1755,7 +1755,7 @@ class AppLocalizationsHe extends AppLocalizations {
 
   @override
   String get providerSessionInfo =>
-      'Session Network — onion-routed E2EE. Your Session ID is auto-generated and stored securely. Nodes auto-discovered from built-in seed nodes.';
+      'Session Network — E2EE עם ניתוב שכבות. מזהה ה-Session שלך נוצר אוטומטית ומאוחסן בצורה מאובטחת. הצמתים מתגלים אוטומטית מצמתי הגרעין המובנים.';
 
   @override
   String get providerAdvanced => 'מתקדם';
@@ -1860,7 +1860,7 @@ class AppLocalizationsHe extends AppLocalizations {
   String get networkDiagnosticsInfrastructure => 'תשתית';
 
   @override
-  String get networkDiagnosticsSessionNodes => 'Session nodes';
+  String get networkDiagnosticsSessionNodes => 'צמתי Session';
 
   @override
   String get networkDiagnosticsTurnServers => 'שרתי TURN';
@@ -2550,35 +2550,35 @@ class AppLocalizationsHe extends AppLocalizations {
   String get videoNoteNotSupported => 'הערות וידאו אינן נתמכות בפלטפורמה זו';
 
   @override
-  String get navChats => 'Chats';
+  String get navChats => 'צ\'אטים';
 
   @override
-  String get navUpdates => 'Updates';
+  String get navUpdates => 'עדכונים';
 
   @override
-  String get navCalls => 'Calls';
+  String get navCalls => 'שיחות';
 
   @override
-  String get filterAll => 'All';
+  String get filterAll => 'הכל';
 
   @override
-  String get filterUnread => 'Unread';
+  String get filterUnread => 'לא נקרא';
 
   @override
-  String get filterGroups => 'Groups';
+  String get filterGroups => 'קבוצות';
 
   @override
-  String get callsNoRecent => 'No recent calls';
+  String get callsNoRecent => 'אין שיחות אחרונות';
 
   @override
-  String get callsEmptySubtitle => 'Your call history will appear here';
+  String get callsEmptySubtitle => 'היסטוריית השיחות שלך תופיע כאן';
 
   @override
-  String get appBarEncrypted => 'end-to-end encrypted';
+  String get appBarEncrypted => 'מוצפן מקצה לקצה';
 
   @override
-  String get newStatus => 'New status';
+  String get newStatus => 'סטטוס חדש';
 
   @override
-  String get newCall => 'New call';
+  String get newCall => 'שיחה חדשה';
 }
