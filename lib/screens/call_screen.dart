@@ -41,6 +41,20 @@ class CallScreen extends StatefulWidget {
 
   @override
   State<CallScreen> createState() => _CallScreenState();
+
+  /// Public helper so home_screen can save a call record when the user
+  /// hangs up from the minimized banner (outside of any CallScreen instance).
+  static Future<void> saveCallRecord({
+    required Contact contact,
+    required String myId,
+    required bool isCaller,
+    required Duration duration,
+  }) => _CallScreenState._saveCallRecordStatic(
+        contact: contact,
+        myId: myId,
+        isCaller: isCaller,
+        duration: duration,
+      );
 }
 
 class _CallScreenState extends State<CallScreen> {

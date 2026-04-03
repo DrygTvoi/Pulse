@@ -873,8 +873,21 @@ class _HomeScreenState extends State<HomeScreen> {
                 },
                 onHangUp: () {
                   final svc = ActiveCallService.instance;
+                  final contact = svc.contact;
+                  final myId = svc.myId;
+                  final isCaller = svc.isCaller;
+                  final elapsed = svc.elapsed;
                   svc.signaling?.hangUp();
                   svc.endCall();
+                  // Save call record — this path skips CallScreen._hangUp()
+                  if (contact != null && myId != null && isCaller != null) {
+                    unawaited(CallScreen.saveCallRecord(
+                      contact: contact,
+                      myId: myId,
+                      isCaller: isCaller,
+                      duration: elapsed,
+                    ));
+                  }
                 },
               ),
             ),
