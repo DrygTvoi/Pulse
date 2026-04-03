@@ -63,7 +63,8 @@ class _CallScreenState extends State<CallScreen> {
   final RTCVideoRenderer _remoteRenderer = RTCVideoRenderer();
 
   bool _isMuted       = false;
-  bool _isCameraOff   = true;  // camera OFF by default — user can enable anytime
+  bool _isCameraOff     = true;  // camera OFF by default — user can enable anytime
+  bool _isFrontCamera   = true;  // front camera by default; flipped by _flipCamera()
   bool _isScreenSharing = false;
   bool _screenShareToggling = false; // debounce guard for _toggleScreenShare
   bool _showControls  = true;
@@ -658,7 +659,7 @@ class _CallScreenState extends State<CallScreen> {
     try {
       final videoStream = await navigator.mediaDevices.getUserMedia({
         'audio': false,
-        'video': {'facingMode': 'user'},
+        'video': {'facingMode': _isFrontCamera ? 'user' : 'environment'},
       }).timeout(const Duration(seconds: 5),
           onTimeout: () => throw TimeoutException('getUserMedia(video) timed out'));
       _cameraStream = videoStream;
@@ -1027,11 +1028,11 @@ class _CallScreenState extends State<CallScreen> {
         // Renegotiate so the remote side activates its video receiver
         unawaited(_signaling?.renegotiate());
       } else {
-        // No video track (transceiver or audio-only) — get camera via replaceTrack
+        // No video track (transceiver or audio-only) — get camera via getUserMedia
         try {
           final videoStream = await navigator.mediaDevices.getUserMedia({
             'audio': false,
-            'video': {'facingMode': 'user'},
+            'video': {'facingMode': _isFrontCamera ? 'user' : 'environment'},
           });
           final videoTracks = videoStream.getVideoTracks();
           if (videoTracks.isEmpty) {
@@ -1049,8 +1050,16 @@ class _CallScreenState extends State<CallScreen> {
           _cameraStream = videoStream;
           _localRenderer.srcObject = videoStream;
           setState(() => _isCameraOff = false);
+          unawaited(_signaling?.renegotiate());
         } catch (e) {
           debugPrint('[CallScreen] Failed to enable camera: $e');
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: const Text('Camera unavailable — may be in use by another app'),
+              backgroundColor: Colors.red.shade700,
+              duration: const Duration(seconds: 3),
+            ));
+          }
         }
       }
     } else {
@@ -1061,6 +1070,17 @@ class _CallScreenState extends State<CallScreen> {
       _localRenderer.srcObject = null;
       setState(() => _isCameraOff = true);
       unawaited(_signaling?.renegotiate());
+    }
+  }
+
+  Future<void> _flipCamera() async {
+    final track = _videoSender?.track;
+    if (track == null || track.kind != 'video') return;
+    try {
+      await Helper.switchCamera(track);
+      setState(() => _isFrontCamera = !_isFrontCamera);
+    } catch (e) {
+      debugPrint('[CallScreen] switchCamera failed: $e');
     }
   }
 
@@ -1222,9 +1242,7 @@ class _CallScreenState extends State<CallScreen> {
       child: Scaffold(
       backgroundColor: Colors.black,
       body: SafeArea(
-        child: GestureDetector(
-          onTap: hasRemoteVideo ? _resetHideControlsTimer : null,
-          child: Stack(
+        child: Stack(
             children: [
               // ── Background / Remote ──────────────────────────────────────
               hasRemoteVideo
@@ -1235,6 +1253,16 @@ class _CallScreenState extends State<CallScreen> {
                       ),
                     )
                   : _buildAudioBackground(),
+              // Transparent overlay so taps on RTCVideoView (PlatformView)
+              // still reach our controls-reveal handler on Android.
+              if (hasRemoteVideo)
+                Positioned.fill(
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.translucent,
+                    onTap: _resetHideControlsTimer,
+                    child: const SizedBox.expand(),
+                  ),
+                ),
 
               // ── Local video (PiP) ────────────────────────────────────────
               if (hasLocalVideo)
@@ -1297,7 +1325,6 @@ class _CallScreenState extends State<CallScreen> {
             ],
           ),
         ),
-      ),
     )); // Scaffold + PopScope
   }
 
@@ -1530,6 +1557,14 @@ class _CallScreenState extends State<CallScreen> {
               active: !_isCameraOff,
               onTap:  _toggleCamera,
             ),
+            if (!_isCameraOff) ...[
+              const SizedBox(width: 24),
+              _buildSmallButton(
+                icon:  Icons.flip_camera_ios_rounded,
+                label: _isFrontCamera ? 'Flip' : 'Front',
+                onTap: _flipCamera,
+              ),
+            ],
           ]),
         ),
         Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
