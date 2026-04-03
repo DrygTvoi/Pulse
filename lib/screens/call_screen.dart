@@ -626,6 +626,7 @@ class _CallScreenState extends State<CallScreen> {
 
   // Active screen share stream — kept to stop its tracks on share end.
   MediaStream? _screenShareStream;
+  MediaStream? _cameraStream; // kept for local preview and disposal
 
   // Bitrate cap for current screen share (bps). 0 = auto.
   // Stored so it can be re-applied after each renegotiation cycle.
@@ -660,9 +661,10 @@ class _CallScreenState extends State<CallScreen> {
         'video': {'facingMode': 'user'},
       }).timeout(const Duration(seconds: 5),
           onTimeout: () => throw TimeoutException('getUserMedia(video) timed out'));
+      _cameraStream = videoStream;
       final videoTrack = videoStream.getVideoTracks().first;
       videoTrack.enabled = false; // camera off by default
-      _videoSender = await pc.addTrack(videoTrack, audioStream);
+      _videoSender = await pc.addTrack(videoTrack, videoStream);
     } catch (e) {
       // No camera available — create an empty video transceiver so
       // replaceTrack works later for camera toggle and screen sharing.
@@ -1020,8 +1022,10 @@ class _CallScreenState extends State<CallScreen> {
       if (_videoSender?.track != null && _videoSender!.track!.kind == 'video') {
         // Existing video track — just enable it
         _videoSender!.track!.enabled = true;
-        _localRenderer.srcObject = _signaling?.localStream;
+        _localRenderer.srcObject = _cameraStream;
         setState(() => _isCameraOff = false);
+        // Renegotiate so the remote side activates its video receiver
+        unawaited(_signaling?.renegotiate());
       } else {
         // No video track (transceiver or audio-only) — get camera via replaceTrack
         try {
@@ -1042,6 +1046,7 @@ class _CallScreenState extends State<CallScreen> {
             if (pc == null) return;
             _videoSender = await pc.addTrack(videoTrack, videoStream);
           }
+          _cameraStream = videoStream;
           _localRenderer.srcObject = videoStream;
           setState(() => _isCameraOff = false);
         } catch (e) {
@@ -1055,6 +1060,7 @@ class _CallScreenState extends State<CallScreen> {
       }
       _localRenderer.srcObject = null;
       setState(() => _isCameraOff = true);
+      unawaited(_signaling?.renegotiate());
     }
   }
 
@@ -1078,6 +1084,13 @@ class _CallScreenState extends State<CallScreen> {
     try { _remoteRenderer.srcObject = null; } catch (_) {}
     try { _localRenderer.dispose(); } catch (_) {}
     try { _remoteRenderer.dispose(); } catch (_) {}
+    // Release camera stream (separate from localStream/screenShareStream)
+    final cs = _cameraStream;
+    _cameraStream = null;
+    if (cs != null) {
+      for (final t in cs.getTracks()) { try { t.stop(); } catch (_) {} }
+      cs.dispose().catchError((_) {});
+    }
   }
 
   void _startDurationTimer() {
