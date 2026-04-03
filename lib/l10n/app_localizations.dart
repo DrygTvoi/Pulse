@@ -4156,6 +4156,24 @@ abstract class AppLocalizations {
   /// **'Tor Browser: port 9150  •  tor daemon: port 9050'**
   String get torPortInfo;
 
+  /// No description provided for @torForceNostrTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Route messages through Tor'**
+  String get torForceNostrTitle;
+
+  /// No description provided for @torForceNostrSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'All Nostr relay connections will go through Tor. Slower but hides your IP from relays.'**
+  String get torForceNostrSubtitle;
+
+  /// No description provided for @torForceNostrDisabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Tor must be enabled first'**
+  String get torForceNostrDisabled;
+
   /// No description provided for @i2pProxySocks5.
   ///
   /// In en, this message translates to:

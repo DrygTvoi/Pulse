@@ -1482,6 +1482,10 @@
   "torProxyPortLabel": "Port",
   "torPortInfo": "Tor Browser: port 9150  \u2022  tor daemon: port 9050",
 
+  "torForceNostrTitle": "Route messages through Tor",
+  "torForceNostrSubtitle": "All Nostr relay connections will go through Tor. Slower but hides your IP from relays.",
+  "torForceNostrDisabled": "Tor must be enabled first",
+
   "i2pProxySocks5": "I2P Proxy (SOCKS5)",
   "i2pInfoDescription": "I2P uses SOCKS5 on port 4447 by default. Connect to a Nostr relay via I2P outproxy (e.g. relay.damus.i2p) to communicate with users on any transport. Tor takes priority when both are enabled.",
   "i2pRouteNostrTitle": "Route Nostr via I2P",

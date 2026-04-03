@@ -725,6 +725,10 @@
   "torProxyPortLabel": "Порт",
   "torPortInfo": "Tor Browser: порт 9150  \u2022  демон tor: порт 9050",
 
+  "torForceNostrTitle": "Отправлять сообщения через Tor",
+  "torForceNostrSubtitle": "Все соединения с Nostr-реле будут идти через Tor. Медленнее, но скрывает ваш IP от реле.",
+  "torForceNostrDisabled": "Сначала включите Tor",
+
   "i2pProxySocks5": "I2P Прокси (SOCKS5)",
   "i2pInfoDescription": "I2P использует SOCKS5 на порту 4447 по умолчанию. Подключайтесь к Nostr-реле через I2P-outproxy для связи с пользователями на любом транспорте. Tor имеет приоритет.",
   "i2pRouteNostrTitle": "Маршрутизировать Nostr через I2P",

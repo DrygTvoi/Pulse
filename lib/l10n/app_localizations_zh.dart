@@ -2159,6 +2159,16 @@ class AppLocalizationsZh extends AppLocalizations {
   String get torPortInfo => 'Tor Browser：端口 9150  •  tor 守护进程：端口 9050';
 
   @override
+  String get torForceNostrTitle => 'Route messages through Tor';
+
+  @override
+  String get torForceNostrSubtitle =>
+      'All Nostr relay connections will go through Tor. Slower but hides your IP from relays.';
+
+  @override
+  String get torForceNostrDisabled => 'Tor must be enabled first';
+
+  @override
   String get i2pProxySocks5 => 'I2P 代理（SOCKS5）';
 
   @override

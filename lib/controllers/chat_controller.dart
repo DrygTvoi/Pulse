@@ -3521,6 +3521,20 @@ class ChatController extends ChangeNotifier {
     }
   }
 
+  // ── Connection Reset ──────────────────────────────────────────────────────
+
+  /// Reset all Nostr connections (pool + subscription) after proxy settings change.
+  /// Called from settings screen when force-Tor toggle changes.
+  Future<void> resetNostrConnections() async {
+    await _cachedNostrSender?.resetConnections();
+    final reader = InboxManager().reader;
+    if (reader is NostrInboxReader) await reader.resetConnections();
+    for (final sender in InboxManager().senders.values) {
+      if (sender is NostrMessageSender) await sender.resetConnections();
+    }
+    debugPrint('[ChatController] Nostr connections reset');
+  }
+
   // ── Dispose ───────────────────────────────────────────────────────────────
 
   @override

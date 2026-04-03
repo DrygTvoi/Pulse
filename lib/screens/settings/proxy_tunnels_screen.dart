@@ -12,6 +12,7 @@ import '../../widgets/custom_proxy_section.dart';
 import '../../widgets/i2p_config_section.dart';
 import '../../widgets/psiphon_config_section.dart';
 import '../../widgets/tor_config_section.dart';
+import '../../controllers/chat_controller.dart';
 import '../network_diagnostics_screen.dart';
 import 'package:google_fonts/google_fonts.dart' show GoogleFonts;
 
@@ -30,6 +31,8 @@ class _ProxyTunnelsScreenState extends State<ProxyTunnelsScreen> {
   int _torTimeoutSec = 60;
   final _torHostController = TextEditingController(text: '127.0.0.1');
   final _torPortController = TextEditingController(text: '9050');
+
+  bool _forceNostrTor = false;
 
   bool _psiphonEnabled = false;
   bool _psiphonLoading = false;
@@ -122,6 +125,7 @@ class _ProxyTunnelsScreenState extends State<ProxyTunnelsScreen> {
     final psiphonEnabled = prefs.getBool('bundled_psiphon_enabled') ?? false;
     final preferredPt = prefs.getString('preferred_pt') ?? 'auto';
     final torTimeoutSec = prefs.getInt('tor_timeout_sec') ?? 60;
+    final forceNostrTor = prefs.getBool('nostr_force_tor') ?? false;
 
     if (!mounted) return;
     setState(() {
@@ -130,6 +134,7 @@ class _ProxyTunnelsScreenState extends State<ProxyTunnelsScreen> {
       _psiphonEnabled = psiphonEnabled;
       _preferredPt = preferredPt;
       _torTimeoutSec = torTimeoutSec;
+      _forceNostrTor = forceNostrTor;
       _torHostController.text = torHost;
       _torPortController.text = torPort.toString();
       _i2pEnabled = i2pEnabled;
@@ -255,6 +260,15 @@ class _ProxyTunnelsScreenState extends State<ProxyTunnelsScreen> {
                       SnackBar(content: Text(failMsg)));
                 }
               }
+            },
+            forceNostrTor: _forceNostrTor,
+            onForceNostrTorChanged: (v) async {
+              debugPrint('[Settings] Force-Tor toggled: $v');
+              setState(() => _forceNostrTor = v);
+              final prefs = await SharedPreferences.getInstance();
+              await prefs.setBool('nostr_force_tor', v);
+              // Reset all Nostr connections so new route takes effect immediately
+              unawaited(ChatController().resetNostrConnections());
             },
             torTimeoutSec: _torTimeoutSec,
             onTorTimeoutChanged: (val) async {

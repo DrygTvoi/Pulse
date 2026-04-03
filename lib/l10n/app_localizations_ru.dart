@@ -2235,6 +2235,16 @@ class AppLocalizationsRu extends AppLocalizations {
   String get torPortInfo => 'Tor Browser: порт 9150  •  демон tor: порт 9050';
 
   @override
+  String get torForceNostrTitle => 'Отправлять сообщения через Tor';
+
+  @override
+  String get torForceNostrSubtitle =>
+      'Все соединения с Nostr-реле будут идти через Tor. Медленнее, но скрывает ваш IP от реле.';
+
+  @override
+  String get torForceNostrDisabled => 'Сначала включите Tor';
+
+  @override
   String get i2pProxySocks5 => 'I2P Прокси (SOCKS5)';
 
   @override

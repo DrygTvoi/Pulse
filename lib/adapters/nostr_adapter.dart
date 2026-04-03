@@ -115,9 +115,12 @@ DateTime? _utlsFailedUntil;
 /// Dart's WebSocket.connect/findProxy bug that produces "https://host:0#"
 /// when routing wss:// through an HTTP CONNECT proxy.
 Future<WebSocketChannel> _connectWebSocketViaUtls(
-    String url, int proxyPort) async {
+    String url, int proxyPort, {String? upstreamSocks5}) async {
   // Skip if uTLS recently failed — avoids creating many dead bridge sockets.
-  if (_utlsFailedUntil != null && DateTime.now().isBefore(_utlsFailedUntil!)) {
+  // Bypass when using upstream SOCKS5 (force-Tor): different route, previous
+  // direct failures don't apply.
+  if (upstreamSocks5 == null &&
+      _utlsFailedUntil != null && DateTime.now().isBefore(_utlsFailedUntil!)) {
     throw StateError('uTLS circuit breaker open');
   }
   final uri = Uri.parse(url);
@@ -177,12 +180,19 @@ Future<WebSocketChannel> _connectWebSocketViaUtls(
         cancelOnError: true,
       );
 
-      // HTTP CONNECT request.
+      // HTTP CONNECT request (with optional upstream SOCKS5 for Tor chaining).
+      final socksHeader = upstreamSocks5 != null
+          ? 'X-Upstream-Socks5: $upstreamSocks5\r\n'
+          : '';
       proxy.write(
           'CONNECT $targetHost:$targetPort HTTP/1.1\r\n'
-          'Host: $targetHost:$targetPort\r\n\r\n');
+          'Host: $targetHost:$targetPort\r\n'
+          '$socksHeader\r\n');
+      await proxy.flush();
 
       // Wait for "HTTP/1.x 200 …\r\n\r\n".
+      // Longer timeout when routing through Tor SOCKS5 (circuit setup is slow).
+      final headerTimeout = upstreamSocks5 != null ? 45 : 10;
       Future<bool> readUntilEndOfHeaders() async {
         while (true) {
           for (int i = 0; i <= rxBuf.length - 4; i++) {
@@ -201,12 +211,15 @@ Future<WebSocketChannel> _connectWebSocketViaUtls(
       }
 
       final ok = await readUntilEndOfHeaders()
-          .timeout(const Duration(seconds: 10), onTimeout: () => false);
+          .timeout(Duration(seconds: headerTimeout), onTimeout: () => false);
       if (!ok) {
         debugPrint('[Nostr] uTLS CONNECT to $targetHost:$targetPort refused');
         // Trip circuit breaker — all hosts share the same Go proxy, so one
         // failure means the proxy is unreachable or not running.
-        _utlsFailedUntil = DateTime.now().add(const Duration(minutes: 5));
+        // Don't trip when using upstream SOCKS5 — failure is route-specific.
+        if (upstreamSocks5 == null) {
+          _utlsFailedUntil = DateTime.now().add(const Duration(minutes: 5));
+        }
         client.destroy();
         proxy.destroy();
         return;
@@ -290,7 +303,36 @@ Future<WebSocketChannel> _nostrWsConnect(
   required String customProxyHost,
   required int customProxyPort,
   required String cfWorkerRelay,
+  bool forceTor = false,
 }) async {
+  // 0. Force-Tor: uTLS+Tor chain (Chrome fingerprint + IP hidden via Tor)
+  //    Falls back to plain Tor SOCKS5 if uTLS proxy unavailable.
+  if (forceTor && torEnabled && tor.TorService.instance.isBootstrapped) {
+    final utlsPort = UTLSService.instance.proxyPort;
+    if (utlsPort != null) {
+      try {
+        debugPrint('[Nostr] Force-Tor: uTLS+Tor chain to $url');
+        return await _connectWebSocketViaUtls(url, utlsPort,
+            upstreamSocks5: '$torHost:$torPort')
+            .timeout(const Duration(seconds: 20));
+      } catch (e) {
+        debugPrint('[Nostr] Force-Tor uTLS+Tor failed ($e) — trying plain Tor');
+      }
+    }
+    // Fallback: plain Tor SOCKS5 (no uTLS fingerprint masking)
+    try {
+      debugPrint('[Nostr] Force-Tor: plain Tor SOCKS5 to $url');
+      return await tor.connectWebSocket(url,
+          torHost: torHost, torPort: torPort,
+          socks5Timeout: const Duration(seconds: 12));
+    } catch (e) {
+      debugPrint('[Nostr] Force-Tor plain failed ($e) — falling back');
+    }
+  }
+
+  // When forceTor is set, skip layers 1-4 entirely
+  if (!forceTor) {
+
   // 1. uTLS+ECH (Go proxy: Chrome fingerprint + ECH + DoH)
   final utlsPort = UTLSService.instance.proxyPort;
   if (utlsPort != null) {
@@ -344,6 +386,8 @@ Future<WebSocketChannel> _nostrWsConnect(
       debugPrint('[Nostr] Psiphon path failed ($e) — trying Tor');
     }
   }
+
+  } // end if (!forceTor)
 
   // 5. Tor SOCKS5
   if (torEnabled && tor.TorService.instance.isBootstrapped) {
@@ -765,12 +809,15 @@ class NostrInboxReader implements InboxReader {
   int _customProxyPort = 10808;
   String _cfWorkerRelay = '';
 
+  // Force all Nostr through Tor — loaded once in initializeReader
+  bool _forceTor = false;
+
   Future<WebSocketChannel> _wsConnect(String url) => _nostrWsConnect(url,
       torEnabled: _torEnabled, torHost: _torHost, torPort: _torPort,
       i2pEnabled: _i2pEnabled, i2pHost: _i2pHost, i2pPort: _i2pPort,
       customProxyEnabled: _customProxyEnabled,
       customProxyHost: _customProxyHost, customProxyPort: _customProxyPort,
-      cfWorkerRelay: _cfWorkerRelay);
+      cfWorkerRelay: _cfWorkerRelay, forceTor: _forceTor);
 
   @override
   Future<void> initializeReader(String apiKey, String databaseId) async {
@@ -818,6 +865,7 @@ class NostrInboxReader implements InboxReader {
     _customProxyHost = prefs.getString('custom_proxy_host') ?? '127.0.0.1';
     _customProxyPort = prefs.getInt('custom_proxy_port') ?? 10808;
     _cfWorkerRelay = prefs.getString('cf_worker_relay') ?? '';
+    _forceTor = prefs.getBool('nostr_force_tor') ?? false;
 
     // If relay is still the hardcoded default, try probe-suggested or adaptive relay
     if (_relayUrl == _defaultRelay) {
@@ -1041,9 +1089,9 @@ class NostrInboxReader implements InboxReader {
   /// Returns true if an actual reconnect was triggered.
   /// Skips reconnect if the subscription received data within the last 30s
   /// (the WS is clearly alive — reconnecting would cause a signal gap).
-  bool forceReconnect() {
+  bool forceReconnect({bool hard = false}) {
     final age = DateTime.now().difference(_lastDataReceived);
-    if (age.inSeconds < 30 && _activeChannel != null) {
+    if (!hard && age.inSeconds < 30 && _activeChannel != null) {
       debugPrint('[Nostr] forceReconnect: subscription alive (last data ${age.inSeconds}s ago), skipping');
       return false;
     }
@@ -1641,6 +1689,14 @@ class NostrInboxReader implements InboxReader {
   @override
   Future<String?> provisionGroup(String groupName) async => '$_publicKeyHex@$_relayUrl';
 
+  /// Reload force-Tor setting and force-reconnect so new route takes effect.
+  Future<void> resetConnections() async {
+    final prefs = await SharedPreferences.getInstance();
+    _forceTor = prefs.getBool('nostr_force_tor') ?? false;
+    debugPrint('[Nostr] Reader reset, forceTor=$_forceTor');
+    forceReconnect(hard: true);
+  }
+
   /// Stop event loop and clear private key from memory.
   void zeroize() {
     close();
@@ -1671,6 +1727,11 @@ class NostrMessageSender implements MessageSender {
   /// First caller creates the WS; others await the same future.
   final Map<String, Completer<WebSocketChannel?>> _wsPoolConnecting = {};
 
+  /// Tracks whether pool connections were created via Tor.
+  /// When this doesn't match the current forceTor+isBootstrapped state,
+  /// the pool is evicted so new connections use the correct route.
+  bool _poolCreatedWithTor = false;
+
   // initializeSender dedup: skip re-reading prefs when apiKey unchanged within TTL.
   String _lastInitApiKey = '';
   int _lastInitMs = 0;
@@ -1692,12 +1753,15 @@ class NostrMessageSender implements MessageSender {
   int _customProxyPort = 10808;
   String _cfWorkerRelay = '';
 
+  // Force all Nostr through Tor — loaded once in initializeSender
+  bool _forceTor = false;
+
   Future<WebSocketChannel> _wsConnect(String url) => _nostrWsConnect(url,
       torEnabled: _torEnabled, torHost: _torHost, torPort: _torPort,
       i2pEnabled: _i2pEnabled, i2pHost: _i2pHost, i2pPort: _i2pPort,
       customProxyEnabled: _customProxyEnabled,
       customProxyHost: _customProxyHost, customProxyPort: _customProxyPort,
-      cfWorkerRelay: _cfWorkerRelay);
+      cfWorkerRelay: _cfWorkerRelay, forceTor: _forceTor);
 
   @override
   Future<void> initializeSender(String apiKey) async {
@@ -1750,6 +1814,7 @@ class NostrMessageSender implements MessageSender {
     _customProxyHost = prefs.getString('custom_proxy_host') ?? '127.0.0.1';
     _customProxyPort = prefs.getInt('custom_proxy_port') ?? 10808;
     _cfWorkerRelay = prefs.getString('cf_worker_relay') ?? '';
+    _forceTor = prefs.getBool('nostr_force_tor') ?? false;
 
     // If relay is still the hardcoded default, try adaptive CF relay or probe-suggested.
     // Mirror the Reader path validation — apply _isValidRelayUrl to both sources.
@@ -1773,6 +1838,26 @@ class NostrMessageSender implements MessageSender {
   /// Uses a connection lock to prevent thundering herd: when multiple publishes
   /// fire concurrently, only the first creates a WS — the rest await the same future.
   Future<WebSocketChannel?> _getPooledWs(String relayUrl) async {
+    // 0. Route-change detection: evict pool if Tor availability changed.
+    //    Handles: forceTor enabled before Tor ready → pool has non-Tor conn
+    //    → Tor bootstraps → next send evicts pool → reconnects via Tor.
+    final shouldUseTor = _forceTor && _torEnabled && tor.TorService.instance.isBootstrapped;
+    if (shouldUseTor != _poolCreatedWithTor) {
+      debugPrint('[Nostr] Route check: forceTor=$_forceTor torEnabled=$_torEnabled bootstrapped=${tor.TorService.instance.isBootstrapped} shouldUseTor=$shouldUseTor poolHadTor=$_poolCreatedWithTor poolSize=${_wsPool.length}');
+    }
+    if (shouldUseTor != _poolCreatedWithTor && _wsPool.isNotEmpty) {
+      debugPrint('[Nostr] Pool evicted: route changed (tor=$shouldUseTor)');
+      for (final entry in _wsPool.values) {
+        try { entry.ch.sink.close(); } catch (_) {}
+      }
+      _wsPool.clear();
+      for (final sub in _wsPoolSubs.values) { sub.cancel(); }
+      _wsPoolSubs.clear();
+      _wsPoolBackoff.clear();
+    }
+    final routeChanged = shouldUseTor != _poolCreatedWithTor;
+    _poolCreatedWithTor = shouldUseTor;
+
     // 1. Check existing cached connection.
     final cached = _wsPool[relayUrl];
     if (cached != null) {
@@ -1788,8 +1873,11 @@ class NostrMessageSender implements MessageSender {
     }
 
     // 2. Check shared relay pool (subscription channel on same relay).
-    final shared = _getSharedRelayEntry(relayUrl);
-    if (shared != null) return shared.ch;
+    //    Skip if route just changed — shared connection uses the old route.
+    if (!routeChanged) {
+      final shared = _getSharedRelayEntry(relayUrl);
+      if (shared != null) return shared.ch;
+    }
 
     // 3. Backoff: don't reconnect too soon after a rejection/block.
     final backoffUntil = _wsPoolBackoff[relayUrl];
@@ -2048,6 +2136,25 @@ class NostrMessageSender implements MessageSender {
       debugPrint('[Nostr] publishProfile error: $e');
       return false;
     }
+  }
+
+  /// Close all pooled connections and reload force-Tor setting.
+  /// Called when proxy settings change so next connections use new route.
+  Future<void> resetConnections() async {
+    for (final entry in _wsPool.values) {
+      try { entry.ch.sink.close(); } catch (_) {}
+    }
+    _wsPool.clear();
+    for (final sub in _wsPoolSubs.values) {
+      sub.cancel();
+    }
+    _wsPoolSubs.clear();
+    _wsPoolBackoff.clear();
+    // Force re-read of settings on next initializeSender call
+    _lastInitMs = 0;
+    final prefs = await SharedPreferences.getInstance();
+    _forceTor = prefs.getBool('nostr_force_tor') ?? false;
+    debugPrint('[Nostr] Sender pool reset, forceTor=$_forceTor');
   }
 
   /// Clear private key from memory and close pooled connections.

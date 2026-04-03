@@ -60,6 +60,7 @@ import (
 	"time"
 
 	utls "github.com/refraction-networking/utls"
+	netproxy "golang.org/x/net/proxy"
 )
 
 // connSem limits concurrent CONNECT tunnels to prevent goroutine-exhaustion DoS.
@@ -292,6 +293,11 @@ func isPrivateIP(ip string) bool {
 	if parsed == nil {
 		return true
 	}
+	// Normalize to 4-byte form for IPv4 so IPv4 CIDRs match correctly
+	// and IPv6 CIDRs (like fc00::/7) don't false-positive on IPv4.
+	if v4 := parsed.To4(); v4 != nil {
+		parsed = v4
+	}
 	private := []string{
 		"0.0.0.0/8",      // "this" network (RFC 1122) — 0.0.0.0 connects to loopback on Linux
 		"10.0.0.0/8",
@@ -303,7 +309,6 @@ func isPrivateIP(ip string) bool {
 		"::1/128",        // IPv6 loopback
 		"fe80::/10",      // IPv6 link-local
 		"fc00::/7",       // IPv6 unique-local (ULA)
-		"::ffff:0:0/96",  // IPv4-mapped IPv6
 	}
 	for _, cidrStr := range private {
 		_, cidr, err := net.ParseCIDR(cidrStr)
@@ -418,8 +423,15 @@ func queryECHViaDoH(hostname, dohIP, sniHost, pathPrefix string) ([]byte, error)
 
 // dialTLS connects to ip:port with uTLS + optional ECH + rotating fingerprint.
 // On ECH rejection with retry configs, automatically reconnects once.
-func dialTLS(ip, port, hostname string, echConfigList []byte) (net.Conn, error) {
-	upstream, err := net.DialTimeout("tcp", net.JoinHostPort(ip, port), 10*time.Second)
+// If socksDialer is non-nil, the TCP connection is routed through it (e.g. Tor SOCKS5).
+func dialTLS(ip, port, hostname string, echConfigList []byte, socksDialer netproxy.Dialer) (net.Conn, error) {
+	var upstream net.Conn
+	var err error
+	if socksDialer != nil {
+		upstream, err = socksDialer.Dial("tcp", net.JoinHostPort(ip, port))
+	} else {
+		upstream, err = net.DialTimeout("tcp", net.JoinHostPort(ip, port), 10*time.Second)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -450,7 +462,7 @@ func dialTLS(ip, port, hostname string, echConfigList []byte) (net.Conn, error) 
 				fetchedAt:  time.Now(),
 			})
 			// One retry with fresh configs
-			return dialTLSWithConfigs(ip, port, hostname, echErr.RetryConfigList)
+			return dialTLSWithConfigs(ip, port, hostname, echErr.RetryConfigList, socksDialer)
 		}
 		return nil, fmt.Errorf("%s (fp=%s)", err, fp.Client)
 	}
@@ -462,8 +474,14 @@ func dialTLS(ip, port, hostname string, echConfigList []byte) (net.Conn, error) 
 }
 
 // dialTLSWithConfigs does a single retry with specific ECH configs.
-func dialTLSWithConfigs(ip, port, hostname string, echConfigList []byte) (net.Conn, error) {
-	upstream, err := net.DialTimeout("tcp", net.JoinHostPort(ip, port), 10*time.Second)
+func dialTLSWithConfigs(ip, port, hostname string, echConfigList []byte, socksDialer netproxy.Dialer) (net.Conn, error) {
+	var upstream net.Conn
+	var err error
+	if socksDialer != nil {
+		upstream, err = socksDialer.Dial("tcp", net.JoinHostPort(ip, port))
+	} else {
+		upstream, err = net.DialTimeout("tcp", net.JoinHostPort(ip, port), 10*time.Second)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -588,6 +606,24 @@ func handleConnect(w http.ResponseWriter, r *http.Request, sem chan struct{}) {
 		return
 	}
 
+	// Optional upstream SOCKS5 proxy (e.g. Tor) — Dart passes this header
+	// when force-Tor is enabled so traffic goes: uTLS → Tor → relay.
+	var socksDialer netproxy.Dialer
+	if socksAddr := r.Header.Get("X-Upstream-Socks5"); socksAddr != "" {
+		if !validHostnameRE.MatchString(strings.TrimRight(socksAddr, "0123456789:")) {
+			http.Error(w, "Bad Request: invalid SOCKS5 address", http.StatusBadRequest)
+			return
+		}
+		d, err := netproxy.SOCKS5("tcp", socksAddr, nil, &net.Dialer{Timeout: 30 * time.Second})
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "[socks5] failed to create dialer for %s: %v\n", socksAddr, err)
+			http.Error(w, "SOCKS5 dialer failed", http.StatusBadGateway)
+			return
+		}
+		socksDialer = d
+		fmt.Fprintf(os.Stderr, "[socks5] upstream proxy: %s for %s\n", socksAddr, hostname)
+	}
+
 	// Step 1: Resolve via DoH (bypasses DNS poisoning)
 	ips := resolveViaDoH(hostname)
 
@@ -606,7 +642,7 @@ func handleConnect(w http.ResponseWriter, r *http.Request, sem chan struct{}) {
 	// Step 4: Try each DoH-resolved IP with uTLS+ECH+rotating fingerprint
 	var lastErr error
 	for _, ip := range ips {
-		conn, err := dialTLS(ip, port, hostname, echConfigs)
+		conn, err := dialTLS(ip, port, hostname, echConfigs, socksDialer)
 		if err != nil {
 			lastErr = err
 			fmt.Fprintf(os.Stderr, "[conn] %s via %s failed: %v\n", hostname, ip, err)
@@ -648,7 +684,7 @@ func handleConnect(w http.ResponseWriter, r *http.Request, sem chan struct{}) {
 		return
 	}
 	for _, sysIP := range publicSysAddrs {
-		conn, err := dialTLS(sysIP, port, hostname, echConfigs)
+		conn, err := dialTLS(sysIP, port, hostname, echConfigs, socksDialer)
 		if err == nil {
 			fmt.Fprintf(os.Stderr, "[conn] %s → %s fallback (%s)\n", hostname, method, sysIP)
 			releaseSem() // upstream established — free slot for new connection setups
@@ -730,8 +766,19 @@ func main() {
 	// http.Hijacker for CONNECT tunnels and those timeouts apply to the hijacked
 	// net.Conn, killing long-lived WebSocket tunnels after 60 s. Tunnel lifetime
 	// is managed by io.CopyBuffer returning on EOF or error.
+	//
+	// Go's ServeMux doesn't route CONNECT requests to "/" because CONNECT has
+	// an empty URL.Path (the request-target is "host:port", not a path).
+	// We intercept CONNECT before the mux to handle it directly.
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodConnect {
+			handleRequest(w, r)
+			return
+		}
+		mux.ServeHTTP(w, r)
+	})
 	srv := &http.Server{
-		Handler:           mux,
+		Handler:           handler,
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 	srv.Serve(listener) //nolint:errcheck

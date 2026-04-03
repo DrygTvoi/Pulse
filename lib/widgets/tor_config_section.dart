@@ -21,6 +21,8 @@ class TorConfigSection extends StatelessWidget {
     required this.onOpenDiagnostics,
     this.torTimeoutSec = 60,
     this.onTorTimeoutChanged,
+    this.forceNostrTor = false,
+    this.onForceNostrTorChanged,
   });
 
   final bool torEnabled;
@@ -35,6 +37,8 @@ class TorConfigSection extends StatelessWidget {
   final VoidCallback onOpenDiagnostics;
   final int torTimeoutSec;
   final ValueChanged<int>? onTorTimeoutChanged;
+  final bool forceNostrTor;
+  final ValueChanged<bool>? onForceNostrTorChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -42,6 +46,8 @@ class TorConfigSection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildBundledTorCard(context),
+        const SizedBox(height: 8),
+        _buildForceNostrTorCard(context),
         const SizedBox(height: 8),
         _buildDiagnosticsButton(context),
         // Manual Tor proxy settings -- hidden when Built-in Tor is active
@@ -140,6 +146,77 @@ class TorConfigSection extends StatelessWidget {
                 activeThumbColor: purple,
               ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildForceNostrTorCard(BuildContext context) {
+    const purple = Color(0xFF7D4698);
+    final torActive = bundledTorEnabled || torEnabled;
+    final enabled = torActive && onForceNostrTorChanged != null;
+    final l = context.l10n;
+
+    return GestureDetector(
+      onTap: enabled ? () => onForceNostrTorChanged!(!forceNostrTor) : null,
+      child: Opacity(
+        opacity: enabled ? 1.0 : 0.5,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: forceNostrTor && enabled
+                ? purple.withValues(alpha: 0.08)
+                : AppTheme.surface,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: forceNostrTor && enabled
+                  ? purple.withValues(alpha: 0.4)
+                  : AppTheme.surfaceVariant,
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: purple.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.shield_rounded, color: purple, size: 18),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(l.torForceNostrTitle,
+                        style: GoogleFonts.inter(
+                            color: enabled
+                                ? AppTheme.textPrimary
+                                : AppTheme.textSecondary,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14)),
+                    Text(
+                        enabled
+                            ? l.torForceNostrSubtitle
+                            : l.torForceNostrDisabled,
+                        style: GoogleFonts.inter(
+                            color: forceNostrTor && enabled
+                                ? purple
+                                : AppTheme.textSecondary,
+                            fontSize: 12)),
+                  ],
+                ),
+              ),
+              Switch.adaptive(
+                value: forceNostrTor && enabled,
+                onChanged: enabled
+                    ? (v) => onForceNostrTorChanged!(v)
+                    : null,
+                activeThumbColor: purple,
+              ),
+            ],
+          ),
         ),
       ),
     );
