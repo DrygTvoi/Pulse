@@ -750,16 +750,11 @@ class _CallScreenState extends State<CallScreen> {
         };
 
         MediaStream stream;
-        if (Platform.isLinux) {
-          // On Linux/PipeWire, getDisplayMedia() already opens the native
-          // source-picker portal by itself.  Calling desktopCapturer.getSources()
-          // first opens a SECOND portal dialog — so we skip it entirely.
-          stream = await navigator.mediaDevices.getDisplayMedia({
-            'video': videoConstraints,
-            'audio': false,
-          });
-        } else if (Platform.isMacOS || Platform.isWindows) {
-          // macOS/Windows: enumerate sources and pick the first screen manually.
+        if (Platform.isLinux || Platform.isMacOS || Platform.isWindows) {
+          // Desktop: enumerate sources via desktopCapturer, then pass the
+          // selected deviceId to getDisplayMedia.
+          // Sources are cached after the first call so getSources() (and its
+          // portal dialog on Linux/PipeWire) only fires once per call session.
           var sources = _cachedDesktopSources;
           if (sources == null || sources.isEmpty) {
             sources = await desktopCapturer.getSources(types: [SourceType.Screen]);
