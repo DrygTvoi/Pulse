@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../services/signaling_service.dart';
 import '../services/call_transport.dart';
 import '../theme/app_theme.dart';
@@ -10,6 +12,8 @@ import 'package:flutter_animate/flutter_animate.dart';
 import '../models/contact.dart';
 import '../l10n/l10n_ext.dart';
 import '../controllers/chat_controller.dart';
+
+const _kScreenShareChannel = MethodChannel('im.pulse.messenger/screen_share');
 
 class CallScreen extends StatefulWidget {
   final Contact contact;
@@ -105,11 +109,31 @@ class _CallScreenState extends State<CallScreen> {
         isCaller: widget.isCaller,
       );
 
-      _signaling!.onAddRemoteStream = (stream) {
-        if (mounted) setState(() => _remoteRenderer.srcObject = stream);
+      _signaling!.onAddRemoteStream = (stream) async {
+        if (!mounted) return;
+        if (stream.getVideoTracks().isNotEmpty &&
+            _remoteRenderer.srcObject != null) {
+          // Force GStreamer/WebRTC renderer to reinitialize its pipeline when
+          // video arrives mid-call (e.g. remote starts screen share).
+          // Assigning the same stream object to srcObject is a no-op at the
+          // native layer — briefly null-out to force a fresh pipeline.
+          setState(() => _remoteRenderer.srcObject = null);
+          await Future.delayed(const Duration(milliseconds: 80));
+          if (mounted) setState(() => _remoteRenderer.srcObject = stream);
+        } else {
+          setState(() => _remoteRenderer.srcObject = stream);
+        }
       };
 
       _signaling!.onConnectionState = _onIceState;
+
+      _signaling!.onRemoteVideoStopped = () {
+        // Remote stopped screen share — clear the renderer so it doesn't show
+        // a frozen last frame.
+        if (!mounted) return;
+        setState(() => _remoteRenderer.srcObject = null);
+        debugPrint('[CallScreen] Remote video stopped — renderer cleared');
+      };
 
       _signaling!.onRemoteHangUp = () {
         debugPrint('[CallScreen] Remote peer hung up');
@@ -209,6 +233,12 @@ class _CallScreenState extends State<CallScreen> {
       _startDurationTimer();
       unawaited(_signaling?.applyBitrateLimit(
           restricted: _currentProfile.isRestricted));
+      // Re-apply screen share bitrate after every renegotiation cycle —
+      // setParameters values can be reset by renegotiation on some platforms.
+      if (_isScreenSharing && _screenShareBitrate > 0) {
+        unawaited(_signaling?.applyScreenShareBitrate(
+            maxBitrate: _screenShareBitrate));
+      }
       unawaited(ChatController().broadcastTurnToContact(widget.contact));
       _startMediaWatchdog();
     }
@@ -407,6 +437,13 @@ class _CallScreenState extends State<CallScreen> {
   // The video sender — kept to allow replaceTrack for camera/screen toggle.
   RTCRtpSender? _videoSender;
 
+  // Active screen share stream — kept to stop its tracks on share end.
+  MediaStream? _screenShareStream;
+
+  // Bitrate cap for current screen share (bps). 0 = auto.
+  // Stored so it can be re-applied after each renegotiation cycle.
+  int _screenShareBitrate = 0;
+
   // Desktop sources cache — populated on first getSources call to avoid
   // double PipeWire portal dialog when screen sharing again.
   List<DesktopCapturerSource>? _cachedDesktopSources;
@@ -462,27 +499,73 @@ class _CallScreenState extends State<CallScreen> {
     _screenShareToggling = true;
     try {
       if (_isScreenSharing) {
-        // Stop screen share — replace with disabled camera or null track
-        if (_videoSender != null) {
-          try {
-            final camStream = await navigator.mediaDevices.getUserMedia({
-              'audio': false,
-              'video': {'facingMode': 'user'},
-            });
-            final camTrack = camStream.getVideoTracks().first;
-            camTrack.enabled = false;
-            await _videoSender!.replaceTrack(camTrack);
-          } catch (_) {
-            try { await _videoSender!.replaceTrack(null); } catch (_) {}
+        // Explicitly stop all tracks in the screen share stream.
+        // Without this, PipeWire/MediaProjection keeps capturing after share ends,
+        // causing conflicts on subsequent start cycles.
+        if (_screenShareStream != null) {
+          for (final t in _screenShareStream!.getTracks()) {
+            try { await t.stop(); } catch (_) {}
           }
+          _screenShareStream = null;
         }
+        // Remove sender so remote sees video stop.
+        final pc = _signaling?.peerConnection;
+        if (pc != null && _videoSender != null) {
+          try {
+            await pc.removeTrack(_videoSender!);
+          } catch (e) {
+            debugPrint('[CallScreen] removeTrack on stop: $e');
+          }
+          _videoSender = null;
+        }
+        // Clear desktop source cache so next start gets a fresh capture session.
+        _cachedDesktopSources = null;
+        _screenShareBitrate = 0;
         _localRenderer.srcObject = null;
         setState(() {
           _isScreenSharing = false;
           _isCameraOff = true;
         });
+        // Renegotiate so remote knows video is gone.
+        try {
+          await _signaling?.renegotiate();
+        } catch (e) {
+          debugPrint('[CallScreen] renegotiate after stop share: $e');
+        }
+        // Stop Android foreground service (not needed once capture is done).
+        if (Platform.isAndroid) {
+          try { await _kScreenShareChannel.invokeMethod('stopService'); } catch (_) {}
+        }
       } else {
         // Start screen share
+        // Android 14+ requires a foreground service with FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION
+        // to be running BEFORE getMediaProjection() is called inside getDisplayMedia().
+        if (Platform.isAndroid) {
+          try { await _kScreenShareChannel.invokeMethod('startService'); } catch (e) {
+            debugPrint('[CallScreen] ScreenShareService start failed: $e');
+          }
+          // Give the service time to call startForeground() before we request capture.
+          await Future.delayed(const Duration(milliseconds: 300));
+        }
+
+        // Show quality picker and read FPS/resolution settings.
+        final prefs = await SharedPreferences.getInstance();
+        int savedFps = prefs.getInt('screen_share_fps') ?? 30;
+        // Default to 1080p (1920) — gives good quality without excessive SDP size.
+        int savedResWidth = prefs.getInt('screen_share_res') ?? 1920;
+        if (mounted) {
+          final picked = await _showScreenShareQualityDialog(savedFps, savedResWidth);
+          if (picked == null) return; // user cancelled
+          savedFps = picked.$1;
+          savedResWidth = picked.$2;
+          await prefs.setInt('screen_share_fps', savedFps);
+          await prefs.setInt('screen_share_res', savedResWidth);
+        }
+        final fps = savedFps.toDouble();
+        final resWidth = savedResWidth;
+        final resHeight = resWidth > 0 ? (resWidth * 9 ~/ 16) : 0;
+        final bitratePreset = _resWidthToBitrate(resWidth);
+
         MediaStream stream;
         if (Platform.isLinux || Platform.isMacOS || Platform.isWindows) {
           // Use cached sources to avoid double PipeWire portal dialog.
@@ -507,16 +590,34 @@ class _CallScreenState extends State<CallScreen> {
           final screenSources = sources.where((s) => s.type == SourceType.Screen).toList();
           final screenSource = screenSources.isNotEmpty ? screenSources.first : sources.first;
           debugPrint('[CallScreen] Using desktop source: ${screenSource.name} (${screenSource.id})');
-          stream = await navigator.mediaDevices.getDisplayMedia({
-            'video': {
-              'deviceId': {'exact': screenSource.id},
-              'mandatory': {'frameRate': 30.0},
+          final videoConstraints = <String, dynamic>{
+            'deviceId': {'exact': screenSource.id},
+            'mandatory': <String, dynamic>{
+              'maxFrameRate': fps,
+              if (resWidth > 0) ...{
+                'maxWidth': resWidth,
+                'maxHeight': resHeight,
+              },
             },
+          };
+          stream = await navigator.mediaDevices.getDisplayMedia({
+            'video': videoConstraints,
             'audio': false,
           });
         } else {
           // Mobile: getDisplayMedia works directly
-          stream = await navigator.mediaDevices.getDisplayMedia({'video': true, 'audio': false});
+          stream = await navigator.mediaDevices.getDisplayMedia({
+            'video': {
+              'mandatory': <String, dynamic>{
+                'maxFrameRate': fps,
+                if (resWidth > 0) ...{
+                  'maxWidth': resWidth,
+                  'maxHeight': resHeight,
+                },
+              },
+            },
+            'audio': false,
+          });
         }
         final screenTracks = stream.getVideoTracks();
         if (screenTracks.isEmpty) return;
@@ -526,17 +627,21 @@ class _CallScreenState extends State<CallScreen> {
         final pc = _signaling?.peerConnection;
         if (pc == null) return;
 
+        // replaceTrack() is broken in flutter_webrtc on Linux/GStreamer — it does
+        // not update the RTP pipeline so the remote never receives screen frames.
+        // Use removeTrack() + addTrack() instead: this creates a new m-line in
+        // the reoffer SDP, which triggers onTrack/onAddStream on the remote side
+        // and properly delivers the screen video.
         if (_videoSender != null) {
-          // Enable existing track before replacing to ensure RTP pipeline is active
-          if (_videoSender!.track != null) {
-            _videoSender!.track!.enabled = true;
+          try {
+            await pc.removeTrack(_videoSender!);
+          } catch (e) {
+            debugPrint('[CallScreen] removeTrack before screen share: $e');
           }
-          await _videoSender!.replaceTrack(screenTrack);
-          debugPrint('[CallScreen] replaceTrack done');
-        } else {
-          _videoSender = await pc.addTrack(screenTrack, stream);
-          debugPrint('[CallScreen] addTrack for screen share');
+          _videoSender = null;
         }
+        _videoSender = await pc.addTrack(screenTrack, stream);
+        debugPrint('[CallScreen] addTrack for screen share');
 
         // Ensure video transceiver direction is sendrecv
         try {
@@ -565,6 +670,8 @@ class _CallScreenState extends State<CallScreen> {
           debugPrint('[CallScreen] setParameters: $e');
         }
 
+        _screenShareStream = stream;
+        _screenShareBitrate = bitratePreset; // remember for re-apply on ICE reconnect
         _localRenderer.srcObject = stream;
         screenTrack.onEnded = () {
           if (!_disposed && mounted && _isScreenSharing) {
@@ -577,12 +684,21 @@ class _CallScreenState extends State<CallScreen> {
         });
 
         // Send reoffer so remote gets updated SDP with active video track.
-        // Uses webrtc_reoffer (not webrtc_offer) to avoid triggering incoming
-        // call notification on the remote side.
+        // Pass videoBitrateKbps so b=AS: is injected into the video m-line —
+        // this gives the remote encoder a bandwidth target from the first packet.
         try {
-          await _signaling?.renegotiate();
+          await _signaling?.renegotiate(
+              videoBitrateKbps: bitratePreset > 0 ? bitratePreset ~/ 1000 : 0);
         } catch (e) {
           debugPrint('[CallScreen] renegotiate after screen share: $e');
+        }
+        // Also apply via setParameters (belt-and-suspenders: SDP hint + RTP cap).
+        if (bitratePreset > 0) {
+          try {
+            await _signaling?.applyScreenShareBitrate(maxBitrate: bitratePreset);
+          } catch (e) {
+            debugPrint('[CallScreen] applyScreenShareBitrate: $e');
+          }
         }
       }
     } catch (e) {
@@ -598,6 +714,118 @@ class _CallScreenState extends State<CallScreen> {
     } finally {
       _screenShareToggling = false;
     }
+  }
+
+  /// Shows a bottom sheet to pick screen share FPS and resolution.
+  /// Returns (fps, resWidth) or null if cancelled.
+  /// resWidth: 0=Auto (native), 1280=720p, 1920=1080p, 2560=1440p.
+  Future<(int fps, int resWidth)?> _showScreenShareQualityDialog(
+      int currentFps, int currentResWidth) async {
+    int selFps = currentFps;
+    int selResWidth = currentResWidth;
+    final result = await showModalBottomSheet<(int, int)>(
+      context: context,
+      backgroundColor: AppTheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setS) => Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(child: Container(width: 36, height: 4,
+                decoration: BoxDecoration(
+                  color: AppTheme.textSecondary.withOpacity(0.3),
+                  borderRadius: BorderRadius.circular(2)))),
+              const SizedBox(height: 16),
+              Text('Screen Share Quality',
+                style: GoogleFonts.inter(color: AppTheme.textPrimary,
+                  fontSize: 16, fontWeight: FontWeight.w700)),
+              const SizedBox(height: 16),
+              Text('Frame rate', style: GoogleFonts.inter(
+                color: AppTheme.textSecondary, fontSize: 12)),
+              const SizedBox(height: 8),
+              _buildQualityChips(
+                options: const [15, 30, 60],
+                labels: const ['15 fps', '30 fps', '60 fps'],
+                selected: selFps,
+                onSelect: (v) => setS(() => selFps = v),
+              ),
+              const SizedBox(height: 16),
+              Text('Resolution', style: GoogleFonts.inter(
+                color: AppTheme.textSecondary, fontSize: 12)),
+              const SizedBox(height: 8),
+              _buildQualityChips(
+                options: const [1280, 1920, 2560, 0],
+                labels: const ['720p', '1080p', '1440p', 'Auto'],
+                selected: selResWidth,
+                onSelect: (v) => setS(() => selResWidth = v),
+              ),
+              const SizedBox(height: 6),
+              Text('Auto = native screen resolution',
+                style: GoogleFonts.inter(color: AppTheme.textSecondary,
+                  fontSize: 11)),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primary,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                    padding: const EdgeInsets.symmetric(vertical: 14)),
+                  onPressed: () => Navigator.pop(ctx, (selFps, selResWidth)),
+                  child: Text('Start sharing',
+                    style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    return result;
+  }
+
+  /// Maps resolution width to a bitrate cap for the video sender.
+  static int _resWidthToBitrate(int width) {
+    if (width <= 0) return 0;       // Auto — let WebRTC congestion control decide
+    if (width <= 1280) return 2500000; // 720p  → 2.5 Mbps
+    if (width <= 1920) return 5000000; // 1080p → 5 Mbps
+    return 8000000;                    // 1440p → 8 Mbps
+  }
+
+  Widget _buildQualityChips({
+    required List<int> options,
+    required List<String> labels,
+    required int selected,
+    required ValueChanged<int> onSelect,
+  }) {
+    return Wrap(
+      spacing: 8,
+      children: List.generate(options.length, (i) {
+        final active = options[i] == selected;
+        return GestureDetector(
+          onTap: () => onSelect(options[i]),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            decoration: BoxDecoration(
+              color: active ? AppTheme.primary : AppTheme.surfaceVariant,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(labels[i],
+              style: GoogleFonts.inter(
+                color: active ? Colors.white : AppTheme.textSecondary,
+                fontSize: 13,
+                fontWeight: active ? FontWeight.w700 : FontWeight.w500)),
+          ),
+        );
+      }),
+    );
   }
 
   void _toggleMute() {

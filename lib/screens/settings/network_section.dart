@@ -27,6 +27,7 @@ class _NetworkSectionState extends State<NetworkSection> {
   bool _bgServiceEnabled = false;
   String _currentProvider = 'Firebase';
 
+
   @override
   void initState() {
     super.initState();
@@ -184,7 +185,9 @@ class _NetworkSectionState extends State<NetworkSection> {
             },
           ),
         ],
+
       ],
     );
   }
+
 }

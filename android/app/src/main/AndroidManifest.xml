@@ -28,6 +28,8 @@
     <!-- Foreground service for Tor -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <!-- Foreground service for screen share (Android 14+) -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
 
     <application
         android:label="Pulse"
@@ -70,6 +72,11 @@
         <service
             android:name="com.pravera.flutter_foreground_task.service.FlutterForegroundTaskService"
             android:foregroundServiceType="dataSync"
+            android:exported="false" />
+        <!-- Foreground service for screen capture (Android 14+ requirement) -->
+        <service
+            android:name=".ScreenShareService"
+            android:foregroundServiceType="mediaProjection"
             android:exported="false" />
     </application>
 

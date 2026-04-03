@@ -48,6 +48,21 @@ class LocalStorageService {
   static const _kDbKeyRotationDays = 365;
   static final _aesGcm = AesGcm.with256bits();
 
+  /// Returns the correct database path for the current platform.
+  ///
+  /// On Linux/desktop: uses getApplicationSupportDirectory() (~/.local/share/im.pulse.messenger/).
+  /// Using getDatabasesPath() stores the DB in .dart_tool/ which flutter clean deletes.
+  Future<String> _resolveDbPath() async {
+    if (Platform.isAndroid || Platform.isIOS) {
+      final appDir = await getApplicationDocumentsDirectory();
+      return '${appDir.path}/messages.db';
+    } else {
+      // Desktop: proper per-app data directory, survives flutter clean and binary moves.
+      final appDir = await getApplicationSupportDirectory();
+      return '${appDir.path}/messages.db';
+    }
+  }
+
   Future<void> init() async {
     // Init encryption key before opening DB (needed for migration).
     _encKey = await _getOrCreateEncKey();
@@ -62,14 +77,7 @@ class LocalStorageService {
       sqfliteFfiInit();
       databaseFactory = databaseFactoryFfi;
     }
-    String dbDir;
-    if (Platform.isAndroid || Platform.isIOS) {
-      final appDir = await getApplicationDocumentsDirectory();
-      dbDir = appDir.path;
-    } else {
-      dbDir = await databaseFactory.getDatabasesPath();
-    }
-    final path = '$dbDir/messages.db';
+    final path = await _resolveDbPath();
 
     // Migrate existing plaintext DB → encrypted DB (first-run only).
     await _migratePlaintextToEncrypted(path);
@@ -1467,8 +1475,7 @@ class LocalStorageService {
   /// FlutterSecureStorage (e.g. via ADB backup on an unencrypted device).
   /// Falls back to table-clearing if file deletion fails.
   Future<void> deleteAndClose() async {
-    final dbDir = await databaseFactory.getDatabasesPath();
-    final path = '$dbDir/messages.db';
+    final path = await _resolveDbPath();
     try {
       if (_db != null) {
         await _database.close();

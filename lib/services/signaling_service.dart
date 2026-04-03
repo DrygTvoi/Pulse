@@ -56,6 +56,15 @@ class SignalingService {
   Function(RTCIceConnectionState state)? onConnectionState;
   /// Fires when the remote peer sends a hangup signal.
   VoidCallback? onRemoteHangUp;
+  /// Fires when a reoffer arrives with no active video (remote stopped screen share).
+  VoidCallback? onRemoteVideoStopped;
+
+  // ── Glare resolution state ─────────────────────────────────────────────────
+  // When we send a reoffer and are waiting for a reanswer, _renegotiating=true.
+  // Any incoming reoffer during this window is queued and processed after
+  // our reanswer arrives — avoids "wrong state: have-local-offer" errors.
+  bool _renegotiating = false;
+  Map<String, dynamic>? _pendingReoffer;
 
   SignalingService({required this.contact, required this.myId, required this.isCaller});
 
@@ -241,6 +250,27 @@ class SignalingService {
       remoteStream = stream;
       onAddRemoteStream?.call(stream);
     };
+
+    // onTrack fires for each new remote track, including after mid-call
+    // renegotiation (screen share). onAddStream alone is not reliably
+    // re-triggered after removeTrack+addTrack renegotiation on some platforms.
+    peerConnection!.onTrack = (RTCTrackEvent event) async {
+      if (event.streams.isNotEmpty) {
+        remoteStream = event.streams.first;
+        onAddRemoteStream?.call(event.streams.first);
+      } else if (event.track != null && remoteStream != null) {
+        // GStreamer (Linux): onTrack may fire with empty streams during
+        // renegotiation (e.g. when remote adds screen share mid-call).
+        // Manually add the track to the existing remoteStream and notify.
+        try {
+          await remoteStream!.addTrack(event.track!);
+          onAddRemoteStream?.call(remoteStream!);
+          debugPrint('[Signaling] onTrack: added ${event.track!.kind} to remoteStream (GStreamer fallback)');
+        } catch (e) {
+          debugPrint('[Signaling] onTrack addTrack fallback: $e');
+        }
+      }
+    };
   }
 
   void _attachSecondaryCallbacks() {
@@ -294,6 +324,26 @@ class SignalingService {
 
   Future<void> applyBitrateLimit({bool restricted = false}) async {
     await _limitSenderBitrate(peerConnection, restricted: restricted);
+  }
+
+  /// Sets video sender to [maxBitrate] bps for screen share.
+  /// Call after renegotiate() when screen share starts.
+  Future<void> applyScreenShareBitrate({required int maxBitrate}) async {
+    try {
+      final senders = await peerConnection?.getSenders() ?? [];
+      for (final sender in senders) {
+        if (sender.track?.kind == 'video') {
+          final params = sender.parameters;
+          final encodings = params.encodings;
+          if (encodings == null || encodings.isEmpty) continue;
+          encodings.first.maxBitrate = maxBitrate;
+          await sender.setParameters(params);
+          debugPrint('[RTP] screen share maxBitrate set to $maxBitrate bps');
+        }
+      }
+    } catch (e) {
+      debugPrint('[RTP] applyScreenShareBitrate failed (non-fatal): $e');
+    }
   }
 
   Future<void> _listenForSignalingData() async {
@@ -468,14 +518,56 @@ class SignalingService {
         debugPrint('[Signaling] Rejected reoffer SDP without fingerprint');
         return;
       }
-      await peerConnection?.setRemoteDescription(
-          RTCSessionDescription(sdp, 'offer'));
+      // Glare resolution: if we sent a reoffer and are waiting for a reanswer,
+      // we're in "have-local-offer" state — setRemoteDescription would fail.
+      // Queue the incoming reoffer and process it once our reanswer arrives.
+      if (_renegotiating) {
+        debugPrint('[Signaling] Glare: queuing remote reoffer (waiting for our reanswer)');
+        _pendingReoffer = data;
+        return;
+      }
+      // Detect whether the incoming reoffer has an active video m-line.
+      // Used to notify the renderer to clear when remote stops screen share.
+      final hasActiveVideo = _sdpHasActiveVideo(sdp);
+      // Attempt setRemoteDescription; if PC is stuck in have-local-offer
+      // (e.g. our own reoffer timed out without a reanswer) try a rollback
+      // first to return to stable state.
+      bool set = false;
+      try {
+        await peerConnection?.setRemoteDescription(
+            RTCSessionDescription(sdp, 'offer'));
+        set = true;
+      } catch (e) {
+        final msg = e.toString();
+        if (msg.contains('have-local-offer') || msg.contains('wrong state')) {
+          debugPrint('[Signaling] Glare (state mismatch) — attempting rollback');
+          try {
+            await peerConnection
+                ?.setLocalDescription(RTCSessionDescription('', 'rollback'));
+            await peerConnection?.setRemoteDescription(
+                RTCSessionDescription(sdp, 'offer'));
+            set = true;
+            debugPrint('[Signaling] Glare resolved via rollback');
+          } catch (e2) {
+            debugPrint('[Signaling] rollback + retry failed: $e2');
+          }
+        } else {
+          rethrow;
+        }
+      }
+      if (!set) return;
       // Create and send reanswer
       final answer = await peerConnection!.createAnswer();
       final constrained = _applyAudioConstraints(answer, restricted: _primaryRestricted);
       await peerConnection!.setLocalDescription(constrained);
       await _sendSignalingData('reanswer', constrained.toMap());
       debugPrint('[Signaling] reoffer handled, reanswer sent');
+      // GStreamer: onTrack may fire asynchronously AFTER setRemoteDescription returns.
+      // Give it a microtask to dispatch, then re-notify the renderer with current stream.
+      await Future.microtask(() {
+        if (remoteStream != null) onAddRemoteStream?.call(remoteStream!);
+        if (!hasActiveVideo) onRemoteVideoStopped?.call();
+      });
     } catch (e) {
       debugPrint('[Signaling] handleReoffer error: $e');
     }
@@ -491,21 +583,67 @@ class SignalingService {
       }
       await peerConnection?.setRemoteDescription(
           RTCSessionDescription(sdp, 'answer'));
+      _renegotiating = false;
       debugPrint('[Signaling] reanswer handled');
+      // Process any reoffer that was queued during glare (we were in have-local-offer).
+      final pending = _pendingReoffer;
+      if (pending != null) {
+        _pendingReoffer = null;
+        debugPrint('[Signaling] processing queued reoffer after reanswer');
+        await _handleReoffer(pending);
+      }
     } catch (e) {
+      _renegotiating = false;
       debugPrint('[Signaling] handleReanswer error: $e');
     }
   }
 
   /// Trigger mid-call SDP renegotiation (e.g. after screen share replaceTrack).
   /// Uses webrtc_reoffer/reanswer to avoid triggering incoming call notification.
-  Future<void> renegotiate() async {
+  /// [videoBitrateKbps] — if >0, injects b=AS: into the video m-line so the
+  /// remote encoder knows the target bandwidth from the start.
+  Future<void> renegotiate({int videoBitrateKbps = 0}) async {
     if (peerConnection == null) return;
+    _renegotiating = true;
+    // Safety timeout: reset flag if reanswer never arrives.
+    // ALSO roll back the local offer so the PC returns to stable state.
+    // Without rollback, subsequent incoming reoffers fail with
+    // "wrong state: have-local-offer" even after the flag is cleared.
+    Future.delayed(const Duration(seconds: 8), () {
+      if (_renegotiating) {
+        debugPrint('[Signaling] renegotiation timeout — rolling back local offer');
+        _renegotiating = false;
+        // Attempt spec-compliant rollback. GStreamer may not support it;
+        // if it throws we still cleared the flag which is the minimum fix.
+        peerConnection
+            ?.setLocalDescription(RTCSessionDescription('', 'rollback'))
+            .then((_) =>
+                debugPrint('[Signaling] timeout: local offer rolled back OK'))
+            .catchError((e) =>
+                debugPrint('[Signaling] timeout rollback failed (non-fatal): $e'));
+        final pending = _pendingReoffer;
+        if (pending != null) {
+          _pendingReoffer = null;
+          // Give rollback a moment to apply before processing the pending reoffer.
+          Future.delayed(const Duration(milliseconds: 200),
+              () => _handleReoffer(pending));
+        }
+      }
+    });
     final offer = await peerConnection!.createOffer();
     final constrained = _applyAudioConstraints(offer, restricted: _primaryRestricted);
     await peerConnection!.setLocalDescription(constrained);
-    await _sendSignalingData('reoffer', constrained.toMap());
-    debugPrint('[Signaling] renegotiation offer sent');
+    // Strip ICE candidates from reoffer — ICE is already established during
+    // mid-call renegotiation. Candidates can be 20-50KB and push the event
+    // past relay limits (nos.lol rejects events > 65535 bytes).
+    var prunedSdp = _pruneReoferSdp(constrained.sdp ?? '');
+    // Inject video bandwidth hint so the remote encoder targets the correct rate.
+    if (videoBitrateKbps > 0) {
+      prunedSdp = _applyVideoSdpBitrate(prunedSdp, videoBitrateKbps);
+    }
+    final prunedDesc = RTCSessionDescription(prunedSdp, constrained.type);
+    await _sendSignalingData('reoffer', prunedDesc.toMap());
+    debugPrint('[Signaling] renegotiation offer sent (${prunedSdp.length} bytes raw)');
   }
 
   Future<void> _handleCandidate(Map<String, dynamic> data) async {
@@ -647,6 +785,90 @@ class SignalingService {
     }
   }
 
+  // ── SDP helpers ────────────────────────────────────────────────────────────
+
+  /// Strips ICE candidates AND prunes the video codec list in a reoffer SDP.
+  ///
+  /// Problem: GStreamer (Linux) advertises 30+ video codecs (VP8/VP9/H264/H265/
+  /// AV1 with RTX/FEC variants) × ~4 SDP lines each = tens of kilobytes.
+  /// Combined with ICE candidates this pushes the Nostr event past 65 KB.
+  ///
+  /// Solution:
+  ///   1. Strip all `a=candidate:` lines (ICE already established mid-call).
+  ///   2. Keep only the first 4 video payload types (primary + RTX pair = 2,
+  ///      or two codecs + RTX = 4); drop all others.  This reduces the video
+  ///      m-section from ~35 KB to under 2 KB while preserving negotiability.
+  String _pruneReoferSdp(String sdp) {
+    final allLines = sdp.split(RegExp(r'\r?\n'));
+
+    // ── Pass 1: find video m-line and pick first 4 payload types ─────────────
+    Set<String> keptVideoPts = {};
+    String? reducedVideoMLine;
+    for (final line in allLines) {
+      if (line.startsWith('m=video ')) {
+        final parts = line.split(' ');
+        if (parts.length > 3) {
+          final pts = parts.sublist(3);
+          // Keep first 4 payload types (covers primary codec + RTX at minimum).
+          final kept = pts.length > 4 ? pts.sublist(0, 4) : pts;
+          keptVideoPts = kept.toSet();
+          reducedVideoMLine =
+              '${parts.sublist(0, 3).join(' ')} ${kept.join(' ')}';
+        }
+        break;
+      }
+    }
+
+    // ── Pass 2: emit pruned SDP ───────────────────────────────────────────────
+    bool inVideo = false;
+    final result = <String>[];
+    for (final line in allLines) {
+      // 1. Strip ICE candidates — not needed once ICE is connected.
+      if (line.startsWith('a=candidate:') ||
+          line.startsWith('a=end-of-candidates')) {
+        continue;
+      }
+      // 2. Replace video m-line with the reduced payload-type list.
+      if (line.startsWith('m=video ') && reducedVideoMLine != null) {
+        result.add(reducedVideoMLine!);
+        inVideo = true;
+        continue;
+      }
+      // 3. Track section boundaries.
+      if (line.startsWith('m=')) inVideo = line.startsWith('m=video');
+      // 4. In video section, drop rtpmap/fmtp/rtcp-fb for pruned payload types.
+      if (inVideo && keptVideoPts.isNotEmpty) {
+        final m =
+            RegExp(r'^a=(?:rtpmap|fmtp|rtcp-fb):(\d+)').firstMatch(line);
+        if (m != null && !keptVideoPts.contains(m.group(1))) continue;
+      }
+      result.add(line);
+    }
+    return result.join('\r\n');
+  }
+
+  /// Injects `b=AS:<kbps>` into the video m= section of [sdp].
+  /// This hints to the remote encoder what bandwidth to target for video.
+  String _applyVideoSdpBitrate(String sdp, int maxKbps) {
+    return sdp.replaceFirstMapped(
+      RegExp(r'(m=video [^\r\n]*\r?\n)((?:i=[^\r\n]*\r?\n)?(?:c=[^\r\n]*\r?\n)?)'),
+      (m) => '${m.group(1)!}${m.group(2)!}b=AS:$maxKbps\r\n',
+    );
+  }
+
+  /// Returns true if [sdp] contains at least one video m-line with a non-zero port.
+  /// A port of 0 means the m-line is inactive (track removed / stream stopped).
+  bool _sdpHasActiveVideo(String sdp) {
+    for (final line in sdp.split(RegExp(r'\r?\n'))) {
+      if (line.startsWith('m=video ')) {
+        final parts = line.split(' ');
+        final port = int.tryParse(parts.elementAtOrNull(1) ?? '0') ?? 0;
+        if (port > 0) return true;
+      }
+    }
+    return false;
+  }
+
   // ── Audio quality constraints ──────────────────────────────────────────────
   //
   // Two complementary mechanisms:
@@ -720,9 +942,11 @@ class SignalingService {
         final int maxBitrate;
         if (kind == 'audio') {
           maxBitrate = restricted ? 48000 : 64000;
-        } else if (kind == 'video') {
-          maxBitrate = restricted ? 100000 : 500000;
+        } else if (kind == 'video' && restricted) {
+          // For restricted (TURN/Tor relay) cap video to save relay bandwidth.
+          maxBitrate = 1000000; // 1 Mbps
         } else {
+          // P2P direct: no video bitrate cap — let WebRTC congestion control decide.
           continue;
         }
         final params = sender.parameters; // sync getter
