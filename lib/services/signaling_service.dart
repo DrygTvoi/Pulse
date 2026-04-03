@@ -631,16 +631,24 @@ class SignalingService {
       }
     });
     final offer = await peerConnection!.createOffer();
-    final constrained = _applyAudioConstraints(offer, restricted: _primaryRestricted);
+    var constrained = _applyAudioConstraints(offer, restricted: _primaryRestricted);
+
+    // Apply b=AS: BEFORE setLocalDescription so the GStreamer encoder sees
+    // the target bitrate from the start.  Without this, GStreamer encodes at
+    // its own default (often very low) bitrate regardless of what we later
+    // inject into the remote-bound SDP.
+    if (videoBitrateKbps > 0) {
+      final sdpWithBitrate =
+          _applyVideoSdpBitrate(constrained.sdp ?? '', videoBitrateKbps);
+      constrained = RTCSessionDescription(sdpWithBitrate, constrained.type);
+    }
+
     await peerConnection!.setLocalDescription(constrained);
     // Strip ICE candidates from reoffer — ICE is already established during
     // mid-call renegotiation. Candidates can be 20-50KB and push the event
     // past relay limits (nos.lol rejects events > 65535 bytes).
-    var prunedSdp = _pruneReoferSdp(constrained.sdp ?? '');
-    // Inject video bandwidth hint so the remote encoder targets the correct rate.
-    if (videoBitrateKbps > 0) {
-      prunedSdp = _applyVideoSdpBitrate(prunedSdp, videoBitrateKbps);
-    }
+    // b=AS: is already present in constrained.sdp and preserved by pruning.
+    final prunedSdp = _pruneReoferSdp(constrained.sdp ?? '');
     final prunedDesc = RTCSessionDescription(prunedSdp, constrained.type);
     await _sendSignalingData('reoffer', prunedDesc.toMap());
     debugPrint('[Signaling] renegotiation offer sent (${prunedSdp.length} bytes raw)');
