@@ -65,6 +65,15 @@ class SignalingService {
   // our reanswer arrives — avoids "wrong state: have-local-offer" errors.
   bool _renegotiating = false;
   Map<String, dynamic>? _pendingReoffer;
+  int _lastVideoKbps = 0;   // remembered for auto-retry after stale reanswer
+  int _renegotiateRetries = 0; // guard: max 2 auto-retries per renegotiation cycle
+  // If renegotiate() is called while one is already in progress, defer it.
+  bool _pendingRenegotiate = false;
+  int _pendingRenegotiateKbps = 0;
+  // Generation counter: each renegotiate() call increments this so old
+  // 15-second timeout timers can detect they belong to a stale session
+  // and skip the rollback.
+  int _renegotiateGen = 0;
 
   SignalingService({required this.contact, required this.myId, required this.isCaller});
 
@@ -329,6 +338,14 @@ class SignalingService {
   /// Sets video sender to [maxBitrate] bps for screen share.
   /// Call after renegotiate() when screen share starts.
   Future<void> applyScreenShareBitrate({required int maxBitrate}) async {
+    // setParameters crashes native WebRTC (rtp_sender.cc CHECK) when called
+    // while the PC is not in stable state (e.g. during or after a rolled-back
+    // renegotiation).  Guard here to prevent the SIGABRT.
+    if (peerConnection?.signalingState !=
+        RTCSignalingState.RTCSignalingStateStable) {
+      debugPrint('[RTP] applyScreenShareBitrate: skipped (PC not stable)');
+      return;
+    }
     try {
       final senders = await peerConnection?.getSenders() ?? [];
       for (final sender in senders) {
@@ -584,6 +601,8 @@ class SignalingService {
       await peerConnection?.setRemoteDescription(
           RTCSessionDescription(sdp, 'answer'));
       _renegotiating = false;
+      _renegotiateRetries = 0;
+      _renegotiateGen++; // invalidate any pending timeout timer for this cycle
       debugPrint('[Signaling] reanswer handled');
       // Process any reoffer that was queued during glare (we were in have-local-offer).
       final pending = _pendingReoffer;
@@ -592,8 +611,37 @@ class SignalingService {
         debugPrint('[Signaling] processing queued reoffer after reanswer');
         await _handleReoffer(pending);
       }
+      // If a renegotiate() call was deferred while we were negotiating, run it now.
+      if (_pendingRenegotiate && _pendingReoffer == null) {
+        _pendingRenegotiate = false;
+        final kbps = _pendingRenegotiateKbps;
+        debugPrint('[Signaling] running deferred renegotiate (kbps=$kbps)');
+        await renegotiate(videoBitrateKbps: kbps);
+      }
     } catch (e) {
       _renegotiating = false;
+      final msg = e.toString();
+      // After the 8-second timeout rolls back the local offer, the PC returns to
+      // "stable".  If the reanswer arrives after that, setRemoteDescription(answer)
+      // throws "Called in wrong state: stable".  This is not a fatal error — the
+      // reoffer will be re-sent automatically by the next renegotiate() call.
+      if (msg.contains('wrong state') || msg.contains('Called in wrong state')) {
+        _renegotiateRetries++;
+        if (_renegotiateRetries <= 2) {
+          debugPrint('[Signaling] handleReanswer: stale reanswer — retrying renegotiate ($_renegotiateRetries/2)');
+          // PC was rolled back by timeout but reanswer confirms remote is alive.
+          // Retry so the pending SDP change (camera/screen share) reaches remote.
+          Future.delayed(const Duration(milliseconds: 500), () {
+            if (peerConnection != null && !_renegotiating) {
+              renegotiate(videoBitrateKbps: _lastVideoKbps, isRetry: true);
+            }
+          });
+        } else {
+          debugPrint('[Signaling] handleReanswer: stale reanswer — retry limit reached, giving up');
+          _renegotiateRetries = 0;
+        }
+        return;
+      }
       debugPrint('[Signaling] handleReanswer error: $e');
     }
   }
@@ -602,14 +650,31 @@ class SignalingService {
   /// Uses webrtc_reoffer/reanswer to avoid triggering incoming call notification.
   /// [videoBitrateKbps] — if >0, injects b=AS: into the video m-line so the
   /// remote encoder knows the target bandwidth from the start.
-  Future<void> renegotiate({int videoBitrateKbps = 0}) async {
+  Future<void> renegotiate({int videoBitrateKbps = 0, bool isRetry = false}) async {
     if (peerConnection == null) return;
+    // Guard: don't start a new renegotiation if one is already in progress.
+    // Concurrent renegotiations cause m-line mismatch errors.
+    if (_renegotiating && !isRetry) {
+      debugPrint('[Signaling] renegotiate: already in progress — deferred (kbps=$videoBitrateKbps)');
+      _pendingRenegotiate = true;
+      _pendingRenegotiateKbps = videoBitrateKbps;
+      return;
+    }
+    _pendingRenegotiate = false;
+    final callerFrames = StackTrace.current.toString().split('\n').skip(1).take(5).join(' | ');
+    debugPrint('[Signaling] renegotiate: starting (isRetry=$isRetry) caller=$callerFrames');
+    if (!isRetry) _renegotiateRetries = 0; // fresh call resets counter
     _renegotiating = true;
+    _lastVideoKbps = videoBitrateKbps;
+    // Increment generation so old timeout timers can detect they're stale.
+    final myGen = ++_renegotiateGen;
     // Safety timeout: reset flag if reanswer never arrives.
     // ALSO roll back the local offer so the PC returns to stable state.
     // Without rollback, subsequent incoming reoffers fail with
     // "wrong state: have-local-offer" even after the flag is cleared.
-    Future.delayed(const Duration(seconds: 8), () {
+    Future.delayed(const Duration(seconds: 15), () {
+      // Skip if this timer belongs to a stale renegotiation cycle.
+      if (_renegotiateGen != myGen) return;
       if (_renegotiating) {
         debugPrint('[Signaling] renegotiation timeout — rolling back local offer');
         _renegotiating = false;
@@ -627,6 +692,11 @@ class SignalingService {
           // Give rollback a moment to apply before processing the pending reoffer.
           Future.delayed(const Duration(milliseconds: 200),
               () => _handleReoffer(pending));
+        } else if (_pendingRenegotiate) {
+          _pendingRenegotiate = false;
+          final kbps = _pendingRenegotiateKbps;
+          Future.delayed(const Duration(milliseconds: 300),
+              () => renegotiate(videoBitrateKbps: kbps));
         }
       }
     });
@@ -968,6 +1038,9 @@ class SignalingService {
     required bool restricted,
   }) async {
     if (pc == null) return;
+    // Same guard as applyScreenShareBitrate — setParameters crashes native code
+    // when PC is not in stable state.
+    if (pc.signalingState != RTCSignalingState.RTCSignalingStateStable) return;
     try {
       final senders = await pc.getSenders();
       for (final sender in senders) {
