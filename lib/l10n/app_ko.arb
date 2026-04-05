@@ -772,5 +772,11 @@
   "settingsLanguageSubtitle": "앱 표시 언어",
   "settingsLanguageSystem": "시스템 기본값",
   "onboardingLanguageTitle": "언어 선택",
-  "onboardingLanguageSubtitle": "나중에 설정에서 변경할 수 있습니다"
+  "onboardingLanguageSubtitle": "나중에 설정에서 변경할 수 있습니다",
+  "torForceNostrDisabled": "먼저 Tor를 활성화해야 합니다",
+  "torForceNostrSubtitle": "모든 Nostr 릴레이 연결이 Tor를 통해 이루어집니다. 느리지만 릴레이로부터 IP를 숨깁니다.",
+  "torForceNostrTitle": "메시지를 Tor를 통해 전송",
+  "torForcePulseDisabled": "먼저 Tor를 활성화해야 합니다",
+  "torForcePulseSubtitle": "모든 Pulse 릴레이 연결이 Tor를 통해 이루어집니다. 느리지만 서버로부터 IP를 숨깁니다.",
+  "torForcePulseTitle": "Pulse 릴레이를 Tor를 통해 연결"
 }

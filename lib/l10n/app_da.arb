@@ -772,5 +772,11 @@
   "callsEmptySubtitle": "Din opkaldshistorik vises her",
   "appBarEncrypted": "ende-til-ende krypteret",
   "newStatus": "Ny status",
-  "newCall": "Nyt opkald"
+  "newCall": "Nyt opkald",
+  "torForceNostrDisabled": "Tor skal aktiveres først",
+  "torForceNostrSubtitle": "Alle Nostr relay-forbindelser vil gå gennem Tor. Langsommere, men skjuler din IP fra relays.",
+  "torForceNostrTitle": "Send beskeder via Tor",
+  "torForcePulseDisabled": "Tor skal aktiveres først",
+  "torForcePulseSubtitle": "Alle Pulse relay-forbindelser vil gå gennem Tor. Langsommere, men skjuler din IP fra serveren.",
+  "torForcePulseTitle": "Send Pulse relay via Tor"
 }

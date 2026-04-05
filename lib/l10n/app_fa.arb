@@ -772,5 +772,11 @@
   "callsEmptySubtitle": "تاریخچه تماس‌های شما اینجا نمایش داده می‌شود",
   "appBarEncrypted": "رمزگذاری سرتاسر",
   "newStatus": "وضعیت جدید",
-  "newCall": "تماس جدید"
+  "newCall": "تماس جدید",
+  "torForceNostrDisabled": "ابتدا باید Tor فعال شود",
+  "torForceNostrSubtitle": "تمام اتصالات Nostr relay از طریق Tor عبور خواهند کرد. کندتر است اما IP شما را از relay‌ها پنهان می‌کند.",
+  "torForceNostrTitle": "ارسال پیام‌ها از طریق Tor",
+  "torForcePulseDisabled": "ابتدا باید Tor فعال شود",
+  "torForcePulseSubtitle": "تمام اتصالات Pulse relay از طریق Tor عبور خواهند کرد. کندتر است اما IP شما را از سرور پنهان می‌کند.",
+  "torForcePulseTitle": "ارسال Pulse relay از طریق Tor"
 }

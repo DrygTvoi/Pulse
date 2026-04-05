@@ -772,5 +772,11 @@
   "callsEmptySubtitle": "თქვენი ზარების ისტორია გამოჩნდება აქ",
   "appBarEncrypted": "ბოლო-ბოლო დაშიფრული",
   "newStatus": "ახალი სტატუსი",
-  "newCall": "ახალი ზარი"
+  "newCall": "ახალი ზარი",
+  "torForceNostrDisabled": "ჯერ Tor უნდა ჩაირთოს",
+  "torForceNostrSubtitle": "ყველა Nostr relay კავშირი გაივლის Tor-ს. უფრო ნელია, მაგრამ მალავს თქვენს IP-ს relay-ებისგან.",
+  "torForceNostrTitle": "შეტყობინებების გაგზავნა Tor-ით",
+  "torForcePulseDisabled": "ჯერ Tor უნდა ჩაირთოს",
+  "torForcePulseSubtitle": "ყველა Pulse relay კავშირი გაივლის Tor-ს. უფრო ნელია, მაგრამ მალავს თქვენს IP-ს სერვერისგან.",
+  "torForcePulseTitle": "Pulse relay-ის გატარება Tor-ით"
 }

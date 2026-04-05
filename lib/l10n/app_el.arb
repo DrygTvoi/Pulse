@@ -772,5 +772,11 @@
   "callsEmptySubtitle": "Το ιστορικό κλήσεων σας θα εμφανιστεί εδώ",
   "appBarEncrypted": "κρυπτογραφημένο από άκρο σε άκρο",
   "newStatus": "Νέα κατάσταση",
-  "newCall": "Νέα κλήση"
+  "newCall": "Νέα κλήση",
+  "torForceNostrDisabled": "Πρέπει πρώτα να ενεργοποιηθεί το Tor",
+  "torForceNostrSubtitle": "Όλες οι συνδέσεις Nostr relay θα περνούν μέσω Tor. Πιο αργό αλλά κρύβει την IP σας από τα relay.",
+  "torForceNostrTitle": "Δρομολόγηση μηνυμάτων μέσω Tor",
+  "torForcePulseDisabled": "Πρέπει πρώτα να ενεργοποιηθεί το Tor",
+  "torForcePulseSubtitle": "Όλες οι συνδέσεις Pulse relay θα περνούν μέσω Tor. Πιο αργό αλλά κρύβει την IP σας από τον διακομιστή.",
+  "torForcePulseTitle": "Δρομολόγηση Pulse relay μέσω Tor"
 }

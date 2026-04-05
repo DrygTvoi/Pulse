@@ -772,5 +772,11 @@
   "callsEmptySubtitle": "היסטוריית השיחות שלך תופיע כאן",
   "appBarEncrypted": "מוצפן מקצה לקצה",
   "newStatus": "סטטוס חדש",
-  "newCall": "שיחה חדשה"
+  "newCall": "שיחה חדשה",
+  "torForceNostrDisabled": "יש להפעיל את Tor קודם",
+  "torForceNostrSubtitle": "כל חיבורי Nostr relay יעברו דרך Tor. איטי יותר אך מסתיר את כתובת ה-IP שלך מה-relay.",
+  "torForceNostrTitle": "נתב הודעות דרך Tor",
+  "torForcePulseDisabled": "יש להפעיל את Tor קודם",
+  "torForcePulseSubtitle": "כל חיבורי Pulse relay יעברו דרך Tor. איטי יותר אך מסתיר את כתובת ה-IP שלך מהשרת.",
+  "torForcePulseTitle": "נתב Pulse relay דרך Tor"
 }

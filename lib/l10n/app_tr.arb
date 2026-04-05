@@ -772,5 +772,11 @@
   "settingsLanguageSubtitle": "Uygulama görüntüleme dili",
   "settingsLanguageSystem": "Sistem varsayılanı",
   "onboardingLanguageTitle": "Dilinizi seçin",
-  "onboardingLanguageSubtitle": "Bunu daha sonra Ayarlar'dan değiştirebilirsiniz"
+  "onboardingLanguageSubtitle": "Bunu daha sonra Ayarlar'dan değiştirebilirsiniz",
+  "torForceNostrDisabled": "Önce Tor etkinleştirilmelidir",
+  "torForceNostrSubtitle": "Tüm Nostr relay bağlantıları Tor üzerinden geçecek. Daha yavaş ama IP adresinizi relay'lerden gizler.",
+  "torForceNostrTitle": "Mesajları Tor üzerinden yönlendir",
+  "torForcePulseDisabled": "Önce Tor etkinleştirilmelidir",
+  "torForcePulseSubtitle": "Tüm Pulse relay bağlantıları Tor üzerinden geçecek. Daha yavaş ama IP adresinizi sunucudan gizler.",
+  "torForcePulseTitle": "Pulse relay'i Tor üzerinden yönlendir"
 }

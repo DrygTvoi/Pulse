@@ -772,5 +772,11 @@
   "callsEmptySubtitle": "Zəng tarixçəniz burada görünəcək",
   "appBarEncrypted": "başdan-başa şifrələnmiş",
   "newStatus": "Yeni status",
-  "newCall": "Yeni zəng"
+  "newCall": "Yeni zəng",
+  "torForceNostrDisabled": "Əvvəlcə Tor aktivləşdirilməlidir",
+  "torForceNostrSubtitle": "Bütün Nostr relay bağlantıları Tor vasitəsilə keçəcək. Daha yavaş, lakin IP ünvanınızı relay-lərdən gizlədir.",
+  "torForceNostrTitle": "Mesajları Tor vasitəsilə yönləndir",
+  "torForcePulseDisabled": "Əvvəlcə Tor aktivləşdirilməlidir",
+  "torForcePulseSubtitle": "Bütün Pulse relay bağlantıları Tor vasitəsilə keçəcək. Daha yavaş, lakin IP ünvanınızı serverdən gizlədir.",
+  "torForcePulseTitle": "Pulse relay-i Tor vasitəsilə yönləndir"
 }

@@ -772,5 +772,11 @@
   "callsEmptySubtitle": "Ձեր զանգերի պատմությունը կհայտնվի այստեղ",
   "appBarEncrypted": "ծայրից ծայր կոդավորված",
   "newStatus": "Նոր կարգավիճակ",
-  "newCall": "Նոր զանգ"
+  "newCall": "Նոր զանգ",
+  "torForceNostrDisabled": "Tor-ը նախ պետք է միացնել",
+  "torForceNostrSubtitle": "Nostr relay-ի բոլոր կապակցությունները կանցնեն Tor-ի միջոցով։ Ավելի դանդաղ, բայց թաքցնում է ձեր IP-ն relay-ներից։",
+  "torForceNostrTitle": "Հաղորդագրությունները ուղարկել Tor-ի միջոցով",
+  "torForcePulseDisabled": "Tor-ը նախ պետք է միացնել",
+  "torForcePulseSubtitle": "Pulse relay-ի բոլոր կապակցությունները կանցնեն Tor-ի միջոցով։ Ավելի դանդաղ, բայց թաքցնում է ձեր IP-ն սերվերից։",
+  "torForcePulseTitle": "Pulse relay-ը ուղարկել Tor-ի միջոցով"
 }

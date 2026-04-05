@@ -772,5 +772,11 @@
   "settingsLanguageSubtitle": "لغة عرض التطبيق",
   "settingsLanguageSystem": "افتراضي النظام",
   "onboardingLanguageTitle": "اختر لغتك",
-  "onboardingLanguageSubtitle": "يمكنك تغيير هذا لاحقًا في الإعدادات"
+  "onboardingLanguageSubtitle": "يمكنك تغيير هذا لاحقًا في الإعدادات",
+  "torForceNostrDisabled": "يجب تفعيل Tor أولاً",
+  "torForceNostrSubtitle": "جميع اتصالات Nostr relay ستمر عبر Tor. أبطأ لكنه يخفي عنوان IP الخاص بك من الـ relay.",
+  "torForceNostrTitle": "توجيه الرسائل عبر Tor",
+  "torForcePulseDisabled": "يجب تفعيل Tor أولاً",
+  "torForcePulseSubtitle": "جميع اتصالات Pulse relay ستمر عبر Tor. أبطأ لكنه يخفي عنوان IP الخاص بك من الخادم.",
+  "torForcePulseTitle": "توجيه Pulse relay عبر Tor"
 }

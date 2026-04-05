@@ -772,5 +772,11 @@
   "callsEmptySubtitle": "Jūsų skambučių istorija pasirodys čia",
   "appBarEncrypted": "visiškai šifruota",
   "newStatus": "Nauja būsena",
-  "newCall": "Naujas skambutis"
+  "newCall": "Naujas skambutis",
+  "torForceNostrDisabled": "Pirmiausia reikia įjungti Tor",
+  "torForceNostrSubtitle": "Visi Nostr relay ryšiai eis per Tor. Lėčiau, bet slepia jūsų IP nuo relay.",
+  "torForceNostrTitle": "Siųsti pranešimus per Tor",
+  "torForcePulseDisabled": "Pirmiausia reikia įjungti Tor",
+  "torForcePulseSubtitle": "Visi Pulse relay ryšiai eis per Tor. Lėčiau, bet slepia jūsų IP nuo serverio.",
+  "torForcePulseTitle": "Nukreipti Pulse relay per Tor"
 }

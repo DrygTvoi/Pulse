@@ -772,5 +772,11 @@
   "callsEmptySubtitle": "Qo'ng'iroqlar tarixingiz bu yerda ko'rinadi",
   "appBarEncrypted": "uchdan-uchga shifrlangan",
   "newStatus": "Yangi holat",
-  "newCall": "Yangi qo'ng'iroq"
+  "newCall": "Yangi qo'ng'iroq",
+  "torForceNostrDisabled": "Avval Tor yoqilishi kerak",
+  "torForceNostrSubtitle": "Barcha Nostr relay ulanishlari Tor orqali o'tadi. Sekinroq, lekin IP manzilingizni relay-lardan yashiradi.",
+  "torForceNostrTitle": "Xabarlarni Tor orqali yo'naltirish",
+  "torForcePulseDisabled": "Avval Tor yoqilishi kerak",
+  "torForcePulseSubtitle": "Barcha Pulse relay ulanishlari Tor orqali o'tadi. Sekinroq, lekin IP manzilingizni serverdan yashiradi.",
+  "torForcePulseTitle": "Pulse relay-ni Tor orqali yo'naltirish"
 }

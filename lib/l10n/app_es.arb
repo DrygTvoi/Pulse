@@ -772,5 +772,11 @@
   "settingsLanguageSubtitle": "Idioma de visualización de la app",
   "settingsLanguageSystem": "Predeterminado del sistema",
   "onboardingLanguageTitle": "Elige tu idioma",
-  "onboardingLanguageSubtitle": "Puedes cambiar esto más tarde en Configuración"
+  "onboardingLanguageSubtitle": "Puedes cambiar esto más tarde en Configuración",
+  "torForceNostrDisabled": "Tor debe estar activado primero",
+  "torForceNostrSubtitle": "Todas las conexiones de Nostr relay pasarán por Tor. Más lento pero oculta tu IP de los relays.",
+  "torForceNostrTitle": "Enrutar mensajes a través de Tor",
+  "torForcePulseDisabled": "Tor debe estar activado primero",
+  "torForcePulseSubtitle": "Todas las conexiones de Pulse relay pasarán por Tor. Más lento pero oculta tu IP del servidor.",
+  "torForcePulseTitle": "Enrutar Pulse relay a través de Tor"
 }

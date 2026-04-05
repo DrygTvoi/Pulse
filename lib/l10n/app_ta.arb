@@ -772,5 +772,11 @@
   "callsEmptySubtitle": "உங்கள் அழைப்பு வரலாறு இங்கே தோன்றும்",
   "appBarEncrypted": "முனை-முனை மறைகுறியீடு",
   "newStatus": "புதிய நிலை",
-  "newCall": "புதிய அழைப்பு"
+  "newCall": "புதிய அழைப்பு",
+  "torForceNostrDisabled": "முதலில் Tor இயக்கப்பட வேண்டும்",
+  "torForceNostrSubtitle": "அனைத்து Nostr relay இணைப்புகளும் Tor வழியாகச் செல்லும். மெதுவானது ஆனால் relay-களிடமிருந்து உங்கள் IP-ஐ மறைக்கிறது.",
+  "torForceNostrTitle": "செய்திகளை Tor வழியாக அனுப்பு",
+  "torForcePulseDisabled": "முதலில் Tor இயக்கப்பட வேண்டும்",
+  "torForcePulseSubtitle": "அனைத்து Pulse relay இணைப்புகளும் Tor வழியாகச் செல்லும். மெதுவானது ஆனால் சேவையகத்திடமிருந்து உங்கள் IP-ஐ மறைக்கிறது.",
+  "torForcePulseTitle": "Pulse relay-ஐ Tor வழியாக அனுப்பு"
 }

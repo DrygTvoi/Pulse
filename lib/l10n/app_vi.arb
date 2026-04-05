@@ -772,5 +772,11 @@
   "callsEmptySubtitle": "Lịch sử cuộc gọi của bạn sẽ xuất hiện ở đây",
   "appBarEncrypted": "mã hóa đầu cuối",
   "newStatus": "Trạng thái mới",
-  "newCall": "Cuộc gọi mới"
+  "newCall": "Cuộc gọi mới",
+  "torForceNostrDisabled": "Phải bật Tor trước",
+  "torForceNostrSubtitle": "Tất cả kết nối Nostr relay sẽ đi qua Tor. Chậm hơn nhưng ẩn IP của bạn khỏi các relay.",
+  "torForceNostrTitle": "Định tuyến tin nhắn qua Tor",
+  "torForcePulseDisabled": "Phải bật Tor trước",
+  "torForcePulseSubtitle": "Tất cả kết nối Pulse relay sẽ đi qua Tor. Chậm hơn nhưng ẩn IP của bạn khỏi máy chủ.",
+  "torForcePulseTitle": "Định tuyến Pulse relay qua Tor"
 }

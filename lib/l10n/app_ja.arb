@@ -772,5 +772,11 @@
   "settingsLanguageSubtitle": "アプリの表示言語",
   "settingsLanguageSystem": "システムデフォルト",
   "onboardingLanguageTitle": "言語を選択",
-  "onboardingLanguageSubtitle": "後で設定から変更できます"
+  "onboardingLanguageSubtitle": "後で設定から変更できます",
+  "torForceNostrDisabled": "先にTorを有効にしてください",
+  "torForceNostrSubtitle": "すべてのNostrリレー接続がTor経由になります。速度は低下しますが、リレーからIPアドレスを隠します。",
+  "torForceNostrTitle": "メッセージをTor経由で送信",
+  "torForcePulseDisabled": "先にTorを有効にしてください",
+  "torForcePulseSubtitle": "すべてのPulseリレー接続がTor経由になります。速度は低下しますが、サーバーからIPアドレスを隠します。",
+  "torForcePulseTitle": "PulseリレーをTor経由で接続"
 }

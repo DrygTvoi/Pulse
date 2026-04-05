@@ -772,5 +772,11 @@
   "callsEmptySubtitle": "Vaša istorija poziva će se pojaviti ovde",
   "appBarEncrypted": "šifrovano s kraja na kraj",
   "newStatus": "Novi status",
-  "newCall": "Novi poziv"
+  "newCall": "Novi poziv",
+  "torForceNostrDisabled": "Tor mora prvo biti omogućen",
+  "torForceNostrSubtitle": "Sve veze sa Nostr relay-ima će ići preko Tor-a. Sporije, ali skriva vašu IP adresu od relay-a.",
+  "torForceNostrTitle": "Usmeravaj poruke preko Tor-a",
+  "torForcePulseDisabled": "Tor mora prvo biti omogućen",
+  "torForcePulseSubtitle": "Sve veze sa Pulse relay-om će ići preko Tor-a. Sporije, ali skriva vašu IP adresu od servera.",
+  "torForcePulseTitle": "Usmeravaj Pulse relay preko Tor-a"
 }

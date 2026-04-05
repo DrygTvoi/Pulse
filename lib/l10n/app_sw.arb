@@ -772,5 +772,11 @@
   "callsEmptySubtitle": "Historia yako ya simu itaonekana hapa",
   "appBarEncrypted": "imesimbwa kutoka mwisho hadi mwisho",
   "newStatus": "Hali mpya",
-  "newCall": "Simu mpya"
+  "newCall": "Simu mpya",
+  "torForceNostrDisabled": "Tor lazima iwashwe kwanza",
+  "torForceNostrSubtitle": "Miunganisho yote ya Nostr relay itapita kupitia Tor. Polepole zaidi lakini inaficha IP yako kutoka kwa relay.",
+  "torForceNostrTitle": "Peleka ujumbe kupitia Tor",
+  "torForcePulseDisabled": "Tor lazima iwashwe kwanza",
+  "torForcePulseSubtitle": "Miunganisho yote ya Pulse relay itapita kupitia Tor. Polepole zaidi lakini inaficha IP yako kutoka kwa seva.",
+  "torForcePulseTitle": "Peleka Pulse relay kupitia Tor"
 }

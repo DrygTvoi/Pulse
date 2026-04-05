@@ -772,5 +772,11 @@
   "settingsLanguageSubtitle": "Мова відображення застосунку",
   "settingsLanguageSystem": "Системний за замовчуванням",
   "onboardingLanguageTitle": "Виберіть мову",
-  "onboardingLanguageSubtitle": "Ви можете змінити це пізніше в Налаштуваннях"
+  "onboardingLanguageSubtitle": "Ви можете змінити це пізніше в Налаштуваннях",
+  "torForceNostrDisabled": "Спочатку потрібно увімкнути Tor",
+  "torForceNostrSubtitle": "Усі з'єднання з Nostr relay проходитимуть через Tor. Повільніше, але приховує вашу IP-адресу від relay.",
+  "torForceNostrTitle": "Маршрутизувати повідомлення через Tor",
+  "torForcePulseDisabled": "Спочатку потрібно увімкнути Tor",
+  "torForcePulseSubtitle": "Усі з'єднання з Pulse relay проходитимуть через Tor. Повільніше, але приховує вашу IP-адресу від сервера.",
+  "torForcePulseTitle": "Маршрутизувати Pulse relay через Tor"
 }

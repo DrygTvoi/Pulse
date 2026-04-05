@@ -772,5 +772,11 @@
   "callsEmptySubtitle": "ប្រវត្តិការហៅរបស់អ្នកនឹងបង្ហាញនៅទីនេះ",
   "appBarEncrypted": "ការអ៊ិនគ្រីបពីចុងដល់ចុង",
   "newStatus": "ស្ថានភាពថ្មី",
-  "newCall": "ការហៅថ្មី"
+  "newCall": "ការហៅថ្មី",
+  "torForceNostrDisabled": "ត្រូវបើក Tor ជាមុនសិន",
+  "torForceNostrSubtitle": "ការតភ្ជាប់ Nostr relay ទាំងអស់នឹងឆ្លងកាត់ Tor។ យឺតជាង ប៉ុន្តែលាក់ IP របស់អ្នកពី relay។",
+  "torForceNostrTitle": "បញ្ជូនសារតាម Tor",
+  "torForcePulseDisabled": "ត្រូវបើក Tor ជាមុនសិន",
+  "torForcePulseSubtitle": "ការតភ្ជាប់ Pulse relay ទាំងអស់នឹងឆ្លងកាត់ Tor។ យឺតជាង ប៉ុន្តែលាក់ IP របស់អ្នកពីម៉ាស៊ីនមេ។",
+  "torForcePulseTitle": "បញ្ជូន Pulse relay តាម Tor"
 }

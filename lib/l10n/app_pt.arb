@@ -772,5 +772,11 @@
   "settingsLanguageSubtitle": "Idioma de exibição do aplicativo",
   "settingsLanguageSystem": "Padrão do sistema",
   "onboardingLanguageTitle": "Escolha seu idioma",
-  "onboardingLanguageSubtitle": "Você pode alterar isso mais tarde nas Configurações"
+  "onboardingLanguageSubtitle": "Você pode alterar isso mais tarde nas Configurações",
+  "torForceNostrDisabled": "O Tor deve ser ativado primeiro",
+  "torForceNostrSubtitle": "Todas as conexões de retransmissores Nostr passarão pelo Tor. Mais lento, mas oculta seu IP dos retransmissores.",
+  "torForceNostrTitle": "Rotear mensagens pelo Tor",
+  "torForcePulseDisabled": "O Tor deve ser ativado primeiro",
+  "torForcePulseSubtitle": "Todas as conexões do retransmissor Pulse passarão pelo Tor. Mais lento, mas oculta seu IP do servidor.",
+  "torForcePulseTitle": "Rotear retransmissor Pulse pelo Tor"
 }

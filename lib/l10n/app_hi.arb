@@ -772,5 +772,11 @@
   "settingsLanguageSubtitle": "ऐप प्रदर्शन भाषा",
   "settingsLanguageSystem": "सिस्टम डिफ़ॉल्ट",
   "onboardingLanguageTitle": "अपनी भाषा चुनें",
-  "onboardingLanguageSubtitle": "आप इसे बाद में सेटिंग्स में बदल सकते हैं"
+  "onboardingLanguageSubtitle": "आप इसे बाद में सेटिंग्स में बदल सकते हैं",
+  "torForceNostrDisabled": "पहले Tor सक्षम करना होगा",
+  "torForceNostrSubtitle": "सभी Nostr relay कनेक्शन Tor के माध्यम से जाएंगे। धीमा लेकिन relay से आपका IP छुपाता है।",
+  "torForceNostrTitle": "Tor के माध्यम से संदेश भेजें",
+  "torForcePulseDisabled": "पहले Tor सक्षम करना होगा",
+  "torForcePulseSubtitle": "सभी Pulse relay कनेक्शन Tor के माध्यम से जाएंगे। धीमा लेकिन सर्वर से आपका IP छुपाता है।",
+  "torForcePulseTitle": "Pulse relay को Tor के माध्यम से भेजें"
 }

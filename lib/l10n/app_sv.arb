@@ -772,5 +772,11 @@
   "callsEmptySubtitle": "Din samtalshistorik visas här",
   "appBarEncrypted": "ände-till-ände krypterat",
   "newStatus": "Ny status",
-  "newCall": "Nytt samtal"
+  "newCall": "Nytt samtal",
+  "torForceNostrDisabled": "Tor måste aktiveras först",
+  "torForceNostrSubtitle": "Alla Nostr relay-anslutningar går genom Tor. Långsammare men döljer din IP från relay-servrar.",
+  "torForceNostrTitle": "Dirigera meddelanden via Tor",
+  "torForcePulseDisabled": "Tor måste aktiveras först",
+  "torForcePulseSubtitle": "Alla Pulse relay-anslutningar går genom Tor. Långsammare men döljer din IP från servern.",
+  "torForcePulseTitle": "Dirigera Pulse relay via Tor"
 }

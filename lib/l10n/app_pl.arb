@@ -772,5 +772,11 @@
   "settingsLanguageSubtitle": "Język wyświetlania aplikacji",
   "settingsLanguageSystem": "Domyślny systemowy",
   "onboardingLanguageTitle": "Wybierz język",
-  "onboardingLanguageSubtitle": "Możesz to zmienić później w Ustawieniach"
+  "onboardingLanguageSubtitle": "Możesz to zmienić później w Ustawieniach",
+  "torForceNostrDisabled": "Najpierw należy włączyć Tor",
+  "torForceNostrSubtitle": "Wszystkie połączenia z przekaźnikami Nostr będą przechodzić przez Tor. Wolniejsze, ale ukrywa Twój IP przed przekaźnikami.",
+  "torForceNostrTitle": "Kieruj wiadomości przez Tor",
+  "torForcePulseDisabled": "Najpierw należy włączyć Tor",
+  "torForcePulseSubtitle": "Wszystkie połączenia z przekaźnikiem Pulse będą przechodzić przez Tor. Wolniejsze, ale ukrywa Twój IP przed serwerem.",
+  "torForcePulseTitle": "Kieruj przekaźnik Pulse przez Tor"
 }

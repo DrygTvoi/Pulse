@@ -772,5 +772,11 @@
   "callsEmptySubtitle": "Ang kasaysayan ng iyong mga tawag ay lilitaw dito",
   "appBarEncrypted": "end-to-end na naka-encrypt",
   "newStatus": "Bagong status",
-  "newCall": "Bagong tawag"
+  "newCall": "Bagong tawag",
+  "torForceNostrDisabled": "Kailangang i-enable muna ang Tor",
+  "torForceNostrSubtitle": "Lahat ng koneksyon sa Nostr relay ay dadaan sa Tor. Mas mabagal pero itinatago ang iyong IP mula sa mga relay.",
+  "torForceNostrTitle": "I-route ang mga mensahe sa pamamagitan ng Tor",
+  "torForcePulseDisabled": "Kailangang i-enable muna ang Tor",
+  "torForcePulseSubtitle": "Lahat ng koneksyon sa Pulse relay ay dadaan sa Tor. Mas mabagal pero itinatago ang iyong IP mula sa server.",
+  "torForcePulseTitle": "I-route ang Pulse relay sa pamamagitan ng Tor"
 }

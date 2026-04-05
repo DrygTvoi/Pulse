@@ -772,5 +772,11 @@
   "callsEmptySubtitle": "သင်၏ ခေါ်ဆိုမှု မှတ်တမ်းသည် ဤနေရာတွင် ပေါ်လာမည်",
   "appBarEncrypted": "အဆုံး-မှ-အဆုံး ကုဒ်ဝှက်",
   "newStatus": "အသစ် အခြေအနေ",
-  "newCall": "ခေါ်ဆိုမှု အသစ်"
+  "newCall": "ခေါ်ဆိုမှု အသစ်",
+  "torForceNostrDisabled": "Tor ကို အရင်ဖွင့်ရန် လိုအပ်သည်",
+  "torForceNostrSubtitle": "Nostr relay ချိတ်ဆက်မှုအားလုံး Tor မှတဆင့် သွားပါမည်။ ပိုနှေးသော်လည်း relay များမှ သင်၏ IP ကို ဝှက်ထားသည်။",
+  "torForceNostrTitle": "မက်ဆေ့ချ်များကို Tor မှတဆင့် ပို့ပါ",
+  "torForcePulseDisabled": "Tor ကို အရင်ဖွင့်ရန် လိုအပ်သည်",
+  "torForcePulseSubtitle": "Pulse relay ချိတ်ဆက်မှုအားလုံး Tor မှတဆင့် သွားပါမည်။ ပိုနှေးသော်လည်း ဆာဗာမှ သင်၏ IP ကို ဝှက်ထားသည်။",
+  "torForcePulseTitle": "Pulse relay ကို Tor မှတဆင့် ချိတ်ဆက်ပါ"
 }

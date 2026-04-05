@@ -772,5 +772,11 @@
   "callsEmptySubtitle": "Vaša história hovorov sa zobrazí tu",
   "appBarEncrypted": "šifrované end-to-end",
   "newStatus": "Nový stav",
-  "newCall": "Nový hovor"
+  "newCall": "Nový hovor",
+  "torForceNostrDisabled": "Najprv je potrebné zapnúť Tor",
+  "torForceNostrSubtitle": "Všetky pripojenia k Nostr relay budú smerované cez Tor. Pomalšie, ale skryje vašu IP adresu pred relay.",
+  "torForceNostrTitle": "Smerovať správy cez Tor",
+  "torForcePulseDisabled": "Najprv je potrebné zapnúť Tor",
+  "torForcePulseSubtitle": "Všetky pripojenia k Pulse relay budú smerované cez Tor. Pomalšie, ale skryje vašu IP adresu pred serverom.",
+  "torForcePulseTitle": "Smerovať Pulse relay cez Tor"
 }

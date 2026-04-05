@@ -772,5 +772,11 @@
   "callsEmptySubtitle": "A hívási előzmények itt fognak megjelenni",
   "appBarEncrypted": "végponttól végpontig titkosított",
   "newStatus": "Új állapot",
-  "newCall": "Új hívás"
+  "newCall": "Új hívás",
+  "torForceNostrDisabled": "Először a Tor-t kell engedélyezni",
+  "torForceNostrSubtitle": "Minden Nostr relay kapcsolat Tor-on keresztül megy. Lassabb, de elrejti az IP-címedet a relay-k elől.",
+  "torForceNostrTitle": "Üzenetek irányítása Tor-on keresztül",
+  "torForcePulseDisabled": "Először a Tor-t kell engedélyezni",
+  "torForcePulseSubtitle": "Minden Pulse relay kapcsolat Tor-on keresztül megy. Lassabb, de elrejti az IP-címedet a szerver elől.",
+  "torForcePulseTitle": "Pulse relay irányítása Tor-on keresztül"
 }

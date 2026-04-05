@@ -772,5 +772,11 @@
   "callsEmptySubtitle": "Sejarah panggilan anda akan muncul di sini",
   "appBarEncrypted": "disulitkan hujung ke hujung",
   "newStatus": "Status baharu",
-  "newCall": "Panggilan baharu"
+  "newCall": "Panggilan baharu",
+  "torForceNostrDisabled": "Tor perlu diaktifkan terlebih dahulu",
+  "torForceNostrSubtitle": "Semua sambungan Nostr relay akan melalui Tor. Lebih perlahan tetapi menyembunyikan IP anda daripada relay.",
+  "torForceNostrTitle": "Halakan mesej melalui Tor",
+  "torForcePulseDisabled": "Tor perlu diaktifkan terlebih dahulu",
+  "torForcePulseSubtitle": "Semua sambungan Pulse relay akan melalui Tor. Lebih perlahan tetapi menyembunyikan IP anda daripada pelayan.",
+  "torForcePulseTitle": "Halakan Pulse relay melalui Tor"
 }

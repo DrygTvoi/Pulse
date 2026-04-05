@@ -772,5 +772,11 @@
   "callsEmptySubtitle": "የጥሪ ታሪክዎ እዚህ ይታያል",
   "appBarEncrypted": "ከጫፍ-እስከ-ጫፍ ምስጢር",
   "newStatus": "አዲስ ሁኔታ",
-  "newCall": "አዲስ ጥሪ"
+  "newCall": "አዲስ ጥሪ",
+  "torForceNostrDisabled": "Tor መጀመሪያ መንቃት አለበት",
+  "torForceNostrSubtitle": "ሁሉም የ Nostr relay ግንኙነቶች በ Tor ይሄዳሉ። ቀርፋፋ ነው ግን IP አድራሻዎን ከ relay ይደብቃል።",
+  "torForceNostrTitle": "መልዕክቶችን በ Tor በኩል አስተላልፍ",
+  "torForcePulseDisabled": "Tor መጀመሪያ መንቃት አለበት",
+  "torForcePulseSubtitle": "ሁሉም የ Pulse relay ግንኙነቶች በ Tor ይሄዳሉ። ቀርፋፋ ነው ግን IP አድራሻዎን ከሰርቨር ይደብቃል።",
+  "torForcePulseTitle": "Pulse relay በ Tor በኩል አስተላልፍ"
 }

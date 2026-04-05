@@ -772,5 +772,11 @@
   "callsEmptySubtitle": "Puheluhistoriasi näkyy täällä",
   "appBarEncrypted": "päästä päähän salattu",
   "newStatus": "Uusi tila",
-  "newCall": "Uusi puhelu"
+  "newCall": "Uusi puhelu",
+  "torForceNostrDisabled": "Tor täytyy ottaa käyttöön ensin",
+  "torForceNostrSubtitle": "Kaikki Nostr relay -yhteydet kulkevat Tor-verkon kautta. Hitaampi, mutta piilottaa IP-osoitteesi relay-palvelimilta.",
+  "torForceNostrTitle": "Reititä viestit Tor-verkon kautta",
+  "torForcePulseDisabled": "Tor täytyy ottaa käyttöön ensin",
+  "torForcePulseSubtitle": "Kaikki Pulse relay -yhteydet kulkevat Tor-verkon kautta. Hitaampi, mutta piilottaa IP-osoitteesi palvelimelta.",
+  "torForcePulseTitle": "Reititä Pulse relay Tor-verkon kautta"
 }

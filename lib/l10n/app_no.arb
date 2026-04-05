@@ -772,5 +772,11 @@
   "callsEmptySubtitle": "Samtaleloggen din vises her",
   "appBarEncrypted": "ende-til-ende kryptert",
   "newStatus": "Ny status",
-  "newCall": "Ny samtale"
+  "newCall": "Ny samtale",
+  "torForceNostrDisabled": "Tor må aktiveres først",
+  "torForceNostrSubtitle": "Alle Nostr relay-tilkoblinger vil gå gjennom Tor. Tregere, men skjuler IP-en din fra reléer.",
+  "torForceNostrTitle": "Send meldinger via Tor",
+  "torForcePulseDisabled": "Tor må aktiveres først",
+  "torForcePulseSubtitle": "Alle Pulse relay-tilkoblinger vil gå gjennom Tor. Tregere, men skjuler IP-en din fra serveren.",
+  "torForcePulseTitle": "Rut Pulse relay via Tor"
 }

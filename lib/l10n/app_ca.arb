@@ -772,5 +772,11 @@
   "callsEmptySubtitle": "El vostre historial de trucades apareixerà aquí",
   "appBarEncrypted": "xifrat d'extrem a extrem",
   "newStatus": "Nou estat",
-  "newCall": "Nova trucada"
+  "newCall": "Nova trucada",
+  "torForceNostrDisabled": "Cal activar Tor primer",
+  "torForceNostrSubtitle": "Totes les connexions de Nostr relay passaran per Tor. Més lent però amaga la teva IP dels relays.",
+  "torForceNostrTitle": "Encaminar missatges per Tor",
+  "torForcePulseDisabled": "Cal activar Tor primer",
+  "torForcePulseSubtitle": "Totes les connexions de Pulse relay passaran per Tor. Més lent però amaga la teva IP del servidor.",
+  "torForcePulseTitle": "Encaminar Pulse relay per Tor"
 }

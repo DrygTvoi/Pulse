@@ -772,5 +772,11 @@
   "callsEmptySubtitle": "Қоңырау тарихыңыз мұнда пайда болады",
   "appBarEncrypted": "ұштан-ұшқа шифрланған",
   "newStatus": "Жаңа күй",
-  "newCall": "Жаңа қоңырау"
+  "newCall": "Жаңа қоңырау",
+  "torForceNostrDisabled": "Алдымен Tor қосылуы керек",
+  "torForceNostrSubtitle": "Барлық Nostr relay қосылымдары Tor арқылы өтеді. Баяу, бірақ IP мекенжайыңызды relay-лерден жасырады.",
+  "torForceNostrTitle": "Хабарларды Tor арқылы жіберу",
+  "torForcePulseDisabled": "Алдымен Tor қосылуы керек",
+  "torForcePulseSubtitle": "Барлық Pulse relay қосылымдары Tor арқылы өтеді. Баяу, бірақ IP мекенжайыңызды серверден жасырады.",
+  "torForcePulseTitle": "Pulse relay-ді Tor арқылы бағыттау"
 }

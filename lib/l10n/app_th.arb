@@ -772,5 +772,11 @@
   "callsEmptySubtitle": "ประวัติการโทรของคุณจะแสดงที่นี่",
   "appBarEncrypted": "เข้ารหัสจากต้นทางถึงปลายทาง",
   "newStatus": "สถานะใหม่",
-  "newCall": "การโทรใหม่"
+  "newCall": "การโทรใหม่",
+  "torForceNostrDisabled": "ต้องเปิดใช้งาน Tor ก่อน",
+  "torForceNostrSubtitle": "การเชื่อมต่อ Nostr relay ทั้งหมดจะผ่าน Tor ช้าลงแต่ซ่อน IP ของคุณจาก relay",
+  "torForceNostrTitle": "ส่งข้อความผ่าน Tor",
+  "torForcePulseDisabled": "ต้องเปิดใช้งาน Tor ก่อน",
+  "torForcePulseSubtitle": "การเชื่อมต่อ Pulse relay ทั้งหมดจะผ่าน Tor ช้าลงแต่ซ่อน IP ของคุณจากเซิร์ฟเวอร์",
+  "torForcePulseTitle": "ส่ง Pulse relay ผ่าน Tor"
 }

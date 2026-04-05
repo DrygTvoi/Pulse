@@ -772,5 +772,11 @@
   "settingsLanguageSubtitle": "应用显示语言",
   "settingsLanguageSystem": "系统默认",
   "onboardingLanguageTitle": "选择您的语言",
-  "onboardingLanguageSubtitle": "您可以稍后在设置中更改"
+  "onboardingLanguageSubtitle": "您可以稍后在设置中更改",
+  "torForceNostrDisabled": "必须先启用 Tor",
+  "torForceNostrSubtitle": "所有 Nostr 中继连接将通过 Tor 传输。速度较慢，但可向中继隐藏您的 IP 地址。",
+  "torForceNostrTitle": "通过 Tor 路由消息",
+  "torForcePulseDisabled": "必须先启用 Tor",
+  "torForcePulseSubtitle": "所有 Pulse 中继连接将通过 Tor 传输。速度较慢，但可向服务器隐藏您的 IP 地址。",
+  "torForcePulseTitle": "通过 Tor 路由 Pulse 中继"
 }

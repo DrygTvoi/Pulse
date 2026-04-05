@@ -772,5 +772,11 @@
   "callsEmptySubtitle": "Историята на обажданията ви ще се появи тук",
   "appBarEncrypted": "криптирано от край до край",
   "newStatus": "Нов статус",
-  "newCall": "Ново обаждане"
+  "newCall": "Ново обаждане",
+  "torForceNostrDisabled": "Tor трябва първо да бъде включен",
+  "torForceNostrSubtitle": "Всички Nostr relay връзки ще минават през Tor. По-бавно, но скрива IP адреса ви от relay сървърите.",
+  "torForceNostrTitle": "Насочване на съобщенията през Tor",
+  "torForcePulseDisabled": "Tor трябва първо да бъде включен",
+  "torForcePulseSubtitle": "Всички Pulse relay връзки ще минават през Tor. По-бавно, но скрива IP адреса ви от сървъра.",
+  "torForcePulseTitle": "Насочване на Pulse relay през Tor"
 }

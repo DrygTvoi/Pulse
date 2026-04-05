@@ -772,5 +772,11 @@
   "callsEmptySubtitle": "Istoricul apelurilor va apărea aici",
   "appBarEncrypted": "criptat de la capăt la capăt",
   "newStatus": "Stare nouă",
-  "newCall": "Apel nou"
+  "newCall": "Apel nou",
+  "torForceNostrDisabled": "Tor trebuie activat mai întâi",
+  "torForceNostrSubtitle": "Toate conexiunile relay-urilor Nostr vor trece prin Tor. Mai lent, dar ascunde IP-ul tău de relay-uri.",
+  "torForceNostrTitle": "Rutează mesajele prin Tor",
+  "torForcePulseDisabled": "Tor trebuie activat mai întâi",
+  "torForcePulseSubtitle": "Toate conexiunile relay-ului Pulse vor trece prin Tor. Mai lent, dar ascunde IP-ul tău de server.",
+  "torForcePulseTitle": "Rutează relay-ul Pulse prin Tor"
 }

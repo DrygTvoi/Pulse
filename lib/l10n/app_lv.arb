@@ -772,5 +772,11 @@
   "callsEmptySubtitle": "Jūsu zvanu vēsture parādīsies šeit",
   "appBarEncrypted": "pilnībā šifrēts",
   "newStatus": "Jauns statuss",
-  "newCall": "Jauns zvans"
+  "newCall": "Jauns zvans",
+  "torForceNostrDisabled": "Vispirms jāiespējo Tor",
+  "torForceNostrSubtitle": "Visi Nostr relay savienojumi tiks maršrutēti caur Tor. Lēnāk, bet slēpj jūsu IP no relay.",
+  "torForceNostrTitle": "Maršrutēt ziņas caur Tor",
+  "torForcePulseDisabled": "Vispirms jāiespējo Tor",
+  "torForcePulseSubtitle": "Visi Pulse relay savienojumi tiks maršrutēti caur Tor. Lēnāk, bet slēpj jūsu IP no servera.",
+  "torForcePulseTitle": "Maršrutēt Pulse relay caur Tor"
 }

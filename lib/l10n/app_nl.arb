@@ -772,5 +772,11 @@
   "callsEmptySubtitle": "Uw belgeschiedenis verschijnt hier",
   "appBarEncrypted": "eind-tot-eind versleuteld",
   "newStatus": "Nieuwe status",
-  "newCall": "Nieuw gesprek"
+  "newCall": "Nieuw gesprek",
+  "torForceNostrDisabled": "Tor moet eerst worden ingeschakeld",
+  "torForceNostrSubtitle": "Alle Nostr relay-verbindingen gaan via Tor. Langzamer maar verbergt uw IP voor relays.",
+  "torForceNostrTitle": "Berichten via Tor routeren",
+  "torForcePulseDisabled": "Tor moet eerst worden ingeschakeld",
+  "torForcePulseSubtitle": "Alle Pulse relay-verbindingen gaan via Tor. Langzamer maar verbergt uw IP voor de server.",
+  "torForcePulseTitle": "Pulse relay via Tor routeren"
 }

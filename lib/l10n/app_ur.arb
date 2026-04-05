@@ -772,5 +772,11 @@
   "callsEmptySubtitle": "آپ کی کال ہسٹری یہاں ظاہر ہوگی",
   "appBarEncrypted": "اینڈ-ٹو-اینڈ انکرپٹڈ",
   "newStatus": "نیا اسٹیٹس",
-  "newCall": "نئی کال"
+  "newCall": "نئی کال",
+  "torForceNostrDisabled": "پہلے Tor فعال ہونا ضروری ہے",
+  "torForceNostrSubtitle": "تمام Nostr relay کنکشنز Tor سے گزریں گے۔ سست لیکن relay سے آپ کا IP چھپاتا ہے۔",
+  "torForceNostrTitle": "پیغامات Tor کے ذریعے بھیجیں",
+  "torForcePulseDisabled": "پہلے Tor فعال ہونا ضروری ہے",
+  "torForcePulseSubtitle": "تمام Pulse relay کنکشنز Tor سے گزریں گے۔ سست لیکن سرور سے آپ کا IP چھپاتا ہے۔",
+  "torForcePulseTitle": "Pulse relay کو Tor کے ذریعے بھیجیں"
 }

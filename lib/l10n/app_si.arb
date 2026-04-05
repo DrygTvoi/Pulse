@@ -772,5 +772,11 @@
   "callsEmptySubtitle": "ඔබේ ඇමතුම් ඉතිහාසය මෙහි දිස්වේ",
   "appBarEncrypted": "අවසාන-සිට-අවසාන ගුප්තකේතනය",
   "newStatus": "නව තත්වය",
-  "newCall": "නව ඇමතුම"
+  "newCall": "නව ඇමතුම",
+  "torForceNostrDisabled": "පළමුව Tor සක්‍රිය කළ යුතුය",
+  "torForceNostrSubtitle": "සියලුම Nostr relay සම්බන්ධතා Tor හරහා යනු ඇත. මන්දගාමී නමුත් relay වලින් ඔබේ IP සඟවයි.",
+  "torForceNostrTitle": "පණිවිඩ Tor හරහා යොමු කරන්න",
+  "torForcePulseDisabled": "පළමුව Tor සක්‍රිය කළ යුතුය",
+  "torForcePulseSubtitle": "සියලුම Pulse relay සම්බන්ධතා Tor හරහා යනු ඇත. මන්දගාමී නමුත් සේවාදායකයෙන් ඔබේ IP සඟවයි.",
+  "torForcePulseTitle": "Pulse relay Tor හරහා යොමු කරන්න"
 }
