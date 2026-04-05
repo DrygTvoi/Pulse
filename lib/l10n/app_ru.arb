@@ -729,6 +729,10 @@
   "torForceNostrSubtitle": "Все соединения с Nostr-реле будут идти через Tor. Медленнее, но скрывает ваш IP от реле.",
   "torForceNostrDisabled": "Сначала включите Tor",
 
+  "torForcePulseTitle": "Отправлять через Pulse реле через Tor",
+  "torForcePulseSubtitle": "Все соединения с Pulse-реле будут идти через Tor. Медленнее, но скрывает ваш IP от сервера.",
+  "torForcePulseDisabled": "Сначала включите Tor",
+
   "i2pProxySocks5": "I2P Прокси (SOCKS5)",
   "i2pInfoDescription": "I2P использует SOCKS5 на порту 4447 по умолчанию. Подключайтесь к Nostr-реле через I2P-outproxy для связи с пользователями на любом транспорте. Tor имеет приоритет.",
   "i2pRouteNostrTitle": "Маршрутизировать Nostr через I2P",

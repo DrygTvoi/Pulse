@@ -58,6 +58,8 @@ class SignalingService {
   VoidCallback? onRemoteHangUp;
   /// Fires when a reoffer arrives with no active video (remote stopped screen share).
   VoidCallback? onRemoteVideoStopped;
+  /// Fires when the remote peer sends an SFU relay invite (P2P failed, fallback to server).
+  Function(String roomId, String token)? onSfuRelayInvite;
 
   // ── Glare resolution state ─────────────────────────────────────────────────
   // When we send a reoffer and are waiting for a reanswer, _renegotiating=true.
@@ -430,6 +432,14 @@ class SignalingService {
         await _handleReoffer(payload);
       } else if (type == 'webrtc_reanswer') {
         await _handleReanswer(payload);
+      }
+      // SFU relay invite (P2P failed, peer asks us to join SFU room)
+      else if (type == 'webrtc_sfu_invite') {
+        final roomId = payload['room_id'] as String?;
+        final token = payload['token'] as String?;
+        if (roomId != null && token != null) {
+          onSfuRelayInvite?.call(roomId, token);
+        }
       }
       // Secondary (Tor backup) WebRTC signals
       else if (type == 'webrtc2_offer' && !isCaller) {
@@ -1005,7 +1015,7 @@ class SignalingService {
 
     // Build the fmtp line we want
     final fmtpLine =
-        'a=fmtp:$pt minptime=10;useinbandfec=1;maxaveragebitrate=$maxBitrate';
+        'a=fmtp:$pt minptime=10;useinbandfec=1;usedtx=1;maxaveragebitrate=$maxBitrate';
     final fmtpRe = RegExp('a=fmtp:$pt [^\r\n]*');
 
     if (fmtpRe.hasMatch(sdp)) {
@@ -1077,10 +1087,11 @@ class SignalingService {
     String prefix = 'webrtc',
   }) async {
     final typeMap = {
-      'offer':     '${prefix}_offer',
-      'answer':    '${prefix}_answer',
-      'candidate': '${prefix}_candidate',
-      'hangup':    '${prefix}_hangup',
+      'offer':      '${prefix}_offer',
+      'answer':     '${prefix}_answer',
+      'candidate':  '${prefix}_candidate',
+      'hangup':     '${prefix}_hangup',
+      'sfu_invite': '${prefix}_sfu_invite',
       'reoffer':   '${prefix}_reoffer',
       'reanswer':  '${prefix}_reanswer',
     };
@@ -1171,6 +1182,11 @@ class SignalingService {
       if (RegExp(r'^[0-9a-f]{64}$').hasMatch(addr)) return addr;
     }
     return null;
+  }
+
+  /// Send SFU relay invite to peer (caller side — when P2P failed).
+  Future<void> sendSfuRelayInvite(String roomId, String token) async {
+    await _sendSignalingData('sfu_invite', {'room_id': roomId, 'token': token});
   }
 
   Future<void> hangUp({bool notify = true}) async {

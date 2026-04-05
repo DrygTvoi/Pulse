@@ -94,11 +94,35 @@ class GroupSignalingService {
 
   // ── Offer retransmission ────────────────────────────────────────────────
 
+  /// Inject `usedtx=1` into Opus fmtp so silence uses comfort noise (~400bps).
+  static RTCSessionDescription _applyDtxToSdp(RTCSessionDescription desc) {
+    var sdp = desc.sdp;
+    if (sdp == null) return desc;
+    final ptMatch = RegExp(r'a=rtpmap:(\d+) opus/\d+/2').firstMatch(sdp);
+    if (ptMatch == null) return desc;
+    final pt = ptMatch.group(1)!;
+    final fmtpRe = RegExp('a=fmtp:$pt ([^\r\n]*)');
+    final m = fmtpRe.firstMatch(sdp);
+    if (m != null) {
+      final params = m.group(1)!;
+      if (!params.contains('usedtx=')) {
+        sdp = sdp.replaceFirst(fmtpRe, 'a=fmtp:$pt $params;usedtx=1');
+      }
+    } else {
+      sdp = sdp.replaceFirst(
+        'a=rtpmap:$pt opus/48000/2',
+        'a=rtpmap:$pt opus/48000/2\r\na=fmtp:$pt usedtx=1',
+      );
+    }
+    return RTCSessionDescription(sdp, desc.type);
+  }
+
   /// Send an offer to [member] and schedule retransmission if no answer arrives.
   Future<void> _sendOfferTo(Contact member) async {
     final pc = _peers[member.id];
     if (pc == null) return;
-    final offer = await pc.createOffer();
+    var offer = await pc.createOffer();
+    offer = _applyDtxToSdp(offer);
     await pc.setLocalDescription(offer);
     await _sendSignal(member, 'webrtc_offer', offer.toMap());
     _scheduleOfferRetry(member);
@@ -212,7 +236,8 @@ class GroupSignalingService {
             return;
           }
           await pc.setRemoteDescription(RTCSessionDescription(sdp, data['type'] as String? ?? 'offer'));
-          final answer = await pc.createAnswer();
+          var answer = await pc.createAnswer();
+          answer = _applyDtxToSdp(answer);
           await pc.setLocalDescription(answer);
           await _sendSignal(member, 'webrtc_answer', answer.toMap());
         } else if (type == 'webrtc_answer') {

@@ -13,6 +13,7 @@ import '../services/call_transport.dart';
 import '../controllers/chat_controller.dart';
 import '../theme/app_theme.dart';
 import '../l10n/l10n_ext.dart';
+import 'sfu_call_screen.dart';
 
 /// Group call screen — camera off by default, can be toggled on.
 /// ≤6 participants → WebRTC mesh (E2EE). 7+ → Jitsi fallback (NOT E2EE).
@@ -79,6 +80,18 @@ class _GroupCallScreenState extends State<GroupCallScreen> {
 
     // total = other members + self
     final total = memberContacts.length + 1;
+
+    // Route to SFU when Pulse relay is available & >2 participants
+    if (chatCtrl.hasPulseRelay && total > 2 && mounted) {
+      Navigator.pushReplacement(context, MaterialPageRoute(
+        builder: (_) => SfuCallScreen(
+          group: widget.group,
+          myId: widget.myId,
+          isCaller: widget.isCaller,
+        ),
+      ));
+      return;
+    }
 
     final meshLimit = 6;
     if (total > meshLimit) {

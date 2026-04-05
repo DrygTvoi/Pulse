@@ -808,15 +808,27 @@ class ChatController extends ChangeNotifier {
   }
 
   Future<({MessageSender sender, String apiKey})?> _buildSenderFor(Contact contact) async {
+    // Derive effective provider from address format — more reliable than the
+    // stored field which may be stale (e.g. after addr_update changed databaseId
+    // from Nostr to Pulse but provider field wasn't updated on old clients).
+    final effectiveProvider = contact.databaseId.isNotEmpty
+        ? _providerFromAddress(contact.databaseId)
+        : contact.provider;
+    // Auto-fix stale provider field.
+    if (effectiveProvider != contact.provider && contact.databaseId.isNotEmpty) {
+      debugPrint('[Chat] Fixing stale provider: ${contact.provider} → $effectiveProvider for ${contact.name}');
+      final fixed = contact.copyWith(provider: effectiveProvider);
+      unawaited(_contacts.updateContact(fixed));
+    }
     // Developer mode: skip disabled adapters.
     final prefs = await _getPrefs();
     if (prefs.getBool('dev_mode_enabled') ?? false) {
-      if (!(prefs.getBool('dev_adapter_${contact.provider}') ?? true)) {
-        debugPrint('[Dev] Adapter ${contact.provider} disabled — skipping send');
+      if (!(prefs.getBool('dev_adapter_$effectiveProvider') ?? true)) {
+        debugPrint('[Dev] Adapter $effectiveProvider disabled — skipping send');
         return null;
       }
     }
-    switch (contact.provider) {
+    switch (effectiveProvider) {
       case 'Firebase':
         final token = _identity!.adapterConfig['token'] ?? '';
         _cachedFirebaseSender ??= FirebaseInboxSender();
@@ -891,7 +903,10 @@ class ChatController extends ChangeNotifier {
   Future<void> _addSenderPlugin(Contact contact) async {
     final built = await _buildSenderFor(contact);
     if (built != null) {
-      await InboxManager().addSenderPlugin(contact.provider, built.sender, built.apiKey);
+      final provider = contact.databaseId.isNotEmpty
+          ? _providerFromAddress(contact.databaseId)
+          : contact.provider;
+      await InboxManager().addSenderPlugin(provider, built.sender, built.apiKey);
     }
   }
 
@@ -1153,6 +1168,7 @@ class ChatController extends ChangeNotifier {
       const maxAlts = 20;
       final updated = addrContact.copyWith(
         databaseId: primary,
+        provider: _providerFromAddress(primary),
         alternateAddresses: alts.length > maxAlts
             ? alts.take(maxAlts).toList()
             : alts.toList(),
@@ -1990,15 +2006,16 @@ class ChatController extends ChangeNotifier {
         _pqcConfirmed.contains(contact.databaseId)) {
       encryptedText = await _keys.pqcWrap(encryptedText, contact.databaseId);
     }
+    final routeProvider = _providerFromAddress(contact.databaseId).isNotEmpty
+        ? _providerFromAddress(contact.databaseId)
+        : contact.provider;
     final msg = Message(
       id: _uuid.v4(),
       senderId: _selfId.isNotEmpty ? _selfId : _identity!.id,
       receiverId: contact.databaseId,
       encryptedPayload: encryptedText,
       timestamp: DateTime.now(),
-      adapterType: contact.provider == 'Nostr' ? 'nostr'
-          : contact.provider == 'Session' ? 'session'
-          : 'firebase',
+      adapterType: routeProvider.toLowerCase(),
     );
     await _addSenderPlugin(contact);
     bool sent = false;
@@ -2008,7 +2025,7 @@ class ChatController extends ChangeNotifier {
     }
     if (!sent) {
       sent = await InboxManager().routeMessage(
-          contact.provider, contact.databaseId, contact.databaseId, msg);
+          routeProvider, contact.databaseId, contact.databaseId, msg);
       // P2P auto-connect disabled: SIGSEGV in native CreateIceServers (see above).
     }
 
@@ -3533,6 +3550,24 @@ class ChatController extends ChangeNotifier {
       if (sender is NostrMessageSender) await sender.resetConnections();
     }
     debugPrint('[ChatController] Nostr connections reset');
+  }
+
+  /// Send a raw JSON message to the Pulse relay (for SFU signaling).
+  void sendRawPulseSignal(String jsonMsg) {
+    _cachedPulseSender?.sendRaw(jsonMsg);
+  }
+
+  /// Check if a Pulse relay sender is available (for SFU routing).
+  bool get hasPulseRelay => _cachedPulseSender != null;
+
+  /// Reset all Pulse relay connections (called when Force-Tor toggle changes).
+  Future<void> resetPulseConnections() async {
+    final reader = InboxManager().reader;
+    if (reader is PulseInboxReader) await reader.resetConnection();
+    for (final sender in InboxManager().senders.values) {
+      if (sender is PulseMessageSender) await sender.resetConnection();
+    }
+    debugPrint('[ChatController] Pulse connections reset');
   }
 
   // ── Dispose ───────────────────────────────────────────────────────────────

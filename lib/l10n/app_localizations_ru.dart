@@ -2245,6 +2245,16 @@ class AppLocalizationsRu extends AppLocalizations {
   String get torForceNostrDisabled => 'Сначала включите Tor';
 
   @override
+  String get torForcePulseTitle => 'Отправлять через Pulse реле через Tor';
+
+  @override
+  String get torForcePulseSubtitle =>
+      'Все соединения с Pulse-реле будут идти через Tor. Медленнее, но скрывает ваш IP от сервера.';
+
+  @override
+  String get torForcePulseDisabled => 'Сначала включите Tor';
+
+  @override
   String get i2pProxySocks5 => 'I2P Прокси (SOCKS5)';
 
   @override

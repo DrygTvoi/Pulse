@@ -8,6 +8,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 import '../services/signaling_service.dart';
+import '../services/sfu_signaling_service.dart';
 import '../services/call_transport.dart';
 import '../services/local_storage_service.dart';
 import '../services/active_call_service.dart';
@@ -98,6 +99,11 @@ class _CallScreenState extends State<CallScreen> {
   // Secondary media watchdog state
   int _secondaryLastPkts = -1;
   int _secondarySilentTicks = 0;
+
+  // SFU relay fallback (when P2P + TURN + Tor all fail)
+  SfuSignalingService? _sfuService;
+  bool _usingSfu = false;
+  bool _sfuAttempted = false;
   bool _secondaryDegraded   = false; // true when secondary goes silent
   bool _secondaryRestarting = false; // restart in progress, prevent double-restart
 
@@ -182,6 +188,11 @@ class _CallScreenState extends State<CallScreen> {
           state == RTCIceConnectionState.RTCIceConnectionStateCompleted) {
         if (mounted) setState(() => _secondaryReady = true);
       }
+    };
+
+    _signaling!.onSfuRelayInvite = (roomId, token) {
+      if (_usingSfu || _sfuAttempted || _disposed) return;
+      _joinSfuRelay(roomId, token);
     };
 
     _ready = true;
@@ -345,6 +356,12 @@ class _CallScreenState extends State<CallScreen> {
         }
       };
 
+      // SFU relay invite from peer (callee side — peer's P2P also failed)
+      _signaling!.onSfuRelayInvite = (roomId, token) {
+        if (_usingSfu || _sfuAttempted || _disposed) return;
+        _joinSfuRelay(roomId, token);
+      };
+
       debugPrint('[CallScreen] creating peer connection…');
       await _signaling!.init(profile: profile);
       if (_disposed) { unawaited(_signaling!.hangUp()); return; }
@@ -433,11 +450,14 @@ class _CallScreenState extends State<CallScreen> {
 
     if (state == RTCIceConnectionState.RTCIceConnectionStateFailed) {
       _durationTimer?.cancel();
-      if (!_usingSecondary) {
+      if (!_usingSecondary && !_usingSfu) {
         if (_secondaryReady) {
           _switchToSecondary();
         } else if (!_autoRetried && !_isRetrying) {
           _retryRestricted();
+        } else if (!_sfuAttempted && ChatController().hasPulseRelay) {
+          // P2P + restricted + Tor all failed — try SFU server relay
+          _sfuRelayFallback();
         } else {
           // All retries exhausted — auto-hangup after 15s
           _disconnectTimer?.cancel();
@@ -505,6 +525,115 @@ class _CallScreenState extends State<CallScreen> {
     unawaited(_signaling!.applyBitrateLimit(restricted: true));
     _startSecondaryWatchdog();
     debugPrint('[CallScreen] Switched to secondary audio (Tor relay)');
+  }
+
+  // ── SFU relay fallback (server-mediated when P2P is blocked) ────────────────
+
+  /// Caller side: create SFU room and invite peer.
+  void _sfuRelayFallback() {
+    if (_disposed || _sfuAttempted) return;
+    _sfuAttempted = true;
+    debugPrint('[CallScreen] P2P failed — attempting SFU relay fallback');
+
+    // Cancel any pending auto-hangup
+    _disconnectTimer?.cancel();
+
+    final contact = widget.contact;
+    _sfuService = SfuSignalingService(group: contact, myId: widget.myId);
+
+    _sfuService!.onRoomReady = () async {
+      if (_disposed || _sfuService == null) return;
+      debugPrint('[CallScreen] SFU room ready, setting up PC');
+      // Reuse the existing local stream
+      final stream = _signaling?.localStream;
+      if (stream == null) {
+        debugPrint('[CallScreen] SFU fallback: no local stream');
+        return;
+      }
+      await _sfuService!.setupPeerConnection(stream);
+      // Send invite to peer so they join too
+      final roomId = _sfuService!.roomId;
+      final token = _sfuService!.roomToken;
+      if (roomId != null && token != null) {
+        _signaling?.sendSfuRelayInvite(roomId, token);
+        debugPrint('[CallScreen] SFU invite sent to peer: room=$roomId');
+      }
+    };
+
+    _sfuService!.onRemoteTrack = (event) {
+      if (_disposed || !mounted) return;
+      if (event.streams.isNotEmpty) {
+        setState(() {
+          _usingSfu = true;
+          _remoteRenderer.srcObject = event.streams.first;
+        });
+        _startDurationTimer();
+        debugPrint('[CallScreen] SFU relay connected — remote track received');
+      }
+    };
+
+    _sfuService!.onIceState = (state) {
+      if (_disposed || !mounted) return;
+      if (state == RTCIceConnectionState.RTCIceConnectionStateConnected ||
+          state == RTCIceConnectionState.RTCIceConnectionStateCompleted) {
+        if (!_usingSfu) {
+          setState(() => _usingSfu = true);
+          _startDurationTimer();
+        }
+      } else if (state == RTCIceConnectionState.RTCIceConnectionStateFailed) {
+        debugPrint('[CallScreen] SFU relay ICE also failed');
+        // SFU also failed — auto-hangup
+        _disconnectTimer?.cancel();
+        _disconnectTimer = Timer(const Duration(seconds: 15), () {
+          if (!_disposed && mounted) _hangUp();
+        });
+      }
+    };
+
+    _sfuService!.createRoom();
+  }
+
+  /// Callee side: join SFU room invited by peer.
+  void _joinSfuRelay(String roomId, String token) {
+    if (_disposed || _sfuAttempted) return;
+    _sfuAttempted = true;
+    _disconnectTimer?.cancel();
+    debugPrint('[CallScreen] Received SFU invite — joining room $roomId');
+
+    final contact = widget.contact;
+    _sfuService = SfuSignalingService(group: contact, myId: widget.myId);
+
+    _sfuService!.onRoomReady = () async {
+      if (_disposed || _sfuService == null) return;
+      final stream = _signaling?.localStream;
+      if (stream == null) return;
+      await _sfuService!.setupPeerConnection(stream);
+    };
+
+    _sfuService!.onRemoteTrack = (event) {
+      if (_disposed || !mounted) return;
+      if (event.streams.isNotEmpty) {
+        setState(() {
+          _usingSfu = true;
+          _remoteRenderer.srcObject = event.streams.first;
+        });
+        _startDurationTimer();
+        debugPrint('[CallScreen] SFU relay connected (callee)');
+      }
+    };
+
+    _sfuService!.onIceState = (state) {
+      if (_disposed || !mounted) return;
+      if (state == RTCIceConnectionState.RTCIceConnectionStateConnected ||
+          state == RTCIceConnectionState.RTCIceConnectionStateCompleted) {
+        if (!_usingSfu) {
+          setState(() => _usingSfu = true);
+          _startDurationTimer();
+        }
+      }
+    };
+
+    _sfuService!.joinRoom(roomId, token);
   }
 
   // ── Media watchdog ─────────────────────────────────────────────────────────
@@ -1093,6 +1222,7 @@ class _CallScreenState extends State<CallScreen> {
     _disconnectTimer?.cancel();
     _secondaryWatchdog?.cancel();
     _signaling?.hangUp(notify: !remoteInitiated);
+    _sfuService?.hangUp();
     ActiveCallService.instance.endCall();
     unawaited(_saveCallRecord());
     _disposeRenderers();
@@ -1140,6 +1270,7 @@ class _CallScreenState extends State<CallScreen> {
       _disconnectTimer?.cancel();
       _secondaryWatchdog?.cancel();
       _signaling?.hangUp();
+      _sfuService?.hangUp();
     }
     // Always dispose renderers — even when minimized (_disposed=true) the
     // Flutter platform-channel renderers must be released to avoid leaks.
@@ -1151,9 +1282,13 @@ class _CallScreenState extends State<CallScreen> {
 
   String _statusLabel(BuildContext context) {
     final l = context.l10n;
+    if (_usingSfu) {
+      return 'Server relay ${_formatDuration(_callDuration)}';
+    }
     if (_usingSecondary) {
       return l.callTorBackup(_formatDuration(_callDuration));
     }
+    if (_sfuAttempted && !_usingSfu) return 'Connecting via server...';
     if (_isRetrying) return l.callSwitchingRelay;
     switch (_iceState) {
       case RTCIceConnectionState.RTCIceConnectionStateNew:
@@ -1181,6 +1316,7 @@ class _CallScreenState extends State<CallScreen> {
   }
 
   bool get _isConnected =>
+      _usingSfu ||
       _usingSecondary ||
       _iceState == RTCIceConnectionState.RTCIceConnectionStateConnected ||
       _iceState == RTCIceConnectionState.RTCIceConnectionStateCompleted;
@@ -1295,7 +1431,7 @@ class _CallScreenState extends State<CallScreen> {
                 ),
 
               // ── Restricted-mode banner ───────────────────────────────────
-              if (_currentProfile.isRestricted || _isRetrying || _usingSecondary ||
+              if (_currentProfile.isRestricted || _isRetrying || _usingSecondary || _usingSfu || _sfuAttempted ||
                   (_autoRetried && _iceState == RTCIceConnectionState.RTCIceConnectionStateFailed))
                 Positioned(
                   top: 0,
@@ -1306,7 +1442,7 @@ class _CallScreenState extends State<CallScreen> {
 
               // ── Top bar ──────────────────────────────────────────────────
               Positioned(
-                top: (_currentProfile.isRestricted || _isRetrying || _usingSecondary) ? 28 : 0,
+                top: (_currentProfile.isRestricted || _isRetrying || _usingSecondary || _usingSfu || _sfuAttempted) ? 28 : 0,
                 left: 0,
                 right: 0,
                 child: AnimatedOpacity(
@@ -1339,7 +1475,15 @@ class _CallScreenState extends State<CallScreen> {
     final String bannerText;
 
     final l = context.l10n;
-    if (_usingSecondary) {
+    if (_usingSfu) {
+      bannerIcon  = Icons.dns_rounded;
+      bannerColor = Colors.teal.withValues(alpha: 0.85);
+      bannerText  = 'Server relay active';
+    } else if (_sfuAttempted && !_usingSfu) {
+      bannerIcon  = Icons.dns_rounded;
+      bannerColor = Colors.orange.withValues(alpha: 0.85);
+      bannerText  = 'Connecting via server...';
+    } else if (_usingSecondary) {
       bannerIcon  = Icons.security_rounded;
       bannerColor = _secondaryDegraded
           ? Colors.orange.withValues(alpha: 0.85)

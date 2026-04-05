@@ -702,31 +702,44 @@ class ConnectivityProbeService {
 
   // ── Probe helpers ──────────────────────────────────────────────────────────
 
-  /// Probes all candidates concurrently, returns URLs of reachable ones.
+  /// Probes candidates with bounded concurrency, returns URLs of reachable ones.
   Future<List<String>> _probeAll(
     List<(String, int)> candidates, {
     required String label,
     required int timeoutSec,
+    int maxConcurrent = 20,
   }) async {
     final breaker = CircuitBreakerService.instance;
-    final results = await Future.wait(
-      candidates.map((c) async {
+    final reachable = <String>[];
+    int skipped = 0;
+    int failed = 0;
+
+    // Pool: process candidates in chunks of [maxConcurrent].
+    for (int i = 0; i < candidates.length; i += maxConcurrent) {
+      final chunk = candidates.sublist(
+        i,
+        (i + maxConcurrent).clamp(0, candidates.length),
+      );
+      await Future.wait(chunk.map((c) async {
         final relay = c.$1;
         if (await breaker.shouldSkip(relay)) {
-          debugPrint('[Probe] ⊘ $label $relay (circuit breaker)');
-          return null;
+          skipped++;
+          return;
         }
         final ok = await _probeOne(relay, c.$2, timeoutSec: timeoutSec);
         if (ok) {
-          debugPrint('[Probe] ✓ $label $relay');
+          reachable.add(relay);
           await breaker.recordSuccess(relay);
         } else {
+          failed++;
           await breaker.recordFailure(relay);
         }
-        return ok ? relay : null;
-      }),
-    );
-    return results.whereType<String>().toList();
+      }));
+    }
+
+    debugPrint('[Probe] $label: ${reachable.length} reachable, '
+        '$failed failed, $skipped skipped / ${candidates.length} total');
+    return reachable;
   }
 
   /// Probes TURN candidates concurrently.
@@ -741,12 +754,12 @@ class ConnectivityProbeService {
       _kTurnCandidates.map((c) async {
         final ok = await _probeOne(c.$1, c.$2, timeoutSec: timeoutSec);
         if (ok) {
-          debugPrint('[Probe] ✓ turn ${c.$1}');
           hosts.add('${c.$1}:${c.$2}');
           configs.addAll(c.$3.map((s) => Map<String, dynamic>.from(s)));
         }
       }),
     );
+    debugPrint('[Probe] turn: ${hosts.length}/${_kTurnCandidates.length} reachable');
 
     return (hosts, configs);
   }

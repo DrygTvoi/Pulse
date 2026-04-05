@@ -33,6 +33,7 @@ class _ProxyTunnelsScreenState extends State<ProxyTunnelsScreen> {
   final _torPortController = TextEditingController(text: '9050');
 
   bool _forceNostrTor = false;
+  bool _forcePulseTor = false;
 
   bool _psiphonEnabled = false;
   bool _psiphonLoading = false;
@@ -126,6 +127,7 @@ class _ProxyTunnelsScreenState extends State<ProxyTunnelsScreen> {
     final preferredPt = prefs.getString('preferred_pt') ?? 'auto';
     final torTimeoutSec = prefs.getInt('tor_timeout_sec') ?? 60;
     final forceNostrTor = prefs.getBool('nostr_force_tor') ?? false;
+    final forcePulseTor = prefs.getBool('pulse_force_tor') ?? false;
 
     if (!mounted) return;
     setState(() {
@@ -135,6 +137,7 @@ class _ProxyTunnelsScreenState extends State<ProxyTunnelsScreen> {
       _preferredPt = preferredPt;
       _torTimeoutSec = torTimeoutSec;
       _forceNostrTor = forceNostrTor;
+      _forcePulseTor = forcePulseTor;
       _torHostController.text = torHost;
       _torPortController.text = torPort.toString();
       _i2pEnabled = i2pEnabled;
@@ -263,12 +266,20 @@ class _ProxyTunnelsScreenState extends State<ProxyTunnelsScreen> {
             },
             forceNostrTor: _forceNostrTor,
             onForceNostrTorChanged: (v) async {
-              debugPrint('[Settings] Force-Tor toggled: $v');
+              debugPrint('[Settings] Force-Tor Nostr toggled: $v');
               setState(() => _forceNostrTor = v);
               final prefs = await SharedPreferences.getInstance();
               await prefs.setBool('nostr_force_tor', v);
               // Reset all Nostr connections so new route takes effect immediately
               unawaited(ChatController().resetNostrConnections());
+            },
+            forcePulseTor: _forcePulseTor,
+            onForcePulseTorChanged: (v) async {
+              debugPrint('[Settings] Force-Tor Pulse toggled: $v');
+              setState(() => _forcePulseTor = v);
+              final prefs = await SharedPreferences.getInstance();
+              await prefs.setBool('pulse_force_tor', v);
+              unawaited(ChatController().resetPulseConnections());
             },
             torTimeoutSec: _torTimeoutSec,
             onTorTimeoutChanged: (val) async {

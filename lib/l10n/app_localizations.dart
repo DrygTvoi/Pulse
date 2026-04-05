@@ -4174,6 +4174,24 @@ abstract class AppLocalizations {
   /// **'Tor must be enabled first'**
   String get torForceNostrDisabled;
 
+  /// No description provided for @torForcePulseTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Route Pulse relay through Tor'**
+  String get torForcePulseTitle;
+
+  /// No description provided for @torForcePulseSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'All Pulse relay connections will go through Tor. Slower but hides your IP from the server.'**
+  String get torForcePulseSubtitle;
+
+  /// No description provided for @torForcePulseDisabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Tor must be enabled first'**
+  String get torForcePulseDisabled;
+
   /// No description provided for @i2pProxySocks5.
   ///
   /// In en, this message translates to:

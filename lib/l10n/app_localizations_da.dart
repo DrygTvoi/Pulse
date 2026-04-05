@@ -2268,6 +2268,16 @@ class AppLocalizationsDa extends AppLocalizations {
   String get torForceNostrDisabled => 'Tor must be enabled first';
 
   @override
+  String get torForcePulseTitle => 'Route Pulse relay through Tor';
+
+  @override
+  String get torForcePulseSubtitle =>
+      'All Pulse relay connections will go through Tor. Slower but hides your IP from the server.';
+
+  @override
+  String get torForcePulseDisabled => 'Tor must be enabled first';
+
+  @override
   String get i2pProxySocks5 => 'I2P-proxy (SOCKS5)';
 
   @override
