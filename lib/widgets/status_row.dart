@@ -89,15 +89,28 @@ class _StatusAvatar extends StatelessWidget {
           children: [
             Container(
               width: 52, height: 52,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: hasStatus
-                    ? Border.all(color: AppTheme.primary, width: 2.5)
-                    : Border.all(color: AppTheme.textSecondary.withValues(alpha: 0.4), width: 1.5),
-              ),
+              decoration: hasStatus
+                  ? BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: SweepGradient(colors: [
+                        AppTheme.primary,
+                        AppTheme.primary.withValues(alpha: 0.6),
+                        AppTheme.primary,
+                      ]),
+                    )
+                  : BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(color: AppTheme.textSecondary.withValues(alpha: 0.4), width: 1.5),
+                    ),
               child: Padding(
                 padding: const EdgeInsets.all(2),
-                child: isOwn
+                child: Container(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: AppTheme.surface,
+                  ),
+                  padding: const EdgeInsets.all(1),
+                  child: isOwn
                     ? Container(
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
@@ -115,7 +128,8 @@ class _StatusAvatar extends StatelessWidget {
                                   fontSize: 22)),
                         ),
                       )
-                    : AvatarWidget(name: name, size: 44, fontSize: 18),
+                    : AvatarWidget(name: name, size: 42, fontSize: 17),
+                ),
               ),
             ),
             const SizedBox(height: 4),

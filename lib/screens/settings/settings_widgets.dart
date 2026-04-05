@@ -127,6 +127,84 @@ Widget settingsField({
   );
 }
 
+/// Groups multiple settings rows into a rounded card with dividers between them.
+Widget settingsGroup({required List<Widget> children}) {
+  return Container(
+    decoration: BoxDecoration(
+      color: AppTheme.surface,
+      borderRadius: BorderRadius.circular(DesignTokens.radiusLarge),
+      boxShadow: DesignTokens.shadowSm,
+    ),
+    clipBehavior: Clip.antiAlias,
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (int i = 0; i < children.length; i++) ...[
+          children[i],
+          if (i < children.length - 1)
+            Divider(height: 1, thickness: 0.5, color: AppTheme.surfaceVariant.withValues(alpha: 0.5),
+                indent: DesignTokens.spacing16, endIndent: DesignTokens.spacing16),
+        ],
+      ],
+    ),
+  );
+}
+
+/// A row inside a settingsGroup — no standalone card background.
+Widget settingsGroupRow({
+  required IconData icon,
+  required Color iconColor,
+  required String title,
+  required String subtitle,
+  VoidCallback? onTap,
+  Widget? trailing,
+}) {
+  return GestureDetector(
+    onTap: onTap,
+    child: Padding(
+      padding: const EdgeInsets.all(DesignTokens.cardPadding),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(DesignTokens.spacing8),
+            decoration: BoxDecoration(
+              color: iconColor.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(DesignTokens.spacing10),
+            ),
+            child: Icon(icon, color: iconColor, size: DesignTokens.iconMd),
+          ),
+          const SizedBox(width: DesignTokens.spacing14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: GoogleFonts.inter(
+                    color: AppTheme.textPrimary,
+                    fontWeight: FontWeight.w600,
+                    fontSize: DesignTokens.fontLg,
+                  ),
+                ),
+                Text(
+                  subtitle,
+                  style: GoogleFonts.inter(
+                    color: AppTheme.textSecondary,
+                    fontSize: DesignTokens.fontBody,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          trailing ??
+              Icon(Icons.chevron_right_rounded,
+                  color: AppTheme.textSecondary, size: DesignTokens.iconMd),
+        ],
+      ),
+    ),
+  );
+}
+
 // ── Backup progress dialog ────────────────────────────────────────────────────
 
 class BackupProgressDialog extends StatefulWidget {

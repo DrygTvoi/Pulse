@@ -174,7 +174,7 @@ class ThemeNotifier extends ChangeNotifier {
     final pri      = _customPrimary ?? const Color(0xFF00A884);
     final acc      = _customAccent  ?? (isDark ? const Color(0xFF53BDEB) : const Color(0xFF027EB5));
 
-    final base = isDark ? ThemeData.dark(useMaterial3: false) : ThemeData.light(useMaterial3: false);
+    final base = isDark ? ThemeData.dark(useMaterial3: true) : ThemeData.light(useMaterial3: true);
 
     TextStyle Function({TextStyle? textStyle}) fontFn;
     TextTheme Function(TextTheme) themeFn;
@@ -222,25 +222,41 @@ class ThemeNotifier extends ChangeNotifier {
     ));
 
     return ThemeData(
-      useMaterial3: false,
+      useMaterial3: true,
       platform: _customPlatform,
       brightness: isDark ? Brightness.dark : Brightness.light,
       scaffoldBackgroundColor: bg,
       primaryColor: pri,
-      colorScheme: (isDark ? const ColorScheme.dark() : const ColorScheme.light()).copyWith(
+      colorScheme: ColorScheme(
+        brightness: isDark ? Brightness.dark : Brightness.light,
         primary: pri,
-        secondary: acc,
-        surface: surf,
-        error: err,
         onPrimary: Colors.white,
+        primaryContainer: pri.withValues(alpha: 0.15),
+        onPrimaryContainer: pri,
+        secondary: acc,
         onSecondary: Colors.white,
+        secondaryContainer: acc.withValues(alpha: 0.15),
+        onSecondaryContainer: acc,
+        surface: surf,
         onSurface: txtPri,
+        surfaceContainerHighest: surfVar,
+        onSurfaceVariant: txtSec,
+        error: err,
+        onError: Colors.white,
+        outline: txtSec.withValues(alpha: 0.3),
+        outlineVariant: surfVar,
+        shadow: Colors.black,
+        inverseSurface: txtPri,
+        onInverseSurface: bg,
+        surfaceTint: Colors.transparent,
       ),
       textTheme: textTheme,
       primaryTextTheme: textTheme,
       appBarTheme: AppBarTheme(
         backgroundColor: surf,
         elevation: 0,
+        scrolledUnderElevation: 0,
+        surfaceTintColor: Colors.transparent,
         centerTitle: false,
         iconTheme: IconThemeData(color: txtSec),
         titleTextStyle: fontFn(textStyle: TextStyle(color: txtPri, fontSize: 19, fontWeight: FontWeight.w600)),
@@ -288,7 +304,54 @@ class ThemeNotifier extends ChangeNotifier {
       ),
       dividerColor: surfVar,
       cardColor: surf,
-      dialogTheme: DialogThemeData(backgroundColor: surf),
+      cardTheme: CardThemeData(
+        color: surf,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      ),
+      snackBarTheme: SnackBarThemeData(
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        backgroundColor: surfVar,
+      ),
+      dialogTheme: DialogThemeData(
+        backgroundColor: surf,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      ),
+      popupMenuTheme: PopupMenuThemeData(
+        color: surf,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        elevation: 4,
+      ),
+      bottomSheetTheme: BottomSheetThemeData(
+        backgroundColor: surf,
+        surfaceTintColor: Colors.transparent,
+        modalBackgroundColor: surf,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+      ),
+      navigationBarTheme: NavigationBarThemeData(
+        backgroundColor: surf,
+        surfaceTintColor: Colors.transparent,
+        indicatorColor: pri.withValues(alpha: 0.15),
+      ),
+      tooltipTheme: TooltipThemeData(
+        decoration: BoxDecoration(
+          color: surfVar,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        textStyle: fontFn(textStyle: TextStyle(color: txtPri, fontSize: 12)),
+      ),
+      scrollbarTheme: ScrollbarThemeData(
+        thumbColor: WidgetStateProperty.all(txtSec.withValues(alpha: 0.3)),
+        thickness: WidgetStateProperty.all(6.0),
+        radius: const Radius.circular(3.0),
+        thumbVisibility: WidgetStateProperty.all(Platform.isLinux || Platform.isWindows || Platform.isMacOS),
+      ),
     );
   }
 

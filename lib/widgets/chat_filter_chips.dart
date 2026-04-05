@@ -19,7 +19,7 @@ class ChatFilterChips extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: DesignTokens.filterChipHeight + 16,
+      height: 36 + 16,
       child: ListView(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(
@@ -39,24 +39,61 @@ class ChatFilterChips extends StatelessWidget {
 
   Widget _buildChip(BuildContext context, ChatFilter filter, String label) {
     final isActive = selected == filter;
-    return GestureDetector(
+    return _ScaleOnTapChip(
+      isActive: isActive,
+      label: label,
       onTap: () => onChanged(filter),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        curve: Curves.easeInOut,
-        height: DesignTokens.filterChipHeight,
-        padding: const EdgeInsets.symmetric(horizontal: 14),
-        decoration: BoxDecoration(
-          color: isActive ? AppTheme.primary : AppTheme.surfaceVariant,
-          borderRadius: BorderRadius.circular(DesignTokens.filterChipRadius),
-        ),
-        alignment: Alignment.center,
-        child: Text(
-          label,
-          style: GoogleFonts.inter(
-            color: isActive ? Colors.white : AppTheme.textSecondary,
-            fontSize: DesignTokens.fontMd,
-            fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
+    );
+  }
+}
+
+class _ScaleOnTapChip extends StatefulWidget {
+  final bool isActive;
+  final String label;
+  final VoidCallback onTap;
+
+  const _ScaleOnTapChip({
+    required this.isActive,
+    required this.label,
+    required this.onTap,
+  });
+
+  @override
+  State<_ScaleOnTapChip> createState() => _ScaleOnTapChipState();
+}
+
+class _ScaleOnTapChipState extends State<_ScaleOnTapChip> {
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _pressed = true),
+      onTapUp: (_) {
+        setState(() => _pressed = false);
+        widget.onTap();
+      },
+      onTapCancel: () => setState(() => _pressed = false),
+      child: AnimatedScale(
+        scale: _pressed ? 0.95 : 1.0,
+        duration: DesignTokens.durationFast,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeInOut,
+          height: 36,
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          decoration: BoxDecoration(
+            color: widget.isActive ? AppTheme.primary : AppTheme.surfaceVariant,
+            borderRadius: BorderRadius.circular(DesignTokens.filterChipRadius),
+          ),
+          alignment: Alignment.center,
+          child: Text(
+            widget.label,
+            style: GoogleFonts.inter(
+              color: widget.isActive ? Colors.white : AppTheme.textSecondary,
+              fontSize: DesignTokens.fontMd,
+              fontWeight: widget.isActive ? FontWeight.w600 : FontWeight.normal,
+            ),
           ),
         ),
       ),

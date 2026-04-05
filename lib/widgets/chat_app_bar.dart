@@ -35,6 +35,8 @@ PreferredSizeWidget buildChatAppBar({
   return AppBar(
     backgroundColor: AppTheme.surface,
     elevation: 0,
+    scrolledUnderElevation: 2.0,
+    shadowColor: Colors.black.withValues(alpha: 0.3),
     titleSpacing: embedded ? 16 : 0,
     automaticallyImplyLeading: !embedded,
     leading: embedded
@@ -44,9 +46,11 @@ PreferredSizeWidget buildChatAppBar({
             tooltip: context.l10n.back,
             onPressed: () => Navigator.pop(context),
           ),
-    title: GestureDetector(
-      onTap: onOpenProfile,
-      child: Row(children: [
+    title: MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: onOpenProfile,
+        child: Row(children: [
         if (embedded)
           buildChatAvatar(contact.name, 40)
         else
@@ -95,6 +99,7 @@ PreferredSizeWidget buildChatAppBar({
           ),
         ),
       ]),
+      ),
     ),
     actions: [
       IconButton(
@@ -205,6 +210,8 @@ PreferredSizeWidget buildSearchAppBar({
   return AppBar(
     backgroundColor: AppTheme.surface,
     elevation: 0,
+    scrolledUnderElevation: 2.0,
+    shadowColor: Colors.black.withValues(alpha: 0.3),
     leading: IconButton(
       icon: Icon(Icons.arrow_back_rounded, color: AppTheme.textSecondary),
       tooltip: context.l10n.closeSearch,
@@ -240,8 +247,8 @@ Widget buildChatAvatar(String name, double size) {
     decoration: BoxDecoration(
       gradient: LinearGradient(
         colors: [
-          HSLColor.fromAHSL(1, hue.toDouble(), 0.55, 0.42).toColor(),
-          HSLColor.fromAHSL(1, hue.toDouble(), 0.5, 0.32).toColor(),
+          HSLColor.fromAHSL(1, hue.toDouble(), 0.65, 0.50).toColor(),
+          HSLColor.fromAHSL(1, hue.toDouble(), 0.6, 0.38).toColor(),
         ],
         begin: Alignment.topLeft, end: Alignment.bottomRight,
       ),

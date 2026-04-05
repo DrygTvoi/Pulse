@@ -7,6 +7,7 @@ import '../models/contact.dart';
 import '../models/message.dart';
 import 'avatar_widget.dart';
 import '../l10n/l10n_ext.dart';
+import '../utils/platform_utils.dart';
 
 /// A single chat list tile showing avatar, name, last message preview,
 /// unread count, mute icon, and SmartRouter badge.
@@ -20,6 +21,10 @@ class ChatTile extends StatelessWidget {
   final Uint8List? avatarBytes;
   final VoidCallback onTap;
   final bool selected;
+  final void Function(TapUpDetails)? onSecondaryTapUp;
+  final VoidCallback? onMute;
+  final VoidCallback? onClearHistory;
+  final VoidCallback? onDelete;
 
   const ChatTile({
     super.key,
@@ -32,6 +37,10 @@ class ChatTile extends StatelessWidget {
     required this.avatarBytes,
     required this.onTap,
     this.selected = false,
+    this.onSecondaryTapUp,
+    this.onMute,
+    this.onClearHistory,
+    this.onDelete,
   });
 
   /// Returns a localised voice message label, optionally with duration.
@@ -112,13 +121,34 @@ class ChatTile extends StatelessWidget {
       }
     }
 
-    return Material(
+    return GestureDetector(
+      onSecondaryTapUp: onSecondaryTapUp,
+      child: Material(
       color: selected ? AppTheme.primary.withValues(alpha: 0.10) : Colors.transparent,
+      borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
+      clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
+        mouseCursor: SystemMouseCursors.click,
+        borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
+        hoverColor: AppTheme.primary.withValues(alpha: 0.04),
         splashColor: AppTheme.primary.withValues(alpha: 0.07),
         highlightColor: AppTheme.primary.withValues(alpha: 0.04),
-        child: Column(
+        child: Row(
+        children: [
+          AnimatedContainer(
+            duration: DesignTokens.durationFast,
+            width: selected ? 3 : 0,
+            height: 48,
+            decoration: BoxDecoration(
+              color: AppTheme.primary,
+              borderRadius: const BorderRadius.only(
+                topRight: Radius.circular(3),
+                bottomRight: Radius.circular(3),
+              ),
+            ),
+          ),
+          Expanded(child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Padding(
@@ -133,9 +163,9 @@ class ChatTile extends StatelessWidget {
                   children: [
                     AvatarWidget(
                       name: contact.name,
-                      size: DesignTokens.avatarMd,
+                      size: PlatformUtils.isDesktop ? DesignTokens.avatarMdDesktop : DesignTokens.avatarMd,
                       imageBytes: avatarBytes,
-                      fontSize: DesignTokens.fontDisplay,
+                      fontSize: PlatformUtils.isDesktop ? DesignTokens.fontHeading : DesignTokens.fontDisplay,
                     ),
                     if (contact.isGroup)
                       Positioned(bottom: -1, right: -1,
@@ -238,7 +268,7 @@ class ChatTile extends StatelessWidget {
         ),
             // Subtle indented divider (past avatar)
             Padding(
-              padding: const EdgeInsets.only(left: DesignTokens.avatarMd + DesignTokens.spacing12 + DesignTokens.spacing14),
+              padding: EdgeInsets.only(left: (PlatformUtils.isDesktop ? DesignTokens.avatarMdDesktop : DesignTokens.avatarMd) + DesignTokens.spacing12 + DesignTokens.spacing14),
               child: Divider(
                 height: 1,
                 thickness: 0.5,
@@ -246,8 +276,11 @@ class ChatTile extends StatelessWidget {
               ),
             ),
           ],
-        ),
+        )),
+        ],
       ),
+      ),
+    ),
     );
   }
 }

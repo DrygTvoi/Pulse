@@ -29,6 +29,7 @@ import '../services/video_note_service.dart';
 import 'video_note_screen.dart';
 import '../l10n/l10n_ext.dart';
 import '../models/contact_repository.dart';
+import '../utils/platform_utils.dart';
 
 class ChatScreen extends StatefulWidget {
   final Contact contact;
@@ -128,12 +129,40 @@ class _ChatScreenState extends State<ChatScreen> {
         });
       }
     });
-    // Ctrl+Enter to send on desktop
+    // Desktop keyboard shortcuts
     _inputFocusNode.onKeyEvent = (_, event) {
-      if (event is KeyDownEvent &&
-          event.logicalKey == LogicalKeyboardKey.enter &&
-          HardwareKeyboard.instance.isControlPressed) {
+      if (event is! KeyDownEvent) return KeyEventResult.ignored;
+      final ctrl = HardwareKeyboard.instance.isControlPressed;
+      final shift = HardwareKeyboard.instance.isShiftPressed;
+      // Enter (no shift) on desktop → send; Shift+Enter → newline
+      if (event.logicalKey == LogicalKeyboardKey.enter && !shift && PlatformUtils.isDesktop) {
         _sendMessage();
+        return KeyEventResult.handled;
+      }
+      // Ctrl+Enter → send (works on both desktop and mobile with keyboard)
+      if (event.logicalKey == LogicalKeyboardKey.enter && ctrl) {
+        _sendMessage();
+        return KeyEventResult.handled;
+      }
+      // Escape → cancel search / reply / edit
+      if (event.logicalKey == LogicalKeyboardKey.escape) {
+        if (_searchActive) {
+          setState(() { _searchActive = false; _searchQuery = ''; });
+          _searchController.clear();
+          return KeyEventResult.handled;
+        }
+        if (_replyingTo != null) {
+          setState(() => _replyingTo = null);
+          return KeyEventResult.handled;
+        }
+        if (_editingMessageId != null) {
+          setState(() { _editingMessageId = null; _controller.clear(); });
+          return KeyEventResult.handled;
+        }
+      }
+      // Ctrl+F → activate search
+      if (event.logicalKey == LogicalKeyboardKey.keyF && ctrl) {
+        setState(() => _searchActive = true);
         return KeyEventResult.handled;
       }
       return KeyEventResult.ignored;
@@ -766,11 +795,27 @@ class _ChatScreenState extends State<ChatScreen> {
         Expanded(
           child: Stack(
             children: [
+              Positioned.fill(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: RadialGradient(
+                      center: Alignment.center,
+                      radius: 1.2,
+                      colors: [
+                        Colors.white.withValues(alpha: 0.02),
+                        Colors.transparent,
+                      ],
+                    ),
+                  ),
+                ),
+              ),
               filtered.isEmpty && _searchQuery.isNotEmpty
               ? _buildNoSearchResults()
               : messages.isEmpty
                   ? _buildEmptyConversation()
-                  : ListView.builder(
+                  : Scrollbar(
+                    controller: _scrollController,
+                    child: ListView.builder(
                       controller: _scrollController,
                       padding: const EdgeInsets.fromLTRB(DesignTokens.spacing12, DesignTokens.spacing12, DesignTokens.spacing12, DesignTokens.spacing8),
                       itemCount: items.length + (hasMore ? 1 : 0),
@@ -862,6 +907,33 @@ class _ChatScreenState extends State<ChatScreen> {
                               );
                             }),
                           ),
+                          onSecondaryTapUp: (details) => menu.showMessageContextMenu(
+                            context: context,
+                            position: details.globalPosition,
+                            message: msg,
+                            myId: myId,
+                            contact: _contact,
+                            onReply: () => setState(() => _replyingTo = msg),
+                            onForward: (m) => menu.showForwardPicker(
+                              context: context,
+                              message: m,
+                              currentContact: _contact,
+                              avatarBuilder: buildChatAvatar,
+                            ),
+                            onShowEmojiPicker: (msgId) => menu.showEmojiPicker(
+                              context: context,
+                              messageId: msgId,
+                              contact: _contact,
+                            ),
+                            onDelete: (m) => _animateDelete(m),
+                            onEdit: (id, text) => setState(() {
+                              _editingMessageId = id;
+                              _controller.text = text;
+                              _controller.selection = TextSelection.fromPosition(
+                                TextPosition(offset: _controller.text.length),
+                              );
+                            }),
+                          ),
                           onSwiped: () => setState(() => _replyingTo = msg),
                           child: AnimatedOpacity(
                             opacity: _pendingDelete.contains(msg.id) ? 0.0 : 1.0,
@@ -927,6 +999,7 @@ class _ChatScreenState extends State<ChatScreen> {
                         );
                       },
                     ),
+                  ),
               if (_showScrollFab)
                 Positioned(
                   right: DesignTokens.spacing14,

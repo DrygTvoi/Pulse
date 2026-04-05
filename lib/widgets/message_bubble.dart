@@ -21,6 +21,7 @@ import '../services/media_validator.dart';
 import '../services/video_service.dart';
 import '../services/voice_service.dart';
 import '../screens/image_viewer_screen.dart';
+import '../utils/platform_utils.dart';
 import '../l10n/l10n_ext.dart';
 
 final _urlRegex = RegExp(r'https?://[^\s<>"]+[^\s<>".!?,)]', caseSensitive: false);
@@ -169,7 +170,14 @@ class MessageBubble extends StatelessWidget {
         ? const Color(0xFF8B1A1A)
         : (isMe ? AppTheme.outgoingBubble : AppTheme.incomingBubble);
 
-    final radius = BorderRadius.circular(DesignTokens.chatBubbleRadius);
+    final radius = showTail
+        ? BorderRadius.only(
+            topLeft: Radius.circular(DesignTokens.chatBubbleRadius),
+            topRight: Radius.circular(DesignTokens.chatBubbleRadius),
+            bottomLeft: Radius.circular(isMe ? DesignTokens.chatBubbleRadius : DesignTokens.bubbleTailRadius),
+            bottomRight: Radius.circular(isMe ? DesignTokens.bubbleTailRadius : DesignTokens.chatBubbleRadius),
+          )
+        : BorderRadius.circular(DesignTokens.chatBubbleRadius);
 
     final hasReactions = reactions != null && reactions!.isNotEmpty;
 
@@ -206,6 +214,9 @@ class MessageBubble extends StatelessWidget {
                       (blossomPayload != null && (blossomPayload.mediaType == 'img' || blossomPayload.mediaType == 'gif')))
                   ? Colors.transparent : bgColor,
               borderRadius: radius,
+              boxShadow: (media?.isImage == true || media?.isGif == true || media?.isVideoNote == true ||
+                  (blossomPayload != null && (blossomPayload.mediaType == 'img' || blossomPayload.mediaType == 'gif')))
+                  ? null : DesignTokens.shadowSm,
             ),
             child: media != null
                 ? _buildMediaContent(context, media, bgColor, radius)
@@ -230,27 +241,31 @@ class MessageBubble extends StatelessWidget {
                       ? selfId!.split('@').first : selfId;
                   final isMine = selfId != null && entry.value.any((s) =>
                       s == selfId || s == selfBare);
-                  return GestureDetector(
-                    onTap: () => onReact?.call(emoji),
-                    onLongPress: () => onReactLongPress?.call(emoji),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: DesignTokens.spacing6, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: isMine
-                            ? AppTheme.primary.withValues(alpha: 0.3)
-                            : AppTheme.surfaceVariant,
-                        borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(emoji, style: const TextStyle(fontSize: DesignTokens.fontLg)),
-                          const SizedBox(width: DesignTokens.spacing4),
-                          Text('$count',
-                              style: GoogleFonts.inter(
-                                  fontSize: DesignTokens.fontSm,
-                                  color: Colors.white.withValues(alpha: 0.55))),
-                        ],
+                  return MouseRegion(
+                    cursor: SystemMouseCursors.click,
+                    child: GestureDetector(
+                      onTap: () => onReact?.call(emoji),
+                      onLongPress: () => onReactLongPress?.call(emoji),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: DesignTokens.spacing6, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: isMine
+                              ? AppTheme.primary.withValues(alpha: 0.3)
+                              : AppTheme.surfaceVariant,
+                          borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
+                          boxShadow: DesignTokens.shadowSm,
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(emoji, style: const TextStyle(fontSize: DesignTokens.fontLg)),
+                            const SizedBox(width: DesignTokens.spacing4),
+                            Text('$count',
+                                style: GoogleFonts.inter(
+                                    fontSize: DesignTokens.fontSm,
+                                    color: Colors.white.withValues(alpha: 0.55))),
+                          ],
+                        ),
                       ),
                     ),
                   );
@@ -365,8 +380,13 @@ class MessageBubble extends StatelessWidget {
     final baseStyle = GoogleFonts.inter(color: bubbleTextColor, fontSize: DesignTokens.fontInput, height: 1.35)
         .copyWith(fontFamilyFallback: const ['Noto Color Emoji']);
     final matches = _urlRegex.allMatches(text).toList();
-    if (matches.isEmpty) return Text(text, style: baseStyle);
-    return _LinkedText(text: text, matches: matches, baseStyle: baseStyle);
+    if (matches.isEmpty) {
+      if (PlatformUtils.isDesktop) {
+        return SelectableText(text, style: baseStyle, contextMenuBuilder: (_, __) => const SizedBox.shrink());
+      }
+      return Text(text, style: baseStyle);
+    }
+    return _LinkedText(text: text, matches: matches, baseStyle: baseStyle, isDesktop: PlatformUtils.isDesktop);
   }
 
   static void _confirmAndLaunchUrl(BuildContext context, String url) {
@@ -466,36 +486,46 @@ class MessageBubble extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: DesignTokens.spacing6),
       padding: const EdgeInsets.symmetric(horizontal: DesignTokens.spacing8, vertical: 5),
       decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.20),
+        color: AppTheme.surfaceVariant.withValues(alpha: DesignTokens.opacityMedium),
         borderRadius: BorderRadius.circular(DesignTokens.radiusSmall),
-        border: Border(
-          left: BorderSide(
-            color: Colors.white.withValues(alpha: 0.5),
-            width: 3,
-          ),
-        ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (replyToSender != null && replyToSender!.isNotEmpty)
-            Text(
-              replyToSender!.length > 20
-                  ? replyToSender!.substring(0, 20)
-                  : replyToSender!,
-              style: GoogleFonts.inter(
-                  fontSize: DesignTokens.fontXs,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white.withValues(alpha: 0.85)),
+          Container(
+            width: 3,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(2),
+              color: Colors.white.withValues(alpha: 0.5),
             ),
-          Text(
-            displayText,
-            style: GoogleFonts.inter(
-                fontSize: DesignTokens.fontSm,
-                color: Colors.white.withValues(alpha: 0.65)),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (replyToSender != null && replyToSender!.isNotEmpty)
+                  Text(
+                    replyToSender!.length > 20
+                        ? replyToSender!.substring(0, 20)
+                        : replyToSender!,
+                    style: GoogleFonts.inter(
+                        fontSize: DesignTokens.fontXs,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white.withValues(alpha: 0.85)),
+                  ),
+                Text(
+                  displayText,
+                  style: GoogleFonts.inter(
+                      fontSize: DesignTokens.fontSm,
+                      color: Colors.white.withValues(alpha: 0.65)),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -692,8 +722,9 @@ class _LinkedText extends StatefulWidget {
   final String text;
   final List<RegExpMatch> matches;
   final TextStyle baseStyle;
+  final bool isDesktop;
 
-  const _LinkedText({required this.text, required this.matches, required this.baseStyle});
+  const _LinkedText({required this.text, required this.matches, required this.baseStyle, this.isDesktop = false});
 
   @override
   State<_LinkedText> createState() => _LinkedTextState();
@@ -742,6 +773,12 @@ class _LinkedTextState extends State<_LinkedText> {
       spans.add(TextSpan(text: widget.text.substring(last)));
     }
 
+    if (widget.isDesktop) {
+      return SelectableText.rich(
+        TextSpan(style: widget.baseStyle, children: spans),
+        contextMenuBuilder: (_, __) => const SizedBox.shrink(),
+      );
+    }
     return RichText(text: TextSpan(style: widget.baseStyle, children: spans));
   }
 }

@@ -1,3 +1,5 @@
+import 'package:flutter/painting.dart';
+
 /// Semantic design tokens for consistent spacing, sizing, and radii.
 ///
 /// Usage: `DesignTokens.spacing8` instead of hardcoded `8.0`.
@@ -97,4 +99,29 @@ class DesignTokens {
   static const double buttonRadius = 16.0;
   static const double buttonPaddingH = 24.0;
   static const double buttonPaddingV = 14.0;
+
+  // ── Shadows ─────────────────────────────────────────────────
+  static List<BoxShadow> get shadowSm => [const BoxShadow(color: Color(0x0F000000), blurRadius: 4, offset: Offset(0, 1))];
+  static List<BoxShadow> get shadowMd => [const BoxShadow(color: Color(0x14000000), blurRadius: 8, offset: Offset(0, 2))];
+  static List<BoxShadow> get shadowLg => [const BoxShadow(color: Color(0x1F000000), blurRadius: 16, offset: Offset(0, 4))];
+
+  // ── Opacity ────────────────────────────────────────────────
+  static const double opacitySubtle = 0.08;
+  static const double opacityLight = 0.15;
+  static const double opacityMedium = 0.3;
+
+  // ── Animation durations ────────────────────────────────────
+  static const Duration durationFast = Duration(milliseconds: 150);
+  static const Duration durationNormal = Duration(milliseconds: 250);
+
+  // ── Bubble tail ────────────────────────────────────────────
+  static const double bubbleTailRadius = 4.0;
+
+  // ── Desktop overrides ─────────────────────────────────────
+  static const double avatarMdDesktop = 40.0;
+  static const double tilePaddingVDesktop = 8.0;
+  static const double scrollbarThumbWidth = 6.0;
+  static const double scrollbarThumbRadius = 3.0;
+  static const double contextMenuWidth = 200.0;
+  static const double contextMenuRadius = 14.0;
 }

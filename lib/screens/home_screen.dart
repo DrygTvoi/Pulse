@@ -32,10 +32,12 @@ import 'group_call_screen.dart';
 import '../services/active_call_service.dart';
 import '../services/connectivity_probe_service.dart';
 import '../widgets/minimized_call_banner.dart';
+import '../services/notification_service.dart';
 import '../services/tor_service.dart';
 import '../services/utls_service.dart';
 import '../l10n/l10n_ext.dart';
 import '../models/contact_repository.dart';
+import 'package:flutter/services.dart';
 
 PageRoute _slideRoute(Widget page) => PageRouteBuilder(
   pageBuilder: (context, animation, secondaryAnimation) => page,
@@ -91,6 +93,8 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _loading = true;
   Contact? _selectedContact; // currently open chat in wide (split) mode
   ChatFilter _chatFilter = ChatFilter.all;
+  final ScrollController _chatListScrollController = ScrollController();
+  final FocusNode _homeKeyFocus = FocusNode();
 
   // Sorted rooms cache — avoids re-sorting on every build when rooms haven't changed
   List<Contact>? _sortedRoomsCache;
@@ -226,6 +230,8 @@ class _HomeScreenState extends State<HomeScreen> {
     if (_utlsListener != null) {
       UTLSService.instance.available.removeListener(_utlsListener!);
     }
+    _chatListScrollController.dispose();
+    _homeKeyFocus.dispose();
     super.dispose();
   }
 
@@ -762,13 +768,40 @@ class _HomeScreenState extends State<HomeScreen> {
         : allSorted.where((c) => c.name.toLowerCase().contains(_searchQuery)).toList();
     final sorted = _applyFilter(searchFiltered, myId, chatCtrl);
 
-    return Scaffold(
-      backgroundColor: AppTheme.background,
-      appBar: _searchActive
-          ? _buildSearchBar()
-          : AppBar(
+    return Focus(
+      autofocus: true,
+      focusNode: _homeKeyFocus,
+      onKeyEvent: (_, event) {
+        if (event is! KeyDownEvent) return KeyEventResult.ignored;
+        final ctrl = HardwareKeyboard.instance.isControlPressed;
+        // Ctrl+F or / → focus search
+        if ((event.logicalKey == LogicalKeyboardKey.keyF && ctrl) ||
+            (event.logicalKey == LogicalKeyboardKey.slash && !_searchActive)) {
+          setState(() => _searchActive = true);
+          return KeyEventResult.handled;
+        }
+        // Escape → close search
+        if (event.logicalKey == LogicalKeyboardKey.escape && _searchActive) {
+          _searchController.clear();
+          setState(() {
+            _searchActive = false;
+            _globalSearchResults = [];
+            _globalSearching = false;
+            _globalSearchDone = false;
+          });
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
+      child: Scaffold(
+        backgroundColor: AppTheme.background,
+        appBar: _searchActive
+            ? _buildSearchBar()
+            : AppBar(
               backgroundColor: AppTheme.surface,
               elevation: 0,
+              scrolledUnderElevation: 2.0,
+              shadowColor: Colors.black.withValues(alpha: 0.3),
               centerTitle: false,
               title: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -919,14 +952,15 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       floatingActionButton: FloatingActionButton(
         backgroundColor: AppTheme.primary,
-        elevation: 3,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.fabRadius)),
+        elevation: 0,
+        shape: const CircleBorder(),
         tooltip: context.l10n.homeNewChatTooltip,
         child: const Icon(Icons.chat_rounded, color: Colors.white, size: DesignTokens.fontDisplay),
         onPressed: () {
           Navigator.push(context, _slideRoute(const ContactsScreen())).then((_) => _loadAll());
         },
       ).animate().scale(delay: 300.ms, curve: Curves.easeOutBack),
+      ),
     );
   }
 
@@ -982,31 +1016,76 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ),
                   )
-                : ListView.builder(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    itemCount: sorted.length,
-                    itemBuilder: (context, index) {
-                      final c = sorted[index];
-                      final room = chatCtrl.getRoomForContact(c.id);
-                      final messages = room?.messages ?? [];
-                      Message? lastMsg = messages.isNotEmpty ? messages.last : null;
-                      final unread = _getUnreadCount(c.id, myId, chatCtrl);
+                : Scrollbar(
+                    controller: _chatListScrollController,
+                    child: ListView.builder(
+                      controller: _chatListScrollController,
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      itemCount: sorted.length,
+                      itemBuilder: (context, index) {
+                        final c = sorted[index];
+                        final room = chatCtrl.getRoomForContact(c.id);
+                        final messages = room?.messages ?? [];
+                        Message? lastMsg = messages.isNotEmpty ? messages.last : null;
+                        final unread = _getUnreadCount(c.id, myId, chatCtrl);
 
-                      // Lazy-load avatar when tile becomes visible
-                      _ensureAvatarLoaded(c.id);
+                        // Lazy-load avatar when tile becomes visible
+                        _ensureAvatarLoaded(c.id);
 
-                      return ChatTile(
-                        contact: c,
-                        lastMsg: lastMsg,
-                        unreadCount: unread,
-                        myId: myId,
-                        isOnline: chatCtrl.isOnline(c.id),
-                        isMuted: _mutedContactIds.contains(c.id),
-                        avatarBytes: _avatarCache[c.id],
-                        selected: isWide && _selectedContact?.id == c.id,
-                        onTap: () => isWide ? _openChatWide(c) : _openChatNarrow(c),
-                      );
-                    },
+                        return ChatTile(
+                          contact: c,
+                          lastMsg: lastMsg,
+                          unreadCount: unread,
+                          myId: myId,
+                          isOnline: chatCtrl.isOnline(c.id),
+                          isMuted: _mutedContactIds.contains(c.id),
+                          avatarBytes: _avatarCache[c.id],
+                          selected: isWide && _selectedContact?.id == c.id,
+                          onTap: () => isWide ? _openChatWide(c) : _openChatNarrow(c),
+                          onSecondaryTapUp: (details) {
+                            showMenu<String>(
+                              context: context,
+                              position: RelativeRect.fromLTRB(
+                                details.globalPosition.dx, details.globalPosition.dy,
+                                details.globalPosition.dx, details.globalPosition.dy,
+                              ),
+                              color: AppTheme.surface,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.radiusLarge)),
+                              items: [
+                                PopupMenuItem(value: 'mute', child: Row(children: [
+                                  Icon(_mutedContactIds.contains(c.id) ? Icons.notifications_rounded : Icons.notifications_off_rounded,
+                                      color: AppTheme.textSecondary, size: 20),
+                                  const SizedBox(width: 12),
+                                  Text(_mutedContactIds.contains(c.id) ? context.l10n.appBarUnmute : context.l10n.appBarMute,
+                                      style: GoogleFonts.inter(color: AppTheme.textPrimary)),
+                                ])),
+                                PopupMenuItem(value: 'clear', child: Row(children: [
+                                  Icon(Icons.delete_sweep_rounded, color: AppTheme.textSecondary, size: 20),
+                                  const SizedBox(width: 12),
+                                  Text(context.l10n.profileClearChatHistory, style: GoogleFonts.inter(color: AppTheme.textPrimary)),
+                                ])),
+                                PopupMenuItem(value: 'delete', child: Row(children: [
+                                  const Icon(Icons.person_remove_rounded, color: Colors.redAccent, size: 20),
+                                  const SizedBox(width: 12),
+                                  Text(context.l10n.profileDeleteContact, style: GoogleFonts.inter(color: Colors.redAccent)),
+                                ])),
+                              ],
+                            ).then((value) async {
+                              if (value == 'mute') {
+                                final newMuted = !_mutedContactIds.contains(c.id);
+                                await NotificationService().setChatMuted(c.id, newMuted);
+                                _loadMutedChats();
+                              } else if (value == 'clear') {
+                                chatCtrl.clearRoomHistory(c);
+                              } else if (value == 'delete') {
+                                await context.read<IContactRepository>().removeContact(c.id);
+                                _loadAll();
+                              }
+                            });
+                          },
+                        );
+                      },
+                    ),
                   ),
           ),
         ),
@@ -1215,6 +1294,47 @@ class _HomeScreenState extends State<HomeScreen> {
               avatarBytes: _avatarCache[c.id],
               selected: isWide && _selectedContact?.id == c.id,
               onTap: () => isWide ? _openChatWide(c) : _openChatNarrow(c),
+              onSecondaryTapUp: (details) {
+                showMenu<String>(
+                  context: context,
+                  position: RelativeRect.fromLTRB(
+                    details.globalPosition.dx, details.globalPosition.dy,
+                    details.globalPosition.dx, details.globalPosition.dy,
+                  ),
+                  color: AppTheme.surface,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.radiusLarge)),
+                  items: [
+                    PopupMenuItem(value: 'mute', child: Row(children: [
+                      Icon(_mutedContactIds.contains(c.id) ? Icons.notifications_rounded : Icons.notifications_off_rounded,
+                          color: AppTheme.textSecondary, size: 20),
+                      const SizedBox(width: 12),
+                      Text(_mutedContactIds.contains(c.id) ? context.l10n.appBarUnmute : context.l10n.appBarMute,
+                          style: GoogleFonts.inter(color: AppTheme.textPrimary)),
+                    ])),
+                    PopupMenuItem(value: 'clear', child: Row(children: [
+                      Icon(Icons.delete_sweep_rounded, color: AppTheme.textSecondary, size: 20),
+                      const SizedBox(width: 12),
+                      Text(context.l10n.profileClearChatHistory, style: GoogleFonts.inter(color: AppTheme.textPrimary)),
+                    ])),
+                    PopupMenuItem(value: 'delete', child: Row(children: [
+                      const Icon(Icons.person_remove_rounded, color: Colors.redAccent, size: 20),
+                      const SizedBox(width: 12),
+                      Text(context.l10n.profileDeleteContact, style: GoogleFonts.inter(color: Colors.redAccent)),
+                    ])),
+                  ],
+                ).then((value) async {
+                  if (value == 'mute') {
+                    final newMuted = !_mutedContactIds.contains(c.id);
+                    await NotificationService().setChatMuted(c.id, newMuted);
+                    _loadMutedChats();
+                  } else if (value == 'clear') {
+                    chatCtrl.clearRoomHistory(c);
+                  } else if (value == 'delete') {
+                    await context.read<IContactRepository>().removeContact(c.id);
+                    _loadAll();
+                  }
+                });
+              },
             );
           }),
         ],

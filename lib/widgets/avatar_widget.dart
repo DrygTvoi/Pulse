@@ -46,8 +46,8 @@ class AvatarWidget extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            HSLColor.fromAHSL(1, hue, 0.55, 0.42).toColor(),
-            HSLColor.fromAHSL(1, hue, 0.50, 0.30).toColor(),
+            HSLColor.fromAHSL(1, hue, 0.65, 0.50).toColor(),
+            HSLColor.fromAHSL(1, hue, 0.60, 0.38).toColor(),
           ],
         ),
       ),

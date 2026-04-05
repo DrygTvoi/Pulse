@@ -5,6 +5,7 @@ import '../theme/design_tokens.dart';
 import '../models/message.dart';
 import '../services/media_service.dart';
 import '../l10n/l10n_ext.dart';
+import '../utils/platform_utils.dart';
 
 /// The bottom input area of the chat screen with text field, attach button,
 /// send/mic button, recording indicator, reply/edit banners, and scheduled
@@ -169,14 +170,7 @@ class MessageInputBar extends StatelessWidget {
     return Semantics(
       label: label,
       button: true,
-      child: GestureDetector(
-        onTap: onTap,
-        behavior: HitTestBehavior.opaque,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
-          child: Icon(icon, color: AppTheme.textSecondary, size: _icon),
-        ),
-      ),
+      child: _HoverBarIcon(icon: icon, onTap: onTap, size: _icon),
     );
   }
 
@@ -225,20 +219,10 @@ class MessageInputBar extends StatelessWidget {
                       key: const ValueKey('send'),
                       label: context.l10n.inputSendMessage,
                       button: true,
-                      child: GestureDetector(
+                      child: _HoverSendButton(
                         onTap: onSend,
                         onLongPress: onSchedulePicker,
-                        child: Padding(
-                          padding: const EdgeInsets.only(left: 4),
-                          child: Container(
-                            width: _sendSize, height: _sendSize,
-                            decoration: BoxDecoration(
-                              color: AppTheme.primary,
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(Icons.send_rounded, color: Colors.white, size: 20),
-                          ),
-                        ),
+                        size: _sendSize,
                       ),
                     )
                   : Row(
@@ -369,6 +353,101 @@ class _PulsingDotState extends State<_PulsingDot>
         decoration: BoxDecoration(
           color: Colors.red.withValues(alpha: _animation.value),
           shape: BoxShape.circle,
+        ),
+      ),
+    );
+  }
+}
+
+/// Bar icon with subtle hover tint on desktop.
+class _HoverBarIcon extends StatefulWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+  final double size;
+
+  const _HoverBarIcon({
+    required this.icon,
+    required this.onTap,
+    required this.size,
+  });
+
+  @override
+  State<_HoverBarIcon> createState() => _HoverBarIconState();
+}
+
+class _HoverBarIconState extends State<_HoverBarIcon> {
+  bool _hovering = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: PlatformUtils.isDesktop ? (_) => setState(() => _hovering = true) : null,
+      onExit: PlatformUtils.isDesktop ? (_) => setState(() => _hovering = false) : null,
+      child: GestureDetector(
+        onTap: widget.onTap,
+        behavior: HitTestBehavior.opaque,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: _hovering
+                  ? AppTheme.primary.withValues(alpha: 0.08)
+                  : Colors.transparent,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(widget.icon, color: AppTheme.textSecondary, size: widget.size),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Send button with subtle hover brighten on desktop.
+class _HoverSendButton extends StatefulWidget {
+  final VoidCallback onTap;
+  final VoidCallback onLongPress;
+  final double size;
+
+  const _HoverSendButton({
+    required this.onTap,
+    required this.onLongPress,
+    required this.size,
+  });
+
+  @override
+  State<_HoverSendButton> createState() => _HoverSendButtonState();
+}
+
+class _HoverSendButtonState extends State<_HoverSendButton> {
+  bool _hovering = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: PlatformUtils.isDesktop ? (_) => setState(() => _hovering = true) : null,
+      onExit: PlatformUtils.isDesktop ? (_) => setState(() => _hovering = false) : null,
+      child: GestureDetector(
+        onTap: widget.onTap,
+        onLongPress: widget.onLongPress,
+        child: Padding(
+          padding: const EdgeInsets.only(left: 4),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            width: widget.size,
+            height: widget.size,
+            decoration: BoxDecoration(
+              color: _hovering
+                  ? Color.lerp(AppTheme.primary, Colors.white, 0.12)!
+                  : AppTheme.primary,
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.send_rounded, color: Colors.white, size: 20),
+          ),
         ),
       ),
     );
