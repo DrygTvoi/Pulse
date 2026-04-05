@@ -94,3 +94,16 @@ func (s *MessageStore) MarkDelivered(id string) error {
 	}
 	return nil
 }
+
+// CountPendingForUser returns the number of undelivered messages for a user.
+func (s *MessageStore) CountPendingForUser(pubkey string) (int, error) {
+	var count int
+	err := s.db.QueryRow(
+		"SELECT COUNT(*) FROM messages WHERE to_key = ? AND delivered = 0",
+		pubkey,
+	).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("failed to count pending messages: %w", err)
+	}
+	return count, nil
+}

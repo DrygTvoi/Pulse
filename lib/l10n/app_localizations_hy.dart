@@ -2273,24 +2273,25 @@ class AppLocalizationsHy extends AppLocalizations {
   String get torPortInfo => 'Tor Browser՝ պորտ 9150  •  tor daemon՝ պորտ 9050';
 
   @override
-  String get torForceNostrTitle => 'Route messages through Tor';
+  String get torForceNostrTitle =>
+      'Հաղորդագրությունները ուղարկել Tor-ի միջոցով';
 
   @override
   String get torForceNostrSubtitle =>
-      'All Nostr relay connections will go through Tor. Slower but hides your IP from relays.';
+      'Nostr relay-ի բոլոր կապակցությունները կանցնեն Tor-ի միջոցով։ Ավելի դանդաղ, բայց թաքցնում է ձեր IP-ն relay-ներից։';
 
   @override
-  String get torForceNostrDisabled => 'Tor must be enabled first';
+  String get torForceNostrDisabled => 'Tor-ը նախ պետք է միացնել';
 
   @override
-  String get torForcePulseTitle => 'Route Pulse relay through Tor';
+  String get torForcePulseTitle => 'Pulse relay-ը ուղարկել Tor-ի միջոցով';
 
   @override
   String get torForcePulseSubtitle =>
-      'All Pulse relay connections will go through Tor. Slower but hides your IP from the server.';
+      'Pulse relay-ի բոլոր կապակցությունները կանցնեն Tor-ի միջոցով։ Ավելի դանդաղ, բայց թաքցնում է ձեր IP-ն սերվերից։';
 
   @override
-  String get torForcePulseDisabled => 'Tor must be enabled first';
+  String get torForcePulseDisabled => 'Tor-ը նախ պետք է միացնել';
 
   @override
   String get i2pProxySocks5 => 'I2P պրոքսի (SOCKS5)';

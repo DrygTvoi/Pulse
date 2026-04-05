@@ -2249,24 +2249,24 @@ class AppLocalizationsVi extends AppLocalizations {
   String get torPortInfo => 'Tor Browser: cổng 9150  •  Tor daemon: cổng 9050';
 
   @override
-  String get torForceNostrTitle => 'Route messages through Tor';
+  String get torForceNostrTitle => 'Định tuyến tin nhắn qua Tor';
 
   @override
   String get torForceNostrSubtitle =>
-      'All Nostr relay connections will go through Tor. Slower but hides your IP from relays.';
+      'Tất cả kết nối Nostr relay sẽ đi qua Tor. Chậm hơn nhưng ẩn IP của bạn khỏi các relay.';
 
   @override
-  String get torForceNostrDisabled => 'Tor must be enabled first';
+  String get torForceNostrDisabled => 'Phải bật Tor trước';
 
   @override
-  String get torForcePulseTitle => 'Route Pulse relay through Tor';
+  String get torForcePulseTitle => 'Định tuyến Pulse relay qua Tor';
 
   @override
   String get torForcePulseSubtitle =>
-      'All Pulse relay connections will go through Tor. Slower but hides your IP from the server.';
+      'Tất cả kết nối Pulse relay sẽ đi qua Tor. Chậm hơn nhưng ẩn IP của bạn khỏi máy chủ.';
 
   @override
-  String get torForcePulseDisabled => 'Tor must be enabled first';
+  String get torForcePulseDisabled => 'Phải bật Tor trước';
 
   @override
   String get i2pProxySocks5 => 'Proxy I2P (SOCKS5)';

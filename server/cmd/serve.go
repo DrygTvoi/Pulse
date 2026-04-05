@@ -12,9 +12,12 @@ import (
 
 	"github.com/nicholasgasior/pulse-server/config"
 	"github.com/nicholasgasior/pulse-server/internal/federation"
+	"github.com/nicholasgasior/pulse-server/internal/privacy"
 	"github.com/nicholasgasior/pulse-server/internal/relay"
+	"github.com/nicholasgasior/pulse-server/internal/sfu"
 	"github.com/nicholasgasior/pulse-server/internal/store"
 	"github.com/nicholasgasior/pulse-server/internal/transport"
+	"github.com/nicholasgasior/pulse-server/internal/tunnel"
 	"github.com/nicholasgasior/pulse-server/internal/turn"
 )
 
@@ -65,8 +68,16 @@ func runServe(cmd *cobra.Command, args []string) error {
 	keys := store.NewKeyStore(db)
 	backups := store.NewBackupStore(db)
 
+	// Initialize file store
+	fileStore := store.NewFileStore(db, cfg.Server.DataDir)
+	if err := fileStore.EnsureDirs(); err != nil {
+		return err
+	}
+	log.Printf("[serve] file store initialized")
+
 	// Initialize hub
 	hub := relay.NewHub(cfg, users, messages, invites, keys, backups)
+	hub.SetFileStore(fileStore)
 	go hub.Run()
 	log.Printf("[serve] hub started")
 
@@ -133,7 +144,7 @@ func runServe(cmd *cobra.Command, args []string) error {
 					router.HandleIncoming(env)
 				}
 			})
-			router = federation.NewFederationRouter(users, peerManager, hub)
+			router = federation.NewFederationRouter(users, peerManager, hub, db, &cfg.Federation)
 
 			// Load saved peers from DB and connect
 			rows, qErr := db.Query("SELECT pubkey, address FROM federation_peers WHERE enabled = 1")
@@ -154,8 +165,68 @@ func runServe(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	// Set TURN server on hub for v2 auth
+	if turnSrv != nil {
+		hub.SetTurnServer(turnSrv)
+	}
+
+	// Initialize SFU manager (Phase 2)
+	var sfuMgr *sfu.Manager
+	if cfg.Media.Enabled {
+		// Pass nil listener for now — ICE-TCP mux listener is set up during TLS init
+		sfuMgr = sfu.NewManager(&cfg.Media, nil)
+		hub.SetSFUManager(sfuMgr)
+		log.Printf("[serve] SFU media relay enabled (mode: %s)", cfg.Media.Mode)
+	}
+
+	// Initialize tunnel manager (Phase 5)
+	var tunnelMgr *tunnel.Manager
+	if cfg.Tunnel.Enabled {
+		tunnelMgr = tunnel.NewManager(&cfg.Tunnel)
+		hub.SetTunnelManager(tunnelMgr)
+		log.Printf("[serve] tunnel/proxy enabled")
+	}
+
+	// Initialize padding service (Phase 6)
+	paddingSvc := privacy.NewPaddingService(
+		cfg.Privacy.Padding,
+		cfg.Privacy.PaddingMode,
+		cfg.Privacy.PaddingRateKbps,
+		cfg.Privacy.PaddingJitterPct,
+		cfg.Privacy.Chaff,
+		cfg.Privacy.ChaffIntervalSec,
+	)
+	hub.SetPaddingService(paddingSvc)
+	paddingSvc.Start()
+
+	// Initialize sealed sender service (Phase 6)
+	if cfg.Privacy.SealedSender {
+		certCount := cfg.Privacy.SealedCertCount
+		if certCount <= 0 {
+			certCount = 10
+		}
+		certTTL := cfg.Privacy.SealedCertTTL
+		if certTTL == "" {
+			certTTL = "24h"
+		}
+		sealedSvc := privacy.NewSealedSenderService(certCount, certTTL)
+
+		// Persist or restore the HMAC secret
+		sealedKB, sealedErr := keys.GetBundle("_server_sealed_secret")
+		if sealedErr == nil && sealedKB != nil {
+			sealedSvc.SetSecret(sealedKB.Bundle)
+		} else {
+			if putErr := keys.PutBundle("_server_sealed_secret", sealedSvc.Secret()); putErr != nil {
+				log.Printf("[serve] WARNING: failed to persist sealed sender secret: %v", putErr)
+			}
+		}
+
+		hub.SetSealedSenderService(sealedSvc)
+		log.Printf("[serve] sealed sender enabled (certs: %d, ttl: %s)", certCount, certTTL)
+	}
+
 	// Initialize transport server
-	srv := transport.NewServer(cfg, hub, users, invites, turnSrv, peerManager)
+	srv := transport.NewServer(cfg, hub, users, invites, messages, turnSrv, peerManager)
 
 	// Signal handling for graceful shutdown
 	sigCh := make(chan os.Signal, 1)
@@ -187,6 +258,16 @@ func runServe(cmd *cobra.Command, args []string) error {
 	if turnSrv != nil {
 		turnSrv.Stop()
 	}
+
+	if sfuMgr != nil {
+		sfuMgr.Stop()
+	}
+
+	if tunnelMgr != nil {
+		tunnelMgr.Stop()
+	}
+
+	paddingSvc.Stop()
 
 	hub.Stop()
 

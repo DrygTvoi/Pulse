@@ -147,3 +147,12 @@ func (s *UserStore) UpdateLastSeen(pubkey string) error {
 	}
 	return nil
 }
+
+// UpdateLastSeenIP updates the last_seen timestamp and client IP.
+func (s *UserStore) UpdateLastSeenIP(pubkey, ip string) error {
+	_, err := s.db.Exec("UPDATE users SET last_seen = ?, last_ip = ? WHERE pubkey = ?", time.Now().Unix(), ip, pubkey)
+	if err != nil {
+		return fmt.Errorf("failed to update last_seen/ip: %w", err)
+	}
+	return nil
+}

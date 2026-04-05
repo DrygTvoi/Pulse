@@ -2278,24 +2278,24 @@ class AppLocalizationsLt extends AppLocalizations {
       'Tor Browser: prievadas 9150  •  Tor demonas: prievadas 9050';
 
   @override
-  String get torForceNostrTitle => 'Route messages through Tor';
+  String get torForceNostrTitle => 'Siųsti pranešimus per Tor';
 
   @override
   String get torForceNostrSubtitle =>
-      'All Nostr relay connections will go through Tor. Slower but hides your IP from relays.';
+      'Visi Nostr relay ryšiai eis per Tor. Lėčiau, bet slepia jūsų IP nuo relay.';
 
   @override
-  String get torForceNostrDisabled => 'Tor must be enabled first';
+  String get torForceNostrDisabled => 'Pirmiausia reikia įjungti Tor';
 
   @override
-  String get torForcePulseTitle => 'Route Pulse relay through Tor';
+  String get torForcePulseTitle => 'Nukreipti Pulse relay per Tor';
 
   @override
   String get torForcePulseSubtitle =>
-      'All Pulse relay connections will go through Tor. Slower but hides your IP from the server.';
+      'Visi Pulse relay ryšiai eis per Tor. Lėčiau, bet slepia jūsų IP nuo serverio.';
 
   @override
-  String get torForcePulseDisabled => 'Tor must be enabled first';
+  String get torForcePulseDisabled => 'Pirmiausia reikia įjungti Tor';
 
   @override
   String get i2pProxySocks5 => 'I2P Proxy (SOCKS5)';

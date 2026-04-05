@@ -2290,24 +2290,24 @@ class AppLocalizationsEl extends AppLocalizations {
       'Tor Browser: θύρα 9150  •  Δαίμονας tor: θύρα 9050';
 
   @override
-  String get torForceNostrTitle => 'Route messages through Tor';
+  String get torForceNostrTitle => 'Δρομολόγηση μηνυμάτων μέσω Tor';
 
   @override
   String get torForceNostrSubtitle =>
-      'All Nostr relay connections will go through Tor. Slower but hides your IP from relays.';
+      'Όλες οι συνδέσεις Nostr relay θα περνούν μέσω Tor. Πιο αργό αλλά κρύβει την IP σας από τα relay.';
 
   @override
-  String get torForceNostrDisabled => 'Tor must be enabled first';
+  String get torForceNostrDisabled => 'Πρέπει πρώτα να ενεργοποιηθεί το Tor';
 
   @override
-  String get torForcePulseTitle => 'Route Pulse relay through Tor';
+  String get torForcePulseTitle => 'Δρομολόγηση Pulse relay μέσω Tor';
 
   @override
   String get torForcePulseSubtitle =>
-      'All Pulse relay connections will go through Tor. Slower but hides your IP from the server.';
+      'Όλες οι συνδέσεις Pulse relay θα περνούν μέσω Tor. Πιο αργό αλλά κρύβει την IP σας από τον διακομιστή.';
 
   @override
-  String get torForcePulseDisabled => 'Tor must be enabled first';
+  String get torForcePulseDisabled => 'Πρέπει πρώτα να ενεργοποιηθεί το Tor';
 
   @override
   String get i2pProxySocks5 => 'I2P Proxy (SOCKS5)';

@@ -3,21 +3,24 @@
 
 [server]
 # Address and port to listen on (supports IPv4 and IPv6)
-listen = "0.0.0.0:8443"
+listen = "0.0.0.0:443"
 
 # Directory for database and other persistent data
-data_dir = "/data"
+data_dir = "./data"
 
 # TLS mode: "self-signed" | "manual" | "auto" | "none"
 #   self-signed  — generate a self-signed certificate on startup (development)
 #   manual       — load cert and key from tls_cert / tls_key paths
-#   auto         — Let's Encrypt (not yet implemented)
-#   none         — plain TCP, use behind a reverse proxy
+#   auto         — Let's Encrypt via ACME (requires port 80 for HTTP-01 challenge)
+#   none         — plain TCP, use behind a reverse proxy (Cloudflare mode)
 tls_mode = "self-signed"
 
 # Paths to TLS certificate and key (only used when tls_mode = "manual")
 tls_cert = ""
 tls_key = ""
+
+# Domain for Let's Encrypt (only used when tls_mode = "auto")
+# auto_tls_domain = "pulse.example.com"
 
 [auth]
 # Registration mode: "open" | "invite" | "closed"
@@ -30,14 +33,23 @@ mode = "invite"
 # How long to keep undelivered messages (in hours). 0 = forever.
 message_ttl_hours = 168
 
-# Maximum size of a single message payload in bytes (512 KB)
-max_message_bytes = 524288
+# Maximum size of a single message payload in bytes (512 MB)
+max_message_bytes = 536870912
 
 # Maximum size of an encrypted backup in bytes (50 MB)
 max_backup_bytes = 52428800
 
+# Maximum size of a single uploaded file in bytes (100 MB)
+max_file_bytes = 104857600
+
+# Maximum total storage per user for uploaded files (1 GB)
+max_storage_per_user = 1073741824
+
+# How long to keep uploaded files (Go duration: "168h" = 7 days)
+file_ttl = "168h"
+
 [turn]
-# Enable built-in TURN relay (Phase 8)
+# Enable built-in TURN relay
 enabled = true
 
 # TURN listening port
@@ -46,20 +58,119 @@ port = 3478
 # TURN realm
 realm = "pulse"
 
+[media]
+# Enable SFU media relay for voice/video calls
+enabled = true
+
+# Media transport mode: "stealth" (ICE-TCP on :443) | "performance" (UDP) | "ws-relay" | "all"
+mode = "stealth"
+
+# Maximum participants per room
+max_room_size = 25
+
+# Max simultaneous video streams forwarded in large rooms (Last-N optimization)
+last_n_video = 6
+
+# Enable simulcast (multiple quality layers)
+simulcast = true
+
+# Enable audio energy detection for speaker updates
+speaker_detect = true
+
+# dBFS threshold for "speaking" (-40 = fairly sensitive)
+speaker_threshold = -40
+
 [privacy]
+# Privacy preset: "standard" | "private" | "paranoid" | "custom"
+# standard — no overhead, normal operation
+# private  — burst padding, sealed sender, 200ms jitter
+# paranoid — CBR 32kbps, sealed sender, chaff, 2s batch, 500ms jitter
+preset = "standard"
+
 # Whether to log client IP addresses and request details
 access_log = false
 
 # Delete messages from storage immediately upon client acknowledgement
 delete_on_ack = true
 
+# Store client IP addresses in database (for abuse prevention)
+store_client_ip = false
+
+# Strip X-Forwarded-For, X-Real-IP, Forwarded headers from incoming requests
+strip_forwarded_headers = true
+
+# --- Custom privacy overrides (only when preset = "custom") ---
+# Traffic padding (constant-rate or burst)
+padding = false
+padding_mode = "cbr"          # "cbr" (constant bitrate) | "burst" (random bursts)
+padding_rate_kbps = 32        # constant 32 kbps both directions
+padding_jitter_pct = 20       # +/-20% random variation
+
+# Sealed sender — /v2/sealed endpoint for anonymous message delivery
+sealed_sender = false
+sealed_cert_count = 50        # delivery certificates issued per auth session
+sealed_cert_ttl = "24h"       # certificate validity period
+
+# Delivery jitter — random delay on each message delivery (0 = off)
+delivery_jitter_ms = 0
+
+# Batched delivery — deliver all pending messages in periodic batches
+batch_delivery = false
+batch_interval_ms = 2000      # batch window (ms)
+
+# Chaff — send decoy messages at random intervals
+chaff = false
+chaff_interval_sec = 300      # ~5 minutes between chaff messages
+
 [limits]
 # Maximum messages a single user can send per minute
-messages_per_minute = 30
+messages_per_minute = 60
+
+# Maximum signals a single user can send per minute
+signals_per_minute = 120
 
 # Maximum concurrent WebSocket connections
 max_connections = 1000
 
+# Maximum concurrent SFU rooms
+max_rooms = 100
+
+# Proof-of-Work difficulty for open auth mode (leading zero bits)
+# 0 = disabled, 16 = ~100ms to solve, 20 = ~1s
+pow_difficulty = 16
+
 [federation]
-# Enable federation with other Pulse servers (Phase 9)
+# Federation mode: "disabled" | "private" (whitelist) | "open"
+mode = "disabled"
+
+# Maximum hop count for federated messages (prevents infinite forwarding)
+max_hops = 2
+
+[decoy]
+# Probe resistance: fake nginx website for non-authenticated requests
+# Custom Server header (default: "nginx/1.24.0")
+server_header = "nginx/1.24.0"
+
+# Override default decoy pages with custom files (optional)
+# index_html = "/path/to/custom/index.html"
+# favicon = "/path/to/custom/favicon.ico"
+# not_found_html = "/path/to/custom/404.html"
+
+[tunnel]
+# Enable tunnel/proxy service (SOCKS5-over-WebSocket)
 enabled = false
+
+# Maximum concurrent tunnels per user
+max_tunnels_per_user = 32
+
+# Per-user bandwidth cap in Mbps (0 = unlimited)
+bandwidth_limit_mbps = 100
+
+# Restrict target ports (empty = all)
+allowed_ports = [80, 443]
+
+# Block specific destination hosts
+blocked_hosts = []
+
+# DNS resolution provider: "doh" (DNS-over-HTTPS) | "system"
+dns_provider = "doh"

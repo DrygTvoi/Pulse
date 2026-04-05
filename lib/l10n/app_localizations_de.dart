@@ -2283,24 +2283,24 @@ class AppLocalizationsDe extends AppLocalizations {
   String get torPortInfo => 'Tor Browser: Port 9150  •  Tor-Daemon: Port 9050';
 
   @override
-  String get torForceNostrTitle => 'Route messages through Tor';
+  String get torForceNostrTitle => 'Nachrichten über Tor leiten';
 
   @override
   String get torForceNostrSubtitle =>
-      'All Nostr relay connections will go through Tor. Slower but hides your IP from relays.';
+      'Alle Nostr-Relay-Verbindungen werden über Tor geleitet. Langsamer, aber Ihre IP wird vor Relays verborgen.';
 
   @override
-  String get torForceNostrDisabled => 'Tor must be enabled first';
+  String get torForceNostrDisabled => 'Tor muss zuerst aktiviert werden';
 
   @override
-  String get torForcePulseTitle => 'Route Pulse relay through Tor';
+  String get torForcePulseTitle => 'Pulse-Relay über Tor leiten';
 
   @override
   String get torForcePulseSubtitle =>
-      'All Pulse relay connections will go through Tor. Slower but hides your IP from the server.';
+      'Alle Pulse-Relay-Verbindungen werden über Tor geleitet. Langsamer, aber Ihre IP wird vor dem Server verborgen.';
 
   @override
-  String get torForcePulseDisabled => 'Tor must be enabled first';
+  String get torForcePulseDisabled => 'Tor muss zuerst aktiviert werden';
 
   @override
   String get i2pProxySocks5 => 'I2P-Proxy (SOCKS5)';

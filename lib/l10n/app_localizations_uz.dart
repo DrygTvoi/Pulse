@@ -2280,24 +2280,24 @@ class AppLocalizationsUz extends AppLocalizations {
   String get torPortInfo => 'Tor Browser: port 9150  •  tor daemon: port 9050';
 
   @override
-  String get torForceNostrTitle => 'Route messages through Tor';
+  String get torForceNostrTitle => 'Xabarlarni Tor orqali yo\'naltirish';
 
   @override
   String get torForceNostrSubtitle =>
-      'All Nostr relay connections will go through Tor. Slower but hides your IP from relays.';
+      'Barcha Nostr relay ulanishlari Tor orqali o\'tadi. Sekinroq, lekin IP manzilingizni relay-lardan yashiradi.';
 
   @override
-  String get torForceNostrDisabled => 'Tor must be enabled first';
+  String get torForceNostrDisabled => 'Avval Tor yoqilishi kerak';
 
   @override
-  String get torForcePulseTitle => 'Route Pulse relay through Tor';
+  String get torForcePulseTitle => 'Pulse relay-ni Tor orqali yo\'naltirish';
 
   @override
   String get torForcePulseSubtitle =>
-      'All Pulse relay connections will go through Tor. Slower but hides your IP from the server.';
+      'Barcha Pulse relay ulanishlari Tor orqali o\'tadi. Sekinroq, lekin IP manzilingizni serverdan yashiradi.';
 
   @override
-  String get torForcePulseDisabled => 'Tor must be enabled first';
+  String get torForcePulseDisabled => 'Avval Tor yoqilishi kerak';
 
   @override
   String get i2pProxySocks5 => 'I2P proksi (SOCKS5)';

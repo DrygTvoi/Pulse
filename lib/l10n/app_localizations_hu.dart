@@ -2279,24 +2279,24 @@ class AppLocalizationsHu extends AppLocalizations {
   String get torPortInfo => 'Tor Browser: port 9150  •  tor démon: port 9050';
 
   @override
-  String get torForceNostrTitle => 'Route messages through Tor';
+  String get torForceNostrTitle => 'Üzenetek irányítása Tor-on keresztül';
 
   @override
   String get torForceNostrSubtitle =>
-      'All Nostr relay connections will go through Tor. Slower but hides your IP from relays.';
+      'Minden Nostr relay kapcsolat Tor-on keresztül megy. Lassabb, de elrejti az IP-címedet a relay-k elől.';
 
   @override
-  String get torForceNostrDisabled => 'Tor must be enabled first';
+  String get torForceNostrDisabled => 'Először a Tor-t kell engedélyezni';
 
   @override
-  String get torForcePulseTitle => 'Route Pulse relay through Tor';
+  String get torForcePulseTitle => 'Pulse relay irányítása Tor-on keresztül';
 
   @override
   String get torForcePulseSubtitle =>
-      'All Pulse relay connections will go through Tor. Slower but hides your IP from the server.';
+      'Minden Pulse relay kapcsolat Tor-on keresztül megy. Lassabb, de elrejti az IP-címedet a szerver elől.';
 
   @override
-  String get torForcePulseDisabled => 'Tor must be enabled first';
+  String get torForcePulseDisabled => 'Először a Tor-t kell engedélyezni';
 
   @override
   String get i2pProxySocks5 => 'I2P Proxy (SOCKS5)';

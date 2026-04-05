@@ -2243,24 +2243,24 @@ class AppLocalizationsTh extends AppLocalizations {
       'Tor Browser: พอร์ต 9150  •  Tor daemon: พอร์ต 9050';
 
   @override
-  String get torForceNostrTitle => 'Route messages through Tor';
+  String get torForceNostrTitle => 'ส่งข้อความผ่าน Tor';
 
   @override
   String get torForceNostrSubtitle =>
-      'All Nostr relay connections will go through Tor. Slower but hides your IP from relays.';
+      'การเชื่อมต่อ Nostr relay ทั้งหมดจะผ่าน Tor ช้าลงแต่ซ่อน IP ของคุณจาก relay';
 
   @override
-  String get torForceNostrDisabled => 'Tor must be enabled first';
+  String get torForceNostrDisabled => 'ต้องเปิดใช้งาน Tor ก่อน';
 
   @override
-  String get torForcePulseTitle => 'Route Pulse relay through Tor';
+  String get torForcePulseTitle => 'ส่ง Pulse relay ผ่าน Tor';
 
   @override
   String get torForcePulseSubtitle =>
-      'All Pulse relay connections will go through Tor. Slower but hides your IP from the server.';
+      'การเชื่อมต่อ Pulse relay ทั้งหมดจะผ่าน Tor ช้าลงแต่ซ่อน IP ของคุณจากเซิร์ฟเวอร์';
 
   @override
-  String get torForcePulseDisabled => 'Tor must be enabled first';
+  String get torForcePulseDisabled => 'ต้องเปิดใช้งาน Tor ก่อน';
 
   @override
   String get i2pProxySocks5 => 'พร็อกซี I2P (SOCKS5)';

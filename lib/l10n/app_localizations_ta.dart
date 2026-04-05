@@ -2289,24 +2289,24 @@ class AppLocalizationsTa extends AppLocalizations {
       'Tor Browser: போர்ட் 9150  •  tor டீமன்: போர்ட் 9050';
 
   @override
-  String get torForceNostrTitle => 'Route messages through Tor';
+  String get torForceNostrTitle => 'செய்திகளை Tor வழியாக அனுப்பு';
 
   @override
   String get torForceNostrSubtitle =>
-      'All Nostr relay connections will go through Tor. Slower but hides your IP from relays.';
+      'அனைத்து Nostr relay இணைப்புகளும் Tor வழியாகச் செல்லும். மெதுவானது ஆனால் relay-களிடமிருந்து உங்கள் IP-ஐ மறைக்கிறது.';
 
   @override
-  String get torForceNostrDisabled => 'Tor must be enabled first';
+  String get torForceNostrDisabled => 'முதலில் Tor இயக்கப்பட வேண்டும்';
 
   @override
-  String get torForcePulseTitle => 'Route Pulse relay through Tor';
+  String get torForcePulseTitle => 'Pulse relay-ஐ Tor வழியாக அனுப்பு';
 
   @override
   String get torForcePulseSubtitle =>
-      'All Pulse relay connections will go through Tor. Slower but hides your IP from the server.';
+      'அனைத்து Pulse relay இணைப்புகளும் Tor வழியாகச் செல்லும். மெதுவானது ஆனால் சேவையகத்திடமிருந்து உங்கள் IP-ஐ மறைக்கிறது.';
 
   @override
-  String get torForcePulseDisabled => 'Tor must be enabled first';
+  String get torForcePulseDisabled => 'முதலில் Tor இயக்கப்பட வேண்டும்';
 
   @override
   String get i2pProxySocks5 => 'I2P ப்ராக்ஸி (SOCKS5)';

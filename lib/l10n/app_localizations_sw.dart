@@ -2274,24 +2274,24 @@ class AppLocalizationsSw extends AppLocalizations {
       'Tor Browser: bandari 9150  •  tor daemon: bandari 9050';
 
   @override
-  String get torForceNostrTitle => 'Route messages through Tor';
+  String get torForceNostrTitle => 'Peleka ujumbe kupitia Tor';
 
   @override
   String get torForceNostrSubtitle =>
-      'All Nostr relay connections will go through Tor. Slower but hides your IP from relays.';
+      'Miunganisho yote ya Nostr relay itapita kupitia Tor. Polepole zaidi lakini inaficha IP yako kutoka kwa relay.';
 
   @override
-  String get torForceNostrDisabled => 'Tor must be enabled first';
+  String get torForceNostrDisabled => 'Tor lazima iwashwe kwanza';
 
   @override
-  String get torForcePulseTitle => 'Route Pulse relay through Tor';
+  String get torForcePulseTitle => 'Peleka Pulse relay kupitia Tor';
 
   @override
   String get torForcePulseSubtitle =>
-      'All Pulse relay connections will go through Tor. Slower but hides your IP from the server.';
+      'Miunganisho yote ya Pulse relay itapita kupitia Tor. Polepole zaidi lakini inaficha IP yako kutoka kwa seva.';
 
   @override
-  String get torForcePulseDisabled => 'Tor must be enabled first';
+  String get torForcePulseDisabled => 'Tor lazima iwashwe kwanza';
 
   @override
   String get i2pProxySocks5 => 'Proksi ya I2P (SOCKS5)';

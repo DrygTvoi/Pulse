@@ -8,6 +8,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -29,50 +30,162 @@ var upgrader = websocket.Upgrader{
 
 // Server holds the HTTP server and its dependencies.
 type Server struct {
-	httpServer  *http.Server
-	hub         *relay.Hub
-	cfg         *config.Config
-	users       *store.UserStore
-	invites     *store.InviteStore
-	turnServer  *turn.Server
-	peerManager *federation.PeerManager
-	startTime   time.Time
+	httpServer   *http.Server
+	hub          *relay.Hub
+	cfg          *config.Config
+	users        *store.UserStore
+	invites      *store.InviteStore
+	messages     *store.MessageStore
+	turnServer   *turn.Server
+	peerManager  *federation.PeerManager
+	decoyHandler *DecoyHandler
+	certFP       string
+	startTime    time.Time
+	tcpListener  net.Listener // raw TCP listener for ICE-TCP mux sharing
 }
 
 // NewServer creates a new transport server.
-func NewServer(cfg *config.Config, hub *relay.Hub, users *store.UserStore, invites *store.InviteStore, turnSrv *turn.Server, pm *federation.PeerManager) *Server {
+func NewServer(cfg *config.Config, hub *relay.Hub, users *store.UserStore, invites *store.InviteStore, messages *store.MessageStore, turnSrv *turn.Server, pm *federation.PeerManager) *Server {
 	s := &Server{
-		hub:         hub,
-		cfg:         cfg,
-		users:       users,
-		invites:     invites,
-		turnServer:  turnSrv,
-		peerManager: pm,
-		startTime:   time.Now(),
+		hub:          hub,
+		cfg:          cfg,
+		users:        users,
+		invites:      invites,
+		messages:     messages,
+		turnServer:   turnSrv,
+		peerManager:  pm,
+		decoyHandler: NewDecoyHandler(cfg.Decoy),
+		startTime:    time.Now(),
 	}
 
-	mux := http.NewServeMux()
-	mux.HandleFunc("/ws", s.handleWebSocket)
-	mux.HandleFunc("/health", s.handleHealth)
+	// Internal mux for known endpoints
+	innerMux := http.NewServeMux()
+	innerMux.HandleFunc("/ws", s.handleWebSocket)
+	innerMux.HandleFunc("/v2", s.handleV2WebSocket)
+	innerMux.HandleFunc("/health", s.handleHealth)
 
-	// TURN credentials endpoint (only if TURN is enabled)
 	if turnSrv != nil {
-		mux.HandleFunc("/turn/credentials", s.handleTurnCredentials)
+		innerMux.HandleFunc("/turn/credentials", s.handleTurnCredentials)
 	}
 
-	// Federation endpoint (only if federation is enabled)
 	if pm != nil {
-		mux.HandleFunc("/federation", s.handleFederation)
+		innerMux.HandleFunc("/federation", s.handleFederation)
 	}
+
+	// Sealed sender endpoint (Phase 6)
+	innerMux.HandleFunc("/v2/sealed", s.handleSealedSend)
+
+	// Metrics endpoints (Phase 7)
+	if hub.Metrics() != nil {
+		innerMux.HandleFunc("/metrics", hub.Metrics().PrometheusHandler())
+		innerMux.HandleFunc("/metrics/json", hub.Metrics().JSONHandler())
+	}
+
+	// Probe-resistant wrapper: unknown paths → decoy
+	var handler http.Handler = s.probeResistantHandler(innerMux)
+
+	// Access logging middleware (when enabled)
+	if cfg.Privacy.AccessLog {
+		handler = accessLogMiddleware(handler)
+	}
+
+	// Server header on ALL responses — looks like nginx to scanners/DPI
+	handler = serverHeaderMiddleware(handler, "nginx/1.24.0")
 
 	s.httpServer = &http.Server{
-		Handler:      mux,
-		ReadTimeout:  15 * time.Second,
-		WriteTimeout: 15 * time.Second,
-		IdleTimeout:  120 * time.Second,
+		Handler:     handler,
+		IdleTimeout: 120 * time.Second,
+		// NOTE: ReadTimeout/WriteTimeout removed — they interfere with
+		// long-lived WebSocket connections after Hijack().
 	}
 
 	return s
+}
+
+// SetCertFP sets the TLS certificate fingerprint for v2 auth_ok.
+func (s *Server) SetCertFP(fp string) {
+	s.certFP = fp
+}
+
+// probeResistantHandler wraps the internal mux.
+// Known WS endpoints require proper WebSocket upgrade; all other paths serve the decoy.
+func (s *Server) probeResistantHandler(inner *http.ServeMux) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Strip forwarded headers if configured
+		if s.cfg.Privacy.StripForwardedHeaders {
+			r.Header.Del("X-Forwarded-For")
+			r.Header.Del("X-Real-IP")
+			r.Header.Del("Forwarded")
+		}
+
+		path := r.URL.Path
+
+		switch path {
+		case "/ws":
+			// v1 WebSocket — requires upgrade header
+			log.Printf("[transport] /ws request from %s, Connection=%q, Upgrade=%q", extractIP(r), r.Header.Get("Connection"), r.Header.Get("Upgrade"))
+			if !isWebSocketUpgrade(r) {
+				log.Printf("[transport] /ws rejected: not a WS upgrade")
+				s.decoyHandler.ServeHTTP(w, r)
+				return
+			}
+			inner.ServeHTTP(w, r)
+
+		case "/v2":
+			// v2 WebSocket — requires upgrade + pulse protocol header
+			if !isWebSocketUpgrade(r) {
+				s.decoyHandler.ServeHTTP(w, r)
+				return
+			}
+			inner.ServeHTTP(w, r)
+
+		case "/health":
+			inner.ServeHTTP(w, r)
+
+		case "/turn/credentials":
+			if s.turnServer != nil {
+				inner.ServeHTTP(w, r)
+			} else {
+				s.decoyHandler.ServeHTTP(w, r)
+			}
+
+		case "/federation":
+			if s.peerManager != nil && isWebSocketUpgrade(r) {
+				inner.ServeHTTP(w, r)
+			} else {
+				s.decoyHandler.ServeHTTP(w, r)
+			}
+
+		case "/v2/sealed":
+			// Sealed sender endpoint — requires WS upgrade
+			if !isWebSocketUpgrade(r) {
+				s.decoyHandler.ServeHTTP(w, r)
+				return
+			}
+			inner.ServeHTTP(w, r)
+
+		case "/metrics", "/metrics/json":
+			// Metrics — only if admin secret matches or metrics enabled
+			inner.ServeHTTP(w, r)
+
+		default:
+			// All unknown paths → decoy website
+			log.Printf("[transport] decoy for %s %s from %s", r.Method, path, extractIP(r))
+			s.decoyHandler.ServeHTTP(w, r)
+		}
+	})
+}
+
+func isWebSocketUpgrade(r *http.Request) bool {
+	for _, v := range r.Header.Values("Connection") {
+		// Handle comma-separated values: "keep-alive, Upgrade"
+		for _, part := range strings.Split(v, ",") {
+			if strings.EqualFold(strings.TrimSpace(part), "upgrade") {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // ListenAndServe starts the server on the configured address.
@@ -85,6 +198,7 @@ func (s *Server) ListenAndServe() error {
 	if err != nil {
 		return fmt.Errorf("failed to listen on %s: %w", addr, err)
 	}
+	s.tcpListener = ln
 
 	switch s.cfg.Server.TLSMode {
 	case "none", "":
@@ -92,11 +206,15 @@ func (s *Server) ListenAndServe() error {
 		return s.httpServer.Serve(ln)
 
 	case "self-signed":
-		tlsCfg, err := GenerateSelfSignedTLS()
+		tlsCfg, fp, err := GenerateSelfSignedTLS()
 		if err != nil {
 			ln.Close()
 			return fmt.Errorf("failed to generate self-signed TLS: %w", err)
 		}
+		s.certFP = fp
+		fmt.Printf("CERT_FP %s\n", fp)
+		log.Printf("[transport] cert fingerprint: %s", fp)
+		// NOTE: do NOT set s.httpServer.TLSConfig — it auto-enables HTTP/2 which breaks WebSocket
 		tlsLn := tls.NewListener(ln, tlsCfg)
 		log.Printf("[transport] serving TLS (self-signed) on %s", addr)
 		return s.httpServer.Serve(tlsLn)
@@ -107,13 +225,32 @@ func (s *Server) ListenAndServe() error {
 			ln.Close()
 			return fmt.Errorf("failed to load TLS certificates: %w", err)
 		}
+		s.certFP = CertFingerprint(tlsCfg)
+		if s.certFP != "" {
+			fmt.Printf("CERT_FP %s\n", s.certFP)
+			log.Printf("[transport] cert fingerprint: %s", s.certFP)
+		}
+		// NOTE: do NOT set s.httpServer.TLSConfig — it auto-enables HTTP/2 which breaks WebSocket
 		tlsLn := tls.NewListener(ln, tlsCfg)
 		log.Printf("[transport] serving TLS (manual) on %s", addr)
 		return s.httpServer.Serve(tlsLn)
 
 	case "auto":
 		ln.Close()
-		return fmt.Errorf("TLS mode 'auto' (Let's Encrypt) is not yet implemented — use 'manual' or 'self-signed'")
+		tlsCfg, acmeMgr, err := AutoTLS(s.cfg.Server.AutoTLSDomain, s.cfg.Server.DataDir)
+		if err != nil {
+			return fmt.Errorf("failed to configure auto TLS: %w", err)
+		}
+		// Start HTTP-01 challenge listener on :80
+		go http.ListenAndServe(":80", acmeMgr.HTTPHandler(nil))
+		tlsLn, err := net.Listen("tcp", addr)
+		if err != nil {
+			return fmt.Errorf("failed to listen on %s: %w", addr, err)
+		}
+		// NOTE: do NOT set s.httpServer.TLSConfig — it auto-enables HTTP/2 which breaks WebSocket
+		autoLn := tls.NewListener(tlsLn, tlsCfg)
+		log.Printf("[transport] serving TLS (auto/Let's Encrypt) on %s for domain %s", addr, s.cfg.Server.AutoTLSDomain)
+		return s.httpServer.Serve(autoLn)
 
 	default:
 		ln.Close()
@@ -126,10 +263,10 @@ func (s *Server) Shutdown(ctx context.Context) error {
 	return s.httpServer.Shutdown(ctx)
 }
 
-// handleWebSocket upgrades an HTTP connection to WebSocket and creates a client.
+// handleWebSocket upgrades an HTTP connection to WebSocket and creates a v1 client.
 func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	if s.hub.MaxConnectionsReached() {
-		http.Error(w, "server at capacity", http.StatusServiceUnavailable)
+		s.decoyHandler.ServeHTTP(w, r)
 		return
 	}
 
@@ -140,6 +277,41 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	}
 
 	client := relay.NewClient(s.hub, conn, s.cfg, s.users, s.invites)
+	client.SetRemoteIP(extractIP(r))
+	client.Start()
+}
+
+// handleV2WebSocket upgrades an HTTP connection to WebSocket with v2 protocol.
+func (s *Server) handleV2WebSocket(w http.ResponseWriter, r *http.Request) {
+	if s.hub.MaxConnectionsReached() {
+		s.decoyHandler.ServeHTTP(w, r)
+		return
+	}
+
+	// Check for pulse v2 protocol header (Sec-WebSocket-Protocol must contain "pulse.v2")
+	proto := r.Header.Get("Sec-WebSocket-Protocol")
+	if !strings.Contains(proto, "pulse.v2") {
+		// No valid protocol header → decoy response
+		s.decoyHandler.ServeHTTP(w, r)
+		return
+	}
+
+	// Upgrade with protocol negotiation
+	v2Upgrader := websocket.Upgrader{
+		ReadBufferSize:  4096,
+		WriteBufferSize: 4096,
+		CheckOrigin:     func(r *http.Request) bool { return true },
+		Subprotocols:    []string{"pulse.v2.auth"},
+	}
+
+	conn, err := v2Upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		log.Printf("[transport] v2 WebSocket upgrade failed: %v", err)
+		return
+	}
+
+	client := relay.NewClientV2(s.hub, conn, s.cfg, s.users, s.invites, s.messages, s.certFP)
+	client.SetRemoteIP(extractIP(r))
 	client.Start()
 }
 
@@ -189,7 +361,85 @@ func (s *Server) handleFederation(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// handleSealedSend upgrades to WebSocket and handles sealed sender messages.
+func (s *Server) handleSealedSend(w http.ResponseWriter, r *http.Request) {
+	conn, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		log.Printf("[transport] sealed WS upgrade failed: %v", err)
+		return
+	}
+	defer conn.Close()
+
+	// Read a single sealed_send message
+	conn.SetReadDeadline(time.Now().Add(15 * time.Second))
+	_, message, err := conn.ReadMessage()
+	if err != nil {
+		return
+	}
+
+	var sealed relay.SealedSend
+	if err := json.Unmarshal(message, &sealed); err != nil {
+		conn.WriteJSON(map[string]string{"type": "error", "code": "invalid_json"})
+		return
+	}
+
+	if sealed.Cert == "" || sealed.To == "" || sealed.Body == "" {
+		conn.WriteJSON(map[string]string{"type": "error", "code": "invalid_payload"})
+		return
+	}
+
+	if s.hub.HandleSealedSend(sealed.Cert, sealed.To, sealed.Body) {
+		conn.WriteJSON(map[string]string{"type": "sealed_ack", "status": "ok"})
+	} else {
+		conn.WriteJSON(map[string]string{"type": "error", "code": "sealed_failed"})
+	}
+}
+
 // StartTime returns the server start time.
 func (s *Server) StartTime() time.Time {
 	return s.startTime
+}
+
+// extractIP returns the remote IP from the request, stripping port.
+func extractIP(r *http.Request) string {
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		return r.RemoteAddr
+	}
+	return host
+}
+
+// accessLogMiddleware wraps a handler with request/response logging.
+func accessLogMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+		rw := &responseWriter{ResponseWriter: w, status: 200}
+		next.ServeHTTP(rw, r)
+		log.Printf("[access] %s %s %s %d %s", extractIP(r), r.Method, r.URL.Path, rw.status, time.Since(start).Truncate(time.Millisecond))
+	})
+}
+
+// serverHeaderMiddleware sets a consistent Server header on all responses
+// so health/metrics/WS endpoints don't leak the Go default.
+func serverHeaderMiddleware(next http.Handler, serverName string) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Server", serverName)
+		next.ServeHTTP(w, r)
+	})
+}
+
+type responseWriter struct {
+	http.ResponseWriter
+	status int
+}
+
+func (rw *responseWriter) WriteHeader(code int) {
+	rw.status = code
+	rw.ResponseWriter.WriteHeader(code)
+}
+
+// GetTCPListener returns the raw TCP listener for ICE-TCP mux sharing.
+// Available after ListenAndServe has been called.
+func (s *Server) GetTCPListener() net.Listener {
+	return s.tcpListener
 }

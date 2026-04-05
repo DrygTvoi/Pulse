@@ -2251,24 +2251,24 @@ class AppLocalizationsFa extends AppLocalizations {
   String get torPortInfo => 'Tor Browser: پورت 9150  •  دیمن Tor: پورت 9050';
 
   @override
-  String get torForceNostrTitle => 'Route messages through Tor';
+  String get torForceNostrTitle => 'ارسال پیام‌ها از طریق Tor';
 
   @override
   String get torForceNostrSubtitle =>
-      'All Nostr relay connections will go through Tor. Slower but hides your IP from relays.';
+      'تمام اتصالات Nostr relay از طریق Tor عبور خواهند کرد. کندتر است اما IP شما را از relay‌ها پنهان می‌کند.';
 
   @override
-  String get torForceNostrDisabled => 'Tor must be enabled first';
+  String get torForceNostrDisabled => 'ابتدا باید Tor فعال شود';
 
   @override
-  String get torForcePulseTitle => 'Route Pulse relay through Tor';
+  String get torForcePulseTitle => 'ارسال Pulse relay از طریق Tor';
 
   @override
   String get torForcePulseSubtitle =>
-      'All Pulse relay connections will go through Tor. Slower but hides your IP from the server.';
+      'تمام اتصالات Pulse relay از طریق Tor عبور خواهند کرد. کندتر است اما IP شما را از سرور پنهان می‌کند.';
 
   @override
-  String get torForcePulseDisabled => 'Tor must be enabled first';
+  String get torForcePulseDisabled => 'ابتدا باید Tor فعال شود';
 
   @override
   String get i2pProxySocks5 => 'پراکسی I2P (SOCKS5)';

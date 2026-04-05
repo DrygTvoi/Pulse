@@ -1,13 +1,23 @@
 package relay
 
 import (
+	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"log"
+	"os"
 	"sync"
 	"time"
 
+	"github.com/pion/webrtc/v4"
+
 	"github.com/nicholasgasior/pulse-server/config"
+	"github.com/nicholasgasior/pulse-server/internal/metrics"
+	"github.com/nicholasgasior/pulse-server/internal/privacy"
+	"github.com/nicholasgasior/pulse-server/internal/sfu"
 	"github.com/nicholasgasior/pulse-server/internal/store"
+	"github.com/nicholasgasior/pulse-server/internal/tunnel"
+	"github.com/nicholasgasior/pulse-server/internal/turn"
 )
 
 // Hub manages all connected clients and routes messages between them.
@@ -20,7 +30,16 @@ type Hub struct {
 	invites     *store.InviteStore
 	keys        *store.KeyStore
 	backups     *store.BackupStore
-	rateLimiter *RateLimiter
+	fileStore   *store.FileStore
+	turnServer  *turn.Server
+	sfuManager  *sfu.Manager
+	tunnelMgr   *tunnel.Manager
+	paddingSvc  *privacy.PaddingService
+	sealedSvc    *privacy.SealedSenderService
+	batchBuf     *privacy.BatchDeliveryBuffer
+	metricsCol   *metrics.Collector
+	privSettings privacy.EffectiveSettings
+	rateLimiter  *RateLimiter
 
 	register   chan *Client
 	unregister chan *Client
@@ -29,19 +48,87 @@ type Hub struct {
 
 // NewHub creates a new Hub.
 func NewHub(cfg *config.Config, users *store.UserStore, messages *store.MessageStore, invites *store.InviteStore, keys *store.KeyStore, backups *store.BackupStore) *Hub {
-	return &Hub{
-		clients:     make(map[string]*Client),
-		cfg:         cfg,
-		users:       users,
-		messages:    messages,
-		invites:     invites,
-		keys:        keys,
-		backups:     backups,
-		rateLimiter: NewRateLimiter(cfg.Limits.MessagesPerMinute),
-		register:    make(chan *Client, 64),
-		unregister:  make(chan *Client, 64),
-		stopCh:      make(chan struct{}),
+	// Resolve effective privacy settings
+	ps := privacy.ResolveSettings(
+		cfg.Privacy.Preset,
+		cfg.Privacy.Padding, cfg.Privacy.PaddingMode, cfg.Privacy.PaddingRateKbps,
+		cfg.Privacy.SealedSender, cfg.Privacy.DeliveryJitterMs,
+		cfg.Privacy.BatchDelivery, cfg.Privacy.BatchIntervalMs,
+		cfg.Privacy.Chaff, cfg.Privacy.ChaffIntervalSec,
+	)
+
+	h := &Hub{
+		clients:      make(map[string]*Client),
+		cfg:          cfg,
+		users:        users,
+		messages:     messages,
+		invites:      invites,
+		keys:         keys,
+		backups:      backups,
+		metricsCol:   metrics.NewCollector(),
+		privSettings: ps,
+		rateLimiter:  NewRateLimiter(cfg.Limits.MessagesPerMinute),
+		register:     make(chan *Client, 64),
+		unregister:   make(chan *Client, 64),
+		stopCh:       make(chan struct{}),
 	}
+
+	// Initialize batch delivery if enabled
+	if ps.BatchDelivery && ps.BatchIntervalMs > 0 {
+		h.batchBuf = privacy.NewBatchDeliveryBuffer(ps.BatchIntervalMs, func(pubkey string, msgs []privacy.PendingDelivery) {
+			h.mu.RLock()
+			client, ok := h.clients[pubkey]
+			h.mu.RUnlock()
+			if ok {
+				for _, msg := range msgs {
+					client.SendV2Direct(msg.Data)
+				}
+			}
+		})
+		h.batchBuf.Start()
+	}
+
+	return h
+}
+
+// SetFileStore sets the file store for chunked transfers.
+func (h *Hub) SetFileStore(fs *store.FileStore) {
+	h.fileStore = fs
+}
+
+// SetTurnServer sets the TURN server reference for v2 auth.
+func (h *Hub) SetTurnServer(ts *turn.Server) {
+	h.turnServer = ts
+}
+
+// SetSFUManager sets the SFU manager for media rooms.
+func (h *Hub) SetSFUManager(mgr *sfu.Manager) {
+	h.sfuManager = mgr
+}
+
+// SetTunnelManager sets the tunnel manager.
+func (h *Hub) SetTunnelManager(mgr *tunnel.Manager) {
+	h.tunnelMgr = mgr
+}
+
+// SetPaddingService sets the padding service.
+func (h *Hub) SetPaddingService(ps *privacy.PaddingService) {
+	h.paddingSvc = ps
+}
+
+// SetSealedSenderService sets the sealed sender service.
+func (h *Hub) SetSealedSenderService(ss *privacy.SealedSenderService) {
+	h.sealedSvc = ss
+}
+
+// Metrics returns the metrics collector.
+func (h *Hub) Metrics() *metrics.Collector {
+	return h.metricsCol
+}
+
+// PrivacySettings returns the effective privacy settings for v2 auth_ok.
+func (h *Hub) PrivacySettings() privacy.EffectiveSettings {
+	return h.privSettings
 }
 
 // Run starts the hub's main event loop.
@@ -58,9 +145,25 @@ func (h *Hub) Run() {
 			// If there's an existing connection for this pubkey, close it
 			if existing, ok := h.clients[client.pubkey]; ok {
 				existing.Close()
+				if h.metricsCol != nil {
+					h.metricsCol.DecConnections()
+				}
 			}
 			h.clients[client.pubkey] = client
 			h.mu.Unlock()
+
+			if h.metricsCol != nil {
+				h.metricsCol.IncConnections()
+			}
+
+			// Register for padding/chaff if enabled
+			if h.paddingSvc != nil {
+				h.paddingSvc.RegisterClient(client.pubkey,
+					func(data []byte) error { return client.SendBinaryDirect(data) },
+					func(data []byte) error { return client.SendV2Direct(data) },
+				)
+			}
+
 			log.Printf("[hub] client registered: %s", client.pubkey)
 
 		case client := <-h.unregister:
@@ -69,6 +172,26 @@ func (h *Hub) Run() {
 				delete(h.clients, client.pubkey)
 			}
 			h.mu.Unlock()
+
+			if h.metricsCol != nil {
+				h.metricsCol.DecConnections()
+			}
+
+			// Unregister from padding
+			if h.paddingSvc != nil {
+				h.paddingSvc.UnregisterClient(client.pubkey)
+			}
+
+			// Remove from all SFU rooms
+			if h.sfuManager != nil {
+				h.sfuManager.RemoveParticipantFromAll(client.pubkey)
+			}
+
+			// Close all tunnels
+			if h.tunnelMgr != nil {
+				h.tunnelMgr.CloseAllForUser(client.pubkey)
+			}
+
 			log.Printf("[hub] client unregistered: %s", client.pubkey)
 
 		case <-cleanupTicker.C:
@@ -77,6 +200,14 @@ func (h *Hub) Run() {
 				log.Printf("[hub] failed to delete expired messages: %v", err)
 			} else if n > 0 {
 				log.Printf("[hub] deleted %d expired messages", n)
+			}
+			if h.fileStore != nil {
+				fn, ferr := h.fileStore.DeleteExpiredFiles()
+				if ferr != nil {
+					log.Printf("[hub] failed to delete expired files: %v", ferr)
+				} else if fn > 0 {
+					log.Printf("[hub] deleted %d expired files", fn)
+				}
 			}
 
 		case <-rateLimitCleanup.C:
@@ -91,6 +222,10 @@ func (h *Hub) Run() {
 // Stop shuts down the hub.
 func (h *Hub) Stop() {
 	close(h.stopCh)
+
+	if h.batchBuf != nil {
+		h.batchBuf.Stop()
+	}
 
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -142,6 +277,39 @@ func (h *Hub) HandleMessage(client *Client, env *Envelope) {
 		h.handleBackupPut(client, env.Payload)
 	case TypeBackupGet:
 		h.handleBackupGet(client)
+	case TypeUploadStart:
+		h.handleUploadStart(client, env.Payload)
+	case TypeUploadResume:
+		h.handleUploadResume(client, env.Payload)
+	case TypeDownloadReq:
+		h.handleDownloadReq(client, env.Payload)
+
+	// SFU (Phase 2+3)
+	case TypeRoomCreate:
+		h.handleRoomCreate(client, env.Payload)
+	case TypeRoomJoin:
+		h.handleRoomJoin(client, env.Payload)
+	case TypeRoomLeave:
+		h.handleRoomLeave(client, env.Payload)
+	case TypeMediaOffer:
+		h.handleMediaOffer(client, env.Payload)
+	case TypeMediaCandidate:
+		h.handleMediaCandidate(client, env.Payload)
+	case TypeTrackPublish:
+		h.handleTrackPublish(client, env.Payload)
+	case TypeTrackSubscribe:
+		h.handleTrackSubscribe(client, env.Payload)
+	case TypeTrackPause, TypeTrackResume:
+		h.handleTrackPauseResume(client, env.Type, env.Payload)
+	case TypeQualityPrefer:
+		h.handleQualityPrefer(client, env.Payload)
+
+	// Tunnel (Phase 5)
+	case TypeTunnelOpen:
+		h.handleTunnelOpen(client, env.Payload)
+	case TypeTunnelClose:
+		h.handleTunnelClose(client, env.Payload)
+
 	default:
 		client.SendError("unknown_type", "unknown message type: "+env.Type)
 	}
@@ -164,6 +332,20 @@ func (h *Hub) handleSend(client *Client, payload json.RawMessage) {
 		return
 	}
 
+	// Apply bucket padding to normalize message size (Phase 6)
+	if h.privSettings.Padding {
+		targetSize := privacy.NormalizeBucketSize(len(msg.Payload))
+		if targetSize > len(msg.Payload) {
+			padded := make([]byte, targetSize)
+			copy(padded, msg.Payload)
+			// Fill remainder with spaces (valid JSON padding)
+			for i := len(msg.Payload); i < targetSize; i++ {
+				padded[i] = ' '
+			}
+			msg.Payload = json.RawMessage(padded)
+		}
+	}
+
 	if !h.rateLimiter.Allow(client.pubkey) {
 		client.SendError("rate_limited", "message rate limit exceeded")
 		return
@@ -177,6 +359,13 @@ func (h *Hub) handleSend(client *Client, payload json.RawMessage) {
 		expires = time.Now().Unix() + int64(h.cfg.Storage.MessageTTLHours)*3600
 	}
 
+	if h.metricsCol != nil {
+		h.metricsCol.IncMessagesSent()
+	}
+
+	// Apply delivery jitter if configured
+	jitter := privacy.ApplyJitter(h.privSettings.DeliveryJitterMs)
+
 	// Try to deliver to online recipient
 	h.mu.RLock()
 	recipient, online := h.clients[msg.To]
@@ -189,17 +378,35 @@ func (h *Hub) handleSend(client *Client, payload json.RawMessage) {
 			Payload: msg.Payload,
 			Created: time.Now().Unix(),
 		}
-		if err := recipient.SendEnvelope(TypeMessage, incoming); err != nil {
-			log.Printf("[hub] failed to deliver to online user %s: %v", msg.To, err)
-			// Fall through to store for offline delivery
-		} else {
-			// Delivered online — optionally store or just confirm
+
+		deliverFn := func() {
+			// Use batch delivery if enabled
+			if h.batchBuf != nil {
+				data, _ := json.Marshal(map[string]interface{}{
+					"type": TypeMessage, "id": incoming.ID,
+					"from": incoming.From, "body": string(incoming.Payload),
+					"ts": incoming.Created,
+				})
+				h.batchBuf.Enqueue(msg.To, data)
+			} else if err := recipient.SendEnvelope(TypeMessage, incoming); err != nil {
+				log.Printf("[hub] failed to deliver to online user %s: %v", msg.To, err)
+				h.storeOfflineMessage(client, msg, expires)
+			}
 			if !h.cfg.Privacy.DeleteOnAck {
 				h.storeOfflineMessage(client, msg, expires)
 			}
 			client.SendEnvelope(TypeStored, &Stored{ID: msg.ID})
-			return
 		}
+
+		if jitter > 0 {
+			go func() {
+				time.Sleep(jitter)
+				deliverFn()
+			}()
+		} else {
+			deliverFn()
+		}
+		return
 	}
 
 	// Store for offline delivery
@@ -219,6 +426,9 @@ func (h *Hub) storeOfflineMessage(client *Client, msg SendMessage, expires int64
 	if err := h.messages.StoreMessage(storeMsg); err != nil {
 		log.Printf("[hub] failed to store message %s: %v", msg.ID, err)
 		client.SendError("store_failed", "failed to store message")
+	}
+	if h.metricsCol != nil {
+		h.metricsCol.IncMessagesStored()
 	}
 }
 
@@ -244,7 +454,15 @@ func (h *Hub) handleSignal(client *Client, payload json.RawMessage) {
 	h.mu.RUnlock()
 
 	if !online {
-		client.SendError("user_offline", "recipient is not online")
+		// V2: send signal_fail instead of generic error
+		if client.protoVersion == 2 {
+			client.sendV2(TypeSignalFail, map[string]string{
+				"to":     sig.To,
+				"reason": "offline",
+			})
+		} else {
+			client.SendError("user_offline", "recipient is not online")
+		}
 		return
 	}
 
@@ -254,6 +472,10 @@ func (h *Hub) handleSignal(client *Client, payload json.RawMessage) {
 	}
 	if err := recipient.SendEnvelope(TypeInSignal, incoming); err != nil {
 		client.SendError("delivery_failed", "failed to deliver signal")
+	}
+
+	if h.metricsCol != nil {
+		h.metricsCol.IncSignals()
 	}
 }
 
@@ -422,4 +644,563 @@ func (h *Hub) handleBackupGet(client *Client) {
 		Data:     b.Data,
 		Checksum: b.Checksum,
 	})
+}
+
+// --- File transfer handlers (v2) ---
+
+func (h *Hub) handleUploadStart(client *Client, payload json.RawMessage) {
+	if h.fileStore == nil {
+		client.SendError("not_supported", "file transfer not enabled")
+		return
+	}
+
+	var req UploadStart
+	if err := json.Unmarshal(payload, &req); err != nil {
+		client.SendError("invalid_payload", "failed to parse upload_start")
+		return
+	}
+
+	if req.TotalSize <= 0 || req.ChunkCount <= 0 || req.ChunkSize <= 0 || req.TransferID == "" || req.SHA256 == "" {
+		client.SendError("invalid_payload", "missing required fields")
+		return
+	}
+
+	if req.TotalSize > h.cfg.Storage.MaxFileBytes {
+		client.SendError("file_too_large", fmt.Sprintf("file exceeds %d byte limit", h.cfg.Storage.MaxFileBytes))
+		return
+	}
+
+	used, err := h.fileStore.GetUserStorageUsed(client.pubkey)
+	if err != nil {
+		log.Printf("[hub] failed to get storage for %s: %v", client.pubkey, err)
+		client.SendError("internal_error", "failed to check quota")
+		return
+	}
+	if used+req.TotalSize > h.cfg.Storage.MaxStoragePerUser {
+		client.SendError("quota_exceeded", "storage quota exceeded")
+		return
+	}
+
+	var expires int64
+	if h.cfg.Storage.FileTTL != "" {
+		if d, derr := time.ParseDuration(h.cfg.Storage.FileTTL); derr == nil {
+			expires = time.Now().Unix() + int64(d.Seconds())
+		}
+	}
+
+	transfer := &store.FileTransfer{
+		TransferID: req.TransferID,
+		Uploader:   client.pubkey,
+		SHA256:     req.SHA256,
+		TotalSize:  req.TotalSize,
+		ChunkCount: req.ChunkCount,
+		ChunkSize:  req.ChunkSize,
+		Created:    time.Now().Unix(),
+		Expires:    expires,
+	}
+	if err := h.fileStore.CreateTransfer(transfer); err != nil {
+		log.Printf("[hub] failed to create transfer %s: %v", req.TransferID, err)
+		client.SendError("internal_error", "failed to create transfer")
+		return
+	}
+
+	client.SendEnvelope(TypeUploadAck, &UploadAckResp{
+		Type:       TypeUploadAck,
+		TransferID: req.TransferID,
+		NextChunk:  0,
+	})
+}
+
+func (h *Hub) handleUploadResume(client *Client, payload json.RawMessage) {
+	if h.fileStore == nil {
+		client.SendError("not_supported", "file transfer not enabled")
+		return
+	}
+
+	var req DownloadReq
+	if err := json.Unmarshal(payload, &req); err != nil {
+		client.SendError("invalid_payload", "failed to parse upload_resume")
+		return
+	}
+
+	transfer, err := h.fileStore.GetTransfer(req.TransferID)
+	if err != nil || transfer == nil {
+		client.SendError("not_found", "transfer not found")
+		return
+	}
+	if transfer.Uploader != client.pubkey {
+		client.SendError("forbidden", "not your transfer")
+		return
+	}
+	if transfer.Completed {
+		client.SendError("already_complete", "transfer already completed")
+		return
+	}
+
+	count, err := h.fileStore.CountChunks(req.TransferID)
+	if err != nil {
+		client.SendError("internal_error", "failed to count chunks")
+		return
+	}
+
+	client.SendEnvelope(TypeUploadAck, &UploadAckResp{
+		Type:       TypeUploadAck,
+		TransferID: req.TransferID,
+		NextChunk:  count,
+	})
+}
+
+// HandleUploadChunk processes an incoming binary chunk from a client.
+func (h *Hub) HandleUploadChunk(client *Client, transferID string, chunkIdx, totalChunks int, data []byte) {
+	if h.fileStore == nil {
+		client.SendError("not_supported", "file transfer not enabled")
+		return
+	}
+
+	transfer, err := h.fileStore.GetTransfer(transferID)
+	if err != nil || transfer == nil {
+		client.SendError("not_found", "transfer not found: "+transferID)
+		return
+	}
+	if transfer.Uploader != client.pubkey {
+		client.SendError("forbidden", "not your transfer")
+		return
+	}
+	if transfer.Completed {
+		client.SendError("already_complete", "transfer already completed")
+		return
+	}
+
+	if err := h.fileStore.WriteChunk(transferID, chunkIdx, data); err != nil {
+		log.Printf("[hub] failed to write chunk %d for %s: %v", chunkIdx, transferID, err)
+		client.SendError("internal_error", "failed to write chunk")
+		return
+	}
+
+	if h.metricsCol != nil {
+		h.metricsCol.AddUploadBytes(int64(len(data)))
+	}
+
+	count, err := h.fileStore.CountChunks(transferID)
+	if err != nil {
+		return
+	}
+
+	if count >= transfer.ChunkCount {
+		if err := h.fileStore.CompleteTransfer(transferID, transfer.SHA256, transfer.ChunkCount); err != nil {
+			log.Printf("[hub] transfer completion failed for %s: %v", transferID, err)
+			client.SendError("upload_failed", err.Error())
+			return
+		}
+		client.SendEnvelope(TypeUploadComplete, &UploadCompleteResp{
+			Type:       TypeUploadComplete,
+			TransferID: transferID,
+			FileID:     transferID,
+			Size:       transfer.TotalSize,
+		})
+	}
+}
+
+func (h *Hub) handleDownloadReq(client *Client, payload json.RawMessage) {
+	if h.fileStore == nil {
+		client.SendError("not_supported", "file transfer not enabled")
+		return
+	}
+
+	var req DownloadReq
+	if err := json.Unmarshal(payload, &req); err != nil {
+		client.SendError("invalid_payload", "failed to parse download_req")
+		return
+	}
+
+	transfer, err := h.fileStore.GetTransfer(req.TransferID)
+	if err != nil || transfer == nil {
+		client.SendError("not_found", "file not found")
+		return
+	}
+	if !transfer.Completed {
+		client.SendError("not_ready", "upload not yet completed")
+		return
+	}
+
+	blobPath := h.fileStore.GetBlobPath(req.TransferID)
+	data, err := os.ReadFile(blobPath)
+	if err != nil {
+		log.Printf("[hub] failed to read blob %s: %v", req.TransferID, err)
+		client.SendError("internal_error", "failed to read file")
+		return
+	}
+
+	tidBytes, _ := hex.DecodeString(req.TransferID)
+	if len(tidBytes) < 16 {
+		padded := make([]byte, 16)
+		copy(padded, tidBytes)
+		tidBytes = padded
+	}
+
+	chunkSize := transfer.ChunkSize
+	if chunkSize <= 0 {
+		chunkSize = 65536
+	}
+	totalChunks := (len(data) + chunkSize - 1) / chunkSize
+
+	for i := 0; i < totalChunks; i++ {
+		start := i * chunkSize
+		end := start + chunkSize
+		if end > len(data) {
+			end = len(data)
+		}
+		if err := client.SendBinaryChunk(tidBytes, uint32(i), uint32(totalChunks), data[start:end]); err != nil {
+			log.Printf("[hub] failed to send chunk %d/%d to %s: %v", i, totalChunks, client.pubkey, err)
+			return
+		}
+		if h.metricsCol != nil {
+			h.metricsCol.AddDownloadBytes(int64(end - start))
+		}
+	}
+}
+
+// --- SFU handlers (Phase 2+3) ---
+
+func (h *Hub) handleRoomCreate(client *Client, payload json.RawMessage) {
+	if h.sfuManager == nil || !h.cfg.Media.Enabled {
+		client.SendError("not_supported", "media relay not enabled")
+		return
+	}
+
+	var req RoomCreate
+	if err := json.Unmarshal(payload, &req); err != nil {
+		client.SendError("invalid_payload", "failed to parse room_create")
+		return
+	}
+
+	if h.sfuManager.RoomCount() >= h.cfg.Limits.MaxRooms {
+		client.SendError("rate_limited", "max rooms reached")
+		return
+	}
+
+	room, err := h.sfuManager.CreateRoom(client.pubkey, req.Max, req.Name, req.E2EE)
+	if err != nil {
+		client.SendError("internal_error", err.Error())
+		return
+	}
+
+	if h.metricsCol != nil {
+		h.metricsCol.IncRooms()
+	}
+
+	client.SendEnvelope(TypeRoomCreated, &RoomCreated{
+		Type:   TypeRoomCreated,
+		RoomID: room.ID,
+		Token:  room.Token,
+	})
+}
+
+func (h *Hub) handleRoomJoin(client *Client, payload json.RawMessage) {
+	if h.sfuManager == nil {
+		client.SendError("not_supported", "media relay not enabled")
+		return
+	}
+
+	var req RoomJoin
+	if err := json.Unmarshal(payload, &req); err != nil {
+		client.SendError("invalid_payload", "failed to parse room_join")
+		return
+	}
+
+	sendMsg := func(data []byte) error { return client.SendV2Direct(data) }
+	sendBin := func(data []byte) error { return client.SendBinaryDirect(data) }
+
+	room, _, err := h.sfuManager.JoinRoom(req.RoomID, req.Token, client.pubkey, sendMsg, sendBin)
+	if err != nil {
+		client.SendError("join_failed", err.Error())
+		return
+	}
+
+	// Send room_info with current participants
+	participants := room.GetParticipantInfo()
+	pInfos := make([]RoomParticipantInfo, len(participants))
+	for i, p := range participants {
+		tracks := make([]TrackShortInfo, len(p.Tracks))
+		for j, t := range p.Tracks {
+			tracks[j] = TrackShortInfo{ID: t.ID, Kind: t.Kind}
+		}
+		pInfos[i] = RoomParticipantInfo{Pubkey: p.Pubkey, Tracks: tracks}
+	}
+
+	client.SendEnvelope(TypeRoomInfo, &RoomInfo{
+		Type:         TypeRoomInfo,
+		RoomID:       req.RoomID,
+		Participants: pInfos,
+	})
+}
+
+func (h *Hub) handleRoomLeave(client *Client, payload json.RawMessage) {
+	if h.sfuManager == nil {
+		return
+	}
+
+	var req RoomLeave
+	if err := json.Unmarshal(payload, &req); err != nil {
+		return
+	}
+
+	h.sfuManager.LeaveRoom(req.RoomID, client.pubkey)
+	client.SendEnvelope(TypeRoomLeft, &RoomLeft{
+		Type:   TypeRoomLeft,
+		RoomID: req.RoomID,
+	})
+}
+
+func (h *Hub) handleMediaOffer(client *Client, payload json.RawMessage) {
+	if h.sfuManager == nil {
+		client.SendError("not_supported", "media relay not enabled")
+		return
+	}
+
+	var req MediaOffer
+	if err := json.Unmarshal(payload, &req); err != nil {
+		client.SendError("invalid_payload", "failed to parse media_offer")
+		return
+	}
+
+	answerSDP, err := h.sfuManager.HandleMediaOffer(req.RoomID, client.pubkey, req.SDP)
+	if err != nil {
+		client.SendError("media_error", err.Error())
+		return
+	}
+
+	client.SendEnvelope(TypeMediaAnswer, &MediaAnswer{
+		Type:   TypeMediaAnswer,
+		RoomID: req.RoomID,
+		SDP:    answerSDP,
+	})
+}
+
+func (h *Hub) handleMediaCandidate(client *Client, payload json.RawMessage) {
+	if h.sfuManager == nil {
+		return
+	}
+
+	var req MediaCandidate
+	if err := json.Unmarshal(payload, &req); err != nil {
+		return
+	}
+
+	candidate := webrtc.ICECandidateInit{
+		Candidate: req.Candidate,
+	}
+	if req.SDPMid != "" {
+		candidate.SDPMid = &req.SDPMid
+	}
+	idx := uint16(req.SDPMLineIndex)
+	candidate.SDPMLineIndex = &idx
+
+	h.sfuManager.HandleICECandidate(req.RoomID, client.pubkey, candidate)
+}
+
+func (h *Hub) handleTrackPublish(client *Client, payload json.RawMessage) {
+	// Track publication happens automatically via onTrack callback
+	// when the client starts sending media after SDP negotiation.
+	// This message serves as an intent notification.
+	client.SendEnvelope(TypeAckResp, &AckResponse{ID: "track_publish"})
+}
+
+func (h *Hub) handleTrackSubscribe(client *Client, payload json.RawMessage) {
+	if h.sfuManager == nil {
+		return
+	}
+
+	var req TrackSubscribe
+	if err := json.Unmarshal(payload, &req); err != nil {
+		client.SendError("invalid_payload", "failed to parse track_subscribe")
+		return
+	}
+
+	room := h.sfuManager.GetRoom(req.RoomID)
+	if room == nil {
+		client.SendError("not_found", "room not found")
+		return
+	}
+
+	if err := room.SubscribeTrackWithLayer(client.pubkey, req.TrackID, req.Layer); err != nil {
+		client.SendError("subscribe_failed", err.Error())
+		return
+	}
+
+	client.SendEnvelope(TypeTrackSubscribed, &TrackSubscribed{
+		Type:    TypeTrackSubscribed,
+		RoomID:  req.RoomID,
+		TrackID: req.TrackID,
+	})
+}
+
+func (h *Hub) handleTrackPauseResume(client *Client, msgType string, payload json.RawMessage) {
+	if h.sfuManager == nil {
+		return
+	}
+
+	var req TrackPause
+	if err := json.Unmarshal(payload, &req); err != nil {
+		return
+	}
+
+	room := h.sfuManager.GetRoom(req.RoomID)
+	if room == nil {
+		return
+	}
+
+	if msgType == TypeTrackPause {
+		room.UnsubscribeTrack(client.pubkey, req.TrackID)
+	} else {
+		room.SubscribeTrack(client.pubkey, req.TrackID)
+	}
+}
+
+func (h *Hub) handleQualityPrefer(client *Client, payload json.RawMessage) {
+	if h.sfuManager == nil {
+		client.SendEnvelope(TypeAckResp, &AckResponse{ID: "quality"})
+		return
+	}
+
+	var req QualityPrefer
+	if err := json.Unmarshal(payload, &req); err != nil {
+		client.SendError("invalid_payload", "failed to parse quality_prefer")
+		return
+	}
+
+	room := h.sfuManager.GetRoom(req.RoomID)
+	if room == nil {
+		client.SendError("not_found", "room not found")
+		return
+	}
+
+	if req.Layer != "" {
+		if err := room.SwitchLayer(client.pubkey, req.TrackID, req.Layer); err != nil {
+			client.SendError("switch_failed", err.Error())
+			return
+		}
+	}
+
+	client.SendEnvelope(TypeAckResp, &AckResponse{ID: "quality"})
+}
+
+// --- Tunnel handlers (Phase 5) ---
+
+func (h *Hub) handleTunnelOpen(client *Client, payload json.RawMessage) {
+	if h.tunnelMgr == nil || !h.cfg.Tunnel.Enabled {
+		client.SendError("not_supported", "tunnel not enabled")
+		return
+	}
+
+	var req TunnelOpen
+	if err := json.Unmarshal(payload, &req); err != nil {
+		client.SendError("invalid_payload", "failed to parse tunnel_open")
+		return
+	}
+
+	sendBin := func(data []byte) error {
+		return client.SendBinaryDirect(data)
+	}
+
+	remoteIP, err := h.tunnelMgr.OpenTunnel(client.pubkey, req.TunnelID, req.Host, req.Port, sendBin)
+	if err != nil {
+		client.SendEnvelope(TypeTunnelError, &TunnelError{
+			Type:     TypeTunnelError,
+			TunnelID: req.TunnelID,
+			Reason:   err.Error(),
+		})
+		return
+	}
+
+	if h.metricsCol != nil {
+		h.metricsCol.IncTunnels()
+	}
+
+	client.SendEnvelope(TypeTunnelOpened, &TunnelOpened{
+		Type:     TypeTunnelOpened,
+		TunnelID: req.TunnelID,
+		RemoteIP: remoteIP,
+	})
+}
+
+func (h *Hub) handleTunnelClose(client *Client, payload json.RawMessage) {
+	if h.tunnelMgr == nil {
+		return
+	}
+
+	var req TunnelClose
+	if err := json.Unmarshal(payload, &req); err != nil {
+		return
+	}
+
+	h.tunnelMgr.CloseTunnel(client.pubkey, req.TunnelID)
+	if h.metricsCol != nil {
+		h.metricsCol.DecTunnels()
+	}
+}
+
+// HandleTunnelData handles binary tunnel data from client (0x20 frames).
+func (h *Hub) HandleTunnelData(client *Client, data []byte) {
+	if h.tunnelMgr == nil {
+		return
+	}
+	h.tunnelMgr.HandleTunnelData(client.pubkey, data)
+}
+
+// HandleWSRelayMedia handles binary ws-relay media frames (0x10-0x15).
+func (h *Hub) HandleWSRelayMedia(client *Client, data []byte) {
+	if h.sfuManager == nil {
+		return
+	}
+	h.sfuManager.HandleWSRelayFrame(client.pubkey, data)
+}
+
+// HandleSealedSend processes a sealed sender message.
+func (h *Hub) HandleSealedSend(cert, to, body string) bool {
+	if h.sealedSvc == nil || !h.privSettings.SealedSender {
+		return false
+	}
+
+	if !h.sealedSvc.VerifyCert(cert) {
+		return false
+	}
+
+	// Deliver to recipient (we don't know the sender — that's the point)
+	h.mu.RLock()
+	recipient, online := h.clients[to]
+	h.mu.RUnlock()
+
+	if online {
+		msg := map[string]interface{}{
+			"type": "message",
+			"id":   fmt.Sprintf("sealed_%d", time.Now().UnixNano()),
+			"from": "sealed",
+			"body": body,
+			"ts":   time.Now().Unix(),
+		}
+		data, _ := json.Marshal(msg)
+		recipient.SendV2Direct(data)
+		return true
+	}
+
+	// Store for offline delivery (no sender info)
+	storeMsg := &store.Message{
+		ID:      fmt.Sprintf("sealed_%d", time.Now().UnixNano()),
+		FromKey: "sealed",
+		ToKey:   to,
+		Payload: json.RawMessage(fmt.Sprintf(`"%s"`, body)),
+		Created: time.Now().Unix(),
+		Expires: time.Now().Unix() + int64(h.cfg.Storage.MessageTTLHours)*3600,
+	}
+	h.messages.StoreMessage(storeMsg)
+	return true
+}
+
+// GetSealedCerts returns delivery certificates for a user (called during auth_ok).
+func (h *Hub) GetSealedCerts() []privacy.DeliveryCert {
+	if h.sealedSvc == nil || !h.privSettings.SealedSender {
+		return nil
+	}
+	return h.sealedSvc.IssueCerts()
 }

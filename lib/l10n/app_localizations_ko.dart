@@ -2177,24 +2177,24 @@ class AppLocalizationsKo extends AppLocalizations {
   String get torPortInfo => 'Tor Browser: 포트 9150  •  tor 데몬: 포트 9050';
 
   @override
-  String get torForceNostrTitle => 'Route messages through Tor';
+  String get torForceNostrTitle => '메시지를 Tor를 통해 전송';
 
   @override
   String get torForceNostrSubtitle =>
-      'All Nostr relay connections will go through Tor. Slower but hides your IP from relays.';
+      '모든 Nostr 릴레이 연결이 Tor를 통해 이루어집니다. 느리지만 릴레이로부터 IP를 숨깁니다.';
 
   @override
-  String get torForceNostrDisabled => 'Tor must be enabled first';
+  String get torForceNostrDisabled => '먼저 Tor를 활성화해야 합니다';
 
   @override
-  String get torForcePulseTitle => 'Route Pulse relay through Tor';
+  String get torForcePulseTitle => 'Pulse 릴레이를 Tor를 통해 연결';
 
   @override
   String get torForcePulseSubtitle =>
-      'All Pulse relay connections will go through Tor. Slower but hides your IP from the server.';
+      '모든 Pulse 릴레이 연결이 Tor를 통해 이루어집니다. 느리지만 서버로부터 IP를 숨깁니다.';
 
   @override
-  String get torForcePulseDisabled => 'Tor must be enabled first';
+  String get torForcePulseDisabled => '먼저 Tor를 활성화해야 합니다';
 
   @override
   String get i2pProxySocks5 => 'I2P 프록시 (SOCKS5)';

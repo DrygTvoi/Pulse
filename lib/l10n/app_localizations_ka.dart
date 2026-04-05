@@ -2272,24 +2272,24 @@ class AppLocalizationsKa extends AppLocalizations {
       'Tor Browser: პორტი 9150  •  Tor დემონი: პორტი 9050';
 
   @override
-  String get torForceNostrTitle => 'Route messages through Tor';
+  String get torForceNostrTitle => 'შეტყობინებების გაგზავნა Tor-ით';
 
   @override
   String get torForceNostrSubtitle =>
-      'All Nostr relay connections will go through Tor. Slower but hides your IP from relays.';
+      'ყველა Nostr relay კავშირი გაივლის Tor-ს. უფრო ნელია, მაგრამ მალავს თქვენს IP-ს relay-ებისგან.';
 
   @override
-  String get torForceNostrDisabled => 'Tor must be enabled first';
+  String get torForceNostrDisabled => 'ჯერ Tor უნდა ჩაირთოს';
 
   @override
-  String get torForcePulseTitle => 'Route Pulse relay through Tor';
+  String get torForcePulseTitle => 'Pulse relay-ის გატარება Tor-ით';
 
   @override
   String get torForcePulseSubtitle =>
-      'All Pulse relay connections will go through Tor. Slower but hides your IP from the server.';
+      'ყველა Pulse relay კავშირი გაივლის Tor-ს. უფრო ნელია, მაგრამ მალავს თქვენს IP-ს სერვერისგან.';
 
   @override
-  String get torForcePulseDisabled => 'Tor must be enabled first';
+  String get torForcePulseDisabled => 'ჯერ Tor უნდა ჩაირთოს';
 
   @override
   String get i2pProxySocks5 => 'I2P პროქსი (SOCKS5)';

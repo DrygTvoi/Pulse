@@ -2263,24 +2263,24 @@ class AppLocalizationsAr extends AppLocalizations {
   String get torPortInfo => 'متصفح Tor: المنفذ 9150  •  خدمة tor: المنفذ 9050';
 
   @override
-  String get torForceNostrTitle => 'Route messages through Tor';
+  String get torForceNostrTitle => 'توجيه الرسائل عبر Tor';
 
   @override
   String get torForceNostrSubtitle =>
-      'All Nostr relay connections will go through Tor. Slower but hides your IP from relays.';
+      'جميع اتصالات Nostr relay ستمر عبر Tor. أبطأ لكنه يخفي عنوان IP الخاص بك من الـ relay.';
 
   @override
-  String get torForceNostrDisabled => 'Tor must be enabled first';
+  String get torForceNostrDisabled => 'يجب تفعيل Tor أولاً';
 
   @override
-  String get torForcePulseTitle => 'Route Pulse relay through Tor';
+  String get torForcePulseTitle => 'توجيه Pulse relay عبر Tor';
 
   @override
   String get torForcePulseSubtitle =>
-      'All Pulse relay connections will go through Tor. Slower but hides your IP from the server.';
+      'جميع اتصالات Pulse relay ستمر عبر Tor. أبطأ لكنه يخفي عنوان IP الخاص بك من الخادم.';
 
   @override
-  String get torForcePulseDisabled => 'Tor must be enabled first';
+  String get torForcePulseDisabled => 'يجب تفعيل Tor أولاً';
 
   @override
   String get i2pProxySocks5 => 'وكيل I2P (SOCKS5)';

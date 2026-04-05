@@ -2260,24 +2260,24 @@ class AppLocalizationsKm extends AppLocalizations {
   String get torPortInfo => 'Tor Browser: port 9150  •  ដេមិន tor: port 9050';
 
   @override
-  String get torForceNostrTitle => 'Route messages through Tor';
+  String get torForceNostrTitle => 'បញ្ជូនសារតាម Tor';
 
   @override
   String get torForceNostrSubtitle =>
-      'All Nostr relay connections will go through Tor. Slower but hides your IP from relays.';
+      'ការតភ្ជាប់ Nostr relay ទាំងអស់នឹងឆ្លងកាត់ Tor។ យឺតជាង ប៉ុន្តែលាក់ IP របស់អ្នកពី relay។';
 
   @override
-  String get torForceNostrDisabled => 'Tor must be enabled first';
+  String get torForceNostrDisabled => 'ត្រូវបើក Tor ជាមុនសិន';
 
   @override
-  String get torForcePulseTitle => 'Route Pulse relay through Tor';
+  String get torForcePulseTitle => 'បញ្ជូន Pulse relay តាម Tor';
 
   @override
   String get torForcePulseSubtitle =>
-      'All Pulse relay connections will go through Tor. Slower but hides your IP from the server.';
+      'ការតភ្ជាប់ Pulse relay ទាំងអស់នឹងឆ្លងកាត់ Tor។ យឺតជាង ប៉ុន្តែលាក់ IP របស់អ្នកពីម៉ាស៊ីនមេ។';
 
   @override
-  String get torForcePulseDisabled => 'Tor must be enabled first';
+  String get torForcePulseDisabled => 'ត្រូវបើក Tor ជាមុនសិន';
 
   @override
   String get i2pProxySocks5 => 'I2P Proxy (SOCKS5)';

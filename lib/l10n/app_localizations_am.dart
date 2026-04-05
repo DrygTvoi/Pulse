@@ -2219,24 +2219,24 @@ class AppLocalizationsAm extends AppLocalizations {
   String get torPortInfo => 'Tor Browser: ፖርት 9150  •  tor daemon: ፖርት 9050';
 
   @override
-  String get torForceNostrTitle => 'Route messages through Tor';
+  String get torForceNostrTitle => 'መልዕክቶችን በ Tor በኩል አስተላልፍ';
 
   @override
   String get torForceNostrSubtitle =>
-      'All Nostr relay connections will go through Tor. Slower but hides your IP from relays.';
+      'ሁሉም የ Nostr relay ግንኙነቶች በ Tor ይሄዳሉ። ቀርፋፋ ነው ግን IP አድራሻዎን ከ relay ይደብቃል።';
 
   @override
-  String get torForceNostrDisabled => 'Tor must be enabled first';
+  String get torForceNostrDisabled => 'Tor መጀመሪያ መንቃት አለበት';
 
   @override
-  String get torForcePulseTitle => 'Route Pulse relay through Tor';
+  String get torForcePulseTitle => 'Pulse relay በ Tor በኩል አስተላልፍ';
 
   @override
   String get torForcePulseSubtitle =>
-      'All Pulse relay connections will go through Tor. Slower but hides your IP from the server.';
+      'ሁሉም የ Pulse relay ግንኙነቶች በ Tor ይሄዳሉ። ቀርፋፋ ነው ግን IP አድራሻዎን ከሰርቨር ይደብቃል።';
 
   @override
-  String get torForcePulseDisabled => 'Tor must be enabled first';
+  String get torForcePulseDisabled => 'Tor መጀመሪያ መንቃት አለበት';
 
   @override
   String get i2pProxySocks5 => 'I2P ፕሮክሲ (SOCKS5)';

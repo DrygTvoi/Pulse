@@ -2159,24 +2159,24 @@ class AppLocalizationsZh extends AppLocalizations {
   String get torPortInfo => 'Tor Browser：端口 9150  •  tor 守护进程：端口 9050';
 
   @override
-  String get torForceNostrTitle => 'Route messages through Tor';
+  String get torForceNostrTitle => '通过 Tor 路由消息';
 
   @override
   String get torForceNostrSubtitle =>
-      'All Nostr relay connections will go through Tor. Slower but hides your IP from relays.';
+      '所有 Nostr 中继连接将通过 Tor 传输。速度较慢，但可向中继隐藏您的 IP 地址。';
 
   @override
-  String get torForceNostrDisabled => 'Tor must be enabled first';
+  String get torForceNostrDisabled => '必须先启用 Tor';
 
   @override
-  String get torForcePulseTitle => 'Route Pulse relay through Tor';
+  String get torForcePulseTitle => '通过 Tor 路由 Pulse 中继';
 
   @override
   String get torForcePulseSubtitle =>
-      'All Pulse relay connections will go through Tor. Slower but hides your IP from the server.';
+      '所有 Pulse 中继连接将通过 Tor 传输。速度较慢，但可向服务器隐藏您的 IP 地址。';
 
   @override
-  String get torForcePulseDisabled => 'Tor must be enabled first';
+  String get torForcePulseDisabled => '必须先启用 Tor';
 
   @override
   String get i2pProxySocks5 => 'I2P 代理（SOCKS5）';

@@ -2231,24 +2231,24 @@ class AppLocalizationsHe extends AppLocalizations {
   String get torPortInfo => 'דפדפן Tor: פורט 9150  •  שירות Tor: פורט 9050';
 
   @override
-  String get torForceNostrTitle => 'Route messages through Tor';
+  String get torForceNostrTitle => 'נתב הודעות דרך Tor';
 
   @override
   String get torForceNostrSubtitle =>
-      'All Nostr relay connections will go through Tor. Slower but hides your IP from relays.';
+      'כל חיבורי Nostr relay יעברו דרך Tor. איטי יותר אך מסתיר את כתובת ה-IP שלך מה-relay.';
 
   @override
-  String get torForceNostrDisabled => 'Tor must be enabled first';
+  String get torForceNostrDisabled => 'יש להפעיל את Tor קודם';
 
   @override
-  String get torForcePulseTitle => 'Route Pulse relay through Tor';
+  String get torForcePulseTitle => 'נתב Pulse relay דרך Tor';
 
   @override
   String get torForcePulseSubtitle =>
-      'All Pulse relay connections will go through Tor. Slower but hides your IP from the server.';
+      'כל חיבורי Pulse relay יעברו דרך Tor. איטי יותר אך מסתיר את כתובת ה-IP שלך מהשרת.';
 
   @override
-  String get torForcePulseDisabled => 'Tor must be enabled first';
+  String get torForcePulseDisabled => 'יש להפעיל את Tor קודם';
 
   @override
   String get i2pProxySocks5 => 'פרוקסי I2P (SOCKS5)';

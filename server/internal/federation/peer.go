@@ -129,6 +129,18 @@ func (p *Peer) Send(env *FederatedEnvelope) error {
 	}
 }
 
+// SendRaw queues raw JSON bytes for delivery to this peer.
+func (p *Peer) SendRaw(data []byte) error {
+	select {
+	case p.send <- data:
+		return nil
+	case <-p.done:
+		return fmt.Errorf("peer is disconnected")
+	default:
+		return fmt.Errorf("peer send buffer full")
+	}
+}
+
 // IsConnected returns whether the peer has an active connection.
 func (p *Peer) IsConnected() bool {
 	p.mu.Lock()

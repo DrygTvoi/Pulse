@@ -5,7 +5,7 @@ import (
 	"fmt"
 )
 
-const currentVersion = 1
+const currentVersion = 4
 
 var migrations = []string{
 	// Version 1: initial schema
@@ -57,6 +57,45 @@ var migrations = []string{
 		enabled INTEGER NOT NULL DEFAULT 1,
 		added INTEGER NOT NULL
 	);`,
+
+	// Version 2: file transfer store
+	`CREATE TABLE IF NOT EXISTS file_store (
+		transfer_id TEXT PRIMARY KEY,
+		uploader TEXT NOT NULL,
+		sha256 TEXT NOT NULL,
+		total_size INTEGER NOT NULL,
+		chunk_count INTEGER NOT NULL,
+		chunk_size INTEGER NOT NULL,
+		completed INTEGER NOT NULL DEFAULT 0,
+		created INTEGER NOT NULL,
+		expires INTEGER NOT NULL DEFAULT 0
+	);
+
+	CREATE INDEX IF NOT EXISTS idx_file_store_uploader ON file_store(uploader);
+	CREATE INDEX IF NOT EXISTS idx_file_store_expires ON file_store(expires);`,
+
+	// Version 3: federation v2 hints + sealed sender secrets + admin/metrics tables
+	`CREATE TABLE IF NOT EXISTS fed_user_hints (
+		pubkey TEXT NOT NULL,
+		peer_pubkey TEXT NOT NULL,
+		last_seen INTEGER NOT NULL,
+		PRIMARY KEY (pubkey, peer_pubkey)
+	);
+
+	CREATE TABLE IF NOT EXISTS server_secrets (
+		key TEXT PRIMARY KEY,
+		value BLOB NOT NULL,
+		updated INTEGER NOT NULL
+	);
+
+	ALTER TABLE federation_peers ADD COLUMN server_name TEXT NOT NULL DEFAULT '';
+	ALTER TABLE federation_peers ADD COLUMN server_version TEXT NOT NULL DEFAULT '';
+	ALTER TABLE federation_peers ADD COLUMN features TEXT NOT NULL DEFAULT '';
+	ALTER TABLE federation_peers ADD COLUMN user_count INTEGER NOT NULL DEFAULT 0;
+	ALTER TABLE federation_peers ADD COLUMN last_seen INTEGER NOT NULL DEFAULT 0;`,
+
+	// Version 4: client IP tracking (optional, controlled by store_client_ip config)
+	`ALTER TABLE users ADD COLUMN last_ip TEXT NOT NULL DEFAULT '';`,
 }
 
 // Migrate runs all pending migrations.
