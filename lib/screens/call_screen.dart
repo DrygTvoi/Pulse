@@ -18,6 +18,7 @@ import '../models/contact.dart';
 import '../models/message.dart';
 import '../l10n/l10n_ext.dart';
 import '../controllers/chat_controller.dart';
+import '../utils/platform_utils.dart';
 
 const _kScreenShareChannel = MethodChannel('im.pulse.messenger/screen_share');
 
@@ -1034,71 +1035,93 @@ class _CallScreenState extends State<CallScreen> {
       int currentFps, int currentResWidth) async {
     int selFps = currentFps;
     int selResWidth = currentResWidth;
-    final result = await showModalBottomSheet<(int, int)>(
-      context: context,
-      backgroundColor: AppTheme.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setS) => Padding(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(child: Container(width: 36, height: 4,
-                decoration: BoxDecoration(
-                  color: AppTheme.textSecondary.withOpacity(0.3),
-                  borderRadius: BorderRadius.circular(2)))),
-              const SizedBox(height: 16),
-              Text('Screen Share Quality',
-                style: GoogleFonts.inter(color: AppTheme.textPrimary,
-                  fontSize: 16, fontWeight: FontWeight.w700)),
-              const SizedBox(height: 16),
-              Text('Frame rate', style: GoogleFonts.inter(
-                color: AppTheme.textSecondary, fontSize: 12)),
-              const SizedBox(height: 8),
-              _buildQualityChips(
-                options: const [15, 30, 60],
-                labels: const ['15 fps', '30 fps', '60 fps'],
-                selected: selFps,
-                onSelect: (v) => setS(() => selFps = v),
-              ),
-              const SizedBox(height: 16),
-              Text('Resolution', style: GoogleFonts.inter(
-                color: AppTheme.textSecondary, fontSize: 12)),
-              const SizedBox(height: 8),
-              _buildQualityChips(
-                options: const [1280, 1920, 2560, 0],
-                labels: const ['720p', '1080p', '1440p', 'Auto'],
-                selected: selResWidth,
-                onSelect: (v) => setS(() => selResWidth = v),
-              ),
-              const SizedBox(height: 6),
-              Text('Auto = native screen resolution',
-                style: GoogleFonts.inter(color: AppTheme.textSecondary,
-                  fontSize: 11)),
-              const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.primary,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
-                    padding: const EdgeInsets.symmetric(vertical: 14)),
-                  onPressed: () => Navigator.pop(ctx, (selFps, selResWidth)),
-                  child: Text('Start sharing',
-                    style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
-                ),
-              ),
-            ],
+    Widget sheetContent(BuildContext ctx, StateSetter setS) => Padding(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (!PlatformUtils.isDesktop)
+            Center(child: Container(width: 36, height: 4,
+              decoration: BoxDecoration(
+                color: AppTheme.textSecondary.withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(2)))),
+          if (!PlatformUtils.isDesktop) const SizedBox(height: 16),
+          Text('Screen Share Quality',
+            style: GoogleFonts.inter(color: AppTheme.textPrimary,
+              fontSize: 16, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 16),
+          Text('Frame rate', style: GoogleFonts.inter(
+            color: AppTheme.textSecondary, fontSize: 12)),
+          const SizedBox(height: 8),
+          _buildQualityChips(
+            options: const [15, 30, 60],
+            labels: const ['15 fps', '30 fps', '60 fps'],
+            selected: selFps,
+            onSelect: (v) => setS(() => selFps = v),
           ),
-        ),
+          const SizedBox(height: 16),
+          Text('Resolution', style: GoogleFonts.inter(
+            color: AppTheme.textSecondary, fontSize: 12)),
+          const SizedBox(height: 8),
+          _buildQualityChips(
+            options: const [1280, 1920, 2560, 0],
+            labels: const ['720p', '1080p', '1440p', 'Auto'],
+            selected: selResWidth,
+            onSelect: (v) => setS(() => selResWidth = v),
+          ),
+          const SizedBox(height: 6),
+          Text('Auto = native screen resolution',
+            style: GoogleFonts.inter(color: AppTheme.textSecondary,
+              fontSize: 11)),
+          const SizedBox(height: 20),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primary,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+                padding: const EdgeInsets.symmetric(vertical: 14)),
+              onPressed: () => Navigator.pop(ctx, (selFps, selResWidth)),
+              child: Text('Start sharing',
+                style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
+            ),
+          ),
+        ],
       ),
     );
+
+    final (int, int)? result;
+    if (PlatformUtils.isDesktop) {
+      result = await showDialog<(int, int)>(
+        context: context,
+        builder: (ctx) => Dialog(
+          backgroundColor: AppTheme.surface,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 400),
+            child: StatefulBuilder(
+              builder: (ctx, setS) => sheetContent(ctx, setS),
+            ),
+          ),
+        ),
+      );
+    } else {
+      result = await showModalBottomSheet<(int, int)>(
+        context: context,
+        backgroundColor: AppTheme.surface,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        builder: (ctx) => StatefulBuilder(
+          builder: (ctx, setS) => sheetContent(ctx, setS),
+        ),
+      );
+    }
     return result;
   }
 

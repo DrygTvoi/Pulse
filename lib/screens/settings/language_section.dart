@@ -5,6 +5,7 @@ import '../../theme/app_theme.dart';
 import '../../theme/design_tokens.dart';
 import '../../l10n/l10n_ext.dart';
 import '../../services/locale_notifier.dart';
+import '../../utils/platform_utils.dart';
 import 'settings_widgets.dart';
 
 class LanguageSection extends StatelessWidget {
@@ -30,77 +31,101 @@ class LanguageSection extends StatelessWidget {
   void _showLanguagePicker(BuildContext context) {
     final current = LocaleNotifier.instance.locale;
 
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: AppTheme.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      isScrollControlled: true,
-      builder: (ctx) {
-        return DraggableScrollableSheet(
-          initialChildSize: 0.6,
-          maxChildSize: 0.85,
-          minChildSize: 0.4,
-          expand: false,
-          builder: (_, scrollController) {
-            return Column(
+    Widget languageList(BuildContext ctx, {ScrollController? scrollController}) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (!PlatformUtils.isDesktop) ...[
+            const SizedBox(height: 12),
+            Container(
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppTheme.textSecondary.withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ],
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Text(
+              context.l10n.settingsLanguage,
+              style: GoogleFonts.inter(
+                color: AppTheme.textPrimary,
+                fontWeight: FontWeight.w700,
+                fontSize: DesignTokens.fontXl,
+              ),
+            ),
+          ),
+          Expanded(
+            child: ListView(
+              controller: scrollController,
+              shrinkWrap: PlatformUtils.isDesktop,
               children: [
-                const SizedBox(height: 12),
-                Container(
-                  width: 36,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: AppTheme.textSecondary.withValues(alpha: 0.3),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
+                // System default option
+                _LanguageTile(
+                  title: context.l10n.settingsLanguageSystem,
+                  selected: current == null,
+                  onTap: () {
+                    LocaleNotifier.instance.setLocale(null);
+                    Navigator.pop(ctx);
+                  },
                 ),
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Text(
-                    context.l10n.settingsLanguage,
-                    style: GoogleFonts.inter(
-                      color: AppTheme.textPrimary,
-                      fontWeight: FontWeight.w700,
-                      fontSize: DesignTokens.fontXl,
-                    ),
-                  ),
-                ),
-                Expanded(
-                  child: ListView(
-                    controller: scrollController,
-                    children: [
-                      // System default option
-                      _LanguageTile(
-                        title: context.l10n.settingsLanguageSystem,
-                        selected: current == null,
-                        onTap: () {
-                          LocaleNotifier.instance.setLocale(null);
-                          Navigator.pop(ctx);
-                        },
-                      ),
-                      const Divider(height: 1),
-                      // All supported languages
-                      ...LocaleNotifier.nativeNames.entries.map((e) {
-                        final locale = Locale(e.key);
-                        return _LanguageTile(
-                          title: e.value,
-                          selected: current?.languageCode == e.key,
-                          onTap: () {
-                            LocaleNotifier.instance.setLocale(locale);
-                            Navigator.pop(ctx);
-                          },
-                        );
-                      }),
-                    ],
-                  ),
-                ),
+                const Divider(height: 1),
+                // All supported languages
+                ...LocaleNotifier.nativeNames.entries.map((e) {
+                  final locale = Locale(e.key);
+                  return _LanguageTile(
+                    title: e.value,
+                    selected: current?.languageCode == e.key,
+                    onTap: () {
+                      LocaleNotifier.instance.setLocale(locale);
+                      Navigator.pop(ctx);
+                    },
+                  );
+                }),
               ],
-            );
-          },
-        );
-      },
-    );
+            ),
+          ),
+        ],
+      );
+    }
+
+    if (PlatformUtils.isDesktop) {
+      showDialog(
+        context: context,
+        builder: (ctx) => Dialog(
+          backgroundColor: AppTheme.surface,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 420, maxHeight: 500),
+            child: languageList(ctx),
+          ),
+        ),
+      );
+    } else {
+      showModalBottomSheet(
+        context: context,
+        backgroundColor: AppTheme.surface,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        isScrollControlled: true,
+        builder: (ctx) {
+          return DraggableScrollableSheet(
+            initialChildSize: 0.6,
+            maxChildSize: 0.85,
+            minChildSize: 0.4,
+            expand: false,
+            builder: (_, scrollController) {
+              return languageList(ctx, scrollController: scrollController);
+            },
+          );
+        },
+      );
+    }
   }
 }
 

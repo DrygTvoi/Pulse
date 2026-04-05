@@ -4,6 +4,9 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:emoji_picker_flutter/emoji_picker_flutter.dart' as emoji_pkg;
 import '../theme/app_theme.dart';
+import '../theme/design_tokens.dart';
+import '../utils/adaptive_sheet.dart';
+import '../utils/platform_utils.dart';
 import '../models/message.dart';
 import '../models/contact.dart';
 import '../models/contact_repository.dart';
@@ -119,6 +122,135 @@ void showMessageMenu({
   );
 }
 
+/// Shows a desktop right-click context menu for a message, positioned at
+/// the click point. Same actions as [showMessageMenu] but rendered as a
+/// [PopupMenuButton]-style overlay instead of a bottom sheet.
+void showMessageContextMenu({
+  required BuildContext context,
+  required Offset position,
+  required Message message,
+  required String myId,
+  required VoidCallback onReply,
+  required void Function(Message) onForward,
+  required void Function(String msgId) onShowEmojiPicker,
+  required void Function(Message) onDelete,
+  required void Function(String id, String text) onEdit,
+  required Contact contact,
+}) {
+  final chatController = context.read<ChatController>();
+  final isMe = message.senderId == myId;
+
+  final items = <PopupMenuEntry<String>>[
+    PopupMenuItem<String>(
+      value: 'reply',
+      child: Row(children: [
+        Icon(Icons.reply_rounded, color: AppTheme.textSecondary, size: 20),
+        const SizedBox(width: 12),
+        Text(context.l10n.menuReply,
+            style: GoogleFonts.inter(color: AppTheme.textPrimary)),
+      ]),
+    ),
+    PopupMenuItem<String>(
+      value: 'forward',
+      child: Row(children: [
+        Icon(Icons.forward_rounded, color: AppTheme.textSecondary, size: 20),
+        const SizedBox(width: 12),
+        Text(context.l10n.menuForward,
+            style: GoogleFonts.inter(color: AppTheme.textPrimary)),
+      ]),
+    ),
+    PopupMenuItem<String>(
+      value: 'react',
+      child: Row(children: [
+        Icon(Icons.add_reaction_outlined, color: AppTheme.textSecondary, size: 20),
+        const SizedBox(width: 12),
+        Text(context.l10n.menuReact,
+            style: GoogleFonts.inter(color: AppTheme.textPrimary)),
+      ]),
+    ),
+    PopupMenuItem<String>(
+      value: 'copy',
+      child: Row(children: [
+        Icon(Icons.copy_rounded, color: AppTheme.textSecondary, size: 20),
+        const SizedBox(width: 12),
+        Text(context.l10n.menuCopy,
+            style: GoogleFonts.inter(color: AppTheme.textPrimary)),
+      ]),
+    ),
+    if (isMe && !MediaService.isMediaPayload(message.encryptedPayload))
+      PopupMenuItem<String>(
+        value: 'edit',
+        child: Row(children: [
+          Icon(Icons.edit_outlined, color: AppTheme.primary, size: 20),
+          const SizedBox(width: 12),
+          Text(context.l10n.menuEdit,
+              style: GoogleFonts.inter(color: AppTheme.primary)),
+        ]),
+      ),
+    if (message.status == 'failed')
+      PopupMenuItem<String>(
+        value: 'retry',
+        child: Row(children: [
+          Icon(Icons.refresh_rounded, color: AppTheme.primary, size: 20),
+          const SizedBox(width: 12),
+          Text(context.l10n.menuRetry,
+              style: GoogleFonts.inter(color: AppTheme.primary)),
+        ]),
+      ),
+    if (message.status == 'scheduled')
+      PopupMenuItem<String>(
+        value: 'cancel_scheduled',
+        child: Row(children: [
+          const Icon(Icons.cancel_rounded, color: Colors.redAccent, size: 20),
+          const SizedBox(width: 12),
+          Text(context.l10n.menuCancelScheduled,
+              style: GoogleFonts.inter(color: Colors.redAccent)),
+        ]),
+      ),
+    PopupMenuItem<String>(
+      value: 'delete',
+      child: Row(children: [
+        const Icon(Icons.delete_outline_rounded, color: Colors.redAccent, size: 20),
+        const SizedBox(width: 12),
+        Text(context.l10n.menuDelete,
+            style: GoogleFonts.inter(color: Colors.redAccent)),
+      ]),
+    ),
+  ];
+
+  showMenu<String>(
+    context: context,
+    position: RelativeRect.fromLTRB(
+      position.dx, position.dy, position.dx, position.dy,
+    ),
+    color: AppTheme.surface,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(DesignTokens.contextMenuRadius),
+    ),
+    items: items,
+  ).then((value) {
+    if (value == null) return;
+    switch (value) {
+      case 'reply':
+        onReply();
+      case 'forward':
+        onForward(message);
+      case 'react':
+        onShowEmojiPicker(message.id);
+      case 'copy':
+        Clipboard.setData(ClipboardData(text: message.encryptedPayload));
+      case 'edit':
+        onEdit(message.id, message.encryptedPayload);
+      case 'retry':
+        chatController.retryMessage(contact, message);
+      case 'cancel_scheduled':
+        chatController.cancelScheduledMessage(contact, message.id);
+      case 'delete':
+        onDelete(message);
+    }
+  });
+}
+
 /// Shows a forward-to-contact picker bottom sheet.
 void showForwardPicker({
   required BuildContext context,
@@ -129,24 +261,21 @@ void showForwardPicker({
   final contacts = context.read<IContactRepository>().contacts
       .where((c) => c.id != currentContact.id)
       .toList();
-  showModalBottomSheet(
+  showAdaptiveSheet(
     context: context,
-    backgroundColor: AppTheme.surface,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-    ),
     builder: (_) => SafeArea(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            width: 40, height: 4,
-            margin: const EdgeInsets.only(top: 12, bottom: 8),
-            decoration: BoxDecoration(
-              color: AppTheme.textSecondary.withValues(alpha: 0.3),
-              borderRadius: BorderRadius.circular(2),
+          if (PlatformUtils.isMobile)
+            Container(
+              width: 40, height: 4,
+              margin: const EdgeInsets.only(top: 12, bottom: 8),
+              decoration: BoxDecoration(
+                color: AppTheme.textSecondary.withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(2),
+              ),
             ),
-          ),
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
             child: Text(context.l10n.menuForwardTo,
@@ -197,12 +326,8 @@ void showEmojiPicker({
   required Contact contact,
 }) {
   const emojis = ['👍', '❤️', '😂', '😮', '😢', '🙏', '🔥', '👎'];
-  showModalBottomSheet(
+  showAdaptiveSheet(
     context: context,
-    backgroundColor: AppTheme.surface,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-    ),
     builder: (sheetCtx) => SafeArea(
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
@@ -245,27 +370,23 @@ void showEmojiPicker({
 }
 
 void _showFullReactionPicker(BuildContext context, String messageId, Contact contact) {
-  // Import done at file level
-  showModalBottomSheet(
+  showAdaptiveSheet(
     context: context,
-    backgroundColor: AppTheme.surface,
     isScrollControlled: true,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-    ),
     builder: (_) => SafeArea(
       child: SizedBox(
         height: 340,
         child: Column(
           children: [
-            Container(
-              width: 40, height: 4,
-              margin: const EdgeInsets.only(top: 12, bottom: 8),
-              decoration: BoxDecoration(
-                color: AppTheme.textSecondary.withValues(alpha: 0.3),
-                borderRadius: BorderRadius.circular(2),
+            if (PlatformUtils.isMobile)
+              Container(
+                width: 40, height: 4,
+                margin: const EdgeInsets.only(top: 12, bottom: 8),
+                decoration: BoxDecoration(
+                  color: AppTheme.textSecondary.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
-            ),
             Expanded(
               child: _FullEmojiReactionPicker(
                 onSelected: (emoji) {
@@ -297,24 +418,21 @@ void showReactionDetails({
     return c?.name ?? id.substring(0, id.length.clamp(0, 10));
   }).toList();
 
-  showModalBottomSheet(
+  showAdaptiveSheet(
     context: context,
-    backgroundColor: AppTheme.surface,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-    ),
     builder: (_) => SafeArea(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            width: 40, height: 4,
-            margin: const EdgeInsets.only(top: 12, bottom: 12),
-            decoration: BoxDecoration(
-              color: AppTheme.textSecondary.withValues(alpha: 0.3),
-              borderRadius: BorderRadius.circular(2),
+          if (PlatformUtils.isMobile)
+            Container(
+              width: 40, height: 4,
+              margin: const EdgeInsets.only(top: 12, bottom: 12),
+              decoration: BoxDecoration(
+                color: AppTheme.textSecondary.withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(2),
+              ),
             ),
-          ),
           Text(emoji, style: const TextStyle(fontSize: 32)),
           const SizedBox(height: 8),
           ...names.map((name) => ListTile(
@@ -341,12 +459,8 @@ void showScheduledPanel({
   required List<Message> scheduled,
   required Contact contact,
 }) {
-  showModalBottomSheet(
+  showAdaptiveSheet(
     context: context,
-    backgroundColor: AppTheme.surface,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-    ),
     builder: (ctx) => StatefulBuilder(
       builder: (ctx, setLocal) {
         final items = scheduled.where((m) => m.status == 'scheduled').toList();
@@ -354,14 +468,15 @@ void showScheduledPanel({
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
-                width: 40, height: 4,
-                margin: const EdgeInsets.only(top: 12, bottom: 8),
-                decoration: BoxDecoration(
-                  color: AppTheme.textSecondary.withValues(alpha: 0.3),
-                  borderRadius: BorderRadius.circular(2),
+              if (PlatformUtils.isMobile)
+                Container(
+                  width: 40, height: 4,
+                  margin: const EdgeInsets.only(top: 12, bottom: 8),
+                  decoration: BoxDecoration(
+                    color: AppTheme.textSecondary.withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
-              ),
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
                 child: Row(children: [
@@ -437,12 +552,8 @@ void showAttachMenu({
   required VoidCallback onPickFile,
   required VoidCallback onPickVideo,
 }) {
-  showModalBottomSheet(
+  showAdaptiveSheet(
     context: context,
-    backgroundColor: AppTheme.surface,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-    ),
     builder: (_) => SafeArea(
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
@@ -489,17 +600,20 @@ class _AttachOption extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Column(mainAxisSize: MainAxisSize.min, children: [
-        Container(
-          width: 60, height: 60,
-          decoration: BoxDecoration(color: color.withValues(alpha: 0.15), shape: BoxShape.circle),
-          child: Icon(icon, color: color, size: 28),
-        ),
-        const SizedBox(height: 6),
-        Text(label, style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: 12)),
-      ]),
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Container(
+            width: 60, height: 60,
+            decoration: BoxDecoration(color: color.withValues(alpha: 0.15), shape: BoxShape.circle),
+            child: Icon(icon, color: color, size: 28),
+          ),
+          const SizedBox(height: 6),
+          Text(label, style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: 12)),
+        ]),
+      ),
     );
   }
 }
@@ -512,11 +626,8 @@ void showTtlDialog({
   required void Function(int seconds) onTtlChanged,
 }) {
   final ctrl = context.read<ChatController>();
-  showModalBottomSheet(
+  showAdaptiveSheet(
     context: context,
-    backgroundColor: AppTheme.surface,
-    shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
     builder: (_) => StatefulBuilder(
       builder: (ctx, setLocal) {
         final options = [
@@ -530,16 +641,17 @@ void showTtlDialog({
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Center(
-              child: Container(
-                width: 40, height: 4,
-                margin: const EdgeInsets.only(top: 12, bottom: 16),
-                decoration: BoxDecoration(
-                  color: AppTheme.textSecondary.withValues(alpha: 0.3),
-                  borderRadius: BorderRadius.circular(2),
+            if (PlatformUtils.isMobile)
+              Center(
+                child: Container(
+                  width: 40, height: 4,
+                  margin: const EdgeInsets.only(top: 12, bottom: 16),
+                  decoration: BoxDecoration(
+                    color: AppTheme.textSecondary.withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
               ),
-            ),
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 4),
               child: Text(ctx.l10n.menuDisappearingMessages,

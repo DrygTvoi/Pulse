@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../theme/app_theme.dart';
 import '../services/locale_notifier.dart';
 import '../l10n/l10n_ext.dart';
+import '../utils/platform_utils.dart';
 import 'setup_identity_screen.dart';
 
 class OnboardingScreen extends StatelessWidget {
@@ -31,20 +32,11 @@ class OnboardingScreen extends StatelessWidget {
       return a.value.compareTo(b.value);
     });
 
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: AppTheme.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      isScrollControlled: true,
-      builder: (ctx) => DraggableScrollableSheet(
-        initialChildSize: 0.6,
-        maxChildSize: 0.85,
-        minChildSize: 0.4,
-        expand: false,
-        builder: (ctx, scrollController) => Column(
-          children: [
+    Widget languageList(BuildContext ctx, {ScrollController? scrollController}) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (!PlatformUtils.isDesktop) ...[
             const SizedBox(height: 12),
             Container(
               width: 36,
@@ -54,58 +46,92 @@ class OnboardingScreen extends StatelessWidget {
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Text(
-                'Choose your language',
-                style: GoogleFonts.inter(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: AppTheme.textPrimary,
-                ),
-              ),
-            ),
-            Expanded(
-              child: ListView.builder(
-                controller: scrollController,
-                itemCount: entries.length,
-                itemBuilder: (ctx, i) {
-                  final e = entries[i];
-                  final current =
-                      LocaleNotifier.instance.locale?.languageCode;
-                  final isSelected = current == e.key ||
-                      (current == null && e.key == systemCode);
-                  return ListTile(
-                    title: Text(
-                      e.value,
-                      style: GoogleFonts.inter(
-                        fontSize: 16,
-                        fontWeight:
-                            isSelected ? FontWeight.w600 : FontWeight.w400,
-                        color: AppTheme.textPrimary,
-                      ),
-                    ),
-                    trailing: isSelected
-                        ? Icon(Icons.check_rounded,
-                            color: AppTheme.primary, size: 20)
-                        : (e.key == systemCode
-                            ? Text('System',
-                                style: GoogleFonts.inter(
-                                    fontSize: 12,
-                                    color: AppTheme.textSecondary))
-                            : null),
-                    onTap: () {
-                      LocaleNotifier.instance.setLocale(Locale(e.key));
-                      Navigator.pop(ctx);
-                    },
-                  );
-                },
-              ),
-            ),
           ],
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Text(
+              'Choose your language',
+              style: GoogleFonts.inter(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.textPrimary,
+              ),
+            ),
+          ),
+          Expanded(
+            child: ListView.builder(
+              controller: scrollController,
+              shrinkWrap: PlatformUtils.isDesktop,
+              itemCount: entries.length,
+              itemBuilder: (ctx, i) {
+                final e = entries[i];
+                final current =
+                    LocaleNotifier.instance.locale?.languageCode;
+                final isSelected = current == e.key ||
+                    (current == null && e.key == systemCode);
+                return ListTile(
+                  title: Text(
+                    e.value,
+                    style: GoogleFonts.inter(
+                      fontSize: 16,
+                      fontWeight:
+                          isSelected ? FontWeight.w600 : FontWeight.w400,
+                      color: AppTheme.textPrimary,
+                    ),
+                  ),
+                  trailing: isSelected
+                      ? Icon(Icons.check_rounded,
+                          color: AppTheme.primary, size: 20)
+                      : (e.key == systemCode
+                          ? Text('System',
+                              style: GoogleFonts.inter(
+                                  fontSize: 12,
+                                  color: AppTheme.textSecondary))
+                          : null),
+                  onTap: () {
+                    LocaleNotifier.instance.setLocale(Locale(e.key));
+                    Navigator.pop(ctx);
+                  },
+                );
+              },
+            ),
+          ),
+        ],
+      );
+    }
+
+    if (PlatformUtils.isDesktop) {
+      showDialog(
+        context: context,
+        builder: (ctx) => Dialog(
+          backgroundColor: AppTheme.surface,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 420, maxHeight: 500),
+            child: languageList(ctx),
+          ),
         ),
-      ),
-    );
+      );
+    } else {
+      showModalBottomSheet(
+        context: context,
+        backgroundColor: AppTheme.surface,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        isScrollControlled: true,
+        builder: (ctx) => DraggableScrollableSheet(
+          initialChildSize: 0.6,
+          maxChildSize: 0.85,
+          minChildSize: 0.4,
+          expand: false,
+          builder: (ctx, scrollController) =>
+              languageList(ctx, scrollController: scrollController),
+        ),
+      );
+    }
   }
 
   @override

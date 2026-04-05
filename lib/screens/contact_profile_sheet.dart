@@ -14,6 +14,8 @@ import '../controllers/chat_controller.dart';
 import '../l10n/l10n_ext.dart';
 import 'package:provider/provider.dart';
 import '../models/contact_repository.dart';
+import '../utils/adaptive_sheet.dart';
+import '../utils/platform_utils.dart';
 import 'verify_identity_screen.dart';
 
 /// Bottom sheet showing contact or group profile.
@@ -26,6 +28,30 @@ Future<void> showContactProfile(
   void Function()? onDeleteContact,
   void Function()? onClearHistory,
 }) {
+  if (PlatformUtils.isDesktop) {
+    return showDialog<void>(
+      context: context,
+      builder: (_) => Dialog(
+        backgroundColor: AppTheme.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(DesignTokens.dialogRadius),
+        ),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: 400,
+            maxHeight: MediaQuery.of(context).size.height * 0.85,
+          ),
+          child: _ContactProfileSheet(
+            contact: contact,
+            isAdmin: isAdmin,
+            onContactUpdated: onContactUpdated,
+            onDeleteContact: onDeleteContact,
+            onClearHistory: onClearHistory,
+          ),
+        ),
+      ),
+    );
+  }
   return showModalBottomSheet(
     context: context,
     isScrollControlled: true,
@@ -376,26 +402,23 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
       return;
     }
     final selected = <String>{};
-    showModalBottomSheet(
+    showAdaptiveSheet(
       context: context,
-      backgroundColor: AppTheme.surface,
       isScrollControlled: true,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(DesignTokens.radiusXl)),
-      ),
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setLocal) => SafeArea(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
-                width: DesignTokens.spacing40, height: 4,
-                margin: const EdgeInsets.only(top: DesignTokens.spacing12, bottom: DesignTokens.spacing8),
-                decoration: BoxDecoration(
-                  color: AppTheme.textSecondary.withValues(alpha: 0.3),
-                  borderRadius: BorderRadius.circular(DesignTokens.radiusXs),
+              if (PlatformUtils.isMobile)
+                Container(
+                  width: DesignTokens.spacing40, height: 4,
+                  margin: const EdgeInsets.only(top: DesignTokens.spacing12, bottom: DesignTokens.spacing8),
+                  decoration: BoxDecoration(
+                    color: AppTheme.textSecondary.withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(DesignTokens.radiusXs),
+                  ),
                 ),
-              ),
               Padding(
                 padding: const EdgeInsets.fromLTRB(DesignTokens.spacing20, 0, DesignTokens.spacing20, DesignTokens.spacing8),
                 child: Row(
@@ -591,16 +614,17 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Drag handle
-          Container(
-            margin: const EdgeInsets.only(top: DesignTokens.spacing12),
-            width: DesignTokens.avatarXs,
-            height: 4,
-            decoration: BoxDecoration(
-              color: AppTheme.textSecondary.withValues(alpha: 0.3),
-              borderRadius: BorderRadius.circular(DesignTokens.radiusXs),
+          // Drag handle (mobile only)
+          if (PlatformUtils.isMobile)
+            Container(
+              margin: const EdgeInsets.only(top: DesignTokens.spacing12),
+              width: DesignTokens.avatarXs,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppTheme.textSecondary.withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(DesignTokens.radiusXs),
+              ),
             ),
-          ),
           Flexible(
             child: SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(DesignTokens.spacing20, DesignTokens.spacing20, DesignTokens.spacing20, DesignTokens.spacing32),

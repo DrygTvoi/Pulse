@@ -6,12 +6,14 @@ class SwipeableBubble extends StatefulWidget {
   final Widget child;
   final VoidCallback onLongPress;
   final VoidCallback onSwiped;
+  final void Function(TapUpDetails)? onSecondaryTapUp;
 
   const SwipeableBubble({
     super.key,
     required this.child,
     required this.onLongPress,
     required this.onSwiped,
+    this.onSecondaryTapUp,
   });
 
   @override
@@ -77,6 +79,7 @@ class _SwipeableBubbleState extends State<SwipeableBubble>
     final opacity = (_offset / _threshold).clamp(0.0, 1.0);
     return GestureDetector(
       onLongPress: widget.onLongPress,
+      onSecondaryTapUp: widget.onSecondaryTapUp,
       onHorizontalDragUpdate: _onDragUpdate,
       onHorizontalDragEnd: _onDragEnd,
       child: Stack(
