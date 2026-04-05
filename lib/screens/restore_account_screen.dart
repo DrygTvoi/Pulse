@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -155,9 +156,15 @@ class _RestoreAccountScreenState extends State<RestoreAccountScreen> {
     final name     = _nameController.text.trim();
     final password = _passwordController.text;
 
-    // Derive the same keys from the recovery password.
-    final nostrKeyBytes = await KeyDerivationService.deriveNostrKey(password);
-    final sessionSeedBytes = await KeyDerivationService.deriveSessionSeed(password);
+    // Derive all 3 keys in parallel — each runs in its own isolate.
+    final results = await Future.wait([
+      KeyDerivationService.deriveNostrKey(password),
+      KeyDerivationService.deriveSessionSeed(password),
+      KeyDerivationService.derivePulseKey(password),
+    ]);
+    final nostrKeyBytes = results[0];
+    final sessionSeedBytes = results[1];
+    final pulseKeyBytes = results[2];
 
     final privkeyHex = hex.encode(nostrKeyBytes);
     await ss.write(key: 'nostr_privkey', value: privkeyHex);
@@ -167,62 +174,65 @@ class _RestoreAccountScreenState extends State<RestoreAccountScreen> {
     await ss.write(key: 'session_seed', value: sessionHex);
     sessionSeedBytes.fillRange(0, sessionSeedBytes.length, 0);
 
-    // Fresh Signal keys — old sessions will re-establish automatically.
+    final pulseHex = hex.encode(pulseKeyBytes);
+    await ss.write(key: 'pulse_privkey', value: pulseHex);
+    pulseKeyBytes.fillRange(0, pulseKeyBytes.length, 0);
+
+    // Run Signal init, Session init, password hashing, and relay probe in parallel.
     final signalService = SignalService();
-    await signalService.initialize();
-    final bundle = await signalService.getPublicBundle();
+    final salt = _generateSalt();
+    final parallelResults = await Future.wait([
+      signalService.initialize().then((_) => signalService.getPublicBundle()),  // [0]
+      SessionKeyService.instance.initialize(),                                   // [1]
+      PasswordHasher.hash(password, salt),                                       // [2]
+      SharedPreferences.getInstance(),                                           // [3]
+      _relayProbe ?? Future.value(null),                                         // [4]
+    ]);
+
+    final bundle = parallelResults[0] as Map<String, dynamic>;
+    final hash = parallelResults[2] as String;
+    final prefs = parallelResults[3] as SharedPreferences;
+    final probedRelay = parallelResults[4] as String?;
 
     final uuid       = const Uuid().v4();
     final realPubKey = base64Encode(
         Uint8List.fromList(List<int>.from(bundle['identityKey'])));
 
-    final prefs = await SharedPreferences.getInstance();
-    final probedRelay = await _relayProbe;
     final relay = prefs.getString('nostr_relay') ?? probedRelay ?? kDefaultNostrRelay;
-    await prefs.setString('nostr_relay', relay);
-
     final pubkeyHex = deriveNostrPubkeyHex(privkeyHex);
-    final identity = Identity(
-      id: uuid,
-      publicKey: realPubKey,
-      privateKey: '',
-      preferredAdapter: 'nostr',
-      adapterConfig: {'dbId': '$pubkeyHex@$relay', 'relay': relay},
-    );
-    await prefs.setString('user_identity', jsonEncode(identity.toJson()));
-    await prefs.setString('user_profile', jsonEncode({
-      'name': name,
-      'about': '',
-      'avatar_color': _avatarColors[_colorIndex].toARGB32().toString(),
-    }));
-
-    // Re-initialise Session with restored seed
-    await SessionKeyService.instance.initialize();
     final sessionId = SessionKeyService.instance.sessionId;
-    await prefs.setString('secondary_adapters', jsonEncode([{
-      'provider': 'Session',
-      'apiKey': '',
-      'databaseId': sessionId,
-      'selfId': sessionId,
-    }]));
 
-    // Purge NIP-44 nonce cache so old messages cannot be replayed via the
-    // new device's (empty) nonce table.  Same password → same Nostr privkey
-    // → same ECDH shared secrets; without this, an adversary who recorded
-    // ciphertexts could replay them to a fresh install that has no nonce history.
-    // Signal Protocol would still block decryption (fresh sessions), but
-    // explicit purge ensures no ambiguity at the NIP-44 layer.
+    // Purge NIP-44 nonce cache before writing new identity.
     nip44.clearNonceCache();
 
-    // Save as app lock
-    final salt = _generateSalt();
-    final hash = await PasswordHasher.hash(password, salt);
-    await ss.write(key: 'app_password_hash',    value: hash);
-    await ss.write(key: 'app_password_salt',    value: salt);
-    await ss.write(key: 'app_password_enabled', value: 'true');
+    // Write all prefs and secure storage in parallel.
+    await Future.wait([
+      prefs.setString('nostr_relay', relay),
+      prefs.setString('user_identity', jsonEncode(Identity(
+        id: uuid,
+        publicKey: realPubKey,
+        privateKey: '',
+        preferredAdapter: 'nostr',
+        adapterConfig: {'dbId': '$pubkeyHex@$relay', 'relay': relay},
+      ).toJson())),
+      prefs.setString('user_profile', jsonEncode({
+        'name': name,
+        'about': '',
+        'avatar_color': _avatarColors[_colorIndex].toARGB32().toString(),
+      })),
+      prefs.setString('secondary_adapters', jsonEncode([{
+        'provider': 'Session',
+        'apiKey': '',
+        'databaseId': sessionId,
+        'selfId': sessionId,
+      }])),
+      ss.write(key: 'app_password_hash',    value: hash),
+      ss.write(key: 'app_password_salt',    value: salt),
+      ss.write(key: 'app_password_enabled', value: 'true'),
+    ]);
 
-    // Re-initialize ChatController with the restored identity.
-    await ChatController().initialize();
+    // Fire ChatController init in background — don't block navigation.
+    unawaited(ChatController().initialize());
 
     if (!mounted) return;
     setState(() => _isLoading = false);

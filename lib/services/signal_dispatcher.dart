@@ -582,6 +582,7 @@ class SignalDispatcher {
           }
         } else if (sigType == 'edit') {
           final payload = sig['payload'];
+          debugPrint('[SignalDispatcher] edit received: payload=$payload senderId=${sig['senderId']} adapterType=${sig['adapterType']}');
           if (payload is Map) {
             final msgId = payload['msgId'] as String? ?? '';
             final text = payload['text'] as String? ?? '';
@@ -590,12 +591,18 @@ class SignalDispatcher {
             // an authenticated peer to resolve a different contact as editor.
             final from = sig['senderId'] as String? ?? '';
             final editGroupId = payload['groupId'] as String?;
+            debugPrint('[SignalDispatcher] edit: msgId=$msgId text=${text.substring(0, text.length.clamp(0, 30))} from=$from groupId=$editGroupId');
             if (msgId.isNotEmpty && text.isNotEmpty) {
               final editContact = _resolveContact(from, contactByDbId);
+              debugPrint('[SignalDispatcher] edit: resolved contact=${editContact?.name} id=${editContact?.id} dbId=${editContact?.databaseId}');
               if (editContact != null && !_editCtrl.isClosed) {
                 _editCtrl.add(SignalEditEvent(editContact, msgId, text,
                     groupId: editGroupId));
+              } else {
+                debugPrint('[SignalDispatcher] edit DROPPED: contact=${editContact == null ? "null" : "found"} ctrlClosed=${_editCtrl.isClosed}');
               }
+            } else {
+              debugPrint('[SignalDispatcher] edit DROPPED: msgId empty=${msgId.isEmpty} text empty=${text.isEmpty}');
             }
           }
         } else if (sigType == 'heartbeat') {

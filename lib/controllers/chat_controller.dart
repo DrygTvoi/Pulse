@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:collection';
 import 'dart:convert';
-import 'package:crypto/crypto.dart' show sha256;
+import 'package:crypto/crypto.dart' as hash_lib;
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
@@ -490,8 +490,8 @@ class ChatController extends ChangeNotifier {
       _cachedNostrSender = null;
       _cachedNostrPrivkey = null;
       _cachedFirebaseSender = null;
-      _cachedSessionSender = null;
       _cachedPulseSender = null;
+      _cachedSessionSender = null;
       await _initInbox();
     } finally {
       _reconnecting = false;
@@ -505,6 +505,21 @@ class ChatController extends ChangeNotifier {
 
   Future<void> _initInbox() async {
     if (_identity == null) return;
+
+    // Ensure pulse_privkey exists for cross-transport sends (migrate old accounts).
+    final existingPulseKey = await _secureStorage.read(key: 'pulse_privkey');
+    if (existingPulseKey == null || existingPulseKey.isEmpty) {
+      final appPwd = await _secureStorage.read(key: 'app_password_hash');
+      final nostrKey = await _secureStorage.read(key: 'nostr_privkey');
+      if (nostrKey != null && nostrKey.isNotEmpty) {
+        // Derive Pulse key from Nostr key as HKDF-like fallback
+        final seed = Uint8List.fromList(hex.decode(nostrKey));
+        final hmac = hash_lib.Hmac(hash_lib.sha256, utf8.encode('pulse-ed25519-seed'));
+        final derived = hmac.convert(seed);
+        await _secureStorage.write(key: 'pulse_privkey', value: hex.encode(derived.bytes));
+        debugPrint('[Chat] Derived pulse_privkey from nostr_privkey (migration)');
+      }
+    }
 
     String apiKey = _identity!.adapterConfig['token'] ?? '';
     String dbId;
@@ -705,6 +720,35 @@ class ChatController extends ChangeNotifier {
           cfg['provider']!, cfg['apiKey']!, cfg['selfId'] ?? ''));
     }
 
+    // Auto-register Pulse inbox if configured but not primary — so we can
+    // RECEIVE messages on Pulse even when primary is Nostr/Firebase/etc.
+    // Also adds our Pulse address to allAddresses → contacts learn it via addr_update.
+    if (_identity!.preferredAdapter != 'pulse') {
+      final pulseKey = await _secureStorage.read(key: 'pulse_privkey') ?? '';
+      final pulseUrl = (await _getPrefs()).getString('pulse_server_url') ?? '';
+      if (pulseKey.isNotEmpty && pulseUrl.isNotEmpty) {
+        try {
+          final pulseApiKey = jsonEncode({'privkey': pulseKey, 'serverUrl': pulseUrl});
+          final pulseReader = await InboxManager().createAdhocReader('Pulse', pulseApiKey, pulseUrl);
+          if (pulseReader != null) {
+            _messageSubs.add(pulseReader.listenForMessages().listen(_handleIncomingMessages));
+            _signalSubs.add(pulseReader.listenForSignals().listen(_signalDispatcher!.dispatch));
+            final seed = Uint8List.fromList(hex.decode(pulseKey));
+            final pulsePub = await ed25519PubkeyFromSeed(seed);
+            final pulseAddr = '$pulsePub@$pulseUrl';
+            newAddresses.add(pulseAddr);
+            _adapterHealth[pulseAddr] = true;
+            _healthSubs.add(pulseReader.healthChanges.listen((h) => _onAdapterHealthChange(pulseAddr, h)));
+            // Publish Signal keys to Pulse so contacts can fetch our bundle.
+            unawaited(_keys.publishKeysToAdapter('Pulse', pulseApiKey, pulseAddr));
+            debugPrint('[Chat] Auto-registered Pulse secondary inbox: $pulseAddr');
+          }
+        } catch (e) {
+          debugPrint('[Chat] Failed to auto-register Pulse inbox: $e');
+        }
+      }
+    }
+
     // Assign all addresses atomically so concurrent readers see a complete list.
     _allAddresses = newAddresses;
 
@@ -770,7 +814,7 @@ class ChatController extends ChangeNotifier {
         if (entry['provider'] == 'Nostr') {
           final relay = entry['databaseId'] ?? '';
           // F6: Must use same SHA256 suffix as the write path in provider_section/screen.
-          final keySuffix = sha256.convert(utf8.encode(relay)).toString().substring(0, 16);
+          final keySuffix = hash_lib.sha256.convert(utf8.encode(relay)).toString().substring(0, 16);
           final privkey = await _secureStorage.read(key: 'secondary_nostr_privkey_$keySuffix') ?? '';
           entry['apiKey'] = jsonEncode({'privkey': privkey, 'relay': relay});
           try {
@@ -848,7 +892,16 @@ class ChatController extends ChangeNotifier {
       case 'Pulse':
         final privkey = await _secureStorage.read(key: 'pulse_privkey') ?? '';
         final prefs = await _getPrefs();
-        final serverUrl = prefs.getString('pulse_server_url') ?? '';
+        // Extract server URL from contact's address (pubkey@https://server:port)
+        // so we can send to ANY Pulse server, not just the one we configured.
+        var serverUrl = prefs.getString('pulse_server_url') ?? '';
+        final atIdx = contact.databaseId.indexOf('@');
+        if (atIdx != -1) {
+          final contactServer = contact.databaseId.substring(atIdx + 1);
+          if (contactServer.startsWith('https://') || contactServer.startsWith('http://')) {
+            serverUrl = contactServer;
+          }
+        }
         _cachedPulseSender ??= PulseMessageSender();
         return (sender: _cachedPulseSender!,
                 apiKey: jsonEncode({'privkey': privkey, 'serverUrl': serverUrl}));
@@ -860,23 +913,57 @@ class ChatController extends ChangeNotifier {
   /// Centralised helper: init sender for contact's provider and send a signal.
   Future<bool> _sendSignalTo(Contact contact, String type, Map<String, dynamic> payload) async {
     if (_identity == null || _selfId.isEmpty) return false;
+    // Try primary provider
     try {
       final built = await _buildSenderFor(contact);
-      if (built == null) return false;
-      await built.sender.initializeSender(built.apiKey);
-
-      var signedPayload = payload;
-      if (contact.provider != 'Nostr') {
-        signedPayload = await _signPayload(contact, type, payload);
+      if (built != null) {
+        await built.sender.initializeSender(built.apiKey);
+        var signedPayload = payload;
+        if (contact.provider != 'Nostr') {
+          signedPayload = await _signPayload(contact, type, payload);
+        }
+        await built.sender.sendSignal(
+            contact.databaseId, contact.databaseId, _selfId, type, signedPayload);
+        return true;
       }
-
-      await built.sender.sendSignal(
-          contact.databaseId, contact.databaseId, _selfId, type, signedPayload);
-      return true;
     } catch (e) {
       debugPrint('[ChatController] Signal $type to ${contact.name} failed: $e');
+    }
+    // Fallback: try alternate addresses
+    for (final alt in contact.alternateAddresses) {
+      try {
+        final ok = await _deliverSignalViaAddress(alt, type, payload);
+        if (ok) {
+          debugPrint('[ChatController] Signal $type delivered via alternate: $alt');
+          return true;
+        }
+      } catch (_) {}
+    }
+    return false;
+  }
+
+  Future<bool> _deliverSignalViaAddress(String address, String type, Map<String, dynamic> payload) async {
+    final provider = _providerFromAddress(address);
+    final prefs = await _getPrefs();
+    if ((prefs.getBool('dev_mode_enabled') ?? false) &&
+        !(prefs.getBool('dev_adapter_$provider') ?? true)) {
       return false;
     }
+    if (provider == 'Pulse') {
+      final privkey = await _secureStorage.read(key: 'pulse_privkey') ?? '';
+      final atIdx = address.indexOf('@');
+      final serverUrl = atIdx != -1 ? address.substring(atIdx + 1) : '';
+      _cachedPulseSender ??= PulseMessageSender();
+      await _cachedPulseSender!.initializeSender(jsonEncode({'privkey': privkey, 'serverUrl': serverUrl}));
+      return _cachedPulseSender!.sendSignal(address, address, _selfId, type, payload);
+    } else if (provider == 'Nostr') {
+      final privkey = await _getNostrPrivkey();
+      final relay = prefs.getString('nostr_relay') ?? _kDefaultNostrRelay;
+      final sender = NostrMessageSender();
+      await sender.initializeSender(jsonEncode({'privkey': privkey, 'relay': relay}));
+      return sender.sendSignal(address, address, _selfId, type, payload);
+    }
+    return false;
   }
 
   Future<Map<String, dynamic>> _signPayload(
@@ -908,6 +995,31 @@ class ChatController extends ChangeNotifier {
           : contact.provider;
       await InboxManager().addSenderPlugin(provider, built.sender, built.apiKey);
     }
+  }
+
+  /// Fetch Signal keys from an alternate address on a specific provider.
+  Future<Map<String, dynamic>?> _fetchKeysFromAddress(String address, String provider) async {
+    InboxReader reader;
+    String apiKey;
+    String dbId = address;
+    if (provider == 'Nostr') {
+      reader = NostrInboxReader();
+      apiKey = '';
+    } else if (provider == 'Pulse') {
+      reader = PulseInboxReader();
+      final privkey = await _secureStorage.read(key: 'pulse_privkey') ?? '';
+      final atIdx = address.indexOf('@');
+      final serverUrl = atIdx != -1 ? address.substring(atIdx + 1) : '';
+      apiKey = jsonEncode({'privkey': privkey, 'serverUrl': serverUrl});
+    } else if (provider == 'Session') {
+      reader = SessionInboxReader();
+      final prefs = await _getPrefs();
+      apiKey = prefs.getString('session_node_url') ?? prefs.getString('oxen_node_url') ?? '';
+    } else {
+      return null;
+    }
+    await reader.initializeReader(apiKey, dbId);
+    return await reader.fetchPublicKeys();
   }
 
   // ── Key republishing (delegates to KeyManager) ────────────────────────────
@@ -954,6 +1066,14 @@ class ChatController extends ChangeNotifier {
       final idPart = c.databaseId.split('@').first;
       if (idPart.isNotEmpty && idPart != c.databaseId) {
         contactByDbId.putIfAbsent(idPart, () => c);
+      }
+      // Index alternate addresses so messages from any transport match.
+      for (final alt in c.alternateAddresses) {
+        contactByDbId.putIfAbsent(alt, () => c);
+        final altPart = alt.split('@').first;
+        if (altPart.isNotEmpty && altPart != alt) {
+          contactByDbId.putIfAbsent(altPart, () => c);
+        }
       }
     }
     _contactIndex = contactByDbId;
@@ -1045,11 +1165,14 @@ class ChatController extends ChangeNotifier {
     }));
 
     _dispatcherSubs.add(d.edits.listen((e) {
+      debugPrint('[Edit] Received: contact=${e.contact.name} msgId=${e.msgId} text=${e.text.substring(0, e.text.length.clamp(0, 30))} groupId=${e.groupId}');
       final room = e.groupId != null
           ? (_repo.getRoomForContact(e.groupId!) ?? _repo.getRoomForContact(e.contact.id))
           : _repo.getRoomForContact(e.contact.id);
       if (room != null) {
+        debugPrint('[Edit] Room found: contactId=${room.contact.id} msgs=${room.messages.length}');
         final idx = room.messages.indexWhere((m) => m.id == e.msgId);
+        debugPrint('[Edit] Message lookup: idx=$idx msgId=${e.msgId}');
         if (idx != -1) {
           // FINDING-4 fix: only the original sender may edit their own message.
           // Compare by pubkey prefix (before '@') to allow editing via alternate
@@ -1062,6 +1185,7 @@ class ChatController extends ChangeNotifier {
           final contactKey = e.contact.databaseId.contains('@')
               ? e.contact.databaseId.split('@').first
               : e.contact.databaseId;
+          debugPrint('[Edit] Ownership check: senderKey=$senderKey contactKey=$contactKey match=${senderKey == contactKey}');
           if (senderKey != contactKey) {
             debugPrint('[Edit] Rejected: ${e.contact.databaseId} tried to edit '
                 'message owned by ${msg.senderId}');
@@ -1072,7 +1196,12 @@ class ChatController extends ChangeNotifier {
           room.messages[idx] = updated;
           unawaited(LocalStorageService().saveMessage(storageKey, updated.toJson()));
           _scheduleNotify();
+          debugPrint('[Edit] SUCCESS: updated msgId=${e.msgId}');
+        } else {
+          debugPrint('[Edit] DROPPED: message not found. First 5 msg IDs: ${room.messages.take(5).map((m) => m.id).toList()}');
         }
+      } else {
+        debugPrint('[Edit] DROPPED: room not found for contactId=${e.contact.id}');
       }
     }));
 
@@ -1127,7 +1256,8 @@ class ChatController extends ChangeNotifier {
       // causing SmartRouter to fall back to the attacker's logging server.
       bool isValidAltAddr(String addr) {
         final lower = addr.toLowerCase();
-        if (!lower.contains('@wss://') && !lower.contains('@ws://')) return false;
+        if (!lower.contains('@wss://') && !lower.contains('@ws://') &&
+            !lower.contains('@https://') && !lower.contains('@http://')) return false;
         try {
           final urlPart = addr.substring(addr.indexOf('@') + 1);
           final uri = Uri.parse(urlPart);
@@ -1152,7 +1282,9 @@ class ChatController extends ChangeNotifier {
       // databaseId. An attacker who can forge/replay an addr_update could point
       // the contact's primary to an internal relay (SSRF).
       if (primary.toLowerCase().contains('@wss://') ||
-          primary.toLowerCase().contains('@ws://')) {
+          primary.toLowerCase().contains('@ws://') ||
+          primary.toLowerCase().contains('@https://') ||
+          primary.toLowerCase().contains('@http://')) {
         if (!isValidAltAddr(primary)) {
           debugPrint('[ChatController] addr_update: invalid primary $primary, ignoring');
           return;
@@ -1404,14 +1536,40 @@ class ChatController extends ChangeNotifier {
               sentryBreadcrumb('E2EE fast-path decrypt failed', category: 'signal');
             }
           }
-          if (decryptedRaw == rawPayload) {
+          // If fast-path failed, try ALL known addresses for this contact as
+          // session keys.  After addr_update the databaseId changes but the Signal
+          // session may still be keyed by an older address.
+          if (decryptedRaw == rawPayload && fastContact != null) {
+            final tryAddrs = <String>{
+              msg.senderId, // raw sender address from transport
+              ...fastContact.alternateAddresses,
+            };
+            tryAddrs.remove(fastContact.databaseId); // already tried
+            for (final addr in tryAddrs) {
+              try {
+                decryptedRaw = await _signalService.decryptMessage(addr, rawPayload);
+                debugPrint('[Chat] Decrypt OK via alt session key: $addr');
+                break;
+              } catch (e) {
+                debugPrint('[Chat] Alt-key decrypt failed for $addr: $e');
+              }
+            }
+          }
+          // Fallback: search all contacts by sender pubkey prefix
+          if (decryptedRaw == rawPayload && fastContact == null) {
             final senderPubPrefix = msg.senderId.split('@').first;
             for (final c in _contacts.contacts) {
-              if (c.alternateAddresses.any((a) => a.split('@').first == senderPubPrefix)) {
-                try {
-                  decryptedRaw = await _signalService.decryptMessage(c.databaseId, rawPayload);
-                  break;
-                } catch (e) { debugPrint('[Chat] Alt-address decrypt failed for ${c.databaseId}: $e'); }
+              if (c.databaseId.split('@').first == senderPubPrefix ||
+                  c.alternateAddresses.any((a) => a.split('@').first == senderPubPrefix)) {
+                final tryAddrs = <String>[c.databaseId, msg.senderId, ...c.alternateAddresses];
+                for (final addr in tryAddrs) {
+                  try {
+                    decryptedRaw = await _signalService.decryptMessage(addr, rawPayload);
+                    debugPrint('[Chat] Decrypt OK via contact ${c.name} key: $addr');
+                    break;
+                  } catch (e) { /* try next */ }
+                }
+                if (decryptedRaw != rawPayload) break;
               }
             }
           }
@@ -1476,6 +1634,20 @@ class ChatController extends ChangeNotifier {
             ?? contactByDbId[msg.senderId.split('@').first];
 
         if (senderContact != null) {
+          // Learn sender's transport address: if they sent from a different
+          // address (e.g. Pulse vs Nostr), store it so SmartRouter can use it.
+          final incomingAddr = msg.senderId;
+          if (incomingAddr.contains('@') &&
+              incomingAddr != senderContact.databaseId &&
+              !senderContact.alternateAddresses.contains(incomingAddr)) {
+            final updated = senderContact.copyWith(
+              alternateAddresses: [...senderContact.alternateAddresses, incomingAddr],
+            );
+            await _contacts.updateContact(updated);
+            _invalidateContactIndex();
+            senderContact = updated;
+            debugPrint('[Chat] Learned new route for ${senderContact.name}: $incomingAddr');
+          }
           _repo.getOrCreateRoomWithId(senderContact, msg.senderId, senderContact.provider);
           final room = _repo.getRoomForContact(senderContact.id)!;
 
@@ -1792,7 +1964,12 @@ class ChatController extends ChangeNotifier {
           contactReader = PulseInboxReader();
           final privkey = await _secureStorage.read(key: 'pulse_privkey') ?? '';
           final prefs = await _getPrefs();
-          final serverUrl = prefs.getString('pulse_server_url') ?? '';
+          var serverUrl = prefs.getString('pulse_server_url') ?? '';
+          final pAt = contact.databaseId.indexOf('@');
+          if (pAt != -1) {
+            final s = contact.databaseId.substring(pAt + 1);
+            if (s.startsWith('https://') || s.startsWith('http://')) serverUrl = s;
+          }
           initApiKey = jsonEncode({'privkey': privkey, 'serverUrl': serverUrl});
           initDbId = contact.databaseId;
         } else {
@@ -1801,7 +1978,24 @@ class ChatController extends ChangeNotifier {
         debugPrint('[E2EE] Fetching bundle for ${contact.name} via ${contact.provider}');
         await contactReader.initializeReader(initApiKey, initDbId);
         debugPrint('[E2EE] Reader initialized, fetching keys...');
-        final bundle = await contactReader.fetchPublicKeys();
+        var bundle = await contactReader.fetchPublicKeys();
+        // Fallback: try alternate addresses if primary fetch returned nothing.
+        if (bundle == null && contact.alternateAddresses.isNotEmpty) {
+          for (final alt in contact.alternateAddresses) {
+            final altProvider = _providerFromAddress(alt);
+            if (altProvider.isEmpty || altProvider == contact.provider) continue;
+            try {
+              final altBundle = await _fetchKeysFromAddress(alt, altProvider);
+              if (altBundle != null) {
+                debugPrint('[E2EE] Fallback key fetch OK via $altProvider');
+                bundle = altBundle;
+                break;
+              }
+            } catch (e) {
+              debugPrint('[E2EE] Fallback key fetch from $altProvider failed: $e');
+            }
+          }
+        }
         debugPrint('[E2EE] fetchPublicKeys: ${bundle != null ? "${bundle.keys.length} keys" : "null"}');
         if (bundle != null) {
           final keyChanged = await _signalService.buildSession(contact.databaseId, bundle);
@@ -1938,8 +2132,17 @@ class ChatController extends ChangeNotifier {
     } else if (provider == 'Pulse') {
       final privkey = await _secureStorage.read(key: 'pulse_privkey') ?? '';
       final prefs = await _getPrefs();
-      final serverUrl = prefs.getString('pulse_server_url') ?? '';
-      await InboxManager().addSenderPlugin('Pulse', PulseMessageSender(),
+      // Extract server URL from the recipient address
+      var serverUrl = prefs.getString('pulse_server_url') ?? '';
+      final pAtIdx = address.indexOf('@');
+      if (pAtIdx != -1) {
+        final addrServer = address.substring(pAtIdx + 1);
+        if (addrServer.startsWith('https://') || addrServer.startsWith('http://')) {
+          serverUrl = addrServer;
+        }
+      }
+      _cachedPulseSender ??= PulseMessageSender();
+      await InboxManager().addSenderPlugin('Pulse', _cachedPulseSender!,
           jsonEncode({'privkey': privkey, 'serverUrl': serverUrl}));
     } else {
       return false;
@@ -1979,7 +2182,12 @@ class ChatController extends ChangeNotifier {
           contactReader = PulseInboxReader();
           final privkey = await _secureStorage.read(key: 'pulse_privkey') ?? '';
           final prefs = await _getPrefs();
-          final serverUrl = prefs.getString('pulse_server_url') ?? '';
+          var serverUrl = prefs.getString('pulse_server_url') ?? '';
+          final pAt = contact.databaseId.indexOf('@');
+          if (pAt != -1) {
+            final s = contact.databaseId.substring(pAt + 1);
+            if (s.startsWith('https://') || s.startsWith('http://')) serverUrl = s;
+          }
           initApiKey = jsonEncode({'privkey': privkey, 'serverUrl': serverUrl});
         } else {
           return false;
@@ -2445,7 +2653,7 @@ class ChatController extends ChangeNotifier {
     const chunkSize = 64 * 1024; // 64KB P2P frames
     final total = (bytes.length / chunkSize).ceil();
     final fid = _uuid.v4();
-    final fh = sha256.convert(bytes).toString();
+    final fh = hash_lib.sha256.convert(bytes).toString();
 
     // Send header as text message
     final header = jsonEncode({
@@ -3415,7 +3623,7 @@ class ChatController extends ChangeNotifier {
     // Use SHA-256 of the full encrypted payload as the dedup ID.
     // First-32-bytes truncation allowed two distinct ciphertexts with identical
     // first 32 bytes to collide and be deduplicated incorrectly.
-    final msgId = sha256.convert(utf8.encode(encryptedPayload)).toString();
+    final msgId = hash_lib.sha256.convert(utf8.encode(encryptedPayload)).toString();
 
     _handleIncomingMessages([
       Message(
@@ -3457,7 +3665,7 @@ class ChatController extends ChangeNotifier {
         assembled.add(f);
       }
       final fileBytes = assembled.toBytes();
-      final fileHash = sha256.convert(fileBytes).toString();
+      final fileHash = hash_lib.sha256.convert(fileBytes).toString();
       _p2pFileTransfers.remove(transfer.fid);
 
       if (fileHash != transfer.fileHash) {

@@ -279,6 +279,16 @@ Future<WebSocketChannel> _connectPulseWebSocketViaUtls(
   }
 }
 
+/// Shared authenticated WebSocket so reader and sender don't fight.
+/// The reader (long-lived loop) owns the connection; the sender borrows it.
+class _PulseSharedWs {
+  static WebSocketChannel? channel;
+  static bool authenticated = false;
+  static int protoVersion = 1;
+  /// Shared keys completers — reader resolves, sender registers.
+  static final pendingKeysCompleters = <String, Completer<Map<String, dynamic>?>>{};
+}
+
 // ── PulseInboxReader ────────────────────────────────────────────────────────
 
 class PulseInboxReader implements InboxReader {
@@ -619,7 +629,8 @@ class PulseInboxReader implements InboxReader {
 
       try {
         channel = await _connectWs();
-        _ws = channel;
+        // Don't set _ws here — wait until auth succeeds to avoid
+        // overwriting a sender's active connection before we're ready.
         await channel.ready;
         debugPrint('[Pulse] Connected (v$_protoVersion) to ${_protoVersion == 2 ? _wsUrlV2 : _wsUrl}');
 
@@ -732,6 +743,12 @@ class PulseInboxReader implements InboxReader {
                   }
 
                   cycleSuccess = true;
+                  _ws = channel;
+                  // Publish to shared pool so PulseMessageSender reuses
+                  // this connection instead of opening a competing one.
+                  _PulseSharedWs.channel = channel;
+                  _PulseSharedWs.authenticated = true;
+                  _PulseSharedWs.protoVersion = _protoVersion;
                   if (!_isHealthy && !_healthCtrl.isClosed) {
                     _isHealthy = true;
                     _healthCtrl.add(true);
@@ -757,6 +774,22 @@ class PulseInboxReader implements InboxReader {
                   final ap = _envPayload(data);
                   debugPrint('[Pulse] ACK: ${ap['id'] ?? ''}');
                 case 'keys':
+                  // Complete pending keys completer (for fetchContactKeys)
+                  final kp = _envPayload(data);
+                  final kPub = kp['pubkey'] as String? ?? '';
+                  if (kPub.isNotEmpty) {
+                    final kc = _PulseSharedWs.pendingKeysCompleters.remove(kPub);
+                    if (kc != null && !kc.isCompleted) {
+                      final bundle = kp['bundle'];
+                      Map<String, dynamic>? bundleMap;
+                      if (bundle is Map<String, dynamic>) {
+                        bundleMap = bundle;
+                      } else if (bundle is String) {
+                        try { bundleMap = jsonDecode(bundle) as Map<String, dynamic>; } catch (_) {}
+                      }
+                      kc.complete(bundleMap);
+                    }
+                  }
                   _dispatchKeys(data);
                 case 'error':
                   final ep = _envPayload(data);
@@ -791,6 +824,11 @@ class PulseInboxReader implements InboxReader {
       } finally {
         cbrTimer?.cancel();
         cbrTimer = null;
+        // Only clear shared pool if WE own it (sender may have taken over)
+        if (_PulseSharedWs.channel == channel) {
+          _PulseSharedWs.channel = null;
+          _PulseSharedWs.authenticated = false;
+        }
         _ws = null;
         try { channel?.sink.close(); } catch (_) {}
       }
@@ -1050,9 +1088,6 @@ class PulseMessageSender implements MessageSender {
   WebSocketChannel? _ws;
   bool _authenticated = false;
 
-  // Pending keys_get completers: pubkey → Completer
-  final _pendingKeysCompleters = <String, Completer<Map<String, dynamic>?>>{};
-
   @override
   Future<void> initializeSender(String apiKey) async {
     try {
@@ -1238,87 +1273,125 @@ class PulseMessageSender implements MessageSender {
   }
 
   /// Get an authenticated WS connection, reusing if available.
+  /// Prefers the reader's shared connection to avoid server kicking it.
   Future<WebSocketChannel?> _getConnection() async {
+    // 1. Reuse own cached connection
     final ws = _ws;
     if (ws != null && _authenticated) return ws;
 
+    // 2. Borrow the reader's long-lived connection (avoids duplicate auth)
+    final shared = _PulseSharedWs.channel;
+    if (shared != null && _PulseSharedWs.authenticated) {
+      _protoVersion = _PulseSharedWs.protoVersion;
+      return shared;
+    }
+
+    // 3. No reader connection — create own (rare: reader not started yet)
     try {
       final channel = await _connectWs();
       await channel.ready;
 
-      // Authenticate
+      // Authenticate — single stream listener handles both auth and runtime.
       final completer = Completer<bool>();
-      late final StreamSubscription sub;
-      sub = channel.stream.listen((raw) async {
+      channel.stream.listen((raw) async {
         try {
           if (raw is List<int>) return; // binary padding → ignore
           final data = jsonDecode(raw as String) as Map<String, dynamic>;
           if (data['_chaff'] == true) return; // chaff → discard
           final type = data['type'] as String? ?? '';
-          if (type == 'auth_challenge') {
-            final p = _protoVersion == 2 ? data : _envPayload(data);
-            final nonce = p['nonce'] as String? ?? '';
-            final challengeVersion = p['v'] as int? ?? 1;
-            final tsKey = challengeVersion >= 2 ? 'ts' : 'timestamp';
-            final timestamp = p[tsKey]?.toString() ?? '';
-            final tsVal = int.tryParse(timestamp) ?? 0;
-            final serverTime = DateTime.fromMillisecondsSinceEpoch(tsVal * 1000);
-            if (nonce.isEmpty || nonce.length > 256 ||
-                DateTime.now().difference(serverTime).abs() > const Duration(minutes: 5)) {
-              debugPrint('[Pulse/Sender] Auth challenge invalid — nonce or timestamp rejected');
-              if (!completer.isCompleted) completer.complete(false);
-              sub.cancel();
-              return;
+
+          // ── Auth phase ──
+          if (!completer.isCompleted) {
+            if (type == 'auth_challenge') {
+              final p = _protoVersion == 2 ? data : _envPayload(data);
+              final nonce = p['nonce'] as String? ?? '';
+              final challengeVersion = p['v'] as int? ?? 1;
+              final tsKey = challengeVersion >= 2 ? 'ts' : 'timestamp';
+              final timestamp = p[tsKey]?.toString() ?? '';
+              final tsVal = int.tryParse(timestamp) ?? 0;
+              final serverTime = DateTime.fromMillisecondsSinceEpoch(tsVal * 1000);
+              if (nonce.isEmpty || nonce.length > 256 ||
+                  DateTime.now().difference(serverTime).abs() > const Duration(minutes: 5)) {
+                debugPrint('[Pulse/Sender] Auth challenge invalid — nonce or timestamp rejected');
+                completer.complete(false);
+                return;
+              }
+              final prefix = challengeVersion >= 2 ? 'pulse-v2-auth' : 'pulse-auth-v1';
+              final message = '$prefix:$nonce:$timestamp';
+              final signature = await _ed25519Sign(_seed, message);
+              if (_protoVersion == 2) {
+                channel.sink.add(jsonEncode({
+                  'type': 'auth_response',
+                  'pubkey': _pubkeyHex,
+                  'signature': signature,
+                  'nonce': nonce,
+                  'timestamp': tsVal,
+                  'invite': '',
+                }));
+              } else {
+                channel.sink.add(_makeEnvelope('auth_response', {
+                  'pubkey': _pubkeyHex,
+                  'signature': signature,
+                  'nonce': nonce,
+                  'timestamp': tsVal,
+                  'invite': '',
+                }));
+              }
+            } else if (type == 'auth_ok') {
+              final okData = _protoVersion == 2 ? data : _envPayload(data);
+              final certFp = okData['cert_fp'] as String? ?? '';
+              if (certFp.isNotEmpty && _certFingerprint.isEmpty) {
+                _certFingerprint = certFp.toLowerCase();
+              }
+              completer.complete(true);
+            } else if (type == 'error') {
+              completer.complete(false);
             }
-            final prefix = challengeVersion >= 2 ? 'pulse-v2-auth' : 'pulse-auth-v1';
-            final message = '$prefix:$nonce:$timestamp';
-            final signature = await _ed25519Sign(_seed, message);
-            if (_protoVersion == 2) {
-              channel.sink.add(jsonEncode({
-                'type': 'auth_response',
-                'pubkey': _pubkeyHex,
-                'signature': signature,
-                'nonce': nonce,
-                'timestamp': tsVal,
-                'invite': '',
-              }));
-            } else {
-              channel.sink.add(_makeEnvelope('auth_response', {
-                'pubkey': _pubkeyHex,
-                'signature': signature,
-                'nonce': nonce,
-                'timestamp': tsVal,
-                'invite': '',
-              }));
+            return;
+          }
+
+          // ── Runtime phase (post-auth) ──
+          if (type == 'keys') {
+            final p = _envPayload(data);
+            final pubkey = p['pubkey'] as String? ?? '';
+            final bundle = p['bundle'];
+            Map<String, dynamic>? bundleMap;
+            if (bundle is Map<String, dynamic>) {
+              bundleMap = bundle;
+            } else if (bundle is String) {
+              try { bundleMap = jsonDecode(bundle) as Map<String, dynamic>; } catch (_) {}
             }
-          } else if (type == 'auth_ok') {
-            // Save TURN creds from v2 auth_ok
-            final okData = _protoVersion == 2 ? data : _envPayload(data);
-            final certFp = okData['cert_fp'] as String? ?? '';
-            if (certFp.isNotEmpty && _certFingerprint.isEmpty) {
-              _certFingerprint = certFp.toLowerCase();
+            final keysCompleter = _PulseSharedWs.pendingKeysCompleters.remove(pubkey);
+            if (keysCompleter != null && !keysCompleter.isCompleted) {
+              keysCompleter.complete(bundleMap);
             }
-            if (!completer.isCompleted) completer.complete(true);
-            sub.cancel();
-          } else if (type == 'error') {
-            if (!completer.isCompleted) completer.complete(false);
-            sub.cancel();
           }
         } catch (e) {
-          debugPrint('[Pulse] Sender auth parse error: $e');
+          debugPrint('[Pulse] Sender parse error: $e');
         }
       }, onError: (Object e) {
         if (!completer.isCompleted) completer.complete(false);
+        _ws = null;
+        _authenticated = false;
+        for (final c in _PulseSharedWs.pendingKeysCompleters.values) {
+          if (!c.isCompleted) c.complete(null);
+        }
+        _PulseSharedWs.pendingKeysCompleters.clear();
       }, onDone: () {
         if (!completer.isCompleted) completer.complete(false);
-      });
+        _ws = null;
+        _authenticated = false;
+        for (final c in _PulseSharedWs.pendingKeysCompleters.values) {
+          if (!c.isCompleted) c.complete(null);
+        }
+        _PulseSharedWs.pendingKeysCompleters.clear();
+      },
+        cancelOnError: false,
+      );
 
       final ok = await completer.future.timeout(
         const Duration(seconds: 15),
-        onTimeout: () {
-          sub.cancel();
-          return false;
-        },
+        onTimeout: () => false,
       );
 
       if (!ok) {
@@ -1328,50 +1401,6 @@ class PulseMessageSender implements MessageSender {
 
       _ws = channel;
       _authenticated = true;
-
-      // Listen for incoming messages: route keys responses and reset state on close.
-      channel.stream.listen(
-        (raw) {
-          try {
-            if (raw is List<int>) return; // binary padding → ignore
-            final data = jsonDecode(raw as String) as Map<String, dynamic>;
-            if (data['_chaff'] == true) return; // chaff → discard
-            if (data['type'] == 'keys') {
-              final p = _envPayload(data);
-              final pubkey = p['pubkey'] as String? ?? '';
-              final bundle = p['bundle'];
-              Map<String, dynamic>? bundleMap;
-              if (bundle is Map<String, dynamic>) {
-                bundleMap = bundle;
-              } else if (bundle is String) {
-                try { bundleMap = jsonDecode(bundle) as Map<String, dynamic>; } catch (_) {}
-              }
-              final completer = _pendingKeysCompleters.remove(pubkey);
-              if (completer != null && !completer.isCompleted) {
-                completer.complete(bundleMap);
-              }
-            }
-          } catch (_) {}
-        },
-        onDone: () {
-          _ws = null;
-          _authenticated = false;
-          // Complete any pending keys requests with null on disconnect.
-          for (final c in _pendingKeysCompleters.values) {
-            if (!c.isCompleted) c.complete(null);
-          }
-          _pendingKeysCompleters.clear();
-        },
-        onError: (_) {
-          _ws = null;
-          _authenticated = false;
-          for (final c in _pendingKeysCompleters.values) {
-            if (!c.isCompleted) c.complete(null);
-          }
-          _pendingKeysCompleters.clear();
-        },
-        cancelOnError: true,
-      );
 
       return channel;
     } catch (e) {
@@ -1507,7 +1536,7 @@ class PulseMessageSender implements MessageSender {
 
       // Register a completer that will be resolved by the shared stream listener
       // when the server sends the keys response for this pubkey.
-      final completer = _pendingKeysCompleters.putIfAbsent(
+      final completer = _PulseSharedWs.pendingKeysCompleters.putIfAbsent(
           pubkey, () => Completer<Map<String, dynamic>?>());
 
       if (_protoVersion == 2) {
@@ -1517,7 +1546,7 @@ class PulseMessageSender implements MessageSender {
       }
 
       Timer(const Duration(seconds: 10), () {
-        final c = _pendingKeysCompleters.remove(pubkey);
+        final c = _PulseSharedWs.pendingKeysCompleters.remove(pubkey);
         if (c != null && !c.isCompleted) c.complete(null);
       });
 
@@ -1534,16 +1563,22 @@ class PulseMessageSender implements MessageSender {
     if (ws != null && _authenticated) {
       ws.sink.add(jsonMsg);
     } else {
-      debugPrint('[Pulse] sendRaw: no authenticated connection');
+      // Fall back to shared reader connection
+      final shared = _PulseSharedWs.channel;
+      if (shared != null && _PulseSharedWs.authenticated) {
+        shared.sink.add(jsonMsg);
+      } else {
+        debugPrint('[Pulse] sendRaw: no authenticated connection');
+      }
     }
   }
 
   /// Clear private key from memory and close connection.
   void zeroize() {
-    for (final c in _pendingKeysCompleters.values) {
+    for (final c in _PulseSharedWs.pendingKeysCompleters.values) {
       if (!c.isCompleted) c.complete(null);
     }
-    _pendingKeysCompleters.clear();
+    _PulseSharedWs.pendingKeysCompleters.clear();
     for (int i = 0; i < _seed.length; i++) {
       _seed[i] = 0;
     }

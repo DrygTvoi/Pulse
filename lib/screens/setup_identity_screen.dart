@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -185,10 +186,15 @@ class _SetupIdentityScreenState extends State<SetupIdentityScreen> {
     final name     = _nameController.text.trim();
     final password = _passwordController.text;
 
-    // Derive Nostr key and Session seed from the recovery password.
-    // This runs in isolates so the UI stays responsive during 600k iterations.
-    final nostrKeyBytes = await KeyDerivationService.deriveNostrKey(password);
-    final sessionSeedBytes = await KeyDerivationService.deriveSessionSeed(password);
+    // Derive all 3 keys in parallel — each runs in its own isolate.
+    final results = await Future.wait([
+      KeyDerivationService.deriveNostrKey(password),
+      KeyDerivationService.deriveSessionSeed(password),
+      KeyDerivationService.derivePulseKey(password),
+    ]);
+    final nostrKeyBytes = results[0];
+    final sessionSeedBytes = results[1];
+    final pulseKeyBytes = results[2];
 
     // Store Nostr private key; zero key bytes immediately after encoding
     final privkeyHex = hex.encode(nostrKeyBytes);
@@ -200,61 +206,67 @@ class _SetupIdentityScreenState extends State<SetupIdentityScreen> {
     await ss.write(key: 'session_seed', value: sessionHex);
     sessionSeedBytes.fillRange(0, sessionSeedBytes.length, 0);
 
-    // Signal identity keys — generated fresh (per-device; re-published on connect)
-    final signalService = SignalService();
-    await signalService.initialize();
-    final bundle = await signalService.getPublicBundle();
+    // Store Pulse Ed25519 seed for Pulse relay auth
+    final pulseHex = hex.encode(pulseKeyBytes);
+    await ss.write(key: 'pulse_privkey', value: pulseHex);
+    pulseKeyBytes.fillRange(0, pulseKeyBytes.length, 0);
 
-    final uuid         = const Uuid().v4();
-    final realPubKey   = base64Encode(
+    // Run Signal init, Session init, password hashing, and relay probe in parallel.
+    final signalService = SignalService();
+    final salt = _generateSalt();
+    final parallelResults = await Future.wait([
+      signalService.initialize().then((_) => signalService.getPublicBundle()),  // [0]
+      SessionKeyService.instance.initialize(),                                   // [1]
+      PasswordHasher.hash(password, salt),                                       // [2]
+      SharedPreferences.getInstance(),                                           // [3]
+      _relayProbe ?? Future.value(null),                                         // [4]
+    ]);
+
+    final bundle = parallelResults[0] as Map<String, dynamic>;
+    final hash = parallelResults[2] as String;
+    final prefs = parallelResults[3] as SharedPreferences;
+    final probedRelay = parallelResults[4] as String?;
+
+    final uuid       = const Uuid().v4();
+    final realPubKey = base64Encode(
         Uint8List.fromList(List<int>.from(bundle['identityKey'])));
 
-    final prefs = await SharedPreferences.getInstance();
-    // Use the best relay from our background probe, or an earlier probe result,
-    // falling back to the default only if everything failed.
-    final probedRelay = await _relayProbe;
     final relay = prefs.getString('nostr_relay') ?? probedRelay ?? kDefaultNostrRelay;
-    await prefs.setString('nostr_relay', relay);
-
     final pubkeyHex = deriveNostrPubkeyHex(privkeyHex);
-    final identity = Identity(
-      id: uuid,
-      publicKey: realPubKey,
-      privateKey: '',
-      preferredAdapter: 'nostr',
-      adapterConfig: {'dbId': '$pubkeyHex@$relay', 'relay': relay},
-    );
-    await prefs.setString('user_identity', jsonEncode(identity.toJson()));
-    await prefs.setString('user_profile', jsonEncode({
-      'name': name,
-      'about': '',
-      'avatar_color': _avatarColors[Random.secure().nextInt(_avatarColors.length)].toARGB32().toString(),
-    }));
-
-    // Register Session secondary adapter
-    await SessionKeyService.instance.initialize();
     final sessionId = SessionKeyService.instance.sessionId;
-    await prefs.setString('secondary_adapters', jsonEncode([{
-      'provider': 'Session',
-      'apiKey': '',
-      'databaseId': sessionId,
-      'selfId': sessionId,
-    }]));
 
-    // Save recovery password as the app lock — one password for everything.
-    final salt = _generateSalt();
-    final hash = await PasswordHasher.hash(password, salt);
-    await ss.write(key: 'app_password_hash',    value: hash);
-    await ss.write(key: 'app_password_salt',    value: salt);
-    await ss.write(key: 'app_password_enabled', value: 'true');
+    // Write all prefs and secure storage in parallel.
+    await Future.wait([
+      prefs.setString('nostr_relay', relay),
+      prefs.setString('user_identity', jsonEncode(Identity(
+        id: uuid,
+        publicKey: realPubKey,
+        privateKey: '',
+        preferredAdapter: 'nostr',
+        adapterConfig: {'dbId': '$pubkeyHex@$relay', 'relay': relay},
+      ).toJson())),
+      prefs.setString('user_profile', jsonEncode({
+        'name': name,
+        'about': '',
+        'avatar_color': _avatarColors[Random.secure().nextInt(_avatarColors.length)].toARGB32().toString(),
+      })),
+      prefs.setString('secondary_adapters', jsonEncode([{
+        'provider': 'Session',
+        'apiKey': '',
+        'databaseId': sessionId,
+        'selfId': sessionId,
+      }])),
+      ss.write(key: 'app_password_hash',    value: hash),
+      ss.write(key: 'app_password_salt',    value: salt),
+      ss.write(key: 'app_password_enabled', value: 'true'),
+    ]);
 
     // Clear password text from controllers — best-effort scrub before navigate
     _passwordController.clear();
     _confirmController.clear();
 
-    // Re-initialize ChatController so it picks up the newly created identity.
-    // Without this, _identity remains null and addresses/messaging won't work.
-    await ChatController().initialize();
+    // Fire ChatController init in background — don't block navigation.
+    unawaited(ChatController().initialize());
 
     if (!mounted) return;
     setState(() => _isLoading = false);

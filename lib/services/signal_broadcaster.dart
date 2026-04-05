@@ -11,6 +11,7 @@ import '../adapters/inbox_manager.dart';
 import '../adapters/firebase_adapter.dart';
 import '../adapters/nostr_adapter.dart';
 import '../adapters/session_adapter.dart';
+import '../adapters/pulse_adapter.dart';
 import '../constants.dart';
 import 'key_manager.dart';
 import 'connectivity_probe_service.dart';
@@ -174,8 +175,58 @@ class SignalBroadcaster {
       'all': allAddresses,
     };
     final targets = contacts.where((c) => !c.isGroup).toList();
-    await Future.wait(
-        targets.map((c) => _sendSignalTo(c, 'addr_update', payload)));
+    // addr_update is critical — send via ALL transports (primary + alternates)
+    // so the receiver gets it even if one transport is down.
+    await Future.wait(targets.map((c) => _sendSignalToAll(c, 'addr_update', payload)));
+  }
+
+  /// Send a signal via ALL available transports for a contact (primary + alternates).
+  /// Used for critical signals like addr_update that must reach the recipient.
+  Future<void> _sendSignalToAll(
+      Contact contact, String type, Map<String, dynamic> payload) async {
+    final identity = _getIdentity();
+    final selfId = _getSelfId();
+    if (identity == null || selfId.isEmpty) return;
+
+    // Pre-sign the payload once — used for non-Nostr transports.
+    // Nostr transports ignore the extra _sig/_spk fields (Schnorr-verified).
+    Map<String, dynamic>? signedPayload;
+    try {
+      final privkey = await _secureStorage.read(key: 'nostr_privkey') ?? '';
+      final selfPubkey = privkey.isNotEmpty ? deriveNostrPubkeyHex(privkey) : null;
+      signedPayload = await _keys.signPayload(contact, type, payload, selfPubkey);
+    } catch (e) {
+      debugPrint('[Broadcaster] _sendSignalToAll: signing failed: $e');
+    }
+    final effectivePayload = signedPayload ?? payload;
+
+    // Try primary
+    try {
+      final built = await _buildSenderFor(contact);
+      if (built != null) {
+        await built.sender.initializeSender(built.apiKey);
+        await built.sender.sendSignal(
+            contact.databaseId, contact.databaseId, selfId, type, effectivePayload);
+      }
+    } catch (e) {
+      debugPrint('[Broadcaster] Signal $type primary to ${contact.name} failed: $e');
+    }
+
+    // Also send via ALL alternate addresses
+    for (final alt in contact.alternateAddresses) {
+      try {
+        final altBuilt = await _buildSenderForAddress(alt);
+        if (altBuilt == null) continue;
+        await altBuilt.sender.initializeSender(altBuilt.apiKey);
+        final altSent = await altBuilt.sender.sendSignal(
+            alt, alt, selfId, type, effectivePayload);
+        if (altSent) {
+          debugPrint('[Broadcaster] Signal $type delivered via alternate: $alt');
+        }
+      } catch (e) {
+        debugPrint('[Broadcaster] Signal $type alternate $alt failed: $e');
+      }
+    }
   }
 
   /// Sends our TURN server list to [contact] after a call connects via TURN.
@@ -324,10 +375,15 @@ class SignalBroadcaster {
 
   // ── Reactions / Edit / Delete ─────────────────────────────────────────────
 
+  // Edit/delete/reaction use _sendSignalToAll so the signal is delivered via
+  // both primary (Pulse) and alternate transports (Nostr).  Pulse signals are
+  // real-time only — they are dropped when the recipient is briefly offline
+  // during its connection cycle.  Sending via all transports ensures delivery.
+
   Future<void> sendReactionSignal(
       Contact contact, String msgId, String emoji, String selfId,
       {bool remove = false, String? groupId}) {
-    return _sendSignalTo(contact, 'reaction', {
+    return _sendSignalToAll(contact, 'reaction', {
       'msgId': msgId,
       'emoji': emoji,
       'from': selfId,
@@ -338,7 +394,7 @@ class SignalBroadcaster {
 
   Future<void> sendEditSignal(Contact contact, String msgId, String text) {
     final selfId = _getSelfId();
-    return _sendSignalTo(contact, 'edit',
+    return _sendSignalToAll(contact, 'edit',
         {'msgId': msgId, 'text': text, 'from': selfId});
   }
 
@@ -348,7 +404,7 @@ class SignalBroadcaster {
     final memberContacts = allContacts
         .where((c) => !c.isGroup && group.members.contains(c.id))
         .toList();
-    await Future.wait(memberContacts.map((c) => _sendSignalTo(c, 'edit', {
+    await Future.wait(memberContacts.map((c) => _sendSignalToAll(c, 'edit', {
           'msgId': msgId,
           'text': text,
           'from': selfId,
@@ -359,7 +415,7 @@ class SignalBroadcaster {
   Future<void> sendDeleteSignal(Contact contact, String msgId,
       {String? groupId}) {
     final selfId = _getSelfId();
-    return _sendSignalTo(contact, 'msg_delete', {
+    return _sendSignalToAll(contact, 'msg_delete', {
       'msgId': msgId,
       'groupId': groupId,
       'from': selfId,
@@ -372,7 +428,7 @@ class SignalBroadcaster {
     final memberContacts = allContacts
         .where((c) => !c.isGroup && group.members.contains(c.id))
         .toList();
-    await Future.wait(memberContacts.map((c) => _sendSignalTo(c, 'msg_delete', {
+    await Future.wait(memberContacts.map((c) => _sendSignalToAll(c, 'msg_delete', {
           'msgId': msgId,
           'groupId': group.id,
           'from': selfId,
@@ -415,6 +471,11 @@ class SignalBroadcaster {
         final prefs = await SharedPreferences.getInstance();
         final nodeUrl = prefs.getString('session_node_url') ?? prefs.getString('oxen_node_url') ?? '';
         return (sender: SessionMessageSender(), apiKey: nodeUrl);
+      case 'Pulse':
+        final privkey = await _secureStorage.read(key: 'pulse_privkey') ?? '';
+        final prefs = await SharedPreferences.getInstance();
+        final serverUrl = prefs.getString('pulse_server_url') ?? '';
+        return (sender: PulseMessageSender(), apiKey: jsonEncode({'privkey': privkey, 'serverUrl': serverUrl}));
       default:
         return null;
     }
@@ -444,7 +505,16 @@ class SignalBroadcaster {
         apiKey: jsonEncode({'privkey': privkey, 'relay': relay})
       );
     }
-    if (lower.contains('@https://')) {
+    if (lower.contains('@https://') || lower.contains('@http://')) {
+      // Pulse: 64-char hex pubkey @ https://server
+      final atIdx = address.indexOf('@');
+      final pubPart = atIdx > 0 ? address.substring(0, atIdx) : '';
+      if (RegExp(r'^[0-9a-f]{64}$').hasMatch(pubPart.toLowerCase())) {
+        final privkey = await _secureStorage.read(key: 'pulse_privkey') ?? '';
+        final serverUrl = atIdx > 0 ? address.substring(atIdx + 1) : '';
+        return (sender: PulseMessageSender(), apiKey: jsonEncode({'privkey': privkey, 'serverUrl': serverUrl}));
+      }
+      // Firebase fallback
       final token = identity.adapterConfig['token'] ?? '';
       return (sender: FirebaseInboxSender(), apiKey: token);
     }
@@ -458,6 +528,7 @@ class SignalBroadcaster {
     final identity = _getIdentity();
     final selfId = _getSelfId();
     if (identity == null || selfId.isEmpty) return;
+    debugPrint('[Broadcaster] _sendSignalTo: type=$type contact=${contact.name} provider=${contact.provider} selfId=${selfId.substring(0, selfId.length.clamp(0, 16))}…');
 
     bool sent = false;
     try {
@@ -477,20 +548,31 @@ class SignalBroadcaster {
 
         sent = await built.sender.sendSignal(
             contact.databaseId, contact.databaseId, selfId, type, signedPayload);
+        debugPrint('[Broadcaster] _sendSignalTo: primary sent=$sent via ${built.sender.runtimeType}');
+      } else {
+        debugPrint('[Broadcaster] _sendSignalTo: _buildSenderFor returned null');
       }
     } catch (e) {
       debugPrint('[Broadcaster] Signal $type to ${contact.name} failed: $e');
     }
 
-    // Retry critical signals through alternate addresses
-    if (!sent && _isCriticalSignal(type) && contact.alternateAddresses.isNotEmpty) {
+    // Retry through alternate addresses when primary fails.
+    // Use signed payload so HMAC verification passes on non-Nostr transports.
+    if (!sent && contact.alternateAddresses.isNotEmpty) {
+      debugPrint('[Broadcaster] _sendSignalTo: trying ${contact.alternateAddresses.length} alternates');
+      Map<String, dynamic> altPayload = payload;
+      try {
+        final privkey = await _secureStorage.read(key: 'nostr_privkey') ?? '';
+        final selfPubkey = privkey.isNotEmpty ? deriveNostrPubkeyHex(privkey) : null;
+        altPayload = await _keys.signPayload(contact, type, payload, selfPubkey);
+      } catch (_) {}
       for (final alt in contact.alternateAddresses) {
         try {
           final altBuilt = await _buildSenderForAddress(alt);
           if (altBuilt == null) continue;
           await altBuilt.sender.initializeSender(altBuilt.apiKey);
           final altSent = await altBuilt.sender.sendSignal(
-              alt, alt, selfId, type, payload);
+              alt, alt, selfId, type, altPayload);
           if (altSent) {
             debugPrint('[Broadcaster] Signal $type delivered via alternate: $alt');
             break;

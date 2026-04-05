@@ -285,7 +285,8 @@ class _ProfileCardState extends State<ProfileCard> {
   }
 }
 
-/// Shows all shareable inbox addresses (primary + secondaries) with copy buttons.
+/// Shows unified invite link with all addresses. Individual addresses shown
+/// as compact info — one-tap share button is the primary action.
 class InboxAddressCard extends StatelessWidget {
   const InboxAddressCard({super.key});
 
@@ -294,8 +295,9 @@ class InboxAddressCard extends StatelessWidget {
     return ListenableBuilder(
       listenable: ChatController(),
       builder: (context, _) {
-        final addresses = ChatController().allAddresses;
-        if (addresses.isEmpty) return const SizedBox.shrink();
+        final shareableAddresses = ChatController().shareableAddresses;
+        final displayAddresses = ChatController().allAddresses;
+        if (displayAddresses.isEmpty) return const SizedBox.shrink();
 
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -307,73 +309,47 @@ class InboxAddressCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Share button — primary action
+              _ShareAllButton(addresses: shareableAddresses),
+              const SizedBox(height: 10),
+              // Compact route list
               Row(
                 children: [
-                  Icon(Icons.share_rounded, size: 13, color: AppTheme.primary),
+                  Icon(Icons.route_rounded, size: 12, color: AppTheme.textSecondary),
                   const SizedBox(width: 6),
                   Text(
-                    addresses.length > 1 ? 'Your Inbox Addresses' : 'Your Inbox Address',
+                    '${displayAddresses.length} ${displayAddresses.length == 1 ? 'route' : 'routes'} active',
                     style: GoogleFonts.inter(
-                        color: AppTheme.primary,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.4),
+                        color: AppTheme.textSecondary,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600),
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
-              for (final address in addresses) ...[
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        address,
-                        style: GoogleFonts.jetBrainsMono(
-                            color: AppTheme.textPrimary, fontSize: 11),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    GestureDetector(
-                      onTap: () {
-                        Clipboard.setData(ClipboardData(text: address));
-                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                          content: Text('Address copied!', style: GoogleFonts.inter()),
-                          backgroundColor: AppTheme.primary,
-                          behavior: SnackBarBehavior.floating,
-                          duration: const Duration(seconds: 2),
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10)),
-                        ));
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: AppTheme.primary.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Row(mainAxisSize: MainAxisSize.min, children: [
-                          Icon(Icons.copy_rounded, size: 13, color: AppTheme.primary),
-                          const SizedBox(width: 4),
-                          Text('Copy',
-                              style: GoogleFonts.inter(
-                                  color: AppTheme.primary,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600)),
-                        ]),
-                      ),
-                    ),
-                  ],
-                ),
-                if (address != addresses.last) const SizedBox(height: 6),
-              ],
-              const SizedBox(height: 10),
-              // Share button — uses shareableAddresses (multi-relay) for max reachability
-              _ShareAllButton(addresses: ChatController().shareableAddresses),
               const SizedBox(height: 6),
-              Text('Share with contacts so they can message you.',
-                  style: GoogleFonts.inter(
-                      color: AppTheme.textSecondary, fontSize: 10)),
+              for (final address in displayAddresses)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 3),
+                  child: GestureDetector(
+                    onTap: () {
+                      Clipboard.setData(ClipboardData(text: address));
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                        content: Text('Address copied!', style: GoogleFonts.inter()),
+                        backgroundColor: AppTheme.primary,
+                        behavior: SnackBarBehavior.floating,
+                        duration: const Duration(seconds: 2),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10)),
+                      ));
+                    },
+                    child: Text(
+                      address,
+                      style: GoogleFonts.jetBrainsMono(
+                          color: AppTheme.textSecondary, fontSize: 10),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ),
             ],
           ),
         );
