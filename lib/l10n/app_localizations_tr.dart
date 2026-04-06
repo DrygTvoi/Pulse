@@ -1260,11 +1260,11 @@ class AppLocalizationsTr extends AppLocalizations {
   String get settingsYourInboxAddress => 'Gelen Kutusu Adresiniz';
 
   @override
-  String get settingsMyQrCode => 'QR Kodum';
+  String get settingsMyQrCode => 'Kişiyi paylaş';
 
   @override
   String get settingsMyQrSubtitle =>
-      'Adresinizi taranabilir QR olarak paylaşın';
+      'Adresiniz için QR kodu ve davet bağlantısı';
 
   @override
   String get settingsShareMyAddress => 'Adresimi Paylaş';

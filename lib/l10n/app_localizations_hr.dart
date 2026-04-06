@@ -1257,11 +1257,10 @@ class AppLocalizationsHr extends AppLocalizations {
   String get settingsYourInboxAddress => 'Vaša adresa sandučića';
 
   @override
-  String get settingsMyQrCode => 'Moj QR kod';
+  String get settingsMyQrCode => 'Podijeli kontakt';
 
   @override
-  String get settingsMyQrSubtitle =>
-      'Podijelite svoju adresu kao QR kod za skeniranje';
+  String get settingsMyQrSubtitle => 'QR kod i pozivni link za vašu adresu';
 
   @override
   String get settingsShareMyAddress => 'Podijeli moju adresu';

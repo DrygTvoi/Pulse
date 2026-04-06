@@ -1264,10 +1264,11 @@ class AppLocalizationsRo extends AppLocalizations {
   String get settingsYourInboxAddress => 'Adresa ta de inbox';
 
   @override
-  String get settingsMyQrCode => 'Codul meu QR';
+  String get settingsMyQrCode => 'Partajează contactul';
 
   @override
-  String get settingsMyQrSubtitle => 'Partajează adresa ta ca QR scanabil';
+  String get settingsMyQrSubtitle =>
+      'Cod QR și link de invitație pentru adresa ta';
 
   @override
   String get settingsShareMyAddress => 'Partajează adresa mea';

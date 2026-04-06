@@ -2407,13 +2407,13 @@ abstract class AppLocalizations {
   /// Settings row title
   ///
   /// In en, this message translates to:
-  /// **'My QR Code'**
+  /// **'Share Contact'**
   String get settingsMyQrCode;
 
   /// Settings row subtitle
   ///
   /// In en, this message translates to:
-  /// **'Share your address as a scannable QR'**
+  /// **'QR code & invite link for your address'**
   String get settingsMyQrSubtitle;
 
   /// QR dialog title

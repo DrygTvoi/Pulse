@@ -1246,10 +1246,10 @@ class AppLocalizationsHe extends AppLocalizations {
   String get settingsYourInboxAddress => 'כתובת תיבת הדואר הנכנס שלך';
 
   @override
-  String get settingsMyQrCode => 'קוד ה-QR שלי';
+  String get settingsMyQrCode => 'שיתוף איש קשר';
 
   @override
-  String get settingsMyQrSubtitle => 'שתף את הכתובת שלך כ-QR סריק';
+  String get settingsMyQrSubtitle => 'קוד QR וקישור הזמנה לכתובת שלך';
 
   @override
   String get settingsShareMyAddress => 'שתף את הכתובת שלי';

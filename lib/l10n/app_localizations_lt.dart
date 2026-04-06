@@ -1268,10 +1268,11 @@ class AppLocalizationsLt extends AppLocalizations {
   String get settingsYourInboxAddress => 'Jūsų gautųjų adresas';
 
   @override
-  String get settingsMyQrCode => 'Mano QR kodas';
+  String get settingsMyQrCode => 'Dalintis kontaktu';
 
   @override
-  String get settingsMyQrSubtitle => 'Bendrinti adresą kaip nuskaitomą QR kodą';
+  String get settingsMyQrSubtitle =>
+      'QR kodas ir kvietimo nuoroda jūsų adresui';
 
   @override
   String get settingsShareMyAddress => 'Bendrinti mano adresą';

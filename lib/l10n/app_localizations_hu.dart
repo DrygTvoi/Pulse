@@ -1267,10 +1267,10 @@ class AppLocalizationsHu extends AppLocalizations {
   String get settingsYourInboxAddress => 'A postafiók címed';
 
   @override
-  String get settingsMyQrCode => 'QR kódom';
+  String get settingsMyQrCode => 'Kapcsolat megosztása';
 
   @override
-  String get settingsMyQrSubtitle => 'Oszd meg a címedet beolvasható QR-ként';
+  String get settingsMyQrSubtitle => 'QR-kód és meghívó link a címedhez';
 
   @override
   String get settingsShareMyAddress => 'Címem megosztása';

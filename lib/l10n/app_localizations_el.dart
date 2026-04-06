@@ -1273,10 +1273,11 @@ class AppLocalizationsEl extends AppLocalizations {
   String get settingsYourInboxAddress => 'Η διεύθυνση εισερχομένων σας';
 
   @override
-  String get settingsMyQrCode => 'Ο κωδικός QR μου';
+  String get settingsMyQrCode => 'Κοινοποίηση επαφής';
 
   @override
-  String get settingsMyQrSubtitle => 'Κοινή χρήση διεύθυνσης ως σαρώσιμο QR';
+  String get settingsMyQrSubtitle =>
+      'Κωδικός QR και σύνδεσμος πρόσκλησης για τη διεύθυνσή σας';
 
   @override
   String get settingsShareMyAddress => 'Κοινή χρήση της διεύθυνσής μου';

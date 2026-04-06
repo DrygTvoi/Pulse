@@ -1264,10 +1264,10 @@ class AppLocalizationsHy extends AppLocalizations {
   String get settingsYourInboxAddress => 'Ձեր մուտքային հասցեը';
 
   @override
-  String get settingsMyQrCode => 'Իմ QR կոդը';
+  String get settingsMyQrCode => 'Կիսել կոնտակտը';
 
   @override
-  String get settingsMyQrSubtitle => 'Կիսեք ձեր հասցեը սկանավորելի QRով';
+  String get settingsMyQrSubtitle => 'QR կոդ և հրավերի հղում ձեր հասցեի համար';
 
   @override
   String get settingsShareMyAddress => 'Կիսել իմ հասցեը';

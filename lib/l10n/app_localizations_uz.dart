@@ -1267,11 +1267,11 @@ class AppLocalizationsUz extends AppLocalizations {
   String get settingsYourInboxAddress => 'Kiruvchi manzilingiz';
 
   @override
-  String get settingsMyQrCode => 'Mening QR kodom';
+  String get settingsMyQrCode => 'Kontaktni ulashish';
 
   @override
   String get settingsMyQrSubtitle =>
-      'Manzilingizni skanerlanadigan QR sifatida ulashing';
+      'Manzilingiz uchun QR kod va taklif havolasi';
 
   @override
   String get settingsShareMyAddress => 'Manzilimni ulashish';

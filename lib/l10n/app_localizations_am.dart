@@ -1239,10 +1239,10 @@ class AppLocalizationsAm extends AppLocalizations {
   String get settingsYourInboxAddress => 'የገቢ መልዕክት አድራሻዎ';
 
   @override
-  String get settingsMyQrCode => 'የእኔ QR ኮድ';
+  String get settingsMyQrCode => 'ዕውቂያ ያጋሩ';
 
   @override
-  String get settingsMyQrSubtitle => 'አድራሻዎን እንደ ሊቃኝ QR ያጋሩ';
+  String get settingsMyQrSubtitle => 'ለአድራሻዎ QR ኮድ እና የመጋበዣ ማገናኛ';
 
   @override
   String get settingsShareMyAddress => 'አድራሻዬን አጋራ';

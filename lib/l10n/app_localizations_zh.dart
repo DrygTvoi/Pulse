@@ -1201,10 +1201,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsYourInboxAddress => '您的收件地址';
 
   @override
-  String get settingsMyQrCode => '我的二维码';
+  String get settingsMyQrCode => '分享联系方式';
 
   @override
-  String get settingsMyQrSubtitle => '将您的地址分享为可扫描的二维码';
+  String get settingsMyQrSubtitle => '您地址的二维码和邀请链接';
 
   @override
   String get settingsShareMyAddress => '分享我的地址';

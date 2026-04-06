@@ -1266,11 +1266,11 @@ class AppLocalizationsMs extends AppLocalizations {
   String get settingsYourInboxAddress => 'Alamat Peti Masuk Anda';
 
   @override
-  String get settingsMyQrCode => 'Kod QR Saya';
+  String get settingsMyQrCode => 'Kongsi kenalan';
 
   @override
   String get settingsMyQrSubtitle =>
-      'Kongsi alamat anda sebagai QR boleh imbas';
+      'Kod QR dan pautan jemputan untuk alamat anda';
 
   @override
   String get settingsShareMyAddress => 'Kongsi Alamat Saya';

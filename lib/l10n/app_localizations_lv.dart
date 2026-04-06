@@ -1267,10 +1267,11 @@ class AppLocalizationsLv extends AppLocalizations {
   String get settingsYourInboxAddress => 'Jūsu iesūtnes adrese';
 
   @override
-  String get settingsMyQrCode => 'Mans QR kods';
+  String get settingsMyQrCode => 'Kopīgot kontaktu';
 
   @override
-  String get settingsMyQrSubtitle => 'Kopīgojiet adresi kā skenējamu QR kodu';
+  String get settingsMyQrSubtitle =>
+      'QR kods un uzaicinājuma saite jūsu adresei';
 
   @override
   String get settingsShareMyAddress => 'Kopīgot manu adresi';

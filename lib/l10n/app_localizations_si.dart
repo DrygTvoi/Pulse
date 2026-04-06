@@ -1257,11 +1257,10 @@ class AppLocalizationsSi extends AppLocalizations {
   String get settingsYourInboxAddress => 'ඔබේ ලැබෙන ලිපිනය';
 
   @override
-  String get settingsMyQrCode => 'මගේ QR කේතය';
+  String get settingsMyQrCode => 'සම්බන්ධතාව බෙදා ගන්න';
 
   @override
-  String get settingsMyQrSubtitle =>
-      'ඔබේ ලිපිනය ස්කෑන් කළ හැකි QR ලෙස බෙදා ගන්න';
+  String get settingsMyQrSubtitle => 'ඔබේ ලිපිනය සඳහා QR කේතය සහ ආරාධනා සබැඳිය';
 
   @override
   String get settingsShareMyAddress => 'මගේ ලිපිනය බෙදා ගන්න';

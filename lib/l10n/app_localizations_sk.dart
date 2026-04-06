@@ -1271,10 +1271,11 @@ class AppLocalizationsSk extends AppLocalizations {
   String get settingsYourInboxAddress => 'Vaša adresa schránky';
 
   @override
-  String get settingsMyQrCode => 'Môj QR kód';
+  String get settingsMyQrCode => 'Zdieľať kontakt';
 
   @override
-  String get settingsMyQrSubtitle => 'Zdieľajte adresu ako skenovateľný QR kód';
+  String get settingsMyQrSubtitle =>
+      'QR kód a odkaz na pozvánku pre vašu adresu';
 
   @override
   String get settingsShareMyAddress => 'Zdieľať moju adresu';

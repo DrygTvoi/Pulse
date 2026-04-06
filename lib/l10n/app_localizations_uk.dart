@@ -1268,10 +1268,11 @@ class AppLocalizationsUk extends AppLocalizations {
   String get settingsYourInboxAddress => 'Ваша адреса вхідних';
 
   @override
-  String get settingsMyQrCode => 'Мій QR-код';
+  String get settingsMyQrCode => 'Поділитися контактом';
 
   @override
-  String get settingsMyQrSubtitle => 'Поділіться адресою як QR-кодом';
+  String get settingsMyQrSubtitle =>
+      'QR-код та посилання-запрошення для вашої адреси';
 
   @override
   String get settingsShareMyAddress => 'Поділитися адресою';

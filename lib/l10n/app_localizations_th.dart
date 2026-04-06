@@ -1251,10 +1251,10 @@ class AppLocalizationsTh extends AppLocalizations {
   String get settingsYourInboxAddress => 'ที่อยู่กล่องข้อความของคุณ';
 
   @override
-  String get settingsMyQrCode => 'QR Code ของฉัน';
+  String get settingsMyQrCode => 'แชร์ผู้ติดต่อ';
 
   @override
-  String get settingsMyQrSubtitle => 'แชร์ที่อยู่เป็น QR ที่สแกนได้';
+  String get settingsMyQrSubtitle => 'QR Code และลิงก์เชิญสำหรับที่อยู่ของคุณ';
 
   @override
   String get settingsShareMyAddress => 'แชร์ที่อยู่ของฉัน';

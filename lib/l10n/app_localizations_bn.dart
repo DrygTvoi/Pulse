@@ -1236,11 +1236,11 @@ class AppLocalizationsBn extends AppLocalizations {
   String get settingsYourInboxAddress => 'আপনার ইনবক্স ঠিকানা';
 
   @override
-  String get settingsMyQrCode => 'আমার QR কোড';
+  String get settingsMyQrCode => 'পরিচিতি শেয়ার করুন';
 
   @override
   String get settingsMyQrSubtitle =>
-      'স্ক্যানযোগ্য QR হিসেবে আপনার ঠিকানা শেয়ার করুন';
+      'আপনার ঠিকানার জন্য QR কোড ও আমন্ত্রণ লিঙ্ক';
 
   @override
   String get settingsShareMyAddress => 'আমার ঠিকানা শেয়ার করুন';

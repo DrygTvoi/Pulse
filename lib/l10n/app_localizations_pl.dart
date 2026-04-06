@@ -1264,10 +1264,11 @@ class AppLocalizationsPl extends AppLocalizations {
   String get settingsYourInboxAddress => 'Twój adres skrzynki';
 
   @override
-  String get settingsMyQrCode => 'Mój kod QR';
+  String get settingsMyQrCode => 'Udostępnij kontakt';
 
   @override
-  String get settingsMyQrSubtitle => 'Udostępnij swój adres jako skanowalny QR';
+  String get settingsMyQrSubtitle =>
+      'Kod QR i link zaproszenia do twojego adresu';
 
   @override
   String get settingsShareMyAddress => 'Udostępnij mój adres';

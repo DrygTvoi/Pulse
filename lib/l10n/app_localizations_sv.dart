@@ -1259,10 +1259,11 @@ class AppLocalizationsSv extends AppLocalizations {
   String get settingsYourInboxAddress => 'Din Inkorgsadress';
 
   @override
-  String get settingsMyQrCode => 'Min QR-kod';
+  String get settingsMyQrCode => 'Dela kontakt';
 
   @override
-  String get settingsMyQrSubtitle => 'Dela din adress som en skanningsbar QR';
+  String get settingsMyQrSubtitle =>
+      'QR-kod och inbjudningslänk för din adress';
 
   @override
   String get settingsShareMyAddress => 'Dela Min Adress';

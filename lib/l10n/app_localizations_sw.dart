@@ -1265,10 +1265,11 @@ class AppLocalizationsSw extends AppLocalizations {
   String get settingsYourInboxAddress => 'Anwani Yako ya Kikasha';
 
   @override
-  String get settingsMyQrCode => 'Msimbo Wangu wa QR';
+  String get settingsMyQrCode => 'Shiriki anwani';
 
   @override
-  String get settingsMyQrSubtitle => 'Shiriki anwani yako kama QR inayoskaniwa';
+  String get settingsMyQrSubtitle =>
+      'Msimbo wa QR na kiungo cha mwaliko kwa anwani yako';
 
   @override
   String get settingsShareMyAddress => 'Shiriki Anwani Yangu';

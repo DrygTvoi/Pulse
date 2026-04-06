@@ -1236,10 +1236,11 @@ class AppLocalizationsRu extends AppLocalizations {
   String get settingsYourInboxAddress => 'Ваш адрес входящих';
 
   @override
-  String get settingsMyQrCode => 'Мой QR-код';
+  String get settingsMyQrCode => 'Поделиться контактом';
 
   @override
-  String get settingsMyQrSubtitle => 'Поделитесь адресом как сканируемым QR';
+  String get settingsMyQrSubtitle =>
+      'QR-код и ссылка-приглашение для вашего адреса';
 
   @override
   String get settingsShareMyAddress => 'Поделиться адресом';

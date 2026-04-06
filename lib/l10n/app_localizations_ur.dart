@@ -1261,11 +1261,10 @@ class AppLocalizationsUr extends AppLocalizations {
   String get settingsYourInboxAddress => 'آپ کا ان باکس پتہ';
 
   @override
-  String get settingsMyQrCode => 'میرا QR کوڈ';
+  String get settingsMyQrCode => 'رابطہ شیئر کریں';
 
   @override
-  String get settingsMyQrSubtitle =>
-      'اپنا پتہ اسکین ایبل QR کے طور پر شیئر کریں';
+  String get settingsMyQrSubtitle => 'آپ کے پتے کے لیے QR کوڈ اور دعوتی لنک';
 
   @override
   String get settingsShareMyAddress => 'میرا پتہ شیئر کریں';

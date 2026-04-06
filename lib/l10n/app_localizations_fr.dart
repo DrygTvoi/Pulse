@@ -1279,11 +1279,11 @@ class AppLocalizationsFr extends AppLocalizations {
   String get settingsYourInboxAddress => 'Votre adresse de réception';
 
   @override
-  String get settingsMyQrCode => 'Mon QR Code';
+  String get settingsMyQrCode => 'Partager le contact';
 
   @override
   String get settingsMyQrSubtitle =>
-      'Partagez votre adresse sous forme de QR scannable';
+      'Code QR et lien d\'invitation pour votre adresse';
 
   @override
   String get settingsShareMyAddress => 'Partager mon adresse';

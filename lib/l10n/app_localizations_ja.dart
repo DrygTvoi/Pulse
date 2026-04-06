@@ -1208,10 +1208,10 @@ class AppLocalizationsJa extends AppLocalizations {
   String get settingsYourInboxAddress => 'あなたの受信アドレス';
 
   @override
-  String get settingsMyQrCode => 'マイQRコード';
+  String get settingsMyQrCode => '連絡先を共有';
 
   @override
-  String get settingsMyQrSubtitle => 'スキャン可能なQRコードでアドレスを共有';
+  String get settingsMyQrSubtitle => 'アドレスのQRコードと招待リンク';
 
   @override
   String get settingsShareMyAddress => 'アドレスを共有';

@@ -1209,10 +1209,10 @@ class AppLocalizationsKo extends AppLocalizations {
   String get settingsYourInboxAddress => '수신 주소';
 
   @override
-  String get settingsMyQrCode => '내 QR 코드';
+  String get settingsMyQrCode => '연락처 공유';
 
   @override
-  String get settingsMyQrSubtitle => '스캔 가능한 QR로 주소 공유';
+  String get settingsMyQrSubtitle => '주소의 QR 코드 및 초대 링크';
 
   @override
   String get settingsShareMyAddress => '내 주소 공유';

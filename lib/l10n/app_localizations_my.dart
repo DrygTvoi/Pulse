@@ -1266,11 +1266,11 @@ class AppLocalizationsMy extends AppLocalizations {
   String get settingsYourInboxAddress => 'သင့်ရဲ့ ဝင်စာလိပ်စာ';
 
   @override
-  String get settingsMyQrCode => 'ကျွန်ုပ် QR ကုဒ်';
+  String get settingsMyQrCode => 'အဆက်အသွယ် မျှဝေပါ';
 
   @override
   String get settingsMyQrSubtitle =>
-      'သင့်လိပ်စာကို scan ဖတ်နိုင်သည့် QR အဖြစ် မျှဝေပါ';
+      'သင့်လိပ်စာအတွက် QR ကုဒ်နှင့် ဖိတ်ခေါ်လင့်ခ်';
 
   @override
   String get settingsShareMyAddress => 'ကျွန်ုပ်လိပ်စာ မျှဝေ';

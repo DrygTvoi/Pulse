@@ -1265,10 +1265,11 @@ class AppLocalizationsNl extends AppLocalizations {
   String get settingsYourInboxAddress => 'Je Inboxadres';
 
   @override
-  String get settingsMyQrCode => 'Mijn QR-code';
+  String get settingsMyQrCode => 'Contact delen';
 
   @override
-  String get settingsMyQrSubtitle => 'Deel je adres als een scanbare QR';
+  String get settingsMyQrSubtitle =>
+      'QR-code en uitnodigingslink voor je adres';
 
   @override
   String get settingsShareMyAddress => 'Mijn Adres Delen';

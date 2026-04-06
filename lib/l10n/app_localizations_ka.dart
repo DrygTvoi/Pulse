@@ -1262,10 +1262,11 @@ class AppLocalizationsKa extends AppLocalizations {
   String get settingsYourInboxAddress => 'თქვენი შემომავალი მისამართი';
 
   @override
-  String get settingsMyQrCode => 'ჩემი QR კოდი';
+  String get settingsMyQrCode => 'კონტაქტის გაზიარება';
 
   @override
-  String get settingsMyQrSubtitle => 'მისამართის გაზიარება სკანირებადი QR-ით';
+  String get settingsMyQrSubtitle =>
+      'QR კოდი და მოწვევის ბმული თქვენი მისამართისთვის';
 
   @override
   String get settingsShareMyAddress => 'ჩემი მისამართის გაზიარება';

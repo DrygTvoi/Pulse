@@ -1263,10 +1263,10 @@ class AppLocalizationsSr extends AppLocalizations {
   String get settingsYourInboxAddress => 'Ваша адреса пријемног сандучета';
 
   @override
-  String get settingsMyQrCode => 'Мој QR код';
+  String get settingsMyQrCode => 'Подели контакт';
 
   @override
-  String get settingsMyQrSubtitle => 'Поделите адресу као QR код за скенирање';
+  String get settingsMyQrSubtitle => 'QR код и позивни линк за вашу адресу';
 
   @override
   String get settingsShareMyAddress => 'Подели моју адресу';

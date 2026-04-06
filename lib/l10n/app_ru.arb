@@ -397,8 +397,8 @@
 
   "settingsMyProfile": "Мой профиль",
   "settingsYourInboxAddress": "Ваш адрес входящих",
-  "settingsMyQrCode": "Мой QR-код",
-  "settingsMyQrSubtitle": "Поделитесь адресом как сканируемым QR",
+  "settingsMyQrCode": "Поделиться контактом",
+  "settingsMyQrSubtitle": "QR-код и ссылка-приглашение для вашего адреса",
   "settingsShareMyAddress": "Поделиться адресом",
   "settingsNoAddressYet": "Нет адреса — сначала сохраните настройки",
   "settingsInviteLink": "Ссылка-приглашение",

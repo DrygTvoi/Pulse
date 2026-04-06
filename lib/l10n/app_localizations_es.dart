@@ -1282,11 +1282,11 @@ class AppLocalizationsEs extends AppLocalizations {
   String get settingsYourInboxAddress => 'Tu dirección de buzón';
 
   @override
-  String get settingsMyQrCode => 'Mi código QR';
+  String get settingsMyQrCode => 'Compartir contacto';
 
   @override
   String get settingsMyQrSubtitle =>
-      'Comparte tu dirección como un QR escaneable';
+      'Código QR y enlace de invitación para tu dirección';
 
   @override
   String get settingsShareMyAddress => 'Compartir mi dirección';

@@ -1272,11 +1272,11 @@ class AppLocalizationsFil extends AppLocalizations {
   String get settingsYourInboxAddress => 'Ang Iyong Inbox Address';
 
   @override
-  String get settingsMyQrCode => 'Aking QR Code';
+  String get settingsMyQrCode => 'Ibahagi ang contact';
 
   @override
   String get settingsMyQrSubtitle =>
-      'Ibahagi ang iyong address bilang naka-scan na QR';
+      'QR code at invite link para sa iyong address';
 
   @override
   String get settingsShareMyAddress => 'Ibahagi ang Aking Address';

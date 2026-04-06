@@ -1264,11 +1264,10 @@ class AppLocalizationsBg extends AppLocalizations {
   String get settingsYourInboxAddress => 'Вашият входящ адрес';
 
   @override
-  String get settingsMyQrCode => 'Моят QR код';
+  String get settingsMyQrCode => 'Споделяне на контакт';
 
   @override
-  String get settingsMyQrSubtitle =>
-      'Споделете адреса си като сканируем QR код';
+  String get settingsMyQrSubtitle => 'QR код и линк за покана за вашия адрес';
 
   @override
   String get settingsShareMyAddress => 'Споделяне на адреса ми';

@@ -1273,10 +1273,11 @@ class AppLocalizationsDe extends AppLocalizations {
   String get settingsYourInboxAddress => 'Ihre Eingangsadresse';
 
   @override
-  String get settingsMyQrCode => 'Mein QR-Code';
+  String get settingsMyQrCode => 'Kontakt teilen';
 
   @override
-  String get settingsMyQrSubtitle => 'Adresse als scannbaren QR-Code teilen';
+  String get settingsMyQrSubtitle =>
+      'QR-Code und Einladungslink für deine Adresse';
 
   @override
   String get settingsShareMyAddress => 'Meine Adresse teilen';

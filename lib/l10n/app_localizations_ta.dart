@@ -1272,11 +1272,11 @@ class AppLocalizationsTa extends AppLocalizations {
   String get settingsYourInboxAddress => 'உங்கள் இன்பாக்ஸ் முகவரி';
 
   @override
-  String get settingsMyQrCode => 'எனது QR குறியீடு';
+  String get settingsMyQrCode => 'தொடர்பை பகிரவும்';
 
   @override
   String get settingsMyQrSubtitle =>
-      'ஸ்கேன் செய்யக்கூடிய QR ஆக உங்கள் முகவரியைப் பகிரவும்';
+      'உங்கள் முகவரிக்கான QR குறியீடு மற்றும் அழைப்பு இணைப்பு';
 
   @override
   String get settingsShareMyAddress => 'எனது முகவரியைப் பகிர்';

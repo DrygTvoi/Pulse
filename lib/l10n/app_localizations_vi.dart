@@ -1255,10 +1255,11 @@ class AppLocalizationsVi extends AppLocalizations {
   String get settingsYourInboxAddress => 'Địa chỉ hộp thư của bạn';
 
   @override
-  String get settingsMyQrCode => 'Mã QR của tôi';
+  String get settingsMyQrCode => 'Chia sẻ liên hệ';
 
   @override
-  String get settingsMyQrSubtitle => 'Chia sẻ địa chỉ dưới dạng QR có thể quét';
+  String get settingsMyQrSubtitle =>
+      'Mã QR và liên kết mời cho địa chỉ của bạn';
 
   @override
   String get settingsShareMyAddress => 'Chia sẻ địa chỉ';

@@ -1269,11 +1269,11 @@ class AppLocalizationsPt extends AppLocalizations {
   String get settingsYourInboxAddress => 'Seu endereço de caixa de entrada';
 
   @override
-  String get settingsMyQrCode => 'Meu código QR';
+  String get settingsMyQrCode => 'Compartilhar contato';
 
   @override
   String get settingsMyQrSubtitle =>
-      'Compartilhe seu endereço como um QR escaneável';
+      'Código QR e link de convite para seu endereço';
 
   @override
   String get settingsShareMyAddress => 'Compartilhar meu endereço';

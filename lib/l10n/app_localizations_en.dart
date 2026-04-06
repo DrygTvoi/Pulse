@@ -1254,10 +1254,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsYourInboxAddress => 'Your Inbox Address';
 
   @override
-  String get settingsMyQrCode => 'My QR Code';
+  String get settingsMyQrCode => 'Share Contact';
 
   @override
-  String get settingsMyQrSubtitle => 'Share your address as a scannable QR';
+  String get settingsMyQrSubtitle => 'QR code & invite link for your address';
 
   @override
   String get settingsShareMyAddress => 'Share My Address';

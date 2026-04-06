@@ -1273,10 +1273,10 @@ class AppLocalizationsAr extends AppLocalizations {
   String get settingsYourInboxAddress => 'عنوان صندوق الوارد';
 
   @override
-  String get settingsMyQrCode => 'رمز QR الخاص بي';
+  String get settingsMyQrCode => 'مشاركة جهة اتصال';
 
   @override
-  String get settingsMyQrSubtitle => 'شارك عنوانك كرمز QR قابل للمسح';
+  String get settingsMyQrSubtitle => 'رمز QR ورابط دعوة لعنوانك';
 
   @override
   String get settingsShareMyAddress => 'مشاركة عنواني';

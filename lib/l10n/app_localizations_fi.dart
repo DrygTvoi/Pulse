@@ -1263,10 +1263,10 @@ class AppLocalizationsFi extends AppLocalizations {
   String get settingsYourInboxAddress => 'Saapuvien osoitteesi';
 
   @override
-  String get settingsMyQrCode => 'QR-koodini';
+  String get settingsMyQrCode => 'Jaa yhteystieto';
 
   @override
-  String get settingsMyQrSubtitle => 'Jaa osoitteesi skannattavana QR-koodina';
+  String get settingsMyQrSubtitle => 'QR-koodi ja kutsulinkki osoitteellesi';
 
   @override
   String get settingsShareMyAddress => 'Jaa osoitteeni';

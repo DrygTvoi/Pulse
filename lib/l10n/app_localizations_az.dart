@@ -1264,11 +1264,10 @@ class AppLocalizationsAz extends AppLocalizations {
   String get settingsYourInboxAddress => 'Gələn qutusu ünvanınız';
 
   @override
-  String get settingsMyQrCode => 'QR kodum';
+  String get settingsMyQrCode => 'Kontaktı paylaş';
 
   @override
-  String get settingsMyQrSubtitle =>
-      'Ünvanınızı skan edilə bilən QR olaraq paylaşın';
+  String get settingsMyQrSubtitle => 'Ünvanınız üçün QR kod və dəvət linki';
 
   @override
   String get settingsShareMyAddress => 'Ünvanımı paylaş';

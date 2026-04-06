@@ -1257,11 +1257,11 @@ class AppLocalizationsKk extends AppLocalizations {
   String get settingsYourInboxAddress => 'Кіріс мекенжайыңыз';
 
   @override
-  String get settingsMyQrCode => 'Менің QR кодым';
+  String get settingsMyQrCode => 'Контактты бөлісу';
 
   @override
   String get settingsMyQrSubtitle =>
-      'Мекенжайды сканерленетін QR ретінде бөлісу';
+      'Мекенжайыңыз үшін QR код және шақыру сілтемесі';
 
   @override
   String get settingsShareMyAddress => 'Мекенжайымды бөлісу';

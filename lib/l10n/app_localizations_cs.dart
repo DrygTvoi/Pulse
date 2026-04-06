@@ -1257,11 +1257,10 @@ class AppLocalizationsCs extends AppLocalizations {
   String get settingsYourInboxAddress => 'Vaše adresa příchozí pošty';
 
   @override
-  String get settingsMyQrCode => 'Můj QR kód';
+  String get settingsMyQrCode => 'Sdílet kontakt';
 
   @override
-  String get settingsMyQrSubtitle =>
-      'Sdílejte svou adresu jako skenovatelný QR';
+  String get settingsMyQrSubtitle => 'QR kód a odkaz pozvánky pro vaši adresu';
 
   @override
   String get settingsShareMyAddress => 'Sdílet mou adresu';

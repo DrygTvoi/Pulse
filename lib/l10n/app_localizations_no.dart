@@ -1258,10 +1258,11 @@ class AppLocalizationsNo extends AppLocalizations {
   String get settingsYourInboxAddress => 'Din innboksadresse';
 
   @override
-  String get settingsMyQrCode => 'Min QR-kode';
+  String get settingsMyQrCode => 'Del kontakt';
 
   @override
-  String get settingsMyQrSubtitle => 'Del adressen din som en skannbar QR-kode';
+  String get settingsMyQrSubtitle =>
+      'QR-kode og invitasjonslenke for adressen din';
 
   @override
   String get settingsShareMyAddress => 'Del min adresse';

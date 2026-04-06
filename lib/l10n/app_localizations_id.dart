@@ -1261,11 +1261,11 @@ class AppLocalizationsId extends AppLocalizations {
   String get settingsYourInboxAddress => 'Alamat Kotak Masuk Anda';
 
   @override
-  String get settingsMyQrCode => 'Kode QR Saya';
+  String get settingsMyQrCode => 'Bagikan kontak';
 
   @override
   String get settingsMyQrSubtitle =>
-      'Bagikan alamat sebagai QR yang bisa dipindai';
+      'Kode QR dan tautan undangan untuk alamat Anda';
 
   @override
   String get settingsShareMyAddress => 'Bagikan Alamat Saya';

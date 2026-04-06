@@ -1255,11 +1255,11 @@ class AppLocalizationsKm extends AppLocalizations {
   String get settingsYourInboxAddress => 'អាសយដ្ឋានប្រអប់សំបុត្រចូលរបស់អ្នក';
 
   @override
-  String get settingsMyQrCode => 'កូដ QR របស់ខ្ញុំ';
+  String get settingsMyQrCode => 'ចែករំលែកទំនាក់ទំនង';
 
   @override
   String get settingsMyQrSubtitle =>
-      'ចែករំលែកអាសយដ្ឋានរបស់អ្នកជា QR ដែលអាចស្កែនបាន';
+      'កូដ QR និងតំណភ្ជាប់អញ្ជើញសម្រាប់អាសយដ្ឋានរបស់អ្នក';
 
   @override
   String get settingsShareMyAddress => 'ចែករំលែកអាសយដ្ឋានរបស់ខ្ញុំ';

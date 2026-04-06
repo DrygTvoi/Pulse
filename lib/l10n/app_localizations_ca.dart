@@ -1281,11 +1281,11 @@ class AppLocalizationsCa extends AppLocalizations {
   String get settingsYourInboxAddress => 'La teva adreça de safata d\'entrada';
 
   @override
-  String get settingsMyQrCode => 'El meu codi QR';
+  String get settingsMyQrCode => 'Compartir contacte';
 
   @override
   String get settingsMyQrSubtitle =>
-      'Comparteix la teva adreça com un QR escanejable';
+      'Codi QR i enllaç d\'invitació per a la teva adreça';
 
   @override
   String get settingsShareMyAddress => 'Comparteix la meva adreça';

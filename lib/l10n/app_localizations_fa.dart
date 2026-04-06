@@ -1253,11 +1253,10 @@ class AppLocalizationsFa extends AppLocalizations {
   String get settingsYourInboxAddress => 'آدرس صندوق ورودی شما';
 
   @override
-  String get settingsMyQrCode => 'کد QR من';
+  String get settingsMyQrCode => 'اشتراک‌گذاری مخاطب';
 
   @override
-  String get settingsMyQrSubtitle =>
-      'آدرس خود را به عنوان QR قابل اسکن به اشتراک بگذارید';
+  String get settingsMyQrSubtitle => 'کد QR و لینک دعوت برای آدرس شما';
 
   @override
   String get settingsShareMyAddress => 'اشتراک آدرس من';
