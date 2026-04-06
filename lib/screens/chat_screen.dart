@@ -92,6 +92,7 @@ class _ChatScreenState extends State<ChatScreen> {
   List<Message>? _cachedFilteredRef;
   int _cachedFilteredLen = -1;
   String _cachedSearchQuery = '';
+  int _cachedEditVersion = -1;
 
   // Debounce search
   Timer? _searchDebounce;
@@ -699,8 +700,9 @@ class _ChatScreenState extends State<ChatScreen> {
         (c) => c.isLoadingMoreHistory(_contact.id));
     final connectionStatus = context.select<ChatController, ConnectionStatus>(
         (c) => c.connectionStatus);
-    // Rebuild only when THIS room's reactions change (not all rooms)
+    // Rebuild only when THIS room's reactions or edits change (not all rooms)
     context.select<ChatController, int>((c) => c.reactionVersionFor(_contact.storageKey));
+    context.select<ChatController, int>((c) => c.editVersionFor(_contact.storageKey));
 
     // Use read() for actual data access and method calls (non-reactive).
     final chatController = context.read<ChatController>();
@@ -740,11 +742,13 @@ class _ChatScreenState extends State<ChatScreen> {
             final text = m.encryptedPayload.toLowerCase();
             return !text.startsWith('e2ee||') && text.contains(_searchQuery);
           }).toList();
-    if (!identical(filtered, _cachedFilteredRef) || filtered.length != _cachedFilteredLen || _searchQuery != _cachedSearchQuery) {
+    final editVer = chatController.editVersionFor(_contact.storageKey);
+    if (!identical(filtered, _cachedFilteredRef) || filtered.length != _cachedFilteredLen || _searchQuery != _cachedSearchQuery || editVer != _cachedEditVersion) {
       _cachedItems = _buildItemList(filtered);
       _cachedFilteredRef = filtered;
       _cachedFilteredLen = filtered.length;
       _cachedSearchQuery = _searchQuery;
+      _cachedEditVersion = editVer;
     }
     final items = _cachedItems!;
 

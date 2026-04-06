@@ -111,6 +111,9 @@ class ChatController extends ChangeNotifier {
   final _reactionVersions = <String, int>{};
   int reactionVersionFor(String storageKey) => _reactionVersions[storageKey] ?? 0;
 
+  final _editVersions = <String, int>{};
+  int editVersionFor(String storageKey) => _editVersions[storageKey] ?? 0;
+
   // Timer-debounced notifyListeners — collapses rapid-fire updates into one
   // rebuild per 200ms window (≈1 frame at 5fps — imperceptible to users).
   Timer? _notifyTimer;
@@ -1195,6 +1198,7 @@ class ChatController extends ChangeNotifier {
           final updated = msg.copyWith(encryptedPayload: e.text, isEdited: true);
           room.messages[idx] = updated;
           unawaited(LocalStorageService().saveMessage(storageKey, updated.toJson()));
+          _editVersions[storageKey] = (_editVersions[storageKey] ?? 0) + 1;
           _scheduleNotify();
           debugPrint('[Edit] SUCCESS: updated msgId=${e.msgId}');
         } else {
@@ -3328,6 +3332,7 @@ class ChatController extends ChangeNotifier {
     final updated = room.messages[idx].copyWith(encryptedPayload: newText, isEdited: true);
     room.messages[idx] = updated;
     await LocalStorageService().saveMessage(storageKey, updated.toJson());
+    _editVersions[storageKey] = (_editVersions[storageKey] ?? 0) + 1;
     _scheduleNotify();
     if (contact.isGroup) {
       unawaited(_broadcaster.sendGroupEditSignal(
