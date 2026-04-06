@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../theme/app_theme.dart';
+import '../theme/design_tokens.dart';
 import '../models/contact.dart';
 import '../models/message.dart';
 import '../services/connectivity_probe_service.dart';
@@ -36,11 +37,11 @@ class NewMessageBanner extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        margin: const EdgeInsets.fromLTRB(10, 8, 10, 0),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        margin: const EdgeInsets.fromLTRB(DesignTokens.spacing10, DesignTokens.spacing8, DesignTokens.spacing10, 0),
+        padding: const EdgeInsets.symmetric(horizontal: DesignTokens.spacing14, vertical: DesignTokens.spacing10),
         decoration: BoxDecoration(
           color: AppTheme.surface,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(DesignTokens.radiusXl),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.3),
@@ -51,28 +52,26 @@ class NewMessageBanner extends StatelessWidget {
         ),
         child: Row(
           children: [
-            AvatarWidget(name: contact.name, size: 40, fontSize: 16),
-            const SizedBox(width: 12),
+            AvatarWidget(name: contact.name, size: DesignTokens.avatarSm, fontSize: DesignTokens.fontXl),
+            const SizedBox(width: DesignTokens.spacing12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(contact.name,
-                      style: GoogleFonts.inter(
-                          color: AppTheme.textPrimary, fontSize: 14, fontWeight: FontWeight.w700)),
-                  const SizedBox(height: 2),
+                  Text(contact.name, style: AppTheme.labelLarge),
+                  const SizedBox(height: DesignTokens.spacing2),
                   Text(preview,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: 12)),
+                      style: AppTheme.captionSmall),
                 ],
               ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: DesignTokens.spacing8),
             GestureDetector(
               onTap: onDismiss,
-              child: Icon(Icons.close_rounded, size: 16, color: AppTheme.textSecondary),
+              child: Icon(Icons.close_rounded, size: DesignTokens.iconSm, color: AppTheme.textSecondary),
             ),
           ],
         ),
@@ -129,14 +128,14 @@ class ProbeBanner extends StatelessWidget {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
       color: color.withValues(alpha: 0.92),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: DesignTokens.spacing16, vertical: DesignTokens.spacing8),
       child: Row(children: [
-        Icon(icon, color: Colors.white70, size: 15),
-        const SizedBox(width: 8),
+        Icon(icon, color: Colors.white70, size: DesignTokens.iconSm),
+        const SizedBox(width: DesignTokens.spacing8),
         Expanded(
           child: Text(label,
               style: GoogleFonts.inter(
-                  color: Colors.white, fontSize: 12,
+                  color: Colors.white, fontSize: DesignTokens.fontBody,
                   fontWeight: FontWeight.w500)),
         ),
         if (status.phase != ProbePhase.done)
@@ -161,16 +160,16 @@ class OfflineBanner extends StatelessWidget {
     if (status != ConnectionStatus.disconnected) return const SizedBox.shrink();
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: DesignTokens.spacing16, vertical: DesignTokens.spacing6),
       color: const Color(0xFF424242), // grey-800
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.cloud_off_rounded, size: 13, color: Colors.white70),
-          const SizedBox(width: 6),
+          const Icon(Icons.cloud_off_rounded, size: DesignTokens.fontMd, color: Colors.white70),
+          const SizedBox(width: DesignTokens.spacing6),
           Text(
             context.l10n.offlineBanner,
-            style: GoogleFonts.inter(color: Colors.white70, fontSize: 11),
+            style: GoogleFonts.inter(color: Colors.white70, fontSize: DesignTokens.fontSm),
           ),
         ],
       ),
@@ -185,7 +184,7 @@ class LanBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: DesignTokens.spacing16, vertical: DesignTokens.spacing8),
       decoration: BoxDecoration(
         color: const Color(0xFFB45309), // amber-700
         boxShadow: [
@@ -199,13 +198,13 @@ class LanBanner extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.wifi_off_rounded, size: 16, color: Colors.white),
-          const SizedBox(width: 8),
+          const Icon(Icons.wifi_off_rounded, size: DesignTokens.iconSm, color: Colors.white),
+          const SizedBox(width: DesignTokens.spacing8),
           Text(
             context.l10n.lanModeBanner,
             style: GoogleFonts.inter(
               color: Colors.white,
-              fontSize: 12,
+              fontSize: DesignTokens.fontBody,
               fontWeight: FontWeight.w600,
             ),
           ),

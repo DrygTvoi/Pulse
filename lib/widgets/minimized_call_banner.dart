@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../theme/app_theme.dart';
+import '../theme/design_tokens.dart';
 import '../models/contact.dart';
 import '../services/active_call_service.dart';
 
@@ -35,15 +37,15 @@ class MinimizedCallBanner extends StatelessWidget {
           child: InkWell(
             onTap: onTap,
             child: Container(
-              color: const Color(0xFF128C7E),
+              color: AppTheme.providerPulse,
               child: SafeArea(
                 bottom: false,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: DesignTokens.spacing12, vertical: DesignTokens.spacing8),
                   child: Row(
                     children: [
-                      const Icon(Icons.phone_rounded, color: Colors.white, size: 18),
-                      const SizedBox(width: 8),
+                      const Icon(Icons.phone_rounded, color: Colors.white, size: DesignTokens.fontHeading),
+                      const SizedBox(width: DesignTokens.spacing8),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -53,7 +55,7 @@ class MinimizedCallBanner extends StatelessWidget {
                               contact.name,
                               style: GoogleFonts.inter(
                                 color: Colors.white,
-                                fontSize: 13,
+                                fontSize: DesignTokens.fontMd,
                                 fontWeight: FontWeight.w700,
                               ),
                               maxLines: 1,
@@ -63,7 +65,7 @@ class MinimizedCallBanner extends StatelessWidget {
                               _fmt(elapsed),
                               style: GoogleFonts.inter(
                                 color: Colors.white.withValues(alpha: 0.85),
-                                fontSize: 11,
+                                fontSize: DesignTokens.fontSm,
                               ),
                             ),
                           ],
@@ -79,7 +81,7 @@ class MinimizedCallBanner extends StatelessWidget {
                           minHeight: 36,
                         ),
                         style: IconButton.styleFrom(
-                          backgroundColor: Colors.redAccent,
+                          backgroundColor: AppTheme.destructive,
                           shape: const CircleBorder(),
                         ),
                       ),

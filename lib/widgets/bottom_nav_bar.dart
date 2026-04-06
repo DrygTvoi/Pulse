@@ -115,12 +115,12 @@ class PulseBottomNavBar extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(height: 2),
+            const SizedBox(height: DesignTokens.spacing2),
             Text(
               label,
               style: GoogleFonts.inter(
                 color: isActive ? AppTheme.primary : AppTheme.textSecondary,
-                fontSize: 12,
+                fontSize: DesignTokens.fontBody,
                 fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
               ),
             ),

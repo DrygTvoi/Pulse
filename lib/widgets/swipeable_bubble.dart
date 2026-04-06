@@ -1,12 +1,14 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
+import '../theme/design_tokens.dart';
 
 /// Wraps a message bubble with swipe-right-to-reply gesture.
 class SwipeableBubble extends StatefulWidget {
   final Widget child;
   final VoidCallback onLongPress;
   final VoidCallback onSwiped;
-  final void Function(TapUpDetails)? onSecondaryTapUp;
+  final void Function(Offset)? onSecondaryTapUp;
 
   const SwipeableBubble({
     super.key,
@@ -27,6 +29,9 @@ class _SwipeableBubbleState extends State<SwipeableBubble>
   late AnimationController _springCtrl;
   Animation<double>? _springAnim;
 
+  // Raw pointer tracking for reliable right-click (bypasses gesture arena)
+  Offset? _secondaryDownPos;
+
   static const double _threshold = 72.0;
 
   @override
@@ -34,7 +39,7 @@ class _SwipeableBubbleState extends State<SwipeableBubble>
     super.initState();
     _springCtrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 350),
+      duration: DesignTokens.durationSlow,
     );
   }
 
@@ -77,9 +82,21 @@ class _SwipeableBubbleState extends State<SwipeableBubble>
   @override
   Widget build(BuildContext context) {
     final opacity = (_offset / _threshold).clamp(0.0, 1.0);
-    return GestureDetector(
+    return Listener(
+      onPointerDown: (event) {
+        if (event.buttons == kSecondaryMouseButton) {
+          _secondaryDownPos = event.position;
+        }
+      },
+      onPointerUp: (event) {
+        final down = _secondaryDownPos;
+        _secondaryDownPos = null;
+        if (down != null && (event.position - down).distance < 20) {
+          widget.onSecondaryTapUp?.call(event.position);
+        }
+      },
+      child: GestureDetector(
       onLongPress: widget.onLongPress,
-      onSecondaryTapUp: widget.onSecondaryTapUp,
       onHorizontalDragUpdate: _onDragUpdate,
       onHorizontalDragEnd: _onDragEnd,
       child: Stack(
@@ -114,6 +131,7 @@ class _SwipeableBubbleState extends State<SwipeableBubble>
             ),
         ],
       ),
+    ),
     );
   }
 }

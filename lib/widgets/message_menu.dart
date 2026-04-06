@@ -142,6 +142,7 @@ void showMessageContextMenu({
 
   final items = <PopupMenuEntry<String>>[
     PopupMenuItem<String>(
+      height: 44,
       value: 'reply',
       child: Row(children: [
         Icon(Icons.reply_rounded, color: AppTheme.textSecondary, size: DesignTokens.iconMd),
@@ -151,6 +152,7 @@ void showMessageContextMenu({
       ]),
     ),
     PopupMenuItem<String>(
+      height: 44,
       value: 'forward',
       child: Row(children: [
         Icon(Icons.forward_rounded, color: AppTheme.textSecondary, size: DesignTokens.iconMd),
@@ -160,6 +162,7 @@ void showMessageContextMenu({
       ]),
     ),
     PopupMenuItem<String>(
+      height: 44,
       value: 'react',
       child: Row(children: [
         Icon(Icons.add_reaction_outlined, color: AppTheme.textSecondary, size: DesignTokens.iconMd),
@@ -169,6 +172,7 @@ void showMessageContextMenu({
       ]),
     ),
     PopupMenuItem<String>(
+      height: 44,
       value: 'copy',
       child: Row(children: [
         Icon(Icons.copy_rounded, color: AppTheme.textSecondary, size: DesignTokens.iconMd),
@@ -179,6 +183,7 @@ void showMessageContextMenu({
     ),
     if (isMe && !MediaService.isMediaPayload(message.encryptedPayload))
       PopupMenuItem<String>(
+        height: 44,
         value: 'edit',
         child: Row(children: [
           Icon(Icons.edit_outlined, color: AppTheme.primary, size: DesignTokens.iconMd),
@@ -189,6 +194,7 @@ void showMessageContextMenu({
       ),
     if (message.status == 'failed')
       PopupMenuItem<String>(
+        height: 44,
         value: 'retry',
         child: Row(children: [
           Icon(Icons.refresh_rounded, color: AppTheme.primary, size: DesignTokens.iconMd),
@@ -199,6 +205,7 @@ void showMessageContextMenu({
       ),
     if (message.status == 'scheduled')
       PopupMenuItem<String>(
+        height: 44,
         value: 'cancel_scheduled',
         child: Row(children: [
           const Icon(Icons.cancel_rounded, color: Colors.redAccent, size: DesignTokens.iconMd),
@@ -208,6 +215,7 @@ void showMessageContextMenu({
         ]),
       ),
     PopupMenuItem<String>(
+      height: 44,
       value: 'delete',
       child: Row(children: [
         const Icon(Icons.delete_outline_rounded, color: Colors.redAccent, size: DesignTokens.iconMd),
@@ -224,6 +232,9 @@ void showMessageContextMenu({
       position.dx, position.dy, position.dx, position.dy,
     ),
     color: AppTheme.surface,
+    elevation: 8,
+    shadowColor: Colors.black54,
+    constraints: const BoxConstraints(minWidth: 200),
     shape: RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(DesignTokens.contextMenuRadius),
     ),

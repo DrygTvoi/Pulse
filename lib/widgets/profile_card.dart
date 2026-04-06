@@ -295,7 +295,6 @@ class InboxAddressCard extends StatelessWidget {
     return ListenableBuilder(
       listenable: ChatController(),
       builder: (context, _) {
-        final shareableAddresses = ChatController().shareableAddresses;
         final displayAddresses = ChatController().allAddresses;
         if (displayAddresses.isEmpty) return const SizedBox.shrink();
 
@@ -309,9 +308,6 @@ class InboxAddressCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Share button — primary action
-              _ShareAllButton(addresses: shareableAddresses),
-              const SizedBox(height: 10),
               // Compact route list
               Row(
                 children: [
@@ -354,64 +350,6 @@ class InboxAddressCard extends StatelessWidget {
           ),
         );
       },
-    );
-  }
-}
-
-class _ShareAllButton extends StatelessWidget {
-  final List<String> addresses;
-  const _ShareAllButton({required this.addresses});
-
-  Future<void> _share(BuildContext context) async {
-    final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString('user_profile');
-    String name = '';
-    if (raw != null) {
-      try { name = (jsonDecode(raw)['name'] as String?) ?? ''; } catch (e) {
-        debugPrint('[ProfileCard] Failed to parse profile name: $e');
-      }
-    }
-    final cfg = jsonEncode({'n': name, 'a': addresses});
-    final link = 'pulse://add?cfg=${base64Encode(utf8.encode(cfg))}';
-    await Clipboard.setData(ClipboardData(text: link));
-    if (!context.mounted) return;
-    final n = addresses.length;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(
-          n > 1 ? '$n addresses copied as one link!' : 'Invite link copied!',
-          style: GoogleFonts.inter()),
-      backgroundColor: AppTheme.primary,
-      behavior: SnackBarBehavior.floating,
-      duration: const Duration(seconds: 2),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-    ));
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => unawaited(_share(context)),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        decoration: BoxDecoration(
-          color: AppTheme.primary.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: AppTheme.primary.withValues(alpha: 0.3)),
-        ),
-        child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-          Icon(Icons.link_rounded, size: 14, color: AppTheme.primary),
-          const SizedBox(width: 6),
-          Text(
-              addresses.length > 1
-                  ? 'Share Invite Link (${addresses.length} routes)'
-                  : 'Share Invite Link',
-              style: GoogleFonts.inter(
-                  color: AppTheme.primary,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600)),
-        ]),
-      ),
     );
   }
 }

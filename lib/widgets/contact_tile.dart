@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_theme.dart';
+import '../theme/design_tokens.dart';
 import '../models/contact.dart';
 import 'avatar_widget.dart';
 
@@ -36,11 +37,11 @@ class ContactTile extends StatelessWidget {
         splashColor: AppTheme.primary.withValues(alpha: 0.08),
         highlightColor: AppTheme.primary.withValues(alpha: 0.04),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: DesignTokens.tilePaddingH, vertical: DesignTokens.tilePaddingV),
           child: Row(
             children: [
               _buildAvatar(),
-              const SizedBox(width: 14),
+              const SizedBox(width: DesignTokens.spacing14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -50,11 +51,7 @@ class ContactTile extends StatelessWidget {
                         Expanded(
                           child: Text(
                             contact.name,
-                            style: GoogleFonts.inter(
-                              color: AppTheme.textPrimary,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                            ),
+                            style: AppTheme.title,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -62,29 +59,29 @@ class ContactTile extends StatelessWidget {
                         if (trailing != null)
                           Text(
                             trailing!,
-                            style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: 12),
+                            style: AppTheme.captionSmall,
                           ),
                       ],
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: DesignTokens.spacing4),
                     Row(
                       children: [
                         _buildProviderBadge(),
-                        const SizedBox(width: 6),
+                        const SizedBox(width: DesignTokens.spacing6),
                         if (isE2eeActive) ...[
-                          Icon(Icons.lock_rounded, size: 11, color: AppTheme.primary),
-                          const SizedBox(width: 3),
+                          Icon(Icons.lock_rounded, size: DesignTokens.fontSm, color: AppTheme.primary),
+                          const SizedBox(width: DesignTokens.spacing2),
                           Text('E2EE',
                               style: GoogleFonts.inter(
-                                  color: AppTheme.primary, fontSize: 11, fontWeight: FontWeight.w600)),
-                          const SizedBox(width: 6),
+                                  color: AppTheme.primary, fontSize: DesignTokens.fontSm, fontWeight: FontWeight.w600)),
+                          const SizedBox(width: DesignTokens.spacing6),
                         ],
                         Expanded(
                           child: Text(
                             subtitleOverride ?? 'Tap to chat',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: 13),
+                            style: AppTheme.caption,
                           ),
                         ),
                       ],
@@ -103,19 +100,19 @@ class ContactTile extends StatelessWidget {
     final meta = _providerMeta[contact.provider] ??
         (icon: Icons.cloud_rounded, color: AppTheme.textSecondary);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: DesignTokens.spacing6, vertical: DesignTokens.spacing2),
       decoration: BoxDecoration(
         color: meta.color.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: BorderRadius.circular(DesignTokens.radiusXs),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(meta.icon, size: 10, color: meta.color),
-          const SizedBox(width: 3),
+          Icon(meta.icon, size: DesignTokens.fontXs, color: meta.color),
+          const SizedBox(width: DesignTokens.spacing2),
           Text(
             _shortName(contact.provider),
-            style: GoogleFonts.inter(color: meta.color, fontSize: 10, fontWeight: FontWeight.w600),
+            style: GoogleFonts.inter(color: meta.color, fontSize: DesignTokens.fontXs, fontWeight: FontWeight.w600),
           ),
         ],
       ),
@@ -131,19 +128,19 @@ class ContactTile extends StatelessWidget {
     return Stack(
       clipBehavior: Clip.none,
       children: [
-        AvatarWidget(name: contact.name, size: 52, fontSize: 21),
+        AvatarWidget(name: contact.name, size: DesignTokens.avatarMd, fontSize: DesignTokens.fontXxl),
         // Group indicator
         if (contact.isGroup)
           Positioned(
             bottom: -2,
             right: -2,
             child: Container(
-              padding: const EdgeInsets.all(3),
+              padding: const EdgeInsets.all(DesignTokens.spacing2),
               decoration: BoxDecoration(
                 color: AppTheme.surface,
                 shape: BoxShape.circle,
               ),
-              child: Icon(Icons.group_rounded, size: 12, color: AppTheme.primary),
+              child: Icon(Icons.group_rounded, size: DesignTokens.fontBody, color: AppTheme.primary),
             ),
           ),
       ],

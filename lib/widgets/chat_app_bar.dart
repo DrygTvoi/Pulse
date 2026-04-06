@@ -264,7 +264,7 @@ Widget _buildTypingIndicator(BuildContext context) {
     Text(context.l10n.appBarTyping,
         style: GoogleFonts.inter(
             fontSize: DesignTokens.fontSm, color: AppTheme.primary, fontWeight: FontWeight.w500)),
-    const SizedBox(width: 3),
+    const SizedBox(width: DesignTokens.spacing4),
     const TypingDots(),
   ]);
 }
