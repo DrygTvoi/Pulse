@@ -8,6 +8,7 @@ import '../../services/psiphon_service.dart';
 import '../../services/psiphon_turn_proxy.dart';
 import '../../services/tor_service.dart';
 import '../../theme/app_theme.dart';
+import '../../theme/design_tokens.dart';
 import '../../widgets/custom_proxy_section.dart';
 import '../../widgets/i2p_config_section.dart';
 import '../../widgets/psiphon_config_section.dart';
@@ -227,7 +228,7 @@ class _ProxyTunnelsScreenState extends State<ProxyTunnelsScreen> {
         elevation: 0,
       ),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
+        padding: const EdgeInsets.fromLTRB(DesignTokens.spacing16, DesignTokens.spacing16, DesignTokens.spacing16, DesignTokens.spacing40),
         children: [
           TorConfigSection(
             torEnabled: _torEnabled,
@@ -293,13 +294,13 @@ class _ProxyTunnelsScreenState extends State<ProxyTunnelsScreen> {
                   builder: (_) => const NetworkDiagnosticsScreen()),
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: DesignTokens.spacing12),
           PsiphonConfigSection(
             psiphonEnabled: _psiphonEnabled,
             psiphonLoading: _psiphonLoading,
             onToggle: _togglePsiphon,
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: DesignTokens.spacing12),
           CustomProxySection(
             proxyEnabled: _customProxyEnabled,
             proxyHostController: _customProxyHostController,
@@ -312,7 +313,7 @@ class _ProxyTunnelsScreenState extends State<ProxyTunnelsScreen> {
             workerRelayController: _cfWorkerRelayController,
           ),
           if (!_bundledTorEnabled) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: DesignTokens.spacing12),
             I2pConfigSection(
               i2pEnabled: _i2pEnabled,
               i2pHostController: _i2pHostController,

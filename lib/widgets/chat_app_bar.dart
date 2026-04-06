@@ -36,8 +36,8 @@ PreferredSizeWidget buildChatAppBar({
     backgroundColor: AppTheme.surface,
     elevation: 0,
     scrolledUnderElevation: 2.0,
-    shadowColor: Colors.black.withValues(alpha: 0.3),
-    titleSpacing: embedded ? 16 : 0,
+    shadowColor: Colors.black.withValues(alpha: DesignTokens.opacityMedium),
+    titleSpacing: embedded ? DesignTokens.spacing16 : 0,
     automaticallyImplyLeading: !embedded,
     leading: embedded
         ? null
@@ -52,9 +52,9 @@ PreferredSizeWidget buildChatAppBar({
         onTap: onOpenProfile,
         child: Row(children: [
         if (embedded)
-          buildChatAvatar(contact.name, 40)
+          buildChatAvatar(contact.name, DesignTokens.avatarSm)
         else
-          Hero(tag: 'contact_avatar_${contact.id}', child: buildChatAvatar(contact.name, 40)),
+          Hero(tag: 'contact_avatar_${contact.id}', child: buildChatAvatar(contact.name, DesignTokens.avatarSm)),
         const SizedBox(width: DesignTokens.spacing10),
         Expanded(
           child: Column(
@@ -68,11 +68,11 @@ PreferredSizeWidget buildChatAppBar({
                   : isOnline
                       ? Row(mainAxisSize: MainAxisSize.min, children: [
                           Container(width: DesignTokens.spacing8, height: DesignTokens.spacing8,
-                              decoration: const BoxDecoration(
-                                  color: Color(0xFF4CAF50), shape: BoxShape.circle)),
+                              decoration: BoxDecoration(
+                                  color: AppTheme.online, shape: BoxShape.circle)),
                           const SizedBox(width: DesignTokens.spacing4),
                           Text(context.l10n.appBarOnline,
-                              style: GoogleFonts.inter(fontSize: DesignTokens.fontSm, color: const Color(0xFF4CAF50))),
+                              style: GoogleFonts.inter(fontSize: DesignTokens.fontSm, color: AppTheme.online)),
                         ])
                       : lastSeen.isNotEmpty
                           ? Text(lastSeen,
@@ -163,7 +163,7 @@ PreferredSizeWidget buildChatAppBar({
             value: 'media',
             child: Row(children: [
               Icon(Icons.photo_library_outlined,
-                  color: AppTheme.textSecondary, size: 20),
+                  color: AppTheme.textSecondary, size: DesignTokens.iconMd),
               const SizedBox(width: DesignTokens.spacing12),
               Text(context.l10n.appBarMedia, style: GoogleFonts.inter(color: AppTheme.textPrimary)),
             ]),
@@ -188,7 +188,7 @@ PreferredSizeWidget buildChatAppBar({
               value: 'admin',
               child: Row(children: [
                 Icon(Icons.admin_panel_settings_rounded,
-                    color: AppTheme.textSecondary, size: 20),
+                    color: AppTheme.textSecondary, size: DesignTokens.iconMd),
                 const SizedBox(width: DesignTokens.spacing12),
                 Text(context.l10n.appBarGroupSettings, style: GoogleFonts.inter(color: AppTheme.textPrimary)),
               ]),
@@ -211,7 +211,7 @@ PreferredSizeWidget buildSearchAppBar({
     backgroundColor: AppTheme.surface,
     elevation: 0,
     scrolledUnderElevation: 2.0,
-    shadowColor: Colors.black.withValues(alpha: 0.3),
+    shadowColor: Colors.black.withValues(alpha: DesignTokens.opacityMedium),
     leading: IconButton(
       icon: Icon(Icons.arrow_back_rounded, color: AppTheme.textSecondary),
       tooltip: context.l10n.closeSearch,
@@ -270,10 +270,10 @@ Widget _buildTypingIndicator(BuildContext context) {
 }
 
 Widget _buildProviderBadge(String provider) {
-  const meta = {
-    'Firebase': (icon: Icons.local_fire_department_rounded, color: Color(0xFFFFAB00)),
-    'Nostr': (icon: Icons.bolt_rounded, color: Color(0xFF9B59B6)),
-    'group': (icon: Icons.group_rounded, color: Color(0xFF26A69A)),
+  final meta = {
+    'Firebase': (icon: Icons.local_fire_department_rounded, color: AppTheme.providerFirebase),
+    'Nostr': (icon: Icons.bolt_rounded, color: AppTheme.providerNostr),
+    'group': (icon: Icons.group_rounded, color: AppTheme.providerPulse),
   };
   final m = meta[provider];
   if (m == null) return const SizedBox.shrink();

@@ -13,6 +13,7 @@ import '../services/call_transport.dart';
 import '../services/local_storage_service.dart';
 import '../services/active_call_service.dart';
 import '../theme/app_theme.dart';
+import '../theme/design_tokens.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../models/contact.dart';
 import '../models/message.dart';
@@ -1036,45 +1037,45 @@ class _CallScreenState extends State<CallScreen> {
     int selFps = currentFps;
     int selResWidth = currentResWidth;
     Widget sheetContent(BuildContext ctx, StateSetter setS) => Padding(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+      padding: EdgeInsets.fromLTRB(DesignTokens.spacing20, DesignTokens.spacing16, DesignTokens.spacing20, DesignTokens.spacing32),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (!PlatformUtils.isDesktop)
-            Center(child: Container(width: 36, height: 4,
+            Center(child: Container(width: 36, height: DesignTokens.spacing4,
               decoration: BoxDecoration(
-                color: AppTheme.textSecondary.withValues(alpha: 0.3),
-                borderRadius: BorderRadius.circular(2)))),
-          if (!PlatformUtils.isDesktop) const SizedBox(height: 16),
+                color: AppTheme.textSecondary.withValues(alpha: DesignTokens.opacityMedium),
+                borderRadius: BorderRadius.circular(DesignTokens.radiusXs)))),
+          if (!PlatformUtils.isDesktop) SizedBox(height: DesignTokens.spacing16),
           Text('Screen Share Quality',
             style: GoogleFonts.inter(color: AppTheme.textPrimary,
-              fontSize: 16, fontWeight: FontWeight.w700)),
-          const SizedBox(height: 16),
+              fontSize: DesignTokens.fontXl, fontWeight: FontWeight.w700)),
+          SizedBox(height: DesignTokens.spacing16),
           Text('Frame rate', style: GoogleFonts.inter(
-            color: AppTheme.textSecondary, fontSize: 12)),
-          const SizedBox(height: 8),
+            color: AppTheme.textSecondary, fontSize: DesignTokens.fontBody)),
+          SizedBox(height: DesignTokens.spacing8),
           _buildQualityChips(
             options: const [15, 30, 60],
             labels: const ['15 fps', '30 fps', '60 fps'],
             selected: selFps,
             onSelect: (v) => setS(() => selFps = v),
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: DesignTokens.spacing16),
           Text('Resolution', style: GoogleFonts.inter(
-            color: AppTheme.textSecondary, fontSize: 12)),
-          const SizedBox(height: 8),
+            color: AppTheme.textSecondary, fontSize: DesignTokens.fontBody)),
+          SizedBox(height: DesignTokens.spacing8),
           _buildQualityChips(
             options: const [1280, 1920, 2560, 0],
             labels: const ['720p', '1080p', '1440p', 'Auto'],
             selected: selResWidth,
             onSelect: (v) => setS(() => selResWidth = v),
           ),
-          const SizedBox(height: 6),
+          SizedBox(height: DesignTokens.spacing6),
           Text('Auto = native screen resolution',
             style: GoogleFonts.inter(color: AppTheme.textSecondary,
-              fontSize: 11)),
-          const SizedBox(height: 20),
+              fontSize: DesignTokens.fontSm)),
+          SizedBox(height: DesignTokens.spacing20),
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
@@ -1082,8 +1083,8 @@ class _CallScreenState extends State<CallScreen> {
                 backgroundColor: AppTheme.primary,
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
-                padding: const EdgeInsets.symmetric(vertical: 14)),
+                  borderRadius: BorderRadius.circular(DesignTokens.radiusMedium)),
+                padding: EdgeInsets.symmetric(vertical: DesignTokens.spacing14)),
               onPressed: () => Navigator.pop(ctx, (selFps, selResWidth)),
               child: Text('Start sharing',
                 style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
@@ -1100,7 +1101,7 @@ class _CallScreenState extends State<CallScreen> {
         builder: (ctx) => Dialog(
           backgroundColor: AppTheme.surface,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(DesignTokens.buttonRadius),
           ),
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 400),
@@ -1115,7 +1116,7 @@ class _CallScreenState extends State<CallScreen> {
         context: context,
         backgroundColor: AppTheme.surface,
         shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(DesignTokens.radiusXl)),
         ),
         builder: (ctx) => StatefulBuilder(
           builder: (ctx, setS) => sheetContent(ctx, setS),
@@ -1140,21 +1141,21 @@ class _CallScreenState extends State<CallScreen> {
     required ValueChanged<int> onSelect,
   }) {
     return Wrap(
-      spacing: 8,
+      spacing: DesignTokens.spacing8,
       children: List.generate(options.length, (i) {
         final active = options[i] == selected;
         return GestureDetector(
           onTap: () => onSelect(options[i]),
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            padding: EdgeInsets.symmetric(horizontal: DesignTokens.spacing14, vertical: DesignTokens.spacing8),
             decoration: BoxDecoration(
               color: active ? AppTheme.primary : AppTheme.surfaceVariant,
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(DesignTokens.radiusXl),
             ),
             child: Text(labels[i],
               style: GoogleFonts.inter(
                 color: active ? Colors.white : AppTheme.textSecondary,
-                fontSize: 13,
+                fontSize: DesignTokens.fontMd,
                 fontWeight: active ? FontWeight.w700 : FontWeight.w500)),
           ),
         );
@@ -1351,36 +1352,40 @@ class _CallScreenState extends State<CallScreen> {
     body: Builder(builder: (context) => Center(
       child: _initError != null
         ? Column(mainAxisSize: MainAxisSize.min, children: [
-            const Icon(Icons.error_outline_rounded, color: Colors.redAccent, size: 48),
-            const SizedBox(height: 16),
+            Icon(Icons.error_outline_rounded, color: Colors.redAccent, size: DesignTokens.spacing48),
+            SizedBox(height: DesignTokens.spacing16),
             Text(context.l10n.callConnectionFailed,
-              style: GoogleFonts.inter(color: Colors.redAccent, fontSize: 15, fontWeight: FontWeight.w600)),
-            const SizedBox(height: 8),
+              style: GoogleFonts.inter(color: Colors.redAccent, fontSize: DesignTokens.fontInput, fontWeight: FontWeight.w600)),
+            SizedBox(height: DesignTokens.spacing8),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 32),
+              padding: EdgeInsets.symmetric(horizontal: DesignTokens.spacing32),
               child: Text(_initError!,
-                style: GoogleFonts.inter(color: Colors.white38, fontSize: 12),
+                style: GoogleFonts.inter(color: Colors.white38, fontSize: DesignTokens.fontBody),
                 textAlign: TextAlign.center,
                 maxLines: 3,
                 overflow: TextOverflow.ellipsis),
             ),
-            const SizedBox(height: 24),
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.redAccent,
-                shape: const StadiumBorder(),
+            SizedBox(height: DesignTokens.spacing24),
+            Semantics(
+              label: context.l10n.callClose,
+              button: true,
+              child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.redAccent,
+                  shape: const StadiumBorder(),
+                ),
+                icon: const Icon(Icons.call_end_rounded, color: Colors.white, size: 18),
+                label: Text(context.l10n.callClose,
+                  style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w600)),
+                onPressed: () => Navigator.pop(context),
               ),
-              icon: const Icon(Icons.call_end_rounded, color: Colors.white, size: 18),
-              label: Text(context.l10n.callClose,
-                style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w600)),
-              onPressed: () => Navigator.pop(context),
             ),
           ])
         : Column(mainAxisSize: MainAxisSize.min, children: [
-            const CircularProgressIndicator(color: Colors.white54, strokeWidth: 2),
-            const SizedBox(height: 16),
+            CircularProgressIndicator(color: Colors.white54, strokeWidth: DesignTokens.spacing2),
+            SizedBox(height: DesignTokens.spacing16),
             Text(context.l10n.callInitializing,
-              style: GoogleFonts.inter(color: Colors.white54, fontSize: 13)),
+              style: GoogleFonts.inter(color: Colors.white54, fontSize: DesignTokens.fontMd)),
           ]),
     )),
   );
@@ -1429,21 +1434,21 @@ class _CallScreenState extends State<CallScreen> {
               // ── Local video (PiP) ────────────────────────────────────────
               if (hasLocalVideo)
                 Positioned(
-                  right: 16,
+                  right: DesignTokens.spacing16,
                   top: 60,
                   child: Container(
                     width: 110,
                     height: 150,
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(14),
+                      borderRadius: BorderRadius.circular(DesignTokens.radiusLarge),
                       border: Border.all(
                         color: _isScreenSharing ? Colors.blueAccent : AppTheme.primary,
-                        width: 2,
+                        width: DesignTokens.spacing2,
                       ),
-                      boxShadow: const [BoxShadow(color: Colors.black38, blurRadius: 10)],
+                      boxShadow: [BoxShadow(color: Colors.black38, blurRadius: DesignTokens.spacing10)],
                     ),
                     child: ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
                       child: RTCVideoView(
                         _localRenderer,
                         mirror: !_isScreenSharing,
@@ -1500,47 +1505,47 @@ class _CallScreenState extends State<CallScreen> {
     final l = context.l10n;
     if (_usingSfu) {
       bannerIcon  = Icons.dns_rounded;
-      bannerColor = Colors.teal.withValues(alpha: 0.85);
+      bannerColor = Colors.teal.withValues(alpha: DesignTokens.opacityFull);
       bannerText  = 'Server relay active';
     } else if (_sfuAttempted && !_usingSfu) {
       bannerIcon  = Icons.dns_rounded;
-      bannerColor = Colors.orange.withValues(alpha: 0.85);
+      bannerColor = Colors.orange.withValues(alpha: DesignTokens.opacityFull);
       bannerText  = 'Connecting via server...';
     } else if (_usingSecondary) {
       bannerIcon  = Icons.security_rounded;
       bannerColor = _secondaryDegraded
-          ? Colors.orange.withValues(alpha: 0.85)
-          : Colors.teal.withValues(alpha: 0.85);
+          ? Colors.orange.withValues(alpha: DesignTokens.opacityFull)
+          : Colors.teal.withValues(alpha: DesignTokens.opacityFull);
       bannerText  = l.callTorBackupBanner;
     } else if (_isRetrying) {
       bannerIcon  = Icons.sync_rounded;
-      bannerColor = Colors.orange.withValues(alpha: 0.85);
+      bannerColor = Colors.orange.withValues(alpha: DesignTokens.opacityFull);
       bannerText  = l.callDirectFailed;
     } else if (_autoRetried &&
         _iceState == RTCIceConnectionState.RTCIceConnectionStateFailed) {
       bannerIcon  = Icons.warning_amber_rounded;
-      bannerColor = Colors.red.withValues(alpha: 0.85);
+      bannerColor = AppTheme.destructive.withValues(alpha: DesignTokens.opacityFull);
       bannerText  = l.callTurnUnreachable;
     } else {
       bannerIcon  = Icons.shield_rounded;
-      bannerColor = Colors.blueGrey.withValues(alpha: 0.85);
+      bannerColor = Colors.blueGrey.withValues(alpha: DesignTokens.opacityFull);
       bannerText  = l.callRelayMode;
     }
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+      padding: EdgeInsets.symmetric(horizontal: DesignTokens.spacing12, vertical: 5),
       color: bannerColor,
       child: Row(children: [
         Icon(bannerIcon, color: Colors.white, size: 14),
-        const SizedBox(width: 6),
+        SizedBox(width: DesignTokens.spacing6),
         Expanded(
           child: Text(
             bannerText,
             style: GoogleFonts.inter(
               color: Colors.white,
-              fontSize: 11,
+              fontSize: DesignTokens.fontSm,
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -1577,7 +1582,7 @@ class _CallScreenState extends State<CallScreen> {
                   shape: BoxShape.circle,
                   color: HSLColor.fromAHSL(1, hue.toDouble(), 0.5, 0.3)
                       .toColor()
-                      .withValues(alpha: 0.3),
+                      .withValues(alpha: DesignTokens.opacityMedium),
                 ),
               ).animate(onPlay: (c) => c.repeat()).scale(
                 begin: const Offset(1, 1),
@@ -1610,19 +1615,19 @@ class _CallScreenState extends State<CallScreen> {
               ),
             ),
           ]),
-          const SizedBox(height: 24),
+          SizedBox(height: DesignTokens.spacing24),
           Text(
             name,
             style: GoogleFonts.inter(
               color: Colors.white,
-              fontSize: 26,
+              fontSize: DesignTokens.fontDisplayLg,
               fontWeight: FontWeight.w700,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: DesignTokens.spacing8),
           Text(
             _statusLabel(context),
-            style: GoogleFonts.inter(color: Colors.white70, fontSize: 15),
+            style: GoogleFonts.inter(color: Colors.white70, fontSize: DesignTokens.fontInput),
           ).animate(onPlay: (c) {
             if (!_isConnected) c.repeat(reverse: true);
           }).fade(duration: 900.ms, begin: 0.5),
@@ -1635,43 +1640,47 @@ class _CallScreenState extends State<CallScreen> {
 
   Widget _buildTopBar() {
     return Container(
-      padding: const EdgeInsets.fromLTRB(8, 8, 16, 8),
+      padding: EdgeInsets.fromLTRB(DesignTokens.spacing8, DesignTokens.spacing8, DesignTokens.spacing16, DesignTokens.spacing8),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end:   Alignment.bottomCenter,
-          colors: [Colors.black.withValues(alpha: 0.6), Colors.transparent],
+          colors: [Colors.black.withValues(alpha: DesignTokens.opacityHeavy), Colors.transparent],
         ),
       ),
       child: Row(children: [
-        IconButton(
-          icon: const Icon(Icons.arrow_back_ios_rounded, color: Colors.white),
-          tooltip: context.l10n.back,
-          onPressed: _minimize,
+        Semantics(
+          label: context.l10n.back,
+          button: true,
+          child: IconButton(
+            icon: const Icon(Icons.arrow_back_ios_rounded, color: Colors.white),
+            tooltip: context.l10n.back,
+            onPressed: _minimize,
+          ),
         ),
-        const SizedBox(width: 4),
+        SizedBox(width: DesignTokens.spacing4),
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(
               widget.contact.name,
               style: GoogleFonts.inter(
                 color: Colors.white,
-                fontSize: 17,
+                fontSize: DesignTokens.fontTitle,
                 fontWeight: FontWeight.w700,
               ),
             ),
             Text(
               _statusLabel(context),
-              style: GoogleFonts.inter(color: Colors.white70, fontSize: 13),
+              style: GoogleFonts.inter(color: Colors.white70, fontSize: DesignTokens.fontMd),
             ),
           ]),
         ),
         if (_isConnected)
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            padding: EdgeInsets.symmetric(horizontal: DesignTokens.spacing10, vertical: DesignTokens.spacing4),
             decoration: BoxDecoration(
               color:  Colors.green.withValues(alpha: 0.25),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
               border: Border.all(color: Colors.green.withValues(alpha: 0.5)),
             ),
             child: Row(mainAxisSize: MainAxisSize.min, children: [
@@ -1687,7 +1696,7 @@ class _CallScreenState extends State<CallScreen> {
                 context.l10n.callLive,
                 style: GoogleFonts.inter(
                   color: Colors.greenAccent,
-                  fontSize: 12,
+                  fontSize: DesignTokens.fontBody,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -1701,7 +1710,7 @@ class _CallScreenState extends State<CallScreen> {
 
   Widget _buildControlBar() {
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 20, 16, 32),
+      padding: EdgeInsets.fromLTRB(DesignTokens.spacing16, DesignTokens.spacing20, DesignTokens.spacing16, DesignTokens.spacing32),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.bottomCenter,
@@ -1711,7 +1720,7 @@ class _CallScreenState extends State<CallScreen> {
       ),
       child: Column(mainAxisSize: MainAxisSize.min, children: [
         Padding(
-          padding: const EdgeInsets.only(bottom: 16),
+          padding: EdgeInsets.only(bottom: DesignTokens.spacing16),
           child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
             _buildSmallButton(
               icon:        _isScreenSharing ? Icons.stop_screen_share_rounded : Icons.screen_share_rounded,
@@ -1720,7 +1729,7 @@ class _CallScreenState extends State<CallScreen> {
               activeColor: Colors.blueAccent,
               onTap:       _toggleScreenShare,
             ),
-            const SizedBox(width: 24),
+            SizedBox(width: DesignTokens.spacing24),
             _buildSmallButton(
               icon:  _isCameraOff ? Icons.videocam_off_rounded : Icons.videocam_rounded,
               label: _isCameraOff ? context.l10n.callCameraOff : context.l10n.callCameraOn,
@@ -1728,7 +1737,7 @@ class _CallScreenState extends State<CallScreen> {
               onTap:  _toggleCamera,
             ),
             if (!_isCameraOff) ...[
-              const SizedBox(width: 24),
+              SizedBox(width: DesignTokens.spacing24),
               _buildSmallButton(
                 icon:  Icons.flip_camera_ios_rounded,
                 label: _isFrontCamera ? 'Flip' : 'Front',
@@ -1759,15 +1768,15 @@ class _CallScreenState extends State<CallScreen> {
                     boxShadow: [
                       BoxShadow(
                         color: Colors.redAccent.withValues(alpha: 0.5),
-                        blurRadius: 16,
-                        offset: const Offset(0, 4),
+                        blurRadius: DesignTokens.spacing16,
+                        offset: Offset(0, DesignTokens.spacing4),
                       ),
                     ],
                   ),
                   child: const Icon(Icons.call_end_rounded, color: Colors.white, size: 30),
                 ).animate().scale(),
-                const SizedBox(height: 6),
-                Text(context.l10n.callEnd, style: GoogleFonts.inter(color: Colors.white70, fontSize: 11)),
+                SizedBox(height: DesignTokens.spacing6),
+                Text(context.l10n.callEnd, style: GoogleFonts.inter(color: Colors.white70, fontSize: DesignTokens.fontSm)),
               ]),
             ),
           ),
@@ -1799,10 +1808,10 @@ class _CallScreenState extends State<CallScreen> {
           Container(
             width: 56, height: 56,
             decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-            child: Icon(icon, color: iconColor, size: 24),
+            child: Icon(icon, color: iconColor, size: DesignTokens.iconLg),
           ).animate().scale(),
-          const SizedBox(height: 6),
-          Text(label, style: GoogleFonts.inter(color: Colors.white70, fontSize: 11)),
+          SizedBox(height: DesignTokens.spacing6),
+          Text(label, style: GoogleFonts.inter(color: Colors.white70, fontSize: DesignTokens.fontSm)),
         ]),
       ),
     );
@@ -1828,10 +1837,10 @@ class _CallScreenState extends State<CallScreen> {
               shape: BoxShape.circle,
               border: active ? Border.all(color: activeColor, width: 1.5) : null,
             ),
-            child: Icon(icon, color: active ? activeColor : Colors.white, size: 20),
+            child: Icon(icon, color: active ? activeColor : Colors.white, size: DesignTokens.iconMd),
           ),
-          const SizedBox(height: 4),
-          Text(label, style: GoogleFonts.inter(color: Colors.white60, fontSize: 10)),
+          SizedBox(height: DesignTokens.spacing4),
+          Text(label, style: GoogleFonts.inter(color: Colors.white60, fontSize: DesignTokens.fontXs)),
         ]),
       ),
     );

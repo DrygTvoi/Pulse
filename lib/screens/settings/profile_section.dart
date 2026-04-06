@@ -57,7 +57,7 @@ class ProfileSection extends StatelessWidget {
             style: GoogleFonts.inter(
               color: AppTheme.textPrimary,
               fontWeight: FontWeight.w700,
-              fontSize: 16,
+              fontSize: DesignTokens.fontXl,
             ),
           ),
           content: SizedBox(
@@ -68,37 +68,37 @@ class ProfileSection extends StatelessWidget {
                 Container(
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
                   ),
-                  padding: const EdgeInsets.all(14),
+                  padding: const EdgeInsets.all(DesignTokens.cardPadding),
                   child: QrImageView(data: inviteLink, size: 220),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: DesignTokens.spacing12),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  padding: const EdgeInsets.symmetric(horizontal: DesignTokens.spacing10, vertical: DesignTokens.spacing6),
                   decoration: BoxDecoration(
                     color: AppTheme.primary.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(DesignTokens.radiusSmall),
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.route_rounded, size: 13, color: AppTheme.primary),
-                      const SizedBox(width: 6),
+                      Icon(Icons.route_rounded, size: DesignTokens.fontMd, color: AppTheme.primary),
+                      const SizedBox(width: DesignTokens.spacing6),
                       Text(
                         '${addresses.length} ${addresses.length == 1 ? 'route' : 'routes'} included',
                         style: GoogleFonts.inter(
                           color: AppTheme.primary,
-                          fontSize: 11,
+                          fontSize: DesignTokens.fontSm,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: DesignTokens.spacing12),
                 Container(
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.all(DesignTokens.spacing12),
                   decoration: BoxDecoration(
                     color: AppTheme.surfaceVariant,
                     borderRadius: BorderRadius.circular(DesignTokens.spacing10),
@@ -110,16 +110,16 @@ class ProfileSection extends StatelessWidget {
                         ctx.l10n.settingsInviteLink,
                         style: GoogleFonts.inter(
                           color: AppTheme.textSecondary,
-                          fontSize: 10,
+                          fontSize: DesignTokens.fontXs,
                           fontWeight: FontWeight.w600,
                           letterSpacing: 0.5,
                         ),
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: DesignTokens.spacing4),
                       SelectableText(
                         inviteLink,
                         style: GoogleFonts.jetBrainsMono(
-                            color: AppTheme.textPrimary, fontSize: 10),
+                            color: AppTheme.textPrimary, fontSize: DesignTokens.fontXs),
                         maxLines: 3,
                       ),
                     ],
@@ -166,9 +166,9 @@ class ProfileSection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const ProfileCard(showAddressCard: false),
-        const SizedBox(height: 12),
+        const SizedBox(height: DesignTokens.spacing12),
         const InboxAddressCard(),
-        const SizedBox(height: 10),
+        const SizedBox(height: DesignTokens.spacing10),
         settingsRow(
           icon: Icons.qr_code_rounded,
           iconColor: const Color(0xFF9B59B6),

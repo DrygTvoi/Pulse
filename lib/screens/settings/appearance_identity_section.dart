@@ -16,16 +16,16 @@ class AppearanceIdentitySection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         settingsSectionDivider(context.l10n.settingsAppearance),
-        const SizedBox(height: 14),
+        const SizedBox(height: DesignTokens.spacing14),
         Container(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(DesignTokens.spacing16),
           decoration: BoxDecoration(
             color: AppTheme.surface,
             borderRadius: BorderRadius.circular(DesignTokens.radiusLarge),
           ),
           child: const ThemePickerWidget(),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: DesignTokens.spacing12),
         settingsRow(
           icon: Icons.palette_rounded,
           iconColor: const Color(0xFF9B59B6),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../theme/app_theme.dart';
+import '../theme/design_tokens.dart';
 import '../services/locale_notifier.dart';
 import '../l10n/l10n_ext.dart';
 import '../utils/platform_utils.dart';
@@ -37,22 +38,22 @@ class OnboardingScreen extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           if (!PlatformUtils.isDesktop) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: DesignTokens.spacing12),
             Container(
               width: 36,
-              height: 4,
+              height: DesignTokens.spacing4,
               decoration: BoxDecoration(
-                color: AppTheme.textSecondary.withValues(alpha: 0.3),
-                borderRadius: BorderRadius.circular(2),
+                color: AppTheme.textSecondary.withValues(alpha: DesignTokens.opacityMedium),
+                borderRadius: BorderRadius.circular(DesignTokens.radiusXs),
               ),
             ),
           ],
           Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(DesignTokens.spacing16),
             child: Text(
               'Choose your language',
               style: GoogleFonts.inter(
-                fontSize: 18,
+                fontSize: DesignTokens.fontHeading,
                 fontWeight: FontWeight.w600,
                 color: AppTheme.textPrimary,
               ),
@@ -73,7 +74,7 @@ class OnboardingScreen extends StatelessWidget {
                   title: Text(
                     e.value,
                     style: GoogleFonts.inter(
-                      fontSize: 16,
+                      fontSize: DesignTokens.fontXl,
                       fontWeight:
                           isSelected ? FontWeight.w600 : FontWeight.w400,
                       color: AppTheme.textPrimary,
@@ -81,11 +82,11 @@ class OnboardingScreen extends StatelessWidget {
                   ),
                   trailing: isSelected
                       ? Icon(Icons.check_rounded,
-                          color: AppTheme.primary, size: 20)
+                          color: AppTheme.primary, size: DesignTokens.iconMd)
                       : (e.key == systemCode
                           ? Text('System',
                               style: GoogleFonts.inter(
-                                  fontSize: 12,
+                                  fontSize: DesignTokens.fontBody,
                                   color: AppTheme.textSecondary))
                           : null),
                   onTap: () {
@@ -106,10 +107,10 @@ class OnboardingScreen extends StatelessWidget {
         builder: (ctx) => Dialog(
           backgroundColor: AppTheme.surface,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(DesignTokens.buttonRadius),
           ),
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 420, maxHeight: 500),
+            constraints: const BoxConstraints(maxWidth: DesignTokens.dialogMaxWidth, maxHeight: 500),
             child: languageList(ctx),
           ),
         ),
@@ -118,8 +119,8 @@ class OnboardingScreen extends StatelessWidget {
       showModalBottomSheet(
         context: context,
         backgroundColor: AppTheme.surface,
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(DesignTokens.dialogRadius)),
         ),
         isScrollControlled: true,
         builder: (ctx) => DraggableScrollableSheet(
@@ -160,7 +161,7 @@ class OnboardingScreen extends StatelessWidget {
               child: const Icon(Icons.shield_rounded,
                   color: Colors.white, size: 52),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: DesignTokens.spacing20),
 
             // App name
             Text(
@@ -171,16 +172,16 @@ class OnboardingScreen extends StatelessWidget {
                 color: AppTheme.textPrimary,
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: DesignTokens.spacing12),
 
             // Subtitle
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 48),
+              padding: const EdgeInsets.symmetric(horizontal: DesignTokens.spacing48),
               child: Text(
                 context.l10n.onboardingWelcomeBody.split('\n').first,
                 textAlign: TextAlign.center,
                 style: GoogleFonts.inter(
-                  fontSize: 15,
+                  fontSize: DesignTokens.fontInput,
                   color: AppTheme.textSecondary,
                   height: 1.5,
                 ),
@@ -191,7 +192,7 @@ class OnboardingScreen extends StatelessWidget {
 
             // Start Messaging button
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 40),
+              padding: const EdgeInsets.symmetric(horizontal: DesignTokens.spacing40),
               child: SizedBox(
                 width: double.infinity,
                 height: 52,
@@ -200,21 +201,21 @@ class OnboardingScreen extends StatelessWidget {
                     backgroundColor: AppTheme.primary,
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
+                      borderRadius: BorderRadius.circular(DesignTokens.radiusLarge),
                     ),
                   ),
                   onPressed: () => _startMessaging(context),
                   child: Text(
                     context.l10n.onboardingGetStarted,
                     style: GoogleFonts.inter(
-                      fontSize: 16,
+                      fontSize: DesignTokens.fontXl,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
                 ),
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: DesignTokens.spacing20),
 
             // "Continue in [Language]" link
             GestureDetector(
@@ -225,11 +226,11 @@ class OnboardingScreen extends StatelessWidget {
                 children: [
                   Icon(Icons.language_rounded,
                       size: 18, color: AppTheme.primary),
-                  const SizedBox(width: 6),
+                  const SizedBox(width: DesignTokens.spacing6),
                   Text(
                     'Continue in $languageName',
                     style: GoogleFonts.inter(
-                      fontSize: 14,
+                      fontSize: DesignTokens.fontLg,
                       color: AppTheme.primary,
                       fontWeight: FontWeight.w500,
                     ),
@@ -238,7 +239,7 @@ class OnboardingScreen extends StatelessWidget {
               ),
             ),
 
-            const SizedBox(height: 40),
+            const SizedBox(height: DesignTokens.spacing40),
           ],
         ),
       ),

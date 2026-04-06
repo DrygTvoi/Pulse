@@ -175,7 +175,7 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: _isVerified ? AppTheme.error : const Color(0xFF4CAF50),
+              backgroundColor: _isVerified ? AppTheme.error : AppTheme.online,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.spacing10)),
               elevation: 0,
             ),
@@ -412,10 +412,10 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
             children: [
               if (PlatformUtils.isMobile)
                 Container(
-                  width: DesignTokens.spacing40, height: 4,
+                  width: DesignTokens.spacing40, height: DesignTokens.spacing4,
                   margin: const EdgeInsets.only(top: DesignTokens.spacing12, bottom: DesignTokens.spacing8),
                   decoration: BoxDecoration(
-                    color: AppTheme.textSecondary.withValues(alpha: 0.3),
+                    color: AppTheme.textSecondary.withValues(alpha: DesignTokens.opacityMedium),
                     borderRadius: BorderRadius.circular(DesignTokens.radiusXs),
                   ),
                 ),
@@ -619,9 +619,9 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
             Container(
               margin: const EdgeInsets.only(top: DesignTokens.spacing12),
               width: DesignTokens.avatarXs,
-              height: 4,
+              height: DesignTokens.spacing4,
               decoration: BoxDecoration(
-                color: AppTheme.textSecondary.withValues(alpha: 0.3),
+                color: AppTheme.textSecondary.withValues(alpha: DesignTokens.opacityMedium),
                 borderRadius: BorderRadius.circular(DesignTokens.radiusXs),
               ),
             ),
@@ -727,16 +727,16 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
 
   Widget _buildProviderBadge() {
     final providerColors = {
-      'Firebase': const Color(0xFFFFAB00),
-      'Nostr': const Color(0xFF9B59B6),
-      'group': const Color(0xFF26A69A),
+      'Firebase': AppTheme.providerFirebase,
+      'Nostr': AppTheme.providerNostr,
+      'group': AppTheme.providerPulse,
     };
     final color = providerColors[_contact.provider] ?? AppTheme.textSecondary;
     final label = _contact.isGroup ? context.l10n.profileGroupLabel : _contact.provider;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: DesignTokens.spacing10, vertical: DesignTokens.spacing4),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.15),
+        color: color.withValues(alpha: DesignTokens.opacityLight),
         borderRadius: BorderRadius.circular(DesignTokens.radiusSmall),
       ),
       child: Text(label,
@@ -786,7 +786,7 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
   }
 
   Widget _buildFingerprintSection() {
-    final verifiedColor = const Color(0xFF4CAF50);
+    final verifiedColor = AppTheme.online;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(DesignTokens.cardPadding),
@@ -796,7 +796,7 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
         border: Border.all(
           color: _isVerified
               ? verifiedColor.withValues(alpha: 0.4)
-              : AppTheme.primary.withValues(alpha: 0.15),
+              : AppTheme.primary.withValues(alpha: DesignTokens.opacityLight),
         ),
       ),
       child: Column(
@@ -816,7 +816,7 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: DesignTokens.spacing6, vertical: DesignTokens.spacing2),
                 decoration: BoxDecoration(
-                  color: verifiedColor.withValues(alpha: 0.15),
+                  color: verifiedColor.withValues(alpha: DesignTokens.opacityLight),
                   borderRadius: BorderRadius.circular(5),
                 ),
                 child: Text(context.l10n.profileVerified,
@@ -848,9 +848,9 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
           ],
           if (_contactFingerprint == null)
             Padding(
-              padding: const EdgeInsets.only(top: 4),
+              padding: const EdgeInsets.only(top: DesignTokens.spacing4),
               child: Text(context.l10n.profileNoSession,
-                  style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: 11)),
+                  style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: DesignTokens.fontSm)),
             ),
         ],
       ),
@@ -959,8 +959,8 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
           if (memberId == _contact.creatorId)
             Tooltip(
               message: context.l10n.profileAdminBadge,
-              child: const Icon(Icons.workspace_premium_rounded,
-                  size: 18, color: Color(0xFFFFB300)),
+              child: Icon(Icons.workspace_premium_rounded,
+                  size: DesignTokens.fontHeading, color: const Color(0xFFFFB300)),
             )
           else if (widget.isAdmin)
             Row(
@@ -1038,7 +1038,7 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
           _actionButton(
             icon: Icons.verified_user_rounded,
             label: context.l10n.profileVerifySafetyNumber,
-            color: _isVerified ? const Color(0xFF4CAF50) : AppTheme.primary,
+            color: _isVerified ? AppTheme.online : AppTheme.primary,
             onTap: () {
               Navigator.pop(context);
               Navigator.push(context, MaterialPageRoute(
@@ -1054,14 +1054,14 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
           _actionButton(
             icon: Icons.qr_code_rounded,
             label: context.l10n.profileShowContactQr,
-            color: const Color(0xFF9B59B6),
+            color: AppTheme.providerNostr,
             onTap: () => _showQrDialog(context.l10n.profileContactAddress(_contact.name), _contact.databaseId),
           ),
         if (!_contact.isGroup) const SizedBox(height: DesignTokens.spacing10),
         _actionButton(
           icon: Icons.download_rounded,
           label: context.l10n.profileExportChatHistory,
-          color: const Color(0xFF2196F3),
+          color: AppTheme.providerOxen,
           onTap: () async {
             final path = await ChatController().exportHistory(_contact);
             if (context.mounted) {
@@ -1117,7 +1117,7 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
         width: double.infinity,
         padding: const EdgeInsets.symmetric(vertical: DesignTokens.cardPadding),
         decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.08),
+          color: color.withValues(alpha: DesignTokens.opacitySubtle),
           borderRadius: BorderRadius.circular(DesignTokens.radiusLarge),
         ),
         child: Row(

@@ -81,7 +81,7 @@ class MessageInputBar extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: AppTheme.surface,
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.15), blurRadius: 8, offset: const Offset(0, -1))],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: DesignTokens.opacityLight), blurRadius: 8, offset: const Offset(0, -1))],
       ),
       child: SafeArea(
         child: Column(
@@ -154,7 +154,7 @@ class MessageInputBar extends StatelessWidget {
                 ),
               ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(4, 4, 6, 8),
+              padding: const EdgeInsets.fromLTRB(DesignTokens.spacing4, DesignTokens.spacing4, DesignTokens.spacing6, DesignTokens.spacing8),
               child: isRecording ? _buildRecordingBar(context) : _buildNormalInputBar(context),
             ),
           ],
@@ -163,7 +163,7 @@ class MessageInputBar extends StatelessWidget {
     );
   }
 
-  static const _icon = 24.0;
+  static const _icon = DesignTokens.iconLg;
   static const _sendSize = 44.0;
 
   Widget _buildBarIcon(IconData icon, VoidCallback onTap, String label) {
@@ -204,7 +204,7 @@ class MessageInputBar extends StatelessWidget {
                     border: InputBorder.none,
                     enabledBorder: InputBorder.none,
                     focusedBorder: InputBorder.none,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: DesignTokens.spacing14, vertical: DesignTokens.spacing10),
                     fillColor: Colors.transparent,
                     filled: true,
                   ),
@@ -268,9 +268,9 @@ class MessageInputBar extends StatelessWidget {
         child: Container(
           height: 46,
           decoration: BoxDecoration(
-            color: Colors.red.withValues(alpha: 0.08),
+            color: Colors.red.withValues(alpha: DesignTokens.opacitySubtle),
             borderRadius: BorderRadius.circular(DesignTokens.chatInputRadius),
-            border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
+            border: Border.all(color: Colors.red.withValues(alpha: DesignTokens.opacityMedium)),
           ),
           child: Row(
             children: [
@@ -388,13 +388,13 @@ class _HoverBarIconState extends State<_HoverBarIcon> {
         onTap: widget.onTap,
         behavior: HitTestBehavior.opaque,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: DesignTokens.spacing6, vertical: DesignTokens.spacing10),
           child: AnimatedContainer(
-            duration: const Duration(milliseconds: 150),
-            padding: const EdgeInsets.all(6),
+            duration: DesignTokens.durationFast,
+            padding: const EdgeInsets.all(DesignTokens.spacing6),
             decoration: BoxDecoration(
               color: _hovering
-                  ? AppTheme.primary.withValues(alpha: 0.08)
+                  ? AppTheme.primary.withValues(alpha: DesignTokens.opacitySubtle)
                   : Colors.transparent,
               shape: BoxShape.circle,
             ),
@@ -435,9 +435,9 @@ class _HoverSendButtonState extends State<_HoverSendButton> {
         onTap: widget.onTap,
         onLongPress: widget.onLongPress,
         child: Padding(
-          padding: const EdgeInsets.only(left: 4),
+          padding: const EdgeInsets.only(left: DesignTokens.spacing4),
           child: AnimatedContainer(
-            duration: const Duration(milliseconds: 150),
+            duration: DesignTokens.durationFast,
             width: widget.size,
             height: widget.size,
             decoration: BoxDecoration(
@@ -446,7 +446,7 @@ class _HoverSendButtonState extends State<_HoverSendButton> {
                   : AppTheme.primary,
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.send_rounded, color: Colors.white, size: 20),
+            child: const Icon(Icons.send_rounded, color: Colors.white, size: DesignTokens.iconMd),
           ),
         ),
       ),

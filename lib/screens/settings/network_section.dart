@@ -64,31 +64,31 @@ class _NetworkSectionState extends State<NetworkSection> {
     required ValueChanged<bool> onChanged,
   }) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: DesignTokens.spacing16, vertical: DesignTokens.spacing12),
       decoration: BoxDecoration(
         color: AppTheme.surface,
         borderRadius: BorderRadius.circular(DesignTokens.radiusLarge),
       ),
       child: Row(children: [
-        Icon(icon, color: iconColor, size: 22),
-        const SizedBox(width: 14),
+        Icon(icon, color: iconColor, size: DesignTokens.fontDisplay),
+        const SizedBox(width: DesignTokens.spacing14),
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(title,
                 style: GoogleFonts.inter(
                   color: AppTheme.textPrimary,
                   fontWeight: FontWeight.w600,
-                  fontSize: 14,
+                  fontSize: DesignTokens.fontLg,
                 )),
-            const SizedBox(height: 2),
+            const SizedBox(height: DesignTokens.spacing2),
             Text(subtitle,
                 style: GoogleFonts.inter(
                     color: AppTheme.textSecondary,
-                    fontSize: 11,
+                    fontSize: DesignTokens.fontSm,
                     height: 1.4)),
           ]),
         ),
-        const SizedBox(width: 10),
+        const SizedBox(width: DesignTokens.spacing10),
         Switch.adaptive(
           value: value,
           activeThumbColor: iconColor,
@@ -104,58 +104,54 @@ class _NetworkSectionState extends State<NetworkSection> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         settingsSectionDivider(context.l10n.settingsNetwork),
-        const SizedBox(height: 14),
+        const SizedBox(height: DesignTokens.spacing14),
 
-        // ── Provider ──────────────────────────────────────────
-        settingsRow(
-          icon: Icons.swap_horiz_rounded,
-          iconColor: const Color(0xFFFFAB00),
-          title: context.l10n.settingsProviderTitle,
-          subtitle: _currentProvider,
-          onTap: () async {
-            await Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const ProviderScreen()),
-            );
-            // Refresh provider label after returning
-            final prefs = await SharedPreferences.getInstance();
-            if (mounted) {
-              setState(() => _currentProvider =
-                  prefs.getString('byod_provider') ?? 'Firebase');
-            }
-          },
-        ),
-        const SizedBox(height: 12),
-
-        // ── TURN ──────────────────────────────────────────────
-        settingsRow(
-          icon: Icons.phone_in_talk_rounded,
-          iconColor: const Color(0xFF3498DB),
-          title: context.l10n.settingsTurnServers,
-          subtitle: '',
-          onTap: () => Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const TurnScreen()),
+        // ── Provider / TURN / Proxy grouped ───────────────────
+        settingsGroup(children: [
+          settingsGroupRow(
+            icon: Icons.swap_horiz_rounded,
+            iconColor: const Color(0xFFFFAB00),
+            title: context.l10n.settingsProviderTitle,
+            subtitle: _currentProvider,
+            onTap: () async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const ProviderScreen()),
+              );
+              // Refresh provider label after returning
+              final prefs = await SharedPreferences.getInstance();
+              if (mounted) {
+                setState(() => _currentProvider =
+                    prefs.getString('byod_provider') ?? 'Firebase');
+              }
+            },
           ),
-        ),
-        const SizedBox(height: 12),
-
-        // ── Proxy & Tunnels ───────────────────────────────────
-        settingsRow(
-          icon: Icons.vpn_lock_rounded,
-          iconColor: const Color(0xFF9B59B6),
-          title: context.l10n.settingsProxyTunnels,
-          subtitle: _proxySubtitle(),
-          onTap: () async {
-            await Navigator.push(
+          settingsGroupRow(
+            icon: Icons.phone_in_talk_rounded,
+            iconColor: const Color(0xFF3498DB),
+            title: context.l10n.settingsTurnServers,
+            subtitle: '',
+            onTap: () => Navigator.push(
               context,
-              MaterialPageRoute(
-                  builder: (_) => const ProxyTunnelsScreen()),
-            );
-            if (mounted) setState(() {});
-          },
-        ),
-        const SizedBox(height: 12),
+              MaterialPageRoute(builder: (_) => const TurnScreen()),
+            ),
+          ),
+          settingsGroupRow(
+            icon: Icons.vpn_lock_rounded,
+            iconColor: const Color(0xFF9B59B6),
+            title: context.l10n.settingsProxyTunnels,
+            subtitle: _proxySubtitle(),
+            onTap: () async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (_) => const ProxyTunnelsScreen()),
+              );
+              if (mounted) setState(() {});
+            },
+          ),
+        ]),
+        const SizedBox(height: DesignTokens.spacing12),
 
         // ── LAN toggle ────────────────────────────────────────
         _buildToggle(
@@ -172,7 +168,7 @@ class _NetworkSectionState extends State<NetworkSection> {
 
         // ── Background service (Android only) ─────────────────
         if (Platform.isAndroid) ...[
-          const SizedBox(height: 12),
+          const SizedBox(height: DesignTokens.spacing12),
           _buildToggle(
             icon: Icons.notifications_active_rounded,
             iconColor: const Color(0xFF3498DB),

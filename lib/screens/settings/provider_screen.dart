@@ -289,10 +289,10 @@ class _ProviderScreenState extends State<ProviderScreen> {
                       child: _providerToggle(p, selected: provider == p),
                     ),
                   ),
-                  if (p != 'Nostr') const SizedBox(width: 8),
+                  if (p != 'Nostr') const SizedBox(width: DesignTokens.spacing8),
                 ],
               ]),
-              const SizedBox(height: 16),
+              const SizedBox(height: DesignTokens.spacing16),
               if (provider == 'Firebase') ...[
                 settingsField(
                   controller: fbUrlCtrl,
@@ -300,7 +300,7 @@ class _ProviderScreenState extends State<ProviderScreen> {
                   label: ctx.l10n.providerDatabaseUrlLabel,
                   icon: Icons.link_rounded,
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: DesignTokens.spacing10),
                 settingsField(
                   controller: fbKeyCtrl,
                   hint: ctx.l10n.providerOptionalHint,
@@ -315,7 +315,7 @@ class _ProviderScreenState extends State<ProviderScreen> {
                   label: ctx.l10n.providerRelayUrlLabel,
                   icon: Icons.bolt_rounded,
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: DesignTokens.spacing10),
                 settingsField(
                   controller: nostrKeyCtrl,
                   hint: ctx.l10n.providerNostrPrivkeyHint,
@@ -458,7 +458,7 @@ class _ProviderScreenState extends State<ProviderScreen> {
             style: GoogleFonts.inter(
               color: selected ? color : AppTheme.textSecondary,
               fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-              fontSize: 13,
+              fontSize: DesignTokens.fontMd,
             )),
       ),
     );
@@ -510,11 +510,11 @@ class _ProviderScreenState extends State<ProviderScreen> {
           Icon(icon,
               size: 15,
               color: selected ? color : AppTheme.textSecondary),
-          const SizedBox(width: 6),
+          const SizedBox(width: DesignTokens.spacing6),
           Text(name,
               style: GoogleFonts.inter(
                 color: selected ? color : AppTheme.textSecondary,
-                fontSize: 13,
+                fontSize: DesignTokens.fontMd,
                 fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
               )),
         ]),
@@ -538,7 +538,7 @@ class _ProviderScreenState extends State<ProviderScreen> {
     const color = Color(0xFF9B59B6);
 
     return Container(
-      padding: const EdgeInsets.all(10),
+      padding: const EdgeInsets.all(DesignTokens.spacing10),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(DesignTokens.radiusSmall),
@@ -548,35 +548,35 @@ class _ProviderScreenState extends State<ProviderScreen> {
         if (pubkey.isNotEmpty) ...[
           Row(children: [
             const Icon(Icons.vpn_key_rounded, size: 13, color: color),
-            const SizedBox(width: 8),
+            const SizedBox(width: DesignTokens.spacing8),
             Text(context.l10n.providerPublicKey,
                 style: GoogleFonts.inter(
                     color: AppTheme.textSecondary,
-                    fontSize: 11,
+                    fontSize: DesignTokens.fontSm,
                     fontWeight: FontWeight.w600)),
-            const SizedBox(width: 8),
+            const SizedBox(width: DesignTokens.spacing8),
             Expanded(
               child: Text(
                 '${pubkey.substring(0, 8)}...${pubkey.substring(pubkey.length - 8)}',
-                style: GoogleFonts.robotoMono(color: color, fontSize: 11),
+                style: GoogleFonts.robotoMono(color: color, fontSize: DesignTokens.fontSm),
                 textAlign: TextAlign.end,
               ),
             ),
           ]),
-          const SizedBox(height: 6),
+          const SizedBox(height: DesignTokens.spacing6),
         ],
         Row(children: [
           const Icon(Icons.bolt_rounded, size: 13, color: color),
-          const SizedBox(width: 8),
+          const SizedBox(width: DesignTokens.spacing8),
           Text(context.l10n.providerRelay,
               style: GoogleFonts.inter(
                   color: AppTheme.textSecondary,
-                  fontSize: 11,
+                  fontSize: DesignTokens.fontSm,
                   fontWeight: FontWeight.w600)),
-          const SizedBox(width: 8),
+          const SizedBox(width: DesignTokens.spacing8),
           Expanded(
             child: Text(configuredRelay,
-                style: GoogleFonts.robotoMono(color: color, fontSize: 11),
+                style: GoogleFonts.robotoMono(color: color, fontSize: DesignTokens.fontSm),
                 textAlign: TextAlign.end,
                 overflow: TextOverflow.ellipsis),
           ),
@@ -594,7 +594,7 @@ class _ProviderScreenState extends State<ProviderScreen> {
           label: context.l10n.providerDatabaseUrlLabel,
           icon: Icons.link_rounded,
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: DesignTokens.spacing12),
         settingsField(
           controller: _firebaseKeyCtrl,
           hint: context.l10n.providerOptionalForPublicDb,
@@ -610,7 +610,7 @@ class _ProviderScreenState extends State<ProviderScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildNostrInfoCard(),
-            const SizedBox(height: 8),
+            const SizedBox(height: DesignTokens.spacing8),
             GestureDetector(
               onTap: () =>
                   setState(() => _showNostrAdvanced = !_showNostrAdvanced),
@@ -619,26 +619,26 @@ class _ProviderScreenState extends State<ProviderScreen> {
                   _showNostrAdvanced
                       ? Icons.expand_less_rounded
                       : Icons.expand_more_rounded,
-                  size: 16,
+                  size: DesignTokens.iconSm,
                   color: AppTheme.textSecondary,
                 ),
-                const SizedBox(width: 4),
+                const SizedBox(width: DesignTokens.spacing4),
                 Text(context.l10n.providerAdvanced,
                     style: GoogleFonts.inter(
                         color: AppTheme.textSecondary,
-                        fontSize: 12,
+                        fontSize: DesignTokens.fontBody,
                         fontWeight: FontWeight.w600)),
               ]),
             ),
             if (_showNostrAdvanced) ...[
-              const SizedBox(height: 12),
+              const SizedBox(height: DesignTokens.spacing12),
               settingsField(
                 controller: _nostrRelayCtrl,
                 hint: context.l10n.providerNostrRelayHint,
                 label: context.l10n.providerRelayUrlLabel,
                 icon: Icons.bolt_rounded,
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: DesignTokens.spacing12),
               settingsField(
                 controller: _nostrKeyCtrl,
                 hint: context.l10n.providerNostrPrivkeyHintFull,
@@ -646,15 +646,15 @@ class _ProviderScreenState extends State<ProviderScreen> {
                 icon: Icons.vpn_key_rounded,
                 obscure: true,
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: DesignTokens.spacing8),
               Row(children: [
                 Icon(Icons.info_outline_rounded,
                     size: 13, color: AppTheme.textSecondary),
-                const SizedBox(width: 6),
+                const SizedBox(width: DesignTokens.spacing6),
                 Expanded(
                   child: Text(context.l10n.providerKeyStoredLocally,
                       style: GoogleFonts.inter(
-                          color: AppTheme.textSecondary, fontSize: 11)),
+                          color: AppTheme.textSecondary, fontSize: DesignTokens.fontSm)),
                 ),
               ]),
             ],
@@ -671,23 +671,23 @@ class _ProviderScreenState extends State<ProviderScreen> {
               label: context.l10n.providerPulseServerUrlLabel,
               icon: Icons.dns_rounded,
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: DesignTokens.spacing12),
             settingsField(
               controller: _pulseInviteCtrl,
               hint: context.l10n.providerPulseInviteHint,
               label: context.l10n.providerPulseInviteLabel,
               icon: Icons.card_giftcard_rounded,
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: DesignTokens.spacing8),
             Row(children: [
               Icon(Icons.info_outline_rounded,
                   size: 13, color: AppTheme.textSecondary),
-              const SizedBox(width: 6),
+              const SizedBox(width: DesignTokens.spacing6),
               Expanded(
                 child: Text(
                     context.l10n.providerPulseInfo,
                     style: GoogleFonts.inter(
-                        color: AppTheme.textSecondary, fontSize: 11)),
+                        color: AppTheme.textSecondary, fontSize: DesignTokens.fontSm)),
               ),
             ]),
           ]);
@@ -698,20 +698,20 @@ class _ProviderScreenState extends State<ProviderScreen> {
       Row(children: [
         const Icon(Icons.info_outline_rounded,
             size: 13, color: Color(0xFF00695C)),
-        const SizedBox(width: 6),
+        const SizedBox(width: DesignTokens.spacing6),
         Expanded(
           child: Text(context.l10n.providerSessionInfo,
               style: GoogleFonts.inter(
-                  color: AppTheme.textSecondary, fontSize: 11)),
+                  color: AppTheme.textSecondary, fontSize: DesignTokens.fontSm)),
         ),
       ]),
-      const SizedBox(height: 8),
+      const SizedBox(height: DesignTokens.spacing8),
       Builder(builder: (ctx) {
         final sessionId = ChatController().myAddress;
         if (sessionId.startsWith('05') && sessionId.length == 66) {
           return Container(
             padding:
-                const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                const EdgeInsets.symmetric(horizontal: DesignTokens.spacing10, vertical: DesignTokens.spacing8),
             decoration: BoxDecoration(
               color: const Color(0xFF00695C).withValues(alpha: 0.08),
               borderRadius:
@@ -723,18 +723,18 @@ class _ProviderScreenState extends State<ProviderScreen> {
             child: Row(children: [
               const Icon(Icons.fingerprint_rounded,
                   size: 14, color: Color(0xFF00695C)),
-              const SizedBox(width: 8),
+              const SizedBox(width: DesignTokens.spacing8),
               Expanded(
                 child: Text(sessionId,
                     style: GoogleFonts.robotoMono(
-                        color: const Color(0xFF00695C), fontSize: 10)),
+                        color: const Color(0xFF00695C), fontSize: DesignTokens.fontXs)),
               ),
             ]),
           );
         }
         return const SizedBox.shrink();
       }),
-      const SizedBox(height: 4),
+      const SizedBox(height: DesignTokens.spacing4),
       GestureDetector(
         onTap: () =>
             setState(() => _showSessionAdvanced = !_showSessionAdvanced),
@@ -743,19 +743,19 @@ class _ProviderScreenState extends State<ProviderScreen> {
             _showSessionAdvanced
                 ? Icons.expand_less_rounded
                 : Icons.expand_more_rounded,
-            size: 16,
+            size: DesignTokens.iconSm,
             color: AppTheme.textSecondary,
           ),
-          const SizedBox(width: 4),
+          const SizedBox(width: DesignTokens.spacing4),
           Text(context.l10n.providerAdvanced,
               style: GoogleFonts.inter(
                   color: AppTheme.textSecondary,
-                  fontSize: 12,
+                  fontSize: DesignTokens.fontBody,
                   fontWeight: FontWeight.w600)),
         ]),
       ),
       if (_showSessionAdvanced) ...[
-        const SizedBox(height: 12),
+        const SizedBox(height: DesignTokens.spacing12),
         settingsField(
           controller: _sessionNodeUrlCtrl,
           hint: context.l10n.providerStorageNodeHint,
@@ -776,7 +776,7 @@ class _ProviderScreenState extends State<ProviderScreen> {
     final (icon, color) = _kProviderMeta[provider] ??
         (Icons.inbox_rounded, AppTheme.textSecondary);
     return Container(
-      padding: const EdgeInsets.fromLTRB(14, 12, 4, 12),
+      padding: const EdgeInsets.fromLTRB(DesignTokens.spacing14, DesignTokens.spacing12, DesignTokens.spacing4, DesignTokens.spacing12),
       decoration: BoxDecoration(
         color: AppTheme.surface,
         borderRadius: BorderRadius.circular(DesignTokens.radiusLarge),
@@ -791,7 +791,7 @@ class _ProviderScreenState extends State<ProviderScreen> {
           ),
           child: Icon(icon, color: color, size: 18),
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: DesignTokens.spacing12),
         Expanded(
           child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -800,13 +800,13 @@ class _ProviderScreenState extends State<ProviderScreen> {
                     style: GoogleFonts.inter(
                       color: AppTheme.textPrimary,
                       fontWeight: FontWeight.w600,
-                      fontSize: 14,
+                      fontSize: DesignTokens.fontLg,
                     )),
                 const SizedBox(height: 3),
                 Text(
                   address.isNotEmpty ? address : '—',
                   style: GoogleFonts.jetBrainsMono(
-                      color: AppTheme.textSecondary, fontSize: 10),
+                      color: AppTheme.textSecondary, fontSize: DesignTokens.fontXs),
                   overflow: TextOverflow.ellipsis,
                   maxLines: 1,
                 ),
@@ -837,15 +837,15 @@ class _ProviderScreenState extends State<ProviderScreen> {
       body: _loading
           ? const Center(child: CircularProgressIndicator.adaptive())
           : ListView(
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 40),
+              padding: const EdgeInsets.fromLTRB(DesignTokens.spacing20, DesignTokens.spacing20, DesignTokens.spacing20, DesignTokens.spacing40),
               children: [
                 // Provider chips
                 _buildProviderChips(),
-                const SizedBox(height: 20),
+                const SizedBox(height: DesignTokens.spacing20),
 
                 // Inline config for selected provider
                 _buildConfig(),
-                const SizedBox(height: 24),
+                const SizedBox(height: DesignTokens.spacing24),
 
                 // Save button
                 SizedBox(
@@ -870,7 +870,7 @@ class _ProviderScreenState extends State<ProviderScreen> {
                         : Text(context.l10n.providerSaveAndConnect,
                             style: GoogleFonts.inter(
                                 fontWeight: FontWeight.w700,
-                                fontSize: 16,
+                                fontSize: DesignTokens.fontXl,
                                 color: Colors.white)),
                   ),
                 ),
@@ -878,17 +878,17 @@ class _ProviderScreenState extends State<ProviderScreen> {
                 // Secondary inboxes section
                 if (_secondaryAdapters.isNotEmpty ||
                     true) ...[
-                  const SizedBox(height: 28),
+                  const SizedBox(height: DesignTokens.spacing28),
                   Row(children: [
                     Expanded(
                         child: Divider(
                             color: AppTheme.surfaceVariant, height: 1)),
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      padding: const EdgeInsets.symmetric(horizontal: DesignTokens.spacing12),
                       child: Text(context.l10n.providerSecondaryInboxesHeader,
                           style: GoogleFonts.inter(
                             color: AppTheme.textSecondary,
-                            fontSize: 11,
+                            fontSize: DesignTokens.fontSm,
                             fontWeight: FontWeight.w700,
                             letterSpacing: 0.8,
                           )),
@@ -897,7 +897,7 @@ class _ProviderScreenState extends State<ProviderScreen> {
                         child: Divider(
                             color: AppTheme.surfaceVariant, height: 1)),
                   ]),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: DesignTokens.spacing12),
 
                   // Hint
                   Row(
@@ -906,18 +906,18 @@ class _ProviderScreenState extends State<ProviderScreen> {
                         Icon(Icons.info_outline_rounded,
                             size: 13,
                             color: AppTheme.textSecondary),
-                        const SizedBox(width: 6),
+                        const SizedBox(width: DesignTokens.spacing6),
                         Expanded(
                           child: Text(
                             context.l10n.providerSecondaryInboxesInfo,
                             style: GoogleFonts.inter(
                                 color: AppTheme.textSecondary,
-                                fontSize: 11,
+                                fontSize: DesignTokens.fontSm,
                                 height: 1.5),
                           ),
                         ),
                       ]),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: DesignTokens.spacing10),
 
                   // Secondary cards
                   for (int i = 0;
@@ -931,7 +931,7 @@ class _ProviderScreenState extends State<ProviderScreen> {
                           '',
                       onRemove: () => _removeSecondary(i),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: DesignTokens.spacing8),
                   ],
 
                   // Add secondary button
@@ -939,7 +939,7 @@ class _ProviderScreenState extends State<ProviderScreen> {
                     onTap: _showAddDialog,
                     child: Container(
                       padding:
-                          const EdgeInsets.symmetric(vertical: 14),
+                          const EdgeInsets.symmetric(vertical: DesignTokens.spacing14),
                       decoration: BoxDecoration(
                         color: AppTheme.surface,
                         borderRadius: BorderRadius.circular(
@@ -954,16 +954,16 @@ class _ProviderScreenState extends State<ProviderScreen> {
                               MainAxisAlignment.center,
                           children: [
                             Icon(Icons.add_rounded,
-                                size: 16,
+                                size: DesignTokens.iconSm,
                                 color: AppTheme.primary),
-                            const SizedBox(width: 8),
+                            const SizedBox(width: DesignTokens.spacing8),
                             Text(
                                 context
                                     .l10n.providerAddSecondaryInbox,
                                 style: GoogleFonts.inter(
                                   color: AppTheme.primary,
                                   fontWeight: FontWeight.w600,
-                                  fontSize: 13,
+                                  fontSize: DesignTokens.fontMd,
                                 )),
                           ]),
                     ),

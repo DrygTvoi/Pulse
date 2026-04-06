@@ -60,7 +60,7 @@ class _SecuritySectionState extends State<SecuritySection> {
             style: GoogleFonts.inter(
               color: AppTheme.textPrimary,
               fontWeight: FontWeight.w700,
-              fontSize: 16,
+              fontSize: DesignTokens.fontXl,
             ),
           ),
           content: Column(
@@ -69,18 +69,18 @@ class _SecuritySectionState extends State<SecuritySection> {
             children: [
               Text(subtitle,
                   style: GoogleFonts.inter(
-                      color: AppTheme.textSecondary, fontSize: 13)),
-              const SizedBox(height: 16),
+                      color: AppTheme.textSecondary, fontSize: DesignTokens.fontMd)),
+              const SizedBox(height: DesignTokens.spacing16),
               TextField(
                 controller: controller,
                 obscureText: !showPass,
                 autofocus: true,
                 style: GoogleFonts.inter(
-                    color: AppTheme.textPrimary, fontSize: 15),
+                    color: AppTheme.textPrimary, fontSize: DesignTokens.fontInput),
                 decoration: InputDecoration(
                   hintText: context.l10n.settingsCurrentPassword,
                   hintStyle: GoogleFonts.inter(
-                      color: AppTheme.textSecondary, fontSize: 14),
+                      color: AppTheme.textSecondary, fontSize: DesignTokens.fontLg),
                   filled: true,
                   fillColor: AppTheme.surfaceVariant,
                   border: OutlineInputBorder(
@@ -95,14 +95,14 @@ class _SecuritySectionState extends State<SecuritySection> {
                         color: Color(0xFF60A5FA), width: 1.5),
                   ),
                   contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 14, vertical: 12),
+                      horizontal: DesignTokens.spacing14, vertical: DesignTokens.spacing12),
                   suffixIcon: IconButton(
                     icon: Icon(
                       showPass
                           ? Icons.visibility_off_rounded
                           : Icons.visibility_rounded,
                       color: AppTheme.textSecondary,
-                      size: 18,
+                      size: DesignTokens.fontHeading,
                     ),
                     onPressed: () => setS(() => showPass = !showPass),
                   ),
@@ -110,11 +110,11 @@ class _SecuritySectionState extends State<SecuritySection> {
                 onChanged: (_) => setS(() => error = null),
               ),
               if (error != null) ...[
-                const SizedBox(height: 8),
+                const SizedBox(height: DesignTokens.spacing8),
                 Text(
                   error!,
                   style: GoogleFonts.inter(
-                      color: const Color(0xFFF87171), fontSize: 12),
+                      color: const Color(0xFFF87171), fontSize: DesignTokens.fontBody),
                 ),
               ],
             ],
@@ -293,7 +293,7 @@ class _SecuritySectionState extends State<SecuritySection> {
         content: Text(
           context.l10n.settingsRemovePanicKeyBody,
           style: GoogleFonts.inter(
-              color: AppTheme.textSecondary, fontSize: 14),
+              color: AppTheme.textSecondary, fontSize: DesignTokens.fontLg),
         ),
         actions: [
           TextButton(
@@ -326,115 +326,108 @@ class _SecuritySectionState extends State<SecuritySection> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         settingsSectionDivider(context.l10n.settingsSecurity),
-        const SizedBox(height: 14),
+        const SizedBox(height: DesignTokens.spacing14),
 
-        // App Password row
-        GestureDetector(
-          onTap: widget.passwordEnabled ? null : _enablePassword,
-          child: Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: AppTheme.surface,
-              borderRadius: BorderRadius.circular(DesignTokens.radiusLarge),
-            ),
-            child: Row(children: [
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF60A5FA).withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(DesignTokens.spacing10),
+        settingsGroup(children: [
+          // App Password row
+          InkWell(
+            onTap: widget.passwordEnabled ? null : _enablePassword,
+            child: Padding(
+              padding: const EdgeInsets.all(DesignTokens.cardPadding),
+              child: Row(children: [
+                Container(
+                  width: DesignTokens.avatarXs,
+                  height: DesignTokens.avatarXs,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF60A5FA).withValues(alpha: DesignTokens.opacityLight),
+                    borderRadius: BorderRadius.circular(DesignTokens.spacing10),
+                  ),
+                  child: const Icon(Icons.lock_rounded,
+                      color: Color(0xFF60A5FA), size: DesignTokens.fontHeading),
                 ),
-                child: const Icon(Icons.lock_rounded,
-                    color: Color(0xFF60A5FA), size: 18),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      context.l10n.settingsAppPassword,
-                      style: GoogleFonts.inter(
-                        color: AppTheme.textPrimary,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
+                const SizedBox(width: DesignTokens.spacing12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        context.l10n.settingsAppPassword,
+                        style: GoogleFonts.inter(
+                          color: AppTheme.textPrimary,
+                          fontSize: DesignTokens.fontLg,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
-                    ),
-                    Text(
-                      widget.passwordEnabled
-                          ? context.l10n.settingsPasswordEnabled
-                          : context.l10n.settingsPasswordDisabled,
-                      style: GoogleFonts.inter(
-                          color: AppTheme.textSecondary, fontSize: 12),
-                    ),
-                  ],
+                      Text(
+                        widget.passwordEnabled
+                            ? context.l10n.settingsPasswordEnabled
+                            : context.l10n.settingsPasswordDisabled,
+                        style: GoogleFonts.inter(
+                            color: AppTheme.textSecondary, fontSize: DesignTokens.fontBody),
+                      ),
+                    ],
+                  ),
+                ),
+                Switch.adaptive(
+                  value: widget.passwordEnabled,
+                  onChanged: (val) =>
+                      val ? _enablePassword() : _disablePassword(),
+                  activeThumbColor: const Color(0xFF60A5FA),
+                ),
+              ]),
+            ),
+          ),
+
+          if (widget.passwordEnabled) ...[
+            settingsGroupRow(
+              icon: Icons.password_rounded,
+              iconColor: const Color(0xFF34D399),
+              title: context.l10n.settingsChangePassword,
+              subtitle: context.l10n.settingsChangePasswordSubtitle,
+              onTap: _changePassword,
+            ),
+            settingsGroupRow(
+              icon: Icons.warning_amber_rounded,
+              iconColor: const Color(0xFFF87171),
+              title: widget.panicKeyEnabled
+                  ? context.l10n.settingsChangePanicKey
+                  : context.l10n.settingsSetPanicKey,
+              subtitle: widget.panicKeyEnabled
+                  ? context.l10n.settingsPanicKeySetSubtitle
+                  : context.l10n.settingsPanicKeyUnsetSubtitle,
+              onTap: _managePanicKey,
+            ),
+            if (widget.panicKeyEnabled)
+              settingsGroupRow(
+                icon: Icons.remove_circle_outline_rounded,
+                iconColor: AppTheme.textSecondary,
+                title: context.l10n.settingsRemovePanicKey,
+                subtitle: context.l10n.settingsRemovePanicKeySubtitle,
+                onTap: _removePanicKey,
+              ),
+          ],
+          settingsGroupRow(
+            icon: Icons.shield_rounded,
+            iconColor: AppTheme.primary,
+            title: context.l10n.settingsSignalProtocol,
+            subtitle: context.l10n.settingsSignalProtocolSubtitle,
+            trailing: Container(
+              padding: const EdgeInsets.symmetric(horizontal: DesignTokens.spacing8, vertical: 3),
+              decoration: BoxDecoration(
+                color: AppTheme.primary.withValues(alpha: DesignTokens.opacityLight),
+                borderRadius: BorderRadius.circular(DesignTokens.spacing6),
+              ),
+              child: Text(
+                context.l10n.settingsActive,
+                style: GoogleFonts.inter(
+                  color: AppTheme.primary,
+                  fontSize: DesignTokens.fontSm,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
-              Switch.adaptive(
-                value: widget.passwordEnabled,
-                onChanged: (val) =>
-                    val ? _enablePassword() : _disablePassword(),
-                activeThumbColor: const Color(0xFF60A5FA),
-              ),
-            ]),
-          ),
-        ),
-
-        if (widget.passwordEnabled) ...[
-          const SizedBox(height: 10),
-          settingsRow(
-            icon: Icons.password_rounded,
-            iconColor: const Color(0xFF34D399),
-            title: context.l10n.settingsChangePassword,
-            subtitle: context.l10n.settingsChangePasswordSubtitle,
-            onTap: _changePassword,
-          ),
-          const SizedBox(height: 10),
-          settingsRow(
-            icon: Icons.warning_amber_rounded,
-            iconColor: const Color(0xFFF87171),
-            title: widget.panicKeyEnabled
-                ? context.l10n.settingsChangePanicKey
-                : context.l10n.settingsSetPanicKey,
-            subtitle: widget.panicKeyEnabled
-                ? context.l10n.settingsPanicKeySetSubtitle
-                : context.l10n.settingsPanicKeyUnsetSubtitle,
-            onTap: _managePanicKey,
-          ),
-          if (widget.panicKeyEnabled) ...[
-            const SizedBox(height: 10),
-            settingsRow(
-              icon: Icons.remove_circle_outline_rounded,
-              iconColor: AppTheme.textSecondary,
-              title: context.l10n.settingsRemovePanicKey,
-              subtitle: context.l10n.settingsRemovePanicKeySubtitle,
-              onTap: _removePanicKey,
-            ),
-          ],
-        ],
-        const SizedBox(height: 10),
-        settingsRow(
-          icon: Icons.shield_rounded,
-          iconColor: AppTheme.primary,
-          title: context.l10n.settingsSignalProtocol,
-          subtitle: context.l10n.settingsSignalProtocolSubtitle,
-          trailing: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-            decoration: BoxDecoration(
-              color: AppTheme.primary.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(DesignTokens.spacing6),
-            ),
-            child: Text(
-              context.l10n.settingsActive,
-              style: GoogleFonts.inter(
-                color: AppTheme.primary,
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-              ),
             ),
           ),
-        ),
+        ]),
       ],
     );
   }

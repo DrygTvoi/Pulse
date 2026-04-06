@@ -50,7 +50,7 @@ class DataSection extends StatelessWidget {
             style: GoogleFonts.inter(
               color: AppTheme.textPrimary,
               fontWeight: FontWeight.w700,
-              fontSize: 16,
+              fontSize: DesignTokens.fontXl,
             ),
           ),
           content: Column(
@@ -59,18 +59,18 @@ class DataSection extends StatelessWidget {
             children: [
               Text(subtitle,
                   style: GoogleFonts.inter(
-                      color: AppTheme.textSecondary, fontSize: 13)),
-              const SizedBox(height: 16),
+                      color: AppTheme.textSecondary, fontSize: DesignTokens.fontMd)),
+              const SizedBox(height: DesignTokens.spacing16),
               TextField(
                 controller: passCtrl,
                 obscureText: !showPass,
                 autofocus: true,
                 style: GoogleFonts.inter(
-                    color: AppTheme.textPrimary, fontSize: 15),
+                    color: AppTheme.textPrimary, fontSize: DesignTokens.fontInput),
                 decoration: InputDecoration(
                   hintText: context.l10n.settingsBackupPassword,
                   hintStyle: GoogleFonts.inter(
-                      color: AppTheme.textSecondary, fontSize: 14),
+                      color: AppTheme.textSecondary, fontSize: DesignTokens.fontLg),
                   filled: true,
                   fillColor: AppTheme.surfaceVariant,
                   border: OutlineInputBorder(
@@ -85,14 +85,14 @@ class DataSection extends StatelessWidget {
                         color: Color(0xFF3498DB), width: 1.5),
                   ),
                   contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 14, vertical: 12),
+                      horizontal: DesignTokens.spacing14, vertical: DesignTokens.spacing12),
                   suffixIcon: IconButton(
                     icon: Icon(
                       showPass
                           ? Icons.visibility_off_rounded
                           : Icons.visibility_rounded,
                       color: AppTheme.textSecondary,
-                      size: 18,
+                      size: DesignTokens.fontHeading,
                     ),
                     onPressed: () => setS(() => showPass = !showPass),
                   ),
@@ -100,16 +100,16 @@ class DataSection extends StatelessWidget {
                 onChanged: (_) => setS(() => error = null),
               ),
               if (requireConfirm) ...[
-                const SizedBox(height: 12),
+                const SizedBox(height: DesignTokens.spacing12),
                 TextField(
                   controller: confirmCtrl,
                   obscureText: !showPass,
                   style: GoogleFonts.inter(
-                      color: AppTheme.textPrimary, fontSize: 15),
+                      color: AppTheme.textPrimary, fontSize: DesignTokens.fontInput),
                   decoration: InputDecoration(
                     hintText: context.l10n.passwordConfirmHint,
                     hintStyle: GoogleFonts.inter(
-                        color: AppTheme.textSecondary, fontSize: 14),
+                        color: AppTheme.textSecondary, fontSize: DesignTokens.fontLg),
                     filled: true,
                     fillColor: AppTheme.surfaceVariant,
                     border: OutlineInputBorder(
@@ -124,17 +124,17 @@ class DataSection extends StatelessWidget {
                           color: Color(0xFF3498DB), width: 1.5),
                     ),
                     contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 12),
+                        horizontal: DesignTokens.spacing14, vertical: DesignTokens.spacing12),
                   ),
                   onChanged: (_) => setS(() => error = null),
                 ),
               ],
               if (error != null) ...[
-                const SizedBox(height: 8),
+                const SizedBox(height: DesignTokens.spacing8),
                 Text(
                   error!,
                   style: GoogleFonts.inter(
-                      color: const Color(0xFFF87171), fontSize: 12),
+                      color: const Color(0xFFF87171), fontSize: DesignTokens.fontBody),
                 ),
               ],
             ],
@@ -216,22 +216,22 @@ class DataSection extends StatelessWidget {
               borderRadius: BorderRadius.circular(DesignTokens.dialogRadius)),
           title: Text(context.l10n.settingsCurrentPassword,
               style: GoogleFonts.inter(
-                  color: AppTheme.textPrimary, fontWeight: FontWeight.w700, fontSize: 16)),
+                  color: AppTheme.textPrimary, fontWeight: FontWeight.w700, fontSize: DesignTokens.fontXl)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(context.l10n.settingsEnterCurrentPassword,
-                  style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: 13)),
-              const SizedBox(height: 16),
+                  style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: DesignTokens.fontMd)),
+              const SizedBox(height: DesignTokens.spacing16),
               TextField(
                 controller: ctrl,
                 obscureText: !showPass,
                 autofocus: true,
-                style: GoogleFonts.inter(color: AppTheme.textPrimary, fontSize: 15),
+                style: GoogleFonts.inter(color: AppTheme.textPrimary, fontSize: DesignTokens.fontInput),
                 decoration: InputDecoration(
                   hintText: context.l10n.settingsCurrentPassword,
-                  hintStyle: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: 14),
+                  hintStyle: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: DesignTokens.fontLg),
                   filled: true,
                   fillColor: AppTheme.surfaceVariant,
                   border: OutlineInputBorder(
@@ -243,19 +243,19 @@ class DataSection extends StatelessWidget {
                   focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
                       borderSide: const BorderSide(color: Color(0xFF60A5FA), width: 1.5)),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: DesignTokens.spacing14, vertical: DesignTokens.spacing12),
                   suffixIcon: IconButton(
                     icon: Icon(
                       showPass ? Icons.visibility_off_rounded : Icons.visibility_rounded,
-                      color: AppTheme.textSecondary, size: 18),
+                      color: AppTheme.textSecondary, size: DesignTokens.fontHeading),
                     onPressed: () => setS(() => showPass = !showPass),
                   ),
                 ),
                 onChanged: (_) => setS(() => error = null),
               ),
               if (error != null) ...[
-                const SizedBox(height: 8),
-                Text(error!, style: GoogleFonts.inter(color: const Color(0xFFF87171), fontSize: 12)),
+                const SizedBox(height: DesignTokens.spacing8),
+                Text(error!, style: GoogleFonts.inter(color: const Color(0xFFF87171), fontSize: DesignTokens.fontBody)),
               ],
             ],
           ),
@@ -405,9 +405,9 @@ class DataSection extends StatelessWidget {
                   style: GoogleFonts.inter(
                       color: AppTheme.textSecondary,
                       fontSize: DesignTokens.fontMd)),
-              const SizedBox(height: 12),
+              const SizedBox(height: DesignTokens.spacing12),
               Container(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(DesignTokens.spacing12),
                 decoration: BoxDecoration(
                   color: AppTheme.surfaceVariant,
                   borderRadius: BorderRadius.circular(DesignTokens.spacing10),
@@ -499,16 +499,16 @@ class DataSection extends StatelessWidget {
                 style: GoogleFonts.inter(
                     color: AppTheme.textSecondary,
                     fontSize: DesignTokens.fontMd)),
-            const SizedBox(height: 12),
+            const SizedBox(height: DesignTokens.spacing12),
             TextField(
               controller: ctrl,
               maxLines: 4,
               style: GoogleFonts.jetBrainsMono(
-                  color: AppTheme.textPrimary, fontSize: 10),
+                  color: AppTheme.textPrimary, fontSize: DesignTokens.fontXs),
               decoration: InputDecoration(
                 hintText: context.l10n.settingsPasteBackupCode,
                 hintStyle: GoogleFonts.inter(
-                    color: AppTheme.textSecondary, fontSize: 12),
+                    color: AppTheme.textSecondary, fontSize: DesignTokens.fontBody),
                 filled: true,
                 fillColor: AppTheme.surfaceVariant,
                 border: OutlineInputBorder(
@@ -966,15 +966,15 @@ class DataSection extends StatelessWidget {
         title: Row(
           children: [
             const Icon(Icons.warning_amber_rounded,
-                color: Color(0xFFE67E22), size: 24),
-            const SizedBox(width: 10),
+                color: Color(0xFFE67E22), size: DesignTokens.iconLg),
+            const SizedBox(width: DesignTokens.spacing10),
             Expanded(
               child: Text(
                 context.l10n.settingsSensitiveOperation,
                 style: GoogleFonts.inter(
                   color: AppTheme.textPrimary,
                   fontWeight: FontWeight.w700,
-                  fontSize: 16,
+                  fontSize: DesignTokens.fontXl,
                 ),
               ),
             ),
@@ -983,7 +983,7 @@ class DataSection extends StatelessWidget {
         content: Text(
           context.l10n.settingsSensitiveOperationBody,
           style: GoogleFonts.inter(
-              color: AppTheme.textSecondary, fontSize: 13, height: 1.5),
+              color: AppTheme.textSecondary, fontSize: DesignTokens.fontMd, height: 1.5),
         ),
         actions: [
           TextButton(
@@ -1138,15 +1138,15 @@ class DataSection extends StatelessWidget {
         title: Row(
           children: [
             const Icon(Icons.warning_amber_rounded,
-                color: Color(0xFFE74C3C), size: 24),
-            const SizedBox(width: 10),
+                color: Color(0xFFE74C3C), size: DesignTokens.iconLg),
+            const SizedBox(width: DesignTokens.spacing10),
             Expanded(
               child: Text(
                 context.l10n.settingsReplaceIdentity,
                 style: GoogleFonts.inter(
                   color: AppTheme.textPrimary,
                   fontWeight: FontWeight.w700,
-                  fontSize: 16,
+                  fontSize: DesignTokens.fontXl,
                 ),
               ),
             ),
@@ -1155,7 +1155,7 @@ class DataSection extends StatelessWidget {
         content: Text(
           context.l10n.settingsReplaceIdentityBody,
           style: GoogleFonts.inter(
-              color: AppTheme.textSecondary, fontSize: 13, height: 1.5),
+              color: AppTheme.textSecondary, fontSize: DesignTokens.fontMd, height: 1.5),
         ),
         actions: [
           TextButton(
@@ -1230,7 +1230,7 @@ class DataSection extends StatelessWidget {
             content: Text(
               context.l10n.settingsKeysImportedBody(imported),
               style: GoogleFonts.inter(
-                  color: AppTheme.textSecondary, fontSize: 13, height: 1.5),
+                  color: AppTheme.textSecondary, fontSize: DesignTokens.fontMd, height: 1.5),
             ),
             actions: [
               ElevatedButton(
@@ -1297,60 +1297,63 @@ class DataSection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         settingsSectionDivider(context.l10n.settingsData),
-        const SizedBox(height: 14),
+        const SizedBox(height: DesignTokens.spacing14),
         // ── Messages ──────────────────────────────────────────
-        settingsRow(
-          icon: Icons.cloud_download_rounded,
-          iconColor: const Color(0xFF3498DB),
-          title: context.l10n.settingsBackupMessages,
-          subtitle: context.l10n.settingsBackupMessagesSubtitleV2,
-          onTap: () => _backupMessages(context),
-        ),
-        const SizedBox(height: 12),
-        settingsRow(
-          icon: Icons.cloud_upload_rounded,
-          iconColor: const Color(0xFF2ECC71),
-          title: context.l10n.settingsRestoreMessages,
-          subtitle: context.l10n.settingsRestoreMessagesSubtitle,
-          onTap: () => _restoreMessages(context),
-        ),
-        const SizedBox(height: 12),
-        // ── Identity ──────────────────────────────────────────
-        settingsRow(
-          icon: Icons.backup_rounded,
-          iconColor: const Color(0xFF2ECC71),
-          title: context.l10n.settingsIdentityBackup,
-          subtitle: context.l10n.settingsIdentityBackupSubtitle,
-          onTap: () => _showBackupOptions(context),
-        ),
-        const SizedBox(height: 12),
-        settingsRow(
-          icon: Icons.phonelink_rounded,
-          iconColor: const Color(0xFF3498DB),
-          title: context.l10n.settingsTransferDevice,
-          subtitle: context.l10n.settingsTransferDeviceSubtitle,
-          onTap: () => Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const DeviceTransferScreen()),
+        settingsGroup(children: [
+          settingsGroupRow(
+            icon: Icons.cloud_download_rounded,
+            iconColor: const Color(0xFF3498DB),
+            title: context.l10n.settingsBackupMessages,
+            subtitle: context.l10n.settingsBackupMessagesSubtitleV2,
+            onTap: () => _backupMessages(context),
           ),
-        ),
-        const SizedBox(height: 12),
+          settingsGroupRow(
+            icon: Icons.cloud_upload_rounded,
+            iconColor: const Color(0xFF2ECC71),
+            title: context.l10n.settingsRestoreMessages,
+            subtitle: context.l10n.settingsRestoreMessagesSubtitle,
+            onTap: () => _restoreMessages(context),
+          ),
+        ]),
+        const SizedBox(height: DesignTokens.spacing12),
+        // ── Identity ──────────────────────────────────────────
+        settingsGroup(children: [
+          settingsGroupRow(
+            icon: Icons.backup_rounded,
+            iconColor: const Color(0xFF2ECC71),
+            title: context.l10n.settingsIdentityBackup,
+            subtitle: context.l10n.settingsIdentityBackupSubtitle,
+            onTap: () => _showBackupOptions(context),
+          ),
+          settingsGroupRow(
+            icon: Icons.phonelink_rounded,
+            iconColor: const Color(0xFF3498DB),
+            title: context.l10n.settingsTransferDevice,
+            subtitle: context.l10n.settingsTransferDeviceSubtitle,
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const DeviceTransferScreen()),
+            ),
+          ),
+        ]),
+        const SizedBox(height: DesignTokens.spacing12),
         // ── Keys ──────────────────────────────────────────────
-        settingsRow(
-          icon: Icons.key_rounded,
-          iconColor: const Color(0xFFE67E22),
-          title: context.l10n.settingsExportKeys,
-          subtitle: context.l10n.settingsExportKeysSubtitle,
-          onTap: () => _exportKeysToFile(context),
-        ),
-        const SizedBox(height: 12),
-        settingsRow(
-          icon: Icons.key_off_rounded,
-          iconColor: const Color(0xFF9B59B6),
-          title: context.l10n.settingsImportKeys,
-          subtitle: context.l10n.settingsImportKeysSubtitle,
-          onTap: () => _importKeysFromFile(context),
-        ),
+        settingsGroup(children: [
+          settingsGroupRow(
+            icon: Icons.key_rounded,
+            iconColor: const Color(0xFFE67E22),
+            title: context.l10n.settingsExportKeys,
+            subtitle: context.l10n.settingsExportKeysSubtitle,
+            onTap: () => _exportKeysToFile(context),
+          ),
+          settingsGroupRow(
+            icon: Icons.key_off_rounded,
+            iconColor: const Color(0xFF9B59B6),
+            title: context.l10n.settingsImportKeys,
+            subtitle: context.l10n.settingsImportKeysSubtitle,
+            onTap: () => _importKeysFromFile(context),
+          ),
+        ]),
       ],
     );
   }

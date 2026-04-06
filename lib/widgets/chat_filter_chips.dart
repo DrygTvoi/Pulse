@@ -24,7 +24,7 @@ class ChatFilterChips extends StatelessWidget {
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(
           horizontal: DesignTokens.spacing12,
-          vertical: 8,
+          vertical: DesignTokens.spacing8,
         ),
         children: [
           _buildChip(context, ChatFilter.all, context.l10n.filterAll),
@@ -39,10 +39,15 @@ class ChatFilterChips extends StatelessWidget {
 
   Widget _buildChip(BuildContext context, ChatFilter filter, String label) {
     final isActive = selected == filter;
-    return _ScaleOnTapChip(
-      isActive: isActive,
+    return Semantics(
       label: label,
-      onTap: () => onChanged(filter),
+      button: true,
+      selected: isActive,
+      child: _ScaleOnTapChip(
+        isActive: isActive,
+        label: label,
+        onTap: () => onChanged(filter),
+      ),
     );
   }
 }
@@ -81,7 +86,7 @@ class _ScaleOnTapChipState extends State<_ScaleOnTapChip> {
           duration: const Duration(milliseconds: 200),
           curve: Curves.easeInOut,
           height: 36,
-          padding: const EdgeInsets.symmetric(horizontal: 14),
+          padding: const EdgeInsets.symmetric(horizontal: DesignTokens.spacing14),
           decoration: BoxDecoration(
             color: widget.isActive ? AppTheme.primary : AppTheme.surfaceVariant,
             borderRadius: BorderRadius.circular(DesignTokens.filterChipRadius),

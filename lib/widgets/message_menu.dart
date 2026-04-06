@@ -34,18 +34,18 @@ void showMessageMenu({
     context: context,
     backgroundColor: AppTheme.surface,
     shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      borderRadius: BorderRadius.vertical(top: Radius.circular(DesignTokens.radiusXl)),
     ),
     builder: (_) => SafeArea(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            width: 40, height: 4,
-            margin: const EdgeInsets.only(top: 12, bottom: 4),
+            width: DesignTokens.spacing40, height: DesignTokens.spacing4,
+            margin: const EdgeInsets.only(top: DesignTokens.spacing12, bottom: DesignTokens.spacing4),
             decoration: BoxDecoration(
-              color: AppTheme.textSecondary.withValues(alpha: 0.3),
-              borderRadius: BorderRadius.circular(2),
+              color: AppTheme.textSecondary.withValues(alpha: DesignTokens.opacityMedium),
+              borderRadius: BorderRadius.circular(DesignTokens.radiusXs),
             ),
           ),
           ListTile(
@@ -115,7 +115,7 @@ void showMessageMenu({
               onDelete(message);
             },
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: DesignTokens.spacing8),
         ],
       ),
     ),
@@ -144,8 +144,8 @@ void showMessageContextMenu({
     PopupMenuItem<String>(
       value: 'reply',
       child: Row(children: [
-        Icon(Icons.reply_rounded, color: AppTheme.textSecondary, size: 20),
-        const SizedBox(width: 12),
+        Icon(Icons.reply_rounded, color: AppTheme.textSecondary, size: DesignTokens.iconMd),
+        const SizedBox(width: DesignTokens.spacing12),
         Text(context.l10n.menuReply,
             style: GoogleFonts.inter(color: AppTheme.textPrimary)),
       ]),
@@ -153,8 +153,8 @@ void showMessageContextMenu({
     PopupMenuItem<String>(
       value: 'forward',
       child: Row(children: [
-        Icon(Icons.forward_rounded, color: AppTheme.textSecondary, size: 20),
-        const SizedBox(width: 12),
+        Icon(Icons.forward_rounded, color: AppTheme.textSecondary, size: DesignTokens.iconMd),
+        const SizedBox(width: DesignTokens.spacing12),
         Text(context.l10n.menuForward,
             style: GoogleFonts.inter(color: AppTheme.textPrimary)),
       ]),
@@ -162,8 +162,8 @@ void showMessageContextMenu({
     PopupMenuItem<String>(
       value: 'react',
       child: Row(children: [
-        Icon(Icons.add_reaction_outlined, color: AppTheme.textSecondary, size: 20),
-        const SizedBox(width: 12),
+        Icon(Icons.add_reaction_outlined, color: AppTheme.textSecondary, size: DesignTokens.iconMd),
+        const SizedBox(width: DesignTokens.spacing12),
         Text(context.l10n.menuReact,
             style: GoogleFonts.inter(color: AppTheme.textPrimary)),
       ]),
@@ -171,8 +171,8 @@ void showMessageContextMenu({
     PopupMenuItem<String>(
       value: 'copy',
       child: Row(children: [
-        Icon(Icons.copy_rounded, color: AppTheme.textSecondary, size: 20),
-        const SizedBox(width: 12),
+        Icon(Icons.copy_rounded, color: AppTheme.textSecondary, size: DesignTokens.iconMd),
+        const SizedBox(width: DesignTokens.spacing12),
         Text(context.l10n.menuCopy,
             style: GoogleFonts.inter(color: AppTheme.textPrimary)),
       ]),
@@ -181,8 +181,8 @@ void showMessageContextMenu({
       PopupMenuItem<String>(
         value: 'edit',
         child: Row(children: [
-          Icon(Icons.edit_outlined, color: AppTheme.primary, size: 20),
-          const SizedBox(width: 12),
+          Icon(Icons.edit_outlined, color: AppTheme.primary, size: DesignTokens.iconMd),
+          const SizedBox(width: DesignTokens.spacing12),
           Text(context.l10n.menuEdit,
               style: GoogleFonts.inter(color: AppTheme.primary)),
         ]),
@@ -191,8 +191,8 @@ void showMessageContextMenu({
       PopupMenuItem<String>(
         value: 'retry',
         child: Row(children: [
-          Icon(Icons.refresh_rounded, color: AppTheme.primary, size: 20),
-          const SizedBox(width: 12),
+          Icon(Icons.refresh_rounded, color: AppTheme.primary, size: DesignTokens.iconMd),
+          const SizedBox(width: DesignTokens.spacing12),
           Text(context.l10n.menuRetry,
               style: GoogleFonts.inter(color: AppTheme.primary)),
         ]),
@@ -201,8 +201,8 @@ void showMessageContextMenu({
       PopupMenuItem<String>(
         value: 'cancel_scheduled',
         child: Row(children: [
-          const Icon(Icons.cancel_rounded, color: Colors.redAccent, size: 20),
-          const SizedBox(width: 12),
+          const Icon(Icons.cancel_rounded, color: Colors.redAccent, size: DesignTokens.iconMd),
+          const SizedBox(width: DesignTokens.spacing12),
           Text(context.l10n.menuCancelScheduled,
               style: GoogleFonts.inter(color: Colors.redAccent)),
         ]),
@@ -210,8 +210,8 @@ void showMessageContextMenu({
     PopupMenuItem<String>(
       value: 'delete',
       child: Row(children: [
-        const Icon(Icons.delete_outline_rounded, color: Colors.redAccent, size: 20),
-        const SizedBox(width: 12),
+        const Icon(Icons.delete_outline_rounded, color: Colors.redAccent, size: DesignTokens.iconMd),
+        const SizedBox(width: DesignTokens.spacing12),
         Text(context.l10n.menuDelete,
             style: GoogleFonts.inter(color: Colors.redAccent)),
       ]),
@@ -269,18 +269,18 @@ void showForwardPicker({
         children: [
           if (PlatformUtils.isMobile)
             Container(
-              width: 40, height: 4,
-              margin: const EdgeInsets.only(top: 12, bottom: 8),
+              width: DesignTokens.spacing40, height: DesignTokens.spacing4,
+              margin: const EdgeInsets.only(top: DesignTokens.spacing12, bottom: DesignTokens.spacing8),
               decoration: BoxDecoration(
-                color: AppTheme.textSecondary.withValues(alpha: 0.3),
-                borderRadius: BorderRadius.circular(2),
+                color: AppTheme.textSecondary.withValues(alpha: DesignTokens.opacityMedium),
+                borderRadius: BorderRadius.circular(DesignTokens.radiusXs),
               ),
             ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+            padding: const EdgeInsets.fromLTRB(DesignTokens.spacing20, 0, DesignTokens.spacing20, DesignTokens.spacing8),
             child: Text(context.l10n.menuForwardTo,
                 style: GoogleFonts.inter(
-                    color: AppTheme.textPrimary, fontSize: 16, fontWeight: FontWeight.w700)),
+                    color: AppTheme.textPrimary, fontSize: DesignTokens.fontXl, fontWeight: FontWeight.w700)),
           ),
           Flexible(
             child: ListView.builder(
@@ -289,13 +289,13 @@ void showForwardPicker({
               itemBuilder: (ctx, i) {
                 final c = contacts[i];
                 return ListTile(
-                  leading: avatarBuilder(c.name, 36),
+                  leading: avatarBuilder(c.name, DesignTokens.avatarXs),
                   title: Text(c.name, style: GoogleFonts.inter(color: AppTheme.textPrimary)),
                   subtitle: c.isGroup
                       ? Text(context.l10n.profileGroupLabel,
                           style: GoogleFonts.inter(
                               color: AppTheme.primary,
-                              fontSize: 11,
+                              fontSize: DesignTokens.fontSm,
                               fontWeight: FontWeight.w600))
                       : null,
                   onTap: () async {
@@ -312,7 +312,7 @@ void showForwardPicker({
               },
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: DesignTokens.spacing8),
         ],
       ),
     ),
@@ -330,7 +330,7 @@ void showEmojiPicker({
     context: context,
     builder: (sheetCtx) => SafeArea(
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+        padding: const EdgeInsets.symmetric(vertical: DesignTokens.spacing20, horizontal: DesignTokens.spacing16),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
@@ -340,12 +340,12 @@ void showEmojiPicker({
                 context.read<ChatController>().toggleReaction(contact, messageId, emoji);
               },
               child: Container(
-                width: 40, height: 40,
+                width: DesignTokens.spacing40, height: DesignTokens.spacing40,
                 decoration: BoxDecoration(
                   color: AppTheme.surfaceVariant,
                   shape: BoxShape.circle,
                 ),
-                child: Center(child: Text(emoji, style: const TextStyle(fontSize: 20))),
+                child: Center(child: Text(emoji, style: const TextStyle(fontSize: DesignTokens.fontXxl))),
               ),
             )),
             GestureDetector(
@@ -354,12 +354,12 @@ void showEmojiPicker({
                 _showFullReactionPicker(context, messageId, contact);
               },
               child: Container(
-                width: 40, height: 40,
+                width: DesignTokens.spacing40, height: DesignTokens.spacing40,
                 decoration: BoxDecoration(
                   color: AppTheme.surfaceVariant,
                   shape: BoxShape.circle,
                 ),
-                child: Icon(Icons.add_rounded, color: AppTheme.textSecondary, size: 22),
+                child: Icon(Icons.add_rounded, color: AppTheme.textSecondary, size: DesignTokens.fontDisplay),
               ),
             ),
           ],
@@ -380,11 +380,11 @@ void _showFullReactionPicker(BuildContext context, String messageId, Contact con
           children: [
             if (PlatformUtils.isMobile)
               Container(
-                width: 40, height: 4,
-                margin: const EdgeInsets.only(top: 12, bottom: 8),
+                width: DesignTokens.spacing40, height: DesignTokens.spacing4,
+                margin: const EdgeInsets.only(top: DesignTokens.spacing12, bottom: DesignTokens.spacing8),
                 decoration: BoxDecoration(
-                  color: AppTheme.textSecondary.withValues(alpha: 0.3),
-                  borderRadius: BorderRadius.circular(2),
+                  color: AppTheme.textSecondary.withValues(alpha: DesignTokens.opacityMedium),
+                  borderRadius: BorderRadius.circular(DesignTokens.radiusXs),
                 ),
               ),
             Expanded(
@@ -426,27 +426,27 @@ void showReactionDetails({
         children: [
           if (PlatformUtils.isMobile)
             Container(
-              width: 40, height: 4,
-              margin: const EdgeInsets.only(top: 12, bottom: 12),
+              width: DesignTokens.spacing40, height: DesignTokens.spacing4,
+              margin: const EdgeInsets.only(top: DesignTokens.spacing12, bottom: DesignTokens.spacing12),
               decoration: BoxDecoration(
-                color: AppTheme.textSecondary.withValues(alpha: 0.3),
-                borderRadius: BorderRadius.circular(2),
+                color: AppTheme.textSecondary.withValues(alpha: DesignTokens.opacityMedium),
+                borderRadius: BorderRadius.circular(DesignTokens.radiusXs),
               ),
             ),
-          Text(emoji, style: const TextStyle(fontSize: 32)),
-          const SizedBox(height: 8),
+          Text(emoji, style: const TextStyle(fontSize: DesignTokens.iconXl)),
+          const SizedBox(height: DesignTokens.spacing8),
           ...names.map((name) => ListTile(
             dense: true,
             leading: CircleAvatar(
-              radius: 16,
+              radius: DesignTokens.spacing16,
               backgroundColor: AppTheme.primary.withValues(alpha: 0.2),
               child: Text(name[0].toUpperCase(),
                   style: GoogleFonts.inter(
-                      color: AppTheme.primary, fontSize: 13, fontWeight: FontWeight.w700)),
+                      color: AppTheme.primary, fontSize: DesignTokens.fontMd, fontWeight: FontWeight.w700)),
             ),
             title: Text(name, style: GoogleFonts.inter(color: AppTheme.textPrimary)),
           )),
-          const SizedBox(height: 8),
+          const SizedBox(height: DesignTokens.spacing8),
         ],
       ),
     ),
@@ -470,28 +470,28 @@ void showScheduledPanel({
             children: [
               if (PlatformUtils.isMobile)
                 Container(
-                  width: 40, height: 4,
-                  margin: const EdgeInsets.only(top: 12, bottom: 8),
+                  width: DesignTokens.spacing40, height: DesignTokens.spacing4,
+                  margin: const EdgeInsets.only(top: DesignTokens.spacing12, bottom: DesignTokens.spacing8),
                   decoration: BoxDecoration(
-                    color: AppTheme.textSecondary.withValues(alpha: 0.3),
-                    borderRadius: BorderRadius.circular(2),
+                    color: AppTheme.textSecondary.withValues(alpha: DesignTokens.opacityMedium),
+                    borderRadius: BorderRadius.circular(DesignTokens.radiusXs),
                   ),
                 ),
               Padding(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                padding: const EdgeInsets.fromLTRB(DesignTokens.spacing20, 0, DesignTokens.spacing20, DesignTokens.spacing8),
                 child: Row(children: [
-                  const Icon(Icons.schedule_rounded, size: 18, color: Colors.amber),
-                  const SizedBox(width: 8),
+                  const Icon(Icons.schedule_rounded, size: DesignTokens.fontHeading, color: Colors.amber),
+                  const SizedBox(width: DesignTokens.spacing8),
                   Text(ctx.l10n.menuScheduledMessages,
                       style: GoogleFonts.inter(
                           color: AppTheme.textPrimary,
-                          fontSize: 16,
+                          fontSize: DesignTokens.fontXl,
                           fontWeight: FontWeight.w700)),
                 ]),
               ),
               if (items.isEmpty)
                 Padding(
-                  padding: const EdgeInsets.all(20),
+                  padding: const EdgeInsets.all(DesignTokens.spacing20),
                   child: Text(ctx.l10n.menuNoScheduledMessages,
                       style: GoogleFonts.inter(color: AppTheme.textSecondary)),
                 )
@@ -508,22 +508,22 @@ void showScheduledPanel({
                           : '';
                       return ListTile(
                         leading: const Icon(Icons.schedule_rounded,
-                            color: Colors.amber, size: 20),
+                            color: Colors.amber, size: DesignTokens.iconMd),
                         title: Text(
                           m.encryptedPayload,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: GoogleFonts.inter(
-                              color: AppTheme.textPrimary, fontSize: 14),
+                              color: AppTheme.textPrimary, fontSize: DesignTokens.fontLg),
                         ),
                         subtitle: label.isNotEmpty
                             ? Text(ctx.l10n.menuSendsOn(label),
                                 style: GoogleFonts.inter(
-                                    color: Colors.amber, fontSize: 12))
+                                    color: Colors.amber, fontSize: DesignTokens.fontBody))
                             : null,
                         trailing: IconButton(
                           icon: const Icon(Icons.cancel_rounded,
-                              color: Colors.redAccent, size: 20),
+                              color: Colors.redAccent, size: DesignTokens.iconMd),
                           tooltip: ctx.l10n.cancel,
                           onPressed: () async {
                             await context
@@ -536,7 +536,7 @@ void showScheduledPanel({
                     },
                   ),
                 ),
-              const SizedBox(height: 8),
+              const SizedBox(height: DesignTokens.spacing8),
             ],
           ),
         );
@@ -556,14 +556,14 @@ void showAttachMenu({
     context: context,
     builder: (_) => SafeArea(
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+        padding: const EdgeInsets.symmetric(vertical: DesignTokens.spacing16, horizontal: DesignTokens.spacing20),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
             _AttachOption(
               icon: Icons.image_rounded,
               label: context.l10n.menuAttachPhoto,
-              color: const Color(0xFF4CAF50),
+              color: AppTheme.online,
               onTap: () { Navigator.pop(context); onPickImage(); },
             ),
             _AttachOption(
@@ -575,7 +575,7 @@ void showAttachMenu({
             _AttachOption(
               icon: Icons.insert_drive_file_rounded,
               label: context.l10n.menuAttachFile,
-              color: const Color(0xFF2196F3),
+              color: AppTheme.providerOxen,
               onTap: () { Navigator.pop(context); onPickFile(); },
             ),
           ],
@@ -607,11 +607,11 @@ class _AttachOption extends StatelessWidget {
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           Container(
             width: 60, height: 60,
-            decoration: BoxDecoration(color: color.withValues(alpha: 0.15), shape: BoxShape.circle),
-            child: Icon(icon, color: color, size: 28),
+            decoration: BoxDecoration(color: color.withValues(alpha: DesignTokens.opacityLight), shape: BoxShape.circle),
+            child: Icon(icon, color: color, size: DesignTokens.spacing28),
           ),
-          const SizedBox(height: 6),
-          Text(label, style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: 12)),
+          const SizedBox(height: DesignTokens.spacing6),
+          Text(label, style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: DesignTokens.fontBody)),
         ]),
       ),
     );
@@ -644,28 +644,28 @@ void showTtlDialog({
             if (PlatformUtils.isMobile)
               Center(
                 child: Container(
-                  width: 40, height: 4,
-                  margin: const EdgeInsets.only(top: 12, bottom: 16),
+                  width: DesignTokens.spacing40, height: DesignTokens.spacing4,
+                  margin: const EdgeInsets.only(top: DesignTokens.spacing12, bottom: DesignTokens.spacing16),
                   decoration: BoxDecoration(
-                    color: AppTheme.textSecondary.withValues(alpha: 0.3),
-                    borderRadius: BorderRadius.circular(2),
+                    color: AppTheme.textSecondary.withValues(alpha: DesignTokens.opacityMedium),
+                    borderRadius: BorderRadius.circular(DesignTokens.radiusXs),
                   ),
                 ),
               ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 4),
+              padding: const EdgeInsets.fromLTRB(DesignTokens.spacing20, 0, DesignTokens.spacing20, DesignTokens.spacing4),
               child: Text(ctx.l10n.menuDisappearingMessages,
                   style: GoogleFonts.inter(
-                      color: AppTheme.textPrimary, fontSize: 16, fontWeight: FontWeight.w700)),
+                      color: AppTheme.textPrimary, fontSize: DesignTokens.fontXl, fontWeight: FontWeight.w700)),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+              padding: const EdgeInsets.fromLTRB(DesignTokens.spacing20, 0, DesignTokens.spacing20, DesignTokens.spacing8),
               child: Text(ctx.l10n.menuDisappearingSubtitle,
-                  style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: 13)),
+                  style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: DesignTokens.fontMd)),
             ),
             ...options.map((opt) => ListTile(
               title: Text(opt.label,
-                  style: GoogleFonts.inter(color: AppTheme.textPrimary, fontSize: 15)),
+                  style: GoogleFonts.inter(color: AppTheme.textPrimary, fontSize: DesignTokens.fontInput)),
               trailing: currentTtlSeconds == opt.seconds
                   ? Icon(Icons.check_rounded, color: AppTheme.primary)
                   : null,
@@ -675,7 +675,7 @@ void showTtlDialog({
                 if (ctx.mounted) Navigator.pop(ctx);
               },
             )),
-            const SizedBox(height: 8),
+            const SizedBox(height: DesignTokens.spacing8),
           ],
         ),
         );
@@ -696,10 +696,10 @@ class _FullEmojiReactionPicker extends StatelessWidget {
         height: 280,
         emojiViewConfig: emoji_pkg.EmojiViewConfig(
           columns: 8,
-          emojiSizeMax: 28,
+          emojiSizeMax: DesignTokens.spacing28,
           backgroundColor: AppTheme.surface,
           noRecents: Text(context.l10n.emojiNoRecent,
-              style: const TextStyle(color: Colors.white54, fontSize: 14)),
+              style: const TextStyle(color: Colors.white54, fontSize: DesignTokens.fontLg)),
         ),
         categoryViewConfig: emoji_pkg.CategoryViewConfig(
           backgroundColor: AppTheme.surface,

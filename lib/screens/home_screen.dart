@@ -428,7 +428,7 @@ class _HomeScreenState extends State<HomeScreen> {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.dialogRadius)),
           title: Text(dialogCtx.l10n.homeIncomingCallTitle, style: GoogleFonts.inter(color: AppTheme.textPrimary, fontWeight: FontWeight.w700)),
           content: Row(children: [
-            AvatarWidget(name: caller.name, size: 48, fontSize: DesignTokens.fontXxl),
+            AvatarWidget(name: caller.name, size: DesignTokens.spacing48, fontSize: DesignTokens.fontXxl),
             const SizedBox(width: DesignTokens.spacing14),
             Expanded(child: Text(dialogCtx.l10n.homeIncomingCall(caller.name),
                 style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: DesignTokens.fontLg))),
@@ -492,13 +492,13 @@ class _HomeScreenState extends State<HomeScreen> {
             style: GoogleFonts.inter(color: AppTheme.textPrimary, fontWeight: FontWeight.w700)),
         content: Row(children: [
           Container(
-            width: 48, height: 48,
+            width: DesignTokens.spacing48, height: DesignTokens.spacing48,
             decoration: BoxDecoration(
-              color: const Color(0xFF26A69A).withValues(alpha: 0.15),
+              color: AppTheme.providerPulse.withValues(alpha: DesignTokens.opacityLight),
               shape: BoxShape.circle,
             ),
             child: Icon(Icons.call_rounded,
-              color: const Color(0xFF26A69A),
+              color: AppTheme.providerPulse,
               size: DesignTokens.iconLg,
             ),
           ),
@@ -534,7 +534,7 @@ class _HomeScreenState extends State<HomeScreen> {
             icon: Icon(Icons.call_rounded, size: DesignTokens.iconSm),
             label: Text(context.l10n.homeAccept, style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF26A69A),
+              backgroundColor: AppTheme.providerPulse,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.radiusMedium)),
             ),
             onPressed: () {
@@ -801,7 +801,7 @@ class _HomeScreenState extends State<HomeScreen> {
               backgroundColor: AppTheme.surface,
               elevation: 0,
               scrolledUnderElevation: 2.0,
-              shadowColor: Colors.black.withValues(alpha: 0.3),
+              shadowColor: Colors.black.withValues(alpha: DesignTokens.opacityMedium),
               centerTitle: false,
               title: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -950,16 +950,20 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: AppTheme.primary,
-        elevation: 0,
-        shape: const CircleBorder(),
-        tooltip: context.l10n.homeNewChatTooltip,
-        child: const Icon(Icons.chat_rounded, color: Colors.white, size: DesignTokens.fontDisplay),
-        onPressed: () {
-          Navigator.push(context, _slideRoute(const ContactsScreen())).then((_) => _loadAll());
-        },
-      ).animate().scale(delay: 300.ms, curve: Curves.easeOutBack),
+      floatingActionButton: Semantics(
+        label: context.l10n.homeNewChatTooltip,
+        button: true,
+        child: FloatingActionButton(
+          backgroundColor: AppTheme.primary,
+          elevation: 0,
+          shape: const CircleBorder(),
+          tooltip: context.l10n.homeNewChatTooltip,
+          child: const Icon(Icons.chat_rounded, color: Colors.white, size: DesignTokens.fontDisplay),
+          onPressed: () {
+            Navigator.push(context, _slideRoute(const ContactsScreen())).then((_) => _loadAll());
+          },
+        ).animate().scale(delay: 300.ms, curve: Curves.easeOutBack),
+      ),
       ),
     );
   }
@@ -1054,19 +1058,19 @@ class _HomeScreenState extends State<HomeScreen> {
                               items: [
                                 PopupMenuItem(value: 'mute', child: Row(children: [
                                   Icon(_mutedContactIds.contains(c.id) ? Icons.notifications_rounded : Icons.notifications_off_rounded,
-                                      color: AppTheme.textSecondary, size: 20),
-                                  const SizedBox(width: 12),
+                                      color: AppTheme.textSecondary, size: DesignTokens.iconMd),
+                                  const SizedBox(width: DesignTokens.spacing12),
                                   Text(_mutedContactIds.contains(c.id) ? context.l10n.appBarUnmute : context.l10n.appBarMute,
                                       style: GoogleFonts.inter(color: AppTheme.textPrimary)),
                                 ])),
                                 PopupMenuItem(value: 'clear', child: Row(children: [
-                                  Icon(Icons.delete_sweep_rounded, color: AppTheme.textSecondary, size: 20),
-                                  const SizedBox(width: 12),
+                                  Icon(Icons.delete_sweep_rounded, color: AppTheme.textSecondary, size: DesignTokens.iconMd),
+                                  const SizedBox(width: DesignTokens.spacing12),
                                   Text(context.l10n.profileClearChatHistory, style: GoogleFonts.inter(color: AppTheme.textPrimary)),
                                 ])),
                                 PopupMenuItem(value: 'delete', child: Row(children: [
-                                  const Icon(Icons.person_remove_rounded, color: Colors.redAccent, size: 20),
-                                  const SizedBox(width: 12),
+                                  Icon(Icons.person_remove_rounded, color: Colors.redAccent, size: DesignTokens.iconMd),
+                                  const SizedBox(width: DesignTokens.spacing12),
                                   Text(context.l10n.profileDeleteContact, style: GoogleFonts.inter(color: Colors.redAccent)),
                                 ])),
                               ],
@@ -1103,7 +1107,7 @@ class _HomeScreenState extends State<HomeScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(Icons.chat_bubble_outline_rounded, size: 64,
-                color: AppTheme.textSecondary.withValues(alpha: 0.3)),
+                color: AppTheme.textSecondary.withValues(alpha: DesignTokens.opacityMedium)),
             const SizedBox(height: DesignTokens.spacing16),
             Text(context.l10n.homeSelectConversation,
                 style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: DesignTokens.fontXl)),
@@ -1130,18 +1134,22 @@ class _HomeScreenState extends State<HomeScreen> {
           });
         },
       ),
-      title: TextField(
-        controller: _searchController,
-        autofocus: true,
-        style: GoogleFonts.inter(color: AppTheme.textPrimary, fontSize: DesignTokens.fontXl),
-        decoration: InputDecoration(
-          hintText: context.l10n.searchMessages,
-          hintStyle: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: DesignTokens.fontXl),
-          border: InputBorder.none,
-          enabledBorder: InputBorder.none,
-          focusedBorder: InputBorder.none,
-          contentPadding: EdgeInsets.zero,
-          filled: false,
+      title: Semantics(
+        label: context.l10n.searchMessages,
+        textField: true,
+        child: TextField(
+          controller: _searchController,
+          autofocus: true,
+          style: GoogleFonts.inter(color: AppTheme.textPrimary, fontSize: DesignTokens.fontXl),
+          decoration: InputDecoration(
+            hintText: context.l10n.searchMessages,
+            hintStyle: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: DesignTokens.fontXl),
+            border: InputBorder.none,
+            enabledBorder: InputBorder.none,
+            focusedBorder: InputBorder.none,
+            contentPadding: EdgeInsets.zero,
+            filled: false,
+          ),
         ),
       ),
       actions: [
@@ -1192,10 +1200,10 @@ class _HomeScreenState extends State<HomeScreen> {
           Container(
             width: 90, height: 90,
             decoration: BoxDecoration(
-              color: AppTheme.primary.withValues(alpha: 0.08),
+              color: AppTheme.primary.withValues(alpha: DesignTokens.opacitySubtle),
               shape: BoxShape.circle,
             ),
-            child: Icon(Icons.chat_bubble_outline_rounded, size: 42, color: AppTheme.primary.withValues(alpha: 0.6)),
+            child: Icon(Icons.chat_bubble_outline_rounded, size: 42, color: AppTheme.primary.withValues(alpha: DesignTokens.opacityHeavy)),
           ).animate().scale(duration: 500.ms, curve: Curves.easeOutBack),
           const SizedBox(height: DesignTokens.spacing20),
           Text(context.l10n.homeNoChatsYet,
@@ -1250,7 +1258,7 @@ class _HomeScreenState extends State<HomeScreen> {
         !hasContactSection && !hasMessageSection;
 
     return ListView(
-      padding: const EdgeInsets.only(bottom: 80),
+      padding: const EdgeInsets.only(bottom: DesignTokens.navBarHeight),
       children: [
         // Loading indicator.
         if (_globalSearching)
@@ -1306,19 +1314,19 @@ class _HomeScreenState extends State<HomeScreen> {
                   items: [
                     PopupMenuItem(value: 'mute', child: Row(children: [
                       Icon(_mutedContactIds.contains(c.id) ? Icons.notifications_rounded : Icons.notifications_off_rounded,
-                          color: AppTheme.textSecondary, size: 20),
-                      const SizedBox(width: 12),
+                          color: AppTheme.textSecondary, size: DesignTokens.iconMd),
+                      const SizedBox(width: DesignTokens.spacing12),
                       Text(_mutedContactIds.contains(c.id) ? context.l10n.appBarUnmute : context.l10n.appBarMute,
                           style: GoogleFonts.inter(color: AppTheme.textPrimary)),
                     ])),
                     PopupMenuItem(value: 'clear', child: Row(children: [
-                      Icon(Icons.delete_sweep_rounded, color: AppTheme.textSecondary, size: 20),
-                      const SizedBox(width: 12),
+                      Icon(Icons.delete_sweep_rounded, color: AppTheme.textSecondary, size: DesignTokens.iconMd),
+                      const SizedBox(width: DesignTokens.spacing12),
                       Text(context.l10n.profileClearChatHistory, style: GoogleFonts.inter(color: AppTheme.textPrimary)),
                     ])),
                     PopupMenuItem(value: 'delete', child: Row(children: [
-                      const Icon(Icons.person_remove_rounded, color: Colors.redAccent, size: 20),
-                      const SizedBox(width: 12),
+                      Icon(Icons.person_remove_rounded, color: Colors.redAccent, size: DesignTokens.iconMd),
+                      const SizedBox(width: DesignTokens.spacing12),
                       Text(context.l10n.profileDeleteContact, style: GoogleFonts.inter(color: Colors.redAccent)),
                     ])),
                   ],
@@ -1353,11 +1361,11 @@ class _HomeScreenState extends State<HomeScreen> {
         // No results.
         if (showEmpty)
           Padding(
-            padding: const EdgeInsets.symmetric(vertical: 48),
+            padding: const EdgeInsets.symmetric(vertical: DesignTokens.spacing48),
             child: Center(
               child: Column(
                 children: [
-                  Icon(Icons.search_off_rounded, size: 48,
+                  Icon(Icons.search_off_rounded, size: DesignTokens.spacing48,
                       color: AppTheme.textSecondary.withValues(alpha: 0.4)),
                   const SizedBox(height: DesignTokens.spacing12),
                   Text(context.l10n.homeNoResults,
@@ -1488,7 +1496,7 @@ class _HomeScreenState extends State<HomeScreen> {
             color: AppTheme.textPrimary,
             fontSize: DesignTokens.fontMd,
             fontWeight: FontWeight.w700,
-            backgroundColor: AppTheme.primary.withValues(alpha: 0.15),
+            backgroundColor: AppTheme.primary.withValues(alpha: DesignTokens.opacityLight),
           ),
         ),
         TextSpan(

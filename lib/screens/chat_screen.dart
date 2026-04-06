@@ -180,8 +180,8 @@ class _ChatScreenState extends State<ChatScreen> {
       // Also show a SnackBar for any key change (visible across chats)
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Row(children: [
-          const Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 18),
-          const SizedBox(width: 8),
+          const Icon(Icons.warning_amber_rounded, color: Colors.orange, size: DesignTokens.fontHeading),
+          const SizedBox(width: DesignTokens.spacing8),
           Expanded(child: Text(
             context.l10n.chatKeyChangedSnackbar(event.contactName),
             style: const TextStyle(color: Colors.white),
@@ -195,8 +195,8 @@ class _ChatScreenState extends State<ChatScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Row(children: [
-          const Icon(Icons.lock_open_rounded, color: Colors.orange, size: 18),
-          const SizedBox(width: 8),
+          const Icon(Icons.lock_open_rounded, color: Colors.orange, size: DesignTokens.fontHeading),
+          const SizedBox(width: DesignTokens.spacing8),
           Expanded(child: Text(
             context.l10n.chatEncryptionFailed(contactName),
             style: const TextStyle(color: Colors.white),
@@ -210,8 +210,8 @@ class _ChatScreenState extends State<ChatScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Row(children: [
-          const Icon(Icons.gpp_bad_rounded, color: Colors.red, size: 18),
-          const SizedBox(width: 8),
+          const Icon(Icons.gpp_bad_rounded, color: Colors.red, size: DesignTokens.fontHeading),
+          const SizedBox(width: DesignTokens.spacing8),
           Expanded(child: Text(msg,
               style: const TextStyle(color: Colors.white))),
         ]),
@@ -764,8 +764,8 @@ class _ChatScreenState extends State<ChatScreen> {
             child: Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: DesignTokens.spacing14, vertical: DesignTokens.spacing10),
-              decoration: const BoxDecoration(
-                color: Color(0xFFE65100),
+              decoration: BoxDecoration(
+                color: AppTheme.warning,
               ),
               child: Row(
                 children: [
@@ -1096,11 +1096,11 @@ class _ChatScreenState extends State<ChatScreen> {
   Widget _buildNoSearchResults() {
     return Center(
       child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-        Icon(Icons.search_off_rounded, size: 36, color: AppTheme.textSecondary.withValues(alpha: 0.4)),
+        Icon(Icons.search_off_rounded, size: DesignTokens.avatarXs, color: AppTheme.textSecondary.withValues(alpha: 0.4)),
         const SizedBox(height: DesignTokens.spacing12),
         Text(context.l10n.chatNoMessagesFound, style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: DesignTokens.fontLg)),
         const SizedBox(height: DesignTokens.spacing4),
-        Text('"$_searchQuery"', style: GoogleFonts.inter(color: AppTheme.textSecondary.withValues(alpha: 0.6), fontSize: DesignTokens.fontBody)),
+        Text('"$_searchQuery"', style: GoogleFonts.inter(color: AppTheme.textSecondary.withValues(alpha: DesignTokens.opacityHeavy), fontSize: DesignTokens.fontBody)),
       ]),
     );
   }
@@ -1157,7 +1157,7 @@ class _ChatScreenState extends State<ChatScreen> {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: DesignTokens.spacing12),
       child: Row(children: [
-        Expanded(child: Divider(color: AppTheme.textSecondary.withValues(alpha: 0.15), thickness: 0.5)),
+        Expanded(child: Divider(color: AppTheme.textSecondary.withValues(alpha: DesignTokens.opacityLight), thickness: 0.5)),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: DesignTokens.spacing10),
           child: Container(
@@ -1170,7 +1170,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: DesignTokens.fontBody, fontWeight: FontWeight.w500)),
           ),
         ),
-        Expanded(child: Divider(color: AppTheme.textSecondary.withValues(alpha: 0.15), thickness: 0.5)),
+        Expanded(child: Divider(color: AppTheme.textSecondary.withValues(alpha: DesignTokens.opacityLight), thickness: 0.5)),
       ]),
     );
   }

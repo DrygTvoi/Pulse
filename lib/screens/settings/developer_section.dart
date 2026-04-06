@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../theme/app_theme.dart';
+import '../../theme/design_tokens.dart';
 import 'settings_widgets.dart';
 
 /// SharedPreferences key prefix for per-adapter dev toggles.
@@ -84,36 +85,36 @@ class _DeveloperSectionState extends State<DeveloperSection> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         settingsSectionDivider('Developer'),
-        const SizedBox(height: 8),
+        const SizedBox(height: DesignTokens.spacing8),
         Padding(
-          padding: const EdgeInsets.only(left: 4, bottom: 10),
+          padding: const EdgeInsets.only(left: DesignTokens.spacing4, bottom: DesignTokens.spacing10),
           child: Text(
             'Adapter channels — disable to test specific transports.',
-            style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+            style: TextStyle(fontSize: DesignTokens.fontBody, color: AppTheme.textSecondary),
           ),
         ),
-        for (final (name, icon, subtitle) in _adapters) ...[
-          settingsRow(
-            icon: icon,
-            iconColor: (_enabled[name] ?? true)
-                ? AppTheme.primary
-                : AppTheme.textSecondary,
-            title: name,
-            subtitle: subtitle,
-            trailing: Switch.adaptive(
-              value: _enabled[name] ?? true,
-              activeThumbColor: AppTheme.primary,
-              onChanged: (v) => _toggle(name, v),
+        settingsGroup(children: [
+          for (final (name, icon, subtitle) in _adapters)
+            settingsGroupRow(
+              icon: icon,
+              iconColor: (_enabled[name] ?? true)
+                  ? AppTheme.primary
+                  : AppTheme.textSecondary,
+              title: name,
+              subtitle: subtitle,
+              trailing: Switch.adaptive(
+                value: _enabled[name] ?? true,
+                activeThumbColor: AppTheme.primary,
+                onChanged: (v) => _toggle(name, v),
+              ),
             ),
-          ),
-          const SizedBox(height: 8),
-        ],
-        const SizedBox(height: 4),
+        ]),
+        const SizedBox(height: DesignTokens.spacing8),
         Row(
           children: [
             Expanded(
               child: OutlinedButton.icon(
-                icon: const Icon(Icons.check_box_outlined, size: 16),
+                icon: const Icon(Icons.check_box_outlined, size: DesignTokens.iconSm),
                 label: const Text('Enable all'),
                 onPressed: _enableAll,
                 style: OutlinedButton.styleFrom(
@@ -122,10 +123,10 @@ class _DeveloperSectionState extends State<DeveloperSection> {
                 ),
               ),
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: DesignTokens.spacing10),
             Expanded(
               child: OutlinedButton.icon(
-                icon: const Icon(Icons.check_box_outline_blank, size: 16),
+                icon: const Icon(Icons.check_box_outline_blank, size: DesignTokens.iconSm),
                 label: const Text('Disable all'),
                 onPressed: _disableAll,
                 style: OutlinedButton.styleFrom(
@@ -136,10 +137,10 @@ class _DeveloperSectionState extends State<DeveloperSection> {
             ),
           ],
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: DesignTokens.spacing8),
         Text(
           '⚠ Changes take effect on next send. Restart app to apply to incoming.',
-          style: TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+          style: TextStyle(fontSize: DesignTokens.fontSm, color: AppTheme.textSecondary),
         ),
       ],
     );

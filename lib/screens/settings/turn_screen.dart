@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../l10n/l10n_ext.dart';
 import '../../services/ice_server_config.dart';
 import '../../theme/app_theme.dart';
+import '../../theme/design_tokens.dart';
 import '../../widgets/turn_config_section.dart';
 
 class TurnScreen extends StatefulWidget {
@@ -77,7 +78,7 @@ class _TurnScreenState extends State<TurnScreen> {
         elevation: 0,
       ),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
+        padding: const EdgeInsets.fromLTRB(DesignTokens.spacing16, DesignTokens.spacing16, DesignTokens.spacing16, DesignTokens.spacing40),
         children: [
           TurnConfigSection(
             enabledPresets: _enabledPresets,

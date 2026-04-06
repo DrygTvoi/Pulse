@@ -120,27 +120,27 @@ class MessageBubble extends StatelessWidget {
     final timeStr = _fmtTime(timestamp);
 
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 16),
+      padding: const EdgeInsets.symmetric(vertical: DesignTokens.spacing4, horizontal: DesignTokens.spacing16),
       child: Center(
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, color: iconColor, size: 16),
+            Icon(icon, color: iconColor, size: DesignTokens.iconSm),
             const SizedBox(width: 5),
             Text(
               '$label$durationStr',
               style: GoogleFonts.inter(
                 color: AppTheme.textSecondary,
-                fontSize: 12,
+                fontSize: DesignTokens.fontBody,
                 fontWeight: FontWeight.w500,
               ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: DesignTokens.spacing8),
             Text(
               timeStr,
               style: GoogleFonts.inter(
-                color: AppTheme.textSecondary.withValues(alpha: 0.6),
-                fontSize: 11,
+                color: AppTheme.textSecondary.withValues(alpha: DesignTokens.opacityHeavy),
+                fontSize: DesignTokens.fontSm,
               ),
             ),
           ],
@@ -250,7 +250,7 @@ class MessageBubble extends StatelessWidget {
                         padding: const EdgeInsets.symmetric(horizontal: DesignTokens.spacing6, vertical: 3),
                         decoration: BoxDecoration(
                           color: isMine
-                              ? AppTheme.primary.withValues(alpha: 0.3)
+                              ? AppTheme.primary.withValues(alpha: DesignTokens.opacityMedium)
                               : AppTheme.surfaceVariant,
                           borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
                           boxShadow: DesignTokens.shadowSm,
@@ -301,7 +301,7 @@ class MessageBubble extends StatelessWidget {
         ? context.l10n.bubbleDeliveredTo(names.join(' & '))
         : context.l10n.bubbleDeliveredToCount(names.length);
     return _buildStatusRow(
-        context, label: label, iconColor: AppTheme.textSecondary.withValues(alpha: 0.6));
+        context, label: label, iconColor: AppTheme.textSecondary.withValues(alpha: DesignTokens.opacityHeavy));
   }
 
   Widget _buildReadByRow(BuildContext context) {
@@ -496,11 +496,11 @@ class MessageBubble extends StatelessWidget {
           Container(
             width: 3,
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(2),
+              borderRadius: BorderRadius.circular(DesignTokens.radiusXs),
               color: Colors.white.withValues(alpha: 0.5),
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: DesignTokens.spacing8),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -514,7 +514,7 @@ class MessageBubble extends StatelessWidget {
                     style: GoogleFonts.inter(
                         fontSize: DesignTokens.fontXs,
                         fontWeight: FontWeight.w700,
-                        color: Colors.white.withValues(alpha: 0.85)),
+                        color: Colors.white.withValues(alpha: DesignTokens.opacityFull)),
                   ),
                 Text(
                   displayText,
@@ -607,7 +607,7 @@ class MessageBubble extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(DesignTokens.spacing8),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.15),
+                  color: Colors.white.withValues(alpha: DesignTokens.opacityLight),
                   borderRadius: BorderRadius.circular(DesignTokens.spacing10),
                 ),
                 child: const Icon(Icons.insert_drive_file_rounded, color: Colors.white, size: DesignTokens.iconLg),
@@ -959,7 +959,7 @@ class _VoiceBubbleState extends State<_VoiceBubble> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 5, vertical: DesignTokens.spacing2),
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.15),
+                        color: Colors.white.withValues(alpha: DesignTokens.opacityLight),
                         borderRadius: BorderRadius.circular(DesignTokens.spacing4),
                       ),
                       child: Text(
@@ -1073,12 +1073,12 @@ class _VideoNoteBubbleState extends State<_VideoNoteBubble> {
                         gaplessPlayback: true)
                   else
                     Container(color: AppTheme.surfaceVariant,
-                        child: const Icon(Icons.videocam_rounded, color: Colors.white54, size: 48)),
+                        child: const Icon(Icons.videocam_rounded, color: Colors.white54, size: DesignTokens.spacing48)),
                   // Upload progress overlay
                   if (widget.status == 'sending')
                     Center(
                       child: SizedBox(
-                        width: 48, height: 48,
+                        width: DesignTokens.spacing48, height: DesignTokens.spacing48,
                         child: CircularProgressIndicator(
                           value: widget.uploadProgress,
                           strokeWidth: 3,
@@ -1091,23 +1091,23 @@ class _VideoNoteBubbleState extends State<_VideoNoteBubble> {
                   else if (!_playing)
                     Center(
                       child: Container(
-                        width: 48, height: 48,
+                        width: DesignTokens.spacing48, height: DesignTokens.spacing48,
                         decoration: BoxDecoration(
                           color: Colors.black.withValues(alpha: 0.5),
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 32),
+                        child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: DesignTokens.iconXl),
                       ),
                     ),
                   // Duration label
                   if (widget.media.durationSeconds > 0)
                     Positioned(
-                      bottom: 8, right: 12,
+                      bottom: DesignTokens.spacing8, right: DesignTokens.spacing12,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        padding: const EdgeInsets.symmetric(horizontal: DesignTokens.spacing6, vertical: DesignTokens.spacing2),
                         decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.6),
-                          borderRadius: BorderRadius.circular(8),
+                          color: Colors.black.withValues(alpha: DesignTokens.opacityHeavy),
+                          borderRadius: BorderRadius.circular(DesignTokens.radiusSmall),
                         ),
                         child: Text(
                           '${widget.media.durationSeconds ~/ 60}:${(widget.media.durationSeconds % 60).toString().padLeft(2, '0')}',
@@ -1168,11 +1168,11 @@ class _GifBubble extends StatelessWidget {
               ),
               // GIF badge
               Positioned(
-                top: 8, left: 8,
+                top: DesignTokens.spacing8, left: DesignTokens.spacing8,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  padding: const EdgeInsets.symmetric(horizontal: DesignTokens.spacing6, vertical: DesignTokens.spacing2),
                   decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.6),
+                    color: Colors.black.withValues(alpha: DesignTokens.opacityHeavy),
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text('GIF',
@@ -1375,7 +1375,7 @@ class _BlossomMediaWidgetState extends State<_BlossomMediaWidget> {
               ),
               if (_loading)
                 SizedBox(
-                  width: 48, height: 48,
+                  width: DesignTokens.spacing48, height: DesignTokens.spacing48,
                   child: CircularProgressIndicator(
                     value: _progress > 0 ? _progress : null,
                     strokeWidth: 3,
@@ -1388,9 +1388,9 @@ class _BlossomMediaWidgetState extends State<_BlossomMediaWidget> {
                 Container(
                   decoration: BoxDecoration(
                     color: Colors.black54,
-                    borderRadius: BorderRadius.circular(24),
+                    borderRadius: BorderRadius.circular(DesignTokens.radiusPill),
                   ),
-                  padding: const EdgeInsets.all(10),
+                  padding: const EdgeInsets.all(DesignTokens.spacing10),
                   child: const Icon(Icons.download, color: Colors.white, size: 28),
                 ),
             ],
@@ -1430,17 +1430,17 @@ class _BlossomMediaWidgetState extends State<_BlossomMediaWidget> {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 2),
+                  const SizedBox(height: DesignTokens.spacing2),
                   Text(
                     _error ?? p.sizeLabel,
                     style: GoogleFonts.inter(fontSize: DesignTokens.fontXs, color: _error != null ? Colors.red[300] : Colors.white54),
                   ),
                   if (_loading)
                     Padding(
-                      padding: const EdgeInsets.only(top: 4),
+                      padding: const EdgeInsets.only(top: DesignTokens.spacing4),
                       child: LinearProgressIndicator(
                         value: _progress > 0 ? _progress : null,
-                        minHeight: 2,
+                        minHeight: DesignTokens.spacing2,
                         backgroundColor: Colors.white12,
                         color: AppTheme.primary,
                       ),

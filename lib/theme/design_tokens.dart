@@ -21,6 +21,7 @@ class DesignTokens {
   static const double spacing28 = 28.0;
   static const double spacing32 = 32.0;
   static const double spacing40 = 40.0;
+  static const double spacing48 = 48.0;
 
   // ── Border radius ────────────────────────────────────────
   static const double radiusXs = 2.0;
@@ -109,6 +110,8 @@ class DesignTokens {
   static const double opacitySubtle = 0.08;
   static const double opacityLight = 0.15;
   static const double opacityMedium = 0.3;
+  static const double opacityHeavy = 0.6;
+  static const double opacityFull = 0.85;
 
   // ── Animation durations ────────────────────────────────────
   static const Duration durationFast = Duration(milliseconds: 150);

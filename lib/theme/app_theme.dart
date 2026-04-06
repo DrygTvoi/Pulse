@@ -15,4 +15,15 @@ class AppTheme {
   static Color get incomingBubble => ThemeNotifier.instance.incomingBubble;
 
   static ThemeData get darkTheme => ThemeNotifier.instance.themeData;
+
+  // ── Provider badge colors (deduplicated) ──────────────
+  static const Color providerFirebase = Color(0xFFFFAB00);
+  static const Color providerNostr = Color(0xFF9B59B6);
+  static const Color providerPulse = Color(0xFF26A69A);
+  static const Color providerOxen = Color(0xFF2196F3);
+
+  // ── Status colors ─────────────────────────────────────
+  static const Color online = Color(0xFF4CAF50);
+  static const Color warning = Color(0xFFE65100);
+  static const Color destructive = Colors.red;
 }

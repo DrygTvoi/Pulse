@@ -40,14 +40,14 @@ Widget settingsRow({
   VoidCallback? onTap,
   Widget? trailing,
 }) {
-  return GestureDetector(
+  return Material(
+    color: AppTheme.surface,
+    borderRadius: BorderRadius.circular(DesignTokens.radiusLarge),
+    clipBehavior: Clip.antiAlias,
+    child: InkWell(
     onTap: onTap,
-    child: Container(
+    child: Padding(
       padding: const EdgeInsets.all(DesignTokens.cardPadding),
-      decoration: BoxDecoration(
-        color: AppTheme.surface,
-        borderRadius: BorderRadius.circular(DesignTokens.radiusLarge),
-      ),
       child: Row(
         children: [
           Container(
@@ -86,6 +86,7 @@ Widget settingsRow({
                   color: AppTheme.textSecondary, size: DesignTokens.iconMd),
         ],
       ),
+    ),
     ),
   );
 }
@@ -129,23 +130,23 @@ Widget settingsField({
 
 /// Groups multiple settings rows into a rounded card with dividers between them.
 Widget settingsGroup({required List<Widget> children}) {
-  return Container(
-    decoration: BoxDecoration(
+  return DecoratedBox(
+    decoration: BoxDecoration(boxShadow: DesignTokens.shadowSm),
+    child: Material(
       color: AppTheme.surface,
       borderRadius: BorderRadius.circular(DesignTokens.radiusLarge),
-      boxShadow: DesignTokens.shadowSm,
-    ),
-    clipBehavior: Clip.antiAlias,
-    child: Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        for (int i = 0; i < children.length; i++) ...[
-          children[i],
-          if (i < children.length - 1)
-            Divider(height: 1, thickness: 0.5, color: AppTheme.surfaceVariant.withValues(alpha: 0.5),
-                indent: DesignTokens.spacing16, endIndent: DesignTokens.spacing16),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (int i = 0; i < children.length; i++) ...[
+            children[i],
+            if (i < children.length - 1)
+              Divider(height: 1, thickness: 0.5, color: AppTheme.surfaceVariant.withValues(alpha: 0.5),
+                  indent: DesignTokens.spacing16, endIndent: DesignTokens.spacing16),
+          ],
         ],
-      ],
+      ),
     ),
   );
 }
@@ -159,7 +160,7 @@ Widget settingsGroupRow({
   VoidCallback? onTap,
   Widget? trailing,
 }) {
-  return GestureDetector(
+  return InkWell(
     onTap: onTap,
     child: Padding(
       padding: const EdgeInsets.all(DesignTokens.cardPadding),

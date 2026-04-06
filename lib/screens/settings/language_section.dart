@@ -36,18 +36,18 @@ class LanguageSection extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           if (!PlatformUtils.isDesktop) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: DesignTokens.spacing12),
             Container(
               width: 36,
-              height: 4,
+              height: DesignTokens.spacing4,
               decoration: BoxDecoration(
-                color: AppTheme.textSecondary.withValues(alpha: 0.3),
-                borderRadius: BorderRadius.circular(2),
+                color: AppTheme.textSecondary.withValues(alpha: DesignTokens.opacityMedium),
+                borderRadius: BorderRadius.circular(DesignTokens.radiusXs),
               ),
             ),
           ],
           Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(DesignTokens.spacing16),
             child: Text(
               context.l10n.settingsLanguage,
               style: GoogleFonts.inter(
@@ -97,10 +97,10 @@ class LanguageSection extends StatelessWidget {
         builder: (ctx) => Dialog(
           backgroundColor: AppTheme.surface,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(DesignTokens.buttonRadius),
           ),
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 420, maxHeight: 500),
+            constraints: const BoxConstraints(maxWidth: DesignTokens.dialogMaxWidth, maxHeight: 500),
             child: languageList(ctx),
           ),
         ),
@@ -109,8 +109,8 @@ class LanguageSection extends StatelessWidget {
       showModalBottomSheet(
         context: context,
         backgroundColor: AppTheme.surface,
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(DesignTokens.dialogRadius)),
         ),
         isScrollControlled: true,
         builder: (ctx) {
