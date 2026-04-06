@@ -52,29 +52,10 @@ func (r *FederationRouter) IsLocalUser(pubkey string) bool {
 	return exists
 }
 
-// Route routes a federated envelope to its destination.
+// Route routes a federated envelope to its destination with hop limiting.
 // If the recipient is local, it is delivered via the hub.
 // If remote, it is forwarded to the appropriate federation peer.
 func (r *FederationRouter) Route(env *FederatedEnvelope) {
-	if env.To == "" {
-		log.Printf("[federation] dropping envelope with empty 'to' field")
-		return
-	}
-
-	// Check if recipient is local
-	if r.IsLocalUser(env.To) {
-		if !r.deliverer.DeliverToLocal(env.To, env.Type, env.Payload) {
-			log.Printf("[federation] local delivery failed for %s (user offline or error)", env.To)
-		}
-		return
-	}
-
-	// Forward to federation peers
-	r.forwardToRemote(env)
-}
-
-// RouteV2 routes a v2 federation envelope with hop limiting.
-func (r *FederationRouter) RouteV2(env *FederatedEnvelopeV2) {
 	if env.To == "" {
 		return
 	}
@@ -91,7 +72,6 @@ func (r *FederationRouter) RouteV2(env *FederatedEnvelopeV2) {
 
 	// Check if recipient is local
 	if r.IsLocalUser(env.To) {
-		// Convert to v1 envelope for local delivery
 		payload, _ := json.Marshal(map[string]interface{}{
 			"id":   env.ID,
 			"from": env.From,
@@ -106,49 +86,11 @@ func (r *FederationRouter) RouteV2(env *FederatedEnvelopeV2) {
 
 	// Forward with incremented hop count
 	env.Hops++
-	r.forwardV2ToRemote(env)
+	r.forwardToRemote(env)
 }
 
-// forwardToRemote attempts to deliver a message to a remote federation peer (v1).
+// forwardToRemote forwards an envelope to federation peers.
 func (r *FederationRouter) forwardToRemote(env *FederatedEnvelope) {
-	peers := r.peerManager.ListPeers()
-
-	// Check hint table for direct routing
-	hintPeer := r.getHint(env.To)
-	if hintPeer != "" {
-		for _, peer := range peers {
-			if peer.Pubkey == hintPeer && peer.IsConnected() {
-				if err := peer.Send(env); err == nil {
-					return
-				}
-				// Hint failed, clear it
-				r.clearHint(env.To, hintPeer)
-				break
-			}
-		}
-	}
-
-	// Broadcast to all connected peers
-	sent := false
-	for _, peer := range peers {
-		if !peer.IsConnected() {
-			continue
-		}
-		if err := peer.Send(env); err != nil {
-			log.Printf("[federation] failed to forward to peer %s: %v", peer.Pubkey, err)
-			continue
-		}
-		sent = true
-		break
-	}
-
-	if !sent {
-		log.Printf("[federation] no available peer for recipient %s", env.To)
-	}
-}
-
-// forwardV2ToRemote forwards a v2 envelope to federation peers.
-func (r *FederationRouter) forwardV2ToRemote(env *FederatedEnvelopeV2) {
 	peers := r.peerManager.ListPeers()
 
 	hintPeer := r.getHint(env.To)
@@ -176,26 +118,8 @@ func (r *FederationRouter) forwardV2ToRemote(env *FederatedEnvelopeV2) {
 	}
 }
 
-// HandleIncoming processes an envelope received from a federation peer.
-func (r *FederationRouter) HandleIncoming(env *FederatedEnvelope) {
-	if env.To == "" {
-		return
-	}
-
-	if r.IsLocalUser(env.To) {
-		if r.deliverer.DeliverToLocal(env.To, env.Type, env.Payload) {
-			// Record hint: from-user was reached via this path
-			// We don't know the peer pubkey here, but the PeerManager caller can set it
-		}
-		return
-	}
-
-	// Do not forward further (v1 has no hop limit, just drop)
-	log.Printf("[federation] dropping message for non-local user %s", env.To)
-}
-
-// HandleIncomingV2 processes a v2 federated envelope with hop limiting.
-func (r *FederationRouter) HandleIncomingV2(env *FederatedEnvelopeV2, fromPeerPubkey string) {
+// HandleIncoming processes a federated envelope received from a peer.
+func (r *FederationRouter) HandleIncoming(env *FederatedEnvelope, fromPeerPubkey string) {
 	if env.To == "" {
 		return
 	}
@@ -215,7 +139,7 @@ func (r *FederationRouter) HandleIncomingV2(env *FederatedEnvelopeV2, fromPeerPu
 	}
 
 	// Forward with hop check
-	r.RouteV2(env)
+	r.Route(env)
 }
 
 // --- User hints ---

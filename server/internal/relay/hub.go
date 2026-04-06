@@ -81,7 +81,7 @@ func NewHub(cfg *config.Config, users *store.UserStore, messages *store.MessageS
 			h.mu.RUnlock()
 			if ok {
 				for _, msg := range msgs {
-					client.SendV2Direct(msg.Data)
+					client.SendDirect(msg.Data)
 				}
 			}
 		})
@@ -96,7 +96,7 @@ func (h *Hub) SetFileStore(fs *store.FileStore) {
 	h.fileStore = fs
 }
 
-// SetTurnServer sets the TURN server reference for v2 auth.
+// SetTurnServer sets the TURN server reference for auth.
 func (h *Hub) SetTurnServer(ts *turn.Server) {
 	h.turnServer = ts
 }
@@ -126,7 +126,7 @@ func (h *Hub) Metrics() *metrics.Collector {
 	return h.metricsCol
 }
 
-// PrivacySettings returns the effective privacy settings for v2 auth_ok.
+// PrivacySettings returns the effective privacy settings for auth_ok.
 func (h *Hub) PrivacySettings() privacy.EffectiveSettings {
 	return h.privSettings
 }
@@ -160,7 +160,7 @@ func (h *Hub) Run() {
 			if h.paddingSvc != nil {
 				h.paddingSvc.RegisterClient(client.pubkey,
 					func(data []byte) error { return client.SendBinaryDirect(data) },
-					func(data []byte) error { return client.SendV2Direct(data) },
+					func(data []byte) error { return client.SendDirect(data) },
 				)
 			}
 
@@ -454,15 +454,10 @@ func (h *Hub) handleSignal(client *Client, payload json.RawMessage) {
 	h.mu.RUnlock()
 
 	if !online {
-		// V2: send signal_fail instead of generic error
-		if client.protoVersion == 2 {
-			client.sendV2(TypeSignalFail, map[string]string{
-				"to":     sig.To,
-				"reason": "offline",
-			})
-		} else {
-			client.SendError("user_offline", "recipient is not online")
-		}
+		client.sendFlat(TypeSignalFail, map[string]string{
+			"to":     sig.To,
+			"reason": "offline",
+		})
 		return
 	}
 
@@ -646,7 +641,7 @@ func (h *Hub) handleBackupGet(client *Client) {
 	})
 }
 
-// --- File transfer handlers (v2) ---
+// --- File transfer handlers ---
 
 func (h *Hub) handleUploadStart(client *Client, payload json.RawMessage) {
 	if h.fileStore == nil {
@@ -908,7 +903,7 @@ func (h *Hub) handleRoomJoin(client *Client, payload json.RawMessage) {
 		return
 	}
 
-	sendMsg := func(data []byte) error { return client.SendV2Direct(data) }
+	sendMsg := func(data []byte) error { return client.SendDirect(data) }
 	sendBin := func(data []byte) error { return client.SendBinaryDirect(data) }
 
 	room, _, err := h.sfuManager.JoinRoom(req.RoomID, req.Token, client.pubkey, sendMsg, sendBin)
@@ -1180,7 +1175,7 @@ func (h *Hub) HandleSealedSend(cert, to, body string) bool {
 			"ts":   time.Now().Unix(),
 		}
 		data, _ := json.Marshal(msg)
-		recipient.SendV2Direct(data)
+		recipient.SendDirect(data)
 		return true
 	}
 

@@ -669,9 +669,10 @@ Future<bool> _socks5TcpProbe(
 /// No new pub.dev packages required — pure dart:io.
 Future<WebSocketChannel> connectWebSocket(String url,
     {String? torHost, int torPort = 9050,
-    Duration socks5Timeout = const Duration(seconds: 25)}) async {
+    Duration socks5Timeout = const Duration(seconds: 25),
+    List<String>? protocols}) async {
   if (torHost == null) {
-    return WebSocketChannel.connect(Uri.parse(url));
+    return WebSocketChannel.connect(Uri.parse(url), protocols: protocols);
   }
 
   final uri = Uri.parse(url);
@@ -824,7 +825,8 @@ Future<WebSocketChannel> connectWebSocket(String url,
       ? '${wsUri.scheme}://${wsUri.host}:${wsUri.scheme == 'wss' ? 443 : 80}${wsUri.path}'
       : url;
   try {
-    final ws = await WebSocket.connect(normalizedUrl, customClient: httpClient);
+    final ws = await WebSocket.connect(normalizedUrl, customClient: httpClient,
+        protocols: protocols);
     return IOWebSocketChannel(ws);
   } catch (e) {
     // If WebSocket.connect fails, no client ever connects to the bridge

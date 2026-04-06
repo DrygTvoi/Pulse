@@ -2,8 +2,7 @@ package relay
 
 import "encoding/json"
 
-// Envelope is the generic wire-protocol wrapper.
-// Every message sent over WebSocket is an Envelope with a Type and a JSON Payload.
+// Envelope is the internal routing wrapper used by the Hub to dispatch messages.
 type Envelope struct {
 	Type    string          `json:"type"`
 	Payload json.RawMessage `json:"payload"`
@@ -70,17 +69,6 @@ type BackupPut struct {
 type BackupGet struct{}
 
 // --- Server → Client message types ---
-
-// AuthChallenge is sent to the client upon connection.
-type AuthChallenge struct {
-	Nonce     string `json:"nonce"`
-	Timestamp int64  `json:"timestamp"`
-}
-
-// AuthOK confirms successful authentication.
-type AuthOK struct {
-	Pubkey string `json:"pubkey"`
-}
 
 // IncomingMessage is a message delivered to the client.
 type IncomingMessage struct {
@@ -154,7 +142,7 @@ const (
 	TypeBackup        = "backup"
 	TypePong          = "pong"
 
-	// File transfer (v2)
+	// File transfer
 	TypeUploadStart    = "upload_start"
 	TypeUploadAck      = "upload_ack"
 	TypeUploadComplete = "upload_complete"
@@ -192,22 +180,10 @@ const (
 	TypeSealedSend = "sealed_send"
 )
 
-// MakeEnvelope creates an Envelope from a type and payload.
-func MakeEnvelope(msgType string, payload interface{}) (*Envelope, error) {
-	data, err := json.Marshal(payload)
-	if err != nil {
-		return nil, err
-	}
-	return &Envelope{
-		Type:    msgType,
-		Payload: json.RawMessage(data),
-	}, nil
-}
+// --- Wire structs (flat JSON on the wire) ---
 
-// --- V2 flat wire structs (no nested "payload" wrapper) ---
-
-// V2AuthChallenge is the v2 auth challenge (flat).
-type V2AuthChallenge struct {
+// AuthChallenge is the auth challenge sent to clients.
+type AuthChallenge struct {
 	Type          string `json:"type"`
 	Nonce         string `json:"nonce"`
 	Timestamp     int64  `json:"ts"`
@@ -217,22 +193,22 @@ type V2AuthChallenge struct {
 	PoWExpires    int64  `json:"pow_expires,omitempty"`
 }
 
-// V2PrivacyInfo describes the server's active privacy/obfuscation features.
-type V2PrivacyInfo struct {
+// PrivacyInfo describes the server's active privacy/obfuscation features.
+type PrivacyInfo struct {
 	Padding  string `json:"padding,omitempty"`  // "cbr" | "burst" | ""
 	RateKbps int    `json:"rate_kbps,omitempty"`
 	Chaff    bool   `json:"chaff,omitempty"`
 }
 
-// V2AuthOK is the v2 auth success response (flat).
-type V2AuthOK struct {
+// AuthOK is the auth success response.
+type AuthOK struct {
 	Type         string           `json:"type"`
 	Pubkey       string           `json:"pubkey"`
 	Server       string           `json:"server,omitempty"`
 	Turn         *TurnCredentials `json:"turn,omitempty"`
 	CertFP       string           `json:"cert_fp,omitempty"`
 	PendingCount int              `json:"pending_count"`
-	Privacy      *V2PrivacyInfo   `json:"privacy,omitempty"`
+	Privacy      *PrivacyInfo     `json:"privacy,omitempty"`
 }
 
 // TurnCredentials holds TURN server connection info.
@@ -243,8 +219,8 @@ type TurnCredentials struct {
 	TTL        int      `json:"ttl"`
 }
 
-// V2SendMessage is a v2 send message (flat).
-type V2SendMessage struct {
+// FlatSendMessage is the wire-format send message from clients.
+type FlatSendMessage struct {
 	Type     string `json:"type"`
 	ID       string `json:"id"`
 	To       string `json:"to"`
@@ -253,8 +229,8 @@ type V2SendMessage struct {
 	Priority int    `json:"priority,omitempty"`
 }
 
-// V2IncomingMessage is a v2 incoming message (flat).
-type V2IncomingMessage struct {
+// FlatIncomingMessage is the wire-format incoming message sent to clients.
+type FlatIncomingMessage struct {
 	Type     string `json:"type"`
 	ID       string `json:"id"`
 	From     string `json:"from"`
@@ -263,15 +239,15 @@ type V2IncomingMessage struct {
 	ServerTs int64  `json:"server_ts"`
 }
 
-// V2Signal is a v2 signal (flat).
-type V2Signal struct {
+// FlatSignal is the wire-format signal from clients.
+type FlatSignal struct {
 	Type    string `json:"type"`
 	To      string `json:"to"`
 	Payload string `json:"payload"`
 }
 
-// V2Error is a v2 error response (flat).
-type V2Error struct {
+// FlatError is the wire-format error response.
+type FlatError struct {
 	Type    string `json:"type"`
 	Code    string `json:"code"`
 	Message string `json:"message"`
@@ -508,7 +484,7 @@ type TunnelError struct {
 
 // --- Sealed sender (Phase 6) ---
 
-// SealedSend — Client → Server (via /v2/sealed)
+// SealedSend — Client → Server (via /sealed)
 type SealedSend struct {
 	Type string `json:"type"`
 	Cert string `json:"cert"`

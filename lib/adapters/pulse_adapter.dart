@@ -24,10 +24,10 @@ import 'inbox_manager.dart';
 ///   (64-char hex public key @ https:// server URL)
 ///
 /// Authentication: Ed25519 challenge-response.
-///   1. Server sends auth_challenge {nonce, timestamp}
-///   2. Client signs "pulse-auth-v1:{nonce}:{timestamp}" with Ed25519
-///   3. Client sends auth_response {pubkey, signature, invite}
-///   4. Server sends auth_ok {turn_url, turn_user, turn_pass}
+///   1. Server sends auth_challenge {nonce, ts}
+///   2. Client signs "pulse-auth:{nonce}:{ts}" with Ed25519
+///   3. Client sends auth_response {pubkey, signature, nonce, timestamp, invite}
+///   4. Server sends auth_ok {turn, cert_fp, pending_count, ...}
 ///
 /// Message types:
 ///   message  → Chat message (payload = Signal-encrypted)
@@ -56,23 +56,6 @@ Future<String> _ed25519Sign(Uint8List seed, String message) async {
   final msgBytes = utf8.encode(message);
   final sig = await ed.sign(msgBytes, keyPair: kp);
   return hex.encode(sig.bytes);
-}
-
-// ── Envelope helpers ─────────────────────────────────────────────────────────
-
-/// Unwrap server envelope: {"type":"...","payload":{...}} → extract inner payload.
-Map<String, dynamic> _envPayload(Map<String, dynamic> env) {
-  final p = env['payload'];
-  if (p is Map<String, dynamic>) return p;
-  if (p is String) {
-    try { return jsonDecode(p) as Map<String, dynamic>; } catch (_) {}
-  }
-  return env;
-}
-
-/// Create an envelope for sending to the server.
-String _makeEnvelope(String type, Map<String, dynamic> payload) {
-  return jsonEncode({'type': type, 'payload': payload});
 }
 
 // ── Obfuscation helpers ─────────────────────────────────────────────────────
@@ -135,7 +118,8 @@ DateTime? _pulseUtlsFailedUntil;
 /// Same bridge pattern as nostr_adapter but with [Pulse] log prefix and
 /// separate circuit breaker so Nostr and Pulse don't cross-trip.
 Future<WebSocketChannel> _connectPulseWebSocketViaUtls(
-    String url, int proxyPort, {String? upstreamSocks5}) async {
+    String url, int proxyPort, {String? upstreamSocks5,
+    List<String>? protocols}) async {
   if (upstreamSocks5 == null &&
       _pulseUtlsFailedUntil != null &&
       DateTime.now().isBefore(_pulseUtlsFailedUntil!)) {
@@ -267,7 +251,8 @@ Future<WebSocketChannel> _connectPulseWebSocketViaUtls(
       ? '${wsUri.scheme}://${wsUri.host}:${wsUri.scheme == 'wss' ? 443 : 80}${wsUri.path}'
       : url;
   try {
-    final ws = await WebSocket.connect(normalizedUrl, customClient: httpClient);
+    final ws = await WebSocket.connect(normalizedUrl, customClient: httpClient,
+        protocols: protocols);
     ws.pingInterval = const Duration(seconds: 30);
     _pulseUtlsFailedUntil = null;
     return IOWebSocketChannel(ws);
@@ -284,7 +269,8 @@ Future<WebSocketChannel> _connectPulseWebSocketViaUtls(
 class _PulseSharedWs {
   static WebSocketChannel? channel;
   static bool authenticated = false;
-  static int protoVersion = 1;
+  /// Set to true when reader's _runLoop starts, so sender knows to wait.
+  static bool readerActive = false;
   /// Shared keys completers — reader resolves, sender registers.
   static final pendingKeysCompleters = <String, Completer<Map<String, dynamic>?>>{};
 }
@@ -296,11 +282,7 @@ class PulseInboxReader implements InboxReader {
   String _pubkeyHex = '';
   String _serverUrl = '';
   String _wsUrl = '';
-  String _wsUrlV2 = '';
   String _invite = '';
-
-  /// Protocol version negotiated with the server (1 or 2).
-  int _protoVersion = 1;
 
   /// TLS cert SHA-256 fingerprint parsed from `#suffix` in serverUrl.
   String _certFingerprint = '';
@@ -368,7 +350,6 @@ class PulseInboxReader implements InboxReader {
     if (_serverUrl.startsWith('https://')) {
       final hostPort = _serverUrl.substring('https://'.length);
       _wsUrl = 'wss://$hostPort/ws';
-      _wsUrlV2 = 'wss://$hostPort/v2';
     } else {
       debugPrint('[Pulse] Rejected insecure or invalid server URL: $_serverUrl');
       return;
@@ -446,29 +427,22 @@ class PulseInboxReader implements InboxReader {
     // 1. Force-Tor+uTLS (if pulse_force_tor enabled)
     if (_forcePulseTor && torActive && utlsPort != null) {
       try {
-        debugPrint('[Pulse] Force-Tor: uTLS+Tor chain to $_wsUrlV2');
+        debugPrint('[Pulse] Force-Tor: uTLS+Tor chain to $_wsUrl');
         final ch = await _connectPulseWebSocketViaUtls(
-            _wsUrlV2, utlsPort,
-            upstreamSocks5: '$_torHost:$_torPort')
+            _wsUrl, utlsPort,
+            upstreamSocks5: '$_torHost:$_torPort',
+            protocols: ['pulse.auth'])
             .timeout(const Duration(seconds: 20));
-        _protoVersion = 2;
         return ch;
       } catch (e) {
         debugPrint('[Pulse] Force-Tor uTLS+Tor failed ($e) — trying plain Tor');
       }
       // Fallback: plain Tor SOCKS5
       try {
-        final ch = await tor.connectWebSocket(_wsUrlV2,
-            torHost: _torHost, torPort: _torPort,
-            socks5Timeout: const Duration(seconds: 8));
-        _protoVersion = 2;
-        return ch;
-      } catch (_) {}
-      try {
         final ch = await tor.connectWebSocket(_wsUrl,
             torHost: _torHost, torPort: _torPort,
-            socks5Timeout: const Duration(seconds: 8));
-        _protoVersion = 1;
+            socks5Timeout: const Duration(seconds: 8),
+            protocols: ['pulse.auth']);
         return ch;
       } catch (e) {
         debugPrint('[Pulse] Force-Tor plain Tor also failed ($e) — trying next');
@@ -478,10 +452,10 @@ class PulseInboxReader implements InboxReader {
     // 2. uTLS+ECH (if UTLSService available, not force-tor)
     if (utlsPort != null && !_forcePulseTor) {
       try {
-        debugPrint('[Pulse] uTLS+ECH to $_wsUrlV2');
-        final ch = await _connectPulseWebSocketViaUtls(_wsUrlV2, utlsPort)
+        debugPrint('[Pulse] uTLS+ECH to $_wsUrl');
+        final ch = await _connectPulseWebSocketViaUtls(_wsUrl, utlsPort,
+                protocols: ['pulse.auth'])
             .timeout(const Duration(seconds: 8));
-        _protoVersion = 2;
         return ch;
       } catch (e) {
         debugPrint('[Pulse] uTLS+ECH failed ($e) — trying next');
@@ -491,17 +465,10 @@ class PulseInboxReader implements InboxReader {
     // 3. Tor SOCKS5 (if enabled, not already tried via force-tor)
     if (torActive && !_forcePulseTor) {
       try {
-        try {
-          final ch = await tor.connectWebSocket(_wsUrlV2,
-              torHost: _torHost, torPort: _torPort,
-              socks5Timeout: const Duration(seconds: 8));
-          _protoVersion = 2;
-          return ch;
-        } catch (_) {}
         final ch = await tor.connectWebSocket(_wsUrl,
             torHost: _torHost, torPort: _torPort,
-            socks5Timeout: const Duration(seconds: 8));
-        _protoVersion = 1;
+            socks5Timeout: const Duration(seconds: 8),
+            protocols: ['pulse.auth']);
         return ch;
       } catch (e) {
         debugPrint('[Pulse] Tor WS connect failed ($e) — trying next');
@@ -517,65 +484,32 @@ class PulseInboxReader implements InboxReader {
         }
         final workerUri = Uri.parse(workerStr);
         if (workerUri.host.isEmpty) throw FormatException('CF Worker: empty host');
-        final targetUrl = _wsUrlV2;
-        final workerUrl = workerUri.replace(queryParameters: {'r': targetUrl}).toString();
+        final workerUrl = workerUri.replace(queryParameters: {'r': _wsUrl}).toString();
         debugPrint('[Pulse] Trying CF Worker: $workerUrl');
         final inner = _buildHttpClient();
         final ws = await WebSocket.connect(workerUrl, customClient: inner,
-                protocols: ['pulse.v2.auth'])
+                protocols: ['pulse.auth'])
             .timeout(const Duration(seconds: 12));
-        _protoVersion = 2;
         return IOWebSocketChannel(ws);
       } catch (e) {
         debugPrint('[Pulse] CF Worker connect failed ($e) — falling back to plain');
       }
     }
 
-    // 5. Direct v1 (try first — v2 requires protocol negotiation)
-    try {
-      final inner = _buildHttpClient();
-      final ws = await WebSocket.connect(
-        _wsUrl,
-        customClient: inner,
-      ).timeout(const Duration(seconds: 10));
-      _protoVersion = 1;
-      return IOWebSocketChannel(ws);
-    } catch (e) {
-      debugPrint('[Pulse] v1 connect failed ($e) — trying v2');
-    }
-
-    // 6. Direct v2
+    // 5. Direct
     final inner = _buildHttpClient();
     final ws = await WebSocket.connect(
-      _wsUrlV2,
+      _wsUrl,
       customClient: inner,
-      protocols: ['pulse.v2.auth'],
+      protocols: ['pulse.auth'],
     ).timeout(const Duration(seconds: 10));
-    _protoVersion = 2;
     return IOWebSocketChannel(ws);
   }
 
+  /// Save TURN credentials from auth_ok (structured `turn` object).
   Future<void> _saveTurnCreds(Map<String, dynamic> data) async {
     try {
       const ss = FlutterSecureStorage();
-      final turnUrl  = data['turn_url']  as String? ?? '';
-      final turnUser = data['turn_user'] as String? ?? '';
-      final turnPass = data['turn_pass'] as String? ?? '';
-      if (turnUrl.isNotEmpty) {
-        await ss.write(key: 'pulse_turn_url',  value: turnUrl);
-        await ss.write(key: 'pulse_turn_user', value: turnUser);
-        await ss.write(key: 'pulse_turn_pass', value: turnPass);
-      }
-    } catch (e) {
-      debugPrint('[Pulse] Failed to save TURN creds: $e');
-    }
-  }
-
-  /// Save TURN credentials from v2 auth_ok (structured `turn` object) or v1 flat fields.
-  Future<void> _saveTurnCredsV2(Map<String, dynamic> data) async {
-    try {
-      const ss = FlutterSecureStorage();
-      // V2: structured turn object: {"urls":["turn:..."],"username":"...","credential":"...","ttl":N}
       final turnObj = data['turn'];
       if (turnObj is Map<String, dynamic>) {
         final urls = turnObj['urls'];
@@ -590,17 +524,14 @@ class PulseInboxReader implements InboxReader {
           await ss.write(key: 'pulse_turn_user', value: turnUser);
           await ss.write(key: 'pulse_turn_pass', value: turnPass);
         }
-        return;
       }
-      // V1 fallback: flat fields
-      await _saveTurnCreds(data);
       // Save cert fingerprint from auth_ok if provided
       final certFp = data['cert_fp'] as String? ?? '';
       if (certFp.isNotEmpty && _certFingerprint.isEmpty) {
         _certFingerprint = certFp.toLowerCase();
       }
     } catch (e) {
-      debugPrint('[Pulse] Failed to save TURN creds v2: $e');
+      debugPrint('[Pulse] Failed to save TURN creds: $e');
     }
   }
 
@@ -621,6 +552,7 @@ class PulseInboxReader implements InboxReader {
   }
 
   Future<void> _runLoop() async {
+    _PulseSharedWs.readerActive = true;
     while (_running) {
       WebSocketChannel? channel;
       bool cycleSuccess = false;
@@ -629,10 +561,13 @@ class PulseInboxReader implements InboxReader {
 
       try {
         channel = await _connectWs();
-        // Don't set _ws here — wait until auth succeeds to avoid
-        // overwriting a sender's active connection before we're ready.
         await channel.ready;
-        debugPrint('[Pulse] Connected (v$_protoVersion) to ${_protoVersion == 2 ? _wsUrlV2 : _wsUrl}');
+        debugPrint('[Pulse] Connected to $_wsUrl');
+
+        // Mark shared channel immediately so sender knows reader is connecting
+        // (authenticated will be set to true after auth_ok).
+        _PulseSharedWs.channel = channel;
+        _PulseSharedWs.authenticated = false;
 
         // Single stream listener — handles auth then messages
         bool authenticated = false;
@@ -655,12 +590,8 @@ class PulseInboxReader implements InboxReader {
               // ── Auth phase ──
               if (!authenticated) {
                 if (type == 'auth_challenge') {
-                  // v2 challenges have "v":2 and use "ts" field; v1 uses "timestamp" in payload
-                  final p = _protoVersion == 2 ? data : _envPayload(data);
-                  final nonce = p['nonce'] as String? ?? '';
-                  final challengeVersion = p['v'] as int? ?? 1;
-                  final tsKey = challengeVersion >= 2 ? 'ts' : 'timestamp';
-                  final timestamp = p[tsKey]?.toString() ?? '';
+                  final nonce = data['nonce'] as String? ?? '';
+                  final timestamp = (data['ts'] ?? data['timestamp'])?.toString() ?? '';
                   if (nonce.isEmpty || nonce.length > 256) {
                     debugPrint('[Pulse] Auth challenge: invalid nonce (${nonce.length})');
                     break;
@@ -671,41 +602,29 @@ class PulseInboxReader implements InboxReader {
                     debugPrint('[Pulse] Auth challenge timestamp out of range');
                     break;
                   }
-                  // Sign with appropriate prefix
-                  final prefix = challengeVersion >= 2 ? 'pulse-v2-auth' : 'pulse-auth-v1';
-                  final message = '$prefix:$nonce:$timestamp';
+                  debugPrint('[Pulse] Auth challenge received (nonce=${nonce.substring(0, nonce.length < 8 ? nonce.length : 8)}...)');
+                  final message = 'pulse-auth:$nonce:$timestamp';
                   final signature = await _ed25519Sign(_seed, message);
+                  debugPrint('[Pulse] Auth response sent');
 
-                  if (_protoVersion == 2) {
-                    // V2: flat JSON (no envelope wrapper)
-                    channel.sink.add(jsonEncode({
-                      'type': 'auth_response',
-                      'pubkey': _pubkeyHex,
-                      'signature': signature,
-                      'nonce': nonce,
-                      'timestamp': tsVal,
-                      'invite': _invite,
-                    }));
-                  } else {
-                    channel.sink.add(_makeEnvelope('auth_response', {
-                      'pubkey': _pubkeyHex,
-                      'signature': signature,
-                      'nonce': nonce,
-                      'timestamp': tsVal,
-                      'invite': _invite,
-                    }));
-                  }
+                  channel.sink.add(jsonEncode({
+                    'type': 'auth_response',
+                    'pubkey': _pubkeyHex,
+                    'signature': signature,
+                    'nonce': nonce,
+                    'timestamp': tsVal,
+                    'invite': _invite,
+                  }));
                 } else if (type == 'auth_ok') {
-                  final okData = _protoVersion == 2 ? data : _envPayload(data);
-                  _saveTurnCredsV2(okData);
+                  _saveTurnCreds(data);
                   authenticated = true;
-                  final pendingCount = okData['pending_count'] ?? 0;
-                  final serverName = okData['server'] as String? ?? '';
+                  final pendingCount = data['pending_count'] ?? 0;
+                  final serverName = data['server'] as String? ?? '';
                   debugPrint('[Pulse] Authenticated as ${_pubkeyHex.substring(0, 8)}... '
-                      '(v$_protoVersion, pending=$pendingCount${serverName.isNotEmpty ? ', server=$serverName' : ''})');
+                      '(pending=$pendingCount${serverName.isNotEmpty ? ', server=$serverName' : ''})');
 
                   // Start upstream CBR padding if server advertises it
-                  final privacy = okData['privacy'];
+                  final privacy = data['privacy'];
                   if (privacy is Map<String, dynamic> &&
                       privacy['padding'] == 'cbr') {
                     final rateKbps = (privacy['rate_kbps'] as num?)?.toInt() ?? 0;
@@ -729,18 +648,11 @@ class PulseInboxReader implements InboxReader {
 
                   // Request stored messages
                   final since = await _getLastFetchTs();
-                  if (_protoVersion == 2) {
-                    channel.sink.add(jsonEncode({
-                      'type': 'fetch',
-                      'since': since,
-                      'limit': 100,
-                    }));
-                  } else {
-                    channel.sink.add(_makeEnvelope('fetch', {
-                      'since': since,
-                      'limit': 100,
-                    }));
-                  }
+                  channel.sink.add(jsonEncode({
+                    'type': 'fetch',
+                    'since': since,
+                    'limit': 100,
+                  }));
 
                   cycleSuccess = true;
                   _ws = channel;
@@ -748,15 +660,13 @@ class PulseInboxReader implements InboxReader {
                   // this connection instead of opening a competing one.
                   _PulseSharedWs.channel = channel;
                   _PulseSharedWs.authenticated = true;
-                  _PulseSharedWs.protoVersion = _protoVersion;
                   if (!_isHealthy && !_healthCtrl.isClosed) {
                     _isHealthy = true;
                     _healthCtrl.add(true);
                   }
                   _consecutiveFailures = 0;
                 } else if (type == 'error') {
-                  final ep = _protoVersion == 2 ? data : _envPayload(data);
-                  debugPrint('[Pulse] Auth error: ${ep['message'] ?? data}');
+                  debugPrint('[Pulse] Auth error: ${data['message'] ?? data}');
                   break;
                 }
                 continue;
@@ -771,16 +681,14 @@ class PulseInboxReader implements InboxReader {
                 case 'stored':
                   _dispatchStored(data, channel);
                 case 'ack':
-                  final ap = _envPayload(data);
-                  debugPrint('[Pulse] ACK: ${ap['id'] ?? ''}');
+                  debugPrint('[Pulse] ACK: ${data['id'] ?? ''}');
                 case 'keys':
                   // Complete pending keys completer (for fetchContactKeys)
-                  final kp = _envPayload(data);
-                  final kPub = kp['pubkey'] as String? ?? '';
+                  final kPub = data['pubkey'] as String? ?? '';
                   if (kPub.isNotEmpty) {
                     final kc = _PulseSharedWs.pendingKeysCompleters.remove(kPub);
                     if (kc != null && !kc.isCompleted) {
-                      final bundle = kp['bundle'];
+                      final bundle = data['bundle'];
                       Map<String, dynamic>? bundleMap;
                       if (bundle is Map<String, dynamic>) {
                         bundleMap = bundle;
@@ -792,8 +700,7 @@ class PulseInboxReader implements InboxReader {
                   }
                   _dispatchKeys(data);
                 case 'error':
-                  final ep = _envPayload(data);
-                  debugPrint('[Pulse] Server error: ${ep['message'] ?? data}');
+                  debugPrint('[Pulse] Server error: ${data['message'] ?? data}');
                 // SFU message types — forward through signal stream
                 case 'room_created':
                 case 'room_info':
@@ -859,12 +766,17 @@ class PulseInboxReader implements InboxReader {
   }
 
   void _dispatchMessage(Map<String, dynamic> data) {
-    final payload = data['payload'] as Map<String, dynamic>? ?? data;
+    // Server sends flat: {type, id, from, payload, created} or {type, id, from, body, ts}
+    // Handle both: payload may be a nested Map (legacy) or the fields are at top level.
+    final rawPayload = data['payload'];
+    final payload = (rawPayload is Map<String, dynamic>) ? rawPayload : data;
     final id = payload['id'] as String? ?? '';
     if (id.isEmpty || _seenIds.contains(id)) return;
     _trackSeenId(id);
 
     final rawTs = payload['timestamp'] as int? ??
+        payload['ts'] as int? ??
+        payload['created'] as int? ??
         (DateTime.now().millisecondsSinceEpoch ~/ 1000);
     unawaited(_updateLastFetchTs(rawTs));
 
@@ -873,11 +785,15 @@ class PulseInboxReader implements InboxReader {
     final claimed = DateTime.fromMillisecondsSinceEpoch(rawTs * 1000, isUtc: true);
     final msgTs = claimed.difference(now).abs() <= const Duration(days: 7) ? claimed : now;
 
+    // Encrypted body: try 'payload' (string), then 'body'
+    final encBody = (rawPayload is String) ? rawPayload
+        : payload['body'] as String? ?? payload['payload'] as String? ?? '';
+
     final msg = Message(
       id: id,
       senderId: payload['from'] as String? ?? '',
       receiverId: _pubkeyHex,
-      encryptedPayload: payload['payload'] as String? ?? '',
+      encryptedPayload: encBody,
       timestamp: msgTs,
       adapterType: 'pulse',
     );
@@ -888,7 +804,8 @@ class PulseInboxReader implements InboxReader {
   }
 
   void _dispatchSignal(Map<String, dynamic> data) {
-    final payload = data['payload'] as Map<String, dynamic>? ?? data;
+    final rawPayload = data['payload'];
+    final payload = (rawPayload is Map<String, dynamic>) ? rawPayload : data;
     final id = payload['id'] as String? ?? '';
     if (id.isNotEmpty && _seenIds.contains(id)) return;
     if (id.isNotEmpty) _trackSeenId(id);
@@ -915,8 +832,7 @@ class PulseInboxReader implements InboxReader {
   }
 
   void _dispatchStored(Map<String, dynamic> data, WebSocketChannel channel) {
-    final p = _envPayload(data);
-    final messages = p['messages'] as List? ?? [];
+    final messages = data['messages'] as List? ?? [];
     for (final m in messages) {
       if (m is! Map) continue;
       final entry = Map<String, dynamic>.from(m);
@@ -930,7 +846,8 @@ class PulseInboxReader implements InboxReader {
   }
 
   void _dispatchKeys(Map<String, dynamic> data) {
-    final payload = data['payload'] as Map<String, dynamic>?;
+    final rawP = data['payload'];
+    final payload = (rawP is Map<String, dynamic>) ? rawP : null;
     if (payload != null && !_sigCtrl.isClosed) {
       _sigCtrl.add([{
         'type': 'sys_keys',
@@ -942,11 +859,7 @@ class PulseInboxReader implements InboxReader {
 
   void _sendAck(String messageId) {
     try {
-      if (_protoVersion == 2) {
-        _ws?.sink.add(jsonEncode({'type': 'ack', 'id': messageId}));
-      } else {
-        _ws?.sink.add(_makeEnvelope('ack', {'id': messageId}));
-      }
+      _ws?.sink.add(jsonEncode({'type': 'ack', 'id': messageId}));
     } catch (e) {
       debugPrint('[Pulse] Failed to send ACK: $e');
     }
@@ -991,16 +904,16 @@ class PulseInboxReader implements InboxReader {
           final type = data['type'] as String? ?? '';
           if (!authenticated) {
             if (type == 'auth_challenge') {
-              final p = _envPayload(data);
-              final nonce = p['nonce'] as String? ?? '';
-              final tsVal = int.tryParse(p['timestamp']?.toString() ?? '') ?? 0;
+              final nonce = data['nonce'] as String? ?? '';
+              final tsVal = int.tryParse((data['ts'] ?? data['timestamp'])?.toString() ?? '') ?? 0;
               if (nonce.isEmpty) {
                 if (!completer.isCompleted) completer.complete(null);
                 return;
               }
-              final msg = 'pulse-auth-v1:$nonce:$tsVal';
+              final msg = 'pulse-auth:$nonce:$tsVal';
               _ed25519Sign(_seed, msg).then((sig) {
-                channel!.sink.add(_makeEnvelope('auth_response', {
+                channel!.sink.add(jsonEncode({
+                  'type': 'auth_response',
                   'pubkey': _pubkeyHex,
                   'signature': sig,
                   'nonce': nonce,
@@ -1010,13 +923,12 @@ class PulseInboxReader implements InboxReader {
               });
             } else if (type == 'auth_ok') {
               authenticated = true;
-              channel!.sink.add(_makeEnvelope('keys_get', {'pubkey': _pubkeyHex}));
+              channel!.sink.add(jsonEncode({'type': 'keys_get', 'pubkey': _pubkeyHex}));
             } else if (type == 'error') {
               if (!completer.isCompleted) completer.complete(null);
             }
           } else if (type == 'keys') {
-            final p = _envPayload(data);
-            final bundle = p['bundle'];
+            final bundle = data['bundle'];
             Map<String, dynamic>? bundleMap;
             if (bundle is Map<String, dynamic>) bundleMap = bundle;
             if (!completer.isCompleted) completer.complete(bundleMap);
@@ -1065,10 +977,6 @@ class PulseMessageSender implements MessageSender {
   String _pubkeyHex = '';
   String _serverUrl = '';
   String _wsUrl = '';
-  String _wsUrlV2 = '';
-
-  /// Protocol version negotiated with the server (1 or 2).
-  int _protoVersion = 1;
 
   /// TLS cert SHA-256 fingerprint parsed from `#suffix` in serverUrl.
   String _certFingerprint = '';
@@ -1114,11 +1022,9 @@ class PulseMessageSender implements MessageSender {
     if (_serverUrl.startsWith('https://')) {
       final hostPort = _serverUrl.substring('https://'.length);
       _wsUrl = 'wss://$hostPort/ws';
-      _wsUrlV2 = 'wss://$hostPort/v2';
     } else if (_serverUrl.startsWith('http://')) {
       debugPrint('[Pulse] Sender rejected http:// server URL — use https://');
       _wsUrl = '';
-      _wsUrlV2 = '';
     }
 
     // Load Tor + CF Worker + Force-Tor settings
@@ -1166,28 +1072,21 @@ class PulseMessageSender implements MessageSender {
     // 1. Force-Tor+uTLS
     if (_forcePulseTor && torActive && utlsPort != null) {
       try {
-        debugPrint('[Pulse/Sender] Force-Tor: uTLS+Tor chain to $_wsUrlV2');
+        debugPrint('[Pulse/Sender] Force-Tor: uTLS+Tor chain to $_wsUrl');
         final ch = await _connectPulseWebSocketViaUtls(
-            _wsUrlV2, utlsPort,
-            upstreamSocks5: '$_torHost:$_torPort')
+            _wsUrl, utlsPort,
+            upstreamSocks5: '$_torHost:$_torPort',
+            protocols: ['pulse.auth'])
             .timeout(const Duration(seconds: 20));
-        _protoVersion = 2;
         return ch;
       } catch (e) {
         debugPrint('[Pulse/Sender] Force-Tor uTLS+Tor failed ($e) — plain Tor');
       }
       try {
-        final ch = await tor.connectWebSocket(_wsUrlV2,
-            torHost: _torHost, torPort: _torPort,
-            socks5Timeout: const Duration(seconds: 8));
-        _protoVersion = 2;
-        return ch;
-      } catch (_) {}
-      try {
         final ch = await tor.connectWebSocket(_wsUrl,
             torHost: _torHost, torPort: _torPort,
-            socks5Timeout: const Duration(seconds: 8));
-        _protoVersion = 1;
+            socks5Timeout: const Duration(seconds: 8),
+            protocols: ['pulse.auth']);
         return ch;
       } catch (e) {
         debugPrint('[Pulse/Sender] Force-Tor plain Tor failed ($e) — next');
@@ -1197,9 +1096,9 @@ class PulseMessageSender implements MessageSender {
     // 2. uTLS+ECH
     if (utlsPort != null && !_forcePulseTor) {
       try {
-        final ch = await _connectPulseWebSocketViaUtls(_wsUrlV2, utlsPort)
+        final ch = await _connectPulseWebSocketViaUtls(_wsUrl, utlsPort,
+                protocols: ['pulse.auth'])
             .timeout(const Duration(seconds: 8));
-        _protoVersion = 2;
         return ch;
       } catch (e) {
         debugPrint('[Pulse/Sender] uTLS+ECH failed ($e) — next');
@@ -1209,17 +1108,10 @@ class PulseMessageSender implements MessageSender {
     // 3. Tor SOCKS5
     if (torActive && !_forcePulseTor) {
       try {
-        try {
-          final ch = await tor.connectWebSocket(_wsUrlV2,
-              torHost: _torHost, torPort: _torPort,
-              socks5Timeout: const Duration(seconds: 8));
-          _protoVersion = 2;
-          return ch;
-        } catch (_) {}
         final ch = await tor.connectWebSocket(_wsUrl,
             torHost: _torHost, torPort: _torPort,
-            socks5Timeout: const Duration(seconds: 8));
-        _protoVersion = 1;
+            socks5Timeout: const Duration(seconds: 8),
+            protocols: ['pulse.auth']);
         return ch;
       } catch (e) {
         debugPrint('[Pulse/Sender] Tor failed ($e) — next');
@@ -1235,58 +1127,58 @@ class PulseMessageSender implements MessageSender {
         }
         final workerUri = Uri.parse(workerStr);
         if (workerUri.host.isEmpty) throw FormatException('CF Worker: empty host');
-        final workerUrl = workerUri.replace(queryParameters: {'r': _wsUrlV2}).toString();
+        final workerUrl = workerUri.replace(queryParameters: {'r': _wsUrl}).toString();
         debugPrint('[Pulse/Sender] Trying CF Worker: $workerUrl');
         final inner = _buildHttpClient();
         final ws = await WebSocket.connect(workerUrl, customClient: inner,
-                protocols: ['pulse.v2.auth'])
+                protocols: ['pulse.auth'])
             .timeout(const Duration(seconds: 12));
-        _protoVersion = 2;
         return IOWebSocketChannel(ws);
       } catch (e) {
         debugPrint('[Pulse/Sender] CF Worker failed ($e) — plain');
       }
     }
 
-    // 5. Direct v1
-    try {
-      final inner = _buildHttpClient();
-      final ws = await WebSocket.connect(
-        _wsUrl,
-        customClient: inner,
-      ).timeout(const Duration(seconds: 10));
-      _protoVersion = 1;
-      return IOWebSocketChannel(ws);
-    } catch (e) {
-      debugPrint('[Pulse/Sender] v1 failed ($e) — trying v2');
-    }
-
-    // 6. Direct v2
+    // 5. Direct
     final inner = _buildHttpClient();
     final ws = await WebSocket.connect(
-      _wsUrlV2,
+      _wsUrl,
       customClient: inner,
-      protocols: ['pulse.v2.auth'],
+      protocols: ['pulse.auth'],
     ).timeout(const Duration(seconds: 10));
-    _protoVersion = 2;
     return IOWebSocketChannel(ws);
   }
 
   /// Get an authenticated WS connection, reusing if available.
   /// Prefers the reader's shared connection to avoid server kicking it.
+  /// Server only allows 1 connection per pubkey — sender MUST NOT create
+  /// a duplicate connection when the reader is active.
   Future<WebSocketChannel?> _getConnection() async {
     // 1. Reuse own cached connection
     final ws = _ws;
     if (ws != null && _authenticated) return ws;
 
     // 2. Borrow the reader's long-lived connection (avoids duplicate auth)
-    final shared = _PulseSharedWs.channel;
-    if (shared != null && _PulseSharedWs.authenticated) {
-      _protoVersion = _PulseSharedWs.protoVersion;
-      return shared;
+    if (_PulseSharedWs.channel != null && _PulseSharedWs.authenticated) {
+      return _PulseSharedWs.channel;
     }
 
-    // 3. No reader connection — create own (rare: reader not started yet)
+    // 2b. Reader is active — wait for it to connect+authenticate.
+    //     Creating a duplicate connection would kick the reader from the hub.
+    if (_PulseSharedWs.readerActive) {
+      debugPrint('[Pulse/Sender] Waiting for reader to authenticate...');
+      for (int i = 0; i < 150; i++) { // up to 15 seconds
+        await Future.delayed(const Duration(milliseconds: 100));
+        if (_PulseSharedWs.authenticated && _PulseSharedWs.channel != null) {
+          debugPrint('[Pulse/Sender] Reader authenticated, borrowing connection');
+          return _PulseSharedWs.channel;
+        }
+      }
+      debugPrint('[Pulse/Sender] Reader auth wait timed out (15s)');
+      return null; // don't create duplicate — let caller handle failure
+    }
+
+    // 3. No reader at all — create own (rare: reader not started yet)
     try {
       final channel = await _connectWs();
       await channel.ready;
@@ -1303,11 +1195,8 @@ class PulseMessageSender implements MessageSender {
           // ── Auth phase ──
           if (!completer.isCompleted) {
             if (type == 'auth_challenge') {
-              final p = _protoVersion == 2 ? data : _envPayload(data);
-              final nonce = p['nonce'] as String? ?? '';
-              final challengeVersion = p['v'] as int? ?? 1;
-              final tsKey = challengeVersion >= 2 ? 'ts' : 'timestamp';
-              final timestamp = p[tsKey]?.toString() ?? '';
+              final nonce = data['nonce'] as String? ?? '';
+              final timestamp = (data['ts'] ?? data['timestamp'])?.toString() ?? '';
               final tsVal = int.tryParse(timestamp) ?? 0;
               final serverTime = DateTime.fromMillisecondsSinceEpoch(tsVal * 1000);
               if (nonce.isEmpty || nonce.length > 256 ||
@@ -1316,30 +1205,18 @@ class PulseMessageSender implements MessageSender {
                 completer.complete(false);
                 return;
               }
-              final prefix = challengeVersion >= 2 ? 'pulse-v2-auth' : 'pulse-auth-v1';
-              final message = '$prefix:$nonce:$timestamp';
+              final message = 'pulse-auth:$nonce:$timestamp';
               final signature = await _ed25519Sign(_seed, message);
-              if (_protoVersion == 2) {
-                channel.sink.add(jsonEncode({
-                  'type': 'auth_response',
-                  'pubkey': _pubkeyHex,
-                  'signature': signature,
-                  'nonce': nonce,
-                  'timestamp': tsVal,
-                  'invite': '',
-                }));
-              } else {
-                channel.sink.add(_makeEnvelope('auth_response', {
-                  'pubkey': _pubkeyHex,
-                  'signature': signature,
-                  'nonce': nonce,
-                  'timestamp': tsVal,
-                  'invite': '',
-                }));
-              }
+              channel.sink.add(jsonEncode({
+                'type': 'auth_response',
+                'pubkey': _pubkeyHex,
+                'signature': signature,
+                'nonce': nonce,
+                'timestamp': tsVal,
+                'invite': '',
+              }));
             } else if (type == 'auth_ok') {
-              final okData = _protoVersion == 2 ? data : _envPayload(data);
-              final certFp = okData['cert_fp'] as String? ?? '';
+              final certFp = data['cert_fp'] as String? ?? '';
               if (certFp.isNotEmpty && _certFingerprint.isEmpty) {
                 _certFingerprint = certFp.toLowerCase();
               }
@@ -1352,9 +1229,8 @@ class PulseMessageSender implements MessageSender {
 
           // ── Runtime phase (post-auth) ──
           if (type == 'keys') {
-            final p = _envPayload(data);
-            final pubkey = p['pubkey'] as String? ?? '';
-            final bundle = p['bundle'];
+            final pubkey = data['pubkey'] as String? ?? '';
+            final bundle = data['bundle'];
             Map<String, dynamic>? bundleMap;
             if (bundle is Map<String, dynamic>) {
               bundleMap = bundle;
@@ -1434,23 +1310,12 @@ class PulseMessageSender implements MessageSender {
       // Client-side send jitter for traffic decorrelation
       await _sendJitter();
 
-      if (_protoVersion == 2) {
-        channel.sink.add(_bucketPad(jsonEncode({
-          'type': 'send',
-          'id': msgId,
-          'to': targetPubkey,
-          'body': message.encryptedPayload,
-        })));
-      } else {
-        channel.sink.add(_bucketPad(jsonEncode({
-          'type': 'send',
-          'payload': {
-            'id': msgId,
-            'to': targetPubkey,
-            'payload': message.encryptedPayload,
-          },
-        })));
-      }
+      channel.sink.add(_bucketPad(jsonEncode({
+        'type': 'send',
+        'id': msgId,
+        'to': targetPubkey,
+        'body': message.encryptedPayload,
+      })));
       return true;
     } catch (e) {
       debugPrint('[Pulse] sendMessage error: $e');
@@ -1485,22 +1350,11 @@ class PulseMessageSender implements MessageSender {
         'payload': payload,
       });
 
-      if (_protoVersion == 2) {
-        channel.sink.add(_bucketPad(jsonEncode({
-          'type': 'signal',
-          'to': targetPubkey,
-          'payload': signalPayload,
-        })));
-      } else {
-        channel.sink.add(_bucketPad(jsonEncode({
-          'type': 'signal',
-          'payload': {
-            'id': '${DateTime.now().millisecondsSinceEpoch}_${Random.secure().nextInt(0xFFFFFF).toRadixString(16)}',
-            'to': targetPubkey,
-            'payload': signalPayload,
-          },
-        })));
-      }
+      channel.sink.add(_bucketPad(jsonEncode({
+        'type': 'signal',
+        'to': targetPubkey,
+        'payload': signalPayload,
+      })));
       return true;
     } catch (e) {
       debugPrint('[Pulse] sendSignal error: $e');
@@ -1516,11 +1370,7 @@ class PulseMessageSender implements MessageSender {
       final channel = await _getConnection();
       if (channel == null) return false;
 
-      if (_protoVersion == 2) {
-        channel.sink.add(jsonEncode({'type': 'keys_put', 'bundle': bundle}));
-      } else {
-        channel.sink.add(_makeEnvelope('keys_put', {'bundle': bundle}));
-      }
+      channel.sink.add(jsonEncode({'type': 'keys_put', 'bundle': bundle}));
       return true;
     } catch (e) {
       debugPrint('[Pulse] keys_put error: $e');
@@ -1539,11 +1389,7 @@ class PulseMessageSender implements MessageSender {
       final completer = _PulseSharedWs.pendingKeysCompleters.putIfAbsent(
           pubkey, () => Completer<Map<String, dynamic>?>());
 
-      if (_protoVersion == 2) {
-        channel.sink.add(jsonEncode({'type': 'keys_get', 'pubkey': pubkey}));
-      } else {
-        channel.sink.add(_makeEnvelope('keys_get', {'pubkey': pubkey}));
-      }
+      channel.sink.add(jsonEncode({'type': 'keys_get', 'pubkey': pubkey}));
 
       Timer(const Duration(seconds: 10), () {
         final c = _PulseSharedWs.pendingKeysCompleters.remove(pubkey);

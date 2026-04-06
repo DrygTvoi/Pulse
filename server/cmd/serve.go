@@ -141,7 +141,7 @@ func runServe(cmd *cobra.Command, args []string) error {
 			var router *federation.FederationRouter
 			peerManager = federation.NewPeerManager(fedAuth, func(env *federation.FederatedEnvelope) {
 				if router != nil {
-					router.HandleIncoming(env)
+					router.HandleIncoming(env, "")
 				}
 			})
 			router = federation.NewFederationRouter(users, peerManager, hub, db, &cfg.Federation)
@@ -165,7 +165,7 @@ func runServe(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	// Set TURN server on hub for v2 auth
+	// Set TURN server on hub for auth
 	if turnSrv != nil {
 		hub.SetTurnServer(turnSrv)
 	}

@@ -18,14 +18,6 @@ const (
 	peerMaxReconnect   = 5 * time.Minute
 )
 
-// FederatedEnvelope wraps a message being forwarded between federated servers.
-type FederatedEnvelope struct {
-	Type    string          `json:"type"`
-	From    string          `json:"from"`
-	To      string          `json:"to"`
-	Payload json.RawMessage `json:"payload"`
-}
-
 // Peer represents a persistent WebSocket connection to a federation peer.
 type Peer struct {
 	mu       sync.Mutex
@@ -71,7 +63,7 @@ func (p *Peer) Connect() error {
 	}
 
 	// Perform federation handshake
-	remotePub, err := p.auth.PerformHandshake(conn)
+	remotePub, _, err := p.auth.PerformHandshake(conn, nil)
 	if err != nil {
 		conn.Close()
 		return fmt.Errorf("handshake failed with %s: %w", p.Address, err)
@@ -318,7 +310,7 @@ func (pm *PeerManager) ListPeers() []*Peer {
 
 // AcceptPeer handles an incoming federation WS connection.
 func (pm *PeerManager) AcceptPeer(conn *websocket.Conn) error {
-	remotePub, err := pm.auth.AcceptHandshake(conn)
+	remotePub, _, err := pm.auth.AcceptHandshake(conn, nil)
 	if err != nil {
 		conn.Close()
 		return fmt.Errorf("failed to accept handshake: %w", err)

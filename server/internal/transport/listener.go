@@ -61,7 +61,6 @@ func NewServer(cfg *config.Config, hub *relay.Hub, users *store.UserStore, invit
 	// Internal mux for known endpoints
 	innerMux := http.NewServeMux()
 	innerMux.HandleFunc("/ws", s.handleWebSocket)
-	innerMux.HandleFunc("/v2", s.handleV2WebSocket)
 	innerMux.HandleFunc("/health", s.handleHealth)
 
 	if turnSrv != nil {
@@ -72,8 +71,8 @@ func NewServer(cfg *config.Config, hub *relay.Hub, users *store.UserStore, invit
 		innerMux.HandleFunc("/federation", s.handleFederation)
 	}
 
-	// Sealed sender endpoint (Phase 6)
-	innerMux.HandleFunc("/v2/sealed", s.handleSealedSend)
+	// Sealed sender endpoint
+	innerMux.HandleFunc("/sealed", s.handleSealedSend)
 
 	// Metrics endpoints (Phase 7)
 	if hub.Metrics() != nil {
@@ -102,7 +101,7 @@ func NewServer(cfg *config.Config, hub *relay.Hub, users *store.UserStore, invit
 	return s
 }
 
-// SetCertFP sets the TLS certificate fingerprint for v2 auth_ok.
+// SetCertFP sets the TLS certificate fingerprint for auth_ok.
 func (s *Server) SetCertFP(fp string) {
 	s.certFP = fp
 }
@@ -122,17 +121,7 @@ func (s *Server) probeResistantHandler(inner *http.ServeMux) http.Handler {
 
 		switch path {
 		case "/ws":
-			// v1 WebSocket — requires upgrade header
-			log.Printf("[transport] /ws request from %s, Connection=%q, Upgrade=%q", extractIP(r), r.Header.Get("Connection"), r.Header.Get("Upgrade"))
-			if !isWebSocketUpgrade(r) {
-				log.Printf("[transport] /ws rejected: not a WS upgrade")
-				s.decoyHandler.ServeHTTP(w, r)
-				return
-			}
-			inner.ServeHTTP(w, r)
-
-		case "/v2":
-			// v2 WebSocket — requires upgrade + pulse protocol header
+			// WebSocket — requires upgrade + pulse protocol header
 			if !isWebSocketUpgrade(r) {
 				s.decoyHandler.ServeHTTP(w, r)
 				return
@@ -156,7 +145,7 @@ func (s *Server) probeResistantHandler(inner *http.ServeMux) http.Handler {
 				s.decoyHandler.ServeHTTP(w, r)
 			}
 
-		case "/v2/sealed":
+		case "/sealed":
 			// Sealed sender endpoint — requires WS upgrade
 			if !isWebSocketUpgrade(r) {
 				s.decoyHandler.ServeHTTP(w, r)
@@ -263,54 +252,36 @@ func (s *Server) Shutdown(ctx context.Context) error {
 	return s.httpServer.Shutdown(ctx)
 }
 
-// handleWebSocket upgrades an HTTP connection to WebSocket and creates a v1 client.
+// handleWebSocket upgrades an HTTP connection to WebSocket and creates a client.
 func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	if s.hub.MaxConnectionsReached() {
 		s.decoyHandler.ServeHTTP(w, r)
 		return
 	}
 
-	conn, err := upgrader.Upgrade(w, r, nil)
-	if err != nil {
-		log.Printf("[transport] WebSocket upgrade failed: %v", err)
-		return
-	}
-
-	client := relay.NewClient(s.hub, conn, s.cfg, s.users, s.invites)
-	client.SetRemoteIP(extractIP(r))
-	client.Start()
-}
-
-// handleV2WebSocket upgrades an HTTP connection to WebSocket with v2 protocol.
-func (s *Server) handleV2WebSocket(w http.ResponseWriter, r *http.Request) {
-	if s.hub.MaxConnectionsReached() {
-		s.decoyHandler.ServeHTTP(w, r)
-		return
-	}
-
-	// Check for pulse v2 protocol header (Sec-WebSocket-Protocol must contain "pulse.v2")
+	// Check for pulse protocol header (Sec-WebSocket-Protocol must contain "pulse")
 	proto := r.Header.Get("Sec-WebSocket-Protocol")
-	if !strings.Contains(proto, "pulse.v2") {
+	if !strings.Contains(proto, "pulse") {
 		// No valid protocol header → decoy response
 		s.decoyHandler.ServeHTTP(w, r)
 		return
 	}
 
 	// Upgrade with protocol negotiation
-	v2Upgrader := websocket.Upgrader{
+	wsUpgrader := websocket.Upgrader{
 		ReadBufferSize:  4096,
 		WriteBufferSize: 4096,
 		CheckOrigin:     func(r *http.Request) bool { return true },
-		Subprotocols:    []string{"pulse.v2.auth"},
+		Subprotocols:    []string{"pulse.auth"},
 	}
 
-	conn, err := v2Upgrader.Upgrade(w, r, nil)
+	conn, err := wsUpgrader.Upgrade(w, r, nil)
 	if err != nil {
-		log.Printf("[transport] v2 WebSocket upgrade failed: %v", err)
+		log.Printf("[transport] WebSocket upgrade failed: %v", err)
 		return
 	}
 
-	client := relay.NewClientV2(s.hub, conn, s.cfg, s.users, s.invites, s.messages, s.certFP)
+	client := relay.NewClient(s.hub, conn, s.cfg, s.users, s.invites, s.messages, s.certFP)
 	client.SetRemoteIP(extractIP(r))
 	client.Start()
 }
