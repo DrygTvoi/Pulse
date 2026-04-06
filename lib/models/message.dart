@@ -95,7 +95,7 @@ class Message {
       receiverId: json['receiverId'] as String? ?? '',
       encryptedPayload: json['encryptedPayload'] as String? ?? '',
       timestamp: DateTime.tryParse(json['timestamp']?.toString() ?? '') ??
-          DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
+          DateTime.now(),
       adapterType: json['adapterType'] as String? ?? '',
       isRead: json['isRead'] as bool? ?? false,
       status: json['status'] as String? ?? '',

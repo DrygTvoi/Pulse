@@ -153,6 +153,8 @@ class ThemeNotifier extends ChangeNotifier {
     _customPlatform = null;
     _borderRadius = 12.0;
     _fontFamily = 'Inter';
+    _save();
+    notifyListeners();
   }
 
   TextStyle getTextStyle(TextStyle baseStyle) =>

@@ -394,10 +394,12 @@ class MessageRepository {
         final roomId = item.roomId;
         final msgId = item.msgId;
         _ttlTimers[msgId]?.cancel();
-        _ttlTimers[msgId] = Timer(remaining, () async {
+        _ttlTimers[msgId] = Timer(remaining, () {
           _ttlTimers.remove(msgId);
-          await LocalStorageService().deleteMessage(roomId, msgId);
-          await LocalStorageService().deleteTtlExpiry(roomId, msgId);
+          unawaited(Future(() async {
+            await LocalStorageService().deleteMessage(roomId, msgId);
+            await LocalStorageService().deleteTtlExpiry(roomId, msgId);
+          }));
           for (final room in _chatRooms.values) {
             if (room.contact.storageKey == roomId ||
                 room.contact.id == roomId) {

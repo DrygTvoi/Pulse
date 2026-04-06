@@ -275,7 +275,9 @@ class P2PTransportService {
         }
         return;
       }
-      _msgCtrl.add((contactId: contactId, payload: msg.text));
+      if (!_msgCtrl.isClosed) {
+        _msgCtrl.add((contactId: contactId, payload: msg.text));
+      }
     };
   }
 

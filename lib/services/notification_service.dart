@@ -75,6 +75,7 @@ class NotificationService {
         );
         _flnPlugin = plugin;
       }
+      _sub?.cancel();
       _sub = ChatController().newMessages.listen((e) => unawaited(_onNewMessage(e)));
     } catch (e) {
       debugPrint('[NotificationService] Init failed: $e');

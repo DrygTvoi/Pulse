@@ -272,7 +272,7 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   void _onScroll() {
-    if (!_scrollController.hasClients) return;
+    if (!mounted || !_scrollController.hasClients) return;
     if (_scrollController.position.pixels <= 80) {
       final ctrl = context.read<ChatController>();
       if (ctrl.hasMoreHistory(_contact.id) && !ctrl.isLoadingMoreHistory(_contact.id)) {

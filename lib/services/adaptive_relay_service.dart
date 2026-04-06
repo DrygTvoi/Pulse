@@ -174,14 +174,18 @@ class AdaptiveRelayService {
       if (ips.isNotEmpty) {
         // Connect via DoH-resolved IP (bypasses poisoned DNS)
         final httpClient = HttpClient();
-        httpClient.connectionFactory = (_, _, _) async {
-          final raw = await Socket.connect(ips.first, port,
-              timeout: const Duration(seconds: 3));
-          return ConnectionTask.fromSocket(
-              Future.value(raw), () => raw.destroy());
-        };
-        ws = await WebSocket.connect(normalized, customClient: httpClient)
-            .timeout(const Duration(seconds: 4));
+        try {
+          httpClient.connectionFactory = (_, _, _) async {
+            final raw = await Socket.connect(ips.first, port,
+                timeout: const Duration(seconds: 3));
+            return ConnectionTask.fromSocket(
+                Future.value(raw), () => raw.destroy());
+          };
+          ws = await WebSocket.connect(normalized, customClient: httpClient)
+              .timeout(const Duration(seconds: 4));
+        } finally {
+          httpClient.close(force: true);
+        }
       } else {
         // Fallback to plain connect (works in non-censored environments)
         ws = await WebSocket.connect(normalized)

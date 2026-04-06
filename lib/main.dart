@@ -295,13 +295,19 @@ class _PulseAppState extends State<PulseApp> with WidgetsBindingObserver {
 
     // If we receive a deep link and we don't have an identity, pass it to setup
     // For now we just pass it, later we can auto-configure
+    final deepLinkConfig = _initialDeepLinkConfig;
+    if (deepLinkConfig != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() => _initialDeepLinkConfig = null);
+      });
+    }
     Widget homeWidget = widget.hasIdentity
         ? (widget.passwordEnabled
             ? const LockScreen()
             : const HomeScreen())
         : widget.showOnboarding
-            ? OnboardingScreen(initialConfig: _initialDeepLinkConfig)
-            : SetupIdentityScreen(initialConfig: _initialDeepLinkConfig);
+            ? OnboardingScreen(initialConfig: deepLinkConfig)
+            : SetupIdentityScreen(initialConfig: deepLinkConfig);
 
     return MaterialApp(
       navigatorKey: _navigatorKey,
