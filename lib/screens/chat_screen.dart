@@ -85,6 +85,16 @@ class _ChatScreenState extends State<ChatScreen> {
 
   // Pre-built contact index for MessageBubble (avoids O(N) per-bubble rebuild)
   Map<String, Contact>? _contactIndex;
+  Map<String, Contact>? _databaseIdIndex;
+
+  // Memoize _buildItemList
+  List<dynamic>? _cachedItems;
+  List<Message>? _cachedFilteredRef;
+  int _cachedFilteredLen = -1;
+  String _cachedSearchQuery = '';
+
+  // Debounce search
+  Timer? _searchDebounce;
 
   // Track messages that have already been rendered (skip entrance animation for them)
   final _seenMessageIds = <String>{};
@@ -187,7 +197,7 @@ class _ChatScreenState extends State<ChatScreen> {
             style: const TextStyle(color: Colors.white),
           )),
         ]),
-        backgroundColor: const Color(0xFF7A3000),
+        backgroundColor: AppTheme.warningDark,
         duration: const Duration(seconds: 8),
       ));
     }, onError: (e) => debugPrint('[ChatScreen] keyChange stream error: $e'));
@@ -202,7 +212,7 @@ class _ChatScreenState extends State<ChatScreen> {
             style: const TextStyle(color: Colors.white),
           )),
         ]),
-        backgroundColor: const Color(0xFF7A2600),
+        backgroundColor: AppTheme.warningDark,
         duration: const Duration(seconds: 6),
       ));
     }, onError: (e) => debugPrint('[ChatScreen] e2eeFail stream error: $e'));
@@ -215,7 +225,7 @@ class _ChatScreenState extends State<ChatScreen> {
           Expanded(child: Text(msg,
               style: const TextStyle(color: Colors.white))),
         ]),
-        backgroundColor: const Color(0xFF8B0000),
+        backgroundColor: AppTheme.errorDeep,
         duration: const Duration(seconds: 10),
       ));
     }, onError: (e) => debugPrint('[ChatScreen] tamper stream error: $e'));
@@ -239,6 +249,7 @@ class _ChatScreenState extends State<ChatScreen> {
       unawaited(storage.deleteDraft(_contact.id));
     }
     _typingDebounce?.cancel();
+    _searchDebounce?.cancel();
     _typingSub?.cancel();
     _keyChangeSub?.cancel();
     _tamperWarnSub?.cancel();
@@ -688,8 +699,8 @@ class _ChatScreenState extends State<ChatScreen> {
         (c) => c.isLoadingMoreHistory(_contact.id));
     final connectionStatus = context.select<ChatController, ConnectionStatus>(
         (c) => c.connectionStatus);
-    // Rebuild when any reaction changes (local or remote)
-    context.select<ChatController, int>((c) => c.reactionVersion);
+    // Rebuild only when THIS room's reactions change (not all rooms)
+    context.select<ChatController, int>((c) => c.reactionVersionFor(_contact.storageKey));
 
     // Use read() for actual data access and method calls (non-reactive).
     final chatController = context.read<ChatController>();
@@ -697,7 +708,16 @@ class _ChatScreenState extends State<ChatScreen> {
     final messages = room?.messages ?? [];
 
     // Build contact index once per build (shared by all MessageBubbles).
-    _contactIndex = {for (final c in context.read<IContactRepository>().contacts) c.id: c};
+    final contacts = context.read<IContactRepository>().contacts;
+    if (_contactIndex == null || _contactIndex!.length != contacts.length) {
+      _contactIndex = {for (final c in contacts) c.id: c};
+      _databaseIdIndex = <String, Contact>{};
+      for (final c in contacts) {
+        _databaseIdIndex![c.databaseId] = c;
+        final bare = c.databaseId.split('@').first;
+        _databaseIdIndex![bare] = c;
+      }
+    }
 
     // Auto-scroll and mark as read when new messages arrive
     if (msgCount != _lastMessageCount) {
@@ -720,7 +740,13 @@ class _ChatScreenState extends State<ChatScreen> {
             final text = m.encryptedPayload.toLowerCase();
             return !text.startsWith('e2ee||') && text.contains(_searchQuery);
           }).toList();
-    final items = _buildItemList(filtered);
+    if (!identical(filtered, _cachedFilteredRef) || filtered.length != _cachedFilteredLen || _searchQuery != _cachedSearchQuery) {
+      _cachedItems = _buildItemList(filtered);
+      _cachedFilteredRef = filtered;
+      _cachedFilteredLen = filtered.length;
+      _cachedSearchQuery = _searchQuery;
+    }
+    final items = _cachedItems!;
 
     // Scheduled messages count for input bar
     final scheduledMsgs = messages.where((m) => m.status == 'scheduled').toList();
@@ -731,7 +757,12 @@ class _ChatScreenState extends State<ChatScreen> {
           ? buildSearchAppBar(
               context: context,
               searchController: _searchController,
-              onSearchChanged: (v) => setState(() => _searchQuery = v.toLowerCase()),
+              onSearchChanged: (v) {
+                _searchDebounce?.cancel();
+                _searchDebounce = Timer(const Duration(milliseconds: 150), () {
+                  if (mounted) setState(() => _searchQuery = v.toLowerCase());
+                });
+              },
               onSearchClose: () => setState(() { _searchActive = false; _searchQuery = ''; }),
             )
           : buildChatAppBar(
@@ -847,10 +878,8 @@ class _ChatScreenState extends State<ChatScreen> {
                         final isMe = msg.senderId == myId;
                         String? senderName;
                         if (_contact.isGroup && !isMe && !entry.isGrouped) {
-                          final sender = context.read<IContactRepository>().contacts.cast<Contact?>().firstWhere(
-                            (c) => c?.databaseId == msg.senderId || c?.databaseId.split('@').first == msg.senderId,
-                            orElse: () => null,
-                          );
+                          final sender = _databaseIdIndex?[msg.senderId]
+                              ?? _databaseIdIndex?[msg.senderId.split('@').first];
                           senderName = sender?.name ?? msg.senderId.substring(0, 8);
                         }
                         String? replyFromName;
@@ -867,13 +896,8 @@ class _ChatScreenState extends State<ChatScreen> {
                               replyBare == selfBare) {
                             replyFromName = context.l10n.chatYou;
                           } else {
-                            final rs = context.read<IContactRepository>().contacts.cast<Contact?>().firstWhere(
-                              (c) => c?.databaseId == msg.replyToSender ||
-                                  c?.databaseId.split('@').first == msg.replyToSender ||
-                                  c?.databaseId.split('@').first == replyBare ||
-                                  c?.databaseId == replyBare,
-                              orElse: () => null,
-                            );
+                            final rs = _databaseIdIndex?[msg.replyToSender!]
+                                ?? _databaseIdIndex?[replyBare];
                             replyFromName = rs?.name ??
                                 (msg.replyToSender!.length > 12
                                     ? '${msg.replyToSender!.substring(0, 8)}\u2026'
@@ -907,9 +931,9 @@ class _ChatScreenState extends State<ChatScreen> {
                               );
                             }),
                           ),
-                          onSecondaryTapUp: (details) => menu.showMessageContextMenu(
+                          onSecondaryTapUp: (globalPos) => menu.showMessageContextMenu(
                             context: context,
-                            position: details.globalPosition,
+                            position: globalPos,
                             message: msg,
                             myId: myId,
                             contact: _contact,
@@ -1061,12 +1085,7 @@ class _ChatScreenState extends State<ChatScreen> {
           scheduledCount: scheduledMsgs.length,
           showEmojiPicker: _showEmojiPicker,
           onSend: _sendMessage,
-          onAttach: () => menu.showAttachMenu(
-            context: context,
-            onPickImage: () => _sendMedia(imageOnly: true),
-            onPickFile: () => _sendMedia(),
-            onPickVideo: _sendVideo,
-          ),
+          onAttach: () => _sendMedia(),
           onStartRecording: _startRecording,
           onStopRecording: _stopRecording,
           onCancelRecording: _cancelRecording,

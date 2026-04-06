@@ -10,6 +10,7 @@ import '../services/local_storage_service.dart';
 import 'chat_screen.dart';
 import 'settings_screen.dart';
 import 'contacts_screen.dart';
+import 'add_contact_dialog.dart';
 import 'status_creator_screen.dart';
 import 'status_viewer_screen.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -26,7 +27,8 @@ import '../widgets/chat_tile.dart';
 import '../widgets/connection_banner.dart';
 import '../widgets/tor_chip.dart';
 import '../widgets/chat_list_skeleton.dart';
-import '../widgets/chat_filter_chips.dart';
+import '../widgets/home_drawer.dart';
+import '../widgets/home_search_body.dart';
 import 'call_screen.dart';
 import 'group_call_screen.dart';
 import '../services/active_call_service.dart';
@@ -75,7 +77,6 @@ class _HomeScreenState extends State<HomeScreen> {
   ProbeStatus? _probeStatus;
   Timer? _bannerTimer;
   Timer? _probeBannerTimer;
-  bool _searchActive = false;
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
   // Global message search state
@@ -90,11 +91,20 @@ class _HomeScreenState extends State<HomeScreen> {
   final _avatarCache = <String, Uint8List>{};
   static const _maxAvatars = 20;
   final _avatarLoadRequested = <String>{}; // tracks lazy-load requests to avoid duplicates
+  Uint8List? _ownAvatarBytes;
+  String _ownName = '';
   bool _loading = true;
   Contact? _selectedContact; // currently open chat in wide (split) mode
-  ChatFilter _chatFilter = ChatFilter.all;
   final ScrollController _chatListScrollController = ScrollController();
   final FocusNode _homeKeyFocus = FocusNode();
+  final _scaffoldKey = GlobalKey<ScaffoldState>();
+  int _homeRebuildVersion = 0;
+
+  // Draggable split divider
+  static const double _minPanelWidth = 72.0;
+  static const double _defaultPanelWidth = 360.0;
+  static const String _panelWidthKey = 'home_left_panel_width';
+  double _leftPanelWidth = _defaultPanelWidth;
 
   // Sorted rooms cache — avoids re-sorting on every build when rooms haven't changed
   List<Contact>? _sortedRoomsCache;
@@ -103,6 +113,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // Unread counts cache — avoids scanning all messages per tile per rebuild
   final _unreadCounts = <String, int>{};
+  final _unreadMsgCounts = <String, int>{};
 
   @override
   void initState() {
@@ -131,6 +142,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
     _newMsgSubscription = ChatController().newMessages.listen((event) {
       if (!mounted) return;
+      _unreadCounts.remove(event.contactId);
+      _unreadMsgCounts.remove(event.contactId);
+      _homeRebuildVersion++;
       final contact = context.read<IContactRepository>().contacts.cast<Contact?>().firstWhere(
         (c) => c?.id == event.contactId,
         orElse: () => null,
@@ -183,6 +197,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _loadStatuses();
     _loadMutedChats();
     _loadContactAvatars();
+    _loadPanelWidth();
 
     // Warn if SQLCipher is not available (DB metadata unencrypted).
     // Show only once — the user can't act on it every launch.
@@ -306,6 +321,19 @@ class _HomeScreenState extends State<HomeScreen> {
     if (mounted) setState(() => _mutedContactIds = muted);
   }
 
+  Future<void> _loadPanelWidth() async {
+    final prefs = await SharedPreferences.getInstance();
+    final saved = prefs.getDouble(_panelWidthKey);
+    if (saved != null && mounted) {
+      setState(() => _leftPanelWidth = saved);
+    }
+  }
+
+  Future<void> _savePanelWidth() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble(_panelWidthKey, _leftPanelWidth);
+  }
+
   Future<void> _loadAll() async {
     final contactRepo = context.read<IContactRepository>();
     await contactRepo.loadContacts();
@@ -316,6 +344,24 @@ class _HomeScreenState extends State<HomeScreen> {
     _sortedRoomsCache = null;
     _sortCacheContactCount = -1;
     _sortCacheMsgCount = -1;
+    // Load own profile avatar
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final profileJson = prefs.getString('user_profile');
+      if (profileJson != null) {
+        final profile = jsonDecode(profileJson) as Map<String, dynamic>;
+        final name = profile['name'] as String? ?? '';
+        final avatarB64 = profile['avatar'] as String?;
+        if (mounted) {
+          setState(() {
+            _ownName = name;
+            _ownAvatarBytes = (avatarB64 != null && avatarB64.isNotEmpty) ? base64Decode(avatarB64) : null;
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('[Home] Failed to load own profile: $e');
+    }
     if (mounted) setState(() => _loading = false);
     _loadStatuses();
   }
@@ -630,6 +676,7 @@ class _HomeScreenState extends State<HomeScreen> {
       _sortCacheContactCount = -1;
       _sortCacheMsgCount = -1;
       _unreadCounts.clear();
+      _unreadMsgCounts.clear();
       setState(() {});
       _loadMutedChats();
       _loadContactAvatars();
@@ -674,28 +721,65 @@ class _HomeScreenState extends State<HomeScreen> {
   // ---- Wide (split-view) layout ----
 
   Widget _buildWideLayout(BoxConstraints constraints) {
+    final maxPanelWidth = constraints.maxWidth * 0.5;
+    final clampedWidth = _leftPanelWidth.clamp(_minPanelWidth, maxPanelWidth);
+    final compactMode = clampedWidth < 150;
+
     return Scaffold(
       backgroundColor: AppTheme.background,
-      body: Row(
+      body: Stack(
         children: [
-          // Left panel — chat list with its own AppBar
-          SizedBox(
-            width: 360,
-            child: Consumer<ChatController>(
-              builder: (context, chatCtrl, _) => _buildLeftPanel(chatCtrl, isWide: true),
-            ),
+          Row(
+            children: [
+              // Left panel — chat list with its own AppBar
+              SizedBox(
+                width: clampedWidth,
+                child: Selector<ChatController, ({ConnectionStatus conn, int ver})>(
+                  selector: (_, c) => (conn: c.connectionStatus, ver: _homeRebuildVersion),
+                  builder: (context, data, _) {
+                    final chatCtrl = context.read<ChatController>();
+                    return _buildLeftPanel(chatCtrl, isWide: true, compactMode: compactMode);
+                  },
+                ),
+              ),
+              // Thin divider line (0.5px, same as original)
+              Container(width: 0.5, color: AppTheme.surfaceVariant),
+              // Right panel — selected chat or placeholder
+              Expanded(
+                child: _selectedContact != null
+                    ? ChatScreen(
+                        contact: _selectedContact!,
+                        key: ValueKey(_selectedContact!.id),
+                        embedded: true,
+                        onCloseEmbedded: () => setState(() => _selectedContact = null),
+                      )
+                    : _buildEmptyDetail(),
+              ),
+            ],
           ),
-          VerticalDivider(width: 1, thickness: 1, color: AppTheme.surfaceVariant),
-          // Right panel — selected chat or placeholder
-          Expanded(
-            child: _selectedContact != null
-                ? ChatScreen(
-                    contact: _selectedContact!,
-                    key: ValueKey(_selectedContact!.id),
-                    embedded: true,
-                    onCloseEmbedded: () => setState(() => _selectedContact = null),
-                  )
-                : _buildEmptyDetail(),
+          // Invisible drag handle over the divider
+          Positioned(
+            left: clampedWidth - 3,
+            top: 0,
+            bottom: 0,
+            width: 7,
+            child: MouseRegion(
+              cursor: SystemMouseCursors.resizeColumn,
+              child: GestureDetector(
+                onHorizontalDragUpdate: (details) {
+                  setState(() {
+                    _leftPanelWidth = (_leftPanelWidth + details.delta.dx)
+                        .clamp(_minPanelWidth, maxPanelWidth);
+                  });
+                },
+                onHorizontalDragEnd: (_) => _savePanelWidth(),
+                onDoubleTap: () {
+                  setState(() => _leftPanelWidth = _defaultPanelWidth);
+                  _savePanelWidth();
+                },
+                behavior: HitTestBehavior.translucent,
+              ),
+            ),
           ),
         ],
       ),
@@ -705,8 +789,12 @@ class _HomeScreenState extends State<HomeScreen> {
   // ---- Narrow (single-column) layout ----
 
   Widget _buildNarrowLayout() {
-    return Consumer<ChatController>(
-      builder: (context, chatCtrl, _) => _buildLeftPanel(chatCtrl, isWide: false),
+    return Selector<ChatController, ({ConnectionStatus conn, int ver})>(
+      selector: (_, c) => (conn: c.connectionStatus, ver: _homeRebuildVersion),
+      builder: (context, data, _) {
+        final chatCtrl = context.read<ChatController>();
+        return _buildLeftPanel(chatCtrl, isWide: false, compactMode: false);
+      },
     );
   }
 
@@ -727,32 +815,24 @@ class _HomeScreenState extends State<HomeScreen> {
     });
     _sortCacheContactCount = contacts.length;
     _sortCacheMsgCount = totalMsgCount;
-    // Refresh unread counts when sort cache is rebuilt
-    _unreadCounts.clear();
     return _sortedRoomsCache!;
   }
 
   int _getUnreadCount(String contactId, String myId, ChatController chatCtrl) {
-    if (_unreadCounts.containsKey(contactId)) return _unreadCounts[contactId]!;
     final room = chatCtrl.getRoomForContact(contactId);
     final messages = room?.messages ?? [];
+    final msgLen = messages.length;
+    if (_unreadCounts.containsKey(contactId) &&
+        _unreadMsgCounts[contactId] == msgLen) {
+      return _unreadCounts[contactId]!;
+    }
     final count = messages.where((m) => !m.isRead && m.senderId != myId).length;
     _unreadCounts[contactId] = count;
+    _unreadMsgCounts[contactId] = msgLen;
     return count;
   }
 
-  List<Contact> _applyFilter(List<Contact> contacts, String myId, ChatController chatCtrl) {
-    switch (_chatFilter) {
-      case ChatFilter.all:
-        return contacts;
-      case ChatFilter.unread:
-        return contacts.where((c) => _getUnreadCount(c.id, myId, chatCtrl) > 0).toList();
-      case ChatFilter.groups:
-        return contacts.where((c) => c.isGroup).toList();
-    }
-  }
-
-  Widget _buildLeftPanel(ChatController chatCtrl, {required bool isWide}) {
+  Widget _buildLeftPanel(ChatController chatCtrl, {required bool isWide, required bool compactMode}) {
     final contacts = context.read<IContactRepository>().contacts;
     final myId = chatCtrl.identity?.id ?? '';
 
@@ -763,54 +843,127 @@ class _HomeScreenState extends State<HomeScreen> {
     });
 
     final allSorted = _getSortedContacts(contacts, totalMsgCount, chatCtrl);
-    final searchFiltered = _searchQuery.isEmpty
+    final sorted = _searchQuery.isEmpty
         ? allSorted
         : allSorted.where((c) => c.name.toLowerCase().contains(_searchQuery)).toList();
-    final sorted = _applyFilter(searchFiltered, myId, chatCtrl);
 
     return Focus(
       autofocus: true,
       focusNode: _homeKeyFocus,
       onKeyEvent: (_, event) {
         if (event is! KeyDownEvent) return KeyEventResult.ignored;
-        final ctrl = HardwareKeyboard.instance.isControlPressed;
-        // Ctrl+F or / → focus search
-        if ((event.logicalKey == LogicalKeyboardKey.keyF && ctrl) ||
-            (event.logicalKey == LogicalKeyboardKey.slash && !_searchActive)) {
-          setState(() => _searchActive = true);
-          return KeyEventResult.handled;
-        }
-        // Escape → close search
-        if (event.logicalKey == LogicalKeyboardKey.escape && _searchActive) {
+        // Escape → clear search
+        if (event.logicalKey == LogicalKeyboardKey.escape && _searchQuery.isNotEmpty) {
           _searchController.clear();
-          setState(() {
-            _searchActive = false;
-            _globalSearchResults = [];
-            _globalSearching = false;
-            _globalSearchDone = false;
-          });
           return KeyEventResult.handled;
         }
         return KeyEventResult.ignored;
       },
       child: Scaffold(
+        key: _scaffoldKey,
         backgroundColor: AppTheme.background,
-        appBar: _searchActive
-            ? _buildSearchBar()
+        drawer: HomeDrawer(
+          ownName: _ownName,
+          ownAvatarBytes: _ownAvatarBytes,
+          connectionStatus: chatCtrl.connectionStatus,
+          onNewChat: () {
+            Navigator.pop(context);
+            Navigator.push(context, _slideRoute(const ContactsScreen())).then((_) => _loadAll());
+          },
+          onNewGroup: () {
+            Navigator.pop(context);
+            Navigator.push(context, _slideRoute(const ContactsScreen(createGroup: true))).then((_) => _loadAll());
+          },
+          onAddContact: () {
+            Navigator.pop(context);
+            showDialog(
+              context: context,
+              builder: (_) => AddContactDialog(onAdd: (contact) => _loadAll()),
+            ).then((_) => _loadAll());
+          },
+          onSettings: () {
+            Navigator.pop(context);
+            Navigator.push(context, _slideRoute(const SettingsScreen())).then((_) => _loadAll());
+          },
+        ),
+        appBar: compactMode
+            ? AppBar(
+                backgroundColor: AppTheme.surface,
+                elevation: 0,
+                centerTitle: true,
+                leading: const SizedBox.shrink(),
+                leadingWidth: 0,
+                title: IconButton(
+                  icon: Icon(Icons.menu_rounded, color: AppTheme.textSecondary, size: DesignTokens.iconLg),
+                  onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+                  tooltip: context.l10n.settingsTitle,
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.all(DesignTokens.spacing8),
+                  constraints: const BoxConstraints(),
+                ),
+                actions: const [],
+              )
             : AppBar(
               backgroundColor: AppTheme.surface,
               elevation: 0,
               scrolledUnderElevation: 2.0,
               shadowColor: Colors.black.withValues(alpha: DesignTokens.opacityMedium),
               centerTitle: false,
-              title: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text('Pulse',
-                      style: GoogleFonts.inter(color: AppTheme.textPrimary, fontSize: DesignTokens.fontDisplay, fontWeight: FontWeight.w700)),
-                  const SizedBox(width: DesignTokens.spacing8),
-                  _buildConnectionDot(chatCtrl.connectionStatus),
-                ],
+              leadingWidth: 0,
+              leading: const SizedBox.shrink(),
+              titleSpacing: 0,
+              title: Padding(
+                padding: const EdgeInsets.only(left: DesignTokens.spacing6),
+                child: Row(
+                  children: [
+                    IconButton(
+                      icon: Icon(Icons.menu_rounded, color: AppTheme.textSecondary, size: DesignTokens.iconLg),
+                      onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+                      tooltip: context.l10n.settingsTitle,
+                      visualDensity: VisualDensity.compact,
+                      padding: const EdgeInsets.all(DesignTokens.spacing8),
+                      constraints: const BoxConstraints(),
+                    ),
+                    const SizedBox(width: DesignTokens.spacing6),
+                    Expanded(
+                      child: Container(
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: AppTheme.surfaceVariant,
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: DesignTokens.spacing12),
+                        child: Row(
+                          children: [
+                            Icon(Icons.search_rounded, color: AppTheme.textSecondary, size: DesignTokens.iconMd),
+                            const SizedBox(width: DesignTokens.spacing8),
+                            Expanded(
+                              child: TextField(
+                                controller: _searchController,
+                                style: GoogleFonts.inter(color: AppTheme.textPrimary, fontSize: DesignTokens.fontLg),
+                                decoration: InputDecoration(
+                                  hintText: context.l10n.search,
+                                  hintStyle: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: DesignTokens.fontLg, fontWeight: FontWeight.w400),
+                                  border: InputBorder.none,
+                                  enabledBorder: InputBorder.none,
+                                  focusedBorder: InputBorder.none,
+                                  contentPadding: EdgeInsets.zero,
+                                  isDense: true,
+                                  filled: false,
+                                ),
+                              ),
+                            ),
+                            if (_searchController.text.isNotEmpty)
+                              GestureDetector(
+                                onTap: () => _searchController.clear(),
+                                child: Icon(Icons.close_rounded, color: AppTheme.textSecondary, size: DesignTokens.iconSm),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
               actions: [
                 // "No ECH" warning: shown when uTLS proxy is down but
@@ -836,51 +989,27 @@ class _HomeScreenState extends State<HomeScreen> {
                   bootstrapPercent: _torBootPercent,
                   activePtLabel: TorService.instance.activePtLabel,
                 ),
-                IconButton(
-                  icon: Icon(Icons.search_rounded, color: AppTheme.textSecondary),
-                  tooltip: context.l10n.search,
-                  onPressed: () => setState(() => _searchActive = true),
-                ),
-                PopupMenuButton<String>(
-                  icon: Icon(Icons.more_vert_rounded, color: AppTheme.textSecondary),
-                  tooltip: context.l10n.moreOptions,
-                  color: AppTheme.surface,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.radiusLarge)),
-                  onSelected: (value) async {
-                    if (value == 'settings') {
-                      await Navigator.push(context, _slideRoute(const SettingsScreen()));
-                      _loadAll();
-                    } else if (value == 'new_group') {
-                      await Navigator.push(context, _slideRoute(const ContactsScreen(createGroup: true)));
-                      _loadAll();
-                    }
-                  },
-                  itemBuilder: (_) => [
-                    PopupMenuItem(
-                      value: 'new_group',
-                      child: Row(children: [
-                        Icon(Icons.group_add_rounded, color: AppTheme.textSecondary, size: DesignTokens.iconMd),
-                        const SizedBox(width: DesignTokens.spacing12),
-                        Text(context.l10n.homeNewGroup, style: GoogleFonts.inter(color: AppTheme.textPrimary)),
-                      ]),
-                    ),
-                    PopupMenuItem(
-                      value: 'settings',
-                      child: Row(children: [
-                        Icon(Icons.settings_rounded, color: AppTheme.textSecondary, size: DesignTokens.iconMd),
-                        const SizedBox(width: DesignTokens.spacing12),
-                        Text(context.l10n.homeSettings, style: GoogleFonts.inter(color: AppTheme.textPrimary)),
-                      ]),
-                    ),
-                  ],
-                ),
               ],
             ),
       body: Stack(
         children: [
-          _searchActive && _searchQuery.isNotEmpty
-              ? _buildGlobalSearchBody(contacts, chatCtrl, isWide)
-              : _buildChatsTab(contacts, sorted, chatCtrl, myId, isWide),
+          _searchQuery.isNotEmpty && !compactMode
+              ? HomeSearchBody(
+                  contacts: contacts,
+                  chatCtrl: chatCtrl,
+                  isWide: isWide,
+                  searchQuery: _searchQuery,
+                  globalSearching: _globalSearching,
+                  globalSearchDone: _globalSearchDone,
+                  globalSearchResults: _globalSearchResults,
+                  avatarCache: _avatarCache,
+                  mutedContactIds: _mutedContactIds,
+                  selectedContact: _selectedContact,
+                  onChatOpen: _openChatNarrow,
+                  onChatOpenWide: _openChatWide,
+                  onContextMenu: _showChatTileContextMenu,
+                )
+              : _buildChatsTab(contacts, sorted, chatCtrl, myId, isWide, compactMode: compactMode),
           if (ActiveCallService.instance.isMinimized)
             Positioned(
               top: 0, left: 0, right: 0,
@@ -950,30 +1079,16 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
         ],
       ),
-      floatingActionButton: Semantics(
-        label: context.l10n.homeNewChatTooltip,
-        button: true,
-        child: FloatingActionButton(
-          backgroundColor: AppTheme.primary,
-          elevation: 0,
-          shape: const CircleBorder(),
-          tooltip: context.l10n.homeNewChatTooltip,
-          child: const Icon(Icons.chat_rounded, color: Colors.white, size: DesignTokens.fontDisplay),
-          onPressed: () {
-            Navigator.push(context, _slideRoute(const ContactsScreen())).then((_) => _loadAll());
-          },
-        ).animate().scale(delay: 300.ms, curve: Curves.easeOutBack),
-      ),
       ),
     );
   }
 
-  Widget _buildChatsTab(List<Contact> contacts, List<Contact> sorted, ChatController chatCtrl, String myId, bool isWide) {
+  Widget _buildChatsTab(List<Contact> contacts, List<Contact> sorted, ChatController chatCtrl, String myId, bool isWide, {bool compactMode = false}) {
     if (_loading && contacts.isEmpty) return const ChatListSkeleton();
     if (contacts.isEmpty) return _buildEmptyState();
     return Column(
       children: [
-        StatusRow(
+        if (!compactMode) StatusRow(
           contacts: contacts,
           ownStatus: _ownStatus,
           contactStatuses: _contactStatuses,
@@ -1000,10 +1115,6 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             );
           },
-        ),
-        ChatFilterChips(
-          selected: _chatFilter,
-          onChanged: (f) => setState(() => _chatFilter = f),
         ),
         Expanded(
           child: RefreshIndicator(
@@ -1036,6 +1147,10 @@ class _HomeScreenState extends State<HomeScreen> {
                         // Lazy-load avatar when tile becomes visible
                         _ensureAvatarLoaded(c.id);
 
+                        if (compactMode) {
+                          return _buildCompactTile(c, unread, isWide, chatCtrl);
+                        }
+
                         return ChatTile(
                           contact: c,
                           lastMsg: lastMsg,
@@ -1047,45 +1162,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           selected: isWide && _selectedContact?.id == c.id,
                           onTap: () => isWide ? _openChatWide(c) : _openChatNarrow(c),
                           onSecondaryTapUp: (details) {
-                            showMenu<String>(
-                              context: context,
-                              position: RelativeRect.fromLTRB(
-                                details.globalPosition.dx, details.globalPosition.dy,
-                                details.globalPosition.dx, details.globalPosition.dy,
-                              ),
-                              color: AppTheme.surface,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.radiusLarge)),
-                              items: [
-                                PopupMenuItem(value: 'mute', child: Row(children: [
-                                  Icon(_mutedContactIds.contains(c.id) ? Icons.notifications_rounded : Icons.notifications_off_rounded,
-                                      color: AppTheme.textSecondary, size: DesignTokens.iconMd),
-                                  const SizedBox(width: DesignTokens.spacing12),
-                                  Text(_mutedContactIds.contains(c.id) ? context.l10n.appBarUnmute : context.l10n.appBarMute,
-                                      style: GoogleFonts.inter(color: AppTheme.textPrimary)),
-                                ])),
-                                PopupMenuItem(value: 'clear', child: Row(children: [
-                                  Icon(Icons.delete_sweep_rounded, color: AppTheme.textSecondary, size: DesignTokens.iconMd),
-                                  const SizedBox(width: DesignTokens.spacing12),
-                                  Text(context.l10n.profileClearChatHistory, style: GoogleFonts.inter(color: AppTheme.textPrimary)),
-                                ])),
-                                PopupMenuItem(value: 'delete', child: Row(children: [
-                                  Icon(Icons.person_remove_rounded, color: Colors.redAccent, size: DesignTokens.iconMd),
-                                  const SizedBox(width: DesignTokens.spacing12),
-                                  Text(context.l10n.profileDeleteContact, style: GoogleFonts.inter(color: Colors.redAccent)),
-                                ])),
-                              ],
-                            ).then((value) async {
-                              if (value == 'mute') {
-                                final newMuted = !_mutedContactIds.contains(c.id);
-                                await NotificationService().setChatMuted(c.id, newMuted);
-                                _loadMutedChats();
-                              } else if (value == 'clear') {
-                                chatCtrl.clearRoomHistory(c);
-                              } else if (value == 'delete') {
-                                await context.read<IContactRepository>().removeContact(c.id);
-                                _loadAll();
-                              }
-                            });
+                            _showChatTileContextMenu(details.globalPosition, c, chatCtrl);
                           },
                         );
                       },
@@ -1094,6 +1171,106 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  void _showChatTileContextMenu(Offset position, Contact c, ChatController chatCtrl) {
+    showMenu<String>(
+      context: context,
+      position: RelativeRect.fromLTRB(
+        position.dx, position.dy, position.dx, position.dy,
+      ),
+      color: AppTheme.surface,
+      elevation: 8,
+      shadowColor: Colors.black54,
+      constraints: const BoxConstraints(minWidth: 200),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.radiusLarge)),
+      items: [
+        PopupMenuItem(value: 'mute', height: 44, child: Row(children: [
+          Icon(_mutedContactIds.contains(c.id) ? Icons.notifications_rounded : Icons.notifications_off_rounded,
+              color: AppTheme.textSecondary, size: DesignTokens.iconMd),
+          const SizedBox(width: DesignTokens.spacing12),
+          Text(_mutedContactIds.contains(c.id) ? context.l10n.appBarUnmute : context.l10n.appBarMute,
+              style: GoogleFonts.inter(color: AppTheme.textPrimary)),
+        ])),
+        PopupMenuItem(value: 'clear', height: 44, child: Row(children: [
+          Icon(Icons.delete_sweep_rounded, color: AppTheme.textSecondary, size: DesignTokens.iconMd),
+          const SizedBox(width: DesignTokens.spacing12),
+          Text(context.l10n.profileClearChatHistory, style: GoogleFonts.inter(color: AppTheme.textPrimary)),
+        ])),
+        PopupMenuItem(value: 'delete', height: 44, child: Row(children: [
+          Icon(Icons.person_remove_rounded, color: Colors.redAccent, size: DesignTokens.iconMd),
+          const SizedBox(width: DesignTokens.spacing12),
+          Text(context.l10n.profileDeleteContact, style: GoogleFonts.inter(color: Colors.redAccent)),
+        ])),
+      ],
+    ).then((value) async {
+      if (value == 'mute') {
+        final newMuted = !_mutedContactIds.contains(c.id);
+        await NotificationService().setChatMuted(c.id, newMuted);
+        _loadMutedChats();
+      } else if (value == 'clear') {
+        chatCtrl.clearRoomHistory(c);
+      } else if (value == 'delete') {
+        await context.read<IContactRepository>().removeContact(c.id);
+        _loadAll();
+      }
+    });
+  }
+
+  Widget _buildCompactTile(Contact c, int unread, bool isWide, ChatController chatCtrl) {
+    final selected = isWide && _selectedContact?.id == c.id;
+    return Tooltip(
+      message: c.name,
+      waitDuration: const Duration(milliseconds: 400),
+      child: GestureDetector(
+        onTap: () => isWide ? _openChatWide(c) : _openChatNarrow(c),
+        onSecondaryTapUp: (details) {
+          _showChatTileContextMenu(details.globalPosition, c, chatCtrl);
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          decoration: BoxDecoration(
+            color: selected ? AppTheme.primary.withValues(alpha: 0.12) : Colors.transparent,
+          ),
+          child: Center(
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                AvatarWidget(
+                  name: c.name,
+                  size: 44,
+                  imageBytes: _avatarCache[c.id],
+                  fontSize: DesignTokens.fontHeading,
+                ),
+                if (unread > 0)
+                  Positioned(
+                    top: -2,
+                    right: -2,
+                    child: Container(
+                      width: 16, height: 16,
+                      decoration: BoxDecoration(
+                        color: AppTheme.primary,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: AppTheme.background, width: 1.5),
+                      ),
+                      child: Center(
+                        child: Text(
+                          unread > 9 ? '9+' : '$unread',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 9,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -1112,81 +1289,6 @@ class _HomeScreenState extends State<HomeScreen> {
             Text(context.l10n.homeSelectConversation,
                 style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: DesignTokens.fontXl)),
           ],
-        ),
-      ),
-    );
-  }
-
-  PreferredSizeWidget _buildSearchBar() {
-    return AppBar(
-      backgroundColor: AppTheme.surface,
-      elevation: 0,
-      leading: IconButton(
-        icon: Icon(Icons.arrow_back_rounded, color: AppTheme.textSecondary),
-        tooltip: context.l10n.closeSearch,
-        onPressed: () {
-          _searchController.clear();
-          setState(() {
-            _searchActive = false;
-            _globalSearchResults = [];
-            _globalSearching = false;
-            _globalSearchDone = false;
-          });
-        },
-      ),
-      title: Semantics(
-        label: context.l10n.searchMessages,
-        textField: true,
-        child: TextField(
-          controller: _searchController,
-          autofocus: true,
-          style: GoogleFonts.inter(color: AppTheme.textPrimary, fontSize: DesignTokens.fontXl),
-          decoration: InputDecoration(
-            hintText: context.l10n.searchMessages,
-            hintStyle: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: DesignTokens.fontXl),
-            border: InputBorder.none,
-            enabledBorder: InputBorder.none,
-            focusedBorder: InputBorder.none,
-            contentPadding: EdgeInsets.zero,
-            filled: false,
-          ),
-        ),
-      ),
-      actions: [
-        if (_searchController.text.isNotEmpty)
-          IconButton(
-            icon: Icon(Icons.close_rounded, color: AppTheme.textSecondary, size: DesignTokens.iconMd),
-            tooltip: context.l10n.clearSearch,
-            onPressed: () {
-              _searchController.clear();
-            },
-          ),
-      ],
-    );
-  }
-
-  Widget _buildConnectionDot(ConnectionStatus status) {
-    final label = switch (status) {
-      ConnectionStatus.connected   => context.l10n.connected,
-      ConnectionStatus.connecting  => context.l10n.connecting,
-      ConnectionStatus.disconnected => context.l10n.disconnected,
-    };
-    if (status == ConnectionStatus.connecting) {
-      return Tooltip(
-        message: label,
-        child: SizedBox(
-          width: 9, height: 9,
-          child: CircularProgressIndicator(strokeWidth: 1.5, color: Colors.orange),
-        ),
-      );
-    }
-    return Tooltip(
-      message: label,
-      child: Container(
-        width: DesignTokens.spacing8, height: DesignTokens.spacing8,
-        decoration: BoxDecoration(
-          color: status == ConnectionStatus.connected ? AppTheme.primary : AppTheme.textSecondary,
-          shape: BoxShape.circle,
         ),
       ),
     );
@@ -1229,293 +1331,6 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
     );
-  }
-
-  // ── Global search results body ──────────────────────────────────────────────
-
-  Widget _buildGlobalSearchBody(List<Contact> contacts, ChatController chatCtrl, bool isWide) {
-    // 1. Contact name matches (instant, no decryption needed).
-    final contactMatches = contacts
-        .where((c) => c.name.toLowerCase().contains(_searchQuery))
-        .toList();
-
-    // 2. Build a roomId → Contact lookup for message results.
-    final contactByStorageKey = <String, Contact>{};
-    for (final c in contacts) {
-      contactByStorageKey[c.storageKey] = c;
-    }
-
-    // 3. Group message results by roomId.
-    final groupedMessages = <String, List<Map<String, dynamic>>>{};
-    for (final r in _globalSearchResults) {
-      groupedMessages.putIfAbsent(r.roomId, () => []).add(r.message);
-    }
-
-    // Total section count.
-    final hasContactSection = contactMatches.isNotEmpty;
-    final hasMessageSection = groupedMessages.isNotEmpty;
-    final bool showEmpty = _globalSearchDone && !_globalSearching &&
-        !hasContactSection && !hasMessageSection;
-
-    return ListView(
-      padding: const EdgeInsets.only(bottom: DesignTokens.navBarHeight),
-      children: [
-        // Loading indicator.
-        if (_globalSearching)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: DesignTokens.spacing16),
-            child: Center(
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  SizedBox(
-                    width: DesignTokens.iconSm, height: DesignTokens.iconSm,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: AppTheme.primary,
-                    ),
-                  ),
-                  const SizedBox(width: DesignTokens.spacing10),
-                  Text(context.l10n.homeSearching,
-                      style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: DesignTokens.fontMd)),
-                ],
-              ),
-            ),
-          ),
-
-        // Contact name matches section.
-        if (hasContactSection) ...[
-          _buildSectionHeader(context.l10n.homeSectionChats),
-          ...contactMatches.map((c) {
-            final room = chatCtrl.getRoomForContact(c.id);
-            final messages = room?.messages ?? [];
-            final lastMsg = messages.isNotEmpty ? messages.last : null;
-            final myId = chatCtrl.identity?.id ?? '';
-            final unread = _getUnreadCount(c.id, myId, chatCtrl);
-            return ChatTile(
-              contact: c,
-              lastMsg: lastMsg,
-              unreadCount: unread,
-              myId: myId,
-              isOnline: chatCtrl.isOnline(c.id),
-              isMuted: _mutedContactIds.contains(c.id),
-              avatarBytes: _avatarCache[c.id],
-              selected: isWide && _selectedContact?.id == c.id,
-              onTap: () => isWide ? _openChatWide(c) : _openChatNarrow(c),
-              onSecondaryTapUp: (details) {
-                showMenu<String>(
-                  context: context,
-                  position: RelativeRect.fromLTRB(
-                    details.globalPosition.dx, details.globalPosition.dy,
-                    details.globalPosition.dx, details.globalPosition.dy,
-                  ),
-                  color: AppTheme.surface,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.radiusLarge)),
-                  items: [
-                    PopupMenuItem(value: 'mute', child: Row(children: [
-                      Icon(_mutedContactIds.contains(c.id) ? Icons.notifications_rounded : Icons.notifications_off_rounded,
-                          color: AppTheme.textSecondary, size: DesignTokens.iconMd),
-                      const SizedBox(width: DesignTokens.spacing12),
-                      Text(_mutedContactIds.contains(c.id) ? context.l10n.appBarUnmute : context.l10n.appBarMute,
-                          style: GoogleFonts.inter(color: AppTheme.textPrimary)),
-                    ])),
-                    PopupMenuItem(value: 'clear', child: Row(children: [
-                      Icon(Icons.delete_sweep_rounded, color: AppTheme.textSecondary, size: DesignTokens.iconMd),
-                      const SizedBox(width: DesignTokens.spacing12),
-                      Text(context.l10n.profileClearChatHistory, style: GoogleFonts.inter(color: AppTheme.textPrimary)),
-                    ])),
-                    PopupMenuItem(value: 'delete', child: Row(children: [
-                      Icon(Icons.person_remove_rounded, color: Colors.redAccent, size: DesignTokens.iconMd),
-                      const SizedBox(width: DesignTokens.spacing12),
-                      Text(context.l10n.profileDeleteContact, style: GoogleFonts.inter(color: Colors.redAccent)),
-                    ])),
-                  ],
-                ).then((value) async {
-                  if (value == 'mute') {
-                    final newMuted = !_mutedContactIds.contains(c.id);
-                    await NotificationService().setChatMuted(c.id, newMuted);
-                    _loadMutedChats();
-                  } else if (value == 'clear') {
-                    chatCtrl.clearRoomHistory(c);
-                  } else if (value == 'delete') {
-                    await context.read<IContactRepository>().removeContact(c.id);
-                    _loadAll();
-                  }
-                });
-              },
-            );
-          }),
-        ],
-
-        // Message search results section.
-        if (hasMessageSection) ...[
-          _buildSectionHeader(context.l10n.homeSectionMessages),
-          ...groupedMessages.entries.expand((entry) {
-            final contact = contactByStorageKey[entry.key];
-            if (contact == null) return <Widget>[];
-            return entry.value.map((msgJson) =>
-                _buildMessageSearchTile(contact, msgJson, isWide));
-          }),
-        ],
-
-        // No results.
-        if (showEmpty)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: DesignTokens.spacing48),
-            child: Center(
-              child: Column(
-                children: [
-                  Icon(Icons.search_off_rounded, size: DesignTokens.spacing48,
-                      color: AppTheme.textSecondary.withValues(alpha: 0.4)),
-                  const SizedBox(height: DesignTokens.spacing12),
-                  Text(context.l10n.homeNoResults,
-                      style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: DesignTokens.fontLg)),
-                ],
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-
-  Widget _buildSectionHeader(String title) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(DesignTokens.spacing16, DesignTokens.spacing14, DesignTokens.spacing16, DesignTokens.spacing6),
-      child: Text(title,
-          style: GoogleFonts.inter(
-            color: AppTheme.primary,
-            fontSize: DesignTokens.fontMd,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 0.5,
-          )),
-    );
-  }
-
-  Widget _buildMessageSearchTile(Contact contact, Map<String, dynamic> msgJson, bool isWide) {
-    final payload = msgJson['encryptedPayload'] as String? ?? '';
-    final timestampStr = msgJson['timestamp']?.toString() ?? '';
-    final timestamp = DateTime.tryParse(timestampStr) ?? DateTime(2000);
-    final timeStr = _formatSearchTime(timestamp);
-
-    // Build a snippet with the match highlighted.
-    final snippet = _buildSnippet(payload, _searchQuery);
-
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: () {
-          if (isWide) {
-            _openChatWide(contact);
-          } else {
-            _openChatNarrow(contact);
-          }
-        },
-        splashColor: AppTheme.primary.withValues(alpha: 0.07),
-        highlightColor: AppTheme.primary.withValues(alpha: 0.04),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: DesignTokens.spacing12, vertical: DesignTokens.spacing10),
-          child: Row(
-            children: [
-              AvatarWidget(
-                name: contact.name,
-                size: 44,
-                imageBytes: _avatarCache[contact.id],
-                fontSize: DesignTokens.fontHeading,
-              ),
-              const SizedBox(width: DesignTokens.spacing12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(contact.name,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: GoogleFonts.inter(
-                                color: AppTheme.textPrimary,
-                                fontSize: DesignTokens.fontLg,
-                                fontWeight: FontWeight.w600,
-                              )),
-                        ),
-                        Text(timeStr,
-                            style: GoogleFonts.inter(
-                              color: AppTheme.textSecondary,
-                              fontSize: DesignTokens.fontSm,
-                            )),
-                      ],
-                    ),
-                    const SizedBox(height: 3),
-                    RichText(
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      text: snippet,
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  TextSpan _buildSnippet(String text, String query) {
-    final lowerText = text.toLowerCase();
-    final lowerQuery = query.toLowerCase();
-    final idx = lowerText.indexOf(lowerQuery);
-    if (idx < 0) {
-      // Shouldn't happen, but safety fallback.
-      return TextSpan(
-        text: text.length > 100 ? '${text.substring(0, 100)}...' : text,
-        style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: DesignTokens.fontMd),
-      );
-    }
-
-    // Show context around the match: up to 20 chars before, the match, then after.
-    final start = (idx - 20).clamp(0, text.length);
-    final end = (idx + query.length + 40).clamp(0, text.length);
-    final prefix = start > 0 ? '...' : '';
-    final suffix = end < text.length ? '...' : '';
-
-    final before = text.substring(start, idx);
-    final match = text.substring(idx, idx + query.length);
-    final after = text.substring(idx + query.length, end);
-
-    return TextSpan(
-      children: [
-        TextSpan(
-          text: '$prefix$before',
-          style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: DesignTokens.fontMd),
-        ),
-        TextSpan(
-          text: match,
-          style: GoogleFonts.inter(
-            color: AppTheme.textPrimary,
-            fontSize: DesignTokens.fontMd,
-            fontWeight: FontWeight.w700,
-            backgroundColor: AppTheme.primary.withValues(alpha: DesignTokens.opacityLight),
-          ),
-        ),
-        TextSpan(
-          text: '$after$suffix',
-          style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: DesignTokens.fontMd),
-        ),
-      ],
-    );
-  }
-
-  String _formatSearchTime(DateTime t) {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final yesterday = today.subtract(const Duration(days: 1));
-    final msgDay = DateTime(t.year, t.month, t.day);
-    if (msgDay == today) return '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
-    if (msgDay == yesterday) return context.l10n.chatYesterday;
-    if (now.year == t.year) return '${t.day}/${t.month}';
-    return '${t.day}/${t.month}/${t.year % 100}';
   }
 
   Widget _buildNoResults() {

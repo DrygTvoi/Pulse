@@ -106,10 +106,10 @@ class ChatController extends ChangeNotifier {
   bool _disposed = false; // guards notifyListeners in TTL callbacks
   String? _activeRoomId; // contact ID of the currently open chat screen
 
-  // Reaction version — incremented on every local/remote reaction change
-  // so chat_screen can select on it for granular rebuilds.
-  int _reactionVersion = 0;
-  int get reactionVersion => _reactionVersion;
+  // Per-room reaction version — incremented per storageKey so chat_screen
+  // only rebuilds when ITS room's reactions change, not all rooms.
+  final _reactionVersions = <String, int>{};
+  int reactionVersionFor(String storageKey) => _reactionVersions[storageKey] ?? 0;
 
   // Timer-debounced notifyListeners — collapses rapid-fire updates into one
   // rebuild per 200ms window (≈1 frame at 5fps — imperceptible to users).
@@ -1160,7 +1160,7 @@ class ChatController extends ChangeNotifier {
       } else {
         unawaited(LocalStorageService().addReaction(e.storageKey, e.msgId, e.emoji, e.from));
       }
-      _reactionVersion++;
+      _reactionVersions[e.storageKey] = (_reactionVersions[e.storageKey] ?? 0) + 1;
       _scheduleNotify();
     }));
 
@@ -3297,7 +3297,7 @@ class ChatController extends ChangeNotifier {
       unawaited(LocalStorageService().addReaction(storageKey, msgId, emoji, _selfId)
           .catchError((Object e) => debugPrint('[Chat] addReaction DB failed: $e')));
     }
-    _reactionVersion++;
+    _reactionVersions[storageKey] = (_reactionVersions[storageKey] ?? 0) + 1;
     _scheduleNotify();
 
     if (contact.isGroup) {
