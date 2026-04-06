@@ -238,6 +238,7 @@ void showMessageContextMenu({
     shape: RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(DesignTokens.contextMenuRadius),
     ),
+    popUpAnimationStyle: AnimationStyle(duration: const Duration(milliseconds: 120)),
     items: items,
   ).then((value) {
     if (value == null) return;

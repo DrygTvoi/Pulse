@@ -526,7 +526,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Future<void> _animateDelete(Message msg) async {
     setState(() => _pendingDelete.add(msg.id));
-    await Future.delayed(const Duration(milliseconds: 280));
+    await Future.delayed(const Duration(milliseconds: 150));
     if (!mounted) return;
     await context.read<ChatController>().deleteMessage(_contact, msg);
     setState(() => _pendingDelete.remove(msg.id));
@@ -961,11 +961,11 @@ class _ChatScreenState extends State<ChatScreen> {
                           onSwiped: () => setState(() => _replyingTo = msg),
                           child: AnimatedOpacity(
                             opacity: _pendingDelete.contains(msg.id) ? 0.0 : 1.0,
-                            duration: const Duration(milliseconds: 220),
+                            duration: const Duration(milliseconds: 120),
                             curve: Curves.easeIn,
                             child: AnimatedScale(
                               scale: _pendingDelete.contains(msg.id) ? 0.88 : 1.0,
-                              duration: const Duration(milliseconds: 220),
+                              duration: const Duration(milliseconds: 120),
                               curve: Curves.easeIn,
                               child: Builder(builder: (_) {
                             final isNew = !_seenMessageIds.contains(msg.id);
@@ -1013,7 +1013,7 @@ class _ChatScreenState extends State<ChatScreen> {
                             if (isNew) {
                               bubble = bubble
                                   .animate()
-                                  .fadeIn(duration: 200.ms)
+                                  .fadeIn(duration: 120.ms)
                                   .slideY(begin: 0.05, end: 0);
                             }
                             return bubble;
@@ -1069,7 +1069,7 @@ class _ChatScreenState extends State<ChatScreen> {
                           ),
                       ],
                     ),
-                  ).animate().fadeIn(duration: 150.ms).scale(begin: const Offset(0.7, 0.7)),
+                  ).animate().fadeIn(duration: 100.ms).scale(begin: const Offset(0.7, 0.7)),
                 ),
             ],
           ),

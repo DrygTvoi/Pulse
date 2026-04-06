@@ -331,7 +331,7 @@ class _PulsingDotState extends State<_PulsingDot>
     super.initState();
     _ctrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 600),
+      duration: const Duration(milliseconds: 400),
     )..repeat(reverse: true);
     _animation = Tween<double>(begin: 0.4, end: 1.0).animate(
       CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut),

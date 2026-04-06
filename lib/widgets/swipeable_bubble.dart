@@ -70,7 +70,7 @@ class _SwipeableBubbleState extends State<SwipeableBubble>
       return;
     }
     _springAnim = Tween<double>(begin: _offset, end: 0.0).animate(
-      CurvedAnimation(parent: _springCtrl, curve: Curves.elasticOut),
+      CurvedAnimation(parent: _springCtrl, curve: Curves.easeOutCubic),
     )..addListener(() {
       if (mounted) setState(() => _offset = _springAnim!.value);
     })..addStatusListener((s) {

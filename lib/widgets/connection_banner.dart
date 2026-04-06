@@ -76,7 +76,7 @@ class NewMessageBanner extends StatelessWidget {
           ],
         ),
       ),
-    ).animate().slideY(begin: -1.5, end: 0, duration: 280.ms, curve: Curves.easeOutCubic);
+    ).animate().slideY(begin: -1.5, end: 0, duration: 150.ms, curve: Curves.easeOutCubic);
   }
 }
 
@@ -126,7 +126,7 @@ class ProbeBanner extends StatelessWidget {
     if (label.isEmpty) return const SizedBox.shrink();
 
     return AnimatedContainer(
-      duration: const Duration(milliseconds: 300),
+      duration: const Duration(milliseconds: 150),
       color: color.withValues(alpha: 0.92),
       padding: const EdgeInsets.symmetric(horizontal: DesignTokens.spacing16, vertical: DesignTokens.spacing8),
       child: Row(children: [
@@ -173,7 +173,7 @@ class OfflineBanner extends StatelessWidget {
           ),
         ],
       ),
-    ).animate().slideY(begin: -1.0, end: 0, duration: 240.ms, curve: Curves.easeOut);
+    ).animate().slideY(begin: -1.0, end: 0, duration: 150.ms, curve: Curves.easeOut);
   }
 }
 
@@ -210,6 +210,6 @@ class LanBanner extends StatelessWidget {
           ),
         ],
       ),
-    ).animate().slideY(begin: 1.5, end: 0, duration: 280.ms, curve: Curves.easeOutCubic);
+    ).animate().slideY(begin: 1.5, end: 0, duration: 150.ms, curve: Curves.easeOutCubic);
   }
 }

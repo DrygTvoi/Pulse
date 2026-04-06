@@ -43,8 +43,8 @@ import 'package:flutter/services.dart';
 
 PageRoute _slideRoute(Widget page) => PageRouteBuilder(
   pageBuilder: (context, animation, secondaryAnimation) => page,
-  transitionDuration: const Duration(milliseconds: 270),
-  reverseTransitionDuration: const Duration(milliseconds: 230),
+  transitionDuration: const Duration(milliseconds: 150),
+  reverseTransitionDuration: const Duration(milliseconds: 120),
   transitionsBuilder: (context, animation, secondaryAnimation, child) => SlideTransition(
     position: Tween(begin: const Offset(1, 0), end: Offset.zero)
         .animate(CurvedAnimation(parent: animation, curve: Curves.easeOutCubic)),
@@ -504,7 +504,7 @@ class _HomeScreenState extends State<HomeScreen> {
               },
             ),
           ],
-        ).animate().scale(curve: Curves.easeOutBack);
+        );
       },
     ).then((_) {
       // Ensure subscription is cancelled if dialog dismissed by any other means
@@ -595,7 +595,7 @@ class _HomeScreenState extends State<HomeScreen> {
             },
           ),
         ],
-      ).animate().scale(curve: Curves.easeOutBack),
+      ),
     );
   }
 
@@ -661,7 +661,7 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Text(context.l10n.groupInviteAccept, style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
           ),
         ],
-      ).animate().scale(curve: Curves.easeOutBack),
+      ),
     );
   }
 
@@ -1185,6 +1185,7 @@ class _HomeScreenState extends State<HomeScreen> {
       shadowColor: Colors.black54,
       constraints: const BoxConstraints(minWidth: 200),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.radiusLarge)),
+      popUpAnimationStyle: AnimationStyle(duration: const Duration(milliseconds: 120)),
       items: [
         PopupMenuItem(value: 'mute', height: 44, child: Row(children: [
           Icon(_mutedContactIds.contains(c.id) ? Icons.notifications_rounded : Icons.notifications_off_rounded,
@@ -1222,7 +1223,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final selected = isWide && _selectedContact?.id == c.id;
     return Tooltip(
       message: c.name,
-      waitDuration: const Duration(milliseconds: 400),
+      waitDuration: const Duration(milliseconds: 200),
       child: GestureDetector(
         onTap: () => isWide ? _openChatWide(c) : _openChatNarrow(c),
         onSecondaryTapUp: (details) {
@@ -1306,15 +1307,15 @@ class _HomeScreenState extends State<HomeScreen> {
               shape: BoxShape.circle,
             ),
             child: Icon(Icons.chat_bubble_outline_rounded, size: 42, color: AppTheme.primary.withValues(alpha: DesignTokens.opacityHeavy)),
-          ).animate().scale(duration: 500.ms, curve: Curves.easeOutBack),
+          ).animate().scale(duration: 200.ms, curve: Curves.easeOut),
           const SizedBox(height: DesignTokens.spacing20),
           Text(context.l10n.homeNoChatsYet,
               style: GoogleFonts.inter(color: AppTheme.textPrimary, fontSize: DesignTokens.fontXxl, fontWeight: FontWeight.w700))
-              .animate().fadeIn(delay: 150.ms),
+              .animate().fadeIn(delay: 50.ms),
           const SizedBox(height: DesignTokens.spacing6),
           Text(context.l10n.homeAddContactToStart,
               style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: DesignTokens.fontLg))
-              .animate().fadeIn(delay: 250.ms),
+              .animate().fadeIn(delay: 100.ms),
           const SizedBox(height: DesignTokens.spacing28),
           ElevatedButton.icon(
             icon: const Icon(Icons.person_add_rounded, size: DesignTokens.fontHeading),
@@ -1327,7 +1328,7 @@ class _HomeScreenState extends State<HomeScreen> {
             onPressed: () => Navigator.push(
               context, _slideRoute(const ContactsScreen()),
             ).then((_) => _loadAll()),
-          ).animate().fadeIn(delay: 350.ms).slideY(begin: 0.1, end: 0),
+          ).animate().fadeIn(delay: 150.ms).slideY(begin: 0.1, end: 0),
         ],
       ),
     );

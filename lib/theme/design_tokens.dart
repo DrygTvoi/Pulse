@@ -114,10 +114,10 @@ class DesignTokens {
   static const double opacityFull = 0.85;
 
   // ── Animation durations ────────────────────────────────────
-  static const Duration durationFast = Duration(milliseconds: 150);
-  static const Duration durationNormal = Duration(milliseconds: 250);
-  static const Duration durationSlow = Duration(milliseconds: 350);
-  static const Duration durationLong = Duration(milliseconds: 600);
+  static const Duration durationFast = Duration(milliseconds: 100);
+  static const Duration durationNormal = Duration(milliseconds: 150);
+  static const Duration durationSlow = Duration(milliseconds: 200);
+  static const Duration durationLong = Duration(milliseconds: 350);
 
   // ── Bubble tail ────────────────────────────────────────────
   static const double bubbleTailRadius = 4.0;

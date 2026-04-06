@@ -1475,7 +1475,7 @@ class _CallScreenState extends State<CallScreen> {
                 right: 0,
                 child: AnimatedOpacity(
                   opacity: _showControls || !hasRemoteVideo ? 1.0 : 0.0,
-                  duration: const Duration(milliseconds: 300),
+                  duration: const Duration(milliseconds: 150),
                   child: _buildTopBar(),
                 ),
               ),
@@ -1485,7 +1485,7 @@ class _CallScreenState extends State<CallScreen> {
                 bottom: 0, left: 0, right: 0,
                 child: AnimatedOpacity(
                   opacity: _showControls || !hasRemoteVideo ? 1.0 : 0.0,
-                  duration: const Duration(milliseconds: 300),
+                  duration: const Duration(milliseconds: 150),
                   child: _buildControlBar(),
                 ),
               ),
@@ -1533,7 +1533,7 @@ class _CallScreenState extends State<CallScreen> {
     }
 
     return AnimatedContainer(
-      duration: const Duration(milliseconds: 300),
+      duration: const Duration(milliseconds: 150),
       width: double.infinity,
       padding: EdgeInsets.symmetric(horizontal: DesignTokens.spacing12, vertical: 5),
       color: bannerColor,
