@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../theme/app_theme.dart';
 import '../theme/theme_manager.dart';
 import '../l10n/l10n_ext.dart';
@@ -13,7 +12,6 @@ import 'settings/language_section.dart';
 import 'settings/data_section.dart';
 import 'settings/security_section.dart';
 import 'settings/about_section.dart';
-import 'settings/developer_section.dart';
 
 // Re-export for backward compatibility — InboxAddressCard is defined in profile_card.dart
 export '../widgets/profile_card.dart' show InboxAddressCard;
@@ -30,7 +28,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   bool _passwordEnabled = false;
   bool _panicKeyEnabled = false;
-  bool _devModeEnabled = false;
 
   @override
   void initState() {
@@ -43,13 +40,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
         await _secureStorage.read(key: 'app_password_enabled') == 'true';
     final panicKeyEnabled =
         (await _secureStorage.read(key: 'app_panic_key_hash')) != null;
-    final prefs = await SharedPreferences.getInstance();
-    final devMode = prefs.getBool('dev_mode_enabled') ?? false;
     if (!mounted) return;
     setState(() {
       _passwordEnabled = passwordEnabled;
       _panicKeyEnabled = panicKeyEnabled;
-      _devModeEnabled = devMode;
     });
   }
 
@@ -99,15 +93,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const SizedBox(height: 32),
 
           // ─── About ─────────────────────────────────────────────
-          AboutSection(onDevModeUnlocked: () => setState(() => _devModeEnabled = true)),
+          const AboutSection(),
           const SizedBox(height: 12),
-
-          // ─── Developer (hidden until unlocked) ─────────────────
-          if (_devModeEnabled) ...[
-            const SizedBox(height: 20),
-            const DeveloperSection(),
-            const SizedBox(height: 12),
-          ],
         ],
       ),
     );

@@ -170,7 +170,7 @@ class ProfileSection extends StatelessWidget {
         const InboxAddressCard(),
         const SizedBox(height: DesignTokens.spacing10),
         settingsRow(
-          icon: Icons.qr_code_rounded,
+          icon: Icons.person_add_rounded,
           iconColor: const Color(0xFF9B59B6),
           title: context.l10n.settingsMyQrCode,
           subtitle: context.l10n.settingsMyQrSubtitle,

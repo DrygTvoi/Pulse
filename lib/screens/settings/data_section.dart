@@ -61,80 +61,23 @@ class DataSection extends StatelessWidget {
                   style: GoogleFonts.inter(
                       color: AppTheme.textSecondary, fontSize: DesignTokens.fontMd)),
               const SizedBox(height: DesignTokens.spacing16),
-              TextField(
+              SettingsPasswordField(
                 controller: passCtrl,
-                obscureText: !showPass,
+                obscure: !showPass,
+                onToggleObscure: () => setS(() => showPass = !showPass),
+                hintText: context.l10n.settingsBackupPassword,
                 autofocus: true,
-                style: GoogleFonts.inter(
-                    color: AppTheme.textPrimary, fontSize: DesignTokens.fontInput),
-                decoration: InputDecoration(
-                  hintText: context.l10n.settingsBackupPassword,
-                  hintStyle: GoogleFonts.inter(
-                      color: AppTheme.textSecondary, fontSize: DesignTokens.fontLg),
-                  filled: true,
-                  fillColor: AppTheme.surfaceVariant,
-                  border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
-                      borderSide: BorderSide.none),
-                  enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
-                      borderSide: BorderSide.none),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
-                    borderSide: const BorderSide(
-                        color: Color(0xFF3498DB), width: 1.5),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(
-                      horizontal: DesignTokens.spacing14, vertical: DesignTokens.spacing12),
-                  suffixIcon: IconButton(
-                    icon: Icon(
-                      showPass
-                          ? Icons.visibility_off_rounded
-                          : Icons.visibility_rounded,
-                      color: AppTheme.textSecondary,
-                      size: DesignTokens.fontHeading,
-                    ),
-                    onPressed: () => setS(() => showPass = !showPass),
-                  ),
-                ),
+                errorText: error,
                 onChanged: (_) => setS(() => error = null),
               ),
               if (requireConfirm) ...[
                 const SizedBox(height: DesignTokens.spacing12),
-                TextField(
+                SettingsPasswordField(
                   controller: confirmCtrl,
-                  obscureText: !showPass,
-                  style: GoogleFonts.inter(
-                      color: AppTheme.textPrimary, fontSize: DesignTokens.fontInput),
-                  decoration: InputDecoration(
-                    hintText: context.l10n.passwordConfirmHint,
-                    hintStyle: GoogleFonts.inter(
-                        color: AppTheme.textSecondary, fontSize: DesignTokens.fontLg),
-                    filled: true,
-                    fillColor: AppTheme.surfaceVariant,
-                    border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
-                        borderSide: BorderSide.none),
-                    enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
-                        borderSide: BorderSide.none),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
-                      borderSide: const BorderSide(
-                          color: Color(0xFF3498DB), width: 1.5),
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(
-                        horizontal: DesignTokens.spacing14, vertical: DesignTokens.spacing12),
-                  ),
+                  obscure: !showPass,
+                  onToggleObscure: () => setS(() => showPass = !showPass),
+                  hintText: context.l10n.passwordConfirmHint,
                   onChanged: (_) => setS(() => error = null),
-                ),
-              ],
-              if (error != null) ...[
-                const SizedBox(height: DesignTokens.spacing8),
-                Text(
-                  error!,
-                  style: GoogleFonts.inter(
-                      color: const Color(0xFFF87171), fontSize: DesignTokens.fontBody),
                 ),
               ],
             ],
@@ -224,39 +167,15 @@ class DataSection extends StatelessWidget {
               Text(context.l10n.settingsEnterCurrentPassword,
                   style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: DesignTokens.fontMd)),
               const SizedBox(height: DesignTokens.spacing16),
-              TextField(
+              SettingsPasswordField(
                 controller: ctrl,
-                obscureText: !showPass,
+                obscure: !showPass,
+                onToggleObscure: () => setS(() => showPass = !showPass),
+                hintText: context.l10n.settingsCurrentPassword,
                 autofocus: true,
-                style: GoogleFonts.inter(color: AppTheme.textPrimary, fontSize: DesignTokens.fontInput),
-                decoration: InputDecoration(
-                  hintText: context.l10n.settingsCurrentPassword,
-                  hintStyle: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: DesignTokens.fontLg),
-                  filled: true,
-                  fillColor: AppTheme.surfaceVariant,
-                  border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
-                      borderSide: BorderSide.none),
-                  enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
-                      borderSide: BorderSide.none),
-                  focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
-                      borderSide: const BorderSide(color: Color(0xFF60A5FA), width: 1.5)),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: DesignTokens.spacing14, vertical: DesignTokens.spacing12),
-                  suffixIcon: IconButton(
-                    icon: Icon(
-                      showPass ? Icons.visibility_off_rounded : Icons.visibility_rounded,
-                      color: AppTheme.textSecondary, size: DesignTokens.fontHeading),
-                    onPressed: () => setS(() => showPass = !showPass),
-                  ),
-                ),
+                errorText: error,
                 onChanged: (_) => setS(() => error = null),
               ),
-              if (error != null) ...[
-                const SizedBox(height: DesignTokens.spacing8),
-                Text(error!, style: GoogleFonts.inter(color: const Color(0xFFF87171), fontSize: DesignTokens.fontBody)),
-              ],
             ],
           ),
           actions: [
@@ -375,14 +294,7 @@ class DataSection extends StatelessWidget {
       final encrypted = await KeyExportService.encryptRawBundle(data, password);
       if (encrypted == null) {
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text(context.l10n.dataExportFailed,
-                style: GoogleFonts.inter()),
-            backgroundColor: Colors.red,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(DesignTokens.spacing10)),
-          ));
+          showErrorSnackBar(context, context.l10n.dataExportFailed);
         }
         return;
       }
@@ -428,29 +340,13 @@ class DataSection extends StatelessWidget {
                   final path = '${dir.path}/pulse_identity_backup.enc';
                   await File(path).writeAsBytes(encrypted);
                   if (ctx.mounted) {
-                    ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(
-                      content: Text(ctx.l10n.appearanceSavedTo(path),
-                          style: GoogleFonts.inter()),
-                      backgroundColor: AppTheme.primary,
-                      behavior: SnackBarBehavior.floating,
-                      duration: const Duration(seconds: 3),
-                      shape: RoundedRectangleBorder(
-                          borderRadius:
-                              BorderRadius.circular(DesignTokens.spacing10)),
-                    ));
+                    showSuccessSnackBar(ctx, ctx.l10n.appearanceSavedTo(path),
+                        duration: const Duration(seconds: 3));
                   }
                 } catch (e) {
                   if (ctx.mounted) {
-                    ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(
-                      content: Text(ctx.l10n.appearanceSaveFailed(e.toString()),
-                          style: GoogleFonts.inter()),
-                      backgroundColor: Colors.red,
-                      behavior: SnackBarBehavior.floating,
-                      duration: const Duration(seconds: 3),
-                      shape: RoundedRectangleBorder(
-                          borderRadius:
-                              BorderRadius.circular(DesignTokens.spacing10)),
-                    ));
+                    showErrorSnackBar(
+                        ctx, ctx.l10n.appearanceSaveFailed(e.toString()));
                   }
                 }
               },
@@ -468,15 +364,8 @@ class DataSection extends StatelessWidget {
       );
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(context.l10n.appearanceExportFailed(e.toString()),
-              style: GoogleFonts.inter()),
-          backgroundColor: Colors.red,
-          behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 3),
-          shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(DesignTokens.spacing10)),
-        ));
+        showErrorSnackBar(
+            context, context.l10n.appearanceExportFailed(e.toString()));
       }
     }
   }
@@ -547,17 +436,9 @@ class DataSection extends StatelessWidget {
                   final bundle = await KeyExportService.decryptRawBundle(bytes, password);
                   if (bundle == null) {
                     if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                        content: Text(
-                            context.l10n.appearanceImportFailed(
-                                'wrong password or corrupted backup'),
-                            style: GoogleFonts.inter()),
-                        backgroundColor: Colors.red,
-                        behavior: SnackBarBehavior.floating,
-                        shape: RoundedRectangleBorder(
-                            borderRadius:
-                                BorderRadius.circular(DesignTokens.spacing10)),
-                      ));
+                      showErrorSnackBar(context,
+                          context.l10n.appearanceImportFailed(
+                              'wrong password or corrupted backup'));
                     }
                     return;
                   }
@@ -571,35 +452,16 @@ class DataSection extends StatelessWidget {
                   if (!context.mounted) return;
                   if (!await _confirmWithAppPassword(context)) return;
                   if (!context.mounted) return;
-                  final confirmed = await showDialog<bool>(
-                    context: context,
-                    barrierDismissible: false,
-                    builder: (ctx) => AlertDialog(
-                      backgroundColor: AppTheme.surface,
-                      title: Text('Unencrypted backup',
-                          style: GoogleFonts.inter(
-                              color: AppTheme.textPrimary,
-                              fontWeight: FontWeight.w700)),
-                      content: Text(
-                        'This file is an unencrypted identity backup and will '
+                  final confirmed = await showConfirmDialog(
+                    context,
+                    title: 'Unencrypted backup',
+                    message: 'This file is an unencrypted identity backup and will '
                         'overwrite your current keys. Only import files you '
                         'created yourself. Proceed?',
-                        style: GoogleFonts.inter(color: AppTheme.textSecondary, height: 1.5),
-                      ),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.pop(ctx, false),
-                          child: Text('Cancel', style: GoogleFonts.inter()),
-                        ),
-                        TextButton(
-                          onPressed: () => Navigator.pop(ctx, true),
-                          child: Text('Import anyway',
-                              style: GoogleFonts.inter(color: Colors.red)),
-                        ),
-                      ],
-                    ),
+                    confirmLabel: 'Import anyway',
+                    destructive: true,
                   );
-                  if (confirmed != true) return;
+                  if (!confirmed) return;
                   debugPrint('[Identity] Importing legacy unencrypted backup (user confirmed)');
                   final jsonStr = utf8.decode(bytes);
                   data = jsonDecode(jsonStr) as Map<String, dynamic>;
@@ -644,31 +506,15 @@ class DataSection extends StatelessWidget {
                 }
                 if (ctx.mounted) Navigator.pop(ctx);
                 if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                    content: Text(context.l10n.settingsIdentityImported,
-                        style: GoogleFonts.inter()),
-                    backgroundColor: AppTheme.primary,
-                    behavior: SnackBarBehavior.floating,
-                    duration: const Duration(seconds: 4),
-                    shape: RoundedRectangleBorder(
-                        borderRadius:
-                            BorderRadius.circular(DesignTokens.spacing10)),
-                  ));
+                  showSuccessSnackBar(
+                      context, context.l10n.settingsIdentityImported,
+                      duration: const Duration(seconds: 4));
                 }
               } catch (e) {
                 if (ctx.mounted) Navigator.pop(ctx);
                 if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                    content: Text(
-                        context.l10n.appearanceImportFailed(e.toString()),
-                        style: GoogleFonts.inter()),
-                    backgroundColor: Colors.red,
-                    behavior: SnackBarBehavior.floating,
-                    duration: const Duration(seconds: 3),
-                    shape: RoundedRectangleBorder(
-                        borderRadius:
-                            BorderRadius.circular(DesignTokens.spacing10)),
-                  ));
+                  showErrorSnackBar(context,
+                      context.l10n.appearanceImportFailed(e.toString()));
                 }
               }
             },
@@ -730,14 +576,7 @@ class DataSection extends StatelessWidget {
 
       if (bytes == null) {
         Navigator.of(context).pop();
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(context.l10n.dataBackupFailed,
-              style: GoogleFonts.inter()),
-          backgroundColor: Colors.red,
-          behavior: SnackBarBehavior.floating,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.spacing10)),
-        ));
+        showErrorSnackBar(context, context.l10n.dataBackupFailed);
         return;
       }
 
@@ -791,27 +630,14 @@ class DataSection extends StatelessWidget {
       if (!context.mounted) return;
       Navigator.of(context).pop();
 
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(
-          context.l10n.dataBackupSaved(progressTotal, savePath),
-          style: GoogleFonts.inter(),
-        ),
-        backgroundColor: AppTheme.primary,
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 4),
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.spacing10)),
-      ));
+      showSuccessSnackBar(
+          context, context.l10n.dataBackupSaved(progressTotal, savePath),
+          duration: const Duration(seconds: 4));
     } catch (e) {
       if (context.mounted) {
         Navigator.of(context).pop();
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(context.l10n.dataBackupFailedError(e.toString()), style: GoogleFonts.inter()),
-          backgroundColor: Colors.red,
-          behavior: SnackBarBehavior.floating,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.spacing10)),
-        ));
+        showErrorSnackBar(
+            context, context.l10n.dataBackupFailedError(e.toString()));
       }
     }
   }
@@ -846,14 +672,7 @@ class DataSection extends StatelessWidget {
   Future<void> _doRestore(BuildContext context, Uint8List fileBytes) async {
     if (fileBytes.length < 34) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(context.l10n.dataInvalidBackupFile,
-              style: GoogleFonts.inter()),
-          backgroundColor: Colors.red,
-          behavior: SnackBarBehavior.floating,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.spacing10)),
-        ));
+        showErrorSnackBar(context, context.l10n.dataInvalidBackupFile);
       }
       return;
     }
@@ -862,14 +681,7 @@ class DataSection extends StatelessWidget {
     for (int i = 0; i < 4; i++) {
       if (fileBytes[i] != magic[i]) {
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text(context.l10n.dataNotValidBackupFile,
-                style: GoogleFonts.inter()),
-            backgroundColor: Colors.red,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(DesignTokens.spacing10)),
-          ));
+          showErrorSnackBar(context, context.l10n.dataNotValidBackupFile);
         }
         return;
       }
@@ -914,14 +726,7 @@ class DataSection extends StatelessWidget {
       Navigator.of(context).pop();
 
       if (result.imported < 0) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(context.l10n.dataRestoreFailed,
-              style: GoogleFonts.inter()),
-          backgroundColor: Colors.red,
-          behavior: SnackBarBehavior.floating,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.spacing10)),
-        ));
+        showErrorSnackBar(context, context.l10n.dataRestoreFailed);
       } else {
         final msg = result.imported > 0
             ? context.l10n.dataRestoreSuccess(result.imported)
@@ -929,28 +734,18 @@ class DataSection extends StatelessWidget {
         final failedMsg = result.failed > 0
             ? ' (${result.failed} entries skipped)'
             : '';
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(
-            '$msg$failedMsg',
-            style: GoogleFonts.inter(),
-          ),
-          backgroundColor: result.failed > 0 ? Colors.orange : AppTheme.primary,
-          behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 3),
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.spacing10)),
-        ));
+        if (result.failed > 0) {
+          showWarningSnackBar(context, '$msg$failedMsg');
+        } else {
+          showSuccessSnackBar(context, '$msg$failedMsg',
+              duration: const Duration(seconds: 3));
+        }
       }
     } catch (e) {
       if (context.mounted) {
         Navigator.of(context).pop();
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(context.l10n.dataRestoreFailedError(e.toString()), style: GoogleFonts.inter()),
-          backgroundColor: Colors.red,
-          behavior: SnackBarBehavior.floating,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.spacing10)),
-        ));
+        showErrorSnackBar(
+            context, context.l10n.dataRestoreFailedError(e.toString()));
       }
     }
   }
@@ -1040,14 +835,7 @@ class DataSection extends StatelessWidget {
       Navigator.of(context).pop();
 
       if (bytes == null) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(context.l10n.dataExportFailed,
-              style: GoogleFonts.inter()),
-          backgroundColor: Colors.red,
-          behavior: SnackBarBehavior.floating,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.spacing10)),
-        ));
+        showErrorSnackBar(context, context.l10n.dataExportFailed);
         return;
       }
 
@@ -1067,15 +855,9 @@ class DataSection extends StatelessWidget {
             await f.writeAsBytes(bytes);
           }
           if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-              content: Text(context.l10n.dataKeysExportedTo(savePath),
-                  style: GoogleFonts.inter()),
-              backgroundColor: AppTheme.primary,
-              behavior: SnackBarBehavior.floating,
-              duration: const Duration(seconds: 4),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(DesignTokens.spacing10)),
-            ));
+            showSuccessSnackBar(
+                context, context.l10n.dataKeysExportedTo(savePath),
+                duration: const Duration(seconds: 4));
           }
         }
       } catch (e) {
@@ -1084,13 +866,8 @@ class DataSection extends StatelessWidget {
     } catch (e) {
       if (context.mounted) {
         Navigator.of(context).pop();
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(context.l10n.dataExportFailedError(e.toString()), style: GoogleFonts.inter()),
-          backgroundColor: Colors.red,
-          behavior: SnackBarBehavior.floating,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.spacing10)),
-        ));
+        showErrorSnackBar(
+            context, context.l10n.dataExportFailedError(e.toString()));
       }
     }
   }
@@ -1119,14 +896,7 @@ class DataSection extends StatelessWidget {
     if (!context.mounted) return;
 
     if (!KeyExportService.isValidExportFile(fileBytes)) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(context.l10n.dataNotValidKeyFile,
-            style: GoogleFonts.inter()),
-        backgroundColor: Colors.red,
-        behavior: SnackBarBehavior.floating,
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.spacing10)),
-      ));
+      showErrorSnackBar(context, context.l10n.dataNotValidKeyFile);
       return;
     }
 
@@ -1206,14 +976,7 @@ class DataSection extends StatelessWidget {
       Navigator.of(context).pop();
 
       if (imported < 0) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(context.l10n.dataImportFailed,
-              style: GoogleFonts.inter()),
-          backgroundColor: Colors.red,
-          behavior: SnackBarBehavior.floating,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.spacing10)),
-        ));
+        showErrorSnackBar(context, context.l10n.dataImportFailed);
       } else {
         await showDialog(
           context: context,
@@ -1263,13 +1026,8 @@ class DataSection extends StatelessWidget {
     } catch (e) {
       if (context.mounted) {
         Navigator.of(context).pop();
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(context.l10n.dataImportFailedError(e.toString()), style: GoogleFonts.inter()),
-          backgroundColor: Colors.red,
-          behavior: SnackBarBehavior.floating,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.spacing10)),
-        ));
+        showErrorSnackBar(
+            context, context.l10n.dataImportFailedError(e.toString()));
       }
     }
   }

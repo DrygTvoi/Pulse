@@ -276,3 +276,180 @@ class BackupProgressDialogState extends State<BackupProgressDialog> {
     );
   }
 }
+
+// ── SnackBar helpers ──────────────────────────────────────────────────────────
+
+void showSuccessSnackBar(BuildContext context, String message,
+    {Duration duration = const Duration(seconds: 2)}) {
+  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+    content: Text(message,
+        style: GoogleFonts.inter(fontSize: DesignTokens.fontBody)),
+    backgroundColor: AppTheme.primary,
+    behavior: SnackBarBehavior.floating,
+    shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(DesignTokens.radiusMedium)),
+    duration: duration,
+  ));
+}
+
+void showErrorSnackBar(BuildContext context, String message,
+    {Duration duration = const Duration(seconds: 3)}) {
+  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+    content: Text(message,
+        style: GoogleFonts.inter(fontSize: DesignTokens.fontBody)),
+    backgroundColor: AppTheme.error,
+    behavior: SnackBarBehavior.floating,
+    shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(DesignTokens.radiusMedium)),
+    duration: duration,
+  ));
+}
+
+void showWarningSnackBar(BuildContext context, String message,
+    {Duration duration = const Duration(seconds: 3)}) {
+  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+    content: Text(message,
+        style: GoogleFonts.inter(fontSize: DesignTokens.fontBody)),
+    backgroundColor: AppTheme.warningDark,
+    behavior: SnackBarBehavior.floating,
+    shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(DesignTokens.radiusMedium)),
+    duration: duration,
+  ));
+}
+
+// ── Password field widget ─────────────────────────────────────────────────────
+
+class SettingsPasswordField extends StatelessWidget {
+  final TextEditingController controller;
+  final bool obscure;
+  final VoidCallback onToggleObscure;
+  final String? hintText;
+  final String? errorText;
+  final bool autofocus;
+  final ValueChanged<String>? onChanged;
+
+  const SettingsPasswordField({
+    super.key,
+    required this.controller,
+    required this.obscure,
+    required this.onToggleObscure,
+    this.hintText,
+    this.errorText,
+    this.autofocus = false,
+    this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextField(
+          controller: controller,
+          obscureText: obscure,
+          autofocus: autofocus,
+          style: GoogleFonts.inter(
+              color: AppTheme.textPrimary, fontSize: DesignTokens.fontInput),
+          decoration: InputDecoration(
+            hintText: hintText,
+            hintStyle: GoogleFonts.inter(
+                color: AppTheme.textSecondary,
+                fontSize: DesignTokens.fontLg),
+            filled: true,
+            fillColor: AppTheme.surfaceVariant,
+            border: OutlineInputBorder(
+                borderRadius:
+                    BorderRadius.circular(DesignTokens.radiusMedium),
+                borderSide: BorderSide.none),
+            enabledBorder: OutlineInputBorder(
+                borderRadius:
+                    BorderRadius.circular(DesignTokens.radiusMedium),
+                borderSide: BorderSide.none),
+            focusedBorder: OutlineInputBorder(
+              borderRadius:
+                  BorderRadius.circular(DesignTokens.radiusMedium),
+              borderSide:
+                  const BorderSide(color: Color(0xFF60A5FA), width: 1.5),
+            ),
+            contentPadding: const EdgeInsets.symmetric(
+                horizontal: DesignTokens.spacing14,
+                vertical: DesignTokens.spacing12),
+            suffixIcon: IconButton(
+              icon: Icon(
+                obscure
+                    ? Icons.visibility_rounded
+                    : Icons.visibility_off_rounded,
+                color: AppTheme.textSecondary,
+                size: DesignTokens.fontHeading,
+              ),
+              onPressed: onToggleObscure,
+            ),
+          ),
+          onChanged: onChanged,
+        ),
+        if (errorText != null) ...[
+          const SizedBox(height: DesignTokens.spacing8),
+          Text(
+            errorText!,
+            style: GoogleFonts.inter(
+                color: const Color(0xFFF87171),
+                fontSize: DesignTokens.fontBody),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+// ── Confirmation dialog helper ────────────────────────────────────────────────
+
+Future<bool> showConfirmDialog(
+  BuildContext context, {
+  required String title,
+  required String message,
+  String? confirmLabel,
+  bool destructive = false,
+}) async {
+  final result = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog.adaptive(
+      backgroundColor: AppTheme.surface,
+      shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(DesignTokens.dialogRadius)),
+      title: Text(
+        title,
+        style: GoogleFonts.inter(
+            color: AppTheme.textPrimary, fontWeight: FontWeight.w700),
+      ),
+      content: Text(
+        message,
+        style: GoogleFonts.inter(
+            color: AppTheme.textSecondary,
+            fontSize: DesignTokens.fontMd,
+            height: 1.5),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(ctx).pop(false),
+          child: Text('Cancel',
+              style: GoogleFonts.inter(color: AppTheme.textSecondary)),
+        ),
+        TextButton(
+          onPressed: () => Navigator.of(ctx).pop(true),
+          child: Text(
+            confirmLabel ?? 'Confirm',
+            style: GoogleFonts.inter(
+              color: destructive
+                  ? const Color(0xFFF87171)
+                  : AppTheme.primary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+  return result == true;
+}

@@ -5,13 +5,13 @@ import '../../l10n/l10n_ext.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/design_tokens.dart';
 import '../privacy_policy_screen.dart';
+import 'developer_screen.dart';
 import 'settings_widgets.dart';
 
 const kAppVersion = '1.0.0';
 
 class AboutSection extends StatefulWidget {
-  final VoidCallback? onDevModeUnlocked;
-  const AboutSection({super.key, this.onDevModeUnlocked});
+  const AboutSection({super.key});
 
   @override
   State<AboutSection> createState() => _AboutSectionState();
@@ -71,7 +71,7 @@ class _AboutSectionState extends State<AboutSection> {
       content: Text('Developer mode enabled'),
       duration: Duration(seconds: 2),
     ));
-    widget.onDevModeUnlocked?.call();
+    setState(() {}); // refresh to show Developer Tools row
   }
 
   @override
@@ -116,6 +116,17 @@ class _AboutSectionState extends State<AboutSection> {
               onChanged: _toggle,
             ),
           ),
+          if (_devModeAlreadyEnabled)
+            settingsGroupRow(
+              icon: Icons.code,
+              iconColor: AppTheme.primary,
+              title: 'Developer Tools',
+              subtitle: 'Adapter toggles & diagnostics',
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const DeveloperScreen()),
+              ),
+            ),
         ]),
       ],
     );

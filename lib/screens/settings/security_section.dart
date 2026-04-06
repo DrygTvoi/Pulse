@@ -71,52 +71,15 @@ class _SecuritySectionState extends State<SecuritySection> {
                   style: GoogleFonts.inter(
                       color: AppTheme.textSecondary, fontSize: DesignTokens.fontMd)),
               const SizedBox(height: DesignTokens.spacing16),
-              TextField(
+              SettingsPasswordField(
                 controller: controller,
-                obscureText: !showPass,
+                obscure: !showPass,
+                onToggleObscure: () => setS(() => showPass = !showPass),
+                hintText: context.l10n.settingsCurrentPassword,
                 autofocus: true,
-                style: GoogleFonts.inter(
-                    color: AppTheme.textPrimary, fontSize: DesignTokens.fontInput),
-                decoration: InputDecoration(
-                  hintText: context.l10n.settingsCurrentPassword,
-                  hintStyle: GoogleFonts.inter(
-                      color: AppTheme.textSecondary, fontSize: DesignTokens.fontLg),
-                  filled: true,
-                  fillColor: AppTheme.surfaceVariant,
-                  border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
-                      borderSide: BorderSide.none),
-                  enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
-                      borderSide: BorderSide.none),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
-                    borderSide: const BorderSide(
-                        color: Color(0xFF60A5FA), width: 1.5),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(
-                      horizontal: DesignTokens.spacing14, vertical: DesignTokens.spacing12),
-                  suffixIcon: IconButton(
-                    icon: Icon(
-                      showPass
-                          ? Icons.visibility_off_rounded
-                          : Icons.visibility_rounded,
-                      color: AppTheme.textSecondary,
-                      size: DesignTokens.fontHeading,
-                    ),
-                    onPressed: () => setS(() => showPass = !showPass),
-                  ),
-                ),
+                errorText: error,
                 onChanged: (_) => setS(() => error = null),
               ),
-              if (error != null) ...[
-                const SizedBox(height: DesignTokens.spacing8),
-                Text(
-                  error!,
-                  style: GoogleFonts.inter(
-                      color: const Color(0xFFF87171), fontSize: DesignTokens.fontBody),
-                ),
-              ],
             ],
           ),
           actions: [
@@ -230,14 +193,7 @@ class _SecuritySectionState extends State<SecuritySection> {
       ),
     );
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(context.l10n.securityPasswordUpdated,
-              style: GoogleFonts.inter(color: Colors.white)),
-          backgroundColor: const Color(0xFF34D399),
-          duration: const Duration(seconds: 2),
-        ),
-      );
+      showSuccessSnackBar(context, context.l10n.securityPasswordUpdated);
     }
   }
 
@@ -281,40 +237,14 @@ class _SecuritySectionState extends State<SecuritySection> {
       );
       if (!confirmed || !mounted) return;
     }
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog.adaptive(
-        backgroundColor: AppTheme.surface,
-        title: Text(
-          context.l10n.settingsRemovePanicKey,
-          style: GoogleFonts.inter(
-              color: AppTheme.textPrimary, fontWeight: FontWeight.w700),
-        ),
-        content: Text(
-          context.l10n.settingsRemovePanicKeyBody,
-          style: GoogleFonts.inter(
-              color: AppTheme.textSecondary, fontSize: DesignTokens.fontLg),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: Text(context.l10n.cancel,
-                style:
-                    GoogleFonts.inter(color: AppTheme.textSecondary)),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: Text(
-              context.l10n.remove,
-              style: GoogleFonts.inter(
-                  color: const Color(0xFFF87171),
-                  fontWeight: FontWeight.w600),
-            ),
-          ),
-        ],
-      ),
+    final ok = await showConfirmDialog(
+      context,
+      title: context.l10n.settingsRemovePanicKey,
+      message: context.l10n.settingsRemovePanicKeyBody,
+      confirmLabel: context.l10n.remove,
+      destructive: true,
     );
-    if (ok != true) return;
+    if (!ok) return;
     await _secureStorage.delete(key: 'app_panic_key_hash');
     await _secureStorage.delete(key: 'app_panic_key_salt');
     widget.onPanicKeyEnabledChanged(false);
