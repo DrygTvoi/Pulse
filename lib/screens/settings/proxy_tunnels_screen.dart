@@ -241,6 +241,14 @@ class _ProxyTunnelsScreenState extends State<ProxyTunnelsScreen> {
               setState(() => _torEnabled = v);
               final prefs = await SharedPreferences.getInstance();
               await prefs.setBool('tor_enabled', v);
+              // When turning off Tor, also stop bundled Tor to prevent desync:
+              // without this, bundled_tor_enabled stays true and Tor auto-starts
+              // on next app launch even though the user toggled it off.
+              if (!v && _bundledTorEnabled) {
+                await TorService.instance.stop();
+                setState(() => _bundledTorEnabled = false);
+                await prefs.setBool('bundled_tor_enabled', false);
+              }
             },
             onToggleBundledTor: _toggleBundledTor,
             onPreferredPtChanged: (val) async {

@@ -132,8 +132,14 @@ Future<void> main() async {
       BackgroundService.instance.init();
       unawaited(BackgroundService.instance.startIfEnabled());
       // Re-start bundled Tor if user had it enabled previously.
+      // Guard against desync: if tor_enabled was turned off but
+      // bundled_tor_enabled wasn't cleared, fix it and skip start.
       if (prefs.getBool('bundled_tor_enabled') ?? false) {
-        unawaited(TorService.instance.startPersistent());
+        if (prefs.getBool('tor_enabled') ?? false) {
+          unawaited(TorService.instance.startPersistent());
+        } else {
+          await prefs.setBool('bundled_tor_enabled', false);
+        }
       }
       // Re-start Psiphon if user had it enabled previously.
       if (prefs.getBool('bundled_psiphon_enabled') ?? false) {
