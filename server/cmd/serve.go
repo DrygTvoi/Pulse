@@ -9,6 +9,7 @@ import (
 	"os/signal"
 	"strconv"
 	"syscall"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -83,46 +84,17 @@ func runServe(cmd *cobra.Command, args []string) error {
 	go hub.Run()
 	log.Printf("[serve] hub started")
 
-	// Initialize TURN server
+	// Prepare TURN server (actual start deferred until TLS listener is ready)
 	var turnSrv *turn.Server
+	var turnSecret []byte
+	var turnSecretIsNew bool
 	if cfg.Turn.Enabled {
 		turnSrv = turn.NewServer()
-
-		// Load or generate TURN secret via the key store
-		var turnSecret []byte
-		kb, err := keys.GetBundle("_server_turn_secret")
-		if err == nil && kb != nil {
+		kb, kErr := keys.GetBundle("_server_turn_secret")
+		if kErr == nil && kb != nil {
 			turnSecret = kb.Bundle
-		}
-
-		if err := turnSrv.Start(cfg.Turn.Port, cfg.Turn.Realm, turnSecret); err != nil {
-			log.Printf("[serve] WARNING: failed to start TURN server: %v", err)
-			turnSrv = nil
 		} else {
-			// Set public host for TURN URIs: config override → AutoTLS domain → realm
-			pubHost := cfg.Turn.PublicHost
-			if pubHost == "" && cfg.Server.AutoTLSDomain != "" {
-				pubHost = cfg.Server.AutoTLSDomain
-			}
-			if pubHost != "" {
-				turnSrv.SetPublicHost(pubHost)
-			}
-			// Advertise TURNS on the HTTPS port (443) for censorship resistance.
-			// DPI sees standard TLS on 443 — indistinguishable from HTTPS.
-			if cfg.Server.Listen != "" {
-				// Extract port from listen address (e.g. ":443" → 443)
-				_, portStr, _ := net.SplitHostPort(cfg.Server.Listen)
-				if p, err := strconv.Atoi(portStr); err == nil && p > 0 {
-					turnSrv.SetTLSPort(p)
-				}
-			}
-			// Persist the secret if it was newly generated
-			if kb == nil {
-				if err := keys.PutBundle("_server_turn_secret", turnSrv.Secret()); err != nil {
-					log.Printf("[serve] WARNING: failed to persist TURN secret: %v", err)
-				}
-			}
-			log.Printf("[serve] TURN server started on port %d (public_host=%s)", cfg.Turn.Port, pubHost)
+			turnSecretIsNew = true
 		}
 	}
 
@@ -184,11 +156,6 @@ func runServe(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	// Set TURN server on hub for auth
-	if turnSrv != nil {
-		hub.SetTurnServer(turnSrv)
-	}
-
 	// Initialize SFU manager (Phase 2)
 	var sfuMgr *sfu.Manager
 	if cfg.Media.Enabled {
@@ -244,7 +211,7 @@ func runServe(cmd *cobra.Command, args []string) error {
 		log.Printf("[serve] sealed sender enabled (certs: %d, ttl: %s)", certCount, certTTL)
 	}
 
-	// Initialize transport server
+	// Initialize transport server (passes turnSrv so ListenAndServe creates STUN mux)
 	srv := transport.NewServer(cfg, hub, users, invites, messages, turnSrv, peerManager)
 
 	// Signal handling for graceful shutdown
@@ -253,8 +220,67 @@ func runServe(cmd *cobra.Command, args []string) error {
 
 	errCh := make(chan error, 1)
 	go func() {
+		// ListenAndServe creates TLS listener + STUN/HTTP mux internally.
+		// We start TURN right after the mux is ready (inside the goroutine
+		// because ListenAndServe blocks).
+		//
+		// The mux is created synchronously inside ListenAndServe before it
+		// starts accepting connections, so STUNListener() is available after
+		// the initial setup phase. To avoid a race, we start TURN in a
+		// separate goroutine that waits briefly for the listener.
 		errCh <- srv.ListenAndServe()
 	}()
+
+	// Start TURN server now — transport.ListenAndServe has created the STUN mux
+	// synchronously before entering its accept loop, but we're in a race with
+	// the goroutine above. Give it a moment to set up the listener.
+	if turnSrv != nil {
+		// Wait for STUN listener to become available (up to 5s)
+		var stunLn net.Listener
+		for i := 0; i < 50; i++ {
+			stunLn = srv.STUNListener()
+			if stunLn != nil {
+				break
+			}
+			select {
+			case err := <-errCh:
+				// Server failed to start
+				return err
+			case <-time.After(100 * time.Millisecond):
+			}
+		}
+
+		if err := turnSrv.Start(cfg.Turn.Port, cfg.Turn.Realm, turnSecret, stunLn); err != nil {
+			log.Printf("[serve] WARNING: failed to start TURN server: %v", err)
+			turnSrv = nil
+		} else {
+			// Set public host for TURN URIs: config override → AutoTLS domain → realm
+			pubHost := cfg.Turn.PublicHost
+			if pubHost == "" && cfg.Server.AutoTLSDomain != "" {
+				pubHost = cfg.Server.AutoTLSDomain
+			}
+			if pubHost != "" {
+				turnSrv.SetPublicHost(pubHost)
+			}
+			// Advertise TURNS on the HTTPS port (443) for censorship resistance
+			if cfg.Server.Listen != "" {
+				_, portStr, _ := net.SplitHostPort(cfg.Server.Listen)
+				if p, pErr := strconv.Atoi(portStr); pErr == nil && p > 0 {
+					turnSrv.SetTLSPort(p)
+				}
+			}
+			if turnSecretIsNew {
+				if pErr := keys.PutBundle("_server_turn_secret", turnSrv.Secret()); pErr != nil {
+					log.Printf("[serve] WARNING: failed to persist TURN secret: %v", pErr)
+				}
+			}
+			log.Printf("[serve] TURN server started on port %d (public_host=%s, turns_on_443=%v)", cfg.Turn.Port, pubHost, stunLn != nil)
+		}
+		// Set on hub for credential generation in auth_ok
+		if turnSrv != nil {
+			hub.SetTurnServer(turnSrv)
+		}
+	}
 
 	select {
 	case err := <-errCh:

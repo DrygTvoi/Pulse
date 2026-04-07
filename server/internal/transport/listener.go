@@ -42,6 +42,7 @@ type Server struct {
 	certFP       string
 	startTime    time.Time
 	tcpListener  net.Listener // raw TCP listener for ICE-TCP mux sharing
+	stunListener net.Listener // STUN connections from TLS mux (for TURNS on 443)
 }
 
 // NewServer creates a new transport server.
@@ -177,6 +178,13 @@ func isWebSocketUpgrade(r *http.Request) bool {
 	return false
 }
 
+// STUNListener returns a net.Listener that receives only STUN/TURN connections
+// from the shared TLS port. Must be called BEFORE ListenAndServe.
+// Returns nil if TURN multiplexing is not applicable (no TLS, no TURN server).
+func (s *Server) STUNListener() net.Listener {
+	return s.stunListener
+}
+
 // ListenAndServe starts the server on the configured address.
 func (s *Server) ListenAndServe() error {
 	addr := s.cfg.Server.Listen
@@ -203,10 +211,10 @@ func (s *Server) ListenAndServe() error {
 		s.certFP = fp
 		fmt.Printf("CERT_FP %s\n", fp)
 		log.Printf("[transport] cert fingerprint: %s", fp)
-		// NOTE: do NOT set s.httpServer.TLSConfig — it auto-enables HTTP/2 which breaks WebSocket
 		tlsLn := tls.NewListener(ln, tlsCfg)
+		httpLn := s.maybeEnableTURNMux(tlsLn)
 		log.Printf("[transport] serving TLS (self-signed) on %s", addr)
-		return s.httpServer.Serve(tlsLn)
+		return s.httpServer.Serve(httpLn)
 
 	case "manual":
 		tlsCfg, err := LoadTLS(s.cfg.Server.TLSCert, s.cfg.Server.TLSKey)
@@ -219,10 +227,10 @@ func (s *Server) ListenAndServe() error {
 			fmt.Printf("CERT_FP %s\n", s.certFP)
 			log.Printf("[transport] cert fingerprint: %s", s.certFP)
 		}
-		// NOTE: do NOT set s.httpServer.TLSConfig — it auto-enables HTTP/2 which breaks WebSocket
 		tlsLn := tls.NewListener(ln, tlsCfg)
+		httpLn := s.maybeEnableTURNMux(tlsLn)
 		log.Printf("[transport] serving TLS (manual) on %s", addr)
-		return s.httpServer.Serve(tlsLn)
+		return s.httpServer.Serve(httpLn)
 
 	case "auto":
 		ln.Close()
@@ -230,21 +238,35 @@ func (s *Server) ListenAndServe() error {
 		if err != nil {
 			return fmt.Errorf("failed to configure auto TLS: %w", err)
 		}
-		// Start HTTP-01 challenge listener on :80
 		go http.ListenAndServe(":80", acmeMgr.HTTPHandler(nil))
 		tlsLn, err := net.Listen("tcp", addr)
 		if err != nil {
 			return fmt.Errorf("failed to listen on %s: %w", addr, err)
 		}
-		// NOTE: do NOT set s.httpServer.TLSConfig — it auto-enables HTTP/2 which breaks WebSocket
 		autoLn := tls.NewListener(tlsLn, tlsCfg)
+		httpLn := s.maybeEnableTURNMux(autoLn)
 		log.Printf("[transport] serving TLS (auto/Let's Encrypt) on %s for domain %s", addr, s.cfg.Server.AutoTLSDomain)
-		return s.httpServer.Serve(autoLn)
+		return s.httpServer.Serve(httpLn)
 
 	default:
 		ln.Close()
 		return fmt.Errorf("unknown TLS mode: %s", s.cfg.Server.TLSMode)
 	}
+}
+
+// maybeEnableTURNMux splits the TLS listener into STUN (for TURN) and HTTP
+// streams if a TURN server is configured. Returns the HTTP listener to serve.
+// If no TURN server, returns the original TLS listener unchanged.
+func (s *Server) maybeEnableTURNMux(tlsLn net.Listener) net.Listener {
+	if s.turnServer == nil {
+		return tlsLn
+	}
+	stunLn := newChanListener(tlsLn.Addr())
+	httpLn := newChanListener(tlsLn.Addr())
+	s.stunListener = stunLn
+	go muxAcceptLoop(tlsLn, stunLn, httpLn)
+	log.Printf("[transport] STUN/HTTP multiplexer enabled on TLS port")
+	return httpLn
 }
 
 // Shutdown gracefully shuts down the server.

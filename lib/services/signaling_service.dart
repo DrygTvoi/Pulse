@@ -254,9 +254,14 @@ class SignalingService {
 
   void _attachPeerCallbacks() {
     peerConnection!.onIceCandidate = (RTCIceCandidate candidate) {
+      debugPrint('[ICE] candidate: ${candidate.candidate}');
       if (candidate.candidate != null) {
         _sendSignalingData('candidate', candidate.toMap());
       }
+    };
+
+    peerConnection!.onIceGatheringState = (RTCIceGatheringState state) {
+      debugPrint('[ICE] gathering state: $state');
     };
 
     peerConnection!.onIceConnectionState = (RTCIceConnectionState state) {

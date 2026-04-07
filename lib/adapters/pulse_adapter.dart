@@ -555,23 +555,57 @@ class PulseInboxReader implements InboxReader {
     return IOWebSocketChannel(ws);
   }
 
+  /// Extract hostname from _serverUrl (e.g. "https://duck.azxc.site:443" → "duck.azxc.site").
+  String _extractServerHost() {
+    try {
+      var s = _serverUrl;
+      if (s.startsWith('https://')) s = s.substring(8);
+      if (s.startsWith('http://')) s = s.substring(7);
+      s = s.split('/').first; // remove path
+      s = s.split(':').first; // remove port
+      return s;
+    } catch (_) {
+      return '';
+    }
+  }
+
   /// Save TURN credentials from auth_ok (structured `turn` object).
+  /// Saves ALL URIs (udp, tcp, turns) so loadRelay() can pick turns: for relay mode.
+  /// Fixes hostname if server sends realm instead of real hostname.
   Future<void> _saveTurnCreds(Map<String, dynamic> data) async {
     try {
       const ss = FlutterSecureStorage();
       final turnObj = data['turn'];
       if (turnObj is Map<String, dynamic>) {
-        final urls = turnObj['urls'];
-        String turnUrl = '';
-        if (urls is List && urls.isNotEmpty) {
-          turnUrl = urls.first.toString();
-        }
+        var urls = turnObj['urls'];
         final turnUser = turnObj['username'] as String? ?? '';
         final turnPass = turnObj['credential'] as String? ?? '';
-        if (turnUrl.isNotEmpty) {
-          await ss.write(key: 'pulse_turn_url',  value: turnUrl);
+        if (urls is List && urls.isNotEmpty) {
+          // Fix TURN hostnames: if server sends realm (no dots = not a hostname),
+          // replace with actual server hostname extracted from _serverUrl.
+          final serverHost = _extractServerHost();
+          if (serverHost.isNotEmpty) {
+            urls = urls.map((u) {
+              final s = u.toString();
+              // Extract hostname from turn:HOST:port or turns:HOST:port
+              final m = RegExp(r'^(turns?:)([^:/?]+)(.*)$').firstMatch(s);
+              if (m != null) {
+                final host = m.group(2)!;
+                if (!host.contains('.') && !host.contains(':')) {
+                  // Not a real hostname (e.g. "pulse"), replace with server host
+                  return '${m.group(1)}$serverHost${m.group(3)}';
+                }
+              }
+              return s;
+            }).toList();
+          }
+          // Save all URLs as JSON array for IceServerConfig to load
+          await ss.write(key: 'pulse_turn_urls', value: jsonEncode(urls));
+          // Keep legacy single-URL key for backward compat
+          await ss.write(key: 'pulse_turn_url',  value: urls.first.toString());
           await ss.write(key: 'pulse_turn_user', value: turnUser);
           await ss.write(key: 'pulse_turn_pass', value: turnPass);
+          debugPrint('[Pulse] TURN creds saved: $urls');
         }
       }
       // Save cert fingerprint from auth_ok if provided

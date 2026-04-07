@@ -61,7 +61,9 @@ func NewServer() *Server {
 
 // Start begins the TURN relay on the given UDP port with the specified realm.
 // If secret is nil, a random secret is generated.
-func (s *Server) Start(port int, realm string, secret []byte) error {
+// tlsListener is optional — if provided, TURNS (TURN over TLS) is served on it
+// (typically the shared TLS listener on port 443).
+func (s *Server) Start(port int, realm string, secret []byte, tlsListener net.Listener) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -86,14 +88,34 @@ func (s *Server) Start(port int, realm string, secret []byte) error {
 		return fmt.Errorf("failed to listen on UDP port %d: %w", port, err)
 	}
 
-	// Open TCP listener on same port
-	tcpListener, err := net.Listen("tcp4", "0.0.0.0:"+strconv.Itoa(port))
-	if err != nil {
-		udpListener.Close()
-		return fmt.Errorf("failed to listen on TCP port %d: %w", port, err)
+	// Open TCP listener on same port (optional — may fail if port is in use)
+	var listenerConfigs []turn.ListenerConfig
+	tcpListener, tcpErr := net.Listen("tcp4", "0.0.0.0:"+strconv.Itoa(port))
+	if tcpErr != nil {
+		log.Printf("[turn] WARNING: TCP on port %d unavailable (%v) — UDP only", port, tcpErr)
+	} else {
+		listenerConfigs = append(listenerConfigs, turn.ListenerConfig{
+			Listener: tcpListener,
+			RelayAddressGenerator: &turn.RelayAddressGeneratorStatic{
+				RelayAddress: net.ParseIP("0.0.0.0"),
+				Address:      "0.0.0.0",
+			},
+		})
 	}
 
-	// Create the TURN server with both UDP and TCP
+	// Add TLS listener for TURNS on port 443 (multiplexed with HTTPS)
+	if tlsListener != nil {
+		listenerConfigs = append(listenerConfigs, turn.ListenerConfig{
+			Listener: tlsListener,
+			RelayAddressGenerator: &turn.RelayAddressGeneratorStatic{
+				RelayAddress: net.ParseIP("0.0.0.0"),
+				Address:      "0.0.0.0",
+			},
+		})
+		log.Printf("[turn] TURNS listener added (shared TLS port)")
+	}
+
+	// Create the TURN server
 	logFactory := logging.NewDefaultLoggerFactory()
 	logFactory.DefaultLogLevel = logging.LogLevelWarn
 
@@ -111,44 +133,29 @@ func (s *Server) Start(port int, realm string, secret []byte) error {
 				},
 			},
 		},
-		ListenerConfigs: []turn.ListenerConfig{
-			{
-				Listener: tcpListener,
-				RelayAddressGenerator: &turn.RelayAddressGeneratorStatic{
-					RelayAddress: net.ParseIP("0.0.0.0"),
-					Address:      "0.0.0.0",
-				},
-			},
-		},
-		LoggerFactory: logFactory,
+		ListenerConfigs: listenerConfigs,
+		LoggerFactory:   logFactory,
 	})
 	if err != nil {
 		udpListener.Close()
-		tcpListener.Close()
+		if tcpListener != nil {
+			tcpListener.Close()
+		}
 		return fmt.Errorf("failed to create TURN server: %w", err)
 	}
 
 	s.server = srv
-	log.Printf("[turn] TURN server started on UDP+TCP port %d (realm: %s)", port, realm)
-	return nil
-}
-
-// AddTLSListener adds an existing TLS net.Listener for TURNS (TURN over TLS).
-// Typically the main HTTPS listener on port 443.
-func (s *Server) AddTLSListener(listener net.Listener) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	if s.server == nil {
-		return fmt.Errorf("TURN server not started — call Start() first")
+	transports := "UDP"
+	if tcpListener != nil {
+		transports += "+TCP"
 	}
-
-	// pion/turn doesn't support adding listeners after creation, so we
-	// need to recreate the server. For now, log that TLS sharing is not
-	// yet implemented — the TCP listener on the TURN port handles most cases.
-	log.Printf("[turn] TLS listener sharing not yet implemented — use TCP TURN on port %d", s.port)
+	if tlsListener != nil {
+		transports += "+TLS"
+	}
+	log.Printf("[turn] TURN server started on %s port %d (realm: %s)", transports, port, realm)
 	return nil
 }
+
 
 // Stop gracefully shuts down the TURN server.
 func (s *Server) Stop() error {
