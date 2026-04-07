@@ -1613,19 +1613,40 @@ class ChatController extends ChangeNotifier {
         // env.from may use a different transport address (e.g. Firebase vs Nostr)
         // but the pubkey prefix must always agree. If they differ, an attacker
         // forged the inner envelope — fall back to transport sender.
+        // Exception: sealed sender messages have transport ID "sealed" —
+        // the real sender is only known from the encrypted envelope.
         String canonicalSenderId;
+        final isSealed = msg.senderId == 'sealed';
         if (env?.from != null && env!.from.isNotEmpty) {
-          final envPrefix = env.from.split('@').first;
-          final transportPrefix = msg.senderId.split('@').first;
-          if (envPrefix == transportPrefix) {
+          if (isSealed) {
+            // Sealed sender: transport ID is anonymous, trust envelope.
             canonicalSenderId = env.from;
           } else {
-            debugPrint('[Chat] Envelope sender mismatch: '
-                'envelope=$envPrefix transport=$transportPrefix — using transport');
-            if (!_tamperWarningCtrl.isClosed) {
-              _tamperWarningCtrl.add('Authenticity warning from ${msg.senderId}');
+            final envPrefix = env.from.split('@').first;
+            final transportPrefix = msg.senderId.split('@').first;
+            if (envPrefix == transportPrefix) {
+              canonicalSenderId = env.from;
+            } else {
+              // Different key formats (e.g. Session 05-prefix vs Pulse Ed25519)
+              // may belong to the same contact. Check if both resolve to the
+              // same contact before raising a tamper warning.
+              final envContact = contactByDbId[env.from]
+                  ?? contactByDbId[envPrefix];
+              final transportContact = contactByDbId[msg.senderId]
+                  ?? contactByDbId[transportPrefix];
+              if (envContact != null && transportContact != null &&
+                  envContact.id == transportContact.id) {
+                // Same contact, different address format — use envelope.
+                canonicalSenderId = env.from;
+              } else {
+                debugPrint('[Chat] Envelope sender mismatch: '
+                    'envelope=$envPrefix transport=$transportPrefix — using transport');
+                if (!_tamperWarningCtrl.isClosed) {
+                  _tamperWarningCtrl.add('Authenticity warning from ${msg.senderId}');
+                }
+                canonicalSenderId = msg.senderId;
+              }
             }
-            canonicalSenderId = msg.senderId;
           }
         } else {
           canonicalSenderId = msg.senderId;

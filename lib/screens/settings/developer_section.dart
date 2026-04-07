@@ -43,6 +43,7 @@ class _DeveloperSectionState extends State<DeveloperSection> {
   ];
 
   final Map<String, bool> _enabled = {};
+  bool _forceRelay = false;
   bool _loaded = false;
 
   @override
@@ -57,7 +58,8 @@ class _DeveloperSectionState extends State<DeveloperSection> {
     for (final (name, _, _) in _adapters) {
       map[name] = prefs.getBool('$_kAdapterKeyPrefix$name') ?? true;
     }
-    if (mounted) setState(() { _enabled.addAll(map); _loaded = true; });
+    final forceRelay = prefs.getBool('dev_force_relay') ?? false;
+    if (mounted) setState(() { _enabled.addAll(map); _forceRelay = forceRelay; _loaded = true; });
   }
 
   Future<void> _toggle(String name, bool value) async {
@@ -137,9 +139,29 @@ class _DeveloperSectionState extends State<DeveloperSection> {
             ),
           ],
         ),
+        const SizedBox(height: DesignTokens.spacing16),
+        settingsSectionDivider('Calls'),
+        const SizedBox(height: DesignTokens.spacing8),
+        settingsGroup(children: [
+          settingsGroupRow(
+            icon: Icons.cell_tower_rounded,
+            iconColor: _forceRelay ? Colors.orange : AppTheme.textSecondary,
+            title: 'Force TURN relay',
+            subtitle: 'Disable P2P — all calls via TURN servers only',
+            trailing: Switch.adaptive(
+              value: _forceRelay,
+              activeThumbColor: Colors.orange,
+              onChanged: (v) async {
+                final prefs = await SharedPreferences.getInstance();
+                await prefs.setBool('dev_force_relay', v);
+                setState(() => _forceRelay = v);
+              },
+            ),
+          ),
+        ]),
         const SizedBox(height: DesignTokens.spacing8),
         Text(
-          '⚠ Changes take effect on next send. Restart app to apply to incoming.',
+          '⚠ Changes take effect on next send/call. Restart app to apply to incoming.',
           style: TextStyle(fontSize: DesignTokens.fontSm, color: AppTheme.textSecondary),
         ),
       ],

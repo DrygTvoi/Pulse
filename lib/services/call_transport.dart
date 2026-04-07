@@ -1,3 +1,4 @@
+import 'package:shared_preferences/shared_preferences.dart';
 import 'ice_server_config.dart';
 import 'tor_turn_proxy.dart';
 
@@ -41,10 +42,14 @@ class _AutoProfile extends CallTransportProfile {
   @override bool   get isRestricted => false;
 
   @override
-  Future<Map<String, dynamic>> peerConfig() async => {
-    'iceServers':          await IceServerConfig.load(),
-    'iceTransportPolicy':  'all',
-  };
+  Future<Map<String, dynamic>> peerConfig() async {
+    final prefs = await SharedPreferences.getInstance();
+    final forceRelay = prefs.getBool('dev_force_relay') ?? false;
+    return {
+      'iceServers':          await IceServerConfig.load(),
+      'iceTransportPolicy':  forceRelay ? 'relay' : 'all',
+    };
+  }
 }
 
 // ─── Restricted ───────────────────────────────────────────────────────────────
