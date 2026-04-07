@@ -20,6 +20,7 @@ import '../models/message.dart';
 import '../l10n/l10n_ext.dart';
 import '../controllers/chat_controller.dart';
 import '../utils/platform_utils.dart';
+import '../adapters/pulse_adapter.dart' show setPulseCallActive;
 
 const _kScreenShareChannel = MethodChannel('im.pulse.messenger/screen_share');
 
@@ -112,6 +113,7 @@ class _CallScreenState extends State<CallScreen> {
   @override
   void initState() {
     super.initState();
+    setPulseCallActive(true);
     if (widget.existingSignaling != null) {
       _restoreFromMinimized();
     } else {
@@ -1240,6 +1242,7 @@ class _CallScreenState extends State<CallScreen> {
   void _hangUp({bool remoteInitiated = false}) {
     if (_disposed) return;
     _disposed = true;
+    setPulseCallActive(false);
     _durationTimer?.cancel();
     _hideControlsTimer?.cancel();
     _mediaWatchdog?.cancel();
@@ -1288,6 +1291,7 @@ class _CallScreenState extends State<CallScreen> {
   void dispose() {
     if (!_disposed) {
       _disposed = true;
+      setPulseCallActive(false);
       _durationTimer?.cancel();
       _hideControlsTimer?.cancel();
       _mediaWatchdog?.cancel();

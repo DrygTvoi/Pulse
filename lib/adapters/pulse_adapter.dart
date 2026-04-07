@@ -58,6 +58,38 @@ Future<String> _ed25519Sign(Uint8List seed, String message) async {
   return hex.encode(sig.bytes);
 }
 
+// ── PoW (Proof of Work) solver ───────────────────────────────────────────────
+
+/// Solve PoW in a background isolate: find nonce where
+/// SHA256(seed_string_bytes || nonce_u64_be) has [difficulty] leading zero bits.
+Future<int> _solvePoW(String seed, int difficulty) =>
+    compute(_powWorker, (seed, difficulty));
+
+int _powWorker((String, int) args) {
+  final (seed, difficulty) = args;
+  final seedBytes = utf8.encode(seed);
+  final buf = Uint8List(seedBytes.length + 8);
+  buf.setRange(0, seedBytes.length, seedBytes);
+  final bd = ByteData.sublistView(buf, seedBytes.length);
+  for (int nonce = 0; ; nonce++) {
+    bd.setUint64(0, nonce, Endian.big);
+    final hash = hash_lib.sha256.convert(buf);
+    if (_hasLeadingZeroBits(hash.bytes, difficulty)) return nonce;
+  }
+}
+
+bool _hasLeadingZeroBits(List<int> hash, int bits) {
+  final fullBytes = bits ~/ 8;
+  final remainBits = bits % 8;
+  for (int i = 0; i < fullBytes && i < hash.length; i++) {
+    if (hash[i] != 0) return false;
+  }
+  if (remainBits > 0 && fullBytes < hash.length) {
+    if (hash[fullBytes] & (0xFF << (8 - remainBits)) != 0) return false;
+  }
+  return true;
+}
+
 // ── Obfuscation helpers ─────────────────────────────────────────────────────
 
 /// Bucket sizes for outgoing message padding (bytes).
@@ -100,6 +132,12 @@ Future<void> _sendJitter() async {
   final ms = _secureRng.nextInt(_kSendJitterMaxMs);
   if (ms > 0) await Future<void>.delayed(Duration(milliseconds: ms));
 }
+
+// ── Jittered WS ping interval (anti-fingerprint) ────────────────────────────
+
+/// Random ping interval in [30s, 70s) — avoids fixed-interval DPI fingerprint.
+Duration _randomPingInterval() =>
+    Duration(seconds: 30 + _secureRng.nextInt(40));
 
 // ── Reconnect delay tiers (same as Nostr adapter) ───────────────────────────
 
@@ -253,7 +291,7 @@ Future<WebSocketChannel> _connectPulseWebSocketViaUtls(
   try {
     final ws = await WebSocket.connect(normalizedUrl, customClient: httpClient,
         protocols: protocols);
-    ws.pingInterval = const Duration(seconds: 30);
+    ws.pingInterval = _randomPingInterval();
     _pulseUtlsFailedUntil = null;
     return IOWebSocketChannel(ws);
   } catch (e) {
@@ -273,7 +311,14 @@ class _PulseSharedWs {
   static bool readerActive = false;
   /// Shared keys completers — reader resolves, sender registers.
   static final pendingKeysCompleters = <String, Completer<Map<String, dynamic>?>>{};
+  /// Sealed sender delivery certificates (single-use, from auth_ok).
+  static final sealedCerts = <({String token, int expires})>[];
+  /// Set true during active calls to suppress connection rotation.
+  static bool callActive = false;
 }
+
+/// Public API: suppress Pulse connection rotation during active calls.
+void setPulseCallActive(bool active) => _PulseSharedWs.callActive = active;
 
 // ── PulseInboxReader ────────────────────────────────────────────────────────
 
@@ -490,6 +535,7 @@ class PulseInboxReader implements InboxReader {
         final ws = await WebSocket.connect(workerUrl, customClient: inner,
                 protocols: ['pulse.auth'])
             .timeout(const Duration(seconds: 12));
+        ws.pingInterval = _randomPingInterval();
         return IOWebSocketChannel(ws);
       } catch (e) {
         debugPrint('[Pulse] CF Worker connect failed ($e) — falling back to plain');
@@ -503,6 +549,7 @@ class PulseInboxReader implements InboxReader {
       customClient: inner,
       protocols: ['pulse.auth'],
     ).timeout(const Duration(seconds: 10));
+    ws.pingInterval = _randomPingInterval();
     return IOWebSocketChannel(ws);
   }
 
@@ -557,6 +604,7 @@ class PulseInboxReader implements InboxReader {
       WebSocketChannel? channel;
       bool cycleSuccess = false;
       Timer? cbrTimer;
+      Timer? rotationTimer;
       if (!_running) break;
 
       try {
@@ -603,6 +651,17 @@ class PulseInboxReader implements InboxReader {
                     break;
                   }
                   debugPrint('[Pulse] Auth challenge received (nonce=${nonce.substring(0, nonce.length < 8 ? nonce.length : 8)}...)');
+
+                  // Solve PoW if server requires it
+                  final powSeed = data['pow_seed'] as String? ?? '';
+                  final powDifficulty = data['pow_difficulty'] as int? ?? 0;
+                  int powNonce = 0;
+                  if (powSeed.isNotEmpty && powDifficulty > 0) {
+                    debugPrint('[Pulse] Solving PoW (difficulty=$powDifficulty)...');
+                    powNonce = await _solvePoW(powSeed, powDifficulty);
+                    debugPrint('[Pulse] PoW solved (nonce=$powNonce)');
+                  }
+
                   final message = 'pulse-auth:$nonce:$timestamp';
                   final signature = await _ed25519Sign(_seed, message);
                   debugPrint('[Pulse] Auth response sent');
@@ -614,9 +673,29 @@ class PulseInboxReader implements InboxReader {
                     'nonce': nonce,
                     'timestamp': tsVal,
                     'invite': _invite,
+                    if (powSeed.isNotEmpty) 'pow_seed': powSeed,
+                    if (powSeed.isNotEmpty) 'pow_nonce': powNonce,
                   }));
                 } else if (type == 'auth_ok') {
                   _saveTurnCreds(data);
+
+                  // Store sealed sender delivery certificates
+                  final sealedCerts = data['sealed_certs'];
+                  if (sealedCerts is List) {
+                    _PulseSharedWs.sealedCerts.clear();
+                    for (final c in sealedCerts) {
+                      if (c is Map<String, dynamic>) {
+                        _PulseSharedWs.sealedCerts.add((
+                          token: c['token'] as String? ?? '',
+                          expires: c['expires'] as int? ?? 0,
+                        ));
+                      }
+                    }
+                    if (_PulseSharedWs.sealedCerts.isNotEmpty) {
+                      debugPrint('[Pulse] Received ${_PulseSharedWs.sealedCerts.length} sealed certs');
+                    }
+                  }
+
                   authenticated = true;
                   final pendingCount = data['pending_count'] ?? 0;
                   final serverName = data['server'] as String? ?? '';
@@ -665,6 +744,17 @@ class PulseInboxReader implements InboxReader {
                     _healthCtrl.add(true);
                   }
                   _consecutiveFailures = 0;
+
+                  // Connection rotation: reconnect after 10-30 min
+                  // to mimic normal browsing. Skip during calls.
+                  final rotateMin = 10 + _secureRng.nextInt(21); // 10-30
+                  rotationTimer?.cancel();
+                  rotationTimer = Timer(Duration(minutes: rotateMin), () {
+                    if (!_PulseSharedWs.callActive) {
+                      debugPrint('[Pulse] Connection rotation (${rotateMin}m)');
+                      try { channel?.sink.close(); } catch (_) {}
+                    }
+                  });
                 } else if (type == 'error') {
                   debugPrint('[Pulse] Auth error: ${data['message'] ?? data}');
                   break;
@@ -716,6 +806,9 @@ class PulseInboxReader implements InboxReader {
                   if (!_sigCtrl.isClosed) {
                     _sigCtrl.add([{'type': 'sfu', 'payload': data}]);
                   }
+                case 'signal_fail':
+                  // Recipient offline for ephemeral signal (typing/heartbeat) — expected, ignore.
+                  break;
                 default:
                   debugPrint('[Pulse] Unknown message type: $type');
               }
@@ -731,6 +824,8 @@ class PulseInboxReader implements InboxReader {
       } finally {
         cbrTimer?.cancel();
         cbrTimer = null;
+        rotationTimer?.cancel();
+        rotationTimer = null;
         // Only clear shared pool if WE own it (sender may have taken over)
         if (_PulseSharedWs.channel == channel) {
           _PulseSharedWs.channel = null;
@@ -910,8 +1005,16 @@ class PulseInboxReader implements InboxReader {
                 if (!completer.isCompleted) completer.complete(null);
                 return;
               }
-              final msg = 'pulse-auth:$nonce:$tsVal';
-              _ed25519Sign(_seed, msg).then((sig) {
+              // Solve PoW + sign in async chain
+              final powSeed = data['pow_seed'] as String? ?? '';
+              final powDifficulty = data['pow_difficulty'] as int? ?? 0;
+              () async {
+                int powNonce = 0;
+                if (powSeed.isNotEmpty && powDifficulty > 0) {
+                  powNonce = await _solvePoW(powSeed, powDifficulty);
+                }
+                final msg = 'pulse-auth:$nonce:$tsVal';
+                final sig = await _ed25519Sign(_seed, msg);
                 channel!.sink.add(jsonEncode({
                   'type': 'auth_response',
                   'pubkey': _pubkeyHex,
@@ -919,8 +1022,10 @@ class PulseInboxReader implements InboxReader {
                   'nonce': nonce,
                   'timestamp': tsVal,
                   'invite': _invite,
+                  if (powSeed.isNotEmpty) 'pow_seed': powSeed,
+                  if (powSeed.isNotEmpty) 'pow_nonce': powNonce,
                 }));
-              });
+              }();
             } else if (type == 'auth_ok') {
               authenticated = true;
               channel!.sink.add(jsonEncode({'type': 'keys_get', 'pubkey': _pubkeyHex}));
@@ -1133,6 +1238,7 @@ class PulseMessageSender implements MessageSender {
         final ws = await WebSocket.connect(workerUrl, customClient: inner,
                 protocols: ['pulse.auth'])
             .timeout(const Duration(seconds: 12));
+        ws.pingInterval = _randomPingInterval();
         return IOWebSocketChannel(ws);
       } catch (e) {
         debugPrint('[Pulse/Sender] CF Worker failed ($e) — plain');
@@ -1146,6 +1252,7 @@ class PulseMessageSender implements MessageSender {
       customClient: inner,
       protocols: ['pulse.auth'],
     ).timeout(const Duration(seconds: 10));
+    ws.pingInterval = _randomPingInterval();
     return IOWebSocketChannel(ws);
   }
 
@@ -1205,6 +1312,15 @@ class PulseMessageSender implements MessageSender {
                 completer.complete(false);
                 return;
               }
+              // Solve PoW if required
+              final powSeed = data['pow_seed'] as String? ?? '';
+              final powDifficulty = data['pow_difficulty'] as int? ?? 0;
+              int powNonce = 0;
+              if (powSeed.isNotEmpty && powDifficulty > 0) {
+                debugPrint('[Pulse/Sender] Solving PoW (difficulty=$powDifficulty)...');
+                powNonce = await _solvePoW(powSeed, powDifficulty);
+                debugPrint('[Pulse/Sender] PoW solved (nonce=$powNonce)');
+              }
               final message = 'pulse-auth:$nonce:$timestamp';
               final signature = await _ed25519Sign(_seed, message);
               channel.sink.add(jsonEncode({
@@ -1214,6 +1330,8 @@ class PulseMessageSender implements MessageSender {
                 'nonce': nonce,
                 'timestamp': tsVal,
                 'invite': '',
+                if (powSeed.isNotEmpty) 'pow_seed': powSeed,
+                if (powSeed.isNotEmpty) 'pow_nonce': powNonce,
               }));
             } else if (type == 'auth_ok') {
               final certFp = data['cert_fp'] as String? ?? '';
@@ -1287,6 +1405,50 @@ class PulseMessageSender implements MessageSender {
     }
   }
 
+  /// Pop a valid (non-expired) sealed cert, or null if none available.
+  ({String token, int expires})? _popSealedCert() {
+    final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    while (_PulseSharedWs.sealedCerts.isNotEmpty) {
+      final cert = _PulseSharedWs.sealedCerts.removeLast();
+      if (cert.expires > now && cert.token.isNotEmpty) return cert;
+    }
+    return null;
+  }
+
+  /// Send a message via the sealed sender endpoint (one-shot anonymous WS).
+  Future<bool> _sendSealed(String cert, String targetPubkey, String body) async {
+    final sealedUrl = _wsUrl.replaceFirst('/ws', '/sealed');
+    WebSocketChannel? ch;
+    try {
+      final inner = _buildHttpClient();
+      final ws = await WebSocket.connect(sealedUrl,
+              customClient: inner, protocols: ['pulse.auth'])
+          .timeout(const Duration(seconds: 10));
+      ch = IOWebSocketChannel(ws);
+      await ch.ready;
+
+      ch.sink.add(jsonEncode({
+        'type': 'sealed_send',
+        'cert': cert,
+        'to': targetPubkey,
+        'body': body,
+      }));
+
+      // Wait for single response
+      final resp = await ch.stream.first.timeout(const Duration(seconds: 10));
+      if (resp is String) {
+        final data = jsonDecode(resp) as Map<String, dynamic>;
+        if (data['type'] == 'sealed_ack') return true;
+      }
+      return false;
+    } catch (e) {
+      debugPrint('[Pulse] sendSealed error: $e');
+      return false;
+    } finally {
+      try { ch?.sink.close(); } catch (_) {}
+    }
+  }
+
   @override
   Future<bool> sendMessage(String targetDatabaseId, String roomId,
       Message message) async {
@@ -1297,6 +1459,17 @@ class PulseMessageSender implements MessageSender {
     final targetPubkey =
         atIdx != -1 ? targetDatabaseId.substring(0, atIdx) : targetDatabaseId;
 
+    // Client-side send jitter for traffic decorrelation
+    await _sendJitter();
+
+    // Try sealed sender first (anonymous delivery)
+    final cert = _popSealedCert();
+    if (cert != null) {
+      final ok = await _sendSealed(cert.token, targetPubkey, message.encryptedPayload);
+      if (ok) return true;
+      debugPrint('[Pulse] Sealed send failed, falling back to normal send');
+    }
+
     try {
       final channel = await _getConnection();
       if (channel == null) return false;
@@ -1306,9 +1479,6 @@ class PulseMessageSender implements MessageSender {
       final msgId = message.id.isNotEmpty
           ? message.id
           : '${DateTime.now().millisecondsSinceEpoch}_${Random.secure().nextInt(0xFFFFFF).toRadixString(16)}';
-
-      // Client-side send jitter for traffic decorrelation
-      await _sendJitter();
 
       channel.sink.add(_bucketPad(jsonEncode({
         'type': 'send',

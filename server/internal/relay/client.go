@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math/rand"
 	"sync"
 	"time"
 
@@ -26,10 +27,19 @@ const (
 // WebSocket parameters.
 const (
 	writeWait      = 10 * time.Second
-	pongWait       = 60 * time.Second
-	pingInterval   = (pongWait * 9) / 10
+	pongWait       = 90 * time.Second
 	maxMessageSize = 1 << 20 // 1 MB
+
+	// Ping jitter range: randomized to avoid DPI fingerprinting.
+	pingIntervalMin = 30 * time.Second
+	pingIntervalMax = 70 * time.Second
 )
+
+// randomPingInterval returns a random duration in [pingIntervalMin, pingIntervalMax).
+func randomPingInterval() time.Duration {
+	spread := pingIntervalMax - pingIntervalMin
+	return pingIntervalMin + time.Duration(rand.Int63n(int64(spread)))
+}
 
 // Client represents a single WebSocket connection.
 type Client struct {
@@ -439,6 +449,14 @@ func (c *Client) handleAuth(msgType string, raw []byte) {
 		}
 	}
 
+	// Issue sealed sender delivery certificates if enabled
+	if pCerts := c.hub.GetSealedCerts(); len(pCerts) > 0 {
+		ok.SealedCerts = make([]DeliveryCert, len(pCerts))
+		for i, pc := range pCerts {
+			ok.SealedCerts[i] = DeliveryCert{Token: pc.Token, Expires: pc.Expires}
+		}
+	}
+
 	data, _ := json.Marshal(ok)
 	c.SendDirect(data)
 }
@@ -495,7 +513,7 @@ func (c *Client) handleBinaryFrame(data []byte) {
 
 // writePump writes messages to the WebSocket connection.
 func (c *Client) writePump() {
-	ticker := time.NewTicker(pingInterval)
+	ticker := time.NewTimer(randomPingInterval())
 	defer func() {
 		ticker.Stop()
 		c.Close()
@@ -530,6 +548,7 @@ func (c *Client) writePump() {
 			if err := c.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
 				return
 			}
+			ticker.Reset(randomPingInterval())
 
 		case <-c.done:
 			return

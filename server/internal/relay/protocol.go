@@ -209,6 +209,7 @@ type AuthOK struct {
 	CertFP       string           `json:"cert_fp,omitempty"`
 	PendingCount int              `json:"pending_count"`
 	Privacy      *PrivacyInfo     `json:"privacy,omitempty"`
+	SealedCerts  []DeliveryCert   `json:"sealed_certs,omitempty"`
 }
 
 // TurnCredentials holds TURN server connection info.
