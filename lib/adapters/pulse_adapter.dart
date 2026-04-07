@@ -315,6 +315,8 @@ class _PulseSharedWs {
   static final sealedCerts = <({String token, int expires})>[];
   /// Set true during active calls to suppress connection rotation.
   static bool callActive = false;
+  /// Server-confirmed message storage ACKs (message ID when server stored it).
+  static final serverAckCtrl = StreamController<String>.broadcast();
 }
 
 /// Public API: suppress Pulse connection rotation during active calls.
@@ -769,6 +771,10 @@ class PulseInboxReader implements InboxReader {
                 case 'signal':
                   _dispatchSignal(data);
                 case 'stored':
+                  final storedId = data['id'] as String?;
+                  if (storedId != null && storedId.isNotEmpty) {
+                    _PulseSharedWs.serverAckCtrl.add(storedId);
+                  }
                   _dispatchStored(data, channel);
                 case 'ack':
                   debugPrint('[Pulse] ACK: ${data['id'] ?? ''}');
@@ -1605,3 +1611,6 @@ class PulseMessageSender implements MessageSender {
     _authenticated = false;
   }
 }
+
+/// Stream of message IDs confirmed stored by the Pulse server.
+Stream<String> get pulseServerAcks => _PulseSharedWs.serverAckCtrl.stream;

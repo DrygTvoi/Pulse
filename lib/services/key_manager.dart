@@ -59,9 +59,16 @@ class KeyManager {
     }
   }
 
-  /// True if a Kyber public key is cached for this contact.
+  /// True if a Kyber public key is cached for this contact (in-memory only).
   bool hasPqcKey(String contactId) =>
       _contactKyberPks.containsKey(contactId);
+
+  /// Async variant: checks in-memory cache first, then SharedPreferences.
+  Future<bool> hasPqcKeyAsync(String contactId) async {
+    if (_contactKyberPks.containsKey(contactId)) return true;
+    final pk = await loadContactKyberPk(contactId);
+    return pk != null;
+  }
 
   /// Remove a cached Kyber pk (e.g. after PQC unwrap failure).
   void clearContactKyberPk(String contactId) {

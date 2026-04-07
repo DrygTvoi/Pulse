@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import '../models/contact.dart';
 import '../models/user_status.dart';
 import '../services/rate_limiter.dart';
+import '../services/crypto_layer.dart';
 
 // ── Event types emitted by SignalDispatcher ─────────────────────────────────
 
@@ -413,6 +415,25 @@ class SignalDispatcher {
             !_webrtcRateLimiter.allow(sigSender)) {
           debugPrint('[SignalDispatcher] Rate limited webrtc signal ($sigType) from: $sigSender');
           continue;
+        }
+
+        // PQC unwrap: if the payload is a single {_pqc_wrapped: '...'} envelope,
+        // decrypt and replace with the inner signed payload before HMAC verification.
+        final rawPayloadPqc = sig['payload'];
+        if (rawPayloadPqc is Map<String, dynamic> &&
+            rawPayloadPqc.containsKey('_pqc_wrapped')) {
+          final wrapped = rawPayloadPqc['_pqc_wrapped'] as String?;
+          if (wrapped != null && wrapped.startsWith('PQC2||')) {
+            try {
+              final unwrapped = CryptoLayer.unwrap(wrapped);
+              sig = Map<String, dynamic>.from(sig);
+              sig['payload'] = jsonDecode(unwrapped) as Map<String, dynamic>;
+              debugPrint('[SignalDispatcher] PQC unwrapped signal ($sigType) from $sigSender');
+            } catch (e) {
+              debugPrint('[SignalDispatcher] PQC unwrap failed ($sigType): $e');
+              continue; // drop malformed signal
+            }
+          }
         }
 
         // Verify HMAC signature on security-critical signals.

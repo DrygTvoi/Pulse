@@ -198,7 +198,8 @@ class SignalBroadcaster {
     } catch (e) {
       debugPrint('[Broadcaster] _sendSignalToAll: signing failed: $e');
     }
-    final effectivePayload = signedPayload ?? payload;
+    final effectivePayload =
+        await _maybePqcWrap(signedPayload ?? payload, contact.databaseId);
 
     // Try primary
     try {
@@ -352,7 +353,7 @@ class SignalBroadcaster {
   Future<void> sendGroupReadReceipt(
       Contact senderContact, String groupId, String msgId) {
     final selfId = _getSelfId();
-    return _sendSignalTo(senderContact, 'msg_read',
+    return _sendSignalToAll(senderContact, 'msg_read',
         {'from': selfId, 'groupId': groupId, 'msgId': msgId});
   }
 
@@ -360,13 +361,13 @@ class SignalBroadcaster {
 
   Future<void> sendReadReceipt(Contact contact) {
     final selfId = _getSelfId();
-    return _sendSignalTo(contact, 'msg_read', {'from': selfId});
+    return _sendSignalToAll(contact, 'msg_read', {'from': selfId});
   }
 
   Future<void> sendDeliveryAck(Contact contact, String msgId,
       {String? groupId}) {
     final selfId = _getSelfId();
-    return _sendSignalTo(contact, 'msg_ack', {
+    return _sendSignalToAll(contact, 'msg_ack', {
       'msgId': msgId,
       'from': selfId,
       'groupId': groupId,
@@ -443,6 +444,20 @@ class SignalBroadcaster {
       _sendSignalTo(contact, type, payload);
 
   // ── Internal: sender helper ───────────────────────────────────────────────
+
+  /// PQC-wrap a signal payload if the contact has a Kyber public key.
+  /// Falls back to the original payload on error or missing key.
+  Future<Map<String, dynamic>> _maybePqcWrap(
+      Map<String, dynamic> payload, String contactId) async {
+    if (!await _keys.hasPqcKeyAsync(contactId)) return payload;
+    try {
+      final wrapped = await _keys.pqcWrap(jsonEncode(payload), contactId);
+      if (wrapped.startsWith('PQC2||')) return {'_pqc_wrapped': wrapped};
+    } catch (e) {
+      debugPrint('[Broadcaster] PQC signal wrap failed: $e');
+    }
+    return payload;
+  }
 
   /// Signal types that warrant retry through alternate addresses on failure.
   static bool _isCriticalSignal(String type) =>
@@ -546,8 +561,9 @@ class SignalBroadcaster {
               contact, type, payload, selfPubkey);
         }
 
+        final finalPayload = await _maybePqcWrap(signedPayload, contact.databaseId);
         sent = await built.sender.sendSignal(
-            contact.databaseId, contact.databaseId, selfId, type, signedPayload);
+            contact.databaseId, contact.databaseId, selfId, type, finalPayload);
         debugPrint('[Broadcaster] _sendSignalTo: primary sent=$sent via ${built.sender.runtimeType}');
       } else {
         debugPrint('[Broadcaster] _sendSignalTo: _buildSenderFor returned null');
@@ -566,6 +582,7 @@ class SignalBroadcaster {
         final selfPubkey = privkey.isNotEmpty ? deriveNostrPubkeyHex(privkey) : null;
         altPayload = await _keys.signPayload(contact, type, payload, selfPubkey);
       } catch (_) {}
+      altPayload = await _maybePqcWrap(altPayload, contact.databaseId);
       for (final alt in contact.alternateAddresses) {
         try {
           final altBuilt = await _buildSenderForAddress(alt);

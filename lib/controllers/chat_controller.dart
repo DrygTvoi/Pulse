@@ -925,17 +925,36 @@ class ChatController extends ChangeNotifier {
         if (contact.provider != 'Nostr') {
           signedPayload = await _signPayload(contact, type, payload);
         }
+        // PQC wrap
+        Map<String, dynamic> finalPayload = signedPayload;
+        if (await _keys.hasPqcKeyAsync(contact.databaseId)) {
+          try {
+            final wrapped = await _keys.pqcWrap(jsonEncode(signedPayload), contact.databaseId);
+            if (wrapped.startsWith('PQC2||')) finalPayload = {'_pqc_wrapped': wrapped};
+          } catch (e) {
+            debugPrint('[Chat] PQC signal wrap failed: $e');
+          }
+        }
         await built.sender.sendSignal(
-            contact.databaseId, contact.databaseId, _selfId, type, signedPayload);
+            contact.databaseId, contact.databaseId, _selfId, type, finalPayload);
         return true;
       }
     } catch (e) {
       debugPrint('[ChatController] Signal $type to ${contact.name} failed: $e');
     }
-    // Fallback: try alternate addresses
+    // Fallback: try alternate addresses (PQC wrap once for all alternates)
+    Map<String, dynamic> altPayload = payload;
+    if (await _keys.hasPqcKeyAsync(contact.databaseId)) {
+      try {
+        final wrapped = await _keys.pqcWrap(jsonEncode(payload), contact.databaseId);
+        if (wrapped.startsWith('PQC2||')) altPayload = {'_pqc_wrapped': wrapped};
+      } catch (e) {
+        debugPrint('[Chat] PQC signal wrap (alt) failed: $e');
+      }
+    }
     for (final alt in contact.alternateAddresses) {
       try {
-        final ok = await _deliverSignalViaAddress(alt, type, payload);
+        final ok = await _deliverSignalViaAddress(alt, type, altPayload);
         if (ok) {
           debugPrint('[ChatController] Signal $type delivered via alternate: $alt');
           return true;
@@ -1149,6 +1168,9 @@ class ChatController extends ChangeNotifier {
     _dispatcherSubs.add(d.deliveryAcks.listen((e) {
       _handleDeliveryAck(e.fromId, e.msgId, groupId: e.groupId);
     }));
+
+    // Pulse server-confirmed storage ACK → transition 'sending' → 'sent'
+    _dispatcherSubs.add(pulseServerAcks.listen(_handleServerAck));
 
     _dispatcherSubs.add(d.ttlUpdates.listen((e) {
       unawaited(setChatTtlSeconds(e.contact, e.seconds, sendSignal: false));
@@ -1442,7 +1464,7 @@ class ChatController extends ChangeNotifier {
     // Resolve reader and verify group membership to prevent forged receipts.
     Contact? reader;
     for (final c in _contacts.contacts) {
-      if (c.databaseId == fromId || c.databaseId.split('@').first == fromId) {
+      if (c.databaseId == fromId || c.databaseId.split('@').first == fromId.split('@').first) {
         reader = c;
         break;
       }
@@ -2857,7 +2879,7 @@ class ChatController extends ChangeNotifier {
       if (idx == -1) return;
       Contact? sender;
       for (final c in _contacts.contacts) {
-        if (c.databaseId == fromId || c.databaseId.split('@').first == fromId) {
+        if (c.databaseId == fromId || c.databaseId.split('@').first == fromId.split('@').first) {
           sender = c;
           break;
         }
@@ -2983,14 +3005,31 @@ class ChatController extends ChangeNotifier {
     if (count > 0) debugPrint('[Chat] Flushing $count failed message(s) after network change');
   }
 
+  void _handleServerAck(String msgId) {
+    for (final room in _repo.rooms) {
+      for (int i = 0; i < room.messages.length; i++) {
+        final m = room.messages[i];
+        if (m.id != msgId) continue;
+        if (m.status == 'sending') {
+          room.messages[i] = m.copyWith(status: 'sent');
+          unawaited(LocalStorageService().saveMessage(
+              room.contact.storageKey, room.messages[i].toJson()));
+          debugPrint('[Chat] Server ACK: $msgId → sent');
+          _scheduleNotify();
+        }
+        return;
+      }
+    }
+  }
+
   void _handleReadReceipt(String fromId) {
     bool changed = false;
     for (final room in _repo.rooms) {
       final contactId = room.contact.databaseId;
-      if (contactId != fromId && contactId.split('@').first != fromId) continue;
+      if (contactId != fromId && contactId.split('@').first != fromId.split('@').first) continue;
       for (int i = 0; i < room.messages.length; i++) {
         final m = room.messages[i];
-        if (m.status == 'sent' || m.status == 'delivered') {
+        if (m.status == 'sending' || m.status == 'sent' || m.status == 'delivered') {
           room.messages[i] = m.copyWith(status: 'read');
           unawaited(LocalStorageService().saveMessage(room.contact.storageKey, room.messages[i].toJson()));
           changed = true;
@@ -3006,13 +3045,13 @@ class ChatController extends ChangeNotifier {
         ? [if (_repo.getRoomForContact(groupId) != null) _repo.getRoomForContact(groupId)!]
         : _repo.rooms.where((r) {
             final cId = r.contact.databaseId;
-            return cId == fromId || cId.split('@').first == fromId;
+            return cId == fromId || cId.split('@').first == fromId.split('@').first;
           }).toList();
 
     String resolvedId = fromId;
     if (groupId != null) {
       for (final c in _contacts.contacts) {
-        if (c.databaseId == fromId || c.databaseId.split('@').first == fromId) {
+        if (c.databaseId == fromId || c.databaseId.split('@').first == fromId.split('@').first) {
           resolvedId = c.id;
           break;
         }
@@ -3025,14 +3064,14 @@ class ChatController extends ChangeNotifier {
         if (m.id != msgId) continue;
         if (groupId != null && !m.deliveredTo.contains(resolvedId)) {
           final newDeliveredTo = [...m.deliveredTo, resolvedId];
-          final newStatus = m.status == 'sent' ? 'delivered' : m.status;
+          final newStatus = (m.status == 'sending' || m.status == 'sent') ? 'delivered' : m.status;
           room.messages[i] = m.copyWith(status: newStatus, deliveredTo: newDeliveredTo);
           unawaited(LocalStorageService().saveMessage(
               room.contact.storageKey, room.messages[i].toJson()));
           changed = true;
           break;
         }
-        if (m.status == 'sent') {
+        if (m.status == 'sending' || m.status == 'sent') {
           room.messages[i] = m.copyWith(status: 'delivered');
           unawaited(LocalStorageService().saveMessage(
               room.contact.storageKey, room.messages[i].toJson()));
