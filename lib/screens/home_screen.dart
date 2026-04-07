@@ -25,7 +25,7 @@ import '../widgets/avatar_widget.dart';
 import '../widgets/status_row.dart';
 import '../widgets/chat_tile.dart';
 import '../widgets/connection_banner.dart';
-import '../widgets/tor_chip.dart';
+
 import '../widgets/chat_list_skeleton.dart';
 import '../widgets/home_drawer.dart';
 import '../widgets/home_search_body.dart';
@@ -866,6 +866,10 @@ class _HomeScreenState extends State<HomeScreen> {
           ownName: _ownName,
           ownAvatarBytes: _ownAvatarBytes,
           connectionStatus: chatCtrl.connectionStatus,
+          torRunning: _torRunning,
+          torBootPercent: _torBootPercent,
+          torPtLabel: TorService.instance.activePtLabel,
+          showNoEch: !_utlsAvailable && _torRunning,
           onNewChat: () {
             Navigator.pop(context);
             Navigator.push(context, _slideRoute(const ContactsScreen())).then((_) => _loadAll());
@@ -965,31 +969,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ],
                 ),
               ),
-              actions: [
-                // "No ECH" warning: shown when uTLS proxy is down but
-                // Tor/Psiphon is active (censored network detected).
-                if (!_utlsAvailable && _torRunning)
-                  Tooltip(
-                    message: context.l10n.homeNoEchTooltip,
-                    child: Padding(
-                      padding: const EdgeInsets.only(right: DesignTokens.spacing4),
-                      child: Chip(
-                        label: Text(context.l10n.homeNoEch,
-                            style: const TextStyle(fontSize: DesignTokens.fontSm, fontWeight: FontWeight.w600)),
-                        backgroundColor: Colors.amber.shade700,
-                        labelStyle: const TextStyle(color: Colors.black87),
-                        padding: const EdgeInsets.symmetric(horizontal: DesignTokens.spacing4),
-                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        visualDensity: VisualDensity.compact,
-                      ),
-                    ),
-                  ),
-                TorChip(
-                  isRunning: _torRunning,
-                  bootstrapPercent: _torBootPercent,
-                  activePtLabel: TorService.instance.activePtLabel,
-                ),
-              ],
+              actions: const [],
             ),
       body: Stack(
         children: [

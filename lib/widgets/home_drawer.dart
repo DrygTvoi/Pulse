@@ -14,6 +14,10 @@ class HomeDrawer extends StatelessWidget {
   final VoidCallback onNewGroup;
   final VoidCallback onAddContact;
   final VoidCallback onSettings;
+  final bool torRunning;
+  final int torBootPercent;
+  final String torPtLabel;
+  final bool showNoEch;
 
   const HomeDrawer({
     super.key,
@@ -24,6 +28,10 @@ class HomeDrawer extends StatelessWidget {
     required this.onNewGroup,
     required this.onAddContact,
     required this.onSettings,
+    this.torRunning = false,
+    this.torBootPercent = 0,
+    this.torPtLabel = '',
+    this.showNoEch = false,
   });
 
   @override
@@ -70,11 +78,26 @@ class HomeDrawer extends StatelessWidget {
                       ),
                       const SizedBox(width: DesignTokens.spacing14),
                       Expanded(
-                        child: Text(
-                          ownName.isNotEmpty ? ownName : 'Me',
-                          style: AppTheme.titleLarge,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              ownName.isNotEmpty ? ownName : 'Me',
+                              style: AppTheme.titleLarge,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            if (torRunning || showNoEch) ...[
+                              const SizedBox(height: DesignTokens.spacing4),
+                              Wrap(
+                                spacing: DesignTokens.spacing4,
+                                children: [
+                                  if (torRunning) _buildTorBadge(),
+                                  if (showNoEch) _buildNoEchBadge(),
+                                ],
+                              ),
+                            ],
+                          ],
                         ),
                       ),
                     ],
@@ -108,6 +131,47 @@ class HomeDrawer extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildTorBadge() {
+    final isActive = torBootPercent == 100;
+    final color = isActive ? AppTheme.primary : Colors.orange;
+    final ptSuffix = switch (torPtLabel) {
+      'obfs4'     => '\u00B7obfs4',
+      'snowflake' => '\u00B7SF',
+      'webtunnel' => '\u00B7WT',
+      _           => '',
+    };
+    final label = isActive ? 'Tor$ptSuffix' : 'Tor $torBootPercent%';
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withValues(alpha: 0.4), width: 0.5),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.security_rounded, size: 12, color: color),
+          const SizedBox(width: 3),
+          Text(label, style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.w600)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNoEchBadge() {
+    final color = Colors.amber.shade700;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withValues(alpha: 0.4), width: 0.5),
+      ),
+      child: Text('No ECH', style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.w600)),
     );
   }
 
