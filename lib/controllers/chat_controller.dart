@@ -293,6 +293,8 @@ class ChatController extends ChangeNotifier {
   }
 
   Identity? get identity => _identity;
+  /// The transport-level address used as senderId (e.g. pubkey@server).
+  String get selfId => _selfId;
   List<String> get allAddresses => List.unmodifiable(_allAddresses);
 
   /// Returns addresses enriched with all currently known working relays.

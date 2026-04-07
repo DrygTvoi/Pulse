@@ -42,9 +42,10 @@ type StorageConfig struct {
 }
 
 type TurnConfig struct {
-	Enabled bool   `toml:"enabled"`
-	Port    int    `toml:"port"`
-	Realm   string `toml:"realm"`
+	Enabled    bool   `toml:"enabled"`
+	Port       int    `toml:"port"`
+	Realm      string `toml:"realm"`
+	PublicHost string `toml:"public_host"` // hostname/IP for TURN URIs (defaults to Realm)
 }
 
 type MediaConfig struct {

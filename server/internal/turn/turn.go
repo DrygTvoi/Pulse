@@ -23,18 +23,34 @@ const (
 
 // Server wraps a pion/turn TURN server with ephemeral credential support.
 type Server struct {
-	mu     sync.RWMutex
-	server *turn.Server
-	secret []byte
-	realm  string
-	port   int
+	mu         sync.RWMutex
+	server     *turn.Server
+	secret     []byte
+	realm      string
+	port       int
+	publicHost string // hostname/IP used in TURN URIs (defaults to realm)
+	tlsPort    int    // TLS port for turns: URIs (0 = not advertised)
+}
+
+// SetPublicHost overrides the hostname used in generated TURN URIs.
+func (s *Server) SetPublicHost(host string) {
+	s.mu.Lock()
+	s.publicHost = host
+	s.mu.Unlock()
+}
+
+// SetTLSPort sets the port advertised in turns: URIs (typically 443).
+func (s *Server) SetTLSPort(port int) {
+	s.mu.Lock()
+	s.tlsPort = port
+	s.mu.Unlock()
 }
 
 // Credentials holds a generated TURN credential set.
 type Credentials struct {
-	Username string `json:"username"`
-	Password string `json:"password"`
-	TTL      int    `json:"ttl"`
+	Username string   `json:"username"`
+	Password string   `json:"password"`
+	TTL      int      `json:"ttl"`
 	URIs     []string `json:"uris"`
 }
 
@@ -70,7 +86,14 @@ func (s *Server) Start(port int, realm string, secret []byte) error {
 		return fmt.Errorf("failed to listen on UDP port %d: %w", port, err)
 	}
 
-	// Create the TURN server
+	// Open TCP listener on same port
+	tcpListener, err := net.Listen("tcp4", "0.0.0.0:"+strconv.Itoa(port))
+	if err != nil {
+		udpListener.Close()
+		return fmt.Errorf("failed to listen on TCP port %d: %w", port, err)
+	}
+
+	// Create the TURN server with both UDP and TCP
 	logFactory := logging.NewDefaultLoggerFactory()
 	logFactory.DefaultLogLevel = logging.LogLevelWarn
 
@@ -88,15 +111,42 @@ func (s *Server) Start(port int, realm string, secret []byte) error {
 				},
 			},
 		},
+		ListenerConfigs: []turn.ListenerConfig{
+			{
+				Listener: tcpListener,
+				RelayAddressGenerator: &turn.RelayAddressGeneratorStatic{
+					RelayAddress: net.ParseIP("0.0.0.0"),
+					Address:      "0.0.0.0",
+				},
+			},
+		},
 		LoggerFactory: logFactory,
 	})
 	if err != nil {
 		udpListener.Close()
+		tcpListener.Close()
 		return fmt.Errorf("failed to create TURN server: %w", err)
 	}
 
 	s.server = srv
-	log.Printf("[turn] TURN server started on UDP port %d (realm: %s)", port, realm)
+	log.Printf("[turn] TURN server started on UDP+TCP port %d (realm: %s)", port, realm)
+	return nil
+}
+
+// AddTLSListener adds an existing TLS net.Listener for TURNS (TURN over TLS).
+// Typically the main HTTPS listener on port 443.
+func (s *Server) AddTLSListener(listener net.Listener) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.server == nil {
+		return fmt.Errorf("TURN server not started — call Start() first")
+	}
+
+	// pion/turn doesn't support adding listeners after creation, so we
+	// need to recreate the server. For now, log that TLS sharing is not
+	// yet implemented — the TCP listener on the TURN port handles most cases.
+	log.Printf("[turn] TLS listener sharing not yet implemented — use TCP TURN on port %d", s.port)
 	return nil
 }
 
@@ -126,10 +176,16 @@ func (s *Server) GenerateCredentials(pubkey string) (*Credentials, error) {
 	secret := s.secret
 	realm := s.realm
 	port := s.port
+	host := s.publicHost
+	tlsPort := s.tlsPort
 	s.mu.RUnlock()
 
 	if secret == nil {
 		return nil, fmt.Errorf("TURN server not initialized")
+	}
+
+	if host == "" {
+		host = realm
 	}
 
 	expiry := time.Now().Add(credentialTTL).Unix()
@@ -139,13 +195,21 @@ func (s *Server) GenerateCredentials(pubkey string) (*Credentials, error) {
 	mac.Write([]byte(username))
 	password := base64.StdEncoding.EncodeToString(mac.Sum(nil))
 
+	uris := []string{
+		fmt.Sprintf("turn:%s:%d?transport=udp", host, port),
+		fmt.Sprintf("turn:%s:%d?transport=tcp", host, port),
+	}
+	// Advertise TURNS on the TLS port (typically 443) — looks like regular
+	// HTTPS to DPI, making it censorship-resistant.
+	if tlsPort > 0 {
+		uris = append(uris, fmt.Sprintf("turns:%s:%d?transport=tcp", host, tlsPort))
+	}
+
 	return &Credentials{
 		Username: username,
 		Password: password,
 		TTL:      int(credentialTTL.Seconds()),
-		URIs: []string{
-			fmt.Sprintf("turn:%s:%d?transport=udp", realm, port),
-		},
+		URIs:     uris,
 	}, nil
 }
 

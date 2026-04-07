@@ -6,6 +6,8 @@ import 'package:flutter_webrtc/flutter_webrtc.dart';
 import '../constants.dart';
 import '../adapters/inbox_manager.dart';
 import '../adapters/firebase_adapter.dart';
+import '../adapters/pulse_adapter.dart';
+import '../adapters/session_adapter.dart';
 import 'call_transport.dart';
 import '../adapters/nostr_adapter.dart';
 import '../controllers/chat_controller.dart';
@@ -308,6 +310,21 @@ class GroupSignalingService {
       final relay = prefs.getString('nostr_relay') ?? kDefaultNostrRelay;
       await InboxManager().addSenderPlugin('Nostr', NostrMessageSender(),
           jsonEncode({'privkey': privkey, 'relay': relay}));
+    } else if (target.provider == 'Pulse') {
+      final privkey = await _secureStorage.read(key: 'pulse_privkey') ?? '';
+      var serverUrl = prefs.getString('pulse_server_url') ?? '';
+      final atIdx = target.databaseId.indexOf('@');
+      if (atIdx != -1) {
+        final contactServer = target.databaseId.substring(atIdx + 1);
+        if (contactServer.startsWith('https://') || contactServer.startsWith('http://')) {
+          serverUrl = contactServer;
+        }
+      }
+      await InboxManager().addSenderPlugin('Pulse', PulseMessageSender(),
+          jsonEncode({'privkey': privkey, 'serverUrl': serverUrl}));
+    } else if (target.provider == 'Session') {
+      final nodeUrl = prefs.getString('session_node_url') ?? prefs.getString('oxen_node_url') ?? '';
+      await InboxManager().addSenderPlugin('Session', SessionMessageSender(), nodeUrl);
     }
 
     // HMAC-sign offer/answer on non-Nostr transports to prevent relay forgery.

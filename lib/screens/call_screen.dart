@@ -310,6 +310,7 @@ class _CallScreenState extends State<CallScreen> {
         contact: widget.contact,
         myId:    widget.myId,
         isCaller: widget.isCaller,
+        selfDatabaseId: ChatController().selfId,
       );
 
       _signaling!.onAddRemoteStream = (stream) async {

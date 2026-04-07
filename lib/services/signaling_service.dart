@@ -8,6 +8,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../constants.dart';
 import '../adapters/inbox_manager.dart';
 import '../adapters/firebase_adapter.dart';
+import '../adapters/pulse_adapter.dart';
+import '../adapters/session_adapter.dart';
 import 'call_transport.dart';
 import '../adapters/nostr_adapter.dart';
 import '../controllers/chat_controller.dart';
@@ -33,6 +35,10 @@ class SignalingService {
 
   final Contact contact;
   final String myId;
+  /// The user's transport-level address (pubkey@server).  Used as senderId in
+  /// signal payloads so the receiver can resolve the sender contact.
+  /// Falls back to [myId] (UUID) when not provided (legacy callers).
+  final String selfDatabaseId;
   final bool isCaller;
 
   // True when current primary transport profile forces relay-only.
@@ -77,7 +83,8 @@ class SignalingService {
   // and skip the rollback.
   int _renegotiateGen = 0;
 
-  SignalingService({required this.contact, required this.myId, required this.isCaller});
+  SignalingService({required this.contact, required this.myId, required this.isCaller, String? selfDatabaseId})
+      : selfDatabaseId = selfDatabaseId ?? myId;
 
   // ── Initialise ─────────────────────────────────────────────────────────────
 
@@ -1120,6 +1127,22 @@ class SignalingService {
         final relay = prefs.getString('nostr_relay') ?? kDefaultNostrRelay;
         await InboxManager().addSenderPlugin('Nostr', NostrMessageSender(),
             jsonEncode({'privkey': privkey, 'relay': relay}));
+      } else if (contact.provider == 'Pulse') {
+        const storage = FlutterSecureStorage();
+        final privkey = await storage.read(key: 'pulse_privkey') ?? '';
+        var serverUrl = prefs.getString('pulse_server_url') ?? '';
+        final atIdx = contact.databaseId.indexOf('@');
+        if (atIdx != -1) {
+          final contactServer = contact.databaseId.substring(atIdx + 1);
+          if (contactServer.startsWith('https://') || contactServer.startsWith('http://')) {
+            serverUrl = contactServer;
+          }
+        }
+        await InboxManager().addSenderPlugin('Pulse', PulseMessageSender(),
+            jsonEncode({'privkey': privkey, 'serverUrl': serverUrl}));
+      } else if (contact.provider == 'Session') {
+        final nodeUrl = prefs.getString('session_node_url') ?? prefs.getString('oxen_node_url') ?? '';
+        await InboxManager().addSenderPlugin('Session', SessionMessageSender(), nodeUrl);
       }
     }
 
@@ -1159,11 +1182,11 @@ class SignalingService {
       }
     }
 
-    await InboxManager().sendSystemMessage(
+    final sent = await InboxManager().sendSystemMessage(
       contact.provider,
       contact.databaseId,
       contact.id,
-      myId,
+      selfDatabaseId,
       type,
       sendPayload,
     );

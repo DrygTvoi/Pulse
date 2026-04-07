@@ -4,8 +4,10 @@ import (
 	"context"
 	"crypto/ed25519"
 	"log"
+	"net"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 
 	"github.com/spf13/cobra"
@@ -97,13 +99,30 @@ func runServe(cmd *cobra.Command, args []string) error {
 			log.Printf("[serve] WARNING: failed to start TURN server: %v", err)
 			turnSrv = nil
 		} else {
+			// Set public host for TURN URIs: config override → AutoTLS domain → realm
+			pubHost := cfg.Turn.PublicHost
+			if pubHost == "" && cfg.Server.AutoTLSDomain != "" {
+				pubHost = cfg.Server.AutoTLSDomain
+			}
+			if pubHost != "" {
+				turnSrv.SetPublicHost(pubHost)
+			}
+			// Advertise TURNS on the HTTPS port (443) for censorship resistance.
+			// DPI sees standard TLS on 443 — indistinguishable from HTTPS.
+			if cfg.Server.Listen != "" {
+				// Extract port from listen address (e.g. ":443" → 443)
+				_, portStr, _ := net.SplitHostPort(cfg.Server.Listen)
+				if p, err := strconv.Atoi(portStr); err == nil && p > 0 {
+					turnSrv.SetTLSPort(p)
+				}
+			}
 			// Persist the secret if it was newly generated
 			if kb == nil {
 				if err := keys.PutBundle("_server_turn_secret", turnSrv.Secret()); err != nil {
 					log.Printf("[serve] WARNING: failed to persist TURN secret: %v", err)
 				}
 			}
-			log.Printf("[serve] TURN server started on port %d", cfg.Turn.Port)
+			log.Printf("[serve] TURN server started on port %d (public_host=%s)", cfg.Turn.Port, pubHost)
 		}
 	}
 

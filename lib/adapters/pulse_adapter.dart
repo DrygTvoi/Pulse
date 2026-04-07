@@ -921,6 +921,10 @@ class PulseInboxReader implements InboxReader {
       } else {
         signalData = payload;
       }
+      // Inject senderId from server's 'from' field if not present
+      if (data['from'] is String && (signalData['senderId'] as String? ?? '').isEmpty) {
+        signalData['senderId'] = data['from'];
+      }
       // Security: override adapterType so a compromised/MITM Pulse server
       // cannot inject adapterType='nostr' and bypass HMAC verification.
       signalData['adapterType'] = 'pulse';
