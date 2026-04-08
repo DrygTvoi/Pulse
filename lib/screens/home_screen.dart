@@ -223,6 +223,12 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _onActiveCallChanged() {
+    // When call ends (endCall sets contact=null), reset _inCallScreen immediately
+    // rather than waiting for Navigator.pop animation (.then callback).
+    // Prevents second incoming offer from being silently dropped.
+    if (ActiveCallService.instance.contact == null) {
+      _inCallScreen = false;
+    }
     if (mounted) setState(() {});
   }
 

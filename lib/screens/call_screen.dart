@@ -62,6 +62,9 @@ class CallScreen extends StatefulWidget {
 }
 
 class _CallScreenState extends State<CallScreen> {
+  /// Previous call's cleanup future — new calls wait for this before init.
+  static Future<void>? _pendingCleanup;
+
   SignalingService? _signaling;
   final RTCVideoRenderer _localRenderer  = RTCVideoRenderer();
   final RTCVideoRenderer _remoteRenderer = RTCVideoRenderer();
@@ -291,6 +294,21 @@ class _CallScreenState extends State<CallScreen> {
     bool renderersInitialized = false;
     try {
       debugPrint('[CallScreen] _initWebRTC start (isCaller=${widget.isCaller})');
+
+      // Wait for previous call's cleanup to finish (PC close, stream dispose).
+      // Without this, GStreamer pipeline teardown from the old call blocks
+      // the event loop during the new call's setup → freeze + broken audio.
+      if (_pendingCleanup != null) {
+        debugPrint('[CallScreen] waiting for previous call cleanup…');
+        await _pendingCleanup!.timeout(const Duration(seconds: 5),
+            onTimeout: () {});
+        _pendingCleanup = null;
+        // Extra delay for GStreamer to fully release audio/video pipelines
+        // after peerConnection.close() returns — close() completes before
+        // native teardown finishes on Linux.
+        await Future.delayed(const Duration(seconds: 2));
+        debugPrint('[CallScreen] previous cleanup done');
+      }
 
       // Force-reconnect subscription if it appears dead (no data in 30s).
       // If subscription is alive, forceReconnect is a no-op — no disruptive close.
@@ -1249,7 +1267,13 @@ class _CallScreenState extends State<CallScreen> {
     _mediaWatchdog?.cancel();
     _disconnectTimer?.cancel();
     _secondaryWatchdog?.cancel();
-    _signaling?.hangUp(notify: !remoteInitiated);
+    // Store cleanup future so next call can wait for it.
+    // hangUp() closes PC + disposes streams — can take seconds on GStreamer.
+    final sig = _signaling;
+    _signaling = null;
+    if (sig != null) {
+      _pendingCleanup = sig.hangUp(notify: !remoteInitiated);
+    }
     _sfuService?.hangUp();
     ActiveCallService.instance.endCall();
     unawaited(_saveCallRecord());
@@ -1260,8 +1284,10 @@ class _CallScreenState extends State<CallScreen> {
   void _disposeRenderers() {
     try { _localRenderer.srcObject = null; } catch (_) {}
     try { _remoteRenderer.srcObject = null; } catch (_) {}
-    try { _localRenderer.dispose(); } catch (_) {}
-    try { _remoteRenderer.dispose(); } catch (_) {}
+    // dispose() returns Future — try/catch won't catch async errors.
+    // Use .catchError to prevent [FATAL] Unhandled exceptions.
+    _localRenderer.dispose().catchError((_) {});
+    _remoteRenderer.dispose().catchError((_) {});
     // Release camera stream (separate from localStream/screenShareStream)
     final cs = _cameraStream;
     _cameraStream = null;
@@ -1298,7 +1324,11 @@ class _CallScreenState extends State<CallScreen> {
       _mediaWatchdog?.cancel();
       _disconnectTimer?.cancel();
       _secondaryWatchdog?.cancel();
-      _signaling?.hangUp();
+      final sig = _signaling;
+      _signaling = null;
+      if (sig != null) {
+        _pendingCleanup = sig.hangUp();
+      }
       _sfuService?.hangUp();
     }
     // Always dispose renderers — even when minimized (_disposed=true) the

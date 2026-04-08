@@ -94,10 +94,11 @@ class SignalingService {
     final servers = config['iceServers'] as List? ?? [];
     debugPrint('[Signaling] init: ${servers.length} ICE servers, policy=${config['iceTransportPolicy']}');
 
+    final isRelay = config['iceTransportPolicy'] == 'relay';
     if (Platform.isLinux && servers.length > 10) {
       // Linux native libwebrtc segfaults with many ICE servers (>30).
       // Create PC with a small safe set, then add the rest via setConfiguration.
-      final stunServers = servers.where((s) {
+      final stunServers = isRelay ? <dynamic>[] : servers.where((s) {
         final u = (s as Map)['urls']?.toString() ?? '';
         return u.startsWith('stun:');
       }).take(3).toList();
@@ -105,17 +106,18 @@ class SignalingService {
         final u = (s as Map)['urls']?.toString() ?? '';
         return u.startsWith('turn:') || u.startsWith('turns:');
       }).toList();
-      // Safe initial set: 3 STUN + first 2 TURN (≤5 total — never crashes)
+      // Safe initial set: STUN (if not relay) + first 2 TURN
       final safeServers = [...stunServers, ...turnServers.take(2)];
       config['iceServers'] = safeServers;
       debugPrint('[Signaling] Linux: creating PC with ${safeServers.length} safe servers, ${servers.length} total');
       peerConnection = await createPeerConnection(config);
-      // Add remaining servers via setConfiguration
+      // Add remaining TURN servers via setConfiguration
       if (turnServers.length > 2) {
         try {
           final fullConfig = <String, dynamic>{
             'iceServers': [...stunServers, ...turnServers],
             'iceTransportPolicy': config['iceTransportPolicy'] ?? 'all',
+            if (config.containsKey('bundlePolicy')) 'bundlePolicy': config['bundlePolicy'],
           };
           await peerConnection!.setConfiguration(fullConfig);
           debugPrint('[Signaling] Linux: setConfiguration OK with ${stunServers.length + turnServers.length} servers');
@@ -124,6 +126,13 @@ class SignalingService {
         }
       }
     } else {
+      // For relay mode, strip STUN servers — they're useless and slow down PC creation
+      if (isRelay) {
+        config['iceServers'] = servers.where((s) {
+          final u = (s as Map)['urls']?.toString() ?? '';
+          return u.startsWith('turn:') || u.startsWith('turns:');
+        }).toList();
+      }
       peerConnection = await createPeerConnection(config);
     }
 
@@ -281,16 +290,22 @@ class SignalingService {
       if (event.streams.isNotEmpty) {
         remoteStream = event.streams.first;
         onAddRemoteStream?.call(event.streams.first);
-      } else if (event.track != null && remoteStream != null) {
-        // GStreamer (Linux): onTrack may fire with empty streams during
-        // renegotiation (e.g. when remote adds screen share mid-call).
-        // Manually add the track to the existing remoteStream and notify.
+      } else if (event.track != null) {
+        // GStreamer (Linux): onTrack fires with empty streams.
+        // Create a fresh MediaStream if remoteStream is null or disposed.
         try {
+          if (remoteStream == null) {
+            remoteStream = await createLocalMediaStream('remote_${DateTime.now().millisecondsSinceEpoch}');
+          }
           await remoteStream!.addTrack(event.track!);
           onAddRemoteStream?.call(remoteStream!);
-          debugPrint('[Signaling] onTrack: added ${event.track!.kind} to remoteStream (GStreamer fallback)');
         } catch (e) {
-          debugPrint('[Signaling] onTrack addTrack fallback: $e');
+          // Native stream may be disposed — create a new one
+          try {
+            remoteStream = await createLocalMediaStream('remote_${DateTime.now().millisecondsSinceEpoch}');
+            await remoteStream!.addTrack(event.track!);
+            onAddRemoteStream?.call(remoteStream!);
+          } catch (_) {}
         }
       }
     };
@@ -508,13 +523,17 @@ class SignalingService {
       // First-offer profile hint: mirror the caller's iceTransportPolicy so
       // both sides match on initial setup. Ignored on re-offers/ICE-restarts
       // to prevent a compromised peer from forcing relay-only mode mid-call.
+      // Skip setConfiguration if profile already matches — redundant call
+      // disrupts GStreamer media pipeline on Linux and triggers extra TURN allocations.
       final profileId = data['profile'] as String?;
       if (profileId != null && peerConnection != null && !_profileLocked) {
         final profile = profileId == 'restricted'
             ? CallTransportProfile.restricted
             : CallTransportProfile.auto;
-        _primaryRestricted = profile.isRestricted;
-        await peerConnection!.setConfiguration(await profile.peerConfig());
+        if (profile.isRestricted != _primaryRestricted) {
+          _primaryRestricted = profile.isRestricted;
+          await peerConnection!.setConfiguration(await profile.peerConfig());
+        }
         _profileLocked = true;
       }
       await peerConnection?.setRemoteDescription(RTCSessionDescription(sdp, data['type'] as String? ?? 'offer'));
@@ -1225,23 +1244,43 @@ class SignalingService {
       try { await _sendSignalingData('hangup', {'reason': 'user'}); } catch (_) {}
     }
     _signalSubscription?.cancel();
+    // Stop all tracks first
     try { localStream?.getTracks().forEach((t) => t.stop()); } catch (e) {
       debugPrint('Error stopping localStream tracks: $e');
-    }
-    try { await localStream?.dispose(); } catch (e) {
-      debugPrint('Error disposing localStream: $e');
     }
     try { remoteStream?.getTracks().forEach((t) => t.stop()); } catch (e) {
       debugPrint('Error stopping remoteStream tracks: $e');
     }
+    // Remove all senders/receivers from PC BEFORE close — forces GStreamer to
+    // tear down audio source/sink pipelines immediately, releasing PulseAudio
+    // devices. Without this, close() runs async GStreamer teardown that can
+    // leave the audio device locked for the next call.
+    if (peerConnection != null) {
+      try {
+        final senders = await peerConnection!.getSenders();
+        for (final s in senders) {
+          try { await peerConnection!.removeTrack(s); } catch (_) {}
+        }
+      } catch (_) {}
+    }
+    try { await localStream?.dispose(); } catch (e) {
+      debugPrint('Error disposing localStream: $e');
+    }
     try { await remoteStream?.dispose(); } catch (e) {
       debugPrint('Error disposing remoteStream: $e');
     }
-    try { await peerConnection?.close(); } catch (e) {
-      debugPrint('Error closing peerConnection: $e');
+    // dispose() does close() + releases native GStreamer resources fully.
+    // plain close() only shuts down ICE/DTLS but leaves native objects alive.
+    try { await peerConnection?.dispose(); } catch (e) {
+      debugPrint('Error disposing peerConnection: $e');
     }
-    try { await _secondaryPc?.close(); } catch (e) {
-      debugPrint('Error closing secondaryPc: $e');
+    try { await _secondaryPc?.dispose(); } catch (e) {
+      debugPrint('Error disposing secondaryPc: $e');
     }
+    // Null out references so GC can collect native resources
+    localStream = null;
+    remoteStream = null;
+    peerConnection = null;
+    _secondaryPc = null;
   }
 }
