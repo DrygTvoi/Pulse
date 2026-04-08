@@ -48,6 +48,7 @@ class _AutoProfile extends CallTransportProfile {
     return {
       'iceServers':          await IceServerConfig.load(),
       'iceTransportPolicy':  forceRelay ? 'relay' : 'all',
+      'bundlePolicy':        'max-bundle',
     };
   }
 }
@@ -74,6 +75,7 @@ class _TorRelayProfile extends CallTransportProfile {
   Future<Map<String, dynamic>> peerConfig() async => {
     'iceServers':         TorTurnProxy.allIceServerEntries,
     'iceTransportPolicy': 'relay',
+    'bundlePolicy':       'max-bundle',
   };
 }
 
@@ -98,5 +100,6 @@ class _RestrictedProfile extends CallTransportProfile {
   Future<Map<String, dynamic>> peerConfig() async => {
     'iceServers':          await IceServerConfig.loadRelay(),
     'iceTransportPolicy':  'relay',
+    'bundlePolicy':        'max-bundle',
   };
 }

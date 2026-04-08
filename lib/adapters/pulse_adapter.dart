@@ -13,6 +13,7 @@ import 'package:cryptography/cryptography.dart' as crypto_lib;
 import '../models/message.dart';
 import '../services/tor_service.dart' as tor;
 import '../services/utls_service.dart';
+import '../services/pulse_turn_proxy.dart';
 import 'inbox_manager.dart';
 
 /// ─────────────────────────────────────────────────────────────────────────────
@@ -606,6 +607,25 @@ class PulseInboxReader implements InboxReader {
           await ss.write(key: 'pulse_turn_user', value: turnUser);
           await ss.write(key: 'pulse_turn_pass', value: turnPass);
           debugPrint('[Pulse] TURN creds saved: $urls');
+
+          // Start local TLS-terminating proxy for TURNS URLs.
+          // Linux: BoringSSL lacks ISRG Root X1 (Let's Encrypt)
+          // Android/Waydroid: native WebRTC TLS TURN broken in container
+          if (Platform.isLinux || Platform.isAndroid) {
+            for (final u in urls) {
+              final s = u.toString();
+              if (s.startsWith('turns:')) {
+                final m = RegExp(r'^turns:([^:/?]+):?(\d+)?').firstMatch(s);
+                if (m != null) {
+                  final host = m.group(1)!;
+                  final port = int.tryParse(m.group(2) ?? '') ?? 443;
+                  final ok = await PulseTurnProxy.instance.start(host, port);
+                  if (ok) debugPrint('[Pulse] TurnProxy started → ${PulseTurnProxy.instance.localTurnUrl}');
+                }
+                break; // one proxy is enough
+              }
+            }
+          }
         }
       }
       // Save cert fingerprint from auth_ok if provided

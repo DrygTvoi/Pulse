@@ -1,8 +1,10 @@
 import 'dart:convert';
+import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'psiphon_turn_proxy.dart';
+import 'pulse_turn_proxy.dart';
 import 'tor_turn_proxy.dart';
 import 'yggdrasil_service.dart';
 
@@ -166,33 +168,11 @@ class IceServerConfig {
       for (final url in _kStunUrls) {'urls': url},
     ];
 
-    // Community presets — 'openrelay' and 'freestun' enabled by default
-    final enabled = prefs.getStringList(_kEnabledPresets) ?? ['openrelay', 'freestun'];
-    for (final preset in kTurnPresets) {
-      if (!enabled.contains(preset['id'] as String)) continue;
-      for (final s in preset['servers'] as List) {
-        servers.add(Map<String, dynamic>.from(s as Map));
-      }
-    }
-
-    // Probe-discovered TURN servers (auto-found by ConnectivityProbeService)
-    final probeTurnRaw = prefs.getString(_kProbeTurnKey);
-    if (probeTurnRaw != null) {
-      try {
-        final list = jsonDecode(probeTurnRaw) as List;
-        for (final s in list) {
-          servers.add(Map<String, dynamic>.from(s as Map));
-        }
-      } catch (e) {
-        debugPrint('[ICE] Failed to parse probe TURN servers: $e');
-      }
-    }
-
-    // Pulse server TURN (dynamic creds from auth_ok — stored in secure storage)
+    // Pulse server TURN FIRST — highest priority, our own relay.
+    // Must be before community presets so Linux safe-set (first 2 TURN) includes it.
     const ss = FlutterSecureStorage();
     final pulseTurnUser = await ss.read(key: 'pulse_turn_user') ?? '';
     final pulseTurnPass = await ss.read(key: 'pulse_turn_pass') ?? '';
-    // Load all URLs (new format) or fall back to single URL (legacy)
     final pulseTurnUrlsRaw = await ss.read(key: 'pulse_turn_urls');
     final pulseTurnUrls = <String>[];
     if (pulseTurnUrlsRaw != null) {
@@ -210,13 +190,40 @@ class IceServerConfig {
       if (pulseTurnUrl.isNotEmpty &&
           (pulseTurnUrl.startsWith('turn:') || pulseTurnUrl.startsWith('turns:')) &&
           !_isTurnHostPrivate(_extractTurnHost(pulseTurnUrl))) {
+        // Replace turns: with local proxy URL (Linux: BoringSSL cert issue, Android: Waydroid TLS)
+        final useProxy = (Platform.isLinux || Platform.isAndroid) &&
+            pulseTurnUrl.startsWith('turns:') &&
+            PulseTurnProxy.instance.isRunning;
+        final url = useProxy ? PulseTurnProxy.instance.localTurnUrl : pulseTurnUrl;
         servers.add({
-          'urls': pulseTurnUrl,
+          'urls': url,
           if (pulseTurnUser.isNotEmpty) 'username': pulseTurnUser,
           if (pulseTurnPass.isNotEmpty) 'credential': pulseTurnPass,
         });
       }
     }
+
+    // Community presets — TEMPORARILY DISABLED (debugging relay-only calls)
+    // final enabled = prefs.getStringList(_kEnabledPresets) ?? ['openrelay', 'freestun'];
+    // for (final preset in kTurnPresets) {
+    //   if (!enabled.contains(preset['id'] as String)) continue;
+    //   for (final s in preset['servers'] as List) {
+    //     servers.add(Map<String, dynamic>.from(s as Map));
+    //   }
+    // }
+
+    // Probe-discovered TURN servers — TEMPORARILY DISABLED
+    // final probeTurnRaw = prefs.getString(_kProbeTurnKey);
+    // if (probeTurnRaw != null) {
+    //   try {
+    //     final list = jsonDecode(probeTurnRaw) as List;
+    //     for (final s in list) {
+    //       servers.add(Map<String, dynamic>.from(s as Map));
+    //     }
+    //   } catch (e) {
+    //     debugPrint('[ICE] Failed to parse probe TURN servers: $e');
+    //   }
+    // }
 
     // Custom TURN server (BYOD — highest priority, added last so WebRTC tries it first)
     final url  = await ss.read(key: _kCustomUrl)      ?? '';
@@ -230,42 +237,41 @@ class IceServerConfig {
       });
     }
 
-    // Peer TURN servers (learned from contacts during calls — organic growth)
-    final peerTurnRaw = prefs.getString(_kPeerTurnKey);
-    if (peerTurnRaw != null) {
-      try {
-        final list = jsonDecode(peerTurnRaw) as List;
-        for (final s in list) {
-          servers.add(Map<String, dynamic>.from(s as Map));
-        }
-      } catch (e) {
-        debugPrint('[ICE] Failed to parse peer TURN servers: $e');
-      }
-    }
+    // Peer TURN servers — TEMPORARILY DISABLED
+    // final peerTurnRaw = prefs.getString(_kPeerTurnKey);
+    // if (peerTurnRaw != null) {
+    //   try {
+    //     final list = jsonDecode(peerTurnRaw) as List;
+    //     for (final s in list) {
+    //       servers.add(Map<String, dynamic>.from(s as Map));
+    //     }
+    //   } catch (e) {
+    //     debugPrint('[ICE] Failed to parse peer TURN servers: $e');
+    //   }
+    // }
 
-    // NIP-117 TURN servers (discovered via Nostr kind:10010 events)
-    final nip117TurnRaw = prefs.getString(_kNip117TurnKey);
-    if (nip117TurnRaw != null) {
-      try {
-        final list = jsonDecode(nip117TurnRaw) as List;
-        for (final s in list) {
-          servers.add(Map<String, dynamic>.from(s as Map));
-        }
-      } catch (e) {
-        debugPrint('[ICE] Failed to parse NIP-117 TURN servers: $e');
-      }
-    }
+    // NIP-117 TURN servers — TEMPORARILY DISABLED
+    // final nip117TurnRaw = prefs.getString(_kNip117TurnKey);
+    // if (nip117TurnRaw != null) {
+    //   try {
+    //     final list = jsonDecode(nip117TurnRaw) as List;
+    //     for (final s in list) {
+    //       servers.add(Map<String, dynamic>.from(s as Map));
+    //     }
+    //   } catch (e) {
+    //     debugPrint('[ICE] Failed to parse NIP-117 TURN servers: $e');
+    //   }
+    // }
 
-    // Yggdrasil TURN relay (local pion/turn → Yggdrasil overlay, no VpnService)
-    // Works in censored networks without any TURN infrastructure.
-    final yggEntry = YggdrasilService.instance.iceServerEntry;
-    if (yggEntry != null) servers.add(yggEntry);
+    // Yggdrasil TURN relay — TEMPORARILY DISABLED
+    // final yggEntry = YggdrasilService.instance.iceServerEntry;
+    // if (yggEntry != null) servers.add(yggEntry);
 
-    // Psiphon TURN proxies — fast path (3-5s bootstrap)
-    servers.addAll(PsiphonTurnProxy.allIceServerEntries);
+    // Psiphon TURN proxies — TEMPORARILY DISABLED
+    // servers.addAll(PsiphonTurnProxy.allIceServerEntries);
 
-    // Tor TURN proxies — tunnel TURN through Tor when available (China/Iran)
-    servers.addAll(TorTurnProxy.allIceServerEntries);
+    // Tor TURN proxies — TEMPORARILY DISABLED
+    // servers.addAll(TorTurnProxy.allIceServerEntries);
 
     return servers;
   }
@@ -277,12 +283,8 @@ class IceServerConfig {
   /// Plain UDP and plain TCP TURN are excluded.
   static Future<List<Map<String, dynamic>>> loadRelay() async {
     final all = await load();
-    // Psiphon/Tor TURN proxies — first candidates so restricted profile tries
-    // them before anything else; remains empty if proxies are not running.
-    final result = <Map<String, dynamic>>[
-      ...PsiphonTurnProxy.allIceServerEntries,
-      ...TorTurnProxy.allIceServerEntries,
-    ];
+    // Psiphon/Tor TURN proxies — TEMPORARILY DISABLED
+    final result = <Map<String, dynamic>>[];
 
     for (final server in all) {
       final urls = server['urls'];
