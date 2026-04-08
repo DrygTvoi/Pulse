@@ -55,8 +55,13 @@ enabled = true
 # TURN listening port
 port = 3478
 
-# TURN realm
+# TURN realm (used for credential generation)
 realm = "pulse"
+
+# Public IP or hostname for relay address (XOR-RELAYED-ADDRESS in TURN allocations).
+# If empty, auto-detected from auto_tls_domain, then realm DNS, then external service.
+# MUST be set to the server's public IP if realm is not a resolvable hostname.
+# public_host = "203.0.113.1"
 
 [media]
 # Enable SFU media relay for voice/video calls

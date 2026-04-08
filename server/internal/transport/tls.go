@@ -133,8 +133,18 @@ func AutoTLS(domain, dataDir string) (*tls.Config, *autocert.Manager, error) {
 
 	tlsCfg := m.TLSConfig()
 	tlsCfg.MinVersion = tls.VersionTLS12
-	// Prepend h2 and http/1.1 while keeping autocert's acme-tls/1
+	// Keep http/1.1 + acme-tls/1; no h2 (simplifies mux)
 	tlsCfg.NextProtos = []string{"http/1.1", "acme-tls/1"}
+
+	// Wrap GetCertificate: TURNS clients (libwebrtc) may omit SNI,
+	// causing autocert to reject the handshake. Default to our domain.
+	origGetCert := tlsCfg.GetCertificate
+	tlsCfg.GetCertificate = func(hello *tls.ClientHelloInfo) (*tls.Certificate, error) {
+		if hello.ServerName == "" {
+			hello.ServerName = domain
+		}
+		return origGetCert(hello)
+	}
 
 	return tlsCfg, m, nil
 }

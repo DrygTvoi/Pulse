@@ -6,9 +6,12 @@ import (
 	"crypto/sha1"
 	"encoding/base64"
 	"fmt"
+	"io"
 	"log"
 	"net"
+	"net/http"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -60,10 +63,12 @@ func NewServer() *Server {
 }
 
 // Start begins the TURN relay on the given UDP port with the specified realm.
+// publicIP is the server's external IP — used in XOR-RELAYED-ADDRESS so relay-
+// to-relay (hairpin) works correctly.  If empty, the realm is DNS-resolved.
 // If secret is nil, a random secret is generated.
 // tlsListener is optional — if provided, TURNS (TURN over TLS) is served on it
 // (typically the shared TLS listener on port 443).
-func (s *Server) Start(port int, realm string, secret []byte, tlsListener net.Listener) error {
+func (s *Server) Start(port int, realm string, secret []byte, tlsListener net.Listener, publicIP string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -82,10 +87,23 @@ func (s *Server) Start(port int, realm string, secret []byte, tlsListener net.Li
 	s.realm = realm
 	s.port = port
 
+	// Resolve the external relay address for XOR-RELAYED-ADDRESS.
+	// Without this, Address="0.0.0.0" causes relay-to-relay hairpin failures
+	// because the TURN server can't route between its own allocations.
+	relayAddr := resolvePublicIP(publicIP, realm)
+	log.Printf("[turn] relay address: %s (publicIP=%q, realm=%q)", relayAddr, publicIP, realm)
+
 	// Open UDP listener
 	udpListener, err := net.ListenPacket("udp4", "0.0.0.0:"+strconv.Itoa(port))
 	if err != nil {
 		return fmt.Errorf("failed to listen on UDP port %d: %w", port, err)
+	}
+
+	relayGen := func() *turn.RelayAddressGeneratorStatic {
+		return &turn.RelayAddressGeneratorStatic{
+			RelayAddress: net.ParseIP(relayAddr), // advertised to clients in XOR-RELAYED-ADDRESS
+			Address:      "0.0.0.0",              // bind to all interfaces
+		}
 	}
 
 	// Open TCP listener on same port (optional — may fail if port is in use)
@@ -95,29 +113,23 @@ func (s *Server) Start(port int, realm string, secret []byte, tlsListener net.Li
 		log.Printf("[turn] WARNING: TCP on port %d unavailable (%v) — UDP only", port, tcpErr)
 	} else {
 		listenerConfigs = append(listenerConfigs, turn.ListenerConfig{
-			Listener: tcpListener,
-			RelayAddressGenerator: &turn.RelayAddressGeneratorStatic{
-				RelayAddress: net.ParseIP("0.0.0.0"),
-				Address:      "0.0.0.0",
-			},
+			Listener:              tcpListener,
+			RelayAddressGenerator: relayGen(),
 		})
 	}
 
 	// Add TLS listener for TURNS on port 443 (multiplexed with HTTPS)
 	if tlsListener != nil {
 		listenerConfigs = append(listenerConfigs, turn.ListenerConfig{
-			Listener: tlsListener,
-			RelayAddressGenerator: &turn.RelayAddressGeneratorStatic{
-				RelayAddress: net.ParseIP("0.0.0.0"),
-				Address:      "0.0.0.0",
-			},
+			Listener:              tlsListener,
+			RelayAddressGenerator: relayGen(),
 		})
 		log.Printf("[turn] TURNS listener added (shared TLS port)")
 	}
 
 	// Create the TURN server
 	logFactory := logging.NewDefaultLoggerFactory()
-	logFactory.DefaultLogLevel = logging.LogLevelWarn
+	logFactory.DefaultLogLevel = logging.LogLevelInfo
 
 	srv, err := turn.NewServer(turn.ServerConfig{
 		Realm: realm,
@@ -126,11 +138,8 @@ func (s *Server) Start(port int, realm string, secret []byte, tlsListener net.Li
 		},
 		PacketConnConfigs: []turn.PacketConnConfig{
 			{
-				PacketConn: udpListener,
-				RelayAddressGenerator: &turn.RelayAddressGeneratorStatic{
-					RelayAddress: net.ParseIP("0.0.0.0"),
-					Address:      "0.0.0.0",
-				},
+				PacketConn:            udpListener,
+				RelayAddressGenerator: relayGen(),
 			},
 		},
 		ListenerConfigs: listenerConfigs,
@@ -152,8 +161,78 @@ func (s *Server) Start(port int, realm string, secret []byte, tlsListener net.Li
 	if tlsListener != nil {
 		transports += "+TLS"
 	}
-	log.Printf("[turn] TURN server started on %s port %d (realm: %s)", transports, port, realm)
+	log.Printf("[turn] TURN server started on %s port %d (realm: %s, relay: %s)", transports, port, realm, relayAddr)
 	return nil
+}
+
+// resolvePublicIP determines the external IP for relay address generation.
+// Priority: explicit publicIP → DNS resolve realm → auto-detect via HTTP → 0.0.0.0.
+func resolvePublicIP(publicIP, realm string) string {
+	// Explicit IP provided
+	if publicIP != "" {
+		if ip := net.ParseIP(publicIP); ip != nil {
+			return publicIP
+		}
+		// It's a hostname — resolve it
+		ips, err := net.LookupHost(publicIP)
+		if err == nil && len(ips) > 0 {
+			return ips[0]
+		}
+		log.Printf("[turn] WARNING: could not resolve publicIP %q: %v", publicIP, err)
+	}
+
+	// Try resolving realm
+	if realm != "" {
+		if ip := net.ParseIP(realm); ip != nil {
+			return realm
+		}
+		ips, err := net.LookupHost(realm)
+		if err == nil && len(ips) > 0 {
+			return ips[0]
+		}
+		log.Printf("[turn] WARNING: could not resolve realm %q: %v", realm, err)
+	}
+
+	// Auto-detect public IP via external services
+	if ip := detectPublicIP(); ip != "" {
+		log.Printf("[turn] auto-detected public IP: %s", ip)
+		return ip
+	}
+
+	log.Printf("[turn] WARNING: could not determine public IP — relay address will be 0.0.0.0 (TURN will not work for remote peers)")
+	return "0.0.0.0"
+}
+
+// detectPublicIP tries external services to determine the server's public IP.
+func detectPublicIP() string {
+	services := []string{
+		"https://api.ipify.org",
+		"https://ifconfig.me/ip",
+		"https://icanhazip.com",
+	}
+	for _, url := range services {
+		if ip := httpGetIP(url); ip != "" {
+			return ip
+		}
+	}
+	return ""
+}
+
+func httpGetIP(url string) string {
+	resp, err := (&http.Client{Timeout: 5 * time.Second}).Get(url)
+	if err != nil {
+		return ""
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 64))
+	if err != nil {
+		return ""
+	}
+	ip := strings.TrimSpace(string(body))
+	if net.ParseIP(ip) != nil {
+		return ip
+	}
+	return ""
 }
 
 
@@ -202,15 +281,16 @@ func (s *Server) GenerateCredentials(pubkey string) (*Credentials, error) {
 	mac.Write([]byte(username))
 	password := base64.StdEncoding.EncodeToString(mac.Sum(nil))
 
-	uris := []string{
-		fmt.Sprintf("turn:%s:%d?transport=udp", host, port),
-		fmt.Sprintf("turn:%s:%d?transport=tcp", host, port),
-	}
-	// Advertise TURNS on the TLS port (typically 443) — looks like regular
-	// HTTPS to DPI, making it censorship-resistant.
+	// Advertise both TURNS (TLS/TCP on 443) and plain TURN (UDP on dedicated port).
+	// TURNS is preferred for censorship resistance, but some clients (Waydroid,
+	// older Android) may fail TLS-based TURN allocation — UDP fallback ensures
+	// connectivity.
+	var uris []string
 	if tlsPort > 0 {
 		uris = append(uris, fmt.Sprintf("turns:%s:%d?transport=tcp", host, tlsPort))
 	}
+	// Always include plain UDP TURN as fallback
+	uris = append(uris, fmt.Sprintf("turn:%s:%d?transport=udp", host, port))
 
 	return &Credentials{
 		Username: username,

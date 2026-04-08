@@ -250,17 +250,27 @@ func runServe(cmd *cobra.Command, args []string) error {
 			}
 		}
 
-		if err := turnSrv.Start(cfg.Turn.Port, cfg.Turn.Realm, turnSecret, stunLn); err != nil {
+		// Determine relay IP (for XOR-RELAYED-ADDRESS) and URI host (for turns: URLs).
+		// public_host may be an IP (relay) or domain (URI+relay).
+		// AutoTLS domain is always preferred for URIs (TLS cert must match).
+		relayHost := cfg.Turn.PublicHost
+		if relayHost == "" && cfg.Server.AutoTLSDomain != "" {
+			relayHost = cfg.Server.AutoTLSDomain
+		}
+
+		// URI host: prefer AutoTLS domain (TLS cert matches), fall back to public_host
+		uriHost := cfg.Server.AutoTLSDomain
+		if uriHost == "" {
+			uriHost = cfg.Turn.PublicHost
+		}
+
+		if err := turnSrv.Start(cfg.Turn.Port, cfg.Turn.Realm, turnSecret, stunLn, relayHost); err != nil {
 			log.Printf("[serve] WARNING: failed to start TURN server: %v", err)
 			turnSrv = nil
 		} else {
-			// Set public host for TURN URIs: config override → AutoTLS domain → realm
-			pubHost := cfg.Turn.PublicHost
-			if pubHost == "" && cfg.Server.AutoTLSDomain != "" {
-				pubHost = cfg.Server.AutoTLSDomain
-			}
-			if pubHost != "" {
-				turnSrv.SetPublicHost(pubHost)
+			// SetPublicHost controls the hostname in turns: URIs
+			if uriHost != "" {
+				turnSrv.SetPublicHost(uriHost)
 			}
 			// Advertise TURNS on the HTTPS port (443) for censorship resistance
 			if cfg.Server.Listen != "" {
@@ -274,7 +284,7 @@ func runServe(cmd *cobra.Command, args []string) error {
 					log.Printf("[serve] WARNING: failed to persist TURN secret: %v", pErr)
 				}
 			}
-			log.Printf("[serve] TURN server started on port %d (public_host=%s, turns_on_443=%v)", cfg.Turn.Port, pubHost, stunLn != nil)
+			log.Printf("[serve] TURN server started on port %d (relay=%s, uri=%s, turns_on_443=%v)", cfg.Turn.Port, relayHost, uriHost, stunLn != nil)
 		}
 		// Set on hub for credential generation in auth_ok
 		if turnSrv != nil {
