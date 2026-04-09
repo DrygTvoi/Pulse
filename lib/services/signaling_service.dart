@@ -53,6 +53,10 @@ class SignalingService {
   int _secondaryCandidatesReceived = 0; // F1-3: secondary path counter
   static const _kMaxCandidates = 200;
 
+  // Buffer for ICE candidates that arrive before remote description is set.
+  final List<Map<String, dynamic>> _pendingCandidates = [];
+  bool _remoteDescriptionSet = false;
+
   // Remote peer's Yggdrasil ed25519 public key (base64), received in offer/answer.
   // Needed to construct outbound proxy routes through the overlay.
   String? _remoteYggPubkey;
@@ -89,6 +93,8 @@ class SignalingService {
   // ── Initialise ─────────────────────────────────────────────────────────────
 
   Future<void> init({CallTransportProfile profile = CallTransportProfile.auto}) async {
+    _remoteDescriptionSet = false;
+    _pendingCandidates.clear();
     _primaryRestricted = profile.isRestricted;
     final config = await profile.peerConfig();
     final servers = config['iceServers'] as List? ?? [];
@@ -537,6 +543,8 @@ class SignalingService {
         _profileLocked = true;
       }
       await peerConnection?.setRemoteDescription(RTCSessionDescription(sdp, data['type'] as String? ?? 'offer'));
+      _remoteDescriptionSet = true;
+      await _flushPendingCandidates();
       await createAnswer();
     } catch (e) {
       debugPrint('[Signaling] handleOffer error: $e');
@@ -562,6 +570,8 @@ class SignalingService {
       // FINDING-7: Reset candidate counter for new session
       _candidatesReceived = 0;
       await peerConnection?.setRemoteDescription(RTCSessionDescription(sdp, data['type'] as String? ?? 'answer'));
+      _remoteDescriptionSet = true;
+      await _flushPendingCandidates();
     } catch (e) {
       debugPrint('[Signaling] handleAnswer error: $e');
     }
@@ -774,12 +784,11 @@ class SignalingService {
       }
       final pc = peerConnection;
       if (pc == null) return;
-      // Guard: ensure remote description is set before adding candidates.
+      // Buffer candidates until remote description is set.
       // Adding candidates without remote description crashes native WebRTC
       // on some Android builds (SIGABRT in nativeAddIceCandidate).
-      final remoteDesc = await pc.getRemoteDescription();
-      if (remoteDesc == null || remoteDesc.sdp == null || remoteDesc.sdp!.isEmpty) {
-        debugPrint('[Signaling] Dropping candidate — no remote description yet');
+      if (!_remoteDescriptionSet) {
+        _pendingCandidates.add(data);
         return;
       }
       final candidateStr = data['candidate'] as String?;
@@ -790,6 +799,14 @@ class SignalingService {
       await pc.addCandidate(candidate);
     } catch (e) {
       debugPrint('[Signaling] handleCandidate error: $e');
+    }
+  }
+
+  Future<void> _flushPendingCandidates() async {
+    final pending = List<Map<String, dynamic>>.from(_pendingCandidates);
+    _pendingCandidates.clear();
+    for (final c in pending) {
+      await _handleCandidate(c);
     }
   }
 

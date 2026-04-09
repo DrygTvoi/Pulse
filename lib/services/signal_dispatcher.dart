@@ -274,6 +274,7 @@ class SignalDispatcher {
       StreamController<SignalGroupInviteDeclineEvent>.broadcast();
   final _senderKeyDistCtrl =
       StreamController<SignalSenderKeyDistEvent>.broadcast();
+  final _pqcConfirmedCtrl = StreamController<String>.broadcast();
 
   Stream<SignalRawEvent> get rawSignals => _rawCtrl.stream;
   Stream<SignalIncomingCallEvent> get incomingCalls => _incomingCallCtrl.stream;
@@ -302,6 +303,8 @@ class SignalDispatcher {
       _groupInviteDeclineCtrl.stream;
   Stream<SignalSenderKeyDistEvent> get senderKeyDists =>
       _senderKeyDistCtrl.stream;
+  /// Emits sender address when a PQC-wrapped signal is successfully unwrapped.
+  Stream<String> get pqcConfirmed => _pqcConfirmedCtrl.stream;
 
   // ── Constants ────────────────────────────────────────────────────────────
 
@@ -429,6 +432,7 @@ class SignalDispatcher {
               sig = Map<String, dynamic>.from(sig);
               sig['payload'] = jsonDecode(unwrapped) as Map<String, dynamic>;
               debugPrint('[SignalDispatcher] PQC unwrapped signal ($sigType) from $sigSender');
+              if (!_pqcConfirmedCtrl.isClosed) _pqcConfirmedCtrl.add(sigSender);
             } catch (e) {
               debugPrint('[SignalDispatcher] PQC unwrap failed ($sigType): $e');
               continue; // drop malformed signal

@@ -479,7 +479,7 @@ class PulseInboxReader implements InboxReader {
         final ch = await _connectPulseWebSocketViaUtls(
             _wsUrl, utlsPort,
             upstreamSocks5: '$_torHost:$_torPort',
-            protocols: ['pulse.auth'])
+            protocols: ['mqtt'])
             .timeout(const Duration(seconds: 20));
         return ch;
       } catch (e) {
@@ -490,7 +490,7 @@ class PulseInboxReader implements InboxReader {
         final ch = await tor.connectWebSocket(_wsUrl,
             torHost: _torHost, torPort: _torPort,
             socks5Timeout: const Duration(seconds: 8),
-            protocols: ['pulse.auth']);
+            protocols: ['mqtt']);
         return ch;
       } catch (e) {
         debugPrint('[Pulse] Force-Tor plain Tor also failed ($e) — trying next');
@@ -502,7 +502,7 @@ class PulseInboxReader implements InboxReader {
       try {
         debugPrint('[Pulse] uTLS+ECH to $_wsUrl');
         final ch = await _connectPulseWebSocketViaUtls(_wsUrl, utlsPort,
-                protocols: ['pulse.auth'])
+                protocols: ['mqtt'])
             .timeout(const Duration(seconds: 8));
         return ch;
       } catch (e) {
@@ -516,7 +516,7 @@ class PulseInboxReader implements InboxReader {
         final ch = await tor.connectWebSocket(_wsUrl,
             torHost: _torHost, torPort: _torPort,
             socks5Timeout: const Duration(seconds: 8),
-            protocols: ['pulse.auth']);
+            protocols: ['mqtt']);
         return ch;
       } catch (e) {
         debugPrint('[Pulse] Tor WS connect failed ($e) — trying next');
@@ -536,7 +536,7 @@ class PulseInboxReader implements InboxReader {
         debugPrint('[Pulse] Trying CF Worker: $workerUrl');
         final inner = _buildHttpClient();
         final ws = await WebSocket.connect(workerUrl, customClient: inner,
-                protocols: ['pulse.auth'])
+                protocols: ['mqtt'])
             .timeout(const Duration(seconds: 12));
         ws.pingInterval = _randomPingInterval();
         return IOWebSocketChannel(ws);
@@ -550,7 +550,7 @@ class PulseInboxReader implements InboxReader {
     final ws = await WebSocket.connect(
       _wsUrl,
       customClient: inner,
-      protocols: ['pulse.auth'],
+      protocols: ['mqtt'],
     ).timeout(const Duration(seconds: 10));
     ws.pingInterval = _randomPingInterval();
     return IOWebSocketChannel(ws);
@@ -673,13 +673,21 @@ class PulseInboxReader implements InboxReader {
         _PulseSharedWs.channel = channel;
         _PulseSharedWs.authenticated = false;
 
+        // Send hello — server waits for this before sending auth_challenge
+        // (probe resistance: server is silent until client proves protocol knowledge)
+        channel.sink.add(jsonEncode({'type': 'hello'}));
+
         // Single stream listener — handles auth then messages
         bool authenticated = false;
         try {
           await for (final raw in channel.stream) {
             try {
-              // ── Binary frame handling (padding, file chunks, etc.) ──
+              // ── Binary frame handling (padding, TURN-over-WS, etc.) ──
               if (raw is List<int>) {
+                if (raw.isNotEmpty && raw[0] == 0x30 && raw.length > 1) {
+                  // TURN-over-WebSocket: forward STUN data to local PulseTurnProxy
+                  PulseTurnProxy.onTurnBinaryFrame(raw.sublist(1));
+                }
                 // 0xFF = server CBR/burst padding frame → silently discard
                 // Other binary types (file, media, tunnel) not handled by reader
                 continue;
@@ -688,8 +696,8 @@ class PulseInboxReader implements InboxReader {
               final data = jsonDecode(raw as String) as Map<String, dynamic>;
               final type = data['type'] as String? ?? '';
 
-              // ── Chaff filtering — server sends decoy messages with _chaff:true ──
-              if (data['_chaff'] == true) continue;
+              // Server chaff: messages from unknown senders are silently
+              // dropped downstream (no Signal session → decrypt fails).
 
               // ── Auth phase ──
               if (!authenticated) {
@@ -795,6 +803,8 @@ class PulseInboxReader implements InboxReader {
                   // this connection instead of opening a competing one.
                   _PulseSharedWs.channel = channel;
                   _PulseSharedWs.authenticated = true;
+                  // Set WS channel for TURN-over-WebSocket (single connection)
+                  PulseTurnProxy.setWebSocketChannel(channel);
                   if (!_isHealthy && !_healthCtrl.isClosed) {
                     _isHealthy = true;
                     _healthCtrl.add(true);
@@ -890,6 +900,7 @@ class PulseInboxReader implements InboxReader {
         if (_PulseSharedWs.channel == channel) {
           _PulseSharedWs.channel = null;
           _PulseSharedWs.authenticated = false;
+          PulseTurnProxy.setWebSocketChannel(null);
         }
         _ws = null;
         try { channel?.sink.close(); } catch (_) {}
@@ -941,8 +952,12 @@ class PulseInboxReader implements InboxReader {
     final msgTs = claimed.difference(now).abs() <= const Duration(days: 7) ? claimed : now;
 
     // Encrypted body: try 'payload' (string), then 'body'
-    final encBody = (rawPayload is String) ? rawPayload
+    var encBody = (rawPayload is String) ? rawPayload
         : payload['body'] as String? ?? payload['payload'] as String? ?? '';
+    // Defensive: strip surrounding quotes from double-encoded body
+    if (encBody.length >= 2 && encBody.startsWith('"') && encBody.endsWith('"')) {
+      encBody = encBody.substring(1, encBody.length - 1);
+    }
 
     final msg = Message(
       id: id,
@@ -1049,6 +1064,9 @@ class PulseInboxReader implements InboxReader {
       channel = await _connectWs();
       await channel.ready;
 
+      // Send hello — server waits for this before sending auth_challenge
+      channel.sink.add(jsonEncode({'type': 'hello'}));
+
       final completer = Completer<Map<String, dynamic>?>();
       Timer(const Duration(seconds: 15), () {
         if (!completer.isCompleted) completer.complete(null);
@@ -1059,7 +1077,7 @@ class PulseInboxReader implements InboxReader {
         try {
           if (raw is List<int>) return; // binary padding → ignore
           final data = jsonDecode(raw as String) as Map<String, dynamic>;
-          if (data['_chaff'] == true) return; // chaff → discard
+          // Server chaff: unknown sender → decrypt fails → silently dropped.
           final type = data['type'] as String? ?? '';
           if (!authenticated) {
             if (type == 'auth_challenge') {
@@ -1245,7 +1263,7 @@ class PulseMessageSender implements MessageSender {
         final ch = await _connectPulseWebSocketViaUtls(
             _wsUrl, utlsPort,
             upstreamSocks5: '$_torHost:$_torPort',
-            protocols: ['pulse.auth'])
+            protocols: ['mqtt'])
             .timeout(const Duration(seconds: 20));
         return ch;
       } catch (e) {
@@ -1255,7 +1273,7 @@ class PulseMessageSender implements MessageSender {
         final ch = await tor.connectWebSocket(_wsUrl,
             torHost: _torHost, torPort: _torPort,
             socks5Timeout: const Duration(seconds: 8),
-            protocols: ['pulse.auth']);
+            protocols: ['mqtt']);
         return ch;
       } catch (e) {
         debugPrint('[Pulse/Sender] Force-Tor plain Tor failed ($e) — next');
@@ -1266,7 +1284,7 @@ class PulseMessageSender implements MessageSender {
     if (utlsPort != null && !_forcePulseTor) {
       try {
         final ch = await _connectPulseWebSocketViaUtls(_wsUrl, utlsPort,
-                protocols: ['pulse.auth'])
+                protocols: ['mqtt'])
             .timeout(const Duration(seconds: 8));
         return ch;
       } catch (e) {
@@ -1280,7 +1298,7 @@ class PulseMessageSender implements MessageSender {
         final ch = await tor.connectWebSocket(_wsUrl,
             torHost: _torHost, torPort: _torPort,
             socks5Timeout: const Duration(seconds: 8),
-            protocols: ['pulse.auth']);
+            protocols: ['mqtt']);
         return ch;
       } catch (e) {
         debugPrint('[Pulse/Sender] Tor failed ($e) — next');
@@ -1300,7 +1318,7 @@ class PulseMessageSender implements MessageSender {
         debugPrint('[Pulse/Sender] Trying CF Worker: $workerUrl');
         final inner = _buildHttpClient();
         final ws = await WebSocket.connect(workerUrl, customClient: inner,
-                protocols: ['pulse.auth'])
+                protocols: ['mqtt'])
             .timeout(const Duration(seconds: 12));
         ws.pingInterval = _randomPingInterval();
         return IOWebSocketChannel(ws);
@@ -1314,7 +1332,7 @@ class PulseMessageSender implements MessageSender {
     final ws = await WebSocket.connect(
       _wsUrl,
       customClient: inner,
-      protocols: ['pulse.auth'],
+      protocols: ['mqtt'],
     ).timeout(const Duration(seconds: 10));
     ws.pingInterval = _randomPingInterval();
     return IOWebSocketChannel(ws);
@@ -1354,13 +1372,16 @@ class PulseMessageSender implements MessageSender {
       final channel = await _connectWs();
       await channel.ready;
 
+      // Send hello — server waits for this before sending auth_challenge
+      channel.sink.add(jsonEncode({'type': 'hello'}));
+
       // Authenticate — single stream listener handles both auth and runtime.
       final completer = Completer<bool>();
       channel.stream.listen((raw) async {
         try {
           if (raw is List<int>) return; // binary padding → ignore
           final data = jsonDecode(raw as String) as Map<String, dynamic>;
-          if (data['_chaff'] == true) return; // chaff → discard
+          // Server chaff: unknown sender → decrypt fails → silently dropped.
           final type = data['type'] as String? ?? '';
 
           // ── Auth phase ──
@@ -1486,7 +1507,7 @@ class PulseMessageSender implements MessageSender {
     try {
       final inner = _buildHttpClient();
       final ws = await WebSocket.connect(sealedUrl,
-              customClient: inner, protocols: ['pulse.auth'])
+              customClient: inner, protocols: ['mqtt'])
           .timeout(const Duration(seconds: 10));
       ch = IOWebSocketChannel(ws);
       await ch.ready;
@@ -1502,7 +1523,7 @@ class PulseMessageSender implements MessageSender {
       final resp = await ch.stream.first.timeout(const Duration(seconds: 10));
       if (resp is String) {
         final data = jsonDecode(resp) as Map<String, dynamic>;
-        if (data['type'] == 'sealed_ack') return true;
+        if (data['status'] == 'ok' || data['type'] == 'sealed_ack') return true;
       }
       return false;
     } catch (e) {

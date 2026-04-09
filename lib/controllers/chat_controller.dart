@@ -1132,6 +1132,20 @@ class ChatController extends ChangeNotifier {
 
     final d = _signalDispatcher!;
 
+    // PQC confirmation from signals — breaks the chicken-and-egg:
+    // receiving a PQC-wrapped signal proves the contact has valid Kyber keys,
+    // so we can PQC-wrap messages to them.
+    _dispatcherSubs.add(d.pqcConfirmed.listen((senderId) {
+      _pqcConfirmed.add(senderId);
+      final prefix = senderId.split('@').first;
+      for (final c in _contacts.contacts) {
+        if (c.databaseId.split('@').first == prefix) {
+          _pqcConfirmed.add(c.databaseId);
+          break;
+        }
+      }
+    }));
+
     _dispatcherSubs.add(d.rawSignals.listen((e) {
       if (!_signalStreamController.isClosed) _signalStreamController.add(e.signal);
       // Cache webrtc signals so callee can replay them after accepting the call
@@ -1491,9 +1505,6 @@ class ChatController extends ChangeNotifier {
   }
 
   Future<void> _handleIncomingMessages(List<Message> newMessages) async {
-    if (newMessages.isNotEmpty) {
-      debugPrint('[Chat] _handleIncoming: ${newMessages.length} msgs, sender=${newMessages.first.senderId.length >= 8 ? newMessages.first.senderId.substring(0, 8) : newMessages.first.senderId}…, payload=${newMessages.first.encryptedPayload.substring(0, newMessages.first.encryptedPayload.length.clamp(0, 30))}…');
-    }
     bool hasUpdates = false;
     final contactByDbId = _getContactIndex();
 
@@ -1548,14 +1559,14 @@ class ChatController extends ChangeNotifier {
           }
         }
 
+        // All real messages must be E2EE-wrapped (plaintext fallback removed).
+        // Non-E2EE payloads are server chaff or invalid — drop silently.
+        if (!rawPayload.startsWith('E2EE||')) continue;
+
         String decryptedRaw = rawPayload;
         if (rawPayload.startsWith('E2EE||')) {
           final fastContact = contactByDbId[msg.senderId]
               ?? contactByDbId[msg.senderId.split('@').first];
-          if (fastContact == null) {
-            debugPrint('[Chat] Contact lookup MISS for senderId="${msg.senderId}" '
-                'indexKeys=${contactByDbId.keys.where((k) => k.startsWith(msg.senderId.substring(0, 8))).toList()}');
-          }
           if (fastContact != null) {
             try {
               decryptedRaw = await _signalService.decryptMessage(fastContact.databaseId, rawPayload);
