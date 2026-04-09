@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net"
 	"os"
 	"sync"
 	"time"
@@ -32,6 +33,7 @@ type Hub struct {
 	backups     *store.BackupStore
 	fileStore   *store.FileStore
 	turnServer  *turn.Server
+	turnWSLn    *turnWSListener // virtual listener for TURN-over-WebSocket
 	sfuManager  *sfu.Manager
 	tunnelMgr   *tunnel.Manager
 	paddingSvc  *privacy.PaddingService
@@ -99,6 +101,16 @@ func (h *Hub) SetFileStore(fs *store.FileStore) {
 // SetTurnServer sets the TURN server reference for auth.
 func (h *Hub) SetTurnServer(ts *turn.Server) {
 	h.turnServer = ts
+}
+
+// TurnWSListener returns the virtual net.Listener for TURN-over-WebSocket.
+// Pass this to pion/turn as an additional ListenerConfig alongside the
+// TLS mux listener (or as a replacement if you want WS-only TURN).
+func (h *Hub) TurnWSListener() net.Listener {
+	if h.turnWSLn == nil {
+		h.turnWSLn = newTurnWSListener(&net.TCPAddr{IP: net.IPv4zero, Port: 443})
+	}
+	return h.turnWSLn
 }
 
 // SetSFUManager sets the SFU manager for media rooms.
@@ -384,7 +396,7 @@ func (h *Hub) handleSend(client *Client, payload json.RawMessage) {
 			if h.batchBuf != nil {
 				data, _ := json.Marshal(map[string]interface{}{
 					"type": TypeMessage, "id": incoming.ID,
-					"from": incoming.From, "body": string(incoming.Payload),
+					"from": incoming.From, "body": incoming.Payload,
 					"ts": incoming.Created,
 				})
 				h.batchBuf.Enqueue(msg.To, data)

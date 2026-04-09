@@ -19,6 +19,50 @@ import (
 	"golang.org/x/crypto/acme/autocert"
 )
 
+// nginxCipherSuites matches the default cipher suite preference of
+// nginx 1.24 compiled with OpenSSL 3.x. By explicitly setting these
+// (in the same order), Go's TLS ServerHello looks like nginx/OpenSSL
+// rather than the distinctive Go default order.
+//
+// Ref: `openssl ciphers -v 'HIGH:!aNULL:!MD5'` on nginx default config.
+var nginxCipherSuites = []uint16{
+	// TLS 1.3 cipher suites are NOT configurable in Go crypto/tls
+	// (always offered), but the TLS 1.2 suites below shape the JA3S hash.
+
+	// ECDHE+AESGCM (nginx/OpenSSL preferred order)
+	tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+	tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+	tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+	tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+	// ECDHE+ChaCha20 (OpenSSL 1.1+)
+	tls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256,
+	tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256,
+	// ECDHE+CBC (for older clients)
+	tls.TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,
+	tls.TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
+	tls.TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256,
+	tls.TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256,
+}
+
+// nginxCurvePreferences matches OpenSSL's default curve order.
+// Go's default puts X25519 first which is a fingerprint difference.
+var nginxCurvePreferences = []tls.CurveID{
+	tls.X25519,    // OpenSSL 1.1+ default first
+	tls.CurveP256, // secp256r1
+	tls.CurveP384, // secp384r1
+}
+
+// applyNginxTLS configures a tls.Config to mimic nginx/OpenSSL TLS behavior.
+// This reduces the JA3S fingerprint difference between our server and real nginx.
+func applyNginxTLS(cfg *tls.Config) {
+	cfg.MinVersion = tls.VersionTLS12
+	cfg.CipherSuites = nginxCipherSuites
+	cfg.CurvePreferences = nginxCurvePreferences
+	// Prefer server cipher order (like nginx `ssl_prefer_server_ciphers on`)
+	cfg.PreferServerCipherSuites = true
+	// Session tickets enabled by default in Go (like nginx)
+}
+
 // GenerateSelfSignedTLS creates an in-memory self-signed TLS certificate
 // for development and testing. Returns the TLS config and the SHA-256 fingerprint hex.
 func GenerateSelfSignedTLS() (*tls.Config, string, error) {
@@ -49,10 +93,10 @@ func GenerateSelfSignedTLS() (*tls.Config, string, error) {
 	template := x509.Certificate{
 		SerialNumber: serialNumber,
 		Subject: pkix.Name{
-			Organization: []string{"Pulse Messenger"},
-			CommonName:   "pulse-server",
+			// Neutral CN — don't reveal server identity
+			CommonName: "localhost",
 		},
-		DNSNames:              []string{"localhost", "pulse-server"},
+		DNSNames:              []string{"localhost"},
 		IPAddresses:           ipAddresses,
 		NotBefore:             time.Now(),
 		NotAfter:              time.Now().Add(365 * 24 * time.Hour),
@@ -82,11 +126,12 @@ func GenerateSelfSignedTLS() (*tls.Config, string, error) {
 		return nil, "", fmt.Errorf("failed to create key pair: %w", err)
 	}
 
-	return &tls.Config{
+	cfg := &tls.Config{
 		Certificates: []tls.Certificate{cert},
-		MinVersion:   tls.VersionTLS12,
 		NextProtos:   []string{"http/1.1"},
-	}, fingerprint, nil
+	}
+	applyNginxTLS(cfg)
+	return cfg, fingerprint, nil
 }
 
 // CertFingerprint computes the SHA-256 fingerprint of a TLS config's first certificate.
@@ -109,11 +154,12 @@ func LoadTLS(certPath, keyPath string) (*tls.Config, error) {
 		return nil, fmt.Errorf("failed to load TLS certificates: %w", err)
 	}
 
-	return &tls.Config{
+	cfg := &tls.Config{
 		Certificates: []tls.Certificate{cert},
-		MinVersion:   tls.VersionTLS12,
 		NextProtos:   []string{"http/1.1"},
-	}, nil
+	}
+	applyNginxTLS(cfg)
+	return cfg, nil
 }
 
 // AutoTLS creates a TLS config using Let's Encrypt (ACME) with automatic certificate management.
@@ -132,9 +178,9 @@ func AutoTLS(domain, dataDir string) (*tls.Config, *autocert.Manager, error) {
 	}
 
 	tlsCfg := m.TLSConfig()
-	tlsCfg.MinVersion = tls.VersionTLS12
 	// Keep http/1.1 + acme-tls/1; no h2 (simplifies mux)
 	tlsCfg.NextProtos = []string{"http/1.1", "acme-tls/1"}
+	applyNginxTLS(tlsCfg)
 
 	// Wrap GetCertificate: TURNS clients (libwebrtc) may omit SNI,
 	// causing autocert to reject the handshake. Default to our domain.

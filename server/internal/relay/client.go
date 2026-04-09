@@ -27,12 +27,13 @@ const (
 // WebSocket parameters.
 const (
 	writeWait      = 10 * time.Second
-	pongWait       = 90 * time.Second
+	pongWait       = 150 * time.Second
 	maxMessageSize = 1 << 20 // 1 MB
 
-	// Ping jitter range: randomized to avoid DPI fingerprinting.
-	pingIntervalMin = 30 * time.Second
-	pingIntervalMax = 70 * time.Second
+	// Ping jitter range: wide range to avoid DPI fingerprinting.
+	// 15-120s matches real browser WebSocket keepalive variance.
+	pingIntervalMin = 15 * time.Second
+	pingIntervalMax = 120 * time.Second
 )
 
 // randomPingInterval returns a random duration in [pingIntervalMin, pingIntervalMax).
@@ -56,6 +57,7 @@ type Client struct {
 	certFP       string // TLS certificate SHA-256 fingerprint
 	remoteIP     string // client IP for optional storage
 	powChallenge *metrics.PoWChallenge
+	turnConn     *turnWSConn // virtual conn for TURN-over-WebSocket (nil until first 0x30 frame)
 
 	send       chan []byte
 	sendBinary chan []byte
@@ -85,13 +87,35 @@ func (c *Client) SetRemoteIP(ip string) {
 	c.remoteIP = ip
 }
 
-// Start begins the client's read and write pumps and sends the auth challenge.
+// Start begins the client's read and write pumps.
+// Does NOT send auth challenge immediately — waits for client hello first
+// (probe resistance: silent until client proves it knows the protocol).
 func (c *Client) Start() {
-	// Generate and send auth challenge
+	go c.writePump()
+	go c.readPump()
+
+	// Auth deadline: close if client doesn't authenticate within 30s.
+	// Real MQTT brokers / nginx proxies do the same for idle connections.
+	go func() {
+		timer := time.NewTimer(30 * time.Second)
+		defer timer.Stop()
+		select {
+		case <-timer.C:
+			if c.state != StateAuthenticated {
+				c.Close()
+			}
+		case <-c.done:
+		}
+	}()
+}
+
+// sendAuthChallenge generates and sends the auth challenge.
+// Called only after receiving a valid "hello" from the client.
+func (c *Client) sendAuthChallenge() {
 	challenge, err := auth.GenerateChallenge()
 	if err != nil {
 		log.Printf("[client] failed to generate challenge: %v", err)
-		c.conn.Close()
+		c.Close()
 		return
 	}
 	c.challenge = challenge
@@ -114,26 +138,24 @@ func (c *Client) Start() {
 	data, err := json.Marshal(ch)
 	if err != nil {
 		log.Printf("[client] failed to marshal challenge: %v", err)
-		c.conn.Close()
+		c.Close()
 		return
 	}
 	select {
 	case c.send <- data:
 	default:
 		log.Printf("[client] send buffer full on challenge")
-		c.conn.Close()
-		return
+		c.Close()
 	}
-
-	log.Printf("[client] starting pumps for %s", c.remoteIP)
-	go c.writePump()
-	go c.readPump()
 }
 
 // Close cleanly shuts down the client connection.
 func (c *Client) Close() {
 	c.closeOnce.Do(func() {
 		close(c.done)
+		if c.turnConn != nil {
+			c.turnConn.Close()
+		}
 		c.conn.Close()
 	})
 }
@@ -253,7 +275,11 @@ func (c *Client) readPump() {
 func (c *Client) handleTextFrame(message []byte) {
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(message, &raw); err != nil {
-		c.SendError("invalid_json", "failed to parse message")
+		// Pre-auth: silence (don't leak server identity to probers).
+		// Post-auth: send error so legitimate clients can handle it.
+		if c.state == StateAuthenticated {
+			c.SendError("invalid_json", "failed to parse message")
+		}
 		return
 	}
 
@@ -262,11 +288,20 @@ func (c *Client) handleTextFrame(message []byte) {
 		json.Unmarshal(t, &mt)
 	}
 	if mt == "" {
-		c.SendError("invalid_json", "missing type field")
+		if c.state == StateAuthenticated {
+			c.SendError("invalid_json", "missing type field")
+		}
 		return
 	}
 
 	switch c.state {
+	case StateConnected:
+		// Probe resistance: server is silent until client sends "hello".
+		// This prevents active probers from getting auth_challenge by just connecting.
+		if mt == "hello" {
+			c.sendAuthChallenge()
+		}
+		// Any other message type in Connected state → silence (don't reveal server identity)
 	case StateAuthenticating:
 		c.handleAuth(mt, message)
 	case StateAuthenticated:
@@ -274,8 +309,6 @@ func (c *Client) handleTextFrame(message []byte) {
 		if env != nil {
 			c.hub.HandleMessage(c, env)
 		}
-	default:
-		c.SendError("unexpected_state", "connection in unexpected state")
 	}
 }
 
@@ -326,70 +359,42 @@ func (c *Client) toEnvelope(msgType string, raw []byte) *Envelope {
 
 // handleAuth processes an auth_response during authentication.
 func (c *Client) handleAuth(msgType string, raw []byte) {
-	log.Printf("[auth] handleAuth called: type=%s ip=%s raw=%s", msgType, c.remoteIP, string(raw))
-
 	if msgType != TypeAuthResponse {
-		log.Printf("[auth] REJECT: expected auth_response, got %s", msgType)
-		c.SendError("auth_required", "expected auth_response")
+		// Silent close — don't reveal expected message type
+		c.Close()
 		return
 	}
 
 	var resp AuthResponse
 	if err := json.Unmarshal(raw, &resp); err != nil {
-		log.Printf("[auth] REJECT: unmarshal failed: %v", err)
-		c.SendError("invalid_payload", "failed to parse auth_response")
-		return
-	}
-
-	log.Printf("[auth] parsed: pubkey=%s nonce=%s ts=%d", resp.Pubkey[:16], resp.Nonce[:16], resp.Timestamp)
-
-	if c.challenge == nil {
-		log.Printf("[auth] REJECT: no challenge issued")
-		c.SendError("auth_failed", "no challenge issued")
 		c.Close()
 		return
 	}
 
-	log.Printf("[auth] challenge: nonce=%s ts=%d", c.challenge.Nonce[:16], c.challenge.Timestamp)
-
-	if resp.Nonce != c.challenge.Nonce || resp.Timestamp != c.challenge.Timestamp {
-		log.Printf("[auth] REJECT: challenge mismatch (nonce_match=%v ts_match=%v)", resp.Nonce == c.challenge.Nonce, resp.Timestamp == c.challenge.Timestamp)
-		c.SendError("auth_failed", "challenge mismatch")
+	if c.challenge == nil || resp.Nonce != c.challenge.Nonce || resp.Timestamp != c.challenge.Timestamp {
 		c.Close()
 		return
 	}
 
 	if !auth.VerifyResponse(resp.Pubkey, resp.Signature, resp.Nonce, resp.Timestamp) {
-		log.Printf("[auth] REJECT: invalid signature for pubkey=%s", resp.Pubkey[:16])
-		c.SendError("auth_failed", "invalid signature")
 		c.Close()
 		return
 	}
 
-	log.Printf("[auth] OK: signature verified for %s", resp.Pubkey[:16])
-
 	// Verify PoW solution if challenge was issued
 	if c.powChallenge != nil {
-		log.Printf("[auth] PoW check for %s", resp.Pubkey[:16])
 		sol := &metrics.PoWSolution{Seed: resp.PoWSeed, Nonce: resp.PoWNonce}
 		if !metrics.VerifyPoW(c.powChallenge, sol) {
-			log.Printf("[auth] REJECT: PoW failed for %s", resp.Pubkey[:16])
-			c.SendError("pow_failed", "invalid proof-of-work solution")
 			c.Close()
 			return
 		}
-		c.powChallenge = nil // consumed
-		log.Printf("[auth] PoW OK for %s", resp.Pubkey[:16])
+		c.powChallenge = nil
 	}
-
-	log.Printf("[auth] processRegistration for %s", resp.Pubkey[:16])
 	// Common registration + ban check logic
 	if !c.processRegistration(&resp) {
-		log.Printf("[auth] REJECT: processRegistration failed for %s", resp.Pubkey[:16])
 		return
 	}
 
-	log.Printf("[auth] registration OK for %s, setting state", resp.Pubkey[:16])
 	// Authentication successful
 	c.pubkey = resp.Pubkey
 	c.state = StateAuthenticated
@@ -401,13 +406,9 @@ func (c *Client) handleAuth(msgType string, raw []byte) {
 	}
 
 	if c.hub.MaxConnectionsReached() {
-		log.Printf("[auth] REJECT: server full for %s", resp.Pubkey[:16])
-		c.SendError("server_full", "server has reached maximum connections")
 		c.Close()
 		return
 	}
-
-	log.Printf("[auth] registering with hub for %s", resp.Pubkey[:16])
 	c.hub.Register(c)
 
 	// Build auth_ok with server info
@@ -502,12 +503,36 @@ func (c *Client) handleBinaryFrame(data []byte) {
 		// Tunnel data from client (0x20)
 		c.hub.HandleTunnelData(c, data)
 
+	case frameType == BinaryTypeTurnData:
+		// TURN-over-WebSocket: client sends STUN data through existing WS
+		if len(data) < 2 {
+			return
+		}
+		stunPayload := data[1:]
+		if c.turnConn == nil {
+			// First TURN frame — create virtual connection and register with TURN listener
+			c.turnConn = newTurnWSConn(c.sendBinary, c.remoteIP)
+			if c.hub.turnWSLn != nil {
+				select {
+				case c.hub.turnWSLn.ch <- c.turnConn:
+					log.Printf("[turn-ws] new TURN-over-WS session for %s", c.pubkey[:16])
+				default:
+					log.Printf("[turn-ws] listener full, dropping TURN-over-WS for %s", c.pubkey[:16])
+					c.turnConn.Close()
+					c.turnConn = nil
+					return
+				}
+			}
+		}
+		c.turnConn.feedData(stunPayload)
+
 	case frameType == BinaryTypePadding:
 		// Padding frame (0xFF) — silently discard
 		return
 
 	default:
-		c.SendError("invalid_binary", fmt.Sprintf("unknown binary frame type: 0x%02x", frameType))
+		// Unknown frame type — silently discard (don't leak server info)
+		return
 	}
 }
 
@@ -558,10 +583,11 @@ func (c *Client) writePump() {
 
 // processRegistration checks user existence, handles registration, and checks ban status.
 // Returns true if registration succeeded and user is not banned.
+// NOTE: All failures close silently — no error messages before auth is complete
+// (prevents fingerprinting by probers).
 func (c *Client) processRegistration(resp *AuthResponse) bool {
 	exists, err := c.users.UserExists(resp.Pubkey)
 	if err != nil {
-		c.SendError("internal_error", "failed to check user")
 		c.Close()
 		return false
 	}
@@ -570,24 +596,20 @@ func (c *Client) processRegistration(resp *AuthResponse) bool {
 		switch c.cfg.Auth.Mode {
 		case "open":
 			if err := c.users.CreateUser(resp.Pubkey); err != nil {
-				c.SendError("internal_error", "failed to create user")
 				c.Close()
 				return false
 			}
 
 		case "invite":
 			if resp.Invite == "" {
-				c.SendError("invite_required", "invite code required for registration")
 				c.Close()
 				return false
 			}
 			if _, err := c.invites.ValidateInvite(resp.Invite); err != nil {
-				c.SendError("invite_invalid", err.Error())
 				c.Close()
 				return false
 			}
 			if err := c.users.CreateUser(resp.Pubkey); err != nil {
-				c.SendError("internal_error", "failed to create user")
 				c.Close()
 				return false
 			}
@@ -596,12 +618,10 @@ func (c *Client) processRegistration(resp *AuthResponse) bool {
 			}
 
 		case "closed":
-			c.SendError("registration_closed", "server is not accepting new registrations")
 			c.Close()
 			return false
 
 		default:
-			c.SendError("internal_error", "unknown auth mode")
 			c.Close()
 			return false
 		}
@@ -609,12 +629,10 @@ func (c *Client) processRegistration(resp *AuthResponse) bool {
 
 	user, err := c.users.GetUser(resp.Pubkey)
 	if err != nil {
-		c.SendError("internal_error", "failed to get user")
 		c.Close()
 		return false
 	}
 	if user != nil && user.Banned {
-		c.SendError("banned", "user is banned")
 		c.Close()
 		return false
 	}

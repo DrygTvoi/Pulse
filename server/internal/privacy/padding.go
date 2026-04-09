@@ -168,30 +168,36 @@ func (ps *PaddingService) chaffLoop() {
 
 func (ps *PaddingService) sendChaff() {
 	ps.mu.Lock()
-	if len(ps.textClients) < 1 {
+	if len(ps.textClients) < 2 {
 		ps.mu.Unlock()
 		return
 	}
 
-	// Pick a random client to receive chaff
+	// Pick a random client pair (sender → receiver look realistic)
 	keys := make([]string, 0, len(ps.textClients))
 	for k := range ps.textClients {
 		keys = append(keys, k)
 	}
-	idx := randomInt(0, len(keys))
-	sendFn := ps.textClients[keys[idx]]
+	toIdx := randomInt(0, len(keys))
+	fromIdx := randomInt(0, len(keys))
+	if fromIdx == toIdx {
+		fromIdx = (fromIdx + 1) % len(keys)
+	}
+	sendFn := ps.textClients[keys[toIdx]]
+	fromKey := keys[fromIdx]
 	ps.mu.Unlock()
 
-	// Generate a chaff message that looks like a real message envelope
-	// Random body size matching bucket sizes
-	bodySize := []int{256, 1024, 4096}[randomInt(0, 3)]
+	// Generate chaff indistinguishable from real messages.
+	// Uses real "message" type with plausible structure — NO _chaff marker.
+	// Client detects chaff by: from pubkey not in contacts → silently discards.
+	// Random body size matching real message bucket sizes.
+	bodySize := []int{256, 512, 1024, 2048, 4096}[randomInt(0, 5)]
 	body := make([]byte, bodySize)
 	rand.Read(body)
 
-	// Send as a "message" type that the client will recognize and discard
-	// The "_chaff" field tells the client this is not real
-	chaff := []byte(fmt.Sprintf(`{"type":"message","id":"chaff_%d","from":"chaff","body":"%x","_chaff":true}`,
-		time.Now().UnixNano(), body[:32]))
+	// Build a message that looks exactly like a real stored message delivery
+	chaff := []byte(fmt.Sprintf(`{"type":"message","id":"%x","from":"%s","body":"%x","ts":%d}`,
+		body[:16], fromKey, body[:bodySize/2], time.Now().Unix()))
 	sendFn(chaff)
 }
 

@@ -62,11 +62,9 @@ func NewServer(cfg *config.Config, hub *relay.Hub, users *store.UserStore, invit
 	// Internal mux for known endpoints
 	innerMux := http.NewServeMux()
 	innerMux.HandleFunc("/ws", s.handleWebSocket)
-	innerMux.HandleFunc("/health", s.handleHealth)
 
-	if turnSrv != nil {
-		innerMux.HandleFunc("/turn/credentials", s.handleTurnCredentials)
-	}
+	// NOTE: /turn/credentials removed — TURN creds are delivered inside auth_ok.
+	// An open HTTP endpoint was a fingerprint (non-nginx response to probers).
 
 	if pm != nil {
 		innerMux.HandleFunc("/federation", s.handleFederation)
@@ -75,7 +73,8 @@ func NewServer(cfg *config.Config, hub *relay.Hub, users *store.UserStore, invit
 	// Sealed sender endpoint
 	innerMux.HandleFunc("/sealed", s.handleSealedSend)
 
-	// Metrics endpoints (Phase 7)
+	// Metrics endpoints (Phase 7) — auth checked in probeResistantHandler
+	// so failed attempts get consistent nginx decoy responses (not Go's http.NotFound)
 	if hub.Metrics() != nil {
 		innerMux.HandleFunc("/metrics", hub.Metrics().PrometheusHandler())
 		innerMux.HandleFunc("/metrics/json", hub.Metrics().JSONHandler())
@@ -130,14 +129,10 @@ func (s *Server) probeResistantHandler(inner *http.ServeMux) http.Handler {
 			inner.ServeHTTP(w, r)
 
 		case "/health":
-			inner.ServeHTTP(w, r)
-
-		case "/turn/credentials":
-			if s.turnServer != nil {
-				inner.ServeHTTP(w, r)
-			} else {
-				s.decoyHandler.ServeHTTP(w, r)
-			}
+			// Minimal response — don't expose JSON structure or server identity
+			w.Header().Set("Content-Type", "text/plain")
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte("ok"))
 
 		case "/federation":
 			if s.peerManager != nil && isWebSocketUpgrade(r) {
@@ -155,12 +150,28 @@ func (s *Server) probeResistantHandler(inner *http.ServeMux) http.Handler {
 			inner.ServeHTTP(w, r)
 
 		case "/metrics", "/metrics/json":
-			// Metrics — only if admin secret matches or metrics enabled
+			// Metrics require valid secret token — wrong/missing token → decoy
+			// (consistent nginx 404, not Go's http.NotFound which differs)
+			secret := s.cfg.Limits.MetricsSecret
+			if secret == "" {
+				s.decoyHandler.ServeHTTP(w, r)
+				return
+			}
+			token := r.URL.Query().Get("token")
+			if token == "" {
+				auth := r.Header.Get("Authorization")
+				if strings.HasPrefix(auth, "Bearer ") {
+					token = auth[7:]
+				}
+			}
+			if token != secret {
+				s.decoyHandler.ServeHTTP(w, r)
+				return
+			}
 			inner.ServeHTTP(w, r)
 
 		default:
 			// All unknown paths → decoy website
-			log.Printf("[transport] decoy for %s %s from %s", r.Method, path, extractIP(r))
 			s.decoyHandler.ServeHTTP(w, r)
 		}
 	})
@@ -281,12 +292,21 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check for pulse protocol header (Sec-WebSocket-Protocol must contain "pulse")
+	// Check for valid WebSocket subprotocol — use neutral name to avoid fingerprinting.
+	// Accept both legacy "pulse.auth" and new "mqtt" (camouflage).
 	proto := r.Header.Get("Sec-WebSocket-Protocol")
-	if !strings.Contains(proto, "pulse") {
+	hasMqtt := strings.Contains(proto, "mqtt")
+	hasPulse := strings.Contains(proto, "pulse")
+	if !hasMqtt && !hasPulse {
 		// No valid protocol header → decoy response
 		s.decoyHandler.ServeHTTP(w, r)
 		return
+	}
+
+	// Negotiate the subprotocol the client offered
+	negotiated := "mqtt"
+	if !hasMqtt && hasPulse {
+		negotiated = "pulse.auth"
 	}
 
 	// Upgrade with protocol negotiation
@@ -294,7 +314,7 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		ReadBufferSize:  4096,
 		WriteBufferSize: 4096,
 		CheckOrigin:     func(r *http.Request) bool { return true },
-		Subprotocols:    []string{"pulse.auth"},
+		Subprotocols:    []string{negotiated},
 	}
 
 	conn, err := wsUpgrader.Upgrade(w, r, nil)
@@ -308,38 +328,7 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	client.Start()
 }
 
-// handleHealth returns a simple health check response.
-func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{
-		"status": "ok",
-	})
-}
 
-// handleTurnCredentials generates ephemeral TURN credentials for an authenticated client.
-func (s *Server) handleTurnCredentials(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	pubkey := r.URL.Query().Get("pubkey")
-	if pubkey == "" {
-		http.Error(w, "missing pubkey parameter", http.StatusBadRequest)
-		return
-	}
-
-	creds, err := s.turnServer.GenerateCredentials(pubkey)
-	if err != nil {
-		log.Printf("[transport] failed to generate TURN credentials for %s: %v", pubkey, err)
-		http.Error(w, "failed to generate credentials", http.StatusInternalServerError)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(creds)
-}
 
 // handleFederation upgrades to WebSocket for server-to-server federation.
 func (s *Server) handleFederation(w http.ResponseWriter, r *http.Request) {
@@ -372,20 +361,16 @@ func (s *Server) handleSealedSend(w http.ResponseWriter, r *http.Request) {
 
 	var sealed relay.SealedSend
 	if err := json.Unmarshal(message, &sealed); err != nil {
-		conn.WriteJSON(map[string]string{"type": "error", "code": "invalid_json"})
-		return
+		return // silent — no fingerprinting error messages
 	}
 
 	if sealed.Cert == "" || sealed.To == "" || sealed.Body == "" {
-		conn.WriteJSON(map[string]string{"type": "error", "code": "invalid_payload"})
 		return
 	}
 
-	if s.hub.HandleSealedSend(sealed.Cert, sealed.To, sealed.Body) {
-		conn.WriteJSON(map[string]string{"type": "sealed_ack", "status": "ok"})
-	} else {
-		conn.WriteJSON(map[string]string{"type": "error", "code": "sealed_failed"})
-	}
+	// Respond with generic ack regardless of success — don't leak delivery status
+	s.hub.HandleSealedSend(sealed.Cert, sealed.To, sealed.Body)
+	conn.WriteJSON(map[string]string{"status": "ok"})
 }
 
 // StartTime returns the server start time.
@@ -430,6 +415,7 @@ func (rw *responseWriter) WriteHeader(code int) {
 	rw.status = code
 	rw.ResponseWriter.WriteHeader(code)
 }
+
 
 // GetTCPListener returns the raw TCP listener for ICE-TCP mux sharing.
 // Available after ListenAndServe has been called.

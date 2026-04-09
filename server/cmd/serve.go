@@ -264,7 +264,9 @@ func runServe(cmd *cobra.Command, args []string) error {
 			uriHost = cfg.Turn.PublicHost
 		}
 
-		if err := turnSrv.Start(cfg.Turn.Port, cfg.Turn.Realm, turnSecret, stunLn, relayHost); err != nil {
+		// Pass both TLS mux listener and TURN-over-WebSocket virtual listener
+		turnWSLn := hub.TurnWSListener()
+		if err := turnSrv.Start(cfg.Turn.Port, cfg.Turn.Realm, turnSecret, stunLn, relayHost, turnWSLn); err != nil {
 			log.Printf("[serve] WARNING: failed to start TURN server: %v", err)
 			turnSrv = nil
 		} else {

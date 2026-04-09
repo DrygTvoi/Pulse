@@ -79,11 +79,12 @@ type PrivacyConfig struct {
 }
 
 type LimitsConfig struct {
-	MessagesPerMinute int `toml:"messages_per_minute"`
-	SignalsPerMinute  int `toml:"signals_per_minute"`
-	MaxConnections    int `toml:"max_connections"`
-	MaxRooms          int `toml:"max_rooms"`
-	PoWDifficulty     int `toml:"pow_difficulty"` // leading zero bits for PoW (0=disabled, 16=~100ms, 20=~1s)
+	MessagesPerMinute int    `toml:"messages_per_minute"`
+	SignalsPerMinute  int    `toml:"signals_per_minute"`
+	MaxConnections    int    `toml:"max_connections"`
+	MaxRooms          int    `toml:"max_rooms"`
+	PoWDifficulty     int    `toml:"pow_difficulty"`    // leading zero bits for PoW (0=disabled, 16=~100ms, 20=~1s)
+	MetricsSecret     string `toml:"metrics_secret"`    // Bearer token for /metrics access (empty = disabled)
 }
 
 type FederationConfig struct {
@@ -145,7 +146,7 @@ func DefaultConfig() *Config {
 			DeleteOnAck:           true,
 			StoreClientIP:         false,
 			StripForwardedHeaders: true,
-			Preset:                "standard",
+			Preset:                "paranoid",
 			PaddingMode:           "cbr",
 			PaddingRateKbps:       32,
 			PaddingJitterPct:      20,

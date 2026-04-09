@@ -519,6 +519,11 @@ const (
 	BinaryTypeTunnelDown byte = 0x21 // server → client
 	TunnelBinaryHeader        = 17   // 1 type + 16 tunnelID
 
+	// TURN-over-WebSocket (censorship resistance)
+	// Tunnels STUN/TURN traffic through the existing WebSocket connection
+	// so DPI sees only one TLS session per client (no separate TURNS connection).
+	BinaryTypeTurnData byte = 0x30
+
 	// Padding (Phase 6)
 	BinaryTypePadding byte = 0xFF
 )

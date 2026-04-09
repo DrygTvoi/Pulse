@@ -3,7 +3,6 @@ package transport
 import (
 	"bytes"
 	"io"
-	"log"
 	"net"
 	"sync"
 	"time"
@@ -82,21 +81,15 @@ func muxAcceptLoop(parent net.Listener, stunLn, httpLn *chanListener) {
 			reader: io.MultiReader(bytes.NewReader(buf), conn),
 		}
 
+		// Route silently — no per-connection logging (avoid info leak in shared logs)
+		target := httpLn
 		if isSTUN(buf[0]) {
-			log.Printf("[mux] STUN/TURN connection from %s (byte=0x%02x)", conn.RemoteAddr(), buf[0])
-			select {
-			case stunLn.ch <- pc:
-			default:
-				log.Printf("[mux] WARNING: STUN channel full, dropping %s", conn.RemoteAddr())
-				conn.Close()
-			}
-		} else {
-			select {
-			case httpLn.ch <- pc:
-			default:
-				log.Printf("[mux] WARNING: HTTP channel full, dropping %s", conn.RemoteAddr())
-				conn.Close()
-			}
+			target = stunLn
+		}
+		select {
+		case target.ch <- pc:
+		default:
+			conn.Close()
 		}
 	}
 }

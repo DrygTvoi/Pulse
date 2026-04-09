@@ -90,7 +90,7 @@ speaker_threshold = -40
 # standard — no overhead, normal operation
 # private  — burst padding, sealed sender, 200ms jitter
 # paranoid — CBR 32kbps, sealed sender, chaff, 2s batch, 500ms jitter
-preset = "standard"
+preset = "paranoid"
 
 # Whether to log client IP addresses and request details
 access_log = false
@@ -143,6 +143,10 @@ max_rooms = 100
 # Proof-of-Work difficulty for open auth mode (leading zero bits)
 # 0 = disabled, 16 = ~100ms to solve, 20 = ~1s
 pow_difficulty = 16
+
+# Secret token for /metrics access. Empty = metrics endpoints disabled.
+# Access via: /metrics?token=<secret> or Authorization: Bearer <secret>
+# metrics_secret = "your-random-secret-here"
 
 [federation]
 # Federation mode: "disabled" | "private" (whitelist) | "open"

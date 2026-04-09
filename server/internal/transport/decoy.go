@@ -2,8 +2,11 @@ package transport
 
 import (
 	"embed"
+	"fmt"
 	"net/http"
 	"os"
+	"strconv"
+	"time"
 
 	"github.com/nicholasgasior/pulse-server/config"
 )
@@ -49,26 +52,73 @@ func loadOrEmbed(customPath, embedPath string) []byte {
 	return data
 }
 
+// setNginxHeaders sets response headers mimicking nginx defaults.
+func (d *DecoyHandler) setNginxHeaders(w http.ResponseWriter, contentType string, body []byte) {
+	h := w.Header()
+	h.Set("Server", d.serverHeader)
+	h.Set("Content-Type", contentType)
+	h.Set("Content-Length", strconv.Itoa(len(body)))
+	h.Set("Connection", "keep-alive")
+	// nginx uses HTTP-date format for Date (set by Go by default, but ETag/Last-Modified add realism)
+	h.Set("Accept-Ranges", "bytes")
+}
+
 // ServeHTTP handles all decoy routes.
 func (d *DecoyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Server", d.serverHeader)
+	// nginx rejects most methods on static content
+	if r.Method != http.MethodGet && r.Method != http.MethodHead {
+		d.setNginxHeaders(w, "text/html", d.notFoundHTML)
+		w.Header().Set("Allow", "GET, HEAD")
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		if r.Method != http.MethodHead {
+			fmt.Fprintf(w, "<html>\r\n<head><title>405 Not Allowed</title></head>\r\n"+
+				"<body>\r\n<center><h1>405 Not Allowed</h1></center>\r\n"+
+				"<hr><center>%s</center>\r\n</body>\r\n</html>\r\n", d.serverHeader)
+		}
+		return
+	}
 
 	switch r.URL.Path {
 	case "/", "/index.html":
-		w.Header().Set("Content-Type", "text/html")
+		d.setNginxHeaders(w, "text/html", d.indexHTML)
+		// Fake ETag — nginx generates these from mtime+size
+		w.Header().Set("ETag", `"65a8f3c0-264"`)
+		w.Header().Set("Last-Modified", "Thu, 18 Jan 2024 09:15:12 GMT")
+
+		// Handle If-None-Match (browser cache) — nginx does this
+		if r.Header.Get("If-None-Match") == `"65a8f3c0-264"` {
+			w.WriteHeader(http.StatusNotModified)
+			return
+		}
 		w.WriteHeader(http.StatusOK)
-		w.Write(d.indexHTML)
+		if r.Method != http.MethodHead {
+			w.Write(d.indexHTML)
+		}
+
 	case "/favicon.ico":
-		w.Header().Set("Content-Type", "image/x-icon")
+		d.setNginxHeaders(w, "image/x-icon", d.favicon)
+		// Cache favicon aggressively like real nginx
+		w.Header().Set("Cache-Control", "public, max-age=2592000")
+		w.Header().Set("Expires", time.Now().Add(30*24*time.Hour).UTC().Format(http.TimeFormat))
 		w.WriteHeader(http.StatusOK)
-		w.Write(d.favicon)
+		if r.Method != http.MethodHead {
+			w.Write(d.favicon)
+		}
+
 	case "/robots.txt":
-		w.Header().Set("Content-Type", "text/plain")
+		d.setNginxHeaders(w, "text/plain", d.robotsTxt)
 		w.WriteHeader(http.StatusOK)
-		w.Write(d.robotsTxt)
+		if r.Method != http.MethodHead {
+			w.Write(d.robotsTxt)
+		}
+
 	default:
-		w.Header().Set("Content-Type", "text/html")
+		// nginx returns 404 with the standard error page for unknown paths
+		body := d.notFoundHTML
+		d.setNginxHeaders(w, "text/html", body)
 		w.WriteHeader(http.StatusNotFound)
-		w.Write(d.notFoundHTML)
+		if r.Method != http.MethodHead {
+			w.Write(body)
+		}
 	}
 }

@@ -68,7 +68,7 @@ func NewServer() *Server {
 // If secret is nil, a random secret is generated.
 // tlsListener is optional — if provided, TURNS (TURN over TLS) is served on it
 // (typically the shared TLS listener on port 443).
-func (s *Server) Start(port int, realm string, secret []byte, tlsListener net.Listener, publicIP string) error {
+func (s *Server) Start(port int, realm string, secret []byte, tlsListener net.Listener, publicIP string, extraListeners ...net.Listener) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -125,6 +125,17 @@ func (s *Server) Start(port int, realm string, secret []byte, tlsListener net.Li
 			RelayAddressGenerator: relayGen(),
 		})
 		log.Printf("[turn] TURNS listener added (shared TLS port)")
+	}
+
+	// Add extra listeners (e.g., TURN-over-WebSocket virtual listener)
+	for i, ln := range extraListeners {
+		if ln != nil {
+			listenerConfigs = append(listenerConfigs, turn.ListenerConfig{
+				Listener:              ln,
+				RelayAddressGenerator: relayGen(),
+			})
+			log.Printf("[turn] extra listener #%d added (TURN-over-WS)", i)
+		}
 	}
 
 	// Create the TURN server
