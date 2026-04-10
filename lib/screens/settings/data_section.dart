@@ -110,14 +110,14 @@ class DataSection extends StatelessWidget {
                 Navigator.of(ctx).pop(pw);
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF3498DB),
+                backgroundColor: AppTheme.info,
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(DesignTokens.spacing10)),
               ),
               child: Text(
                 confirmLabel,
                 style: GoogleFonts.inter(
-                    color: Colors.white, fontWeight: FontWeight.w700),
+                    color: AppTheme.onPrimary, fontWeight: FontWeight.w700),
               ),
             ),
           ],
@@ -202,7 +202,7 @@ class DataSection extends StatelessWidget {
               },
               child: Text(context.l10n.confirm,
                   style: GoogleFonts.inter(
-                      color: const Color(0xFF60A5FA), fontWeight: FontWeight.w600)),
+                      color: AppTheme.info, fontWeight: FontWeight.w600)),
             ),
           ],
         ),
@@ -519,13 +519,13 @@ class DataSection extends StatelessWidget {
               }
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.orange,
+              backgroundColor: AppTheme.warning,
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(DesignTokens.spacing10)),
             ),
             child: Text(context.l10n.apply,
                 style: GoogleFonts.inter(
-                    color: Colors.white, fontWeight: FontWeight.w700)),
+                    color: AppTheme.onPrimary, fontWeight: FontWeight.w700)),
           ),
         ],
       ),
@@ -760,8 +760,8 @@ class DataSection extends StatelessWidget {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.dialogRadius)),
         title: Row(
           children: [
-            const Icon(Icons.warning_amber_rounded,
-                color: Color(0xFFE67E22), size: DesignTokens.iconLg),
+            Icon(Icons.warning_amber_rounded,
+                color: AppTheme.warning, size: DesignTokens.iconLg),
             const SizedBox(width: DesignTokens.spacing10),
             Expanded(
               child: Text(
@@ -789,14 +789,14 @@ class DataSection extends StatelessWidget {
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFE67E22),
+              backgroundColor: AppTheme.warning,
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(DesignTokens.spacing10)),
             ),
             child: Text(
               context.l10n.settingsIUnderstandContinue,
               style: GoogleFonts.inter(
-                  color: Colors.white, fontWeight: FontWeight.w700),
+                  color: AppTheme.onPrimary, fontWeight: FontWeight.w700),
             ),
           ),
         ],
@@ -907,8 +907,8 @@ class DataSection extends StatelessWidget {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.dialogRadius)),
         title: Row(
           children: [
-            const Icon(Icons.warning_amber_rounded,
-                color: Color(0xFFE74C3C), size: DesignTokens.iconLg),
+            Icon(Icons.warning_amber_rounded,
+                color: AppTheme.destructive, size: DesignTokens.iconLg),
             const SizedBox(width: DesignTokens.spacing10),
             Expanded(
               child: Text(
@@ -936,14 +936,14 @@ class DataSection extends StatelessWidget {
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFE74C3C),
+              backgroundColor: AppTheme.destructive,
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(DesignTokens.spacing10)),
             ),
             child: Text(
               context.l10n.settingsReplaceKeys,
               style: GoogleFonts.inter(
-                  color: Colors.white, fontWeight: FontWeight.w700),
+                  color: AppTheme.onPrimary, fontWeight: FontWeight.w700),
             ),
           ),
         ],
@@ -1009,7 +1009,7 @@ class DataSection extends StatelessWidget {
                 child: Text(
                   context.l10n.settingsRestartNow,
                   style: GoogleFonts.inter(
-                      color: Colors.white, fontWeight: FontWeight.w700),
+                      color: AppTheme.onPrimary, fontWeight: FontWeight.w700),
                 ),
               ),
               TextButton(
@@ -1056,36 +1056,31 @@ class DataSection extends StatelessWidget {
       children: [
         settingsSectionDivider(context.l10n.settingsData),
         const SizedBox(height: DesignTokens.spacing14),
-        // ── Messages ──────────────────────────────────────────
         settingsGroup(children: [
           settingsGroupRow(
             icon: Icons.cloud_download_rounded,
-            iconColor: const Color(0xFF3498DB),
+            iconColor: AppTheme.info,
             title: context.l10n.settingsBackupMessages,
             subtitle: context.l10n.settingsBackupMessagesSubtitleV2,
             onTap: () => _backupMessages(context),
           ),
           settingsGroupRow(
             icon: Icons.cloud_upload_rounded,
-            iconColor: const Color(0xFF2ECC71),
+            iconColor: AppTheme.success,
             title: context.l10n.settingsRestoreMessages,
             subtitle: context.l10n.settingsRestoreMessagesSubtitle,
             onTap: () => _restoreMessages(context),
           ),
-        ]),
-        const SizedBox(height: DesignTokens.spacing12),
-        // ── Identity ──────────────────────────────────────────
-        settingsGroup(children: [
           settingsGroupRow(
             icon: Icons.backup_rounded,
-            iconColor: const Color(0xFF2ECC71),
+            iconColor: AppTheme.success,
             title: context.l10n.settingsIdentityBackup,
             subtitle: context.l10n.settingsIdentityBackupSubtitle,
             onTap: () => _showBackupOptions(context),
           ),
           settingsGroupRow(
             icon: Icons.phonelink_rounded,
-            iconColor: const Color(0xFF3498DB),
+            iconColor: AppTheme.info,
             title: context.l10n.settingsTransferDevice,
             subtitle: context.l10n.settingsTransferDeviceSubtitle,
             onTap: () => Navigator.push(
@@ -1093,13 +1088,9 @@ class DataSection extends StatelessWidget {
               MaterialPageRoute(builder: (_) => const DeviceTransferScreen()),
             ),
           ),
-        ]),
-        const SizedBox(height: DesignTokens.spacing12),
-        // ── Keys ──────────────────────────────────────────────
-        settingsGroup(children: [
           settingsGroupRow(
             icon: Icons.key_rounded,
-            iconColor: const Color(0xFFE67E22),
+            iconColor: AppTheme.warning,
             title: context.l10n.settingsExportKeys,
             subtitle: context.l10n.settingsExportKeysSubtitle,
             onTap: () => _exportKeysToFile(context),

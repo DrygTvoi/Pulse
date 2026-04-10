@@ -18,6 +18,14 @@ class AppTheme {
 
   static ThemeData get darkTheme => ThemeNotifier.instance.themeData;
 
+  // ── Semantic utility colors ────────────────────────────
+  static bool get isDark => ThemeNotifier.instance.isDark;
+  static Color get info => isDark ? const Color(0xFF60A5FA) : const Color(0xFF3498DB);
+  static Color get errorLight => const Color(0xFFF87171);
+  static Color get success => isDark ? const Color(0xFF34D399) : const Color(0xFF2ECC71);
+  static Color get warning => isDark ? const Color(0xFFFBBF24) : const Color(0xFFE67E22);
+  static Color get onPrimary => Colors.white;
+
   // ── Provider badge colors (deduplicated) ──────────────
   static const Color providerFirebase = Color(0xFFFFAB00);
   static const Color providerNostr = Color(0xFF9B59B6);
@@ -26,7 +34,7 @@ class AppTheme {
 
   // ── Status colors ─────────────────────────────────────
   static const Color online = Color(0xFF4CAF50);
-  static const Color warning = Color(0xFFE65100);
+  static const Color warningBanner = Color(0xFFE65100);
   static const Color warningDark = Color(0xFF7A3000);
   static const Color errorDeep = Color(0xFF8B0000);
   static const Color destructive = Colors.red;

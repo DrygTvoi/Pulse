@@ -181,7 +181,7 @@ class ChatTile extends StatelessWidget {
                         child: Container(
                           width: 10, height: 10,
                           decoration: BoxDecoration(
-                            color: const Color(0xFF4CAF50),
+                            color: AppTheme.online,
                             shape: BoxShape.circle,
                             border: Border.all(color: AppTheme.background, width: 1.5),
                           ),
@@ -241,7 +241,7 @@ class ChatTile extends StatelessWidget {
                             borderRadius: BorderRadius.circular(DesignTokens.spacing10),
                           ),
                           child: Text('$unreadCount',
-                              style: GoogleFonts.inter(color: Colors.white, fontSize: DesignTokens.fontSm, fontWeight: FontWeight.w700)),
+                              style: GoogleFonts.inter(color: AppTheme.onPrimary, fontSize: DesignTokens.fontSm, fontWeight: FontWeight.w700)),
                         ),
                       ],
                       // SmartRouter badge: show route count if contact has alternates

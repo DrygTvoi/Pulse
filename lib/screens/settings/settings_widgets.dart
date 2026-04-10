@@ -261,7 +261,7 @@ class BackupProgressDialogState extends State<BackupProgressDialog> {
           LinearProgressIndicator(
             value: _progress > 0 ? _progress : null,
             backgroundColor: AppTheme.surfaceVariant,
-            color: const Color(0xFF3498DB),
+            color: AppTheme.info,
             borderRadius: BorderRadius.circular(4),
           ),
           const SizedBox(height: DesignTokens.spacing16),
@@ -371,7 +371,7 @@ class SettingsPasswordField extends StatelessWidget {
               borderRadius:
                   BorderRadius.circular(DesignTokens.radiusMedium),
               borderSide:
-                  const BorderSide(color: Color(0xFF60A5FA), width: 1.5),
+                  BorderSide(color: AppTheme.info, width: 1.5),
             ),
             contentPadding: const EdgeInsets.symmetric(
                 horizontal: DesignTokens.spacing14,
@@ -394,7 +394,7 @@ class SettingsPasswordField extends StatelessWidget {
           Text(
             errorText!,
             style: GoogleFonts.inter(
-                color: const Color(0xFFF87171),
+                color: AppTheme.errorLight,
                 fontSize: DesignTokens.fontBody),
           ),
         ],
@@ -442,7 +442,7 @@ Future<bool> showConfirmDialog(
             confirmLabel ?? 'Confirm',
             style: GoogleFonts.inter(
               color: destructive
-                  ? const Color(0xFFF87171)
+                  ? AppTheme.errorLight
                   : AppTheme.primary,
               fontWeight: FontWeight.w600,
             ),

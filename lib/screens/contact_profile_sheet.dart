@@ -185,7 +185,7 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
             },
             child: Text(
               _isVerified ? context.l10n.profileRemoveVerification : context.l10n.profileMarkAsVerified,
-              style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w600),
+              style: GoogleFonts.inter(color: AppTheme.onPrimary, fontWeight: FontWeight.w600),
             ),
           ),
         ],
@@ -531,7 +531,7 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
                           style: GoogleFonts.inter(
                               color: AppTheme.textSecondary, fontSize: DesignTokens.fontSm)),
                       activeColor: AppTheme.primary,
-                      checkColor: Colors.white,
+                      checkColor: AppTheme.onPrimary,
                     );
                   },
                 ),
@@ -595,7 +595,7 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
               }
             },
             child: Text(context.l10n.profileRename,
-                style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w600)),
+                style: GoogleFonts.inter(color: AppTheme.onPrimary, fontWeight: FontWeight.w600)),
           ),
         ],
       ),
@@ -717,10 +717,10 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
       ),
       child: Center(
         child: _contact.isGroup
-            ? Icon(Icons.group_rounded, color: Colors.white, size: 42)
+            ? Icon(Icons.group_rounded, color: AppTheme.onPrimary, size: 42)
             : Text(initial,
                 style: GoogleFonts.inter(
-                    color: Colors.white, fontSize: 36, fontWeight: FontWeight.w700)),
+                    color: AppTheme.onPrimary, fontSize: 36, fontWeight: FontWeight.w700)),
       ),
     );
   }
@@ -947,7 +947,7 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
             child: Center(
               child: Text(initial,
                   style: GoogleFonts.inter(
-                      color: Colors.white, fontSize: DesignTokens.fontInput, fontWeight: FontWeight.w700)),
+                      color: AppTheme.onPrimary, fontSize: DesignTokens.fontInput, fontWeight: FontWeight.w700)),
             ),
           ),
           const SizedBox(width: DesignTokens.spacing12),

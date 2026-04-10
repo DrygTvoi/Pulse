@@ -274,11 +274,11 @@ class MessageBubble extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.only(bottom: DesignTokens.spacing4),
             child: Row(mainAxisSize: MainAxisSize.min, children: [
-              const Icon(Icons.lock_open_rounded, size: DesignTokens.fontBody, color: Colors.orangeAccent),
+              Icon(Icons.lock_open_rounded, size: DesignTokens.fontBody, color: AppTheme.warning),
               const SizedBox(width: DesignTokens.spacing4),
               Text(context.l10n.bubbleNotEncrypted,
                   style: GoogleFonts.inter(
-                    color: Colors.orangeAccent, fontSize: DesignTokens.fontXs,
+                    color: AppTheme.warning, fontSize: DesignTokens.fontXs,
                     fontWeight: FontWeight.w700, letterSpacing: 0.5,
                   )),
             ]),
@@ -682,9 +682,9 @@ class _LinkedTextState extends State<_LinkedText> {
       spans.add(TextSpan(
         text: url,
         style: widget.baseStyle.copyWith(
-          color: Colors.lightBlueAccent,
+          color: AppTheme.info,
           decoration: TextDecoration.underline,
-          decorationColor: Colors.lightBlueAccent,
+          decorationColor: AppTheme.info,
         ),
         recognizer: recognizer,
       ));

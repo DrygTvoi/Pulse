@@ -1,8 +1,7 @@
-// Settings — Network section: 3 tap-rows + 2 inline toggles.
+// Settings — Network section: provider, TURN, proxy, LAN toggle, BG toggle.
 // All state is self-contained; no params needed from settings_screen.
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../controllers/chat_controller.dart';
 import '../../l10n/l10n_ext.dart';
@@ -55,49 +54,6 @@ class _NetworkSectionState extends State<NetworkSection> {
     return '';
   }
 
-  Widget _buildToggle({
-    required IconData icon,
-    required Color iconColor,
-    required String title,
-    required String subtitle,
-    required bool value,
-    required ValueChanged<bool> onChanged,
-  }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: DesignTokens.spacing16, vertical: DesignTokens.spacing12),
-      decoration: BoxDecoration(
-        color: AppTheme.surface,
-        borderRadius: BorderRadius.circular(DesignTokens.radiusLarge),
-      ),
-      child: Row(children: [
-        Icon(icon, color: iconColor, size: DesignTokens.fontDisplay),
-        const SizedBox(width: DesignTokens.spacing14),
-        Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(title,
-                style: GoogleFonts.inter(
-                  color: AppTheme.textPrimary,
-                  fontWeight: FontWeight.w600,
-                  fontSize: DesignTokens.fontLg,
-                )),
-            const SizedBox(height: DesignTokens.spacing2),
-            Text(subtitle,
-                style: GoogleFonts.inter(
-                    color: AppTheme.textSecondary,
-                    fontSize: DesignTokens.fontSm,
-                    height: 1.4)),
-          ]),
-        ),
-        const SizedBox(width: DesignTokens.spacing10),
-        Switch.adaptive(
-          value: value,
-          activeThumbColor: iconColor,
-          onChanged: onChanged,
-        ),
-      ]),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -106,7 +62,6 @@ class _NetworkSectionState extends State<NetworkSection> {
         settingsSectionDivider(context.l10n.settingsNetwork),
         const SizedBox(height: DesignTokens.spacing14),
 
-        // ── Provider / TURN / Proxy grouped ───────────────────
         settingsGroup(children: [
           settingsGroupRow(
             icon: Icons.swap_horiz_rounded,
@@ -128,7 +83,7 @@ class _NetworkSectionState extends State<NetworkSection> {
           ),
           settingsGroupRow(
             icon: Icons.phone_in_talk_rounded,
-            iconColor: const Color(0xFF3498DB),
+            iconColor: AppTheme.info,
             title: context.l10n.settingsTurnServers,
             subtitle: '',
             onTap: () => Navigator.push(
@@ -150,38 +105,36 @@ class _NetworkSectionState extends State<NetworkSection> {
               if (mounted) setState(() {});
             },
           ),
-        ]),
-        const SizedBox(height: DesignTokens.spacing12),
-
-        // ── LAN toggle ────────────────────────────────────────
-        _buildToggle(
-          icon: Icons.wifi_rounded,
-          iconColor: const Color(0xFF25D366),
-          title: context.l10n.settingsLanFallback,
-          subtitle: context.l10n.settingsLanFallbackSubtitle,
-          value: _lanModeEnabled,
-          onChanged: (v) async {
-            setState(() => _lanModeEnabled = v);
-            await ChatController().setLanModeEnabled(v);
-          },
-        ),
-
-        // ── Background service (Android only) ─────────────────
-        if (Platform.isAndroid) ...[
-          const SizedBox(height: DesignTokens.spacing12),
-          _buildToggle(
-            icon: Icons.notifications_active_rounded,
-            iconColor: const Color(0xFF3498DB),
-            title: context.l10n.settingsBgDelivery,
-            subtitle: context.l10n.settingsBgDeliverySubtitle,
-            value: _bgServiceEnabled,
-            onChanged: (v) async {
-              setState(() => _bgServiceEnabled = v);
-              await BackgroundService.instance.setEnabled(v);
-            },
+          settingsGroupRow(
+            icon: Icons.wifi_rounded,
+            iconColor: const Color(0xFF25D366),
+            title: context.l10n.settingsLanFallback,
+            subtitle: context.l10n.settingsLanFallbackSubtitle,
+            trailing: Switch.adaptive(
+              value: _lanModeEnabled,
+              activeThumbColor: const Color(0xFF25D366),
+              onChanged: (v) async {
+                setState(() => _lanModeEnabled = v);
+                await ChatController().setLanModeEnabled(v);
+              },
+            ),
           ),
-        ],
-
+          if (Platform.isAndroid)
+            settingsGroupRow(
+              icon: Icons.notifications_active_rounded,
+              iconColor: AppTheme.info,
+              title: context.l10n.settingsBgDelivery,
+              subtitle: context.l10n.settingsBgDeliverySubtitle,
+              trailing: Switch.adaptive(
+                value: _bgServiceEnabled,
+                activeThumbColor: AppTheme.info,
+                onChanged: (v) async {
+                  setState(() => _bgServiceEnabled = v);
+                  await BackgroundService.instance.setEnabled(v);
+                },
+              ),
+            ),
+        ]),
       ],
     );
   }

@@ -5,9 +5,11 @@ import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:image/image.dart' as img;
 import 'package:google_fonts/google_fonts.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../l10n/l10n_ext.dart';
 import '../theme/app_theme.dart';
+import '../theme/design_tokens.dart';
 import '../controllers/chat_controller.dart';
 import '../services/signal_service.dart';
 import 'avatar_widget.dart';
@@ -15,8 +17,7 @@ import 'avatar_widget.dart';
 /// Self-contained profile editing card for use in Settings.
 /// Reads / writes from SharedPreferences key `user_profile`.
 class ProfileCard extends StatefulWidget {
-  final bool showAddressCard;
-  const ProfileCard({super.key, this.showAddressCard = true});
+  const ProfileCard({super.key});
 
   @override
   State<ProfileCard> createState() => _ProfileCardState();
@@ -79,6 +80,147 @@ class _ProfileCardState extends State<ProfileCard> {
     if (mounted) setState(() => _avatarBytes = Uint8List.fromList(jpeg));
   }
 
+  String _buildInviteLink(List<String> addresses, String name) {
+    final payload = addresses.length == 1
+        ? jsonEncode({'a': addresses.first, 'n': name})
+        : jsonEncode({'a': addresses, 'n': name});
+    final cfg = base64Encode(utf8.encode(payload));
+    return 'pulse://add?cfg=$cfg';
+  }
+
+  void _showMyQrDialog() {
+    final addresses = ChatController().shareableAddresses;
+    if (addresses.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(context.l10n.settingsNoAddressYet),
+        duration: const Duration(seconds: 2),
+      ));
+      return;
+    }
+
+    final myName = _nameController.text.trim();
+    final inviteLink = _buildInviteLink(addresses, myName);
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog.adaptive(
+        backgroundColor: AppTheme.surface,
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(DesignTokens.dialogRadius)),
+        title: Text(
+          context.l10n.settingsShareMyAddress,
+          style: GoogleFonts.inter(
+            color: AppTheme.textPrimary,
+            fontWeight: FontWeight.w700,
+            fontSize: DesignTokens.fontXl,
+          ),
+        ),
+        content: SizedBox(
+          width: 300,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius:
+                      BorderRadius.circular(DesignTokens.radiusMedium),
+                ),
+                padding: const EdgeInsets.all(DesignTokens.cardPadding),
+                child: QrImageView(data: inviteLink, size: 220),
+              ),
+              const SizedBox(height: DesignTokens.spacing12),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: DesignTokens.spacing10,
+                    vertical: DesignTokens.spacing6),
+                decoration: BoxDecoration(
+                  color: AppTheme.primary.withValues(alpha: 0.1),
+                  borderRadius:
+                      BorderRadius.circular(DesignTokens.radiusSmall),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.route_rounded,
+                        size: DesignTokens.fontMd, color: AppTheme.primary),
+                    const SizedBox(width: DesignTokens.spacing6),
+                    Text(
+                      '${addresses.length} ${addresses.length == 1 ? 'route' : 'routes'} included',
+                      style: GoogleFonts.inter(
+                        color: AppTheme.primary,
+                        fontSize: DesignTokens.fontSm,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: DesignTokens.spacing12),
+              Container(
+                padding: const EdgeInsets.all(DesignTokens.spacing12),
+                decoration: BoxDecoration(
+                  color: AppTheme.surfaceVariant,
+                  borderRadius:
+                      BorderRadius.circular(DesignTokens.spacing10),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      ctx.l10n.settingsInviteLink,
+                      style: GoogleFonts.inter(
+                        color: AppTheme.textSecondary,
+                        fontSize: DesignTokens.fontXs,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                    const SizedBox(height: DesignTokens.spacing4),
+                    SelectableText(
+                      inviteLink,
+                      style: GoogleFonts.jetBrainsMono(
+                          color: AppTheme.textPrimary,
+                          fontSize: DesignTokens.fontXs),
+                      maxLines: 3,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Clipboard.setData(ClipboardData(text: inviteLink));
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                content: Text(context.l10n.settingsInviteLinkCopied,
+                    style: GoogleFonts.inter(color: AppTheme.onPrimary)),
+                backgroundColor: AppTheme.primary,
+                duration: const Duration(seconds: 2),
+              ));
+            },
+            child: Text(
+              context.l10n.settingsCopyLink,
+              style: GoogleFonts.inter(
+                color: AppTheme.primary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(
+              context.l10n.close,
+              style: GoogleFonts.inter(color: AppTheme.textSecondary),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _save() async {
     setState(() => _saving = true);
     final name = _nameController.text.trim();
@@ -139,7 +281,7 @@ class _ProfileCardState extends State<ProfileCard> {
                           shape: BoxShape.circle,
                           border: Border.all(color: AppTheme.surface, width: 2),
                         ),
-                        child: const Icon(Icons.camera_alt_rounded, size: 11, color: Colors.white),
+                        child: Icon(Icons.camera_alt_rounded, size: 11, color: AppTheme.onPrimary),
                       ),
                     ),
                   ],
@@ -228,29 +370,47 @@ class _ProfileCardState extends State<ProfileCard> {
           ),
           const SizedBox(height: 20),
 
-          // ─── My Inbox Address ────────────────────────
-          if (widget.showAddressCard) ...[
-            const InboxAddressCard(),
-            const SizedBox(height: 20),
-          ],
+          const Divider(height: 1, thickness: 0.5),
+          const SizedBox(height: 18),
 
-          // ─── Save button ─────────────────────────────
-          SizedBox(
-            width: double.infinity,
-            height: 46,
-            child: ElevatedButton(
-              onPressed: _saving ? null : _save,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.primary,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                elevation: 0,
+          // ─── Share QR + Save buttons ──────────────────
+          Row(
+            children: [
+              Expanded(
+                child: SizedBox(
+                  height: 46,
+                  child: OutlinedButton.icon(
+                    onPressed: _showMyQrDialog,
+                    icon: Icon(Icons.qr_code_rounded, size: 18, color: AppTheme.primary),
+                    label: Text(context.l10n.settingsMyQrCode, style: GoogleFonts.inter(
+                        fontWeight: FontWeight.w600, color: AppTheme.primary, fontSize: 14)),
+                    style: OutlinedButton.styleFrom(
+                      side: BorderSide(color: AppTheme.primary),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    ),
+                  ),
+                ),
               ),
-              child: _saving
-                  ? const SizedBox(width: 20, height: 20,
-                      child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                  : Text(context.l10n.profileCardSaveButton, style: GoogleFonts.inter(
-                      fontWeight: FontWeight.w700, color: Colors.white, fontSize: 15)),
-            ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: SizedBox(
+                  height: 46,
+                  child: ElevatedButton(
+                    onPressed: _saving ? null : _save,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.primary,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      elevation: 0,
+                    ),
+                    child: _saving
+                        ? const SizedBox(width: 20, height: 20,
+                            child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                        : Text(context.l10n.profileCardSaveButton, style: GoogleFonts.inter(
+                            fontWeight: FontWeight.w700, color: AppTheme.onPrimary, fontSize: 15)),
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -285,8 +445,68 @@ class _ProfileCardState extends State<ProfileCard> {
   }
 }
 
-/// Shows unified invite link with all addresses. Individual addresses shown
-/// as compact info — one-tap share button is the primary action.
+/// Inline address list without its own card background — used inside ProfileCard.
+class _InlineInboxAddresses extends StatelessWidget {
+  const _InlineInboxAddresses();
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: ChatController(),
+      builder: (context, _) {
+        final displayAddresses = ChatController().allAddresses;
+        if (displayAddresses.isEmpty) return const SizedBox.shrink();
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Divider(height: 1, thickness: 0.5),
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                Icon(Icons.route_rounded, size: 12, color: AppTheme.textSecondary),
+                const SizedBox(width: 6),
+                Text(
+                  '${displayAddresses.length} ${displayAddresses.length == 1 ? 'route' : 'routes'} active',
+                  style: GoogleFonts.inter(
+                      color: AppTheme.textSecondary,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            for (final address in displayAddresses)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 3),
+                child: GestureDetector(
+                  onTap: () {
+                    Clipboard.setData(ClipboardData(text: address));
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                      content: Text('Address copied!', style: GoogleFonts.inter()),
+                      backgroundColor: AppTheme.primary,
+                      behavior: SnackBarBehavior.floating,
+                      duration: const Duration(seconds: 2),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10)),
+                    ));
+                  },
+                  child: Text(
+                    address,
+                    style: GoogleFonts.jetBrainsMono(
+                        color: AppTheme.textSecondary, fontSize: 10),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+/// Standalone address card — kept for backward compat (used outside settings).
 class InboxAddressCard extends StatelessWidget {
   const InboxAddressCard({super.key});
 
@@ -308,7 +528,6 @@ class InboxAddressCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Compact route list
               Row(
                 children: [
                   Icon(Icons.route_rounded, size: 12, color: AppTheme.textSecondary),

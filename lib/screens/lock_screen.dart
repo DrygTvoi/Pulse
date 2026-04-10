@@ -254,20 +254,20 @@ class _LockScreenState extends State<LockScreen> {
                           horizontal: 14, vertical: 10),
                       decoration: BoxDecoration(
                         color:
-                            const Color(0xFFF87171).withValues(alpha: 0.1),
+                            AppTheme.errorLight.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(10),
                         border: Border.all(
-                            color: const Color(0xFFF87171)
+                            color: AppTheme.errorLight
                                 .withValues(alpha: 0.3)),
                       ),
                       child: Row(children: [
-                        const Icon(Icons.error_outline_rounded,
-                            color: Color(0xFFF87171), size: 16),
+                        Icon(Icons.error_outline_rounded,
+                            color: AppTheme.errorLight, size: 16),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(_resolveError(context),
                               style: GoogleFonts.inter(
-                                  color: const Color(0xFFF87171),
+                                  color: AppTheme.errorLight,
                                   fontSize: 13)),
                         ),
                       ]),
@@ -296,7 +296,7 @@ class _LockScreenState extends State<LockScreen> {
                               style: GoogleFonts.inter(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w700,
-                                  color: Colors.white)),
+                                  color: AppTheme.onPrimary)),
                     ),
                   ),
                   const SizedBox(height: 32),

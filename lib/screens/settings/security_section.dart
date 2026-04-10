@@ -121,7 +121,7 @@ class _SecuritySectionState extends State<SecuritySection> {
               child: Text(
                 context.l10n.confirm,
                 style: GoogleFonts.inter(
-                    color: const Color(0xFF60A5FA),
+                    color: AppTheme.info,
                     fontWeight: FontWeight.w600),
               ),
             ),
@@ -269,11 +269,11 @@ class _SecuritySectionState extends State<SecuritySection> {
                   width: DesignTokens.avatarXs,
                   height: DesignTokens.avatarXs,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF60A5FA).withValues(alpha: DesignTokens.opacityLight),
+                    color: AppTheme.info.withValues(alpha: DesignTokens.opacityLight),
                     borderRadius: BorderRadius.circular(DesignTokens.spacing10),
                   ),
-                  child: const Icon(Icons.lock_rounded,
-                      color: Color(0xFF60A5FA), size: DesignTokens.fontHeading),
+                  child: Icon(Icons.lock_rounded,
+                      color: AppTheme.info, size: DesignTokens.fontHeading),
                 ),
                 const SizedBox(width: DesignTokens.spacing12),
                 Expanded(
@@ -302,7 +302,7 @@ class _SecuritySectionState extends State<SecuritySection> {
                   value: widget.passwordEnabled,
                   onChanged: (val) =>
                       val ? _enablePassword() : _disablePassword(),
-                  activeThumbColor: const Color(0xFF60A5FA),
+                  activeThumbColor: AppTheme.info,
                 ),
               ]),
             ),
@@ -318,7 +318,7 @@ class _SecuritySectionState extends State<SecuritySection> {
             ),
             settingsGroupRow(
               icon: Icons.warning_amber_rounded,
-              iconColor: const Color(0xFFF87171),
+              iconColor: AppTheme.errorLight,
               title: widget.panicKeyEnabled
                   ? context.l10n.settingsChangePanicKey
                   : context.l10n.settingsSetPanicKey,

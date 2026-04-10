@@ -18,6 +18,8 @@ class ThemeNotifier extends ChangeNotifier {
   Color? _customSurfVar;
   Color? _customTextPrimary;
   Color? _customTextSecondary;
+  Color? _customOutgoingBubble;
+  Color? _customIncomingBubble;
   double _borderRadius = 12.0;
   String _fontFamily = 'Inter';
   TargetPlatform? _customPlatform; // null = use device platform
@@ -40,8 +42,8 @@ class ThemeNotifier extends ChangeNotifier {
   Color get textSecondary => _customTextSecondary  ?? (isDark ? const Color(0xFF8696A0) : const Color(0xFF667781));
 
   // ── Bubble colors (WhatsApp 2025) ───────────────────────────────────────
-  Color get outgoingBubble => isDark ? const Color(0xFF005C4B) : const Color(0xFFD9FDD3);
-  Color get incomingBubble => isDark ? surfaceVariant : const Color(0xFFFFFFFF);
+  Color get outgoingBubble => _customOutgoingBubble ?? (isDark ? const Color(0xFF005C4B) : const Color(0xFFD9FDD3));
+  Color get incomingBubble => _customIncomingBubble ?? (isDark ? surfaceVariant : const Color(0xFFFFFFFF));
 
   ThemeNotifier._internal() {
     _loadFromPrefs();
@@ -60,6 +62,8 @@ class ThemeNotifier extends ChangeNotifier {
       if (prefs.containsKey('theme_surfvar'))    _customSurfVar    = Color(prefs.getInt('theme_surfvar')!);
       if (prefs.containsKey('theme_text_pri'))   _customTextPrimary    = Color(prefs.getInt('theme_text_pri')!);
       if (prefs.containsKey('theme_text_sec'))   _customTextSecondary  = Color(prefs.getInt('theme_text_sec')!);
+      if (prefs.containsKey('theme_bubble_out')) _customOutgoingBubble = Color(prefs.getInt('theme_bubble_out')!);
+      if (prefs.containsKey('theme_bubble_in'))  _customIncomingBubble = Color(prefs.getInt('theme_bubble_in')!);
       _borderRadius = prefs.getDouble('theme_radius') ?? 12.0;
       _fontFamily   = prefs.getString('theme_font')   ?? 'Inter';
       _customPlatform = _platformFromString(prefs.getString('theme_platform'));
@@ -78,6 +82,8 @@ class ThemeNotifier extends ChangeNotifier {
     if (_customSurfVar != null) await prefs.setInt('theme_surfvar', _customSurfVar!.toARGB32());
     if (_customTextPrimary   != null) await prefs.setInt('theme_text_pri', _customTextPrimary!.toARGB32());
     if (_customTextSecondary != null) await prefs.setInt('theme_text_sec', _customTextSecondary!.toARGB32());
+    if (_customOutgoingBubble != null) await prefs.setInt('theme_bubble_out', _customOutgoingBubble!.toARGB32());
+    if (_customIncomingBubble != null) await prefs.setInt('theme_bubble_in', _customIncomingBubble!.toARGB32());
     await prefs.setDouble('theme_radius', _borderRadius);
     await prefs.setString('theme_font', _fontFamily);
     if (_customPlatform != null) {
@@ -128,6 +134,17 @@ class ThemeNotifier extends ChangeNotifier {
     notifyListeners();
   }
 
+  void updateBubbleColors({Color? outgoing, Color? incoming}) {
+    if (outgoing != null) _customOutgoingBubble = outgoing;
+    if (incoming != null) _customIncomingBubble = incoming;
+    _save();
+    notifyListeners();
+  }
+
+  void updateBackground(Color c) { _customBg = c; _save(); notifyListeners(); }
+  void updateSurface(Color c) { _customSurf = c; _save(); notifyListeners(); }
+  void updateSurfaceVariant(Color c) { _customSurfVar = c; _save(); notifyListeners(); }
+
   void updateRadius(double radius) {
     _borderRadius = radius;
     _save();
@@ -150,9 +167,11 @@ class ThemeNotifier extends ChangeNotifier {
     _customPrimary = _customAccent = null;
     _customBg = _customSurf = _customSurfVar = null;
     _customTextPrimary = _customTextSecondary = null;
+    _customOutgoingBubble = _customIncomingBubble = null;
     _customPlatform = null;
     _borderRadius = 12.0;
     _fontFamily = 'Inter';
+    _mode = ThemeMode.dark;
     _save();
     notifyListeners();
   }
@@ -366,6 +385,8 @@ class ThemeNotifier extends ChangeNotifier {
     Color? surfVar,
     Color? textPrimary,
     Color? textSecondary,
+    Color? outgoingBubble,
+    Color? incomingBubble,
     ThemeMode? mode,
     double? radius,
     String? font,
@@ -377,6 +398,8 @@ class ThemeNotifier extends ChangeNotifier {
     if (surfVar     != null) _customSurfVar     = surfVar;
     if (textPrimary != null) _customTextPrimary = textPrimary;
     if (textSecondary != null) _customTextSecondary = textSecondary;
+    _customOutgoingBubble = outgoingBubble;
+    _customIncomingBubble = incomingBubble;
     if (mode        != null) _mode              = mode;
     if (radius      != null) _borderRadius      = radius;
     if (font        != null) _fontFamily        = font;

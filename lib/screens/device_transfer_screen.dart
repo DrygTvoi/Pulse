@@ -195,7 +195,7 @@ class _DeviceTransferScreenState extends State<DeviceTransferScreen> {
 
   SnackBar _snackBar(String msg, {bool error = false}) => SnackBar(
         content: Text(msg, style: GoogleFonts.inter()),
-        backgroundColor: error ? Colors.red : AppTheme.primary,
+        backgroundColor: error ? AppTheme.destructive : AppTheme.primary,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.spacing10)),
       );
@@ -248,7 +248,7 @@ class _DeviceTransferScreenState extends State<DeviceTransferScreen> {
         const SizedBox(height: DesignTokens.spacing28),
         _roleCard(
           icon: Icons.upload_rounded,
-          iconColor: const Color(0xFF3498DB),
+          iconColor: AppTheme.info,
           title: context.l10n.transferSendFromThis,
           subtitle: context.l10n.transferSendSubtitle,
           onTap: () => setState(() {
@@ -259,7 +259,7 @@ class _DeviceTransferScreenState extends State<DeviceTransferScreen> {
         const SizedBox(height: DesignTokens.spacing14),
         _roleCard(
           icon: Icons.download_rounded,
-          iconColor: const Color(0xFF2ECC71),
+          iconColor: AppTheme.success,
           title: context.l10n.transferReceiveOnThis,
           subtitle: context.l10n.transferReceiveSubtitle,
           onTap: () => setState(() {
@@ -333,7 +333,7 @@ class _DeviceTransferScreenState extends State<DeviceTransferScreen> {
         const SizedBox(height: DesignTokens.spacing16),
         _methodCard(
           icon: Icons.wifi_rounded,
-          iconColor: const Color(0xFF3498DB),
+          iconColor: AppTheme.info,
           title: context.l10n.transferLan,
           subtitle: context.l10n.transferLanSubtitle,
           onTap: _startLanSend,
@@ -390,14 +390,14 @@ class _DeviceTransferScreenState extends State<DeviceTransferScreen> {
           height: 50,
           child: ElevatedButton.icon(
             onPressed: _connect,
-            icon: const Icon(Icons.link_rounded, color: Colors.white),
+            icon: Icon(Icons.link_rounded, color: AppTheme.onPrimary),
             label: Text(context.l10n.transferConnect,
                 style: GoogleFonts.inter(
                     fontWeight: FontWeight.w700,
                     fontSize: DesignTokens.fontInput,
-                    color: Colors.white)),
+                    color: AppTheme.onPrimary)),
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF2ECC71),
+              backgroundColor: AppTheme.success,
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(DesignTokens.inputRadius)),
               elevation: 0,
@@ -602,12 +602,12 @@ class _DeviceTransferScreenState extends State<DeviceTransferScreen> {
             Expanded(
               child: OutlinedButton.icon(
                 onPressed: _cancel,
-                icon: const Icon(Icons.close_rounded, size: DesignTokens.fontHeading, color: Colors.red),
+                icon: Icon(Icons.close_rounded, size: DesignTokens.fontHeading, color: AppTheme.destructive),
                 label: Text(context.l10n.cancel,
                     style: GoogleFonts.inter(
-                        color: Colors.red, fontWeight: FontWeight.w600)),
+                        color: AppTheme.destructive, fontWeight: FontWeight.w600)),
                 style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: Colors.red),
+                  side: BorderSide(color: AppTheme.destructive),
                   padding: const EdgeInsets.symmetric(vertical: DesignTokens.buttonPaddingV),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(DesignTokens.radiusMedium)),
@@ -618,13 +618,13 @@ class _DeviceTransferScreenState extends State<DeviceTransferScreen> {
             Expanded(
               child: ElevatedButton.icon(
                 onPressed: _confirm,
-                icon: const Icon(Icons.check_rounded,
-                    size: DesignTokens.fontHeading, color: Colors.white),
+                icon: Icon(Icons.check_rounded,
+                    size: DesignTokens.fontHeading, color: AppTheme.onPrimary),
                 label: Text(context.l10n.confirm,
                     style: GoogleFonts.inter(
-                        color: Colors.white, fontWeight: FontWeight.w700)),
+                        color: AppTheme.onPrimary, fontWeight: FontWeight.w700)),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF2ECC71),
+                  backgroundColor: AppTheme.success,
                   padding: const EdgeInsets.symmetric(vertical: DesignTokens.buttonPaddingV),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(DesignTokens.radiusMedium)),
@@ -649,11 +649,11 @@ class _DeviceTransferScreenState extends State<DeviceTransferScreen> {
         Container(
           padding: const EdgeInsets.all(DesignTokens.spacing20),
           decoration: BoxDecoration(
-            color: const Color(0xFF2ECC71).withValues(alpha: 0.12),
+            color: AppTheme.success.withValues(alpha: 0.12),
             shape: BoxShape.circle,
           ),
-          child: const Icon(Icons.check_circle_rounded,
-              color: Color(0xFF2ECC71), size: 56),
+          child: Icon(Icons.check_circle_rounded,
+              color: AppTheme.success, size: 56),
         ),
         const SizedBox(height: DesignTokens.spacing24),
         Text(
@@ -687,7 +687,7 @@ class _DeviceTransferScreenState extends State<DeviceTransferScreen> {
               ),
               child: Text(context.l10n.close,
                   style: GoogleFonts.inter(
-                      color: Colors.white,
+                      color: AppTheme.onPrimary,
                       fontWeight: FontWeight.w700,
                       fontSize: DesignTokens.fontInput)),
             ),
@@ -698,15 +698,15 @@ class _DeviceTransferScreenState extends State<DeviceTransferScreen> {
             height: 50,
             child: ElevatedButton.icon(
               onPressed: () => exit(0),
-              icon: const Icon(Icons.restart_alt_rounded,
-                  color: Colors.white),
+              icon: Icon(Icons.restart_alt_rounded,
+                  color: AppTheme.onPrimary),
               label: Text(context.l10n.transferRestartApp,
                   style: GoogleFonts.inter(
-                      color: Colors.white,
+                      color: AppTheme.onPrimary,
                       fontWeight: FontWeight.w700,
                       fontSize: DesignTokens.fontInput)),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF2ECC71),
+                backgroundColor: AppTheme.success,
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(DesignTokens.inputRadius)),
                 elevation: 0,
@@ -725,7 +725,7 @@ class _DeviceTransferScreenState extends State<DeviceTransferScreen> {
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         const SizedBox(height: DesignTokens.spacing40),
-        const Icon(Icons.error_outline_rounded, color: Colors.red, size: 56),
+        Icon(Icons.error_outline_rounded, color: AppTheme.destructive, size: 56),
         const SizedBox(height: DesignTokens.spacing20),
         Text(context.l10n.transferFailed,
             style: GoogleFonts.inter(
@@ -751,7 +751,7 @@ class _DeviceTransferScreenState extends State<DeviceTransferScreen> {
             ),
             child: Text(context.l10n.transferTryAgain,
                 style: GoogleFonts.inter(
-                    color: Colors.white,
+                    color: AppTheme.onPrimary,
                     fontWeight: FontWeight.w700,
                     fontSize: DesignTokens.fontInput)),
           ),

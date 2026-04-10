@@ -800,7 +800,7 @@ class _ChatScreenState extends State<ChatScreen> {
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: DesignTokens.spacing14, vertical: DesignTokens.spacing10),
               decoration: BoxDecoration(
-                color: AppTheme.warning,
+                color: AppTheme.warningBanner,
               ),
               child: Row(
                 children: [

@@ -8,13 +8,9 @@ import '../l10n/l10n_ext.dart';
 import 'settings/profile_section.dart';
 import 'settings/network_section.dart';
 import 'settings/appearance_identity_section.dart';
-import 'settings/language_section.dart';
 import 'settings/data_section.dart';
 import 'settings/security_section.dart';
 import 'settings/about_section.dart';
-
-// Re-export for backward compatibility — InboxAddressCard is defined in profile_card.dart
-export '../widgets/profile_card.dart' show InboxAddressCard;
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -62,18 +58,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
         padding: const EdgeInsets.fromLTRB(20, 24, 20, 40),
         children: [
           // ─── Profile ───────────────────────────────────────────
-          ProfileSection(),
-          const SizedBox(height: 28),
+          const ProfileSection(),
+          const SizedBox(height: 32),
 
           // ─── Network (Provider, TURN, Proxy, LAN, BG) ─────────
           const NetworkSection(),
           const SizedBox(height: 32),
 
-          // ─── Language ──────────────────────────────────────────
-          const LanguageSection(),
-          const SizedBox(height: 12),
-
-          // ─── Appearance ────────────────────────────────────────
+          // ─── Appearance (Theme Engine, Language) ────────────────
           const AppearanceIdentitySection(),
           const SizedBox(height: 32),
 

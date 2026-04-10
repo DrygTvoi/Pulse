@@ -310,8 +310,8 @@ class _AddContactDialogState extends State<AddContactDialog> {
                         color: AppTheme.primary,
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: const Icon(Icons.content_paste_rounded,
-                          color: Colors.white, size: 18),
+                      child: Icon(Icons.content_paste_rounded,
+                          color: AppTheme.onPrimary, size: 18),
                     ),
                   ),
                 ),
@@ -358,7 +358,7 @@ class _AddContactDialogState extends State<AddContactDialog> {
                           : Icons.info_outline_rounded,
                       size: 13,
                       color: _profileFound
-                          ? const Color(0xFF4CAF50)
+                          ? AppTheme.online
                           : AppTheme.textSecondary,
                     ),
                   const SizedBox(width: 5),
@@ -366,7 +366,7 @@ class _AddContactDialogState extends State<AddContactDialog> {
                       style: GoogleFonts.inter(
                           fontSize: 11,
                           color: _profileFound
-                              ? const Color(0xFF4CAF50)
+                              ? AppTheme.online
                               : AppTheme.textSecondary)),
                 ]),
               ],
@@ -470,7 +470,7 @@ class _AddContactDialogState extends State<AddContactDialog> {
                       style: GoogleFonts.inter(
                           fontWeight: FontWeight.w700,
                           fontSize: 15,
-                          color: Colors.white)),
+                          color: AppTheme.onPrimary)),
                 ),
               ),
             ],

@@ -115,11 +115,11 @@ class _SetupIdentityScreenState extends State<SetupIdentityScreen> {
   }
 
   Color get _entropyColor {
-    if (!_hasVariety && _passwordController.text.length >= 16) return const Color(0xFFF87171);
+    if (!_hasVariety && _passwordController.text.length >= 16) return AppTheme.errorLight;
     final bits = _entropyBits;
-    if (bits < 50) return const Color(0xFFF87171);
-    if (bits < 80) return const Color(0xFFFBBF24);
-    return const Color(0xFF34D399);
+    if (bits < 50) return AppTheme.errorLight;
+    if (bits < 80) return AppTheme.warning;
+    return AppTheme.success;
   }
 
   String? get _confirmError {
@@ -298,14 +298,14 @@ class _SetupIdentityScreenState extends State<SetupIdentityScreen> {
           Icon(
             ok ? Icons.check_circle_rounded : Icons.circle_outlined,
             size: 16,
-            color: ok ? const Color(0xFF34D399) : AppTheme.textSecondary.withValues(alpha: 0.5),
+            color: ok ? AppTheme.success : AppTheme.textSecondary.withValues(alpha: 0.5),
           ),
           const SizedBox(width: 8),
           Text(
             label,
             style: GoogleFonts.inter(
               fontSize: 12,
-              color: ok ? const Color(0xFF34D399) : AppTheme.textSecondary,
+              color: ok ? AppTheme.success : AppTheme.textSecondary,
             ),
           ),
         ],
@@ -334,8 +334,8 @@ class _SetupIdentityScreenState extends State<SetupIdentityScreen> {
                   color: AppTheme.primary,
                   borderRadius: BorderRadius.circular(20),
                 ),
-                child: const Icon(Icons.shield_rounded,
-                    color: Colors.white, size: 36),
+                child: Icon(Icons.shield_rounded,
+                    color: AppTheme.onPrimary, size: 36),
               ),
               const SizedBox(height: 16),
               Text(context.l10n.setupCreateAnonymousAccount,
@@ -460,7 +460,7 @@ class _SetupIdentityScreenState extends State<SetupIdentityScreen> {
                           style: GoogleFonts.inter(
                               fontSize: 16,
                               fontWeight: FontWeight.w700,
-                              color: Colors.white)),
+                              color: AppTheme.onPrimary)),
                 ),
               ),
               const SizedBox(height: 24),
@@ -524,13 +524,13 @@ class _SetupIdentityScreenState extends State<SetupIdentityScreen> {
         enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),
             borderSide: errorText != null
-                ? const BorderSide(color: Color(0xFFF87171), width: 1.5)
+                ? BorderSide(color: AppTheme.errorLight, width: 1.5)
                 : BorderSide.none),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide(
               color: errorText != null
-                  ? const Color(0xFFF87171)
+                  ? AppTheme.errorLight
                   : purple,
               width: 2),
         ),
