@@ -8,6 +8,7 @@ import (
 	"net"
 	"os"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/pion/webrtc/v4"
@@ -23,8 +24,8 @@ import (
 
 // Hub manages all connected clients and routes messages between them.
 type Hub struct {
-	mu          sync.RWMutex
-	clients     map[string]*Client // pubkey → client
+	clients     sync.Map     // pubkey → *Client (lock-free reads on hot path)
+	connCount   atomic.Int64 // tracked separately since sync.Map has no len()
 	cfg         *config.Config
 	users       *store.UserStore
 	messages    *store.MessageStore
@@ -60,7 +61,6 @@ func NewHub(cfg *config.Config, users *store.UserStore, messages *store.MessageS
 	)
 
 	h := &Hub{
-		clients:      make(map[string]*Client),
 		cfg:          cfg,
 		users:        users,
 		messages:     messages,
@@ -78,12 +78,14 @@ func NewHub(cfg *config.Config, users *store.UserStore, messages *store.MessageS
 	// Initialize batch delivery if enabled
 	if ps.BatchDelivery && ps.BatchIntervalMs > 0 {
 		h.batchBuf = privacy.NewBatchDeliveryBuffer(ps.BatchIntervalMs, func(pubkey string, msgs []privacy.PendingDelivery) {
-			h.mu.RLock()
-			client, ok := h.clients[pubkey]
-			h.mu.RUnlock()
+			val, ok := h.clients.Load(pubkey)
 			if ok {
+				client := val.(*Client)
 				for _, msg := range msgs {
-					client.SendDirect(msg.Data)
+					if err := client.SendDirect(msg.Data); err != nil {
+						log.Printf("[hub] batch delivery to %s failed: %v (dropping %d remaining)", pubkey, err, len(msgs))
+						break
+					}
 				}
 			}
 		})
@@ -153,16 +155,17 @@ func (h *Hub) Run() {
 	for {
 		select {
 		case client := <-h.register:
-			h.mu.Lock()
-			// If there's an existing connection for this pubkey, close it
-			if existing, ok := h.clients[client.pubkey]; ok {
-				existing.Close()
+			// Atomically swap the client for this pubkey.
+			// Close the old connection AFTER replacing it in the map
+			// to avoid a window where the pubkey has no entry. (Fix #1: race condition)
+			if old, loaded := h.clients.Swap(client.pubkey, client); loaded {
+				oldClient := old.(*Client)
+				go oldClient.Close() // close async — don't block the event loop
 				if h.metricsCol != nil {
 					h.metricsCol.DecConnections()
 				}
 			}
-			h.clients[client.pubkey] = client
-			h.mu.Unlock()
+			h.connCount.Add(1)
 
 			if h.metricsCol != nil {
 				h.metricsCol.IncConnections()
@@ -179,11 +182,14 @@ func (h *Hub) Run() {
 			log.Printf("[hub] client registered: %s", client.pubkey)
 
 		case client := <-h.unregister:
-			h.mu.Lock()
-			if existing, ok := h.clients[client.pubkey]; ok && existing == client {
-				delete(h.clients, client.pubkey)
+			// Only delete if this client is still the current one for this pubkey
+			if val, loaded := h.clients.Load(client.pubkey); loaded && val.(*Client) == client {
+				h.clients.Delete(client.pubkey)
+			} else {
+				// Already replaced by a newer connection — skip cleanup
+				continue
 			}
-			h.mu.Unlock()
+			h.connCount.Add(-1)
 
 			if h.metricsCol != nil {
 				h.metricsCol.DecConnections()
@@ -239,11 +245,10 @@ func (h *Hub) Stop() {
 		h.batchBuf.Stop()
 	}
 
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	for _, client := range h.clients {
-		client.Close()
-	}
+	h.clients.Range(func(key, value any) bool {
+		value.(*Client).Close()
+		return true
+	})
 }
 
 // Register registers a client after authentication.
@@ -258,9 +263,7 @@ func (h *Hub) Unregister(client *Client) {
 
 // ConnectionCount returns the number of active connections.
 func (h *Hub) ConnectionCount() int {
-	h.mu.RLock()
-	defer h.mu.RUnlock()
-	return len(h.clients)
+	return int(h.connCount.Load())
 }
 
 // MaxConnectionsReached checks if the server has hit the connection limit.
@@ -379,11 +382,10 @@ func (h *Hub) handleSend(client *Client, payload json.RawMessage) {
 	jitter := privacy.ApplyJitter(h.privSettings.DeliveryJitterMs)
 
 	// Try to deliver to online recipient
-	h.mu.RLock()
-	recipient, online := h.clients[msg.To]
-	h.mu.RUnlock()
+	val, online := h.clients.Load(msg.To)
 
 	if online {
+		recipient := val.(*Client)
 		incoming := &IncomingMessage{
 			ID:      msg.ID,
 			From:    client.pubkey,
@@ -411,9 +413,16 @@ func (h *Hub) handleSend(client *Client, payload json.RawMessage) {
 		}
 
 		if jitter > 0 {
+			// Fix #2: Use timer+select so goroutine exits promptly on hub shutdown
 			go func() {
-				time.Sleep(jitter)
-				deliverFn()
+				timer := time.NewTimer(jitter)
+				defer timer.Stop()
+				select {
+				case <-timer.C:
+					deliverFn()
+				case <-h.stopCh:
+					deliverFn() // still deliver pending messages on shutdown
+				}
 			}()
 		} else {
 			deliverFn()
@@ -461,9 +470,7 @@ func (h *Hub) handleSignal(client *Client, payload json.RawMessage) {
 		return
 	}
 
-	h.mu.RLock()
-	recipient, online := h.clients[sig.To]
-	h.mu.RUnlock()
+	val, online := h.clients.Load(sig.To)
 
 	if !online {
 		client.sendFlat(TypeSignalFail, map[string]string{
@@ -473,6 +480,7 @@ func (h *Hub) handleSignal(client *Client, payload json.RawMessage) {
 		return
 	}
 
+	recipient := val.(*Client)
 	incoming := &IncomingSignal{
 		From:    client.pubkey,
 		Payload: sig.Payload,
@@ -607,13 +615,11 @@ func (h *Hub) handleBackupPut(client *Client, payload json.RawMessage) {
 // Returns true if the user is online and delivery succeeded.
 // This method is used by the federation router.
 func (h *Hub) DeliverToLocal(to string, msgType string, payload json.RawMessage) bool {
-	h.mu.RLock()
-	client, online := h.clients[to]
-	h.mu.RUnlock()
-
+	val, online := h.clients.Load(to)
 	if !online {
 		return false
 	}
+	client := val.(*Client)
 
 	env := &Envelope{
 		Type:    msgType,
@@ -1174,11 +1180,10 @@ func (h *Hub) HandleSealedSend(cert, to, body string) bool {
 	}
 
 	// Deliver to recipient (we don't know the sender — that's the point)
-	h.mu.RLock()
-	recipient, online := h.clients[to]
-	h.mu.RUnlock()
+	val, online := h.clients.Load(to)
 
 	if online {
+		recipient := val.(*Client)
 		msg := map[string]interface{}{
 			"type": "message",
 			"id":   fmt.Sprintf("sealed_%d", time.Now().UnixNano()),

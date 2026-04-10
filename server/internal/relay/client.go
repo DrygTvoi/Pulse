@@ -299,6 +299,10 @@ func (c *Client) handleTextFrame(message []byte) {
 		// Probe resistance: server is silent until client sends "hello".
 		// This prevents active probers from getting auth_challenge by just connecting.
 		if mt == "hello" {
+			if !c.hub.rateLimiter.AllowHello(c.remoteIP) {
+				c.Close()
+				return
+			}
 			c.sendAuthChallenge()
 		}
 		// Any other message type in Connected state → silence (don't reveal server identity)

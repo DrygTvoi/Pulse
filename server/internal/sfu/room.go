@@ -73,6 +73,9 @@ type Room struct {
 	Tracks       map[string]*Track       // trackID → Track
 	CreatedAt    time.Time
 
+	// Room lifecycle
+	closeCh chan struct{} // closed when room shuts down
+
 	// Speaker detection
 	speakerMu  sync.Mutex
 	speakers   []string // pubkeys currently speaking
@@ -103,6 +106,7 @@ func NewRoom(id, creator, name string, maxSize int, e2ee bool, lastNCount int, s
 		Participants: make(map[string]*Participant),
 		Tracks:       make(map[string]*Track),
 		CreatedAt:    time.Now(),
+		closeCh:      make(chan struct{}),
 		lastNCount:   lastNCount,
 		lastNSet:     make(map[string]struct{}),
 		simulcast:    simulcast,
@@ -214,15 +218,21 @@ func (r *Room) CreatePeerConnection(pubkey string, config webrtc.Configuration) 
 		if state == webrtc.ICEConnectionStateFailed || state == webrtc.ICEConnectionStateDisconnected {
 			// Give time for recovery, then remove
 			go func() {
-				time.Sleep(10 * time.Second)
-				r.mu.RLock()
-				p, ok := r.Participants[pubkey]
-				r.mu.RUnlock()
-				if ok && p.PC == pc {
-					currentState := pc.ICEConnectionState()
-					if currentState == webrtc.ICEConnectionStateFailed || currentState == webrtc.ICEConnectionStateDisconnected {
-						r.RemoveParticipant(pubkey)
+				timer := time.NewTimer(10 * time.Second)
+				defer timer.Stop()
+				select {
+				case <-timer.C:
+					r.mu.RLock()
+					p, ok := r.Participants[pubkey]
+					r.mu.RUnlock()
+					if ok && p.PC == pc {
+						currentState := pc.ICEConnectionState()
+						if currentState == webrtc.ICEConnectionStateFailed || currentState == webrtc.ICEConnectionStateDisconnected {
+							r.RemoveParticipant(pubkey)
+						}
 					}
+				case <-r.closeCh:
+					// Room closing — no cleanup needed
 				}
 			}()
 		}
@@ -506,6 +516,13 @@ func (r *Room) Broadcast(msg []byte) {
 
 // Close removes all participants and closes the room.
 func (r *Room) Close() {
+	// Signal all goroutines tied to this room to stop
+	select {
+	case <-r.closeCh:
+	default:
+		close(r.closeCh)
+	}
+
 	r.mu.Lock()
 	pubkeys := make([]string, 0, len(r.Participants))
 	for pk := range r.Participants {

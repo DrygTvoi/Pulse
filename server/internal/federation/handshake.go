@@ -46,6 +46,7 @@ type FederatedEnvelope struct {
 	Ts   int64  `json:"ts"`
 	TTL  int64  `json:"ttl"`
 	Hops int    `json:"hops"`
+	Sig  string `json:"sig,omitempty"` // Ed25519 signature from sending peer
 }
 
 // FederationAuth holds the server's Ed25519 keypair for federation.
@@ -78,6 +79,30 @@ func (fa *FederationAuth) PubkeyHex() string {
 // PrivkeyHex returns the hex-encoded private key (for storage).
 func (fa *FederationAuth) PrivkeyHex() string {
 	return hex.EncodeToString(fa.PrivateKey)
+}
+
+// SignEnvelope signs a FederatedEnvelope with this server's Ed25519 key.
+func (fa *FederationAuth) SignEnvelope(env *FederatedEnvelope) {
+	payload := fmt.Sprintf("fed:%s:%s:%s:%d:%d", env.ID, env.From, env.To, env.Ts, env.Hops)
+	sig := ed25519.Sign(fa.PrivateKey, []byte(payload))
+	env.Sig = hex.EncodeToString(sig)
+}
+
+// VerifyEnvelopeSig verifies the Ed25519 signature on a FederatedEnvelope.
+func VerifyEnvelopeSig(env *FederatedEnvelope, peerPubkeyHex string) bool {
+	if env.Sig == "" {
+		return false
+	}
+	pubBytes, err := hex.DecodeString(peerPubkeyHex)
+	if err != nil || len(pubBytes) != ed25519.PublicKeySize {
+		return false
+	}
+	sigBytes, err := hex.DecodeString(env.Sig)
+	if err != nil || len(sigBytes) != ed25519.SignatureSize {
+		return false
+	}
+	payload := fmt.Sprintf("fed:%s:%s:%s:%d:%d", env.ID, env.From, env.To, env.Ts, env.Hops)
+	return ed25519.Verify(ed25519.PublicKey(pubBytes), []byte(payload), sigBytes)
 }
 
 // PerformHandshake performs mutual authentication on an outgoing WS connection.

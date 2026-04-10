@@ -5,6 +5,13 @@ import (
 	"time"
 )
 
+// maxBuckets caps the rate limiter map to prevent unbounded growth
+// from probe/DDoS attacks creating millions of unique keys.
+const maxBuckets = 10000
+
+// helloRate is the per-IP rate limit for pre-auth "hello" messages (per minute).
+const helloRate = 5
+
 // RateLimiter implements a per-pubkey token bucket rate limiter.
 type RateLimiter struct {
 	mu      sync.Mutex
@@ -30,15 +37,28 @@ func NewRateLimiter(messagesPerMinute int) *RateLimiter {
 // Allow checks if a pubkey is allowed to send a message.
 // Returns true if the action is allowed, false if rate-limited.
 func (rl *RateLimiter) Allow(pubkey string) bool {
+	return rl.allowKey(pubkey, rl.rate)
+}
+
+// AllowHello rate-limits pre-auth "hello" messages per IP address.
+// Much lower limit than authenticated messages to prevent hello floods.
+func (rl *RateLimiter) AllowHello(ip string) bool {
+	return rl.allowKey("hello:"+ip, helloRate)
+}
+
+func (rl *RateLimiter) allowKey(key string, rate int) bool {
 	rl.mu.Lock()
 	defer rl.mu.Unlock()
 
 	now := time.Now()
 
-	b, ok := rl.buckets[pubkey]
+	b, ok := rl.buckets[key]
 	if !ok {
-		rl.buckets[pubkey] = &bucket{
-			tokens:    rl.rate - 1,
+		if len(rl.buckets) >= maxBuckets {
+			return false // cap reached — reject to prevent OOM
+		}
+		rl.buckets[key] = &bucket{
+			tokens:    rate - 1,
 			lastReset: now,
 		}
 		return true
@@ -46,7 +66,7 @@ func (rl *RateLimiter) Allow(pubkey string) bool {
 
 	// Reset tokens if window has elapsed
 	if now.Sub(b.lastReset) >= rl.window {
-		b.tokens = rl.rate
+		b.tokens = rate
 		b.lastReset = now
 	}
 

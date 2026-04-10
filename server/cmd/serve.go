@@ -135,7 +135,7 @@ func runServe(cmd *cobra.Command, args []string) error {
 					router.HandleIncoming(env, "")
 				}
 			})
-			router = federation.NewFederationRouter(users, peerManager, hub, db, &cfg.Federation)
+			router = federation.NewFederationRouter(users, peerManager, hub, db, &cfg.Federation, fedAuth)
 
 			// Load saved peers from DB and connect
 			rows, qErr := db.Query("SELECT pubkey, address FROM federation_peers WHERE enabled = 1")

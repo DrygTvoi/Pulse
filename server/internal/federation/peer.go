@@ -105,7 +105,11 @@ func (p *Peer) Disconnect() {
 }
 
 // Send queues a federated envelope for delivery to this peer.
+// Signs the envelope with the local server's Ed25519 key before sending.
 func (p *Peer) Send(env *FederatedEnvelope) error {
+	if p.auth != nil {
+		p.auth.SignEnvelope(env)
+	}
 	data, err := json.Marshal(env)
 	if err != nil {
 		return fmt.Errorf("failed to marshal envelope: %w", err)
@@ -177,6 +181,12 @@ func (p *Peer) readPump() {
 		var env FederatedEnvelope
 		if err := json.Unmarshal(message, &env); err != nil {
 			log.Printf("[federation] invalid message from peer %s: %v", p.Address, err)
+			continue
+		}
+
+		// Verify Ed25519 signature from the peer
+		if p.Pubkey != "" && !VerifyEnvelopeSig(&env, p.Pubkey) {
+			log.Printf("[federation] invalid/missing signature from peer %s, dropping envelope %s", p.Address, env.ID)
 			continue
 		}
 

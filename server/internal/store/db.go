@@ -28,8 +28,11 @@ func Open(dataDir string) (*sql.DB, error) {
 		return nil, fmt.Errorf("failed to ping database: %w", err)
 	}
 
-	// Set connection pool limits
-	db.SetMaxOpenConns(1)
+	// Set connection pool limits.
+	// WAL mode allows concurrent reads; MaxOpenConns(1) serializes everything.
+	// 4 connections lets reads proceed in parallel while writes serialize via SQLite's WAL lock.
+	db.SetMaxOpenConns(4)
+	db.SetMaxIdleConns(4)
 
 	return db, nil
 }

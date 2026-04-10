@@ -24,16 +24,18 @@ type FederationRouter struct {
 	deliverer   LocalDeliverer
 	db          *sql.DB
 	cfg         *config.FederationConfig
+	auth        *FederationAuth
 }
 
 // NewFederationRouter creates a new FederationRouter.
-func NewFederationRouter(users *store.UserStore, pm *PeerManager, deliverer LocalDeliverer, db *sql.DB, cfg *config.FederationConfig) *FederationRouter {
+func NewFederationRouter(users *store.UserStore, pm *PeerManager, deliverer LocalDeliverer, db *sql.DB, cfg *config.FederationConfig, auth *FederationAuth) *FederationRouter {
 	r := &FederationRouter{
 		users:       users,
 		peerManager: pm,
 		deliverer:   deliverer,
 		db:          db,
 		cfg:         cfg,
+		auth:        auth,
 	}
 
 	// Start hint cleanup ticker
@@ -90,7 +92,13 @@ func (r *FederationRouter) Route(env *FederatedEnvelope) {
 }
 
 // forwardToRemote forwards an envelope to federation peers.
+// Signs the envelope with this server's key before forwarding.
 func (r *FederationRouter) forwardToRemote(env *FederatedEnvelope) {
+	// Sign with our key (each hop re-signs to prove relay authenticity)
+	if r.auth != nil {
+		r.auth.SignEnvelope(env)
+	}
+
 	peers := r.peerManager.ListPeers()
 
 	hintPeer := r.getHint(env.To)

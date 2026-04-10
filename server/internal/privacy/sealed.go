@@ -172,9 +172,16 @@ func NewBatchDeliveryBuffer(intervalMs int, deliver func(pubkey string, msgs []P
 	}
 }
 
+// maxBatchPerUser caps the pending batch queue per user to prevent memory exhaustion.
+const maxBatchPerUser = 1000
+
 // Enqueue adds a message to the batch for a recipient.
 func (b *BatchDeliveryBuffer) Enqueue(pubkey string, data []byte) {
 	b.mu.Lock()
+	if len(b.pending[pubkey]) >= maxBatchPerUser {
+		b.mu.Unlock()
+		return // drop oldest-queued recipients' new messages to prevent OOM
+	}
 	b.pending[pubkey] = append(b.pending[pubkey], PendingDelivery{
 		Data: data,
 		Ts:   time.Now(),
