@@ -39,7 +39,6 @@ class VoiceService {
 
   final AudioRecorder _recorder = AudioRecorder();
   String? _currentPath;
-  bool _isOpus = false; // true when current/last recording used OPUS encoder
   DateTime? _startTime;
   Timer? _ampTimer;
   final List<double> _amplitudeSamples = [];
@@ -74,7 +73,6 @@ class VoiceService {
       // Android: AAC-LC in M4A container — universally supported, ~4× smaller than WAV.
       try {
         _currentPath = '${dir.path}/vm_$ts.m4a';
-        _isOpus = false;
         await _recorder.start(
           const RecordConfig(
             encoder: AudioEncoder.aacLc,
@@ -90,7 +88,6 @@ class VoiceService {
       // Desktop (Linux/macOS/Windows): OPUS — best compression, GStreamer built-in.
       try {
         _currentPath = '${dir.path}/vm_$ts.opus';
-        _isOpus = true;
         await _recorder.start(
           const RecordConfig(
             encoder: AudioEncoder.opus,
@@ -106,7 +103,6 @@ class VoiceService {
 
     // Universal fallback: WAV.
     if (!started) {
-      _isOpus = false;
       _currentPath = '${dir.path}/vm_$ts.wav';
       try {
         await _recorder.start(

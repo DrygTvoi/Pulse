@@ -680,11 +680,6 @@ class PulseInboxReader implements InboxReader {
         await channel.ready;
         debugPrint('[Pulse] Connected to $_wsUrl');
 
-        // Mark shared channel immediately so sender knows reader is connecting
-        // (authenticated will be set to true after auth_ok).
-        _PulseSharedWs.channel = channel;
-        _PulseSharedWs.authenticated = false;
-
         // Send hello — server waits for this before sending auth_challenge
         // (probe resistance: server is silent until client proves protocol knowledge)
         channel.sink.add(jsonEncode({'type': 'hello'}));

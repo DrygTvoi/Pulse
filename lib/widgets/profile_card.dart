@@ -445,67 +445,6 @@ class _ProfileCardState extends State<ProfileCard> {
   }
 }
 
-/// Inline address list without its own card background — used inside ProfileCard.
-class _InlineInboxAddresses extends StatelessWidget {
-  const _InlineInboxAddresses();
-
-  @override
-  Widget build(BuildContext context) {
-    return ListenableBuilder(
-      listenable: ChatController(),
-      builder: (context, _) {
-        final displayAddresses = ChatController().allAddresses;
-        if (displayAddresses.isEmpty) return const SizedBox.shrink();
-
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Divider(height: 1, thickness: 0.5),
-            const SizedBox(height: 14),
-            Row(
-              children: [
-                Icon(Icons.route_rounded, size: 12, color: AppTheme.textSecondary),
-                const SizedBox(width: 6),
-                Text(
-                  '${displayAddresses.length} ${displayAddresses.length == 1 ? 'route' : 'routes'} active',
-                  style: GoogleFonts.inter(
-                      color: AppTheme.textSecondary,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600),
-                ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            for (final address in displayAddresses)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 3),
-                child: GestureDetector(
-                  onTap: () {
-                    Clipboard.setData(ClipboardData(text: address));
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                      content: Text('Address copied!', style: GoogleFonts.inter()),
-                      backgroundColor: AppTheme.primary,
-                      behavior: SnackBarBehavior.floating,
-                      duration: const Duration(seconds: 2),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10)),
-                    ));
-                  },
-                  child: Text(
-                    address,
-                    style: GoogleFonts.jetBrainsMono(
-                        color: AppTheme.textSecondary, fontSize: 10),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ),
-          ],
-        );
-      },
-    );
-  }
-}
-
 /// Standalone address card — kept for backward compat (used outside settings).
 class InboxAddressCard extends StatelessWidget {
   const InboxAddressCard({super.key});

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 /// Shared state for TURN-over-WebSocket.
@@ -11,8 +12,6 @@ class _TurnWSBridge {
   static WebSocketChannel? channel;
   static final _clients = <int, Socket>{};
   static int _nextId = 0;
-  static StreamSubscription? _sub;
-
   /// Register a local TCP client to receive 0x30 responses from the WS.
   static int register(Socket client) {
     final id = _nextId++;
@@ -68,7 +67,6 @@ class PulseTurnProxy {
   String _remoteHost = '';
   int _remotePort = 443;
   String _localIp = '127.0.0.1';
-  int _activeBridges = 0;
   int _pendingTls = 0;
   bool _useWebSocket = false;
 
@@ -104,21 +102,21 @@ class PulseTurnProxy {
       _server = await ServerSocket.bind(InternetAddress.anyIPv4, _localPort);
       _sub = _server!.listen(
         _handleClient,
-        onError: (e) => print('[TurnProxy] listen error: $e'),
+        onError: (e) => debugPrint('[TurnProxy] listen error: $e'),
         onDone: () { _server = null; _sub = null; },
       );
 
       // Decide mode: prefer WS if available, fall back to TLS
       _useWebSocket = _TurnWSBridge.channel != null;
       final mode = _useWebSocket ? 'WS (single connection)' : 'TLS';
-      print('[TurnProxy] listening :$_localPort → $host:$port ($mode), ip=$_localIp');
+      debugPrint('[TurnProxy] listening :$_localPort → $host:$port ($mode), ip=$_localIp');
 
       if (!_useWebSocket) {
         _warmupTls();
       }
       return true;
     } catch (e) {
-      print('[TurnProxy] bind failed: $e');
+      debugPrint('[TurnProxy] bind failed: $e');
       _server = null;
       return false;
     }
@@ -149,14 +147,11 @@ class PulseTurnProxy {
   }
 
   void _handleClient(Socket client) {
-    _activeBridges++;
     // Re-check WS availability for each new client
     final useWs = _TurnWSBridge.channel != null;
     final bridge = useWs ? _bridgeViaWebSocket(client) : _bridgeViaTls(client);
-    bridge.whenComplete(() {
-      _activeBridges--;
-    }).catchError((Object e) {
-      print('[TurnProxy] bridge error: $e');
+    bridge.catchError((Object e) {
+      debugPrint('[TurnProxy] bridge error: $e');
       try { client.destroy(); } catch (_) {}
     });
   }
@@ -231,11 +226,11 @@ class PulseTurnProxy {
     SecureSocket.connect(_remoteHost, _remotePort,
         timeout: const Duration(seconds: 10))
     .then((s) {
-      print('[TurnProxy] TLS session warmed');
+      debugPrint('[TurnProxy] TLS session warmed');
       s.destroy();
     })
     .catchError((e) {
-      print('[TurnProxy] TLS warmup failed (non-fatal): $e');
+      debugPrint('[TurnProxy] TLS warmup failed (non-fatal): $e');
     });
   }
 

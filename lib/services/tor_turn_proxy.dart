@@ -98,7 +98,7 @@ class TorTurnProxy {
           InternetAddress.loopbackIPv4, localPort, shared: true);
       _server!.listen(
         _handleClient,
-        onError: (_) {},
+        onError: (e) => debugPrint('[TorTurnProxy] listen error: $e'),
         onDone:  () { _server = null; },
       );
       debugPrint('[TorTurnProxy] :$localPort → $remoteHost:$remotePort via Tor');

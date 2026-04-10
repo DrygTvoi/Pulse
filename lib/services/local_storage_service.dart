@@ -1680,8 +1680,9 @@ class LocalStorageService {
         secretKey: secretKey,
         nonce: iv,
       );
-      // Zero plaintext from memory as soon as ciphertext is produced.
+      // Zero plaintext and key material from memory.
       jsonBytes.fillRange(0, jsonBytes.length, 0);
+      keyBytes.fillRange(0, keyBytes.length, 0);
 
       // Assemble file: magic + version + salt + iv + ciphertext + mac
       final cipherWithMac = [
@@ -1770,8 +1771,10 @@ class LocalStorageService {
         plainBytes = await _aesGcm.decrypt(secretBox, secretKey: secretKey);
       } catch (e) {
         debugPrint('[Backup] Decryption failed (wrong password?): $e');
+        keyBytes.fillRange(0, keyBytes.length, 0);
         return (imported: -1, failed: 0);
       }
+      keyBytes.fillRange(0, keyBytes.length, 0);
 
       // ── Parse JSON ──
       // v1: plain array of messages

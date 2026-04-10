@@ -463,10 +463,6 @@ class SignalBroadcaster {
     return payload;
   }
 
-  /// Signal types that warrant retry through alternate addresses on failure.
-  static bool _isCriticalSignal(String type) =>
-      type == 'addr_update' || type == 'sys_keys' || type == 'relay_exchange';
-
   /// Build a (MessageSender, apiKey) pair for a contact's provider.
   Future<({MessageSender sender, String apiKey})?> _buildSenderFor(
       Contact contact) async {

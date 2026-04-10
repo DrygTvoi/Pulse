@@ -207,30 +207,30 @@ class ThemeNotifier extends ChangeNotifier {
     final emojiFallback = Platform.isLinux
         ? const ['Noto Color Emoji'] : const <String>[];
 
-    TextTheme _applyFallback(TextTheme t) {
+    TextTheme applyFallback(TextTheme t) {
       if (emojiFallback.isEmpty) return t;
-      TextStyle _fb(TextStyle? s) =>
+      TextStyle fb(TextStyle? s) =>
           (s ?? const TextStyle()).copyWith(fontFamilyFallback: emojiFallback);
       return t.copyWith(
-        displayLarge: _fb(t.displayLarge),
-        displayMedium: _fb(t.displayMedium),
-        displaySmall: _fb(t.displaySmall),
-        headlineLarge: _fb(t.headlineLarge),
-        headlineMedium: _fb(t.headlineMedium),
-        headlineSmall: _fb(t.headlineSmall),
-        titleLarge: _fb(t.titleLarge),
-        titleMedium: _fb(t.titleMedium),
-        titleSmall: _fb(t.titleSmall),
-        bodyLarge: _fb(t.bodyLarge),
-        bodyMedium: _fb(t.bodyMedium),
-        bodySmall: _fb(t.bodySmall),
-        labelLarge: _fb(t.labelLarge),
-        labelMedium: _fb(t.labelMedium),
-        labelSmall: _fb(t.labelSmall),
+        displayLarge: fb(t.displayLarge),
+        displayMedium: fb(t.displayMedium),
+        displaySmall: fb(t.displaySmall),
+        headlineLarge: fb(t.headlineLarge),
+        headlineMedium: fb(t.headlineMedium),
+        headlineSmall: fb(t.headlineSmall),
+        titleLarge: fb(t.titleLarge),
+        titleMedium: fb(t.titleMedium),
+        titleSmall: fb(t.titleSmall),
+        bodyLarge: fb(t.bodyLarge),
+        bodyMedium: fb(t.bodyMedium),
+        bodySmall: fb(t.bodySmall),
+        labelLarge: fb(t.labelLarge),
+        labelMedium: fb(t.labelMedium),
+        labelSmall: fb(t.labelSmall),
       );
     }
 
-    final textTheme = _applyFallback(themeFn(base.textTheme).copyWith(
+    final textTheme = applyFallback(themeFn(base.textTheme).copyWith(
       displayLarge:  fontFn(textStyle: TextStyle(color: txtPri, fontWeight: FontWeight.bold, fontSize: 32)),
       displayMedium: fontFn(textStyle: TextStyle(color: txtPri, fontWeight: FontWeight.bold, fontSize: 26)),
       titleLarge:    fontFn(textStyle: TextStyle(color: txtPri, fontWeight: FontWeight.w600, fontSize: 20)),

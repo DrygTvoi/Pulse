@@ -42,7 +42,6 @@ class _GroupCallScreenState extends State<GroupCallScreen> {
 
   bool _isMuted = false;
   bool _isCameraOff = true;  // camera OFF by default
-  bool _isSpeakerOn = true; // default to speaker for group audio calls
   bool _isScreenSharing = false;
 
   Timer? _audioLevelTimer;

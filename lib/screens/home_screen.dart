@@ -15,7 +15,6 @@ import 'status_creator_screen.dart';
 import 'status_viewer_screen.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'dart:convert';
-import 'dart:typed_data';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
 import '../controllers/chat_controller.dart';
@@ -1185,6 +1184,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ])),
       ],
     ).then((value) async {
+      if (!mounted || value == null) return;
       if (value == 'mute') {
         final newMuted = !_mutedContactIds.contains(c.id);
         await NotificationService().setChatMuted(c.id, newMuted);

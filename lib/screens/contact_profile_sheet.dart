@@ -599,7 +599,7 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
           ),
         ],
       ),
-    );
+    ).then((_) => ctrl.dispose());
   }
 
   @override

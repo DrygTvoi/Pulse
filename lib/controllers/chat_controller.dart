@@ -527,7 +527,6 @@ class ChatController extends ChangeNotifier {
     // Ensure pulse_privkey exists for cross-transport sends (migrate old accounts).
     final existingPulseKey = await _secureStorage.read(key: 'pulse_privkey');
     if (existingPulseKey == null || existingPulseKey.isEmpty) {
-      final appPwd = await _secureStorage.read(key: 'app_password_hash');
       final nostrKey = await _secureStorage.read(key: 'nostr_privkey');
       if (nostrKey != null && nostrKey.isNotEmpty) {
         // Derive Pulse key from Nostr key as HKDF-like fallback
@@ -535,6 +534,7 @@ class ChatController extends ChangeNotifier {
         final hmac = hash_lib.Hmac(hash_lib.sha256, utf8.encode('pulse-ed25519-seed'));
         final derived = hmac.convert(seed);
         await _secureStorage.write(key: 'pulse_privkey', value: hex.encode(derived.bytes));
+        seed.fillRange(0, seed.length, 0);
         debugPrint('[Chat] Derived pulse_privkey from nostr_privkey (migration)');
       }
     }
@@ -1398,9 +1398,9 @@ class ChatController extends ChangeNotifier {
     }));
 
     _dispatcherSubs.add(d.groupUpdates.listen((e) async {
-      final _g = _contacts.findById(e.groupId);
-      if (_g == null || !_g.isGroup) return;
-      final group = _g;
+      final g = _contacts.findById(e.groupId);
+      if (g == null || !g.isGroup) return;
+      final group = g;
       // Only the group creator may update membership.
       // F1 fix: reject updates for groups without a creatorId — a null/empty
       // creatorId means the check was previously skipped, letting anyone update.
@@ -1440,8 +1440,8 @@ class ChatController extends ChangeNotifier {
     _dispatcherSubs.add(d.senderKeyDists.listen((e) async {
       try {
         // Reject SKDM from contacts not in the group.
-        final _sg = _contacts.findById(e.groupId);
-        final skdmGroup = (_sg != null && _sg.isGroup) ? _sg : null;
+        final sg = _contacts.findById(e.groupId);
+        final skdmGroup = (sg != null && sg.isGroup) ? sg : null;
         // F5: Reject SKDM for unknown groups (null skdmGroup) AND from non-members.
         // Old guard `skdmGroup != null && !members.contains(...)` accepted all
         // distributions for unknown group IDs (skdmGroup == null → guard skipped).
@@ -1480,9 +1480,9 @@ class ChatController extends ChangeNotifier {
   // ── Incoming messages ─────────────────────────────────────────────────────
 
   void _handleGroupReadReceipt(String fromId, String groupId, String msgId) {
-    final _gc = _contacts.findById(groupId);
-    if (_gc == null || !_gc.isGroup) return;
-    final groupContact = _gc;
+    final gc = _contacts.findById(groupId);
+    if (gc == null || !gc.isGroup) return;
+    final groupContact = gc;
     // Resolve reader and verify group membership to prevent forged receipts.
     Contact? reader;
     for (final c in _contacts.contacts) {
@@ -1732,8 +1732,8 @@ class ChatController extends ChangeNotifier {
                   if (skGroupId != null && ct != null) {
                     // BUG-1 fix: check membership BEFORE decrypting to prevent
                     // removed members from advancing the ratchet or leaking plaintext.
-                    final _skg = _contacts.findById(skGroupId);
-                    final skGroup = (_skg != null && _skg.isGroup) ? _skg : null;
+                    final skg = _contacts.findById(skGroupId);
+                    final skGroup = (skg != null && skg.isGroup) ? skg : null;
                     if (skGroup == null ||
                         !skGroup.members.contains(senderContact.id)) {
                       debugPrint('[SenderKey] Rejected SK message from non-member '
@@ -1755,8 +1755,8 @@ class ChatController extends ChangeNotifier {
                 }
                 final groupId = parsed['_group'] as String?;
                 if (groupId != null) {
-                  final _gcl = _contacts.findById(groupId);
-                  final groupContact = (_gcl != null && _gcl.isGroup) ? _gcl : null;
+                  final gcl = _contacts.findById(groupId);
+                  final groupContact = (gcl != null && gcl.isGroup) ? gcl : null;
                   final isMember = groupContact?.members.contains(senderContact.id) ?? false;
                   if (groupContact != null && isMember) {
                     targetContact = groupContact;

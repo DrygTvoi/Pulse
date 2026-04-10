@@ -15,7 +15,6 @@ import '../../widgets/psiphon_config_section.dart';
 import '../../widgets/tor_config_section.dart';
 import '../../controllers/chat_controller.dart';
 import '../network_diagnostics_screen.dart';
-import 'package:google_fonts/google_fonts.dart' show GoogleFonts;
 
 class ProxyTunnelsScreen extends StatefulWidget {
   const ProxyTunnelsScreen({super.key});

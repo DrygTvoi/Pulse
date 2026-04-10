@@ -1669,25 +1669,11 @@ class NostrInboxReader implements InboxReader {
     }
   }
 
-  /// SharedPreferences key for the last-seen timestamp for this relay.
-  String get _sinceKey => 'nostr_since_${_relayUrl.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_')}';
-
-  Future<int> _getSince() async {
-    final prefs = await _getPrefs();
-    final stored = prefs.getInt(_sinceKey) ?? 0;
-    // 'stored' is wall-clock time of last successful receive.
-    // Subtract 3660s (1h jitter + 60s safety) so the relay returns ALL
-    // Gift Wrap events whose jittered created_at falls in that window.
-    // Persistent _seenIds (loaded from disk) prevent NIP-44 nonce replay
-    // for events already processed in a previous connection cycle.
-    final thirtyDaysAgo = DateTime.now().millisecondsSinceEpoch ~/ 1000 - 30 * 86400;
-    return stored > thirtyDaysAgo ? stored - 3660 : thirtyDaysAgo;
-  }
-
   Future<void> _updateSince(int unixSeconds) async {
     final prefs = await _getPrefs();
-    final current = prefs.getInt(_sinceKey) ?? 0;
-    if (unixSeconds > current) await prefs.setInt(_sinceKey, unixSeconds);
+    final key = 'nostr_since_${_relayUrl.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_')}';
+    final current = prefs.getInt(key) ?? 0;
+    if (unixSeconds > current) await prefs.setInt(key, unixSeconds);
   }
 
   @override

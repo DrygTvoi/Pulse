@@ -174,11 +174,9 @@ class _CallScreenState extends State<CallScreen> {
     _signaling!.onRemoteVideoStopped = () {
       if (!mounted) return;
       setState(() => _remoteRenderer.srcObject = null);
-      debugPrint('[CallScreen] Remote video stopped — renderer cleared');
     };
 
     _signaling!.onRemoteHangUp = () {
-      debugPrint('[CallScreen] Remote peer hung up');
       if (!_disposed && mounted) _hangUp(remoteInitiated: true);
     };
 
@@ -293,13 +291,10 @@ class _CallScreenState extends State<CallScreen> {
   }) async {
     bool renderersInitialized = false;
     try {
-      debugPrint('[CallScreen] _initWebRTC start (isCaller=${widget.isCaller})');
-
       // Wait for previous call's cleanup to finish (PC close, stream dispose).
       // Without this, GStreamer pipeline teardown from the old call blocks
       // the event loop during the new call's setup → freeze + broken audio.
       if (_pendingCleanup != null) {
-        debugPrint('[CallScreen] waiting for previous call cleanup…');
         await _pendingCleanup!.timeout(const Duration(seconds: 5),
             onTimeout: () {});
         _pendingCleanup = null;
@@ -307,7 +302,6 @@ class _CallScreenState extends State<CallScreen> {
         // after peerConnection.close() returns — close() completes before
         // native teardown finishes on Linux.
         await Future.delayed(const Duration(seconds: 2));
-        debugPrint('[CallScreen] previous cleanup done');
       }
 
       // Force-reconnect subscription if it appears dead (no data in 30s).
@@ -322,7 +316,6 @@ class _CallScreenState extends State<CallScreen> {
       await _localRenderer.initialize();
       await _remoteRenderer.initialize();
       renderersInitialized = true;
-      debugPrint('[CallScreen] renderers initialized');
 
       _signaling = SignalingService(
         contact: widget.contact,
@@ -354,11 +347,9 @@ class _CallScreenState extends State<CallScreen> {
         // a frozen last frame.
         if (!mounted) return;
         setState(() => _remoteRenderer.srcObject = null);
-        debugPrint('[CallScreen] Remote video stopped — renderer cleared');
       };
 
       _signaling!.onRemoteHangUp = () {
-        debugPrint('[CallScreen] Remote peer hung up');
         if (!_disposed && mounted) _hangUp(remoteInitiated: true);
       };
 
@@ -385,30 +376,22 @@ class _CallScreenState extends State<CallScreen> {
         _joinSfuRelay(roomId, token);
       };
 
-      debugPrint('[CallScreen] creating peer connection…');
       await _signaling!.init(profile: profile);
       if (_disposed) { unawaited(_signaling!.hangUp()); return; }
-      debugPrint('[CallScreen] peer connection created');
 
-      debugPrint('[CallScreen] opening user media…');
       await _openUserMedia();
       if (_disposed) { unawaited(_signaling!.hangUp()); return; }
-      debugPrint('[CallScreen] user media opened');
 
       if (widget.isCaller) {
         // Start live signal listener (answer will arrive after offer is sent)
         _signaling!.startListening();
-        debugPrint('[CallScreen] creating offer…');
         await _signaling!.createOffer();
-        debugPrint('[CallScreen] offer sent');
       } else {
         // Callee: replay cached offer/candidates AFTER tracks are on the PC,
         // so the answer SDP includes our audio tracks.
         // Start live listener AFTER replay to avoid processing signals twice.
-        debugPrint('[CallScreen] callee: replaying pending signals…');
         await _signaling!.replayPendingSignals();
         _signaling!.startListening();
-        debugPrint('[CallScreen] callee: pending signals replayed, listening');
       }
       if (_disposed) { unawaited(_signaling!.hangUp()); return; }
 
@@ -431,7 +414,6 @@ class _CallScreenState extends State<CallScreen> {
         setState(() => _ready = true);
         _resetHideControlsTimer();
       }
-      debugPrint('[CallScreen] _initWebRTC complete');
     } catch (e) {
       debugPrint('[CallScreen] _initWebRTC failed: $e');
       _signaling?.hangUp();
@@ -547,7 +529,6 @@ class _CallScreenState extends State<CallScreen> {
     _startDurationTimer();
     unawaited(_signaling!.applyBitrateLimit(restricted: true));
     _startSecondaryWatchdog();
-    debugPrint('[CallScreen] Switched to secondary audio (Tor relay)');
   }
 
   // ── SFU relay fallback (server-mediated when P2P is blocked) ────────────────
@@ -556,8 +537,6 @@ class _CallScreenState extends State<CallScreen> {
   void _sfuRelayFallback() {
     if (_disposed || _sfuAttempted) return;
     _sfuAttempted = true;
-    debugPrint('[CallScreen] P2P failed — attempting SFU relay fallback');
-
     // Cancel any pending auto-hangup
     _disconnectTimer?.cancel();
 
@@ -566,7 +545,6 @@ class _CallScreenState extends State<CallScreen> {
 
     _sfuService!.onRoomReady = () async {
       if (_disposed || _sfuService == null) return;
-      debugPrint('[CallScreen] SFU room ready, setting up PC');
       // Reuse the existing local stream
       final stream = _signaling?.localStream;
       if (stream == null) {
@@ -579,7 +557,6 @@ class _CallScreenState extends State<CallScreen> {
       final token = _sfuService!.roomToken;
       if (roomId != null && token != null) {
         _signaling?.sendSfuRelayInvite(roomId, token);
-        debugPrint('[CallScreen] SFU invite sent to peer: room=$roomId');
       }
     };
 
@@ -591,7 +568,6 @@ class _CallScreenState extends State<CallScreen> {
           _remoteRenderer.srcObject = event.streams.first;
         });
         _startDurationTimer();
-        debugPrint('[CallScreen] SFU relay connected — remote track received');
       }
     };
 
@@ -604,7 +580,6 @@ class _CallScreenState extends State<CallScreen> {
           _startDurationTimer();
         }
       } else if (state == RTCIceConnectionState.RTCIceConnectionStateFailed) {
-        debugPrint('[CallScreen] SFU relay ICE also failed');
         // SFU also failed — auto-hangup
         _disconnectTimer?.cancel();
         _disconnectTimer = Timer(const Duration(seconds: 15), () {
@@ -621,7 +596,6 @@ class _CallScreenState extends State<CallScreen> {
     if (_disposed || _sfuAttempted) return;
     _sfuAttempted = true;
     _disconnectTimer?.cancel();
-    debugPrint('[CallScreen] Received SFU invite — joining room $roomId');
 
     final contact = widget.contact;
     _sfuService = SfuSignalingService(group: contact, myId: widget.myId);
@@ -641,7 +615,6 @@ class _CallScreenState extends State<CallScreen> {
           _remoteRenderer.srcObject = event.streams.first;
         });
         _startDurationTimer();
-        debugPrint('[CallScreen] SFU relay connected (callee)');
       }
     };
 
@@ -697,10 +670,7 @@ class _CallScreenState extends State<CallScreen> {
             _lastPacketsReceived = packets;
           } else {
             _silentTicks++;
-            debugPrint('[Watchdog] silent tick $_silentTicks '
-                '(pkts=$packets last=$_lastPacketsReceived)');
             if (_silentTicks >= 2 && _secondaryReady && !_usingSecondary) {
-              debugPrint('[Watchdog] relay silent >20 s — switching to Tor secondary');
               _switchToSecondary();
             }
           }
@@ -746,7 +716,6 @@ class _CallScreenState extends State<CallScreen> {
             }
           } else {
             _secondarySilentTicks++;
-            debugPrint('[SecWatchdog] silent tick $_secondarySilentTicks');
             if (_secondarySilentTicks >= 2 && mounted && !_secondaryRestarting) {
               if (!_secondaryDegraded) setState(() => _secondaryDegraded = true);
               // Attempt to restart the Tor secondary path (new Tor circuit).
@@ -754,7 +723,6 @@ class _CallScreenState extends State<CallScreen> {
               _secondarySilentTicks = 0;
               _secondaryLastPkts    = -1;
               _secondaryRestarting  = true;
-              debugPrint('[SecWatchdog] restarting secondary (Tor circuit refresh)');
               try {
                 await _signaling?.restartSecondaryAudio();
               } catch (e) {
@@ -941,7 +909,6 @@ class _CallScreenState extends State<CallScreen> {
           }
           final screenSources = sources.where((s) => s.type == SourceType.Screen).toList();
           final screenSource = screenSources.isNotEmpty ? screenSources.first : sources.first;
-          debugPrint('[CallScreen] Using desktop source: ${screenSource.name} (${screenSource.id})');
           stream = await navigator.mediaDevices.getDisplayMedia({
             'video': {'deviceId': {'exact': screenSource.id}, ...videoConstraints},
             'audio': false,
@@ -975,7 +942,6 @@ class _CallScreenState extends State<CallScreen> {
           _videoSender = null;
         }
         _videoSender = await pc.addTrack(screenTrack, stream);
-        debugPrint('[CallScreen] addTrack for screen share');
 
         // Ensure video transceiver direction is sendrecv
         try {
@@ -998,7 +964,6 @@ class _CallScreenState extends State<CallScreen> {
               enc.active = true;
             }
             await _videoSender!.setParameters(params);
-            debugPrint('[CallScreen] sender params set active');
           }
         } catch (e) {
           debugPrint('[CallScreen] setParameters: $e');

@@ -91,7 +91,7 @@ class PsiphonTurnProxy {
           InternetAddress.loopbackIPv4, localPort, shared: true);
       _server!.listen(
         _handleClient,
-        onError: (_) {},
+        onError: (e) => debugPrint('[PsiphonTurnProxy] listen error: $e'),
         onDone:  () { _server = null; },
       );
       debugPrint('[PsiphonTurnProxy] :$localPort → $remoteHost:$remotePort via Psiphon');
