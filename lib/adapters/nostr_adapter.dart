@@ -788,6 +788,10 @@ class NostrInboxReader implements InboxReader {
   final Map<String, DateTime> _seenIds = {};
   Set<String> _persistentSeenIds = {}; // loaded from disk on init
 
+  SharedPreferences? _prefs;
+  Future<SharedPreferences> _getPrefs() async =>
+      _prefs ??= await SharedPreferences.getInstance();
+
   /// Emits a sender pubkey whenever an incoming signal fails MAC verification.
   /// This indicates a possible tamper attempt or malicious relay injection.
   static final StreamController<String> tamperWarnings =
@@ -854,7 +858,7 @@ class NostrInboxReader implements InboxReader {
     }
 
     // Load Tor, I2P, and custom proxy settings
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await _getPrefs();
     _torEnabled = prefs.getBool('tor_enabled') ?? false;
     _torHost = prefs.getString('tor_host') ?? '127.0.0.1';
     _torPort = prefs.getInt('tor_port') ?? 9050;
@@ -923,7 +927,7 @@ class NostrInboxReader implements InboxReader {
 
   Future<void> _savePersistentIds() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = await _getPrefs();
       await prefs.setString('nostr_seen_ids', jsonEncode(_persistentSeenIds.toList()));
     } catch (_) {}
   }
@@ -1134,7 +1138,7 @@ class NostrInboxReader implements InboxReader {
     }
     // Fallback: try probe_nostr_relay if adaptive returned nothing
     try {
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = await _getPrefs();
       var probed = prefs.getString('probe_nostr_relay') ?? '';
       if (probed.isNotEmpty) {
         if (!probed.startsWith('ws://') && !probed.startsWith('wss://')) {
@@ -1669,7 +1673,7 @@ class NostrInboxReader implements InboxReader {
   String get _sinceKey => 'nostr_since_${_relayUrl.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_')}';
 
   Future<int> _getSince() async {
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await _getPrefs();
     final stored = prefs.getInt(_sinceKey) ?? 0;
     // 'stored' is wall-clock time of last successful receive.
     // Subtract 3660s (1h jitter + 60s safety) so the relay returns ALL
@@ -1681,7 +1685,7 @@ class NostrInboxReader implements InboxReader {
   }
 
   Future<void> _updateSince(int unixSeconds) async {
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await _getPrefs();
     final current = prefs.getInt(_sinceKey) ?? 0;
     if (unixSeconds > current) await prefs.setInt(_sinceKey, unixSeconds);
   }
@@ -1691,7 +1695,7 @@ class NostrInboxReader implements InboxReader {
 
   /// Reload force-Tor setting and force-reconnect so new route takes effect.
   Future<void> resetConnections() async {
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await _getPrefs();
     _forceTor = prefs.getBool('nostr_force_tor') ?? false;
     debugPrint('[Nostr] Reader reset, forceTor=$_forceTor');
     forceReconnect(hard: true);
@@ -1713,6 +1717,10 @@ class NostrInboxReader implements InboxReader {
 class NostrMessageSender implements MessageSender {
   String _privateKeyHex = '';
   String _relayUrl = _defaultRelay;
+
+  SharedPreferences? _prefs;
+  Future<SharedPreferences> _getPrefs() async =>
+      _prefs ??= await SharedPreferences.getInstance();
 
   // Persistent WS pool: relay URL → (channel, lastUsed)
   final Map<String, ({WebSocketChannel ch, DateTime ts})> _wsPool = {};
@@ -1803,7 +1811,7 @@ class NostrMessageSender implements MessageSender {
     }
 
     // Load Tor, I2P, and custom proxy settings
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await _getPrefs();
     _torEnabled = prefs.getBool('tor_enabled') ?? false;
     _torHost = prefs.getString('tor_host') ?? '127.0.0.1';
     _torPort = prefs.getInt('tor_port') ?? 9050;
@@ -2152,7 +2160,7 @@ class NostrMessageSender implements MessageSender {
     _wsPoolBackoff.clear();
     // Force re-read of settings on next initializeSender call
     _lastInitMs = 0;
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await _getPrefs();
     _forceTor = prefs.getBool('nostr_force_tor') ?? false;
     debugPrint('[Nostr] Sender pool reset, forceTor=$_forceTor');
   }

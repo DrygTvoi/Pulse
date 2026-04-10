@@ -324,8 +324,7 @@ class _SfuCallScreenState extends State<SfuCallScreen> {
     final isDominant = pubkey == _dominant;
     final isPinned = pubkey == _pinnedPubkey;
 
-    final contact = context.read<IContactRepository>().contacts
-        .cast<Contact?>().firstWhere((c) => c?.databaseId == pubkey, orElse: () => null);
+    final contact = context.read<IContactRepository>().findByAddress(pubkey);
     final name = contact?.name ?? (pubkey.length > 8 ? pubkey.substring(0, 8) : pubkey);
 
     return GestureDetector(

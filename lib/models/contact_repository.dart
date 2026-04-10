@@ -19,10 +19,18 @@ abstract class IContactRepository {
   Future<void> updateContact(Contact updated);
 
   /// Find a contact by its UUID [id]. Returns null if not found.
-  Contact? findById(String id) =>
-      contacts.cast<Contact?>().firstWhere((c) => c?.id == id, orElse: () => null);
+  Contact? findById(String id) {
+    for (final c in contacts) {
+      if (c.id == id) return c;
+    }
+    return null;
+  }
 
   /// Find a contact by its transport address [databaseId]. Returns null if not found.
-  Contact? findByAddress(String address) =>
-      contacts.cast<Contact?>().firstWhere((c) => c?.databaseId == address, orElse: () => null);
+  Contact? findByAddress(String address) {
+    for (final c in contacts) {
+      if (c.databaseId == address) return c;
+    }
+    return null;
+  }
 }

@@ -754,6 +754,43 @@ class LocalStorageService {
     }).toList();
   }
 
+  /// Batch-delete all expired TTL messages in a single transaction.
+  /// Returns the list of (roomId, msgId) that were deleted so callers can
+  /// remove them from in-memory structures.
+  Future<List<({String roomId, String msgId})>> deleteExpiredTtlMessages() async {
+    final nowMs = DateTime.now().millisecondsSinceEpoch;
+    final expired = await _database.query(
+      'ttl_pending',
+      columns: ['msg_id', 'room_id'],
+      where: 'expires_at <= ?',
+      whereArgs: [nowMs],
+    );
+    if (expired.isEmpty) return [];
+
+    final deleted = <({String roomId, String msgId})>[];
+    await _database.transaction((txn) async {
+      for (final row in expired) {
+        final roomId = row['room_id'] as String;
+        final msgId = row['msg_id'] as String;
+        await txn.delete('messages',
+            where: 'room_id = ? AND msg_id = ?', whereArgs: [roomId, msgId]);
+        await txn.delete('ttl_pending',
+            where: 'room_id = ? AND msg_id = ?', whereArgs: [roomId, msgId]);
+        if (_fts5Available) {
+          try {
+            await txn.delete('messages_fts',
+                where: 'room_id = ? AND msg_id = ?', whereArgs: [roomId, msgId]);
+          } catch (_) {}
+        }
+        deleted.add((roomId: roomId, msgId: msgId));
+      }
+    });
+    if (deleted.isNotEmpty) {
+      debugPrint('[LocalStorage] Batch-deleted ${deleted.length} expired TTL message(s)');
+    }
+    return deleted;
+  }
+
   // ── Migration from SharedPreferences (v1 → SQLite) ─────────────────────────
 
   Future<void> _migrateFromPrefs() async {

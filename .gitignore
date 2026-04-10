@@ -86,8 +86,9 @@ android/app/*.jks
 # Sentry native crash artifacts
 .sentry-native/
 
-# Compiled server binary (rebuild with `go build`)
+# Compiled server binaries (rebuild with `go build`)
 server/pulse-server
+server/deploy/pulse-server
 
 # Old app icon (renamed to pulse)
 assets/icons/aegis.png

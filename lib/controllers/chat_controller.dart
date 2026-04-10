@@ -157,6 +157,14 @@ class ChatController extends ChangeNotifier {
       StreamController.broadcast();
   Stream<({String contactId, Message message})> get newMessages => _newMsgController.stream;
 
+  // ── Incremental unread counts ──────────────────────────────────────────────
+  final Map<String, int> _unreadCounts = {};
+  final StreamController<String> _unreadChangedCtrl = StreamController.broadcast();
+  /// Emits the contactId whose unread count changed.
+  Stream<String> get unreadChanged => _unreadChangedCtrl.stream;
+  /// O(1) lookup of unread message count for a contact.
+  int getUnreadCount(String contactId) => _unreadCounts[contactId] ?? 0;
+
   // Emits contact name + databaseId when their Signal identity key changes
   final StreamController<({String contactName, String contactId})> _keyChangeCtrl = StreamController.broadcast();
   Stream<({String contactName, String contactId})> get keyChangeWarnings => _keyChangeCtrl.stream;
@@ -395,10 +403,15 @@ class ChatController extends ChangeNotifier {
   /// Load persisted message history for a contact's room.
   Future<void> loadRoomHistory(Contact contact) async {
     await _repo.loadRoomHistory(contact, onChanged: () { if (!_disposed) notifyListeners(); });
+    // Seed unread count from loaded messages
+    final room = _repo.getRoomForContact(contact.id);
+    if (room != null) {
+      final selfId = _identity?.id ?? '';
+      _unreadCounts[contact.id] = room.messages.where((m) => !m.isRead && m.senderId != selfId).length;
+    }
     // Schedule TTL deletions for loaded messages
     final ttl = _repo.getChatTtlCached(contact.id);
     if (ttl > 0) {
-      final room = _repo.getRoomForContact(contact.id);
       if (room != null) {
         for (final m in room.messages) {
           _repo.scheduleTtlDelete(contact, m, ttl,
@@ -790,8 +803,7 @@ class ChatController extends ChangeNotifier {
 
     // P2P DataChannel transport
     P2PTransportService.instance.onSendSignal = (contactId, type, payload) {
-      final contact = _contacts.contacts.cast<Contact?>()
-          .firstWhere((c) => c?.id == contactId, orElse: () => null);
+      final contact = _contacts.findById(contactId);
       if (contact != null) {
         unawaited(_broadcaster.sendP2PSignal(contact, type, payload));
       }
@@ -1120,13 +1132,10 @@ class ChatController extends ChangeNotifier {
       selfIdGetter: () => _selfId,
       contactIndexBuilder: _getContactIndex,
       signatureVerifier: _verifySignalSignature,
-      groupContactResolver: (id) => _contacts
-          .contacts
-          .cast<Contact?>()
-          .firstWhere(
-            (c) => c?.isGroup == true && c?.id == id,
-            orElse: () => null,
-          ),
+      groupContactResolver: (id) {
+        final c = _contacts.findById(id);
+        return (c != null && c.isGroup) ? c : null;
+      },
       rateLimiter: _sigRateLimiter,
     );
 
@@ -1212,7 +1221,7 @@ class ChatController extends ChangeNotifier {
           : _repo.getRoomForContact(e.contact.id);
       if (room != null) {
         debugPrint('[Edit] Room found: contactId=${room.contact.id} msgs=${room.messages.length}');
-        final idx = room.messages.indexWhere((m) => m.id == e.msgId);
+        final idx = _repo.messageIndexById(room.contact.id, e.msgId);
         debugPrint('[Edit] Message lookup: idx=$idx msgId=${e.msgId}');
         if (idx != -1) {
           // FINDING-4 fix: only the original sender may edit their own message.
@@ -1389,9 +1398,9 @@ class ChatController extends ChangeNotifier {
     }));
 
     _dispatcherSubs.add(d.groupUpdates.listen((e) async {
-      final group = _contacts.contacts.cast<Contact?>()
-          .firstWhere((c) => c?.isGroup == true && c?.id == e.groupId, orElse: () => null);
-      if (group == null) return;
+      final _g = _contacts.findById(e.groupId);
+      if (_g == null || !_g.isGroup) return;
+      final group = _g;
       // Only the group creator may update membership.
       // F1 fix: reject updates for groups without a creatorId — a null/empty
       // creatorId means the check was previously skipped, letting anyone update.
@@ -1402,9 +1411,7 @@ class ChatController extends ChangeNotifier {
         return;
       }
       {
-        final senderContact = _contacts.contacts.cast<Contact?>()
-            .firstWhere((c) => c != null && c.databaseId == e.senderId,
-                orElse: () => null);
+        final senderContact = _contacts.findByAddress(e.senderId);
         final senderUuid = senderContact?.id ?? '';
         if (senderUuid != group.creatorId) {
           debugPrint('[Group] Rejected group_update from non-creator '
@@ -1433,9 +1440,8 @@ class ChatController extends ChangeNotifier {
     _dispatcherSubs.add(d.senderKeyDists.listen((e) async {
       try {
         // Reject SKDM from contacts not in the group.
-        final skdmGroup = _contacts.contacts.cast<Contact?>()
-            .firstWhere((c) => c?.isGroup == true && c?.id == e.groupId,
-                orElse: () => null);
+        final _sg = _contacts.findById(e.groupId);
+        final skdmGroup = (_sg != null && _sg.isGroup) ? _sg : null;
         // F5: Reject SKDM for unknown groups (null skdmGroup) AND from non-members.
         // Old guard `skdmGroup != null && !members.contains(...)` accepted all
         // distributions for unknown group IDs (skdmGroup == null → guard skipped).
@@ -1474,9 +1480,9 @@ class ChatController extends ChangeNotifier {
   // ── Incoming messages ─────────────────────────────────────────────────────
 
   void _handleGroupReadReceipt(String fromId, String groupId, String msgId) {
-    final groupContact = _contacts.contacts.cast<Contact?>()
-        .firstWhere((c) => c?.isGroup == true && c?.id == groupId, orElse: () => null);
-    if (groupContact == null) return;
+    final _gc = _contacts.findById(groupId);
+    if (_gc == null || !_gc.isGroup) return;
+    final groupContact = _gc;
     // Resolve reader and verify group membership to prevent forged receipts.
     Contact? reader;
     for (final c in _contacts.contacts) {
@@ -1493,7 +1499,7 @@ class ChatController extends ChangeNotifier {
     if (!groupContact.members.contains(readerId)) return;
     final room = _repo.getRoomForContact(groupContact.id);
     if (room == null) return;
-    final idx = room.messages.indexWhere((m) => m.id == msgId);
+    final idx = _repo.messageIndexById(groupContact.id, msgId);
     if (idx == -1) return;
     final msg = room.messages[idx];
     if (!msg.readBy.contains(readerId)) {
@@ -1726,9 +1732,8 @@ class ChatController extends ChangeNotifier {
                   if (skGroupId != null && ct != null) {
                     // BUG-1 fix: check membership BEFORE decrypting to prevent
                     // removed members from advancing the ratchet or leaking plaintext.
-                    final skGroup = _contacts.contacts.cast<Contact?>()
-                        .firstWhere((c) => c?.isGroup == true && c?.id == skGroupId,
-                            orElse: () => null);
+                    final _skg = _contacts.findById(skGroupId);
+                    final skGroup = (_skg != null && _skg.isGroup) ? _skg : null;
                     if (skGroup == null ||
                         !skGroup.members.contains(senderContact.id)) {
                       debugPrint('[SenderKey] Rejected SK message from non-member '
@@ -1750,9 +1755,8 @@ class ChatController extends ChangeNotifier {
                 }
                 final groupId = parsed['_group'] as String?;
                 if (groupId != null) {
-                  final groupContact = _contacts.contacts.cast<Contact?>()
-                      .firstWhere((c) => c?.isGroup == true && c?.id == groupId,
-                          orElse: () => null);
+                  final _gcl = _contacts.findById(groupId);
+                  final groupContact = (_gcl != null && _gcl.isGroup) ? _gcl : null;
                   final isMember = groupContact?.members.contains(senderContact.id) ?? false;
                   if (groupContact != null && isMember) {
                     targetContact = groupContact;
@@ -1837,6 +1841,13 @@ class ChatController extends ChangeNotifier {
                   if (!_newMsgController.isClosed) {
                     _newMsgController.add((contactId: targetContact.id, message: decryptedMsg));
                   }
+                  // Increment unread count if this chat is not currently open
+                  if (_activeRoomId != targetContact.id) {
+                    _unreadCounts[targetContact.id] = (_unreadCounts[targetContact.id] ?? 0) + 1;
+                    if (!_unreadChangedCtrl.isClosed) {
+                      _unreadChangedCtrl.add(targetContact.id);
+                    }
+                  }
                   unawaited(_broadcaster.sendDeliveryAck(senderContact, decryptedMsg.id,
                       groupId: targetContact.isGroup ? targetContact.id : null));
                   if (targetContact.isGroup && _activeRoomId == targetContact.id) {
@@ -1905,8 +1916,7 @@ class ChatController extends ChangeNotifier {
           final skdmBytes = await sk.createDistribution(contact.id, _selfId);
           final skdmB64 = base64Encode(skdmBytes);
           for (final memberId in contact.members) {
-            final memberContact = _contacts.contacts.cast<Contact?>()
-                .firstWhere((c) => c?.id == memberId, orElse: () => null);
+            final memberContact = _contacts.findById(memberId);
             if (memberContact == null) continue;
             final distOk = await _sendSignalTo(memberContact, 'sender_key_dist', {
               'groupId': contact.id,
@@ -1925,8 +1935,7 @@ class ChatController extends ChangeNotifier {
         });
         // Send same ciphertext to all members via per-member Signal session.
         for (final memberId in contact.members) {
-          final memberContact = _contacts.contacts.cast<Contact?>()
-              .firstWhere((c) => c?.id == memberId, orElse: () => null);
+          final memberContact = _contacts.findById(memberId);
           if (memberContact == null) continue;
           await _sendToContact(memberContact, skEnvelope, noAutoRetry: noAutoRetry);
           sent++;
@@ -1939,8 +1948,7 @@ class ChatController extends ChangeNotifier {
       if (!usedSenderKey) {
         sent = 0;
         for (final memberId in contact.members) {
-          final memberContact = _contacts.contacts.cast<Contact?>()
-              .firstWhere((c) => c?.id == memberId, orElse: () => null);
+          final memberContact = _contacts.findById(memberId);
           if (memberContact == null) continue;
           await _sendToContact(memberContact, groupPayload, noAutoRetry: noAutoRetry);
           sent++;
@@ -1948,7 +1956,7 @@ class ChatController extends ChangeNotifier {
       }
 
       final finalStatus = sent > 0 ? 'sent' : 'failed';
-      final idx = groupRoom.messages.indexWhere((m) => m.id == localMsg.id);
+      final idx = _repo.messageIndexById(contact.id, localMsg.id);
       final finalMsg = localMsg.copyWith(status: finalStatus);
       if (idx != -1) groupRoom.messages[idx] = finalMsg;
       await LocalStorageService().saveMessage(contact.id, finalMsg.toJson());
@@ -2069,7 +2077,7 @@ class ChatController extends ChangeNotifier {
         } else {
           debugPrint('[E2EE] No key bundle for ${contact.name} — send aborted');
           if (!_e2eeFailCtrl.isClosed) _e2eeFailCtrl.add(contact.name);
-          final idx = room.messages.indexWhere((m) => m.id == msgId);
+          final idx = _repo.messageIndexById(contact.id, msgId);
           if (idx != -1) room.messages[idx] = localMsg.copyWith(status: 'failed');
           await LocalStorageService().saveMessage(contact.id, localMsg.copyWith(status: 'failed').toJson());
           notifyListeners();
@@ -2079,7 +2087,7 @@ class ChatController extends ChangeNotifier {
         debugPrint('[E2EE] Session build failed for ${contact.name}: $e2 — send aborted');
         sentryBreadcrumb('E2EE session build failed', category: 'encryption');
         if (!_e2eeFailCtrl.isClosed) _e2eeFailCtrl.add(contact.name);
-        final idx = room.messages.indexWhere((m) => m.id == msgId);
+        final idx = _repo.messageIndexById(contact.id, msgId);
         if (idx != -1) room.messages[idx] = localMsg.copyWith(status: 'failed');
         await LocalStorageService().saveMessage(contact.id, localMsg.copyWith(status: 'failed').toJson());
         notifyListeners();
@@ -2104,7 +2112,7 @@ class ChatController extends ChangeNotifier {
     if (contact.provider != 'Firebase' && contact.provider != 'Nostr' &&
         contact.provider != 'Session' && contact.provider != 'Pulse') {
       debugPrint('[ChatController] Unknown provider "${contact.provider}" for ${contact.name}');
-      final idx2 = room.messages.indexWhere((m) => m.id == msg.id);
+      final idx2 = _repo.messageIndexById(contact.id, msg.id);
       final failedMsg2 = localMsg.copyWith(status: 'failed');
       if (idx2 != -1) room.messages[idx2] = failedMsg2;
       await LocalStorageService().saveMessage(contact.storageKey, failedMsg2.toJson());
@@ -2128,7 +2136,7 @@ class ChatController extends ChangeNotifier {
     }
 
     debugPrint('[Send] Route result: ${sent ? "SENT" : "FAILED"} for ${contact.name}');
-    final idx = room.messages.indexWhere((m) => m.id == msg.id);
+    final idx = _repo.messageIndexById(contact.id, msg.id);
     final finalMsg = localMsg.copyWith(status: sent ? 'sent' : 'failed');
     if (idx != -1) room.messages[idx] = finalMsg;
     await LocalStorageService().saveMessage(contact.storageKey, finalMsg.toJson());
@@ -2494,7 +2502,7 @@ class ChatController extends ChangeNotifier {
       _repo.clearUploadProgress(msgId);
     }
 
-    final idx = room.messages.indexWhere((m) => m.id == msgId);
+    final idx = _repo.messageIndexById(contact.id, msgId);
     final finalMsg = localMsg.copyWith(status: allSent ? 'sent' : 'failed');
     if (idx >= 0) room.messages[idx] = finalMsg;
     unawaited(LocalStorageService().saveMessage(contact.id, finalMsg.toJson()));
@@ -2591,7 +2599,7 @@ class ChatController extends ChangeNotifier {
     }
 
     _repo.clearUploadProgress(msgId);
-    final idx = room.messages.indexWhere((m) => m.id == msgId);
+    final idx = _repo.messageIndexById(contact.id, msgId);
     final finalMsg = localMsg.copyWith(status: sent ? 'sent' : 'failed');
     if (idx >= 0) room.messages[idx] = finalMsg;
     final storageKey = isGroup ? contact.id : contact.storageKey;
@@ -2674,8 +2682,7 @@ class ChatController extends ChangeNotifier {
         final groupPayload = jsonEncode({'_group': contact.id, 'text': payload});
         int membersSent = 0;
         for (final memberId in contact.members) {
-          final memberContact = _contacts.contacts.cast<Contact?>()
-              .firstWhere((c) => c?.id == memberId, orElse: () => null);
+          final memberContact = _contacts.findById(memberId);
           if (memberContact == null) continue;
           final ok = await _sendToContact(memberContact, groupPayload);
           if (ok) membersSent++;
@@ -2685,7 +2692,7 @@ class ChatController extends ChangeNotifier {
         sent = await _sendToContact(contact, payload);
       }
 
-      final idx = room.messages.indexWhere((m) => m.id == msgId);
+      final idx = _repo.messageIndexById(contact.id, msgId);
       final finalMsg = localMsg.copyWith(
         encryptedPayload: payload,
         status: sent ? 'sent' : 'failed',
@@ -2764,7 +2771,7 @@ class ChatController extends ChangeNotifier {
       _repo.clearUploadProgress(msgId);
     }
 
-    final idx = room.messages.indexWhere((m) => m.id == msgId);
+    final idx = _repo.messageIndexById(contact.id, msgId);
     final finalMsg = localMsg.copyWith(status: allSent ? 'sent' : 'failed');
     if (idx != -1) room.messages[idx] = finalMsg;
     await LocalStorageService().saveMessage(contact.storageKey, finalMsg.toJson());
@@ -2831,7 +2838,7 @@ class ChatController extends ChangeNotifier {
       _repo.clearUploadProgress(msgId);
     }
 
-    final idx = room.messages.indexWhere((m) => m.id == msgId);
+    final idx = _repo.messageIndexById(contact.id, msgId);
     final finalMsg = localMsg.copyWith(status: allSent ? 'sent' : 'failed');
     if (idx != -1) room.messages[idx] = finalMsg;
     final storageKey = isGroup ? contact.id : contact.storageKey;
@@ -2843,8 +2850,7 @@ class ChatController extends ChangeNotifier {
     final groupPayload = jsonEncode({'_group': group.id, 'text': chunkPayload});
     int sent = 0;
     for (final memberId in group.members) {
-      final memberContact = _contacts.contacts.cast<Contact?>()
-          .firstWhere((c) => c?.id == memberId, orElse: () => null);
+      final memberContact = _contacts.findById(memberId);
       if (memberContact == null) continue;
       final ok = await _sendToContact(memberContact, groupPayload);
       if (ok) sent++;
@@ -2888,7 +2894,7 @@ class ChatController extends ChangeNotifier {
     if (groupId != null) {
       final room = _repo.getRoomForContact(groupId);
       if (room == null) return;
-      final idx = room.messages.indexWhere((m) => m.id == msgId);
+      final idx = _repo.messageIndexById(groupId, msgId);
       if (idx == -1) return;
       Contact? sender;
       for (final c in _contacts.contacts) {
@@ -2901,6 +2907,7 @@ class ChatController extends ChangeNotifier {
       if (room.messages[idx].senderId != senderId) return;
       room.messages.removeAt(idx);
       _repo.untrackMessageId(groupId, msgId);
+      _repo.rebuildPositionIndex(groupId);
       unawaited(LocalStorageService().deleteMessage(room.contact.storageKey, msgId));
       _scheduleNotify();
     } else {
@@ -2913,7 +2920,7 @@ class ChatController extends ChangeNotifier {
           continue;
         }
         debugPrint('[Chat] _handleRemoteDelete: matched room cId=$cId');
-        final idx = room.messages.indexWhere((m) => m.id == msgId);
+        final idx = _repo.messageIndexById(room.contact.id, msgId);
         if (idx != -1) {
           // FINDING-1 fix: verify the message was sent by this contact.
           // Without this, a contact could delete your own outgoing messages.
@@ -2927,6 +2934,7 @@ class ChatController extends ChangeNotifier {
           }
           room.messages.removeAt(idx);
           _repo.untrackMessageId(room.contact.id, msgId);
+          _repo.rebuildPositionIndex(room.contact.id);
           unawaited(LocalStorageService().deleteMessage(room.contact.storageKey, msgId));
           _scheduleNotify();
           found = true;
@@ -2955,6 +2963,11 @@ class ChatController extends ChangeNotifier {
       unawaited(LocalStorageService().saveMessagesBatch(contact.storageKey, updated));
       _scheduleNotify();
       unawaited(_broadcaster.sendReadReceipt(contact));
+    }
+    // Reset incremental unread count
+    if (_unreadCounts.containsKey(contact.id)) {
+      _unreadCounts[contact.id] = 0;
+      if (!_unreadChangedCtrl.isClosed) _unreadChangedCtrl.add(contact.id);
     }
   }
 
@@ -2993,7 +3006,7 @@ class ChatController extends ChangeNotifier {
       try {
         final room = _repo.getRoomForContact(contact.id);
         if (room == null) return;
-        final idx = room.messages.indexWhere((m) => m.id == failedMsg.id);
+        final idx = _repo.messageIndexById(contact.id, failedMsg.id);
         if (idx != -1 && room.messages[idx].status == 'failed') {
           await retryMessage(contact, room.messages[idx]);
         }
@@ -3189,10 +3202,8 @@ class ChatController extends ChangeNotifier {
   }
 
   Future<void> acceptGroupInvite(SignalGroupInviteEvent invite) async {
-    final existing = _contacts.contacts.cast<Contact?>()
-        .firstWhere((c) => c?.isGroup == true && c?.id == invite.groupId,
-            orElse: () => null);
-    if (existing != null) return;
+    final _ex = _contacts.findById(invite.groupId);
+    if (_ex != null && _ex.isGroup) return;
     // Only the declared creator should be allowed to send group invites.
     // FINDING-5 fix: require creatorId to always be present — if absent,
     // any known contact could forge a group invite unconditionally.
@@ -3249,8 +3260,7 @@ class ChatController extends ChangeNotifier {
       final skdmBytes = await sk.rotateKey(group.id, _selfId);
       final skdmB64 = base64Encode(skdmBytes);
       for (final memberId in group.members) {
-        final memberContact = _contacts.contacts.cast<Contact?>()
-            .firstWhere((c) => c?.id == memberId, orElse: () => null);
+        final memberContact = _contacts.findById(memberId);
         if (memberContact == null) continue;
         final distOk = await _sendSignalTo(memberContact, 'sender_key_dist', {
           'groupId': group.id,
@@ -3379,8 +3389,7 @@ class ChatController extends ChangeNotifier {
 
     if (contact.isGroup) {
       for (final memberId in contact.members) {
-        final memberContact = _contacts.contacts.cast<Contact?>()
-            .firstWhere((c) => c?.id == memberId, orElse: () => null);
+        final memberContact = _contacts.findById(memberId);
         if (memberContact == null) continue;
         unawaited(_broadcaster.sendReactionSignal(
             memberContact, msgId, emoji, _selfId,
@@ -3399,7 +3408,7 @@ class ChatController extends ChangeNotifier {
     final storageKey = contact.storageKey;
     final room = _repo.getRoomForContact(contact.id);
     if (room == null) return;
-    final idx = room.messages.indexWhere((m) => m.id == msgId);
+    final idx = _repo.messageIndexById(contact.id, msgId);
     if (idx == -1) return;
     if (room.messages[idx].senderId != _identity!.id) return;
     final updated = room.messages[idx].copyWith(encryptedPayload: newText, isEdited: true);
@@ -3655,8 +3664,7 @@ class ChatController extends ChangeNotifier {
         // contacts inject fake chunks.
         final senderId = _chunkSenderIds[fid];
         final senderContact = senderId != null
-            ? _contacts.contacts.cast<Contact?>()
-                .firstWhere((c) => c?.id == senderId, orElse: () => null)
+            ? _contacts.findById(senderId)
             : null;
         if (senderContact != null) {
           unawaited(_sendSignalTo(senderContact, 'chunk_req', {
@@ -3694,8 +3702,7 @@ class ChatController extends ChangeNotifier {
   // ── P2P helpers ───────────────────────────────────────────────────────────
 
   void _handleP2PMessage(String contactId, String encryptedPayload) {
-    final contact = _contacts.contacts.cast<Contact?>()
-        .firstWhere((c) => c?.id == contactId, orElse: () => null);
+    final contact = _contacts.findById(contactId);
     if (contact == null) return;
 
     // Use SHA-256 of the full encrypted payload as the dedup ID.
@@ -3759,8 +3766,7 @@ class ChatController extends ChangeNotifier {
         'sz': fileBytes.length,
       });
 
-      final contact = _contacts.contacts.cast<Contact?>()
-          .firstWhere((c) => c?.id == contactId, orElse: () => null);
+      final contact = _contacts.findById(contactId);
       if (contact == null) return;
 
       _handleIncomingMessages([
@@ -3888,6 +3894,7 @@ class ChatController extends ChangeNotifier {
     _incomingGroupCallController.close();
     _signalStreamController.close();
     _newMsgController.close();
+    _unreadChangedCtrl.close();
     _e2eeFailCtrl.close();
     _statusUpdatesCtrl.close();
     _keyChangeCtrl.close();

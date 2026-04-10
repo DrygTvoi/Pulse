@@ -115,6 +115,19 @@ class ContactManager implements IContactRepository {
   @override
   List<Contact> get contacts => _contacts;
 
+  // O(1) lookup indices — rebuilt on load/add/remove/update.
+  final Map<String, Contact> _idIndex = {};
+  final Map<String, Contact> _addressIndex = {};
+
+  void _rebuildIndices() {
+    _idIndex.clear();
+    _addressIndex.clear();
+    for (final c in _contacts) {
+      _idIndex[c.id] = c;
+      if (c.databaseId.isNotEmpty) _addressIndex[c.databaseId] = c;
+    }
+  }
+
   @override
   Future<void> loadContacts() async {
     try {
@@ -130,11 +143,14 @@ class ContactManager implements IContactRepository {
       debugPrint('[ContactManager] Failed to load contacts: $e');
       _contacts = [];
     }
+    _rebuildIndices();
   }
 
   @override
   Future<void> addContact(Contact contact) async {
     _contacts.add(contact);
+    _idIndex[contact.id] = contact;
+    if (contact.databaseId.isNotEmpty) _addressIndex[contact.databaseId] = contact;
     await LocalStorageService().saveContact(contact.id, contact.toMap());
   }
 
@@ -142,6 +158,10 @@ class ContactManager implements IContactRepository {
   Future<void> removeContact(String id) async {
     final contact = findById(id);
     _contacts.removeWhere((c) => c.id == id);
+    _idIndex.remove(id);
+    if (contact != null && contact.databaseId.isNotEmpty) {
+      _addressIndex.remove(contact.databaseId);
+    }
     await LocalStorageService().deleteContact(id);
     // Clean up Signal sessions and identity keys so stale material
     // cannot be replayed if a new contact with the same address is added.
@@ -154,17 +174,21 @@ class ContactManager implements IContactRepository {
   Future<void> updateContact(Contact updated) async {
     final idx = _contacts.indexWhere((c) => c.id == updated.id);
     if (idx != -1) {
+      final old = _contacts[idx];
       _contacts[idx] = updated;
+      // Update indices: remove old address mapping if changed.
+      if (old.databaseId.isNotEmpty && old.databaseId != updated.databaseId) {
+        _addressIndex.remove(old.databaseId);
+      }
+      _idIndex[updated.id] = updated;
+      if (updated.databaseId.isNotEmpty) _addressIndex[updated.databaseId] = updated;
       await LocalStorageService().saveContact(updated.id, updated.toMap());
     }
   }
 
   @override
-  Contact? findById(String id) =>
-      _contacts.cast<Contact?>().firstWhere((c) => c?.id == id, orElse: () => null);
+  Contact? findById(String id) => _idIndex[id];
 
   @override
-  Contact? findByAddress(String address) =>
-      _contacts.cast<Contact?>().firstWhere(
-          (c) => c?.databaseId == address, orElse: () => null);
+  Contact? findByAddress(String address) => _addressIndex[address];
 }

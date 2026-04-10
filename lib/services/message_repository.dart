@@ -19,6 +19,9 @@ class MessageRepository {
   // O(1) message-ID lookup per room (keyed by contact.id)
   final Map<String, Set<String>> _messageIds = {};
 
+  // O(1) message position index: contactId → (msgId → list index)
+  final Map<String, Map<String, int>> _msgPositionIndex = {};
+
   /// Returns true if this message ID already exists in the room.
   bool roomHasMessage(String contactId, String msgId) =>
       _messageIds[contactId]?.contains(msgId) ?? false;
@@ -32,8 +35,56 @@ class MessageRepository {
       _messageIds[contactId]?.remove(msgId);
 
   /// Clear all tracked message IDs for a room.
-  void clearMessageIds(String contactId) =>
-      _messageIds[contactId]?.clear();
+  void clearMessageIds(String contactId) {
+    _messageIds[contactId]?.clear();
+    _msgPositionIndex.remove(contactId);
+  }
+
+  /// Rebuild the position index for a room from its message list.
+  /// Call after sort, insertAll, removeAt, or any bulk mutation.
+  void rebuildPositionIndex(String contactId) {
+    final room = _chatRooms[contactId];
+    if (room == null) {
+      _msgPositionIndex.remove(contactId);
+      return;
+    }
+    final idx = <String, int>{};
+    for (int i = 0; i < room.messages.length; i++) {
+      idx[room.messages[i].id] = i;
+    }
+    _msgPositionIndex[contactId] = idx;
+  }
+
+  /// O(1) lookup of a message's position in its room's message list.
+  /// Self-healing: if the index is stale or missing, rebuilds automatically.
+  /// Returns -1 if not found.
+  int messageIndexById(String contactId, String msgId) {
+    final cached = _msgPositionIndex[contactId]?[msgId];
+    if (cached != null) {
+      // Validate: ensure the cached position still points to the right message.
+      final room = _chatRooms[contactId];
+      if (room != null && cached < room.messages.length &&
+          room.messages[cached].id == msgId) {
+        return cached;
+      }
+    }
+    // Index miss or stale — rebuild and retry.
+    rebuildPositionIndex(contactId);
+    return _msgPositionIndex[contactId]?[msgId] ?? -1;
+  }
+
+  /// Update position index after appending a message at the end.
+  void trackMessagePosition(String contactId, String msgId, int index) {
+    (_msgPositionIndex[contactId] ??= {})[msgId] = index;
+  }
+
+  /// Update position index after replacing a message at an index (same position, new msg).
+  void updateMessagePosition(String contactId, String oldMsgId, String newMsgId, int index) {
+    final idx = _msgPositionIndex[contactId];
+    if (idx == null) return;
+    if (oldMsgId != newMsgId) idx.remove(oldMsgId);
+    idx[newMsgId] = index;
+  }
 
   // Pagination state
   static const int historyPageSize = 50;
@@ -162,6 +213,7 @@ class MessageRepository {
       }
     }
     room.messages.sort((a, b) => a.timestamp.compareTo(b.timestamp));
+    rebuildPositionIndex(contact.id);
 
     // Fix messages stuck in 'sending' from a crashed session
     bool hadStuck = false;
@@ -183,14 +235,17 @@ class MessageRepository {
     _chatTtls[contact.id] = ttlSeconds;
     if (ttlSeconds > 0) {
       final now = DateTime.now();
+      int removed = 0;
       room.messages.removeWhere((m) {
         if (m.timestamp.add(Duration(seconds: ttlSeconds)).isBefore(now)) {
           untrackMessageId(contact.id, m.id);
           unawaited(LocalStorageService().deleteMessage(storageKey, m.id));
+          removed++;
           return true;
         }
         return false;
       });
+      if (removed > 0) rebuildPositionIndex(contact.id);
     }
 
     onChanged?.call();
@@ -225,6 +280,7 @@ class MessageRepository {
           trackMessageId(contact.id, m.id);
         }
         room.messages.insertAll(0, toInsert);
+        rebuildPositionIndex(contact.id);
         _historyLoaded[contact.id] =
             (_historyLoaded[contact.id] ?? 0) + older.length;
         final firstTs = older.first['timestamp'];
@@ -249,7 +305,7 @@ class MessageRepository {
     final storageKey = contact.isGroup ? contact.id : contact.databaseId;
     await LocalStorageService().clearHistory(storageKey);
     room.messages.clear();
-    clearMessageIds(contact.id);
+    clearMessageIds(contact.id);  // also clears position index
     onChanged?.call();
   }
 
@@ -263,6 +319,7 @@ class MessageRepository {
     if (room != null) {
       room.messages.removeWhere((m) => m.id == msgId);
       untrackMessageId(contact.id, msgId);
+      rebuildPositionIndex(contact.id);
     }
     await LocalStorageService().deleteMessage(contact.storageKey, msgId);
     await LocalStorageService().deleteTtlExpiry(contact.storageKey, msgId);
@@ -375,13 +432,10 @@ class MessageRepository {
 
   /// Restore TTL timers from DB after app restart.
   Future<void> restoreScheduledTtls({required VoidCallback onDeleted}) async {
-    final pending = await LocalStorageService().loadAllTtlPending();
-    for (final item in pending) {
-      final remaining = item.expiresAt.difference(DateTime.now());
-      if (remaining.isNegative) {
-        await LocalStorageService().deleteMessage(item.roomId, item.msgId);
-        await LocalStorageService().deleteTtlExpiry(item.roomId, item.msgId);
-        // Remove from in-memory room if already loaded.
+    // Batch-delete all already-expired messages in a single transaction.
+    final deleted = await LocalStorageService().deleteExpiredTtlMessages();
+    if (deleted.isNotEmpty) {
+      for (final item in deleted) {
         for (final room in _chatRooms.values) {
           if (room.contact.storageKey == item.roomId ||
               room.contact.id == item.roomId) {
@@ -390,27 +444,34 @@ class MessageRepository {
             break;
           }
         }
-      } else {
-        final roomId = item.roomId;
-        final msgId = item.msgId;
-        _ttlTimers[msgId]?.cancel();
-        _ttlTimers[msgId] = Timer(remaining, () {
-          _ttlTimers.remove(msgId);
-          unawaited(Future(() async {
-            await LocalStorageService().deleteMessage(roomId, msgId);
-            await LocalStorageService().deleteTtlExpiry(roomId, msgId);
-          }));
-          for (final room in _chatRooms.values) {
-            if (room.contact.storageKey == roomId ||
-                room.contact.id == roomId) {
-              room.messages.removeWhere((m) => m.id == msgId);
-              untrackMessageId(room.contact.id, msgId);
-              onDeleted();
-              break;
-            }
-          }
-        });
       }
+      onDeleted();
+    }
+
+    // Arm timers for future-expiring messages only.
+    final pending = await LocalStorageService().loadAllTtlPending();
+    for (final item in pending) {
+      final remaining = item.expiresAt.difference(DateTime.now());
+      if (remaining.isNegative) continue; // race: expired between queries
+      final roomId = item.roomId;
+      final msgId = item.msgId;
+      _ttlTimers[msgId]?.cancel();
+      _ttlTimers[msgId] = Timer(remaining, () {
+        _ttlTimers.remove(msgId);
+        unawaited(Future(() async {
+          await LocalStorageService().deleteMessage(roomId, msgId);
+          await LocalStorageService().deleteTtlExpiry(roomId, msgId);
+        }));
+        for (final room in _chatRooms.values) {
+          if (room.contact.storageKey == roomId ||
+              room.contact.id == roomId) {
+            room.messages.removeWhere((m) => m.id == msgId);
+            untrackMessageId(room.contact.id, msgId);
+            onDeleted();
+            break;
+          }
+        }
+      });
     }
   }
 

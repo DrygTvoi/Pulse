@@ -99,6 +99,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final FocusNode _homeKeyFocus = FocusNode();
   final _scaffoldKey = GlobalKey<ScaffoldState>();
   int _homeRebuildVersion = 0;
+  Timer? _uiCoalesceTimer;
 
   // Draggable split divider
   static const double _minPanelWidth = 72.0;
@@ -111,9 +112,7 @@ class _HomeScreenState extends State<HomeScreen> {
   int _sortCacheContactCount = -1;
   int _sortCacheMsgCount = -1;
 
-  // Unread counts cache — avoids scanning all messages per tile per rebuild
-  final _unreadCounts = <String, int>{};
-  final _unreadMsgCounts = <String, int>{};
+  StreamSubscription? _unreadSubscription;
 
   @override
   void initState() {
@@ -126,7 +125,8 @@ class _HomeScreenState extends State<HomeScreen> {
     _searchController.addListener(_onSearchChanged);
     _probeSubscription = ConnectivityProbeService.instance.status.listen((s) {
       if (!mounted) return;
-      setState(() => _probeStatus = s);
+      _probeStatus = s;
+      _scheduleUiRefresh();
       if (s.phase == ProbePhase.done) {
         // Auto-hide banner 4 s after completion
         _probeBannerTimer?.cancel();
@@ -140,15 +140,16 @@ class _HomeScreenState extends State<HomeScreen> {
       }
     }, onError: (e) => debugPrint('[HomeScreen] probe stream error: $e'));
 
+    _unreadSubscription = ChatController().unreadChanged.listen((contactId) {
+      if (!mounted) return;
+      _homeRebuildVersion++;
+      _scheduleUiRefresh();
+    }, onError: (e) => debugPrint('[HomeScreen] unreadChanged error: $e'));
+
     _newMsgSubscription = ChatController().newMessages.listen((event) {
       if (!mounted) return;
-      _unreadCounts.remove(event.contactId);
-      _unreadMsgCounts.remove(event.contactId);
       _homeRebuildVersion++;
-      final contact = context.read<IContactRepository>().contacts.cast<Contact?>().firstWhere(
-        (c) => c?.id == event.contactId,
-        orElse: () => null,
-      );
+      final contact = context.read<IContactRepository>().findById(event.contactId);
       if (contact == null || !mounted) return;
       setState(() => _banner = (contact: contact, message: event.message));
       _bannerTimer?.cancel();
@@ -177,17 +178,17 @@ class _HomeScreenState extends State<HomeScreen> {
     _torBootPercent = TorService.instance.bootstrapPercent;
     _torSubscription = TorService.instance.stateChanges.listen((_) {
       if (!mounted) return;
-      setState(() {
-        _torRunning = TorService.instance.isRunning;
-        _torBootPercent = TorService.instance.bootstrapPercent;
-      });
+      _torRunning = TorService.instance.isRunning;
+      _torBootPercent = TorService.instance.bootstrapPercent;
+      _scheduleUiRefresh();
     }, onError: (e) => debugPrint('[HomeScreen] tor stream error: $e'));
 
     // Track uTLS proxy availability for "No ECH" warning chip.
     _utlsAvailable = UTLSService.instance.available.value;
     _utlsListener = () {
       if (!mounted) return;
-      setState(() => _utlsAvailable = UTLSService.instance.available.value);
+      _utlsAvailable = UTLSService.instance.available.value;
+      _scheduleUiRefresh();
     };
     UTLSService.instance.available.addListener(_utlsListener!);
 
@@ -222,6 +223,14 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  /// Coalesce rapid non-critical UI updates into a single rebuild.
+  void _scheduleUiRefresh() {
+    _uiCoalesceTimer?.cancel();
+    _uiCoalesceTimer = Timer(const Duration(milliseconds: 100), () {
+      if (mounted) setState(() {});
+    });
+  }
+
   void _onActiveCallChanged() {
     // When call ends (endCall sets contact=null), reset _inCallScreen immediately
     // rather than waiting for Navigator.pop animation (.then callback).
@@ -229,7 +238,7 @@ class _HomeScreenState extends State<HomeScreen> {
     if (ActiveCallService.instance.contact == null) {
       _inCallScreen = false;
     }
-    if (mounted) setState(() {});
+    if (mounted) _scheduleUiRefresh();
   }
 
   @override
@@ -240,10 +249,12 @@ class _HomeScreenState extends State<HomeScreen> {
     _groupInviteSubscription?.cancel();
     _groupInviteDeclineSubscription?.cancel();
     _newMsgSubscription?.cancel();
+    _unreadSubscription?.cancel();
     _probeSubscription?.cancel();
     _statusUpdatesSubscription?.cancel();
     _failoverSubscription?.cancel();
     _torSubscription?.cancel();
+    _uiCoalesceTimer?.cancel();
     _bannerTimer?.cancel();
     _probeBannerTimer?.cancel();
     _searchDebounce?.cancel();
@@ -443,7 +454,7 @@ class _HomeScreenState extends State<HomeScreen> {
               : (c?.databaseId ?? '');
           return dbBase == senderBase || c?.id == sig['roomId'];
         },
-        orElse: () => null,
+        orElse: () => null,  // complex match — keep linear scan
       );
       if (callerContact != null) {
         final prefs = await SharedPreferences.getInstance();
@@ -523,10 +534,7 @@ class _HomeScreenState extends State<HomeScreen> {
       final groupId = sig['groupId'] as String?;
       if (groupId == null) return;
       if (!mounted) return;
-      final groupContact = context.read<IContactRepository>().contacts.cast<Contact?>().firstWhere(
-        (c) => c?.isGroup == true && c?.id == groupId,
-        orElse: () => null,
-      );
+      final groupContact = context.read<IContactRepository>().findById(groupId);
       if (groupContact == null || !mounted) return;
       final myId = ChatController().identity?.id ?? '';
       _showIncomingGroupCallDialog(groupContact, myId);
@@ -677,12 +685,10 @@ class _HomeScreenState extends State<HomeScreen> {
     Navigator.push(
       context, _slideRoute(ChatScreen(contact: c)),
     ).then((_) {
-      // Invalidate caches — unread counts and sort order may have changed
+      // Invalidate caches — sort order may have changed
       _sortedRoomsCache = null;
       _sortCacheContactCount = -1;
       _sortCacheMsgCount = -1;
-      _unreadCounts.clear();
-      _unreadMsgCounts.clear();
       setState(() {});
       _loadMutedChats();
       _loadContactAvatars();
@@ -824,19 +830,6 @@ class _HomeScreenState extends State<HomeScreen> {
     return _sortedRoomsCache!;
   }
 
-  int _getUnreadCount(String contactId, String myId, ChatController chatCtrl) {
-    final room = chatCtrl.getRoomForContact(contactId);
-    final messages = room?.messages ?? [];
-    final msgLen = messages.length;
-    if (_unreadCounts.containsKey(contactId) &&
-        _unreadMsgCounts[contactId] == msgLen) {
-      return _unreadCounts[contactId]!;
-    }
-    final count = messages.where((m) => !m.isRead && m.senderId != myId).length;
-    _unreadCounts[contactId] = count;
-    _unreadMsgCounts[contactId] = msgLen;
-    return count;
-  }
 
   Widget _buildLeftPanel(ChatController chatCtrl, {required bool isWide, required bool compactMode}) {
     final contacts = context.read<IContactRepository>().contacts;
@@ -1128,7 +1121,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         final room = chatCtrl.getRoomForContact(c.id);
                         final messages = room?.messages ?? [];
                         Message? lastMsg = messages.isNotEmpty ? messages.last : null;
-                        final unread = _getUnreadCount(c.id, myId, chatCtrl);
+                        final unread = chatCtrl.getUnreadCount(c.id);
 
                         // Lazy-load avatar when tile becomes visible
                         _ensureAvatarLoaded(c.id);

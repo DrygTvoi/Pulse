@@ -13,8 +13,12 @@ class StatusService {
   static const String _ownStatusKey = 'my_status';
   static String _contactKey(String contactId) => 'contact_status_$contactId';
 
+  SharedPreferences? _prefs;
+  Future<SharedPreferences> _getPrefs() async =>
+      _prefs ??= await SharedPreferences.getInstance();
+
   Future<UserStatus?> getOwnStatus() async {
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await _getPrefs();
     final json = prefs.getString(_ownStatusKey);
     final status = UserStatus.tryFromJsonString(json);
     if (status != null && status.isExpired) {
@@ -25,17 +29,17 @@ class StatusService {
   }
 
   Future<void> setOwnStatus(UserStatus status) async {
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await _getPrefs();
     await prefs.setString(_ownStatusKey, status.toJsonString());
   }
 
   Future<void> clearOwnStatus() async {
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await _getPrefs();
     await prefs.remove(_ownStatusKey);
   }
 
   Future<UserStatus?> getContactStatus(String contactId) async {
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await _getPrefs();
     final json = prefs.getString(_contactKey(contactId));
     final status = UserStatus.tryFromJsonString(json);
     if (status != null && status.isExpired) {
@@ -46,12 +50,12 @@ class StatusService {
   }
 
   Future<void> saveContactStatus(String contactId, UserStatus status) async {
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await _getPrefs();
     await prefs.setString(_contactKey(contactId), status.toJsonString());
   }
 
   Future<void> _clearContactStatus(String contactId) async {
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await _getPrefs();
     await prefs.remove(_contactKey(contactId));
   }
 

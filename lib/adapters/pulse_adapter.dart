@@ -336,14 +336,18 @@ class PulseInboxReader implements InboxReader {
   String _certFingerprint = '';
 
   WebSocketChannel? _ws;
-  final StreamController<List<Message>> _msgCtrl =
+  StreamController<List<Message>> _msgCtrl =
       StreamController<List<Message>>.broadcast();
-  final StreamController<List<Map<String, dynamic>>> _sigCtrl =
+  StreamController<List<Map<String, dynamic>>> _sigCtrl =
       StreamController<List<Map<String, dynamic>>>.broadcast();
-  final StreamController<bool> _healthCtrl =
+  StreamController<bool> _healthCtrl =
       StreamController<bool>.broadcast();
 
   final Set<String> _seenIds = {};
+
+  SharedPreferences? _prefs;
+  Future<SharedPreferences> _getPrefs() async =>
+      _prefs ??= await SharedPreferences.getInstance();
 
   bool _loopStarted = false;
   bool _running = false;
@@ -369,8 +373,16 @@ class PulseInboxReader implements InboxReader {
   @override
   Stream<bool> get healthChanges => _healthCtrl.stream;
 
+  /// Re-create stream controllers if they were closed (e.g. after close()/zeroize()).
+  void _ensureControllers() {
+    if (_msgCtrl.isClosed) _msgCtrl = StreamController<List<Message>>.broadcast();
+    if (_sigCtrl.isClosed) _sigCtrl = StreamController<List<Map<String, dynamic>>>.broadcast();
+    if (_healthCtrl.isClosed) _healthCtrl = StreamController<bool>.broadcast();
+  }
+
   @override
   Future<void> initializeReader(String apiKey, String databaseId) async {
+    _ensureControllers();
     // Parse apiKey JSON: {"privkey":"hex","serverUrl":"https://...","invite":"code"}
     try {
       final decoded = jsonDecode(apiKey) as Map<String, dynamic>;
@@ -407,7 +419,7 @@ class PulseInboxReader implements InboxReader {
         'seed=${_seed.length}B, wsUrl=$_wsUrl, fp=${_certFingerprint.isNotEmpty ? '${_certFingerprint.substring(0, 8)}...' : 'none'}');
 
     // Load Tor + CF Worker + Force-Tor settings
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await _getPrefs();
     _torEnabled = prefs.getBool('tor_enabled') ?? false;
     _torHost = prefs.getString('tor_host') ?? '127.0.0.1';
     _torPort = prefs.getInt('tor_port') ?? 9050;
@@ -421,7 +433,7 @@ class PulseInboxReader implements InboxReader {
     _loopStarted = false;
     try { _ws?.sink.close(); } catch (_) {}
     _ws = null;
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await _getPrefs();
     _torEnabled = prefs.getBool('tor_enabled') ?? false;
     _torHost = prefs.getString('tor_host') ?? '127.0.0.1';
     _torPort = prefs.getInt('tor_port') ?? 9050;
@@ -639,7 +651,7 @@ class PulseInboxReader implements InboxReader {
   }
 
   Future<int> _getLastFetchTs() async {
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await _getPrefs();
     final stored = prefs.getInt('pulse_last_fetch_ts') ?? 0;
     final thirtyDaysAgo =
         DateTime.now().millisecondsSinceEpoch ~/ 1000 - 30 * 86400;
@@ -647,7 +659,7 @@ class PulseInboxReader implements InboxReader {
   }
 
   Future<void> _updateLastFetchTs(int unixSeconds) async {
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await _getPrefs();
     final current = prefs.getInt('pulse_last_fetch_ts') ?? 0;
     if (unixSeconds > current) {
       await prefs.setInt('pulse_last_fetch_ts', unixSeconds);
@@ -1144,6 +1156,9 @@ class PulseInboxReader implements InboxReader {
     _loopStarted = false;
     try { _ws?.sink.close(); } catch (_) {}
     _ws = null;
+    _msgCtrl.close();
+    _sigCtrl.close();
+    _healthCtrl.close();
   }
 
   /// Stop event loop and clear private key material from memory.
@@ -1178,6 +1193,10 @@ class PulseMessageSender implements MessageSender {
 
   // Force-Tor mode
   bool _forcePulseTor = false;
+
+  SharedPreferences? _prefs;
+  Future<SharedPreferences> _getPrefs() async =>
+      _prefs ??= await SharedPreferences.getInstance();
 
   // Persistent WS connection
   WebSocketChannel? _ws;
@@ -1215,7 +1234,7 @@ class PulseMessageSender implements MessageSender {
     }
 
     // Load Tor + CF Worker + Force-Tor settings
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await _getPrefs();
     _torEnabled = prefs.getBool('tor_enabled') ?? false;
     _torHost = prefs.getString('tor_host') ?? '127.0.0.1';
     _torPort = prefs.getInt('tor_port') ?? 9050;
@@ -1228,7 +1247,7 @@ class PulseMessageSender implements MessageSender {
     try { _ws?.sink.close(); } catch (_) {}
     _ws = null;
     _authenticated = false;
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await _getPrefs();
     _torEnabled = prefs.getBool('tor_enabled') ?? false;
     _torHost = prefs.getString('tor_host') ?? '127.0.0.1';
     _torPort = prefs.getInt('tor_port') ?? 9050;

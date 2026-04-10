@@ -30,6 +30,10 @@ class SignalBroadcaster {
   static const _secureStorage = FlutterSecureStorage();
   static const _kDefaultNostrRelay = kDefaultNostrRelay;
 
+  SharedPreferences? _prefs;
+  Future<SharedPreferences> _getPrefs() async =>
+      _prefs ??= await SharedPreferences.getInstance();
+
   // Online status
   final Map<String, DateTime> _lastSeen = {};
 
@@ -243,7 +247,7 @@ class SignalBroadcaster {
     // NIP-117-discovered / probe-discovered / peer-received servers are
     // excluded: they may be attacker-controlled and would propagate transitively
     // to all contacts (HIGH-3 transitive TURN poisoning).
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await _getPrefs();
     final enabled = prefs.getStringList('turn_presets_enabled') ?? ['openrelay', 'freestun'];
     final turnServers = <Map<String, dynamic>>[];
     for (final preset in IceServerConfig.turnPresets) {
@@ -475,7 +479,7 @@ class SignalBroadcaster {
       case 'Nostr':
         final privkey =
             await _secureStorage.read(key: 'nostr_privkey') ?? '';
-        final prefs = await SharedPreferences.getInstance();
+        final prefs = await _getPrefs();
         final relay =
             prefs.getString('nostr_relay') ?? _kDefaultNostrRelay;
         return (
@@ -483,12 +487,12 @@ class SignalBroadcaster {
           apiKey: jsonEncode({'privkey': privkey, 'relay': relay})
         );
       case 'Session':
-        final prefs = await SharedPreferences.getInstance();
+        final prefs = await _getPrefs();
         final nodeUrl = prefs.getString('session_node_url') ?? prefs.getString('oxen_node_url') ?? '';
         return (sender: SessionMessageSender(), apiKey: nodeUrl);
       case 'Pulse':
         final privkey = await _secureStorage.read(key: 'pulse_privkey') ?? '';
-        final prefs = await SharedPreferences.getInstance();
+        final prefs = await _getPrefs();
         final serverUrl = prefs.getString('pulse_server_url') ?? '';
         return (sender: PulseMessageSender(), apiKey: jsonEncode({'privkey': privkey, 'serverUrl': serverUrl}));
       default:
@@ -507,13 +511,13 @@ class SignalBroadcaster {
     final lower = address.toLowerCase();
     if (lower.startsWith('05') && lower.length == 66 &&
         _sessionAddrRegex.hasMatch(lower)) {
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = await _getPrefs();
       final nodeUrl = prefs.getString('session_node_url') ?? prefs.getString('oxen_node_url') ?? '';
       return (sender: SessionMessageSender(), apiKey: nodeUrl);
     }
     if (lower.contains('@wss://') || lower.contains('@ws://')) {
       final privkey = await _secureStorage.read(key: 'nostr_privkey') ?? '';
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = await _getPrefs();
       final relay = prefs.getString('nostr_relay') ?? _kDefaultNostrRelay;
       return (
         sender: NostrMessageSender(),
