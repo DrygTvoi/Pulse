@@ -468,6 +468,13 @@ class SignalBroadcaster {
       Contact contact) async {
     final identity = _getIdentity();
     if (identity == null) return null;
+    // Developer mode: skip disabled adapters.
+    final prefs = await _getPrefs();
+    if ((prefs.getBool('dev_mode_enabled') ?? false) &&
+        !(prefs.getBool('dev_adapter_${contact.provider}') ?? true)) {
+      debugPrint('[Dev] Adapter ${contact.provider} disabled — skipping signal');
+      return null;
+    }
     switch (contact.provider) {
       case 'Firebase':
         final token = identity.adapterConfig['token'] ?? '';
@@ -504,16 +511,19 @@ class SignalBroadcaster {
       String address) async {
     final identity = _getIdentity();
     if (identity == null) return null;
+    // Developer mode: resolve provider from address format and check toggle.
+    final prefs = await _getPrefs();
+    final devEnabled = !(prefs.getBool('dev_mode_enabled') ?? false);
     final lower = address.toLowerCase();
     if (lower.startsWith('05') && lower.length == 66 &&
         _sessionAddrRegex.hasMatch(lower)) {
-      final prefs = await _getPrefs();
+      if (!devEnabled && !(prefs.getBool('dev_adapter_Session') ?? true)) return null;
       final nodeUrl = prefs.getString('session_node_url') ?? prefs.getString('oxen_node_url') ?? '';
       return (sender: SessionMessageSender(), apiKey: nodeUrl);
     }
     if (lower.contains('@wss://') || lower.contains('@ws://')) {
+      if (!devEnabled && !(prefs.getBool('dev_adapter_Nostr') ?? true)) return null;
       final privkey = await _secureStorage.read(key: 'nostr_privkey') ?? '';
-      final prefs = await _getPrefs();
       final relay = prefs.getString('nostr_relay') ?? _kDefaultNostrRelay;
       return (
         sender: NostrMessageSender(),
@@ -525,11 +535,13 @@ class SignalBroadcaster {
       final atIdx = address.indexOf('@');
       final pubPart = atIdx > 0 ? address.substring(0, atIdx) : '';
       if (RegExp(r'^[0-9a-f]{64}$').hasMatch(pubPart.toLowerCase())) {
+        if (!devEnabled && !(prefs.getBool('dev_adapter_Pulse') ?? true)) return null;
         final privkey = await _secureStorage.read(key: 'pulse_privkey') ?? '';
         final serverUrl = atIdx > 0 ? address.substring(atIdx + 1) : '';
         return (sender: PulseMessageSender(), apiKey: jsonEncode({'privkey': privkey, 'serverUrl': serverUrl}));
       }
       // Firebase fallback
+      if (!devEnabled && !(prefs.getBool('dev_adapter_Firebase') ?? true)) return null;
       final token = identity.adapterConfig['token'] ?? '';
       return (sender: FirebaseInboxSender(), apiKey: token);
     }

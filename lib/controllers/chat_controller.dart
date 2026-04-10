@@ -767,10 +767,59 @@ class ChatController extends ChangeNotifier {
       }
     }
 
+    // Auto-register Session inbox so we receive messages sent to our Session ID.
+    // Session ID is derived from the same seed on all devices.
+    {
+      try {
+        await SessionKeyService.instance.initialize();
+        final sessId = SessionKeyService.instance.sessionId;
+        if (sessId.isNotEmpty) {
+          final prefs = await _getPrefs();
+          final nodeUrl = prefs.getString('session_node_url') ?? prefs.getString('oxen_node_url') ?? '';
+          final sessionReader = await InboxManager().createAdhocReader('Session', nodeUrl, sessId);
+          if (sessionReader != null) {
+            _messageSubs.add(sessionReader.listenForMessages().listen(_handleIncomingMessages));
+            _signalSubs.add(sessionReader.listenForSignals().listen(_signalDispatcher!.dispatch));
+            newAddresses.add(sessId);
+            _adapterHealth[sessId] = true;
+            _healthSubs.add(sessionReader.healthChanges.listen((h) => _onAdapterHealthChange(sessId, h)));
+            unawaited(_keys.publishKeysToAdapter('Session', nodeUrl, sessId));
+            debugPrint('[Chat] Auto-registered Session secondary inbox: ${sessId.substring(0, 12)}…');
+          }
+        }
+      } catch (e) {
+        debugPrint('[Chat] Failed to auto-register Session inbox: $e');
+      }
+    }
+
     // Assign all addresses atomically so concurrent readers see a complete list.
     _allAddresses = newAddresses;
 
-    // LAN fallback adapter
+    // One-time fix: revert contacts wrongly promoted to Session back to
+    // their first Pulse/Nostr alternate (lightweight — no room/session migration).
+    for (final c in _contacts.contacts) {
+      if (c.provider == 'Session' && c.alternateAddresses.isNotEmpty) {
+        final pulseAlt = c.alternateAddresses.firstWhere(
+          (a) => _providerFromAddress(a) == 'Pulse' || _providerFromAddress(a) == 'Nostr',
+          orElse: () => '',
+        );
+        if (pulseAlt.isNotEmpty) {
+          debugPrint('[Fix] Reverting ${c.name} from Session to ${_providerFromAddress(pulseAlt)}');
+          final alts = [...c.alternateAddresses];
+          alts.remove(pulseAlt);
+          alts.insert(0, c.databaseId);
+          final fixed = c.copyWith(
+            databaseId: pulseAlt,
+            provider: _providerFromAddress(pulseAlt),
+            alternateAddresses: alts,
+          );
+          await _contacts.updateContact(fixed);
+          _repo.updateRoomContact(fixed);
+        }
+      }
+    }
+
+    // LAN fallback
     _lanReader?.close();
     _lanSender?.close();
     _lanReader = null;
@@ -814,6 +863,10 @@ class ChatController extends ChangeNotifier {
     _messageSubs.add(P2PTransportService.instance.binaryStream.listen((evt) {
       _handleP2PBinaryFrame(evt.contactId, evt.data);
     }));
+
+    // Broadcast our addresses on every connect so contacts learn any new
+    // secondary transport IDs (e.g. changed Session ID after key derivation fix).
+    unawaited(Future.delayed(const Duration(seconds: 2), () => broadcastAddressUpdate()));
 
     _scheduleNotify();
   }
@@ -2122,8 +2175,15 @@ class ChatController extends ChangeNotifier {
 
     debugPrint('[Send] Routing to ${contact.name}...');
     await _addSenderPlugin(contact);
+    // Dev mode: skip primary if adapter is disabled.
+    final _devPrefs = await _getPrefs();
+    final _devDisabled = (_devPrefs.getBool('dev_mode_enabled') ?? false) &&
+        !(_devPrefs.getBool('dev_adapter_${contact.provider}') ?? true);
     bool sent;
-    if (!contact.isGroup && P2PTransportService.instance.isConnected(contact.id)) {
+    if (_devDisabled) {
+      sent = false;
+      debugPrint('[Dev] Adapter ${contact.provider} disabled — skipping primary send');
+    } else if (!contact.isGroup && P2PTransportService.instance.isConnected(contact.id)) {
       sent = P2PTransportService.instance.send(contact.id, msg.encryptedPayload);
       if (sent) debugPrint('[P2P] Direct delivery to ${contact.name}');
     } else {
@@ -2133,6 +2193,30 @@ class ChatController extends ChangeNotifier {
       // native flutter_webrtc CreateIceServers on Linux. P2P still works for
       // calls (user-initiated) and when the peer sends an offer first.
       // TODO: re-enable when flutter_webrtc fixes the native ICE server bug.
+    }
+
+    // SmartRouter: try alternate addresses when primary fails.
+    if (!sent && contact.alternateAddresses.isNotEmpty) {
+      final order = [...contact.alternateAddresses];
+      order.shuffle();
+      order.sort((a, b) =>
+          (_deliverySuccessCount['${contact.id}:$b'] ?? 0)
+              .compareTo(_deliverySuccessCount['${contact.id}:$a'] ?? 0));
+      for (final alt in order) {
+        debugPrint('[SmartRouter] Primary failed, trying alternate: $alt');
+        sent = await _deliverEncryptedMessage(alt, msg);
+        if (sent) {
+          debugPrint('[SmartRouter] Delivered via alternate: $alt');
+          final key = '${contact.id}:$alt';
+          _deliverySuccessCount[key] = (_deliverySuccessCount[key] ?? 0) + 1;
+          unawaited(_saveDeliveryStats());
+          if ((_deliverySuccessCount[key] ?? 0) >= _kPromotionThreshold &&
+              !contact.isGroup) {
+            unawaited(_promoteContactAddress(contact, alt));
+          }
+          break;
+        }
+      }
     }
 
     debugPrint('[Send] Route result: ${sent ? "SENT" : "FAILED"} for ${contact.name}');
@@ -2294,15 +2378,20 @@ class ChatController extends ChangeNotifier {
       adapterType: routeProvider.toLowerCase(),
     );
     await _addSenderPlugin(contact);
+    // Dev mode: skip primary if adapter is disabled.
+    final devPrefs = await _getPrefs();
+    final devDisabled = (devPrefs.getBool('dev_mode_enabled') ?? false) &&
+        !(devPrefs.getBool('dev_adapter_$routeProvider') ?? true);
     bool sent = false;
-    if (!contact.isGroup && P2PTransportService.instance.isConnected(contact.id)) {
+    if (devDisabled) {
+      debugPrint('[Dev] Adapter $routeProvider disabled — skipping primary send');
+    } else if (!contact.isGroup && P2PTransportService.instance.isConnected(contact.id)) {
       sent = P2PTransportService.instance.send(contact.id, msg.encryptedPayload);
       if (sent) debugPrint('[P2P] Direct delivery to ${contact.name}');
     }
-    if (!sent) {
+    if (!sent && !devDisabled) {
       sent = await InboxManager().routeMessage(
           routeProvider, contact.databaseId, contact.databaseId, msg);
-      // P2P auto-connect disabled: SIGSEGV in native CreateIceServers (see above).
     }
 
     if (!sent && contact.alternateAddresses.isNotEmpty) {
@@ -2330,7 +2419,9 @@ class ChatController extends ChangeNotifier {
       }
     }
 
-    if (!sent && _lanSender != null) {
+    final lanDisabled = (devPrefs.getBool('dev_mode_enabled') ?? false) &&
+        !(devPrefs.getBool('dev_adapter_LAN') ?? true);
+    if (!sent && _lanSender != null && !lanDisabled) {
       sent = await _lanSender!.sendMessage('', '', msg);
       if (sent) {
         debugPrint('[LAN] Delivered via local network multicast');
@@ -3318,6 +3409,11 @@ class ChatController extends ChangeNotifier {
   Future<void> _promoteContactAddress(Contact contact, String newPrimary) async {
     final oldPrimary = contact.databaseId;
     if (newPrimary == oldPrimary) return;
+    // Never promote to Session — experimental, not reliable enough for primary.
+    if (newPrimary.length == 66 && newPrimary.startsWith('05')) {
+      debugPrint('[SmartRouter] Skipping Session promotion for ${contact.name}');
+      return;
+    }
     debugPrint('[SmartRouter] Promoting $newPrimary → primary for ${contact.name} '
         '(was $oldPrimary)');
 

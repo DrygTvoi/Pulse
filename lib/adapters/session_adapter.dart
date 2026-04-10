@@ -119,6 +119,52 @@ bool _isPrivateSnodeIp(String ip) {
   return false;
 }
 
+/// Resolve the swarm responsible for [pubkey] by querying known snodes.
+/// Returns a list of "https://ip:port" strings for the responsible swarm.
+/// Cached per-pubkey for the lifetime of the process.
+final Map<String, List<String>> _swarmCache = {};
+
+Future<List<String>> _getSwarm(String pubkey, List<String> askNodes) async {
+  if (_swarmCache.containsKey(pubkey)) return _swarmCache[pubkey]!;
+  final client = _newSnodeClient();
+  try {
+    for (final node in askNodes.take(3)) {
+      try {
+        final res = await client.post(
+          Uri.parse('$node/storage_rpc/v1'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({
+            'method': 'get_swarm',
+            'params': {'pubkey': pubkey},
+          }),
+        ).timeout(const Duration(seconds: 5));
+        if (res.statusCode != 200) continue;
+        final data = jsonDecode(res.body) as Map<String, dynamic>;
+        final snodes = (data['snodes'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+        final urls = <String>[];
+        for (final s in snodes) {
+          final ip = s['ip'] as String? ?? '';
+          final port = s['port'] ?? s['storage_port'];
+          if (ip.isEmpty || port == null) continue;
+          final p = port is int ? port : int.tryParse(port.toString()) ?? -1;
+          if (p < 1 || p > 65535) continue;
+          urls.add('https://$ip:$p');
+        }
+        if (urls.isNotEmpty) {
+          debugPrint('[Session] Swarm for ${pubkey.substring(0, 8)}…: ${urls.length} snodes');
+          _swarmCache[pubkey] = urls;
+          return urls;
+        }
+      } catch (e) {
+        debugPrint('[Session] get_swarm error on $node: $e');
+      }
+    }
+  } finally {
+    client.close();
+  }
+  return [];
+}
+
 // ─── InboxReader ──────────────────────────────────────────────────────────────
 
 /// Polls a Session Network storage snode every 2–300 s and dispatches messages
@@ -202,7 +248,8 @@ class SessionInboxReader implements InboxReader {
   }
 
   Future<void> _runLoop() async {
-    if (_usingDiscovery) {
+    // Always discover snodes for swarm resolution.
+    if (_snodes.isEmpty) {
       for (int attempt = 0; attempt < 10; attempt++) {
         _snodes = await _discoverSnodes();
         if (_snodes.isNotEmpty) break;
@@ -214,6 +261,19 @@ class SessionInboxReader implements InboxReader {
         _circuitBroken = true;
         return;
       }
+    }
+    // Resolve our own swarm — polling random snodes returns 421.
+    if (_sessionId.isNotEmpty) {
+      final swarm = await _getSwarm(_sessionId, _snodes);
+      if (swarm.isNotEmpty) {
+        _snodes = swarm;
+        _snodeIndex = 0;
+        _nodeUrl = swarm.first;
+        debugPrint('[Session] Reader using swarm node: $_nodeUrl');
+      } else if (_usingDiscovery) {
+        _nodeUrl = _snodes[_snodeIndex];
+      }
+    } else if (_usingDiscovery) {
       _nodeUrl = _snodes[_snodeIndex];
     }
 
@@ -286,7 +346,10 @@ class SessionInboxReader implements InboxReader {
       headers: {'Content-Type': 'application/json'},
       body: jsonBody,
     ).timeout(const Duration(seconds: 10));
-    if (res.statusCode != 200) return;
+    if (res.statusCode != 200) {
+      debugPrint('[Session] Poll error ${res.statusCode} from $_nodeUrl');
+      return;
+    }
 
     const maxBodyBytes = 10 * 1024 * 1024; // 10 MB
     if (res.contentLength != null && res.contentLength! > maxBodyBytes) {
@@ -418,9 +481,7 @@ class SessionMessageSender implements MessageSender {
   String _selfSessionId = '';
   List<String> _snodes = [];
 
-  // Session snodes have built-in onion routing — always direct, no proxy.
   http.Client? _httpClient;
-
   http.Client get _client {
     _httpClient ??= _newSnodeClient();
     return _httpClient!;
@@ -430,25 +491,22 @@ class SessionMessageSender implements MessageSender {
   Future<void> initializeSender(String apiKey) async {
     await SessionKeyService.instance.initialize();
     _selfSessionId = SessionKeyService.instance.sessionId;
-    if (apiKey.isNotEmpty) {
-      if (!apiKey.startsWith('https://')) {
-        debugPrint('[Session] Rejected non-HTTPS node URL in sender: $apiKey');
-        return;
-      }
+    if (apiKey.isNotEmpty && apiKey.startsWith('https://')) {
       _nodeUrl = apiKey;
-    } else {
+    }
+    // Always discover snodes for fallback — configured node may be down.
+    if (_snodes.isEmpty) {
       _snodes = await _discoverSnodes();
-      if (_snodes.isNotEmpty) _nodeUrl = _snodes.first;
+      if (_nodeUrl.isEmpty && _snodes.isNotEmpty) _nodeUrl = _snodes.first;
     }
   }
 
   Future<bool> _store(
       String recipientSessionId, Map<String, dynamic> body) async {
-    final candidates = <String>{
-      if (_nodeUrl.isNotEmpty) _nodeUrl,
-      ..._snodes,
-    }.toList();
-    for (final node in candidates) {
+    // Resolve the recipient's swarm first — random snodes return 421.
+    final askNodes = <String>[if (_nodeUrl.isNotEmpty) _nodeUrl, ..._snodes];
+    final swarm = await _getSwarm(recipientSessionId, askNodes);
+    for (final node in swarm.take(3)) {
       if (await _tryStore(node, recipientSessionId, body)) return true;
     }
     return false;
@@ -473,8 +531,13 @@ class SessionMessageSender implements MessageSender {
         Uri.parse(url),
         headers: {'Content-Type': 'application/json'},
         body: jsonBody,
-      ).timeout(const Duration(seconds: 10));
-      return res.statusCode == 200;
+      ).timeout(const Duration(seconds: 5));
+      if (res.statusCode == 200) {
+        debugPrint('[Session] Stored OK on $node');
+        return true;
+      }
+      debugPrint('[Session] Store rejected on $node: ${res.statusCode}');
+      return false;
     } catch (e) {
       debugPrint('[Session] Store error on $node: $e');
       return false;

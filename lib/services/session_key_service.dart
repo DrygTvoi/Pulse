@@ -4,11 +4,40 @@ import 'package:convert/convert.dart';
 import 'package:cryptography/cryptography.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
+/// Convert Ed25519 public key → X25519 public key.
+/// Equivalent to libsodium's crypto_sign_ed25519_pk_to_curve25519.
+/// Formula: u = (1 + y) / (1 - y) mod p, where p = 2^255 - 19.
+Uint8List _ed25519PkToX25519(List<int> edPk) {
+  final p = BigInt.two.pow(255) - BigInt.from(19);
+
+  // Decode y-coordinate (little-endian, clear top bit = sign of x).
+  final yCopy = Uint8List.fromList(edPk);
+  yCopy[31] &= 0x7F;
+  BigInt y = BigInt.zero;
+  for (var i = 31; i >= 0; i--) {
+    y = (y << 8) | BigInt.from(yCopy[i]);
+  }
+
+  // Montgomery u = (1 + y) * modInverse(1 - y) mod p
+  final num_ = (BigInt.one + y) % p;
+  final den = (p + BigInt.one - y) % p; // (1 - y) mod p, avoid negative
+  final u = (num_ * den.modPow(p - BigInt.two, p)) % p;
+
+  // Encode as 32-byte little-endian.
+  final result = Uint8List(32);
+  var val = u;
+  for (var i = 0; i < 32; i++) {
+    result[i] = (val & BigInt.from(0xFF)).toInt();
+    val >>= 8;
+  }
+  return result;
+}
+
 /// Manages Session Network cryptographic identity.
 ///
-/// A single 32-byte random seed derives two keypairs:
-///   Ed25519  — for retrieve-request authentication (pubkey_ed25519 field)
-///   X25519   — for Session ID derivation
+/// A single 32-byte random seed derives an Ed25519 keypair.
+/// The X25519 public key (for Session ID) is converted from the Ed25519
+/// public key, matching libsodium's crypto_sign_ed25519_pk_to_curve25519.
 ///
 /// Session ID = "05" + hex(X25519 public key)  [66 hex chars]
 ///
@@ -38,7 +67,6 @@ class SessionKeyService {
       if (legacySeed != null && legacySeed.length == 64) {
         seedHex = legacySeed;
         await _storage.write(key: _seedKey, value: seedHex);
-        // Keep legacy key for backward compat during transition
       }
     }
 
@@ -51,17 +79,16 @@ class SessionKeyService {
     }
     _seed = hex.decode(seedHex);
 
-    // Derive Session ID from X25519 public key
-    final x25519 = X25519();
-    final xKp = await x25519.newKeyPairFromSeed(_seed);
-    final xPub = await xKp.extractPublicKey();
-    _sessionId = '05${hex.encode(xPub.bytes)}';
-
-    // Cache Ed25519 public key for Session Network retrieve auth
+    // Ed25519 keypair — master identity
     final ed25519 = Ed25519();
     final edKp = await ed25519.newKeyPairFromSeed(_seed);
     final edPub = await edKp.extractPublicKey();
     _ed25519PublicKeyHex = hex.encode(edPub.bytes);
+
+    // Session ID = "05" + X25519 pubkey converted FROM Ed25519 pubkey
+    // (matches libsodium crypto_sign_ed25519_pk_to_curve25519)
+    final x25519Pub = _ed25519PkToX25519(edPub.bytes);
+    _sessionId = '05${hex.encode(x25519Pub)}';
   }
 
   /// Own Session ID — "05" + 32-byte X25519 public key in hex (66 chars).
