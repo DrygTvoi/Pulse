@@ -195,13 +195,21 @@ class _AddContactDialogState extends State<AddContactDialog> {
 
   void _submit() {
     if (_detectedAddresses.isEmpty) return;
-    // Deduplicate to prevent the same address appearing as both primary and alternate.
+    // Deduplicate to prevent the same address appearing twice.
     final uniqueAddrs = _detectedAddresses.toSet().toList();
-    final primaryAddr = uniqueAddrs.first;
-    final alternates = uniqueAddrs.length > 1 ? uniqueAddrs.sublist(1) : <String>[];
-    final provider = _detectProvider(primaryAddr);
+    // Classify addresses into per-transport map.
+    final ta = <String, List<String>>{};
+    for (final addr in uniqueAddrs) {
+      final transport = _detectProvider(addr);
+      (ta[transport] ??= []).add(addr);
+    }
+    // Transport priority: Pulse > Nostr > Session > Firebase (stable order)
+    final tp = ['Pulse', 'Nostr', 'Session', 'Firebase']
+        .where((t) => ta.containsKey(t))
+        .toList();
     String name = _nameController.text.trim();
     if (name.isEmpty) {
+      final primaryAddr = uniqueAddrs.first;
       final atIdx = primaryAddr.indexOf('@');
       final raw = atIdx > 0 ? primaryAddr.substring(0, atIdx) : primaryAddr;
       name = raw.length > 12 ? raw.substring(0, 12) : raw;
@@ -209,10 +217,9 @@ class _AddContactDialogState extends State<AddContactDialog> {
     widget.onAdd(Contact(
       id: const Uuid().v4(),
       name: name,
-      provider: provider,
-      databaseId: primaryAddr,
+      transportAddresses: ta,
+      transportPriority: tp,
       publicKey: '',
-      alternateAddresses: alternates,
     ));
     Navigator.of(context).pop();
   }

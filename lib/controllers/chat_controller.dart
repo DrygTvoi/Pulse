@@ -173,13 +173,7 @@ class ChatController extends ChangeNotifier {
   final StreamController<String> _tamperWarningCtrl = StreamController.broadcast();
   Stream<String> get tamperWarnings => _tamperWarningCtrl.stream;
 
-  // SmartRouter: per-contact delivery success counts (in-memory + persisted).
-  // Key format: "contactId:address" — scoped per-contact so promotions
-  // only happen when a specific contact's primary is consistently failing.
-  final Map<String, int> _deliverySuccessCount = {};
-  static const _kDeliveryStatsKey = 'delivery_stats_v2';
-  static const _kPromotionThreshold = 3; // promote after N alt successes
-  Timer? _deliveryStatsHalveTimer;
+  // (SmartRouter delivery stats removed — transport-priority routing replaces promotion)
 
   // File transfer resume
   final Map<String, ({Contact contact, Uint8List bytes, String name})> _pendingSends = {};
@@ -204,6 +198,7 @@ class ChatController extends ChangeNotifier {
   NostrMessageSender? _cachedNostrSender;
   FirebaseInboxSender? _cachedFirebaseSender;
   SessionMessageSender? _cachedSessionSender;
+  SessionInboxReader? _adhocSessionReader;
   PulseMessageSender? _cachedPulseSender;
   String? _cachedNostrPrivkey;
 
@@ -309,40 +304,37 @@ class ChatController extends ChangeNotifier {
   /// For Nostr, the pubkey is replicated across identity relay + probed relay +
   /// adaptive relay so invite links always contain fresh, reachable routes.
   /// Non-Nostr addresses (Session, etc.) are included as-is.
+  /// Nostr addresses are expanded to cover all known live relays so the
+  /// recipient can reach us on whichever relay works for them.
   List<String> get shareableAddresses {
     if (_identity == null) return allAddresses;
-    if (_identity!.preferredAdapter != 'nostr') return allAddresses;
-    // Extract pubkey from selfId (pubkey@relay format)
-    final atIdx = _selfId.indexOf('@');
-    if (atIdx <= 0) return allAddresses;
-    final pubkey = _selfId.substring(0, atIdx);
 
-    // Collect all known relays, deduplicated.
-    final relays = <String>{};
-    // 1) Identity relay (creation-time)
-    final idRelay = _identity!.adapterConfig['relay'] ?? '';
-    if (idRelay.isNotEmpty) relays.add(idRelay);
-    // 2-4) Relays from SharedPreferences (cached after first _getPrefs call)
-    final p = _prefs;
-    if (p != null) {
-      final nr = p.getString('nostr_relay') ?? '';
-      if (nr.isNotEmpty) relays.add(nr);
-      // 3) Best probed relay
-      final pr = p.getString('probe_nostr_relay') ?? '';
-      if (pr.isNotEmpty) {
-        relays.add(pr.startsWith('ws') ? pr : 'wss://$pr');
+    // Find our Nostr pubkey from any existing Nostr address in _allAddresses.
+    String? nostrPub;
+    for (final addr in _allAddresses) {
+      final wssIdx = addr.indexOf('@wss://');
+      final wsIdx = wssIdx == -1 ? addr.indexOf('@ws://') : -1;
+      final atIdx = wssIdx != -1 ? wssIdx : wsIdx;
+      if (atIdx > 0) {
+        nostrPub = addr.substring(0, atIdx);
+        break;
       }
-      // 4) Best adaptive/CF relay
-      final ar = p.getString('adaptive_cf_relay') ?? '';
-      if (ar.isNotEmpty) relays.add(ar);
+    }
+    // Nostr-primary: extract from selfId
+    if (nostrPub == null && _identity!.preferredAdapter == 'nostr') {
+      final atIdx = _selfId.indexOf('@');
+      if (atIdx > 0) nostrPub = _selfId.substring(0, atIdx);
     }
 
-    // Build Nostr addresses: pubkey@relay for each known relay
+    if (nostrPub == null) return allAddresses;
+
+    // Build Nostr addresses for all known live relays.
+    final relays = _gatherOwnNostrRelays(limit: 3);
     final result = <String>[];
     for (final relay in relays) {
-      result.add('$pubkey@$relay');
+      result.add('$nostrPub@$relay');
     }
-    // Add non-Nostr addresses (Session ID, etc.)
+    // Add non-Nostr addresses (Pulse, Session, etc.)
     for (final addr in _allAddresses) {
       if (!addr.contains('@wss://') && !addr.contains('@ws://')) {
         result.add(addr);
@@ -472,6 +464,11 @@ class ChatController extends ChangeNotifier {
         // without this, events arrive before contact index is populated,
         // causing all decrypt lookups to fail with empty index.
         await _contacts.loadContacts();
+        // Ensure all contacts have Nostr fallback addresses for routing.
+        for (final c in List<Contact>.from(_contacts.contacts)) {
+          final fixed = await _ensureNostrFallback(c);
+          if (!identical(fixed, c)) await _contacts.updateContact(fixed);
+        }
         _invalidateContactIndex();
         debugPrint('[Chat] Loaded ${_contacts.contacts.length} contacts before inbox start');
 
@@ -510,6 +507,8 @@ class ChatController extends ChangeNotifier {
       _cachedFirebaseSender = null;
       _cachedPulseSender = null;
       _cachedSessionSender = null;
+      _adhocSessionReader?.close();
+      _adhocSessionReader = null;
       await _initInbox();
     } finally {
       _reconnecting = false;
@@ -635,13 +634,7 @@ class ChatController extends ChangeNotifier {
     sentryBreadcrumb('Adapter connected: $providerName', category: 'adapter');
     _scheduleNotify();
 
-    // Load delivery stats and start 24h halving timer.
-    unawaited(_loadDeliveryStats());
-    _deliveryStatsHalveTimer?.cancel();
-    _deliveryStatsHalveTimer = Timer.periodic(const Duration(hours: 24), (_) {
-      _deliverySuccessCount.updateAll((_, v) => v ~/ 2);
-      unawaited(_saveDeliveryStats());
-    });
+    // (Delivery stats removed — transport-priority routing replaces promotion)
 
     // Republish Signal bundle whenever a preKey is consumed.
     _signalService.onPreKeyConsumed = () => unawaited(_republishKeys());
@@ -778,8 +771,13 @@ class ChatController extends ChangeNotifier {
           final nodeUrl = prefs.getString('session_node_url') ?? prefs.getString('oxen_node_url') ?? '';
           final sessionReader = await InboxManager().createAdhocReader('Session', nodeUrl, sessId);
           if (sessionReader != null) {
+            _adhocSessionReader = sessionReader as SessionInboxReader;
             _messageSubs.add(sessionReader.listenForMessages().listen(_handleIncomingMessages));
             _signalSubs.add(sessionReader.listenForSignals().listen(_signalDispatcher!.dispatch));
+            // Remove any stale Session IDs from secondary adapters — only
+            // SessionKeyService's ID is real (derived from current seed).
+            newAddresses.removeWhere((a) =>
+                a != sessId && RegExp(r'^05[0-9a-fA-F]{64}$').hasMatch(a));
             newAddresses.add(sessId);
             _adapterHealth[sessId] = true;
             _healthSubs.add(sessionReader.healthChanges.listen((h) => _onAdapterHealthChange(sessId, h)));
@@ -792,32 +790,60 @@ class ChatController extends ChangeNotifier {
       }
     }
 
+    // Auto-register Nostr inbox if we have a Nostr key but primary isn't Nostr.
+    // Subscribe on multiple relays (default + probe results) for redundancy.
+    if (_identity!.preferredAdapter != 'nostr') {
+      try {
+        final nostrPriv = await _secureStorage.read(key: 'nostr_privkey') ?? '';
+        if (nostrPriv.isNotEmpty &&
+            !newAddresses.any((a) => a.contains('@wss://') || a.contains('@ws://'))) {
+          final nostrPub = deriveNostrPubkeyHex(nostrPriv);
+          const primaryRelay = _kDefaultNostrRelay;
+          final apiKey = jsonEncode({'privkey': nostrPriv, 'relay': primaryRelay});
+          final nostrReader = await InboxManager().createAdhocReader('Nostr', apiKey, primaryRelay);
+          if (nostrReader != null) {
+            _messageSubs.add(nostrReader.listenForMessages().listen(_handleIncomingMessages));
+            _signalSubs.add(nostrReader.listenForSignals().listen(_signalDispatcher!.dispatch));
+            // Subscribe to additional probed relays as secondary (up to 2 more).
+            // These are subscribed for receiving but NOT added to _allAddresses
+            // until we confirm they actually connect (dead relays get filtered out).
+            final secondaryRelays = <String>[];
+            if (nostrReader is NostrInboxReader) {
+              final probeRelays = ConnectivityProbeService.instance.lastResult.nostrRelays;
+              for (final r in probeRelays) {
+                if (secondaryRelays.length >= 2) break;
+                final relay = r.startsWith('ws') ? r : 'wss://$r';
+                if (relay == primaryRelay) continue;
+                nostrReader.addSecondaryRelay(relay);
+                secondaryRelays.add(relay);
+              }
+            }
+            // Only register primary address now. Secondary addresses are added
+            // after we confirm they connect (via _updateNostrSecondaryAddresses).
+            newAddresses.add('$nostrPub@$primaryRelay');
+            _adapterHealth['$nostrPub@$primaryRelay'] = true;
+            _healthSubs.add(nostrReader.healthChanges.listen((h) =>
+                _onAdapterHealthChange('$nostrPub@$primaryRelay', h)));
+            unawaited(_keys.publishKeysToAdapter('Nostr', apiKey, '$nostrPub@$primaryRelay'));
+            // After a short delay, check which secondaries actually connected
+            // and add their addresses.
+            if (secondaryRelays.isNotEmpty) {
+              Future.delayed(const Duration(seconds: 8), () {
+                _addConnectedSecondaryRelays(nostrPub, nostrReader, secondaryRelays);
+              });
+            }
+            debugPrint('[Chat] Auto-registered Nostr inbox: $primaryRelay + ${secondaryRelays.length} secondary pending');
+          }
+        }
+      } catch (e) {
+        debugPrint('[Chat] Failed to auto-register Nostr inbox: $e');
+      }
+    }
+
     // Assign all addresses atomically so concurrent readers see a complete list.
     _allAddresses = newAddresses;
 
-    // One-time fix: revert contacts wrongly promoted to Session back to
-    // their first Pulse/Nostr alternate (lightweight — no room/session migration).
-    for (final c in _contacts.contacts) {
-      if (c.provider == 'Session' && c.alternateAddresses.isNotEmpty) {
-        final pulseAlt = c.alternateAddresses.firstWhere(
-          (a) => _providerFromAddress(a) == 'Pulse' || _providerFromAddress(a) == 'Nostr',
-          orElse: () => '',
-        );
-        if (pulseAlt.isNotEmpty) {
-          debugPrint('[Fix] Reverting ${c.name} from Session to ${_providerFromAddress(pulseAlt)}');
-          final alts = [...c.alternateAddresses];
-          alts.remove(pulseAlt);
-          alts.insert(0, c.databaseId);
-          final fixed = c.copyWith(
-            databaseId: pulseAlt,
-            provider: _providerFromAddress(pulseAlt),
-            alternateAddresses: alts,
-          );
-          await _contacts.updateContact(fixed);
-          _repo.updateRoomContact(fixed);
-        }
-      }
-    }
+    // (Session→Pulse revert removed — transport-priority routing eliminates cross-transport promotion)
 
     // LAN fallback
     _lanReader?.close();
@@ -949,8 +975,9 @@ class ChatController extends ChangeNotifier {
         return (sender: _cachedFirebaseSender!, apiKey: token);
       case 'Nostr':
         final privkey = await _getNostrPrivkey();
-        final prefs = await _getPrefs();
-        final relay = prefs.getString('nostr_relay') ?? _kDefaultNostrRelay;
+        // Use identity relay when Nostr is primary, otherwise default.
+        // Don't read 'nostr_relay' pref — it may contain a stale probe value.
+        final relay = _identity!.adapterConfig['relay'] ?? _kDefaultNostrRelay;
         _cachedNostrSender ??= NostrMessageSender();
         return (sender: _cachedNostrSender!,
                 apiKey: jsonEncode({'privkey': privkey, 'relay': relay}));
@@ -981,52 +1008,39 @@ class ChatController extends ChangeNotifier {
   }
 
   /// Centralised helper: init sender for contact's provider and send a signal.
+  /// Uses transport-priority routing: iterates transports in order, stops on first success.
   Future<bool> _sendSignalTo(Contact contact, String type, Map<String, dynamic> payload) async {
     if (_identity == null || _selfId.isEmpty) return false;
-    // Try primary provider
-    try {
-      final built = await _buildSenderFor(contact);
-      if (built != null) {
-        await built.sender.initializeSender(built.apiKey);
-        var signedPayload = payload;
-        if (contact.provider != 'Nostr') {
-          signedPayload = await _signPayload(contact, type, payload);
-        }
-        // PQC wrap
-        Map<String, dynamic> finalPayload = signedPayload;
-        if (await _keys.hasPqcKeyAsync(contact.databaseId)) {
-          try {
-            final wrapped = await _keys.pqcWrap(jsonEncode(signedPayload), contact.databaseId);
-            if (wrapped.startsWith('PQC2||')) finalPayload = {'_pqc_wrapped': wrapped};
-          } catch (e) {
-            debugPrint('[Chat] PQC signal wrap failed: $e');
-          }
-        }
-        await built.sender.sendSignal(
-            contact.databaseId, contact.databaseId, _selfId, type, finalPayload);
-        return true;
-      }
-    } catch (e) {
-      debugPrint('[ChatController] Signal $type to ${contact.name} failed: $e');
-    }
-    // Fallback: try alternate addresses (PQC wrap once for all alternates)
-    Map<String, dynamic> altPayload = payload;
+    final prefs = await _getPrefs();
+    final devModeOn = prefs.getBool('dev_mode_enabled') ?? false;
+    // PQC wrap once for all attempts
+    Map<String, dynamic> effectivePayload = payload;
     if (await _keys.hasPqcKeyAsync(contact.databaseId)) {
       try {
         final wrapped = await _keys.pqcWrap(jsonEncode(payload), contact.databaseId);
-        if (wrapped.startsWith('PQC2||')) altPayload = {'_pqc_wrapped': wrapped};
+        if (wrapped.startsWith('PQC2||')) effectivePayload = {'_pqc_wrapped': wrapped};
       } catch (e) {
-        debugPrint('[Chat] PQC signal wrap (alt) failed: $e');
+        debugPrint('[Chat] PQC signal wrap failed: $e');
       }
     }
-    for (final alt in contact.alternateAddresses) {
-      try {
-        final ok = await _deliverSignalViaAddress(alt, type, altPayload);
-        if (ok) {
-          debugPrint('[ChatController] Signal $type delivered via alternate: $alt');
-          return true;
+    for (final transport in contact.transportPriority) {
+      if (devModeOn && !(prefs.getBool('dev_adapter_$transport') ?? true)) continue;
+      final addresses = contact.transportAddresses[transport] ?? [];
+      for (final addr in addresses) {
+        try {
+          var signedPayload = effectivePayload;
+          if (transport != 'Nostr') {
+            signedPayload = await _signPayload(contact, type, effectivePayload);
+          }
+          final ok = await _deliverSignalViaAddress(addr, type, signedPayload);
+          if (ok) {
+            debugPrint('[ChatController] Signal $type delivered via $transport: $addr');
+            return true;
+          }
+        } catch (e) {
+          debugPrint('[ChatController] Signal $type to $addr failed: $e');
         }
-      } catch (_) {}
+      }
     }
     return false;
   }
@@ -1047,7 +1061,7 @@ class ChatController extends ChangeNotifier {
       return _cachedPulseSender!.sendSignal(address, address, _selfId, type, payload);
     } else if (provider == 'Nostr') {
       final privkey = await _getNostrPrivkey();
-      final relay = prefs.getString('nostr_relay') ?? _kDefaultNostrRelay;
+      final relay = _identity?.adapterConfig['relay'] ?? _kDefaultNostrRelay;
       final sender = NostrMessageSender();
       await sender.initializeSender(jsonEncode({'privkey': privkey, 'relay': relay}));
       return sender.sendSignal(address, address, _selfId, type, payload);
@@ -1353,13 +1367,13 @@ class ChatController extends ChangeNotifier {
 
     _dispatcherSubs.add(d.addrUpdates.listen((e) async {
       final addrContact = e.contact;
-      final primary = e.primary;
-      final all = e.all;
+      final payload = e.rawPayload;
       // F3/F4-4: Validate relay addresses — only wss:// and no private IPs.
-      // Without this an attacker can inject http://attacker.com as an alternate,
-      // causing SmartRouter to fall back to the attacker's logging server.
       bool isValidAltAddr(String addr) {
         final lower = addr.toLowerCase();
+        // Session addresses (66-char hex) are always valid
+        if (lower.startsWith('05') && lower.length == 66 &&
+            RegExp(r'^[0-9a-f]{66}$').hasMatch(lower)) return true;
         if (!lower.contains('@wss://') && !lower.contains('@ws://') &&
             !lower.contains('@https://') && !lower.contains('@http://')) return false;
         try {
@@ -1382,36 +1396,64 @@ class ChatController extends ChangeNotifier {
         } catch (_) { return false; }
         return true;
       }
-      // F2 fix: validate the new primary Nostr address before promoting it to
-      // databaseId. An attacker who can forge/replay an addr_update could point
-      // the contact's primary to an internal relay (SSRF).
-      if (primary.toLowerCase().contains('@wss://') ||
-          primary.toLowerCase().contains('@ws://') ||
-          primary.toLowerCase().contains('@https://') ||
-          primary.toLowerCase().contains('@http://')) {
-        if (!isValidAltAddr(primary)) {
-          debugPrint('[ChatController] addr_update: invalid primary $primary, ignoring');
+
+      Contact updated;
+      debugPrint('[ChatController] addr_update payload keys: ${payload.keys.toList()}'
+          '${payload.containsKey('transportAddresses') ? ' ta=${payload['transportAddresses']}' : ''}'
+          ' all=${(payload['all'] as List?)?.length ?? 0}');
+      if (payload.containsKey('transportAddresses') && payload['transportAddresses'] is Map) {
+        // ── New format: per-transport address map ────────────────────────
+        final rawTa = payload['transportAddresses'] as Map;
+        final ta = <String, List<String>>{};
+        for (final entry in rawTa.entries) {
+          final transport = entry.key as String;
+          final addrs = (entry.value as List).whereType<String>().where(isValidAltAddr).toList();
+          if (addrs.isNotEmpty) ta[transport] = addrs;
+        }
+        final tp = (payload['transportPriority'] as List?)?.whereType<String>().toList()
+            ?? ta.keys.toList();
+        if (ta.isEmpty) {
+          debugPrint('[ChatController] addr_update: empty transportAddresses, ignoring');
           return;
         }
+        updated = addrContact.copyWith(
+          transportAddresses: ta,
+          transportPriority: tp,
+        );
+      } else {
+        // ── Old format: primary + all flat list → build transport map ────
+        final primary = e.primary;
+        final all = e.all;
+        if (primary.toLowerCase().contains('@wss://') ||
+            primary.toLowerCase().contains('@ws://') ||
+            primary.toLowerCase().contains('@https://') ||
+            primary.toLowerCase().contains('@http://')) {
+          if (!isValidAltAddr(primary)) {
+            debugPrint('[ChatController] addr_update: invalid primary $primary, ignoring');
+            return;
+          }
+        }
+        final allAddrs = <String>{primary, ...all.where(isValidAltAddr)};
+        final ta = _buildTransportMap(allAddrs.toList());
+        final primaryTransport = _providerFromAddress(primary);
+        final tp = [primaryTransport, ...ta.keys.where((t) => t != primaryTransport)];
+        updated = addrContact.copyWith(
+          transportAddresses: ta,
+          transportPriority: tp,
+        );
       }
-      final alts = <String>{...addrContact.alternateAddresses};
-      if (addrContact.databaseId.isNotEmpty && addrContact.databaseId != primary) {
-        alts.add(addrContact.databaseId);
+      // Save Nostr secp256k1 pubkey if provided (needed for HMAC signing
+      // even when contact has no Nostr relay address).
+      final nostrPub = payload['nostrPubkey'] as String?;
+      if (nostrPub != null && nostrPub.isNotEmpty) {
+        updated = updated.copyWith(publicKey: nostrPub);
       }
-      alts.addAll(all.where((a) => a != primary && isValidAltAddr(a)));
-      alts.remove(primary);
-      // F5 fix: cap alternate addresses to prevent unbounded list growth.
-      const maxAlts = 20;
-      final updated = addrContact.copyWith(
-        databaseId: primary,
-        provider: _providerFromAddress(primary),
-        alternateAddresses: alts.length > maxAlts
-            ? alts.take(maxAlts).toList()
-            : alts.toList(),
-      );
+      // Ensure the contact has a Nostr fallback address for routing.
+      updated = await _ensureNostrFallback(updated);
       await _contacts.updateContact(updated);
       _invalidateContactIndex();
-      debugPrint('[ChatController] addr_update: ${addrContact.name} → $primary');
+      debugPrint('[ChatController] addr_update: ${addrContact.name} → ${updated.databaseId}'
+          ' session=${updated.transportAddresses['Session'] ?? []}');
       _scheduleNotify();
     }));
 
@@ -2162,60 +2204,36 @@ class ChatController extends ChangeNotifier {
       adapterType: contactAdapterType,
     );
 
-    if (contact.provider != 'Firebase' && contact.provider != 'Nostr' &&
-        contact.provider != 'Session' && contact.provider != 'Pulse') {
-      debugPrint('[ChatController] Unknown provider "${contact.provider}" for ${contact.name}');
-      final idx2 = _repo.messageIndexById(contact.id, msg.id);
-      final failedMsg2 = localMsg.copyWith(status: 'failed');
-      if (idx2 != -1) room.messages[idx2] = failedMsg2;
-      await LocalStorageService().saveMessage(contact.storageKey, failedMsg2.toJson());
-      notifyListeners();
-      return;
-    }
-
     debugPrint('[Send] Routing to ${contact.name}...');
     await _addSenderPlugin(contact);
-    // Dev mode: skip primary if adapter is disabled.
     final _devPrefs = await _getPrefs();
-    final _devDisabled = (_devPrefs.getBool('dev_mode_enabled') ?? false) &&
-        !(_devPrefs.getBool('dev_adapter_${contact.provider}') ?? true);
-    bool sent;
-    if (_devDisabled) {
-      sent = false;
-      debugPrint('[Dev] Adapter ${contact.provider} disabled — skipping primary send');
-    } else if (!contact.isGroup && P2PTransportService.instance.isConnected(contact.id)) {
+    final devModeOn = _devPrefs.getBool('dev_mode_enabled') ?? false;
+
+    // Transport-priority routing: iterate transports in priority order,
+    // try each address within a transport before moving to the next transport.
+    bool sent = false;
+
+    // P2P shortcut — try direct connection first regardless of transport.
+    if (!contact.isGroup && P2PTransportService.instance.isConnected(contact.id)) {
       sent = P2PTransportService.instance.send(contact.id, msg.encryptedPayload);
       if (sent) debugPrint('[P2P] Direct delivery to ${contact.name}');
-    } else {
-      sent = await InboxManager().routeMessage(
-          contact.provider, contact.databaseId, contact.databaseId, msg);
-      // P2P auto-connect disabled: createPeerConnection triggers SIGSEGV in
-      // native flutter_webrtc CreateIceServers on Linux. P2P still works for
-      // calls (user-initiated) and when the peer sends an offer first.
-      // TODO: re-enable when flutter_webrtc fixes the native ICE server bug.
     }
 
-    // SmartRouter: try alternate addresses when primary fails.
-    if (!sent && contact.alternateAddresses.isNotEmpty) {
-      final order = [...contact.alternateAddresses];
-      order.shuffle();
-      order.sort((a, b) =>
-          (_deliverySuccessCount['${contact.id}:$b'] ?? 0)
-              .compareTo(_deliverySuccessCount['${contact.id}:$a'] ?? 0));
-      for (final alt in order) {
-        debugPrint('[SmartRouter] Primary failed, trying alternate: $alt');
-        sent = await _deliverEncryptedMessage(alt, msg);
-        if (sent) {
-          debugPrint('[SmartRouter] Delivered via alternate: $alt');
-          final key = '${contact.id}:$alt';
-          _deliverySuccessCount[key] = (_deliverySuccessCount[key] ?? 0) + 1;
-          unawaited(_saveDeliveryStats());
-          if ((_deliverySuccessCount[key] ?? 0) >= _kPromotionThreshold &&
-              !contact.isGroup) {
-            unawaited(_promoteContactAddress(contact, alt));
-          }
-          break;
+    if (!sent) {
+      for (final transport in contact.transportPriority) {
+        if (devModeOn && !(_devPrefs.getBool('dev_adapter_$transport') ?? true)) {
+          debugPrint('[Dev] Adapter $transport disabled — skipping');
+          continue;
         }
+        final addresses = contact.transportAddresses[transport] ?? [];
+        for (final addr in addresses) {
+          sent = await _deliverEncryptedMessage(addr, msg);
+          if (sent) {
+            debugPrint('[SmartRouter] Delivered via $transport: $addr');
+            break;
+          }
+        }
+        if (sent) break;
       }
     }
 
@@ -2246,6 +2264,106 @@ class ChatController extends ChangeNotifier {
     return 'Nostr';
   }
 
+  /// After a delay, add secondary relay addresses that successfully connected.
+  void _addConnectedSecondaryRelays(
+      String nostrPub, InboxReader reader, List<String> candidates) {
+    if (reader is! NostrInboxReader) return;
+    final connected = reader.connectedSecondaryRelays;
+    var added = 0;
+    for (final relay in candidates) {
+      if (connected.contains(relay)) {
+        final addr = '$nostrPub@$relay';
+        if (!_allAddresses.contains(addr)) {
+          _allAddresses.add(addr);
+          added++;
+        }
+      }
+    }
+    if (added > 0) {
+      debugPrint('[Chat] Added $added connected secondary Nostr relays to addresses');
+      // Re-run contact fallback with the new relay set
+      _refreshContactNostrFallback();
+    }
+  }
+
+  /// Refresh Nostr fallback addresses for all contacts using current relay set.
+  void _refreshContactNostrFallback() {
+    unawaited(() async {
+      for (final c in List<Contact>.from(_contacts.contacts)) {
+        final fixed = await _ensureNostrFallback(c);
+        if (!identical(fixed, c)) await _contacts.updateContact(fixed);
+      }
+    }());
+  }
+
+  /// Gather our own Nostr relay URLs from addresses we're actually subscribed to.
+  /// Used for auto-registration, shareable addresses, and contact fallback.
+  List<String> _gatherOwnNostrRelays({int limit = 3}) {
+    final seen = <String>{};
+    final result = <String>[];
+    void _add(String relay) {
+      if (relay.isEmpty) return;
+      if (!relay.startsWith('ws://') && !relay.startsWith('wss://')) {
+        relay = 'wss://$relay';
+      }
+      if (seen.add(relay)) result.add(relay);
+    }
+    // 1) Hardcoded default — always reachable, always first
+    _add(_kDefaultNostrRelay);
+    // 2) Identity config relay (if Nostr-primary user configured one)
+    _add(_identity?.adapterConfig['relay'] ?? '');
+    // 3) Relays we're actually connected to (from our own addresses)
+    for (final addr in _allAddresses) {
+      if (result.length >= limit) break;
+      final wssIdx = addr.indexOf('@wss://');
+      final wsIdx = wssIdx == -1 ? addr.indexOf('@ws://') : -1;
+      final atIdx = wssIdx != -1 ? wssIdx : wsIdx;
+      if (atIdx > 0) _add(addr.substring(atIdx + 1));
+    }
+    // 4) Ensure at least default is present
+    if (result.isEmpty) result.add(_kDefaultNostrRelay);
+    return result.take(limit).toList();
+  }
+
+  /// Classify a flat address list into a per-transport map.
+  static Map<String, List<String>> _buildTransportMap(List<String> addresses) {
+    final map = <String, List<String>>{};
+    for (final addr in addresses) {
+      if (addr.isEmpty) continue;
+      final transport = _providerFromAddress(addr);
+      (map[transport] ??= []).add(addr);
+    }
+    return map;
+  }
+
+  static final _hex64 = RegExp(r'^[0-9a-f]{64}$');
+
+  /// Ensure a contact has Nostr fallback addresses on all our known live relays.
+  /// This guarantees Nostr is always available as a transport even when the contact
+  /// was originally added with only Pulse/Session addresses.
+  Future<Contact> _ensureNostrFallback(Contact contact) async {
+    if (contact.publicKey.isEmpty || !_hex64.hasMatch(contact.publicKey)) {
+      return contact;
+    }
+    final relays = _gatherOwnNostrRelays(limit: 3);
+    final desired = relays.map((r) => '${contact.publicKey}@$r').toList();
+    final existing = contact.transportAddresses['Nostr'] ?? [];
+    // Check if already up to date (same set)
+    final desiredSet = desired.toSet();
+    if (existing.length == desired.length &&
+        existing.toSet().containsAll(desiredSet)) return contact;
+    // Replace with our known-good relay addresses.
+    // Contact-sent addresses arrive via addr_update and will be merged there.
+    final ta = Map<String, List<String>>.from(
+      contact.transportAddresses.map((k, v) => MapEntry(k, List<String>.from(v))),
+    );
+    ta['Nostr'] = desired;
+    final tp = List<String>.from(contact.transportPriority);
+    if (!tp.contains('Nostr')) tp.add('Nostr');
+    debugPrint('[Chat] Nostr fallback for ${contact.name}: ${desired.length} relays');
+    return contact.copyWith(transportAddresses: ta, transportPriority: tp);
+  }
+
   Future<bool> _deliverEncryptedMessage(String address, Message msg) async {
     if (_identity == null) return false;
     final provider = _providerFromAddress(address);
@@ -2273,7 +2391,7 @@ class ChatController extends ChangeNotifier {
       final atIdx = address.indexOf('@');
       final relay = atIdx != -1
           ? address.substring(atIdx + 1)
-          : prefs.getString('nostr_relay') ?? _kDefaultNostrRelay;
+          : _identity?.adapterConfig['relay'] ?? _kDefaultNostrRelay;
       _cachedNostrSender ??= NostrMessageSender();
       await InboxManager().addSenderPlugin('Nostr', _cachedNostrSender!,
           jsonEncode({'privkey': privkey, 'relay': relay}));
@@ -2378,48 +2496,39 @@ class ChatController extends ChangeNotifier {
       adapterType: routeProvider.toLowerCase(),
     );
     await _addSenderPlugin(contact);
-    // Dev mode: skip primary if adapter is disabled.
     final devPrefs = await _getPrefs();
-    final devDisabled = (devPrefs.getBool('dev_mode_enabled') ?? false) &&
-        !(devPrefs.getBool('dev_adapter_$routeProvider') ?? true);
+    final devModeOn = devPrefs.getBool('dev_mode_enabled') ?? false;
+
+    // Transport-priority routing: iterate transports in priority order,
+    // try each address within a transport before moving to the next.
     bool sent = false;
-    if (devDisabled) {
-      debugPrint('[Dev] Adapter $routeProvider disabled — skipping primary send');
-    } else if (!contact.isGroup && P2PTransportService.instance.isConnected(contact.id)) {
+
+    // P2P shortcut
+    if (!contact.isGroup && P2PTransportService.instance.isConnected(contact.id)) {
       sent = P2PTransportService.instance.send(contact.id, msg.encryptedPayload);
       if (sent) debugPrint('[P2P] Direct delivery to ${contact.name}');
     }
-    if (!sent && !devDisabled) {
-      sent = await InboxManager().routeMessage(
-          routeProvider, contact.databaseId, contact.databaseId, msg);
-    }
 
-    if (!sent && contact.alternateAddresses.isNotEmpty) {
-      final order = [...contact.alternateAddresses];
-      order.shuffle();
-      // Sort by per-contact delivery success count (highest first).
-      order.sort((a, b) =>
-          (_deliverySuccessCount['${contact.id}:$b'] ?? 0)
-              .compareTo(_deliverySuccessCount['${contact.id}:$a'] ?? 0));
-      for (final alt in order) {
-        debugPrint('[SmartRouter] Primary failed, trying alternate: $alt');
-        sent = await _deliverEncryptedMessage(alt, msg);
-        if (sent) {
-          debugPrint('[SmartRouter] Delivered via alternate: $alt');
-          final key = '${contact.id}:$alt';
-          _deliverySuccessCount[key] = (_deliverySuccessCount[key] ?? 0) + 1;
-          unawaited(_saveDeliveryStats());
-          // Promote alternate to primary after threshold consecutive successes.
-          if ((_deliverySuccessCount[key] ?? 0) >= _kPromotionThreshold &&
-              !contact.isGroup) {
-            unawaited(_promoteContactAddress(contact, alt));
-          }
-          break;
+    if (!sent) {
+      for (final transport in contact.transportPriority) {
+        if (devModeOn && !(devPrefs.getBool('dev_adapter_$transport') ?? true)) {
+          debugPrint('[Dev] Adapter $transport disabled — skipping');
+          continue;
         }
+        final addresses = contact.transportAddresses[transport] ?? [];
+        for (final addr in addresses) {
+          sent = await _deliverEncryptedMessage(addr, msg);
+          if (sent) {
+            debugPrint('[SmartRouter] Delivered via $transport: $addr');
+            break;
+          }
+        }
+        if (sent) break;
       }
     }
 
-    final lanDisabled = (devPrefs.getBool('dev_mode_enabled') ?? false) &&
+    // LAN last resort
+    final lanDisabled = devModeOn &&
         !(devPrefs.getBool('dev_adapter_LAN') ?? true);
     if (!sent && _lanSender != null && !lanDisabled) {
       sent = await _lanSender!.sendMessage('', '', msg);
@@ -3247,8 +3356,23 @@ class ChatController extends ChangeNotifier {
   Future<void> broadcastProfile(String name, String about, {String avatarB64 = ''}) =>
       _broadcaster.broadcastProfile(name, about, _contacts.contacts, avatarB64: avatarB64);
 
-  Future<void> broadcastAddressUpdate() =>
-      _broadcaster.broadcastAddressUpdate(_contacts.contacts, _selfId, _allAddresses);
+  Future<void> broadcastAddressUpdate() async {
+    // Build per-transport address map from our own addresses
+    final selfTa = _buildTransportMap(_allAddresses);
+    final selfTp = ['Pulse', 'Nostr', 'Session', 'Firebase']
+        .where((t) => selfTa.containsKey(t))
+        .toList();
+    // Include our Nostr secp256k1 pubkey so contacts can do HMAC signing
+    // even if we don't have a Nostr relay address.
+    final privkey = await _getNostrPrivkey();
+    final nostrPub = privkey.isNotEmpty ? deriveNostrPubkeyHex(privkey) : null;
+    return _broadcaster.broadcastAddressUpdate(
+      _contacts.contacts, _selfId, _allAddresses,
+      selfTransportAddresses: selfTa,
+      selfTransportPriority: selfTp,
+      nostrPubkey: nostrPub,
+    );
+  }
 
   Future<void> broadcastWorkingRelays() =>
       _broadcaster.broadcastWorkingRelays(_contacts.contacts);
@@ -3402,65 +3526,7 @@ class ChatController extends ChangeNotifier {
     _scheduleNotify();
   }
 
-  // ── SmartRouter: per-contact address promotion ───────────────────────────
-
-  /// Promote [newPrimary] to the contact's main address (databaseId),
-  /// migrating Signal session + message history so nothing breaks.
-  Future<void> _promoteContactAddress(Contact contact, String newPrimary) async {
-    final oldPrimary = contact.databaseId;
-    if (newPrimary == oldPrimary) return;
-    // Never promote to Session — experimental, not reliable enough for primary.
-    if (newPrimary.length == 66 && newPrimary.startsWith('05')) {
-      debugPrint('[SmartRouter] Skipping Session promotion for ${contact.name}');
-      return;
-    }
-    debugPrint('[SmartRouter] Promoting $newPrimary → primary for ${contact.name} '
-        '(was $oldPrimary)');
-
-    // 1. Migrate Signal session from old address to new.
-    await _signalService.migrateSession(oldPrimary, newPrimary);
-
-    // 2. Migrate message history (room_id = storageKey = databaseId for DMs).
-    await LocalStorageService().migrateRoomId(oldPrimary, newPrimary);
-
-    // 3. Swap: newPrimary becomes databaseId, oldPrimary goes into alternates.
-    final updatedAlts = [...contact.alternateAddresses];
-    updatedAlts.remove(newPrimary);
-    updatedAlts.insert(0, oldPrimary); // old primary at the front for easy fallback
-
-    // Determine provider string for the new address.
-    final newProvider = _providerForAddress(newPrimary) ?? contact.provider;
-
-    final updated = contact.copyWith(
-      databaseId: newPrimary,
-      provider: newProvider,
-      alternateAddresses: updatedAlts,
-    );
-    await _contacts.updateContact(updated);
-
-    // 4. Reset per-contact delivery stats so we don't immediately re-promote.
-    _deliverySuccessCount.removeWhere((k, _) => k.startsWith('${contact.id}:'));
-    unawaited(_saveDeliveryStats());
-
-    // 5. Update in-memory room reference so new messages use the correct key.
-    _repo.updateRoomContact(updated);
-
-    debugPrint('[SmartRouter] Promotion complete: ${contact.name} → $newPrimary');
-  }
-
-  /// Infer the provider string ("Nostr", "Session", "Firebase", etc.) from an address.
-  String? _providerForAddress(String addr) {
-    if (addr.contains('@wss://') || addr.contains('@ws://')) return 'Nostr';
-    if (addr.contains('@https://') || addr.contains('@http://')) {
-      if (addr.contains('firebaseio.com') || addr.contains('firebase')) {
-        return 'Firebase';
-      }
-      return 'Waku';
-    }
-    if (addr.length == 66 && addr.startsWith('05')) return 'Session';
-    if (addr.contains('pulse://') || addr.contains('@pulse://')) return 'Pulse';
-    return null;
-  }
+  // (SmartRouter per-contact promotion removed — transport-priority routing replaces it)
 
   // ── Reactions ─────────────────────────────────────────────────────────────
 
@@ -3899,32 +3965,7 @@ class ChatController extends ChangeNotifier {
     debugPrint('[P2P] File transfer started: $name ($total frames) from $contactId');
   }
 
-  // ── SmartRouter delivery stats ────────────────────────────────────────────
-
-  Future<void> _loadDeliveryStats() async {
-    try {
-      final prefs = await _getPrefs();
-      final raw = prefs.getString(_kDeliveryStatsKey);
-      if (raw == null) return;
-      final map = jsonDecode(raw) as Map<String, dynamic>;
-      _deliverySuccessCount.clear();
-      map.forEach((k, v) {
-        if (v is int) _deliverySuccessCount[k] = v;
-      });
-    } catch (e) {
-      debugPrint('[SmartRouter] Failed to load delivery stats: $e');
-    }
-  }
-
-  Future<void> _saveDeliveryStats() async {
-    try {
-      final prefs = await _getPrefs();
-      await prefs.setString(
-          _kDeliveryStatsKey, jsonEncode(Map<String, int>.from(_deliverySuccessCount)));
-    } catch (e) {
-      debugPrint('[SmartRouter] Failed to save delivery stats: $e');
-    }
-  }
+  // (SmartRouter delivery stats removed — transport-priority routing replaces promotion)
 
   // ── Connection Reset ──────────────────────────────────────────────────────
 
@@ -3983,7 +4024,7 @@ class ChatController extends ChangeNotifier {
     for (final t in _retryTimers.values) { t.cancel(); }
     _retryTimers.clear();
     _repo.dispose();
-    _deliveryStatsHalveTimer?.cancel();
+    // (_deliveryStatsHalveTimer removed)
     _stallCheckTimer?.cancel();
     _typingStreamCtrl.close();
     _incomingCallController.close();
@@ -4005,6 +4046,8 @@ class ChatController extends ChangeNotifier {
     _cachedNostrPrivkey = null;
     _cachedFirebaseSender = null;
     _cachedSessionSender = null;
+    _adhocSessionReader?.close();
+    _adhocSessionReader = null;
     _cachedPulseSender = null;
     _contactIndex = null;
     unawaited(VoiceService().dispose());

@@ -172,19 +172,30 @@ class SignalBroadcaster {
   }
 
   Future<void> broadcastAddressUpdate(
-      List<Contact> contacts, String selfId, List<String> allAddresses) async {
+      List<Contact> contacts, String selfId, List<String> allAddresses,
+      {Map<String, List<String>>? selfTransportAddresses,
+       List<String>? selfTransportPriority,
+       String? nostrPubkey}) async {
     if (selfId.isEmpty || allAddresses.isEmpty) return;
     final payload = <String, dynamic>{
+      // New format: per-transport address map
+      if (selfTransportAddresses != null)
+        'transportAddresses': selfTransportAddresses,
+      if (selfTransportPriority != null)
+        'transportPriority': selfTransportPriority,
+      // Nostr secp256k1 pubkey for HMAC signing (may differ from Pulse pubkey)
+      if (nostrPubkey != null && nostrPubkey.isNotEmpty)
+        'nostrPubkey': nostrPubkey,
+      // Backward compat: flat address list for old clients
       'primary': selfId,
       'all': allAddresses,
     };
     final targets = contacts.where((c) => !c.isGroup).toList();
-    // addr_update is critical — send via ALL transports (primary + alternates)
-    // so the receiver gets it even if one transport is down.
+    // addr_update is critical — send via ALL transports so the receiver gets it.
     await Future.wait(targets.map((c) => _sendSignalToAll(c, 'addr_update', payload)));
   }
 
-  /// Send a signal via ALL available transports for a contact (primary + alternates).
+  /// Send a signal via ALL available transports for a contact.
   /// Used for critical signals like addr_update that must reach the recipient.
   Future<void> _sendSignalToAll(
       Contact contact, String type, Map<String, dynamic> payload) async {
@@ -193,7 +204,6 @@ class SignalBroadcaster {
     if (identity == null || selfId.isEmpty) return;
 
     // Pre-sign the payload once — used for non-Nostr transports.
-    // Nostr transports ignore the extra _sig/_spk fields (Schnorr-verified).
     Map<String, dynamic>? signedPayload;
     try {
       final privkey = await _secureStorage.read(key: 'nostr_privkey') ?? '';
@@ -205,31 +215,26 @@ class SignalBroadcaster {
     final effectivePayload =
         await _maybePqcWrap(signedPayload ?? payload, contact.databaseId);
 
-    // Try primary
-    try {
-      final built = await _buildSenderFor(contact);
-      if (built != null) {
-        await built.sender.initializeSender(built.apiKey);
-        await built.sender.sendSignal(
-            contact.databaseId, contact.databaseId, selfId, type, effectivePayload);
-      }
-    } catch (e) {
-      debugPrint('[Broadcaster] Signal $type primary to ${contact.name} failed: $e');
-    }
+    // Developer mode: check adapter toggles
+    final prefs = await _getPrefs();
+    final devModeOn = prefs.getBool('dev_mode_enabled') ?? false;
 
-    // Also send via ALL alternate addresses
-    for (final alt in contact.alternateAddresses) {
-      try {
-        final altBuilt = await _buildSenderForAddress(alt);
-        if (altBuilt == null) continue;
-        await altBuilt.sender.initializeSender(altBuilt.apiKey);
-        final altSent = await altBuilt.sender.sendSignal(
-            alt, alt, selfId, type, effectivePayload);
-        if (altSent) {
-          debugPrint('[Broadcaster] Signal $type delivered via alternate: $alt');
+    // Iterate ALL addresses across ALL transports
+    for (final transport in contact.transportPriority) {
+      if (devModeOn && !(prefs.getBool('dev_adapter_$transport') ?? true)) continue;
+      for (final addr in contact.transportAddresses[transport] ?? []) {
+        try {
+          final built = await _buildSenderForAddress(addr);
+          if (built == null) continue;
+          await built.sender.initializeSender(built.apiKey);
+          final ok = await built.sender.sendSignal(
+              addr, addr, selfId, type, effectivePayload);
+          if (ok) {
+            debugPrint('[Broadcaster] Signal $type delivered via $transport: $addr');
+          }
+        } catch (e) {
+          debugPrint('[Broadcaster] Signal $type to $addr failed: $e');
         }
-      } catch (e) {
-        debugPrint('[Broadcaster] Signal $type alternate $alt failed: $e');
       }
     }
   }
@@ -482,9 +487,7 @@ class SignalBroadcaster {
       case 'Nostr':
         final privkey =
             await _secureStorage.read(key: 'nostr_privkey') ?? '';
-        final prefs = await _getPrefs();
-        final relay =
-            prefs.getString('nostr_relay') ?? _kDefaultNostrRelay;
+        final relay = identity.adapterConfig['relay'] ?? _kDefaultNostrRelay;
         return (
           sender: NostrMessageSender(),
           apiKey: jsonEncode({'privkey': privkey, 'relay': relay})
@@ -524,7 +527,8 @@ class SignalBroadcaster {
     if (lower.contains('@wss://') || lower.contains('@ws://')) {
       if (!devEnabled && !(prefs.getBool('dev_adapter_Nostr') ?? true)) return null;
       final privkey = await _secureStorage.read(key: 'nostr_privkey') ?? '';
-      final relay = prefs.getString('nostr_relay') ?? _kDefaultNostrRelay;
+      final identity = _getIdentity();
+      final relay = identity?.adapterConfig['relay'] ?? _kDefaultNostrRelay;
       return (
         sender: NostrMessageSender(),
         apiKey: jsonEncode({'privkey': privkey, 'relay': relay})
@@ -548,8 +552,8 @@ class SignalBroadcaster {
     return null;
   }
 
-  /// Sign + send a signal to a contact. For critical signals (addr_update,
-  /// sys_keys, relay_exchange), retries through alternateAddresses on failure.
+  /// Sign + send a signal to a contact using transport-priority routing.
+  /// Iterates transports in priority order; stops on first success.
   Future<void> _sendSignalTo(
       Contact contact, String type, Map<String, dynamic> payload) async {
     final identity = _getIdentity();
@@ -557,60 +561,41 @@ class SignalBroadcaster {
     if (identity == null || selfId.isEmpty) return;
     debugPrint('[Broadcaster] _sendSignalTo: type=$type contact=${contact.name} provider=${contact.provider} selfId=${selfId.substring(0, selfId.length.clamp(0, 16))}…');
 
-    bool sent = false;
+    final prefs = await _getPrefs();
+    final devModeOn = prefs.getBool('dev_mode_enabled') ?? false;
+
+    // Pre-sign + PQC wrap once
+    Map<String, dynamic> signedPayload = payload;
     try {
-      final built = await _buildSenderFor(contact);
-      if (built != null) {
-        await built.sender.initializeSender(built.apiKey);
+      final privkey = await _secureStorage.read(key: 'nostr_privkey') ?? '';
+      final selfPubkey = privkey.isNotEmpty ? deriveNostrPubkeyHex(privkey) : null;
+      signedPayload = await _keys.signPayload(contact, type, payload, selfPubkey);
+    } catch (_) {}
+    final effectivePayload = await _maybePqcWrap(signedPayload, contact.databaseId);
 
-        var signedPayload = payload;
-        if (contact.provider != 'Nostr') {
-          final privkey =
-              await _secureStorage.read(key: 'nostr_privkey') ?? '';
-          final selfPubkey =
-              privkey.isNotEmpty ? deriveNostrPubkeyHex(privkey) : null;
-          signedPayload = await _keys.signPayload(
-              contact, type, payload, selfPubkey);
-        }
-
-        final finalPayload = await _maybePqcWrap(signedPayload, contact.databaseId);
-        sent = await built.sender.sendSignal(
-            contact.databaseId, contact.databaseId, selfId, type, finalPayload);
-        debugPrint('[Broadcaster] _sendSignalTo: primary sent=$sent via ${built.sender.runtimeType}');
-      } else {
-        debugPrint('[Broadcaster] _sendSignalTo: _buildSenderFor returned null');
-      }
-    } catch (e) {
-      debugPrint('[Broadcaster] Signal $type to ${contact.name} failed: $e');
-    }
-
-    // Retry through alternate addresses when primary fails.
-    // Use signed payload so HMAC verification passes on non-Nostr transports.
-    if (!sent && contact.alternateAddresses.isNotEmpty) {
-      debugPrint('[Broadcaster] _sendSignalTo: trying ${contact.alternateAddresses.length} alternates');
-      Map<String, dynamic> altPayload = payload;
-      try {
-        final privkey = await _secureStorage.read(key: 'nostr_privkey') ?? '';
-        final selfPubkey = privkey.isNotEmpty ? deriveNostrPubkeyHex(privkey) : null;
-        altPayload = await _keys.signPayload(contact, type, payload, selfPubkey);
-      } catch (_) {}
-      altPayload = await _maybePqcWrap(altPayload, contact.databaseId);
-      for (final alt in contact.alternateAddresses) {
+    for (final transport in contact.transportPriority) {
+      if (devModeOn && !(prefs.getBool('dev_adapter_$transport') ?? true)) continue;
+      for (final addr in contact.transportAddresses[transport] ?? []) {
         try {
-          final altBuilt = await _buildSenderForAddress(alt);
-          if (altBuilt == null) continue;
-          await altBuilt.sender.initializeSender(altBuilt.apiKey);
-          final altSent = await altBuilt.sender.sendSignal(
-              alt, alt, selfId, type, altPayload);
-          if (altSent) {
-            debugPrint('[Broadcaster] Signal $type delivered via alternate: $alt');
-            break;
+          final built = await _buildSenderForAddress(addr);
+          if (built == null) continue;
+          await built.sender.initializeSender(built.apiKey);
+          // For Nostr transports, use unsigned payload (Schnorr-verified natively)
+          final addrPayload = transport == 'Nostr'
+              ? await _maybePqcWrap(payload, contact.databaseId)
+              : effectivePayload;
+          final ok = await built.sender.sendSignal(
+              addr, addr, selfId, type, addrPayload);
+          if (ok) {
+            debugPrint('[Broadcaster] Signal $type delivered via $transport: $addr');
+            return;  // stop on first success
           }
         } catch (e) {
-          debugPrint('[Broadcaster] Signal $type alternate $alt failed: $e');
+          debugPrint('[Broadcaster] Signal $type to $addr failed: $e');
         }
       }
     }
+    debugPrint('[Broadcaster] Signal $type to ${contact.name} failed on all transports');
   }
 
   void dispose() {

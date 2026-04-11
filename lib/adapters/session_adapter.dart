@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/io_client.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/message.dart';
 import '../services/session_key_service.dart';
 import 'inbox_manager.dart';
@@ -182,6 +183,7 @@ class SessionInboxReader implements InboxReader {
   final _seenHashes = <String>{};
 
   bool _loopStarted = false;
+  bool _stopped = false;
   String _lastHash = '';
 
   // ── Adaptive polling — reduces bandwidth when idle ──────────────────────
@@ -189,13 +191,14 @@ class SessionInboxReader implements InboxReader {
 
   int get _adaptivePollDelay {
     final idle = DateTime.now().difference(_lastActivity);
-    if (idle < const Duration(seconds: 10)) return 3;    // active
-    if (idle < const Duration(seconds: 60)) return 30;   // idle
-    return 300;                                            // deep idle (5 min)
+    if (idle < const Duration(seconds: 10)) return 4;    // active
+    if (idle < const Duration(seconds: 60)) return 10;   // idle
+    return 30;                                             // deep idle
   }
 
   final _healthCtrl = StreamController<bool>.broadcast();
   int _consecutiveFailures = 0;
+  int _pollCount = 0;
   bool _isHealthy = true;
   static const _failureThreshold = 5;
   static const _maxConsecutiveFailures = 30;
@@ -203,6 +206,16 @@ class SessionInboxReader implements InboxReader {
   /// True when the poll loop stopped after [_maxConsecutiveFailures] failures.
   bool get circuitBroken => _circuitBroken;
   bool _circuitBroken = false;
+
+  /// Stop the poll loop and release resources.
+  void close() {
+    _stopped = true;
+    _httpClient?.close();
+    _httpClient = null;
+    _msgCtrl.close();
+    _sigCtrl.close();
+    _healthCtrl.close();
+  }
 
   // Session snodes have built-in onion routing — always direct, no proxy.
   http.Client? _httpClient;
@@ -248,6 +261,12 @@ class SessionInboxReader implements InboxReader {
   }
 
   Future<void> _runLoop() async {
+    // Restore last-hash so we skip already-seen messages across restarts.
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      _lastHash = prefs.getString('session_last_hash_${_sessionId.substring(0, 8)}') ?? '';
+    } catch (_) {}
+
     // Always discover snodes for swarm resolution.
     if (_snodes.isEmpty) {
       for (int attempt = 0; attempt < 10; attempt++) {
@@ -277,10 +296,14 @@ class SessionInboxReader implements InboxReader {
       _nodeUrl = _snodes[_snodeIndex];
     }
 
-    while (true) {
+    while (!_stopped) {
       int pollDelay;
       try {
         await _poll();
+        _pollCount++;
+        if (_pollCount == 1 || _pollCount % 20 == 0) {
+          debugPrint('[Session] Poll #$_pollCount OK (id=${_sessionId.substring(0, 8)}… node=$_nodeUrl delay=${_adaptivePollDelay}s)');
+        }
         pollDelay = _adaptivePollDelay;
         _consecutiveFailures = 0;
         if (!_isHealthy && !_healthCtrl.isClosed) {
@@ -359,9 +382,16 @@ class SessionInboxReader implements InboxReader {
       throw Exception('[Session] Response body too large');
     }
     final data = jsonDecode(res.body) as Map<String, dynamic>;
-    final result = data['result'] as Map<String, dynamic>? ?? {};
-    final messages =
-        (result['messages'] as List?)?.whereType<Map<String, dynamic>>().toList() ?? [];
+    // Storage RPC v1 returns messages at top level, not inside 'result'.
+    final messagesList = (data['messages'] as List?) ?? [];
+    final messages = messagesList.whereType<Map<String, dynamic>>().toList();
+    if (messages.isNotEmpty) {
+      debugPrint('[Session] Poll: ${messages.length} messages from $_nodeUrl');
+    } else if (_pollCount < 3) {
+      // Log first few empty polls for diagnostics.
+      final keys = data.keys.toList();
+      debugPrint('[Session] Poll empty — response keys: $keys');
+    }
 
     for (final item in messages) {
       final hash = item['hash'] as String? ?? '';
@@ -374,6 +404,14 @@ class SessionInboxReader implements InboxReader {
         }
       }
       _dispatch(item);
+    }
+    // Persist last-hash so restarts skip already-processed messages.
+    if (messages.isNotEmpty && _lastHash.isNotEmpty) {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(
+            'session_last_hash_${_sessionId.substring(0, 8)}', _lastHash);
+      } catch (_) {}
     }
   }
 
@@ -445,9 +483,9 @@ class SessionInboxReader implements InboxReader {
         throw Exception('[Session] Response body too large');
       }
       final data = jsonDecode(res.body) as Map<String, dynamic>;
-      final result = data['result'] as Map<String, dynamic>? ?? {};
+      // Storage RPC v1 returns messages at top level.
       final messages =
-          (result['messages'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+          ((data['messages'] as List?) ?? []).whereType<Map<String, dynamic>>().toList();
 
       for (final item in messages.reversed) {
         try {
@@ -520,6 +558,7 @@ class SessionMessageSender implements MessageSender {
         'method': 'store',
         'params': {
           'pubkey': recipientSessionId,
+          'namespace': 0,
           'ttl': _ttlMs,
           'timestamp': DateTime.now().millisecondsSinceEpoch,
           'data': payload,

@@ -635,11 +635,12 @@ class ConnectivityProbeService {
         if (!relay.startsWith('ws://') && !relay.startsWith('wss://')) {
           relay = 'wss://$relay';
         }
-        // Store as a "probe-suggested" relay; adapters prefer this over default
+        // Store as a "probe-suggested" relay; adapters can use this as secondary.
+        // NOTE: Do NOT overwrite 'nostr_relay' — that is the user-configured relay
+        // (set at identity creation or in settings). Overwriting it with a probed
+        // relay caused stale-relay bugs where contacts got addresses pointing to
+        // relays neither device was actually subscribed to.
         await prefs.setString('probe_nostr_relay', relay);
-        // Also update the active relay so future QR/links use the best route.
-        // The identity config is NOT changed — it's just the initial seed.
-        await prefs.setString('nostr_relay', relay);
         debugPrint('[Probe] Best Nostr relay: $relay');
       }
       if (_last.sessionNodes.isNotEmpty) {

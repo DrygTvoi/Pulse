@@ -155,7 +155,10 @@ class SignalAddrUpdateEvent {
   final Contact contact;
   final String primary;
   final List<String> all;
-  SignalAddrUpdateEvent(this.contact, this.primary, this.all);
+  /// Raw payload map — may contain 'transportAddresses' and 'transportPriority'
+  /// from new-format addr_update signals.
+  final Map<String, dynamic> rawPayload;
+  SignalAddrUpdateEvent(this.contact, this.primary, this.all, this.rawPayload);
 }
 
 /// Profile update from contact.
@@ -804,7 +807,8 @@ class SignalDispatcher {
                 primary.isNotEmpty &&
                 !_addrUpdateCtrl.isClosed) {
               _addrUpdateCtrl
-                  .add(SignalAddrUpdateEvent(addrContact, primary, all));
+                  .add(SignalAddrUpdateEvent(addrContact, primary, all,
+                      Map<String, dynamic>.from(payload as Map)));
             }
           }
         } else if (sigType == 'profile_update') {

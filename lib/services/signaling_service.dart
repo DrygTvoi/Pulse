@@ -1165,7 +1165,7 @@ class SignalingService {
       } else if (contact.provider == 'Nostr') {
         const storage = FlutterSecureStorage();
         final privkey = await storage.read(key: 'nostr_privkey') ?? '';
-        final relay = prefs.getString('nostr_relay') ?? kDefaultNostrRelay;
+        const relay = kDefaultNostrRelay;
         await InboxManager().addSenderPlugin('Nostr', NostrMessageSender(),
             jsonEncode({'privkey': privkey, 'relay': relay}));
       } else if (contact.provider == 'Pulse') {

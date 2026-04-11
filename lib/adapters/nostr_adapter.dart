@@ -871,22 +871,10 @@ class NostrInboxReader implements InboxReader {
     _cfWorkerRelay = prefs.getString('cf_worker_relay') ?? '';
     _forceTor = prefs.getBool('nostr_force_tor') ?? false;
 
-    // If relay is still the hardcoded default, try probe-suggested or adaptive relay
-    if (_relayUrl == _defaultRelay) {
-      final adaptive = prefs.getString('adaptive_cf_relay') ?? '';
-      if (adaptive.isNotEmpty && _isValidRelayUrl(adaptive)) {
-        _relayUrl = adaptive;
-      } else {
-        var probed = prefs.getString('probe_nostr_relay') ?? '';
-        if (probed.isNotEmpty) {
-          // Probe may store just the hostname without scheme — add wss:// if missing
-          if (!probed.startsWith('ws://') && !probed.startsWith('wss://')) {
-            probed = 'wss://$probed';
-          }
-          if (_isValidRelayUrl(probed)) _relayUrl = probed;
-        }
-      }
-    }
+    // Probe-suggested and adaptive relays are added as secondary subscriptions
+    // by ChatController (lines 692-705) rather than overriding the primary relay.
+    // This avoids a bug where the probe saves a dead relay that then becomes the
+    // primary, causing all Nostr operations to fail.
 
     // Load persistent seen event IDs to prevent NIP-44 nonce replay on reconnect.
     // The extended since window re-fetches events that were already decrypted;
@@ -976,6 +964,10 @@ class NostrInboxReader implements InboxReader {
   final Map<String, WebSocketChannel> _secondaryChannels = {};
   final Map<String, bool> _secondaryRunning = {};
 
+  /// Relays where the secondary subscription has successfully connected.
+  final Set<String> _secondaryConnected = {};
+  Set<String> get connectedSecondaryRelays => Set.unmodifiable(_secondaryConnected);
+
   /// Add a secondary relay subscription (idempotent).
   /// If the main loop is already running, starts immediately.
   /// Otherwise, queued and started when _ensureLoop() fires.
@@ -1004,6 +996,7 @@ class NostrInboxReader implements InboxReader {
         _secondaryChannels[relayUrl] = ch;
         await ch.ready;
         _registerRelayChannel(relayUrl, ch, _pendingKeyFetches);
+        _secondaryConnected.add(relayUrl);
         debugPrint('[Nostr] Secondary sub connected to $relayUrl');
 
         final subId = 'sec_${DateTime.now().millisecondsSinceEpoch}_${Random.secure().nextInt(0xFFFFFF).toRadixString(16)}';
@@ -1050,6 +1043,7 @@ class NostrInboxReader implements InboxReader {
         debugPrint('[Nostr] Secondary loop error ($relayUrl): $e');
       }
       _secondaryChannels.remove(relayUrl);
+      _secondaryConnected.remove(relayUrl);
       _unregisterRelayChannel(relayUrl);
       if (_running && _secondaryRelays.contains(relayUrl)) {
         await Future.delayed(const Duration(seconds: 10));
@@ -1810,22 +1804,9 @@ class NostrMessageSender implements MessageSender {
     _cfWorkerRelay = prefs.getString('cf_worker_relay') ?? '';
     _forceTor = prefs.getBool('nostr_force_tor') ?? false;
 
-    // If relay is still the hardcoded default, try adaptive CF relay or probe-suggested.
-    // Mirror the Reader path validation — apply _isValidRelayUrl to both sources.
-    if (_relayUrl == _defaultRelay) {
-      final adaptive = prefs.getString('adaptive_cf_relay') ?? '';
-      if (adaptive.isNotEmpty && _isValidRelayUrl(adaptive)) {
-        _relayUrl = adaptive;
-      } else {
-        var probed = prefs.getString('probe_nostr_relay') ?? '';
-        if (probed.isNotEmpty) {
-          if (!probed.startsWith('ws://') && !probed.startsWith('wss://')) {
-            probed = 'wss://$probed';
-          }
-          if (_isValidRelayUrl(probed)) _relayUrl = probed;
-        }
-      }
-    }
+    // Probe-suggested and adaptive relays are handled by sendMessage() fallback
+    // logic (gatherKnownRelays). Don't override the primary relay here — a probed
+    // relay may be dead, causing all sends to fail before fallback kicks in.
   }
 
   /// Get or create a pooled WebSocket connection for a relay.

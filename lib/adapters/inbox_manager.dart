@@ -67,6 +67,7 @@ class InboxManager {
     final oldReader = reader;
     if (oldReader is NostrInboxReader) oldReader.close();
     if (oldReader is PulseInboxReader) oldReader.close();
+    if (oldReader is SessionInboxReader) oldReader.close();
 
     if (provider == 'Firebase') {
       reader = FirebaseInboxReader();

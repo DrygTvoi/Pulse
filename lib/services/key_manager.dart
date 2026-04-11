@@ -142,9 +142,7 @@ class KeyManager {
           final privkey =
               await _secureStorage.read(key: 'nostr_privkey') ?? '';
           if (privkey.isEmpty) return;
-          final prefs = await SharedPreferences.getInstance();
-          final primaryRelay =
-              prefs.getString('nostr_relay') ?? _kDefaultNostrRelay;
+          final primaryRelay = _kDefaultNostrRelay;
           final relays = await gatherKnownRelays(primaryRelay, limit: 3);
           for (final relay in relays) {
             try {
@@ -286,27 +284,57 @@ class KeyManager {
   // ── Pubkey extraction ────────────────────────────────────────────────────
 
   /// Extract Nostr pubkey from any address format.
+  static final _hex64 = RegExp(r'^[0-9a-f]{64}$');
+
+  /// Extract a Nostr secp256k1 pubkey (64-char hex) from a contact address.
+  /// Prefers Nostr relay addresses (@wss://@ws://) since those are guaranteed
+  /// secp256k1 keys. Pulse addresses may use a different key scheme.
   String? extractPubkey(String databaseId, List<Contact> contacts) {
-    final atWss = databaseId.indexOf('@wss://');
-    final atWs = databaseId.indexOf('@ws://');
-    final atIdx = atWss != -1 ? atWss : (atWs != -1 ? atWs : -1);
-    if (atIdx != -1) {
-      final pub = databaseId.substring(0, atIdx);
-      if (RegExp(r'^[0-9a-f]{64}$').hasMatch(pub)) return pub;
+    // 1. Direct Nostr format: pubkey@wss://relay or pubkey@ws://relay
+    String? _fromNostrAddr(String addr) {
+      final wss = addr.indexOf('@wss://');
+      final ws = wss == -1 ? addr.indexOf('@ws://') : -1;
+      final at = wss != -1 ? wss : ws;
+      if (at > 0) {
+        final pub = addr.substring(0, at);
+        if (_hex64.hasMatch(pub)) return pub;
+      }
+      return null;
     }
-    if (RegExp(r'^[0-9a-f]{64}$').hasMatch(databaseId)) return databaseId;
+
+    // Try the provided address directly (Nostr format)
+    final direct = _fromNostrAddr(databaseId);
+    if (direct != null) return direct;
+
+    // Raw 64-char hex pubkey
+    if (_hex64.hasMatch(databaseId)) return databaseId;
+
+    // Look up contact and search Nostr addresses first
     final contact = contacts.cast<Contact?>().firstWhere(
           (c) => c?.databaseId == databaseId,
           orElse: () => null,
         );
     if (contact == null) return null;
-    for (final addr in [contact.databaseId, ...contact.alternateAddresses]) {
-      final at = addr.indexOf('@wss://');
-      if (at != -1) {
-        final pub = addr.substring(0, at);
-        if (RegExp(r'^[0-9a-f]{64}$').hasMatch(pub)) return pub;
+
+    // Priority 1: Nostr transport addresses (guaranteed secp256k1)
+    for (final addr in contact.transportAddresses['Nostr'] ?? <String>[]) {
+      final pub = _fromNostrAddr(addr);
+      if (pub != null) return pub;
+    }
+
+    // Priority 2: Any other address with @wss:// or @ws://
+    for (final addrs in contact.transportAddresses.values) {
+      for (final addr in addrs) {
+        final pub = _fromNostrAddr(addr);
+        if (pub != null) return pub;
       }
     }
+
+    // Priority 3: Contact's stored Nostr pubkey (from addr_update payload)
+    if (contact.publicKey.isNotEmpty && _hex64.hasMatch(contact.publicKey)) {
+      return contact.publicKey;
+    }
+
     return null;
   }
 }

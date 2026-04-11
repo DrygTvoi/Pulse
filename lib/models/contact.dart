@@ -7,8 +7,12 @@ import 'contact_repository.dart';
 class Contact {
   final String id;
   final String name;
-  final String provider; // 'Firebase' or 'Nostr'
-  final String databaseId; // inbox address
+  /// Per-transport address map.
+  /// Keys are provider names ('Pulse', 'Nostr', 'Session', 'Firebase').
+  /// Values are lists of addresses for that transport.
+  final Map<String, List<String>> transportAddresses;
+  /// Ordered list of transports to try when sending. First = highest priority.
+  final List<String> transportPriority;
   final String publicKey; // E2EE public key
   final String? avatarUrl;
   final bool isGroup;
@@ -16,26 +20,102 @@ class Contact {
   final List<String> members;
   /// UUID of the contact who created this group — determines admin privileges.
   final String? creatorId;
-  /// Fallback addresses tried (in random order) if the primary [databaseId]
-  /// is unreachable. Same protocol or cross-protocol alternates are supported.
-  /// Format: same as [databaseId] — e.g. "pubkey@wss://relay2.example.com"
-  final List<String> alternateAddresses;
   /// Bio/about text received via profile_update signal.
   final String bio;
 
-  Contact({
+  // Private generative constructor
+  Contact._raw({
     required this.id,
     required this.name,
-    required this.provider,
-    required this.databaseId,
+    required this.transportAddresses,
+    required this.transportPriority,
     required this.publicKey,
     this.avatarUrl,
     this.isGroup = false,
     this.members = const [],
     this.creatorId,
-    this.alternateAddresses = const [],
     this.bio = '',
   });
+
+  /// Create a Contact, accepting either new-style transportAddresses or
+  /// old-style provider/databaseId/alternateAddresses (auto-migrated).
+  factory Contact({
+    required String id,
+    required String name,
+    required String publicKey,
+    Map<String, List<String>>? transportAddresses,
+    List<String>? transportPriority,
+    String? avatarUrl,
+    bool isGroup = false,
+    List<String> members = const [],
+    String? creatorId,
+    String? provider,
+    String? databaseId,
+    List<String>? alternateAddresses,
+    String bio = '',
+  }) {
+    Map<String, List<String>> ta;
+    List<String> tp;
+
+    if (transportAddresses != null && transportAddresses.isNotEmpty) {
+      ta = transportAddresses;
+      tp = transportPriority ?? ta.keys.toList();
+    } else if (databaseId != null && databaseId.isNotEmpty) {
+      // Migrate from old-style fields
+      ta = <String, List<String>>{};
+      final allAddrs = <String>[databaseId, ...?alternateAddresses];
+      for (final addr in allAddrs) {
+        final t = _providerFromAddress(addr);
+        (ta[t] ??= []).add(addr);
+      }
+      final primaryTransport = provider ?? _providerFromAddress(databaseId);
+      tp = [primaryTransport, ...ta.keys.where((t) => t != primaryTransport)];
+    } else {
+      ta = {};
+      tp = transportPriority ?? [];
+    }
+
+    return Contact._raw(
+      id: id,
+      name: name,
+      transportAddresses: ta,
+      transportPriority: tp,
+      publicKey: publicKey,
+      avatarUrl: avatarUrl,
+      isGroup: isGroup,
+      members: members,
+      creatorId: creatorId,
+      bio: bio,
+    );
+  }
+
+  // ── Backward-compat getters ─────────────────────────────────────────────
+
+  /// Primary provider name (first in transport priority).
+  String get provider =>
+      transportPriority.isNotEmpty ? transportPriority.first : 'Nostr';
+
+  /// Primary transport address (first address of the highest-priority transport).
+  String get databaseId {
+    for (final t in transportPriority) {
+      final addrs = transportAddresses[t];
+      if (addrs != null && addrs.isNotEmpty) return addrs.first;
+    }
+    // Fallback: first address from any transport
+    for (final addrs in transportAddresses.values) {
+      if (addrs.isNotEmpty) return addrs.first;
+    }
+    return '';
+  }
+
+  /// All addresses except the primary, flattened for backward compat.
+  List<String> get alternateAddresses {
+    final primary = databaseId;
+    return transportAddresses.values
+        .expand((a) => a)
+        .where((a) => a != primary)
+        .toList();
+  }
 
   /// The canonical local storage key for this contact's message history.
   /// Groups use their UUID (databaseId is empty for groups).
@@ -46,6 +126,11 @@ class Contact {
     return {
       'id': id,
       'name': name,
+      'transportAddresses': transportAddresses.map(
+        (k, v) => MapEntry(k, List<String>.from(v)),
+      ),
+      'transportPriority': transportPriority,
+      // Write legacy fields for backward compat with older app versions
       'provider': provider,
       'databaseId': databaseId,
       'publicKey': publicKey,
@@ -60,49 +145,132 @@ class Contact {
 
   Contact copyWith({
     String? name,
-    String? provider,
-    String? databaseId,
+    Map<String, List<String>>? transportAddresses,
+    List<String>? transportPriority,
     String? publicKey,
     String? avatarUrl,
     List<String>? members,
     String? creatorId,
-    List<String>? alternateAddresses,
     String? bio,
+    // Legacy params — translated to transport fields
+    String? provider,
+    String? databaseId,
+    List<String>? alternateAddresses,
   }) {
-    return Contact(
+    // If caller uses new-style params, use them directly
+    if (transportAddresses != null || transportPriority != null) {
+      return Contact._raw(
+        id: id,
+        name: name ?? this.name,
+        transportAddresses: transportAddresses ?? this.transportAddresses,
+        transportPriority: transportPriority ?? this.transportPriority,
+        publicKey: publicKey ?? this.publicKey,
+        avatarUrl: avatarUrl ?? this.avatarUrl,
+        isGroup: isGroup,
+        members: members ?? this.members,
+        creatorId: creatorId ?? this.creatorId,
+        bio: bio ?? this.bio,
+      );
+    }
+    // If caller uses legacy params, rebuild transport map
+    if (databaseId != null || provider != null || alternateAddresses != null) {
+      final effDb = databaseId ?? this.databaseId;
+      final effAlts = alternateAddresses ?? this.alternateAddresses;
+      final ta = <String, List<String>>{};
+      final allAddrs = [if (effDb.isNotEmpty) effDb, ...effAlts];
+      for (final addr in allAddrs) {
+        final t = _providerFromAddress(addr);
+        (ta[t] ??= []).add(addr);
+      }
+      final primaryTransport = provider ?? (effDb.isNotEmpty ? _providerFromAddress(effDb) : this.provider);
+      final tp = [primaryTransport, ...ta.keys.where((t) => t != primaryTransport)];
+      return Contact._raw(
+        id: id,
+        name: name ?? this.name,
+        transportAddresses: ta,
+        transportPriority: tp,
+        publicKey: publicKey ?? this.publicKey,
+        avatarUrl: avatarUrl ?? this.avatarUrl,
+        isGroup: isGroup,
+        members: members ?? this.members,
+        creatorId: creatorId ?? this.creatorId,
+        bio: bio ?? this.bio,
+      );
+    }
+    // No transport changes — keep existing
+    return Contact._raw(
       id: id,
       name: name ?? this.name,
-      provider: provider ?? this.provider,
-      databaseId: databaseId ?? this.databaseId,
+      transportAddresses: this.transportAddresses,
+      transportPriority: this.transportPriority,
       publicKey: publicKey ?? this.publicKey,
       avatarUrl: avatarUrl ?? this.avatarUrl,
       isGroup: isGroup,
       members: members ?? this.members,
       creatorId: creatorId ?? this.creatorId,
-      alternateAddresses: alternateAddresses ?? this.alternateAddresses,
       bio: bio ?? this.bio,
     );
   }
 
   factory Contact.fromMap(Map<String, dynamic> map) {
-    return Contact(
+    Map<String, List<String>> ta;
+    List<String> tp;
+
+    if (map.containsKey('transportAddresses') && map['transportAddresses'] != null) {
+      // New format
+      final rawTa = map['transportAddresses'] as Map;
+      ta = rawTa.map((k, v) => MapEntry(
+        k as String,
+        (v as List).whereType<String>().toList(),
+      ));
+      tp = (map['transportPriority'] as List?)?.whereType<String>().toList() ?? ta.keys.toList();
+    } else {
+      // Legacy format — migrate
+      final primary = (map['databaseId'] as String?) ?? '';
+      final alts = (map['alternateAddresses'] as List?)?.whereType<String>().toList() ?? [];
+      final allAddrs = [if (primary.isNotEmpty) primary, ...alts];
+      ta = {};
+      for (final addr in allAddrs) {
+        final transport = _providerFromAddress(addr);
+        (ta[transport] ??= []).add(addr);
+      }
+      final storedProvider = (map['provider'] as String?) ?? 'Nostr';
+      final primaryTransport = primary.isNotEmpty ? _providerFromAddress(primary) : storedProvider;
+      tp = [primaryTransport, ...ta.keys.where((t) => t != primaryTransport)];
+    }
+
+    return Contact._raw(
       id: (map['id'] as String?) ?? '',
       name: (map['name'] as String?) ?? '',
-      provider: (map['provider'] as String?) ?? 'Nostr',
-      databaseId: (map['databaseId'] as String?) ?? '',
+      transportAddresses: ta,
+      transportPriority: tp,
       publicKey: (map['publicKey'] as String?) ?? '',
       avatarUrl: map['avatarUrl'] as String?,
       isGroup: map['isGroup'] as bool? ?? false,
-      // Use whereType<String>() to reject non-string list elements that could
-      // smuggle garbage or attacker-controlled addresses via type confusion.
       members: (map['members'] as List?)?.whereType<String>().toList() ?? [],
       creatorId: map['creatorId'] as String?,
-      alternateAddresses: (map['alternateAddresses'] as List?)
-              ?.whereType<String>()
-              .toList() ??
-          [],
       bio: (map['bio'] as String?) ?? '',
     );
+  }
+
+  // ── Address classification helper ──────────────────────────────────────
+
+  static final _sessionAddrRegex = RegExp(r'^[0-9a-f]{66}$');
+  static final _pulseAddrRegex = RegExp(r'^[0-9a-f]{64}@https://', caseSensitive: false);
+
+  static String _providerFromAddress(String address) {
+    final lower = address.toLowerCase();
+    if (lower.startsWith('05') && lower.length == 66 &&
+        _sessionAddrRegex.hasMatch(lower)) {
+      return 'Session';
+    }
+    if (lower.contains('@wss://') || lower.contains('@ws://') ||
+        RegExp(r'^[0-9a-f]{64}$').hasMatch(lower)) {
+      return 'Nostr';
+    }
+    if (_pulseAddrRegex.hasMatch(lower)) return 'Pulse';
+    if (lower.contains('@https://')) return 'Firebase';
+    return 'Nostr';
   }
 }
 
@@ -124,7 +292,32 @@ class ContactManager implements IContactRepository {
     _addressIndex.clear();
     for (final c in _contacts) {
       _idIndex[c.id] = c;
-      if (c.databaseId.isNotEmpty) _addressIndex[c.databaseId] = c;
+      // Index ALL addresses from all transports for O(1) lookup.
+      for (final addrs in c.transportAddresses.values) {
+        for (final addr in addrs) {
+          if (addr.isNotEmpty) _addressIndex[addr] = c;
+        }
+      }
+    }
+  }
+
+  void _indexContact(Contact c) {
+    _idIndex[c.id] = c;
+    for (final addrs in c.transportAddresses.values) {
+      for (final addr in addrs) {
+        if (addr.isNotEmpty) _addressIndex[addr] = c;
+      }
+    }
+  }
+
+  void _removeContactFromIndex(Contact c) {
+    _idIndex.remove(c.id);
+    for (final addrs in c.transportAddresses.values) {
+      for (final addr in addrs) {
+        if (_addressIndex[addr]?.id == c.id) {
+          _addressIndex.remove(addr);
+        }
+      }
     }
   }
 
@@ -149,8 +342,7 @@ class ContactManager implements IContactRepository {
   @override
   Future<void> addContact(Contact contact) async {
     _contacts.add(contact);
-    _idIndex[contact.id] = contact;
-    if (contact.databaseId.isNotEmpty) _addressIndex[contact.databaseId] = contact;
+    _indexContact(contact);
     await LocalStorageService().saveContact(contact.id, contact.toMap());
   }
 
@@ -158,9 +350,8 @@ class ContactManager implements IContactRepository {
   Future<void> removeContact(String id) async {
     final contact = findById(id);
     _contacts.removeWhere((c) => c.id == id);
-    _idIndex.remove(id);
-    if (contact != null && contact.databaseId.isNotEmpty) {
-      _addressIndex.remove(contact.databaseId);
+    if (contact != null) {
+      _removeContactFromIndex(contact);
     }
     await LocalStorageService().deleteContact(id);
     // Clean up Signal sessions and identity keys so stale material
@@ -176,12 +367,9 @@ class ContactManager implements IContactRepository {
     if (idx != -1) {
       final old = _contacts[idx];
       _contacts[idx] = updated;
-      // Update indices: remove old address mapping if changed.
-      if (old.databaseId.isNotEmpty && old.databaseId != updated.databaseId) {
-        _addressIndex.remove(old.databaseId);
-      }
-      _idIndex[updated.id] = updated;
-      if (updated.databaseId.isNotEmpty) _addressIndex[updated.databaseId] = updated;
+      // Remove old index entries, add new ones
+      _removeContactFromIndex(old);
+      _indexContact(updated);
       await LocalStorageService().saveContact(updated.id, updated.toMap());
     }
   }

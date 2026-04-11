@@ -746,42 +746,77 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
   }
 
   Widget _buildAddressRow() {
-    final addr = _contact.databaseId;
-    if (addr.isEmpty) return const SizedBox.shrink();
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: DesignTokens.cardPadding, vertical: DesignTokens.tilePaddingV),
-      decoration: BoxDecoration(
-        color: AppTheme.background,
-        borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.inbox_rounded, size: DesignTokens.iconSm, color: AppTheme.textSecondary),
-          const SizedBox(width: DesignTokens.spacing8),
-          Expanded(
-            child: Text(
-              addr,
-              style: GoogleFonts.jetBrainsMono(
-                  color: AppTheme.textSecondary, fontSize: DesignTokens.fontSm),
-              overflow: TextOverflow.ellipsis,
-              maxLines: 2,
+    if (_contact.transportAddresses.isEmpty) return const SizedBox.shrink();
+    final transportIcons = <String, IconData>{
+      'Pulse': Icons.flash_on_rounded,
+      'Nostr': Icons.language_rounded,
+      'Session': Icons.shield_rounded,
+      'Firebase': Icons.cloud_rounded,
+    };
+    final transportColors = <String, Color>{
+      'Pulse': AppTheme.providerPulse,
+      'Nostr': AppTheme.providerNostr,
+      'Session': AppTheme.providerOxen,
+      'Firebase': AppTheme.providerFirebase,
+    };
+    return Column(
+      children: [
+        for (final transport in _contact.transportPriority)
+          if ((_contact.transportAddresses[transport] ?? []).isNotEmpty)
+            Container(
+              margin: const EdgeInsets.only(bottom: DesignTokens.spacing6),
+              padding: const EdgeInsets.symmetric(horizontal: DesignTokens.cardPadding, vertical: DesignTokens.tilePaddingV),
+              decoration: BoxDecoration(
+                color: AppTheme.background,
+                borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(children: [
+                    Icon(transportIcons[transport] ?? Icons.inbox_rounded,
+                        size: DesignTokens.fontBody,
+                        color: transportColors[transport] ?? AppTheme.textSecondary),
+                    const SizedBox(width: DesignTokens.spacing6),
+                    Text(transport,
+                        style: GoogleFonts.inter(
+                            color: transportColors[transport] ?? AppTheme.textSecondary,
+                            fontSize: DesignTokens.fontSm,
+                            fontWeight: FontWeight.w700)),
+                  ]),
+                  const SizedBox(height: DesignTokens.spacing4),
+                  for (final addr in _contact.transportAddresses[transport]!)
+                    GestureDetector(
+                      onTap: () {
+                        Clipboard.setData(ClipboardData(text: addr));
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(context.l10n.profileAddressCopied),
+                            duration: const Duration(seconds: 1),
+                          ),
+                        );
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.only(bottom: DesignTokens.spacing2),
+                        child: Row(children: [
+                          Expanded(
+                            child: Text(
+                              addr,
+                              style: GoogleFonts.jetBrainsMono(
+                                  color: AppTheme.textSecondary, fontSize: DesignTokens.fontSm),
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 2,
+                            ),
+                          ),
+                          const SizedBox(width: DesignTokens.spacing8),
+                          Icon(Icons.copy_rounded, size: DesignTokens.iconSm, color: AppTheme.primary),
+                        ]),
+                      ),
+                    ),
+                ],
+              ),
             ),
-          ),
-          const SizedBox(width: DesignTokens.spacing8),
-          GestureDetector(
-            onTap: () {
-              Clipboard.setData(ClipboardData(text: addr));
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(context.l10n.profileAddressCopied),
-                  duration: const Duration(seconds: 1),
-                ),
-              );
-            },
-            child: Icon(Icons.copy_rounded, size: DesignTokens.iconSm, color: AppTheme.primary),
-          ),
-        ],
-      ),
+      ],
     );
   }
 

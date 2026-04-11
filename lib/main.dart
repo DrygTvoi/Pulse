@@ -79,6 +79,11 @@ Future<void> main() async {
       final passwordEnabled =
           hasIdentity && await ss.read(key: 'app_password_enabled') == 'true';
 
+      // Load probe cache BEFORE initializing ChatController so auto-registration
+      // can use probe results for secondary Nostr relay subscriptions.
+      final relayBeforeProbe = prefs.getString('nostr_relay') ?? '';
+      await ConnectivityProbeService.instance.runIfNeeded();
+
       final chatController = ChatController();
       await chatController.initialize(); // Load identity and setup Inbox manager
       await NotificationService().initialize();
@@ -91,14 +96,6 @@ Future<void> main() async {
       if (!passwordEnabled) {
         unawaited(chatController.broadcastAddressUpdate());
       }
-
-      // Background connectivity probe — finds reachable relays/nodes.
-      // Runs silently; if connection is already working, does nothing extra.
-      // If tor is installed and direct probes fail, uses it for bootstrap only.
-      // Capture relay BEFORE probe runs — probe updates the pref, so comparing
-      // after would always match.
-      final relayBeforeProbe = prefs.getString('nostr_relay') ?? '';
-      unawaited(ConnectivityProbeService.instance.runIfNeeded());
 
       // Background Blossom server discovery — probes seed servers and queries
       // Nostr kind:10063 events to find active servers. Results cached 24 h.
