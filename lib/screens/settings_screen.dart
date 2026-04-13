@@ -45,7 +45,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    context.watch<ThemeNotifier>();
+    // Only rebuild when colors actually used by this scaffold change,
+    // rather than watching the entire ThemeNotifier (avoids rebuilds on
+    // unrelated property changes like borderRadius, fontFamily, etc.).
+    context.select<ThemeNotifier, (Color, Color)>(
+      (t) => (t.background, t.surface),
+    );
     return Scaffold(
       backgroundColor: AppTheme.background,
       appBar: AppBar(

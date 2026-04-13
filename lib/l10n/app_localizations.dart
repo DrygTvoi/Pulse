@@ -4857,6 +4857,132 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'New call'**
   String get newCall;
+
+  /// No description provided for @joinChannelTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Join Channel'**
+  String get joinChannelTitle;
+
+  /// No description provided for @joinChannelDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'CHANNEL URL'**
+  String get joinChannelDescription;
+
+  /// No description provided for @joinChannelUrlHint.
+  ///
+  /// In en, this message translates to:
+  /// **'https://channel.example.com'**
+  String get joinChannelUrlHint;
+
+  /// No description provided for @joinChannelFetching.
+  ///
+  /// In en, this message translates to:
+  /// **'Fetching channel info…'**
+  String get joinChannelFetching;
+
+  /// No description provided for @joinChannelNotFound.
+  ///
+  /// In en, this message translates to:
+  /// **'Channel not found at this URL'**
+  String get joinChannelNotFound;
+
+  /// No description provided for @joinChannelNetworkError.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not reach server'**
+  String get joinChannelNetworkError;
+
+  /// No description provided for @joinChannelAlreadyJoined.
+  ///
+  /// In en, this message translates to:
+  /// **'Already joined'**
+  String get joinChannelAlreadyJoined;
+
+  /// No description provided for @joinChannelButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Join'**
+  String get joinChannelButton;
+
+  /// No description provided for @channelFeedEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No posts yet'**
+  String get channelFeedEmpty;
+
+  /// No description provided for @channelLeave.
+  ///
+  /// In en, this message translates to:
+  /// **'Leave Channel'**
+  String get channelLeave;
+
+  /// No description provided for @channelLeaveConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Leave this channel? Cached posts will be deleted.'**
+  String get channelLeaveConfirm;
+
+  /// No description provided for @channelInfo.
+  ///
+  /// In en, this message translates to:
+  /// **'Channel Info'**
+  String get channelInfo;
+
+  /// No description provided for @channelViews.
+  ///
+  /// In en, this message translates to:
+  /// **'{count}'**
+  String channelViews(String count);
+
+  /// No description provided for @channelEdited.
+  ///
+  /// In en, this message translates to:
+  /// **'edited'**
+  String get channelEdited;
+
+  /// No description provided for @channelLoadMore.
+  ///
+  /// In en, this message translates to:
+  /// **'Load more'**
+  String get channelLoadMore;
+
+  /// No description provided for @channelSearchPosts.
+  ///
+  /// In en, this message translates to:
+  /// **'Search posts…'**
+  String get channelSearchPosts;
+
+  /// No description provided for @channelNoResults.
+  ///
+  /// In en, this message translates to:
+  /// **'No matching posts'**
+  String get channelNoResults;
+
+  /// No description provided for @channelUrl.
+  ///
+  /// In en, this message translates to:
+  /// **'Channel URL'**
+  String get channelUrl;
+
+  /// No description provided for @channelCreated.
+  ///
+  /// In en, this message translates to:
+  /// **'Joined'**
+  String get channelCreated;
+
+  /// No description provided for @channelPostCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} posts'**
+  String channelPostCount(int count);
+
+  /// No description provided for @channelCopyUrl.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy URL'**
+  String get channelCopyUrl;
 }
 
 class _AppLocalizationsDelegate

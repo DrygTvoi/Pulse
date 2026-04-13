@@ -778,5 +778,31 @@
   "torForceNostrTitle": "Tor के माध्यम से संदेश भेजें",
   "torForcePulseDisabled": "पहले Tor सक्षम करना होगा",
   "torForcePulseSubtitle": "सभी Pulse relay कनेक्शन Tor के माध्यम से जाएंगे। धीमा लेकिन सर्वर से आपका IP छुपाता है।",
-  "torForcePulseTitle": "Pulse relay को Tor के माध्यम से भेजें"
+  "torForcePulseTitle": "Pulse relay को Tor के माध्यम से भेजें",
+  "joinChannelTitle": "चैनल से जुड़ें",
+  "joinChannelDescription": "चैनल URL",
+  "joinChannelUrlHint": "https://channel.example.com",
+  "joinChannelFetching": "चैनल जानकारी प्राप्त हो रही है…",
+  "joinChannelNotFound": "इस URL पर कोई चैनल नहीं मिला",
+  "joinChannelNetworkError": "सर्वर तक नहीं पहुँच सके",
+  "joinChannelAlreadyJoined": "पहले से जुड़े हुए",
+  "joinChannelButton": "जुड़ें",
+  "channelFeedEmpty": "अभी तक कोई पोस्ट नहीं",
+  "channelLeave": "चैनल छोड़ें",
+  "channelLeaveConfirm": "इस चैनल को छोड़ें? कैश्ड पोस्ट हटा दी जाएँगी।",
+  "channelInfo": "चैनल जानकारी",
+  "channelViews": "{count}",
+  "channelEdited": "संपादित",
+  "channelLoadMore": "और लोड करें",
+  "channelSearchPosts": "पोस्ट खोजें\u2026",
+  "channelNoResults": "कोई मेल खाते पोस्ट नहीं",
+  "channelUrl": "चैनल URL",
+  "channelCreated": "जुड़े",
+  "channelPostCount": "{count} पोस्ट",
+  "@channelPostCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "channelCopyUrl": "URL कॉपी करें"
 }

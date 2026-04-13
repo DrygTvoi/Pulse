@@ -12,6 +12,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:sqlite3/open.dart' as sqlite3_open;
+import '../models/channel.dart';
+import '../models/channel_post.dart';
 
 /// Top-level ffiInit for Android — called inside the DB isolate.
 void _androidFfiInit() {
@@ -87,7 +89,7 @@ class LocalStorageService {
     _db = await databaseFactory.openDatabase(
       path,
       options: OpenDatabaseOptions(
-        version: 8,
+        version: 10,
         onConfigure: (db) async {
           await db.rawQuery("PRAGMA KEY=\"x'$dbKey'\"");
           await db.execute('PRAGMA journal_mode=WAL');
@@ -122,6 +124,8 @@ class LocalStorageService {
           await _createDraftsTable(db);
           await _createFtsTable(db);
           await _createNonceCacheTable(db);
+          await _createChannelsTable(db);
+          await _createChannelPostsTable(db);
         },
         onUpgrade: (db, oldVersion, newVersion) async {
           if (oldVersion < 2) {
@@ -151,6 +155,12 @@ class LocalStorageService {
           }
           if (oldVersion < 8) {
             await _createNonceCacheTable(db, ifNotExists: true);
+          }
+          if (oldVersion < 9) {
+            await _createChannelsTable(db, ifNotExists: true);
+          }
+          if (oldVersion < 10) {
+            await _createChannelPostsTable(db, ifNotExists: true);
           }
         },
       ),
@@ -1542,6 +1552,16 @@ class LocalStorageService {
       await txn.delete('contacts');
       await txn.delete('avatars');
       await txn.delete('drafts');
+      try {
+        await txn.delete('channels');
+      } catch (e) {
+        debugPrint('[LocalStorage] clearAll: channels delete failed: $e');
+      }
+      try {
+        await txn.delete('channel_posts');
+      } catch (e) {
+        debugPrint('[LocalStorage] clearAll: channel_posts delete failed: $e');
+      }
       // nonce_cache must be wiped so stale nonces don't cause false-positive
       // replay drops after brain-wallet restore with the same Nostr key.
       try {
@@ -1907,6 +1927,136 @@ class LocalStorageService {
       debugPrint('[Backup] Import failed: $e\n$st');
       return (imported: -1, failed: 0);
     }
+  }
+
+  // ── Channels ─────────────────────────────────────────────────────────────
+
+  static Future<void> _createChannelsTable(Database db,
+      {bool ifNotExists = false}) async {
+    final q = ifNotExists ? 'IF NOT EXISTS ' : '';
+    await db.execute('''
+      CREATE TABLE ${q}channels (
+        id   TEXT NOT NULL PRIMARY KEY,
+        data TEXT NOT NULL
+      )
+    ''');
+  }
+
+  Future<void> saveChannel(Channel channel) async {
+    await _database.insert(
+      'channels',
+      {'id': channel.id, 'data': jsonEncode(channel.toMap())},
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  Future<List<Channel>> loadChannels() async {
+    final rows = await _database.query('channels');
+    final result = <Channel>[];
+    for (final row in rows) {
+      try {
+        final map = jsonDecode(row['data'] as String) as Map<String, dynamic>;
+        result.add(Channel.fromMap(map));
+      } catch (e) {
+        debugPrint('[LocalStorage] Skipping malformed channel row: $e');
+      }
+    }
+    return result;
+  }
+
+  Future<void> removeChannel(String id) async {
+    await _database.transaction((txn) async {
+      await txn.delete('channels', where: 'id = ?', whereArgs: [id]);
+      try {
+        await txn.delete('channel_posts', where: 'channel_id = ?', whereArgs: [id]);
+      } catch (_) {}
+    });
+  }
+
+  // ── Channel Posts ───────────────────────────────────────────────────────
+
+  static Future<void> _createChannelPostsTable(Database db,
+      {bool ifNotExists = false}) async {
+    final q = ifNotExists ? 'IF NOT EXISTS ' : '';
+    await db.execute('''
+      CREATE TABLE ${q}channel_posts (
+        id         TEXT NOT NULL,
+        channel_id TEXT NOT NULL,
+        data       TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        PRIMARY KEY (id, channel_id)
+      )
+    ''');
+    await db.execute(
+      'CREATE INDEX ${q}idx_channel_posts_ts ON channel_posts(channel_id, created_at DESC)',
+    );
+  }
+
+  Future<void> saveChannelPosts(String channelId, List<ChannelPost> posts) async {
+    if (posts.isEmpty) return;
+    await _database.transaction((txn) async {
+      final batch = txn.batch();
+      for (final post in posts) {
+        batch.insert(
+          'channel_posts',
+          {
+            'id': post.id,
+            'channel_id': channelId,
+            'data': jsonEncode(post.toJson()),
+            'created_at': post.createdAt.millisecondsSinceEpoch ~/ 1000,
+          },
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+      await batch.commit(noResult: true);
+    });
+  }
+
+  Future<List<ChannelPost>> loadChannelPosts(String channelId, {int limit = 50}) async {
+    final rows = await _database.query(
+      'channel_posts',
+      columns: ['data'],
+      where: 'channel_id = ?',
+      whereArgs: [channelId],
+      orderBy: 'created_at DESC',
+      limit: limit,
+    );
+    return rows.map((r) {
+      try {
+        return ChannelPost.fromJson(jsonDecode(r['data'] as String));
+      } catch (_) {
+        return null;
+      }
+    }).whereType<ChannelPost>().toList();
+  }
+
+  Future<void> upsertChannelPost(String channelId, ChannelPost post) async {
+    await _database.insert(
+      'channel_posts',
+      {
+        'id': post.id,
+        'channel_id': channelId,
+        'data': jsonEncode(post.toJson()),
+        'created_at': post.createdAt.millisecondsSinceEpoch ~/ 1000,
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  Future<void> removeChannelPost(String channelId, String postId) async {
+    await _database.delete(
+      'channel_posts',
+      where: 'id = ? AND channel_id = ?',
+      whereArgs: [postId, channelId],
+    );
+  }
+
+  Future<void> deleteChannelPosts(String channelId) async {
+    await _database.delete(
+      'channel_posts',
+      where: 'channel_id = ?',
+      whereArgs: [channelId],
+    );
   }
 
   // ── NIP-44 nonce cache ────────────────────────────────────────────────────

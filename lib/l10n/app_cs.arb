@@ -778,5 +778,31 @@
   "torForceNostrTitle": "Směrovat zprávy přes Tor",
   "torForcePulseDisabled": "Nejprve je třeba zapnout Tor",
   "torForcePulseSubtitle": "Všechna připojení k Pulse relay půjdou přes Tor. Pomalejší, ale skryje vaši IP adresu před serverem.",
-  "torForcePulseTitle": "Směrovat Pulse relay přes Tor"
+  "torForcePulseTitle": "Směrovat Pulse relay přes Tor",
+  "joinChannelTitle": "Připojit se ke kanálu",
+  "joinChannelDescription": "URL KANÁLU",
+  "joinChannelUrlHint": "https://channel.example.com",
+  "joinChannelFetching": "Načítání informací o kanálu…",
+  "joinChannelNotFound": "Na této URL nebyl nalezen žádný kanál",
+  "joinChannelNetworkError": "Nelze se připojit k serveru",
+  "joinChannelAlreadyJoined": "Již připojeno",
+  "joinChannelButton": "Připojit se",
+  "channelFeedEmpty": "Zatím žádné příspěvky",
+  "channelLeave": "Opustit kanál",
+  "channelLeaveConfirm": "Opustit tento kanál? Uložené příspěvky budou smazány.",
+  "channelInfo": "Informace o kanálu",
+  "channelViews": "{count}",
+  "channelEdited": "upraveno",
+  "channelLoadMore": "Načíst další",
+  "channelSearchPosts": "Hledat příspěvky\u2026",
+  "channelNoResults": "Žádné odpovídající příspěvky",
+  "channelUrl": "URL kanálu",
+  "channelCreated": "Připojeno",
+  "channelPostCount": "{count} příspěvků",
+  "@channelPostCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "channelCopyUrl": "Kopírovat URL"
 }

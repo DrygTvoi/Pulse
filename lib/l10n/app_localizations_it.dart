@@ -2665,4 +2665,72 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get newCall => 'Nuova chiamata';
+
+  @override
+  String get joinChannelTitle => 'Unisciti al canale';
+
+  @override
+  String get joinChannelDescription => 'URL DEL CANALE';
+
+  @override
+  String get joinChannelUrlHint => 'https://channel.example.com';
+
+  @override
+  String get joinChannelFetching => 'Recupero informazioni canale…';
+
+  @override
+  String get joinChannelNotFound => 'Nessun canale trovato a questo URL';
+
+  @override
+  String get joinChannelNetworkError => 'Impossibile raggiungere il server';
+
+  @override
+  String get joinChannelAlreadyJoined => 'Già iscritto';
+
+  @override
+  String get joinChannelButton => 'Unisciti';
+
+  @override
+  String get channelFeedEmpty => 'Ancora nessun post';
+
+  @override
+  String get channelLeave => 'Esci dal canale';
+
+  @override
+  String get channelLeaveConfirm =>
+      'Uscire da questo canale? I post memorizzati verranno eliminati.';
+
+  @override
+  String get channelInfo => 'Info canale';
+
+  @override
+  String channelViews(String count) {
+    return '$count';
+  }
+
+  @override
+  String get channelEdited => 'modificato';
+
+  @override
+  String get channelLoadMore => 'Carica altri';
+
+  @override
+  String get channelSearchPosts => 'Cerca pubblicazioni…';
+
+  @override
+  String get channelNoResults => 'Nessuna pubblicazione corrispondente';
+
+  @override
+  String get channelUrl => 'URL del canale';
+
+  @override
+  String get channelCreated => 'Iscritto';
+
+  @override
+  String channelPostCount(int count) {
+    return '$count pubblicazioni';
+  }
+
+  @override
+  String get channelCopyUrl => 'Copia URL';
 }

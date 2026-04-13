@@ -32,17 +32,12 @@ class _ChatListSkeletonState extends State<ChatListSkeleton>
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _ctrl,
-      builder: (context, _) {
-        return ListView.builder(
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: 7,
-          padding: const EdgeInsets.symmetric(vertical: DesignTokens.spacing8),
-          itemBuilder: (context, index) {
-            return _SkeletonTile(animation: _ctrl);
-          },
-        );
+    return ListView.builder(
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: 7,
+      padding: const EdgeInsets.symmetric(vertical: DesignTokens.spacing8),
+      itemBuilder: (context, index) {
+        return _SkeletonTile(animation: _ctrl);
       },
     );
   }

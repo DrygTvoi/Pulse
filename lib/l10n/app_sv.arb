@@ -778,5 +778,31 @@
   "torForceNostrTitle": "Dirigera meddelanden via Tor",
   "torForcePulseDisabled": "Tor måste aktiveras först",
   "torForcePulseSubtitle": "Alla Pulse relay-anslutningar går genom Tor. Långsammare men döljer din IP från servern.",
-  "torForcePulseTitle": "Dirigera Pulse relay via Tor"
+  "torForcePulseTitle": "Dirigera Pulse relay via Tor",
+  "joinChannelTitle": "Gå med i kanal",
+  "joinChannelDescription": "KANAL-URL",
+  "joinChannelUrlHint": "https://channel.example.com",
+  "joinChannelFetching": "Hämtar kanalinformation…",
+  "joinChannelNotFound": "Ingen kanal hittades på denna URL",
+  "joinChannelNetworkError": "Kunde inte nå servern",
+  "joinChannelAlreadyJoined": "Redan med",
+  "joinChannelButton": "Gå med",
+  "channelFeedEmpty": "Inga inlägg ännu",
+  "channelLeave": "Lämna kanal",
+  "channelLeaveConfirm": "Lämna denna kanal? Cachade inlägg kommer att raderas.",
+  "channelInfo": "Kanalinfo",
+  "channelViews": "{count}",
+  "channelEdited": "redigerat",
+  "channelLoadMore": "Ladda fler",
+  "channelSearchPosts": "S\u00f6k inl\u00e4gg\u2026",
+  "channelNoResults": "Inga matchande inl\u00e4gg",
+  "channelUrl": "Kanal-URL",
+  "channelCreated": "Gick med",
+  "channelPostCount": "{count} inl\u00e4gg",
+  "@channelPostCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "channelCopyUrl": "Kopiera URL"
 }

@@ -2524,4 +2524,71 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get newCall => '新通话';
+
+  @override
+  String get joinChannelTitle => '加入频道';
+
+  @override
+  String get joinChannelDescription => '频道 URL';
+
+  @override
+  String get joinChannelUrlHint => 'https://channel.example.com';
+
+  @override
+  String get joinChannelFetching => '正在获取频道信息…';
+
+  @override
+  String get joinChannelNotFound => '在此 URL 未找到频道';
+
+  @override
+  String get joinChannelNetworkError => '无法连接到服务器';
+
+  @override
+  String get joinChannelAlreadyJoined => '已加入';
+
+  @override
+  String get joinChannelButton => '加入';
+
+  @override
+  String get channelFeedEmpty => '暂无帖子';
+
+  @override
+  String get channelLeave => '退出频道';
+
+  @override
+  String get channelLeaveConfirm => '退出此频道？缓存的帖子将被删除。';
+
+  @override
+  String get channelInfo => '频道信息';
+
+  @override
+  String channelViews(String count) {
+    return '$count';
+  }
+
+  @override
+  String get channelEdited => '已编辑';
+
+  @override
+  String get channelLoadMore => '加载更多';
+
+  @override
+  String get channelSearchPosts => '搜索帖子…';
+
+  @override
+  String get channelNoResults => '没有匹配的帖子';
+
+  @override
+  String get channelUrl => '频道 URL';
+
+  @override
+  String get channelCreated => '已加入';
+
+  @override
+  String channelPostCount(int count) {
+    return '$count 篇帖子';
+  }
+
+  @override
+  String get channelCopyUrl => '复制 URL';
 }

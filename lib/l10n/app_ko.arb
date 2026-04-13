@@ -778,5 +778,31 @@
   "torForceNostrTitle": "메시지를 Tor를 통해 전송",
   "torForcePulseDisabled": "먼저 Tor를 활성화해야 합니다",
   "torForcePulseSubtitle": "모든 Pulse 릴레이 연결이 Tor를 통해 이루어집니다. 느리지만 서버로부터 IP를 숨깁니다.",
-  "torForcePulseTitle": "Pulse 릴레이를 Tor를 통해 연결"
+  "torForcePulseTitle": "Pulse 릴레이를 Tor를 통해 연결",
+  "joinChannelTitle": "채널 참여",
+  "joinChannelDescription": "채널 URL",
+  "joinChannelUrlHint": "https://channel.example.com",
+  "joinChannelFetching": "채널 정보 가져오는 중…",
+  "joinChannelNotFound": "이 URL에서 채널을 찾을 수 없습니다",
+  "joinChannelNetworkError": "서버에 연결할 수 없습니다",
+  "joinChannelAlreadyJoined": "이미 참여함",
+  "joinChannelButton": "참여",
+  "channelFeedEmpty": "아직 게시물이 없습니다",
+  "channelLeave": "채널 나가기",
+  "channelLeaveConfirm": "이 채널을 나가시겠습니까? 캐시된 게시물이 삭제됩니다.",
+  "channelInfo": "채널 정보",
+  "channelViews": "{count}",
+  "channelEdited": "수정됨",
+  "channelLoadMore": "더 불러오기",
+  "channelSearchPosts": "\uac8c\uc2dc\ubb3c \uac80\uc0c9\u2026",
+  "channelNoResults": "\uc77c\uce58\ud558\ub294 \uac8c\uc2dc\ubb3c \uc5c6\uc74c",
+  "channelUrl": "\ucc44\ub110 URL",
+  "channelCreated": "\uac00\uc785\ub428",
+  "channelPostCount": "{count}\uac1c \uac8c\uc2dc\ubb3c",
+  "@channelPostCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "channelCopyUrl": "URL \ubcf5\uc0ac"
 }

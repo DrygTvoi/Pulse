@@ -2645,4 +2645,72 @@ class AppLocalizationsNl extends AppLocalizations {
 
   @override
   String get newCall => 'Nieuw gesprek';
+
+  @override
+  String get joinChannelTitle => 'Kanaal volgen';
+
+  @override
+  String get joinChannelDescription => 'KANAAL-URL';
+
+  @override
+  String get joinChannelUrlHint => 'https://channel.example.com';
+
+  @override
+  String get joinChannelFetching => 'Kanaalinformatie ophalen…';
+
+  @override
+  String get joinChannelNotFound => 'Geen kanaal gevonden op deze URL';
+
+  @override
+  String get joinChannelNetworkError => 'Kan server niet bereiken';
+
+  @override
+  String get joinChannelAlreadyJoined => 'Al gevolgd';
+
+  @override
+  String get joinChannelButton => 'Volgen';
+
+  @override
+  String get channelFeedEmpty => 'Nog geen berichten';
+
+  @override
+  String get channelLeave => 'Kanaal verlaten';
+
+  @override
+  String get channelLeaveConfirm =>
+      'Dit kanaal verlaten? Opgeslagen berichten worden verwijderd.';
+
+  @override
+  String get channelInfo => 'Kanaalinfo';
+
+  @override
+  String channelViews(String count) {
+    return '$count';
+  }
+
+  @override
+  String get channelEdited => 'bewerkt';
+
+  @override
+  String get channelLoadMore => 'Meer laden';
+
+  @override
+  String get channelSearchPosts => 'Berichten zoeken…';
+
+  @override
+  String get channelNoResults => 'Geen overeenkomende berichten';
+
+  @override
+  String get channelUrl => 'Kanaal-URL';
+
+  @override
+  String get channelCreated => 'Lid geworden';
+
+  @override
+  String channelPostCount(int count) {
+    return '$count berichten';
+  }
+
+  @override
+  String get channelCopyUrl => 'URL kopiëren';
 }

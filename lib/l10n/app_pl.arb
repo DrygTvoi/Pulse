@@ -778,5 +778,31 @@
   "torForceNostrTitle": "Kieruj wiadomości przez Tor",
   "torForcePulseDisabled": "Najpierw należy włączyć Tor",
   "torForcePulseSubtitle": "Wszystkie połączenia z przekaźnikiem Pulse będą przechodzić przez Tor. Wolniejsze, ale ukrywa Twój IP przed serwerem.",
-  "torForcePulseTitle": "Kieruj przekaźnik Pulse przez Tor"
+  "torForcePulseTitle": "Kieruj przekaźnik Pulse przez Tor",
+  "joinChannelTitle": "Dołącz do kanału",
+  "joinChannelDescription": "ADRES KANAŁU",
+  "joinChannelUrlHint": "https://channel.example.com",
+  "joinChannelFetching": "Pobieranie informacji o kanale…",
+  "joinChannelNotFound": "Nie znaleziono kanału pod tym adresem",
+  "joinChannelNetworkError": "Nie udało się połączyć z serwerem",
+  "joinChannelAlreadyJoined": "Już dołączono",
+  "joinChannelButton": "Dołącz",
+  "channelFeedEmpty": "Brak postów",
+  "channelLeave": "Opuść kanał",
+  "channelLeaveConfirm": "Opuścić ten kanał? Zapisane posty zostaną usunięte.",
+  "channelInfo": "Informacje o kanale",
+  "channelViews": "{count}",
+  "channelEdited": "edytowano",
+  "channelLoadMore": "Załaduj więcej",
+  "channelSearchPosts": "Szukaj post\u00f3w\u2026",
+  "channelNoResults": "Brak pasuj\u0105cych post\u00f3w",
+  "channelUrl": "URL kana\u0142u",
+  "channelCreated": "Do\u0142\u0105czono",
+  "channelPostCount": "{count} post\u00f3w",
+  "@channelPostCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "channelCopyUrl": "Kopiuj URL"
 }

@@ -394,7 +394,7 @@ class ChatController extends ChangeNotifier {
 
   /// Load persisted message history for a contact's room.
   Future<void> loadRoomHistory(Contact contact) async {
-    await _repo.loadRoomHistory(contact, onChanged: () { if (!_disposed) notifyListeners(); });
+    await _repo.loadRoomHistory(contact, onChanged: () { if (!_disposed) _scheduleNotify(); });
     // Seed unread count from loaded messages
     final room = _repo.getRoomForContact(contact.id);
     if (room != null) {
@@ -2669,12 +2669,12 @@ class ChatController extends ChangeNotifier {
     // Tier 1: Blossom HTTPS upload.
     if (BlossomService.instance.isAvailable) {
       room.messages.removeWhere((m) => m.id == msgId);
-      notifyListeners();
+      _scheduleNotify();
       final ok = await _sendViaBlossom(contact, audioBytes, voiceName, 'voice');
       if (ok) return true;
       // Re-add local placeholder for relay chunk fallback.
       room.messages.add(localMsg);
-      notifyListeners();
+      _scheduleNotify();
     }
 
     // Tier 3: relay chunks (8 KB each — always fits NIP-44).
@@ -2766,7 +2766,7 @@ class ChatController extends ChangeNotifier {
     if (!sent && BlossomService.instance.isAvailable) {
       // Remove the local placeholder (Blossom creates its own)
       room.messages.removeWhere((m) => m.id == msgId);
-      notifyListeners();
+      _scheduleNotify();
       sent = await _sendViaBlossom(contact, mp4Bytes, 'video_note.mp4', 'video_note');
       if (sent) {
         _repo.clearUploadProgress(msgId);
@@ -2774,7 +2774,7 @@ class ChatController extends ChangeNotifier {
       }
       // Re-add local placeholder for relay chunk fallback
       room.messages.add(localMsg);
-      notifyListeners();
+      _scheduleNotify();
     }
 
     // Tier 3: relay chunks
@@ -2858,7 +2858,7 @@ class ChatController extends ChangeNotifier {
         _repo.clearUploadProgress(msgId);
         // Remove sending placeholder — will fall back to relay chunks
         room.messages.removeWhere((m) => m.id == msgId);
-        notifyListeners();
+        _scheduleNotify();
         return false;
       }
       _repo.setUploadProgress(msgId, 0.8);
@@ -2909,7 +2909,7 @@ class ChatController extends ChangeNotifier {
       debugPrint('[Blossom] _sendViaBlossom error: $e');
       _repo.clearUploadProgress(msgId);
       room.messages.removeWhere((m) => m.id == msgId);
-      notifyListeners();
+      _scheduleNotify();
       return false;
     }
   }
@@ -3249,20 +3249,30 @@ class ChatController extends ChangeNotifier {
   }
 
   void _handleReadReceipt(String fromId) {
-    bool changed = false;
-    for (final room in _repo.rooms) {
-      final contactId = room.contact.databaseId;
-      if (contactId != fromId && contactId.split('@').first != fromId.split('@').first) continue;
-      for (int i = 0; i < room.messages.length; i++) {
-        final m = room.messages[i];
-        if (m.status == 'sending' || m.status == 'sent' || m.status == 'delivered') {
-          room.messages[i] = m.copyWith(status: 'read');
-          unawaited(LocalStorageService().saveMessage(room.contact.storageKey, room.messages[i].toJson()));
-          changed = true;
-        }
+    // O(1) contact lookup via indexed map, then O(1) room lookup.
+    final contactIndex = _getContactIndex();
+    final contact = contactIndex[fromId] ?? contactIndex[fromId.split('@').first];
+    if (contact == null) return;
+    final room = _repo.getRoomForContact(contact.id);
+    if (room == null) return;
+
+    final updated = <Map<String, dynamic>>[];
+    // Scan newest→oldest: once we hit an already-read message, all older ones
+    // should be read too, so we can stop early.
+    for (int i = room.messages.length - 1; i >= 0; i--) {
+      final m = room.messages[i];
+      if (m.status == 'sending' || m.status == 'sent' || m.status == 'delivered') {
+        room.messages[i] = m.copyWith(status: 'read');
+        updated.add(room.messages[i].toJson());
+      } else if (m.status == 'read' && m.senderId == (_identity?.id ?? '')) {
+        break; // All older outgoing messages should already be read.
       }
     }
-    if (changed) _scheduleNotify();
+    if (updated.isNotEmpty) {
+      unawaited(LocalStorageService().saveMessagesBatch(
+          room.contact.storageKey, updated));
+      _scheduleNotify();
+    }
   }
 
   void _handleDeliveryAck(String fromId, String msgId, {String? groupId}) {

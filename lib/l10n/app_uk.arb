@@ -778,5 +778,31 @@
   "torForceNostrTitle": "Маршрутизувати повідомлення через Tor",
   "torForcePulseDisabled": "Спочатку потрібно увімкнути Tor",
   "torForcePulseSubtitle": "Усі з'єднання з Pulse relay проходитимуть через Tor. Повільніше, але приховує вашу IP-адресу від сервера.",
-  "torForcePulseTitle": "Маршрутизувати Pulse relay через Tor"
+  "torForcePulseTitle": "Маршрутизувати Pulse relay через Tor",
+  "joinChannelTitle": "Приєднатися до каналу",
+  "joinChannelDescription": "URL КАНАЛУ",
+  "joinChannelUrlHint": "https://channel.example.com",
+  "joinChannelFetching": "Отримання інформації про канал…",
+  "joinChannelNotFound": "Канал не знайдено за цією адресою",
+  "joinChannelNetworkError": "Не вдалося з'єднатися з сервером",
+  "joinChannelAlreadyJoined": "Вже підписані",
+  "joinChannelButton": "Приєднатися",
+  "channelFeedEmpty": "Ще немає публікацій",
+  "channelLeave": "Покинути канал",
+  "channelLeaveConfirm": "Покинути цей канал? Кешовані публікації буде видалено.",
+  "channelInfo": "Інформація про канал",
+  "channelViews": "{count}",
+  "channelEdited": "змінено",
+  "channelLoadMore": "Завантажити ще",
+  "channelSearchPosts": "\u041f\u043e\u0448\u0443\u043a \u043f\u0443\u0431\u043b\u0456\u043a\u0430\u0446\u0456\u0439\u2026",
+  "channelNoResults": "\u041d\u0435\u043c\u0430\u0454 \u0437\u0431\u0456\u0433\u0456\u0432",
+  "channelUrl": "URL \u043a\u0430\u043d\u0430\u043b\u0443",
+  "channelCreated": "\u041f\u0440\u0438\u0454\u0434\u043d\u0430\u043d\u043e",
+  "channelPostCount": "{count} \u043f\u0443\u0431\u043b\u0456\u043a\u0430\u0446\u0456\u0439",
+  "@channelPostCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "channelCopyUrl": "\u041a\u043e\u043f\u0456\u044e\u0432\u0430\u0442\u0438 URL"
 }

@@ -778,5 +778,31 @@
   "torForceNostrTitle": "Maršrutēt ziņas caur Tor",
   "torForcePulseDisabled": "Vispirms jāiespējo Tor",
   "torForcePulseSubtitle": "Visi Pulse relay savienojumi tiks maršrutēti caur Tor. Lēnāk, bet slēpj jūsu IP no servera.",
-  "torForcePulseTitle": "Maršrutēt Pulse relay caur Tor"
+  "torForcePulseTitle": "Maršrutēt Pulse relay caur Tor",
+  "joinChannelTitle": "Pievienoties kanālam",
+  "joinChannelDescription": "KANĀLA URL",
+  "joinChannelUrlHint": "https://channel.example.com",
+  "joinChannelFetching": "Iegūst kanāla informāciju…",
+  "joinChannelNotFound": "Kanāls šajā URL nav atrasts",
+  "joinChannelNetworkError": "Nevar sasniegt serveri",
+  "joinChannelAlreadyJoined": "Jau pievienojies",
+  "joinChannelButton": "Pievienoties",
+  "channelFeedEmpty": "Vēl nav ierakstu",
+  "channelLeave": "Pamest kanālu",
+  "channelLeaveConfirm": "Pamest šo kanālu? Saglabātie ieraksti tiks dzēsti.",
+  "channelInfo": "Kanāla informācija",
+  "channelViews": "{count}",
+  "channelEdited": "rediģēts",
+  "channelLoadMore": "Ielādēt vairāk",
+  "channelSearchPosts": "Mekl\u0113t ierakstus\u2026",
+  "channelNoResults": "Nav atbilsto\u0161u ierakstu",
+  "channelUrl": "Kan\u0101la URL",
+  "channelCreated": "Pievienojies",
+  "channelPostCount": "{count} ieraksti",
+  "@channelPostCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "channelCopyUrl": "Kop\u0113t URL"
 }

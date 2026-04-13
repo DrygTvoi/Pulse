@@ -150,9 +150,7 @@ class HomeSearchBody extends StatelessWidget {
   }
 
   int _getUnreadCount(String contactId, String myId) {
-    final room = chatCtrl.getRoomForContact(contactId);
-    final messages = room?.messages ?? [];
-    return messages.where((m) => !m.isRead && m.senderId != myId).length;
+    return chatCtrl.getUnreadCount(contactId);
   }
 
   Widget _buildSectionHeader(BuildContext context, String title) {

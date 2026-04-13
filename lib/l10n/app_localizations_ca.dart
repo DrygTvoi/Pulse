@@ -2679,4 +2679,73 @@ class AppLocalizationsCa extends AppLocalizations {
 
   @override
   String get newCall => 'Nova trucada';
+
+  @override
+  String get joinChannelTitle => 'Uneix-te al canal';
+
+  @override
+  String get joinChannelDescription => 'URL DEL CANAL';
+
+  @override
+  String get joinChannelUrlHint => 'https://channel.example.com';
+
+  @override
+  String get joinChannelFetching => 'Obtenint informació del canal…';
+
+  @override
+  String get joinChannelNotFound => 'No s\'ha trobat cap canal en aquesta URL';
+
+  @override
+  String get joinChannelNetworkError =>
+      'No s\'ha pogut contactar amb el servidor';
+
+  @override
+  String get joinChannelAlreadyJoined => 'Ja unit';
+
+  @override
+  String get joinChannelButton => 'Unir-se';
+
+  @override
+  String get channelFeedEmpty => 'Encara no hi ha publicacions';
+
+  @override
+  String get channelLeave => 'Sortir del canal';
+
+  @override
+  String get channelLeaveConfirm =>
+      'Sortir d\'aquest canal? Les publicacions emmagatzemades s\'esborraran.';
+
+  @override
+  String get channelInfo => 'Informació del canal';
+
+  @override
+  String channelViews(String count) {
+    return '$count';
+  }
+
+  @override
+  String get channelEdited => 'editat';
+
+  @override
+  String get channelLoadMore => 'Carregar més';
+
+  @override
+  String get channelSearchPosts => 'Cercar publicacions…';
+
+  @override
+  String get channelNoResults => 'Cap publicació coincident';
+
+  @override
+  String get channelUrl => 'URL del canal';
+
+  @override
+  String get channelCreated => 'Unit';
+
+  @override
+  String channelPostCount(int count) {
+    return '$count publicacions';
+  }
+
+  @override
+  String get channelCopyUrl => 'Copiar URL';
 }

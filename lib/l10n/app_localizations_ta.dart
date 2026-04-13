@@ -2665,4 +2665,72 @@ class AppLocalizationsTa extends AppLocalizations {
 
   @override
   String get newCall => 'புதிய அழைப்பு';
+
+  @override
+  String get joinChannelTitle => 'சேனலில் சேரவும்';
+
+  @override
+  String get joinChannelDescription => 'சேனல் URL';
+
+  @override
+  String get joinChannelUrlHint => 'https://channel.example.com';
+
+  @override
+  String get joinChannelFetching => 'சேனல் தகவலைப் பெறுகிறது…';
+
+  @override
+  String get joinChannelNotFound => 'இந்த URL-ல் சேனல் கிடைக்கவில்லை';
+
+  @override
+  String get joinChannelNetworkError => 'சேவையகத்தை அணுக முடியவில்லை';
+
+  @override
+  String get joinChannelAlreadyJoined => 'ஏற்கனவே சேர்ந்துள்ளீர்கள்';
+
+  @override
+  String get joinChannelButton => 'சேரவும்';
+
+  @override
+  String get channelFeedEmpty => 'இன்னும் பதிவுகள் இல்லை';
+
+  @override
+  String get channelLeave => 'சேனலை விடுங்கள்';
+
+  @override
+  String get channelLeaveConfirm =>
+      'இந்த சேனலை விட்டு வெளியேறவா? தற்காலிகமாக சேமிக்கப்பட்ட பதிவுகள் நீக்கப்படும்.';
+
+  @override
+  String get channelInfo => 'சேனல் தகவல்';
+
+  @override
+  String channelViews(String count) {
+    return '$count';
+  }
+
+  @override
+  String get channelEdited => 'திருத்தப்பட்டது';
+
+  @override
+  String get channelLoadMore => 'மேலும் ஏற்றவும்';
+
+  @override
+  String get channelSearchPosts => 'பதிவுகளை தேடு…';
+
+  @override
+  String get channelNoResults => 'பொருத்தமான பதிவுகள் இல்லை';
+
+  @override
+  String get channelUrl => 'சானல் URL';
+
+  @override
+  String get channelCreated => 'சேர்ந்தது';
+
+  @override
+  String channelPostCount(int count) {
+    return '$count பதிவுகள்';
+  }
+
+  @override
+  String get channelCopyUrl => 'URL நகலெடு';
 }

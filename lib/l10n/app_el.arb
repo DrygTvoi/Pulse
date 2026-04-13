@@ -778,5 +778,31 @@
   "torForceNostrTitle": "Δρομολόγηση μηνυμάτων μέσω Tor",
   "torForcePulseDisabled": "Πρέπει πρώτα να ενεργοποιηθεί το Tor",
   "torForcePulseSubtitle": "Όλες οι συνδέσεις Pulse relay θα περνούν μέσω Tor. Πιο αργό αλλά κρύβει την IP σας από τον διακομιστή.",
-  "torForcePulseTitle": "Δρομολόγηση Pulse relay μέσω Tor"
+  "torForcePulseTitle": "Δρομολόγηση Pulse relay μέσω Tor",
+  "joinChannelTitle": "Συμμετοχή σε κανάλι",
+  "joinChannelDescription": "URL ΚΑΝΑΛΙΟΥ",
+  "joinChannelUrlHint": "https://channel.example.com",
+  "joinChannelFetching": "Ανάκτηση πληροφοριών καναλιού…",
+  "joinChannelNotFound": "Δεν βρέθηκε κανάλι σε αυτό το URL",
+  "joinChannelNetworkError": "Αδυναμία σύνδεσης με τον διακομιστή",
+  "joinChannelAlreadyJoined": "Ήδη εγγεγραμμένος",
+  "joinChannelButton": "Συμμετοχή",
+  "channelFeedEmpty": "Δεν υπάρχουν δημοσιεύσεις ακόμα",
+  "channelLeave": "Αποχώρηση από κανάλι",
+  "channelLeaveConfirm": "Αποχώρηση από αυτό το κανάλι; Οι αποθηκευμένες δημοσιεύσεις θα διαγραφούν.",
+  "channelInfo": "Πληροφορίες καναλιού",
+  "channelViews": "{count}",
+  "channelEdited": "επεξεργασμένο",
+  "channelLoadMore": "Φόρτωση περισσότερων",
+  "channelSearchPosts": "Αναζήτηση δημοσιεύσεων\u2026",
+  "channelNoResults": "Δεν βρέθηκαν δημοσιεύσεις",
+  "channelUrl": "URL καναλιού",
+  "channelCreated": "Εγγράφηκε",
+  "channelPostCount": "{count} δημοσιεύσεις",
+  "@channelPostCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "channelCopyUrl": "Αντιγραφή URL"
 }

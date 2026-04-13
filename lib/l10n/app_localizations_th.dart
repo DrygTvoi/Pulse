@@ -2614,4 +2614,71 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String get newCall => 'การโทรใหม่';
+
+  @override
+  String get joinChannelTitle => 'เข้าร่วมช่อง';
+
+  @override
+  String get joinChannelDescription => 'URL ช่อง';
+
+  @override
+  String get joinChannelUrlHint => 'https://channel.example.com';
+
+  @override
+  String get joinChannelFetching => 'กำลังดึงข้อมูลช่อง…';
+
+  @override
+  String get joinChannelNotFound => 'ไม่พบช่องที่ URL นี้';
+
+  @override
+  String get joinChannelNetworkError => 'ไม่สามารถติดต่อเซิร์ฟเวอร์ได้';
+
+  @override
+  String get joinChannelAlreadyJoined => 'เข้าร่วมแล้ว';
+
+  @override
+  String get joinChannelButton => 'เข้าร่วม';
+
+  @override
+  String get channelFeedEmpty => 'ยังไม่มีโพสต์';
+
+  @override
+  String get channelLeave => 'ออกจากช่อง';
+
+  @override
+  String get channelLeaveConfirm => 'ออกจากช่องนี้? โพสต์ที่แคชไว้จะถูกลบ';
+
+  @override
+  String get channelInfo => 'ข้อมูลช่อง';
+
+  @override
+  String channelViews(String count) {
+    return '$count';
+  }
+
+  @override
+  String get channelEdited => 'แก้ไขแล้ว';
+
+  @override
+  String get channelLoadMore => 'โหลดเพิ่มเติม';
+
+  @override
+  String get channelSearchPosts => 'ค้นหาโพสต์…';
+
+  @override
+  String get channelNoResults => 'ไม่พบโพสต์ที่ตรงกัน';
+
+  @override
+  String get channelUrl => 'URL ช่อง';
+
+  @override
+  String get channelCreated => 'เข้าร่วมแล้ว';
+
+  @override
+  String channelPostCount(int count) {
+    return '$count โพสต์';
+  }
+
+  @override
+  String get channelCopyUrl => 'คัดลอก URL';
 }

@@ -778,5 +778,31 @@
   "torForceNostrTitle": "Định tuyến tin nhắn qua Tor",
   "torForcePulseDisabled": "Phải bật Tor trước",
   "torForcePulseSubtitle": "Tất cả kết nối Pulse relay sẽ đi qua Tor. Chậm hơn nhưng ẩn IP của bạn khỏi máy chủ.",
-  "torForcePulseTitle": "Định tuyến Pulse relay qua Tor"
+  "torForcePulseTitle": "Định tuyến Pulse relay qua Tor",
+  "joinChannelTitle": "Tham gia kênh",
+  "joinChannelDescription": "URL KÊNH",
+  "joinChannelUrlHint": "https://channel.example.com",
+  "joinChannelFetching": "Đang lấy thông tin kênh…",
+  "joinChannelNotFound": "Không tìm thấy kênh tại URL này",
+  "joinChannelNetworkError": "Không thể kết nối đến máy chủ",
+  "joinChannelAlreadyJoined": "Đã tham gia",
+  "joinChannelButton": "Tham gia",
+  "channelFeedEmpty": "Chưa có bài đăng nào",
+  "channelLeave": "Rời kênh",
+  "channelLeaveConfirm": "Rời kênh này? Bài đăng đã lưu sẽ bị xóa.",
+  "channelInfo": "Thông tin kênh",
+  "channelViews": "{count}",
+  "channelEdited": "đã sửa",
+  "channelLoadMore": "Tải thêm",
+  "channelSearchPosts": "T\u00ecm b\u00e0i \u0111\u0103ng\u2026",
+  "channelNoResults": "Kh\u00f4ng t\u00ecm th\u1ea5y b\u00e0i \u0111\u0103ng",
+  "channelUrl": "URL k\u00eanh",
+  "channelCreated": "\u0110\u00e3 tham gia",
+  "channelPostCount": "{count} b\u00e0i \u0111\u0103ng",
+  "@channelPostCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "channelCopyUrl": "Sao ch\u00e9p URL"
 }

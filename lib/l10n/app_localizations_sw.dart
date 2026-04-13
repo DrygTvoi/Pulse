@@ -2653,4 +2653,73 @@ class AppLocalizationsSw extends AppLocalizations {
 
   @override
   String get newCall => 'Simu mpya';
+
+  @override
+  String get joinChannelTitle => 'Jiunge na Kituo';
+
+  @override
+  String get joinChannelDescription => 'URL YA KITUO';
+
+  @override
+  String get joinChannelUrlHint => 'https://channel.example.com';
+
+  @override
+  String get joinChannelFetching => 'Inapata taarifa za kituo…';
+
+  @override
+  String get joinChannelNotFound =>
+      'Hakuna kituo kilichopatikana kwenye URL hii';
+
+  @override
+  String get joinChannelNetworkError => 'Haiwezi kufikia seva';
+
+  @override
+  String get joinChannelAlreadyJoined => 'Umeshajiunga';
+
+  @override
+  String get joinChannelButton => 'Jiunge';
+
+  @override
+  String get channelFeedEmpty => 'Hakuna machapisho bado';
+
+  @override
+  String get channelLeave => 'Ondoka Kituoni';
+
+  @override
+  String get channelLeaveConfirm =>
+      'Ondoka kwenye kituo hiki? Machapisho yaliyohifadhiwa yatafutwa.';
+
+  @override
+  String get channelInfo => 'Taarifa za Kituo';
+
+  @override
+  String channelViews(String count) {
+    return '$count';
+  }
+
+  @override
+  String get channelEdited => 'imehaririwa';
+
+  @override
+  String get channelLoadMore => 'Pakia zaidi';
+
+  @override
+  String get channelSearchPosts => 'Tafuta machapisho…';
+
+  @override
+  String get channelNoResults => 'Hakuna machapisho yanayolingana';
+
+  @override
+  String get channelUrl => 'URL ya kituo';
+
+  @override
+  String get channelCreated => 'Umejiunga';
+
+  @override
+  String channelPostCount(int count) {
+    return 'machapisho $count';
+  }
+
+  @override
+  String get channelCopyUrl => 'Nakili URL';
 }

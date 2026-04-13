@@ -57,14 +57,13 @@ class _ChatScreenState extends State<ChatScreen> {
   StreamSubscription? _e2eeFailSub;
   late Contact _contact;
 
-  // Voice recording state
-  bool _isRecording = false;
-  int _recordingSeconds = 0;
+  // Voice recording state (ValueNotifiers to avoid full-tree rebuilds every second)
+  final ValueNotifier<bool> _isRecording = ValueNotifier<bool>(false);
+  final ValueNotifier<int> _recordingSeconds = ValueNotifier<int>(0);
   Timer? _recordingTimer;
 
-  // Input focus for glow effect
+  // Input focus
   final FocusNode _inputFocusNode = FocusNode();
-  bool _inputFocused = false;
 
   // Message editing / replying state
   String? _editingMessageId;
@@ -72,6 +71,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
   bool _chatMuted = false;
   bool _showEmojiPicker = false;
+  bool _infoPanelOpen = false;
 
   // Cached reference for dispose() (context.read is unsafe in dispose)
   ChatController? _cachedController;
@@ -92,12 +92,16 @@ class _ChatScreenState extends State<ChatScreen> {
   int _cachedFilteredLen = -1;
   String _cachedSearchQuery = '';
   int _cachedEditVersion = -1;
+  int _cachedScheduledCount = 0;
+  List<Message> _cachedScheduledMsgs = const [];
 
   // Debounce search
   Timer? _searchDebounce;
 
   // Track messages that have already been rendered (skip entrance animation for them)
   final _seenMessageIds = <String>{};
+
+  // Typing indicator — driven by context.select in ChatAppBar, no local state needed.
 
   // Scroll-to-bottom FAB
   bool _showScrollFab = false;
@@ -109,21 +113,36 @@ class _ChatScreenState extends State<ChatScreen> {
     _contact = widget.contact;
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final ctrl = context.read<ChatController>();
-      await ctrl.loadRoomHistory(_contact);
-      // Seed seen IDs with all existing messages so they don't animate on open
+      // Only load history if room not already cached (startup already loaded it)
       final existingRoom = ctrl.getRoomForContact(_contact.id);
-      if (existingRoom != null) {
-        _seenMessageIds.addAll(existingRoom.messages.map((m) => m.id));
+      if (existingRoom == null) {
+        await ctrl.loadRoomHistory(_contact);
       }
-      await ctrl.markRoomAsRead(_contact);
+      // Seed seen IDs with all existing messages so they don't animate on open
+      final room = existingRoom ?? ctrl.getRoomForContact(_contact.id);
+      if (room != null) {
+        _seenMessageIds.addAll(room.messages.map((m) => m.id));
+      }
+      // Mark as read without blocking UI
+      unawaited(ctrl.markRoomAsRead(_contact));
       if (_contact.isGroup) unawaited(ctrl.markGroupMessagesRead(_contact));
       ctrl.setActiveRoom(_contact.id);
-      if (mounted) setState(() => _chatTtlSeconds = ctrl.getChatTtlCached(_contact.id));
-      final muted = await NotificationService().isChatMuted(_contact.id);
-      if (mounted) setState(() => _chatMuted = muted);
+      // Load mute + draft in parallel, then single setState
+      final ttl = ctrl.getChatTtlCached(_contact.id);
+      final results = await Future.wait([
+        NotificationService().isChatMuted(_contact.id),
+        LocalStorageService().loadDraft(_contact.id),
+      ]);
+      final muted = results[0] as bool;
+      final draft = (results[1] as String?) ?? '';
+      if (mounted) {
+        setState(() {
+          _chatTtlSeconds = ttl;
+          _chatMuted = muted;
+        });
+      }
       _scrollToBottom(animated: false);
       // Restore draft
-      final draft = await LocalStorageService().loadDraft(_contact.id) ?? '';
       if (draft.isNotEmpty && mounted) {
         _controller.text = draft;
         _controller.selection = TextSelection.collapsed(offset: draft.length);
@@ -132,11 +151,8 @@ class _ChatScreenState extends State<ChatScreen> {
     _scrollController.addListener(_onScroll);
     _controller.addListener(_onTyping);
     _inputFocusNode.addListener(() {
-      if (mounted) {
-        setState(() {
-          _inputFocused = _inputFocusNode.hasFocus;
-          if (_inputFocusNode.hasFocus && _showEmojiPicker) _showEmojiPicker = false;
-        });
+      if (mounted && _inputFocusNode.hasFocus && _showEmojiPicker) {
+        setState(() => _showEmojiPicker = false);
       }
     });
     // Desktop keyboard shortcuts
@@ -154,8 +170,12 @@ class _ChatScreenState extends State<ChatScreen> {
         _sendMessage();
         return KeyEventResult.handled;
       }
-      // Escape → cancel search / reply / edit
+      // Escape → close info panel / cancel search / reply / edit
       if (event.logicalKey == LogicalKeyboardKey.escape) {
+        if (_infoPanelOpen) {
+          setState(() => _infoPanelOpen = false);
+          return KeyEventResult.handled;
+        }
         if (_searchActive) {
           setState(() { _searchActive = false; _searchQuery = ''; });
           _searchController.clear();
@@ -178,7 +198,7 @@ class _ChatScreenState extends State<ChatScreen> {
       return KeyEventResult.ignored;
     };
     _typingSub = ChatController().typingUpdates.listen(
-      (contactId) { if (contactId == _contact.id && mounted) setState(() {}); },
+      (contactId) { /* handled by context.select in ChatAppBar */ },
       onError: (e) => debugPrint('[ChatScreen] typing stream error: $e'),
     );
     _keyChangeSub = ChatController().keyChangeWarnings.listen((event) {
@@ -255,6 +275,8 @@ class _ChatScreenState extends State<ChatScreen> {
     _tamperWarnSub?.cancel();
     _e2eeFailSub?.cancel();
     _recordingTimer?.cancel();
+    _isRecording.dispose();
+    _recordingSeconds.dispose();
     _controller.removeListener(_onTyping);
     _controller.dispose();
     _inputFocusNode.dispose();
@@ -476,20 +498,22 @@ class _ChatScreenState extends State<ChatScreen> {
       }
       return;
     }
-    setState(() { _isRecording = true; _recordingSeconds = 0; });
+    _isRecording.value = true;
+    _recordingSeconds.value = 0;
     _recordingTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted) return;
-      setState(() => _recordingSeconds++);
-      if (_recordingSeconds >= 120) _stopRecording();
+      _recordingSeconds.value++;
+      if (_recordingSeconds.value >= 120) _stopRecording();
     });
   }
 
   Future<void> _stopRecording() async {
     HapticFeedback.lightImpact();
     _recordingTimer?.cancel();
-    final wasRecording = _recordingSeconds > 0;
+    final wasRecording = _recordingSeconds.value > 0;
     final recording = await VoiceService().stopRecordingRaw();
-    setState(() { _isRecording = false; _recordingSeconds = 0; });
+    _isRecording.value = false;
+    _recordingSeconds.value = 0;
     if (recording == null) {
       if (wasRecording && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -521,7 +545,10 @@ class _ChatScreenState extends State<ChatScreen> {
   Future<void> _cancelRecording() async {
     _recordingTimer?.cancel();
     await VoiceService().cancelRecording();
-    if (mounted) setState(() { _isRecording = false; _recordingSeconds = 0; });
+    if (mounted) {
+      _isRecording.value = false;
+      _recordingSeconds.value = 0;
+    }
   }
 
   Future<void> _animateDelete(Message msg) async {
@@ -734,25 +761,32 @@ class _ChatScreenState extends State<ChatScreen> {
       });
     }
 
-    // Filter messages if search is active
-    final filtered = _searchQuery.isEmpty
-        ? messages
-        : messages.where((m) {
-            final text = m.encryptedPayload.toLowerCase();
-            return !text.startsWith('e2ee||') && text.contains(_searchQuery);
-          }).toList();
+    // Filter messages if search is active — cache by query + length + edit version
     final editVer = chatController.editVersionFor(_contact.storageKey);
-    if (!identical(filtered, _cachedFilteredRef) || filtered.length != _cachedFilteredLen || _searchQuery != _cachedSearchQuery || editVer != _cachedEditVersion) {
+    final needsRefilter = _searchQuery != _cachedSearchQuery
+        || messages.length != _cachedFilteredLen
+        || editVer != _cachedEditVersion;
+    if (needsRefilter) {
+      final filtered = _searchQuery.isEmpty
+          ? messages
+          : messages.where((m) {
+              final text = m.encryptedPayload.toLowerCase();
+              return !text.startsWith('e2ee||') && text.contains(_searchQuery);
+            }).toList();
       _cachedItems = _buildItemList(filtered);
       _cachedFilteredRef = filtered;
-      _cachedFilteredLen = filtered.length;
+      _cachedFilteredLen = messages.length;
       _cachedSearchQuery = _searchQuery;
       _cachedEditVersion = editVer;
+      // Cache scheduled messages alongside the filter (only recomputed when messages change)
+      _cachedScheduledMsgs = messages.where((m) => m.status == 'scheduled').toList();
+      _cachedScheduledCount = _cachedScheduledMsgs.length;
     }
-    final items = _cachedItems!;
+    final filtered = _cachedFilteredRef ?? messages;
+    final items = _cachedItems ?? _buildItemList(filtered);
 
-    // Scheduled messages count for input bar
-    final scheduledMsgs = messages.where((m) => m.status == 'scheduled').toList();
+    // Scheduled messages count for input bar (cached)
+    final scheduledMsgs = _cachedScheduledMsgs;
 
     return Scaffold(
       backgroundColor: AppTheme.background,
@@ -779,8 +813,11 @@ class _ChatScreenState extends State<ChatScreen> {
               onMuteChanged: (muted) { if (mounted) setState(() => _chatMuted = muted); },
               onTtlChanged: (seconds) { if (mounted) setState(() => _chatTtlSeconds = seconds); },
               embedded: widget.embedded,
+              infoPanelOpen: _infoPanelOpen,
+              onToggleInfoPanel: widget.embedded ? () => setState(() => _infoPanelOpen = !_infoPanelOpen) : null,
             ),
-      body: Column(children: [
+      body: Row(children: [
+        Expanded(child: Column(children: [
         // Offline indicator (hidden while probe is still running)
         OfflineBanner(status: connectionStatus),
         // Key change warning banner
@@ -907,7 +944,9 @@ class _ChatScreenState extends State<ChatScreen> {
                                     : msg.replyToSender!);
                           }
                         }
-                        return SwipeableBubble(
+                        return RepaintBoundary(
+                          key: ValueKey('rb_${msg.id}'),
+                          child: SwipeableBubble(
                           onLongPress: () => menu.showMessageMenu(
                             context: context,
                             message: msg,
@@ -1023,6 +1062,7 @@ class _ChatScreenState extends State<ChatScreen> {
                           }),
                           ),
                           ),
+                        ),
                         );
                       },
                     ),
@@ -1080,12 +1120,11 @@ class _ChatScreenState extends State<ChatScreen> {
         MessageInputBar(
           controller: _controller,
           focusNode: _inputFocusNode,
-          inputFocused: _inputFocused,
           isRecording: _isRecording,
           recordingSeconds: _recordingSeconds,
           replyingTo: _replyingTo,
           editingMessageId: _editingMessageId,
-          scheduledCount: scheduledMsgs.length,
+          scheduledCount: _cachedScheduledCount,
           showEmojiPicker: _showEmojiPicker,
           onSend: _sendMessage,
           onAttach: () => _sendMedia(),
@@ -1111,7 +1150,71 @@ class _ChatScreenState extends State<ChatScreen> {
             onEmojiSelected: _onEmojiSelected,
             onBackspace: _onEmojiBackspace,
           ),
+      ])),
+        if (_infoPanelOpen && widget.embedded) _buildInfoPanel(),
       ]),
+    );
+  }
+
+  Widget _buildInfoPanel() {
+    final myId = context.read<ChatController>().identity?.id ?? '';
+    final isAdmin = !_contact.isGroup || (_contact.creatorId != null && _contact.creatorId == myId);
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.easeOutCubic,
+      width: 340,
+      clipBehavior: Clip.hardEdge,
+      decoration: BoxDecoration(
+        color: AppTheme.surface,
+        border: Border(left: BorderSide(color: AppTheme.surfaceVariant, width: 0.5)),
+      ),
+      child: Column(
+        children: [
+          SizedBox(
+            height: kToolbarHeight,
+            child: Row(
+              children: [
+                const SizedBox(width: DesignTokens.spacing14),
+                Expanded(
+                  child: Text(
+                    _contact.isGroup ? context.l10n.appBarGroupSettings : context.l10n.moreOptions,
+                    style: GoogleFonts.inter(
+                      color: AppTheme.textPrimary,
+                      fontSize: DesignTokens.fontXl,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  icon: Icon(Icons.close_rounded, color: AppTheme.textSecondary),
+                  onPressed: () => setState(() => _infoPanelOpen = false),
+                ),
+                const SizedBox(width: DesignTokens.spacing4),
+              ],
+            ),
+          ),
+          Divider(height: 0.5, thickness: 0.5, color: AppTheme.surfaceVariant),
+          Expanded(
+            child: ContactProfileBody(
+              contact: _contact,
+              isAdmin: isAdmin,
+              isEmbeddedPanel: true,
+              onClose: () => setState(() => _infoPanelOpen = false),
+              onContactUpdated: (updated) {
+                if (mounted) setState(() => _contact = updated);
+              },
+              onClearHistory: () {
+                context.read<ChatController>().clearRoomHistory(_contact);
+              },
+              onDeleteContact: () async {
+                setState(() => _infoPanelOpen = false);
+                await context.read<IContactRepository>().removeContact(_contact.id);
+                if (mounted) widget.onCloseEmbedded?.call();
+              },
+            ),
+          ),
+        ],
+      ),
     );
   }
 

@@ -778,5 +778,31 @@
   "torForceNostrTitle": "ส่งข้อความผ่าน Tor",
   "torForcePulseDisabled": "ต้องเปิดใช้งาน Tor ก่อน",
   "torForcePulseSubtitle": "การเชื่อมต่อ Pulse relay ทั้งหมดจะผ่าน Tor ช้าลงแต่ซ่อน IP ของคุณจากเซิร์ฟเวอร์",
-  "torForcePulseTitle": "ส่ง Pulse relay ผ่าน Tor"
+  "torForcePulseTitle": "ส่ง Pulse relay ผ่าน Tor",
+  "joinChannelTitle": "เข้าร่วมช่อง",
+  "joinChannelDescription": "URL ช่อง",
+  "joinChannelUrlHint": "https://channel.example.com",
+  "joinChannelFetching": "กำลังดึงข้อมูลช่อง…",
+  "joinChannelNotFound": "ไม่พบช่องที่ URL นี้",
+  "joinChannelNetworkError": "ไม่สามารถติดต่อเซิร์ฟเวอร์ได้",
+  "joinChannelAlreadyJoined": "เข้าร่วมแล้ว",
+  "joinChannelButton": "เข้าร่วม",
+  "channelFeedEmpty": "ยังไม่มีโพสต์",
+  "channelLeave": "ออกจากช่อง",
+  "channelLeaveConfirm": "ออกจากช่องนี้? โพสต์ที่แคชไว้จะถูกลบ",
+  "channelInfo": "ข้อมูลช่อง",
+  "channelViews": "{count}",
+  "channelEdited": "แก้ไขแล้ว",
+  "channelLoadMore": "โหลดเพิ่มเติม",
+  "channelSearchPosts": "\u0e04\u0e49\u0e19\u0e2b\u0e32\u0e42\u0e1e\u0e2a\u0e15\u0e4c\u2026",
+  "channelNoResults": "\u0e44\u0e21\u0e48\u0e1e\u0e1a\u0e42\u0e1e\u0e2a\u0e15\u0e4c\u0e17\u0e35\u0e48\u0e15\u0e23\u0e07\u0e01\u0e31\u0e19",
+  "channelUrl": "URL \u0e0a\u0e48\u0e2d\u0e07",
+  "channelCreated": "\u0e40\u0e02\u0e49\u0e32\u0e23\u0e48\u0e27\u0e21\u0e41\u0e25\u0e49\u0e27",
+  "channelPostCount": "{count} \u0e42\u0e1e\u0e2a\u0e15\u0e4c",
+  "@channelPostCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "channelCopyUrl": "\u0e04\u0e31\u0e14\u0e25\u0e2d\u0e01 URL"
 }

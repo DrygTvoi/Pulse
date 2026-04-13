@@ -1,15 +1,23 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:http/http.dart' as http;
+import 'package:image/image.dart' as img;
 import 'package:uuid/uuid.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import '../constants.dart';
 import '../l10n/l10n_ext.dart';
 import '../models/contact.dart';
+import '../services/blossom_service.dart';
+import '../services/local_storage_service.dart';
+import '../services/media_validator.dart';
 import '../theme/app_theme.dart';
+import '../theme/design_tokens.dart';
+import '../widgets/avatar_widget.dart';
 
 class AddContactDialog extends StatefulWidget {
   final Function(Contact) onAdd;
@@ -21,20 +29,18 @@ class AddContactDialog extends StatefulWidget {
 
 class _AddContactDialogState extends State<AddContactDialog> {
   final _nameController = TextEditingController();
-  final _manualAddressController = TextEditingController();
-
   List<String> _detectedAddresses = [];
-  bool _showManual = false;
   bool _fetchingProfile = false;
   String? _profileFetchStatus;
   bool _profileFound = false;
   Timer? _debounceTimer;
+  Uint8List? _previewAvatarBytes;
+  bool _fetchingAvatar = false;
 
   @override
   void dispose() {
     _debounceTimer?.cancel();
     _nameController.dispose();
-    _manualAddressController.dispose();
     super.dispose();
   }
 
@@ -56,7 +62,11 @@ class _AddContactDialogState extends State<AddContactDialog> {
     if (trimmed.startsWith('pulse://') || trimmed.startsWith('messenger://')) {
       _parsePulseLink(trimmed);
     } else {
-      setState(() => _detectedAddresses = [trimmed]);
+      setState(() {
+        _detectedAddresses = [trimmed];
+        _previewAvatarBytes = null;
+        _fetchingAvatar = false;
+      });
       if (_detectProvider(trimmed) == 'Nostr') _tryScheduleNostrFetch(trimmed);
     }
   }
@@ -102,8 +112,18 @@ class _AddContactDialogState extends State<AddContactDialog> {
       final rawName = ((json['n'] as String?)?.trim() ?? '')
           .replaceAll(RegExp(r'[\u200B-\u200D\u202A-\u202E\u061C\u2066-\u2069\uFEFF]'), '');
       final name = rawName.length > 128 ? rawName.substring(0, 128) : rawName;
+      // Validate and fetch avatar from Blossom if present.
+      final rawAv = json['av'];
+      String? avatarHash;
+      if (rawAv is String &&
+          rawAv.length == 64 &&
+          RegExp(r'^[0-9a-f]{64}$').hasMatch(rawAv)) {
+        avatarHash = rawAv;
+      }
+
       setState(() {
         _detectedAddresses = addresses;
+        _previewAvatarBytes = null;
         if (name.isNotEmpty && _nameController.text.isEmpty) {
           _nameController.text = name;
         }
@@ -111,6 +131,8 @@ class _AddContactDialogState extends State<AddContactDialog> {
         _profileFetchStatus = null;
         _fetchingProfile = false;
       });
+
+      if (avatarHash != null) _fetchBlossomAvatar(avatarHash);
     } catch (e) {
       // F3: Do NOT call _onInput(link) here — that causes infinite recursion
       // when the link starts with pulse:// (re-enters _parsePulseLink → throws → recurse).
@@ -140,13 +162,19 @@ class _AddContactDialogState extends State<AddContactDialog> {
 
   Future<void> _fetchNostrProfile(String pubkey, String relayWs) async {
     if (!mounted) return;
-    setState(() { _fetchingProfile = true; _profileFound = false; _profileFetchStatus = context.l10n.addContactFetchingProfile; });
+    setState(() {
+      _fetchingProfile = true;
+      _profileFound = false;
+      _profileFetchStatus = context.l10n.addContactFetchingProfile;
+      _previewAvatarBytes = null;
+    });
     WebSocketChannel? channel;
     try {
       channel = WebSocketChannel.connect(Uri.parse(relayWs));
       final subId = 'meta_${Random().nextInt(999999)}';
       channel.sink.add(jsonEncode(['REQ', subId, {'kinds': [0], 'authors': [pubkey], 'limit': 1}]));
       String? foundName;
+      String? pictureUrl;
       await for (final raw in channel.stream.timeout(const Duration(seconds: 6))) {
         try {
           final msg = jsonDecode(raw as String) as List<dynamic>;
@@ -159,6 +187,10 @@ class _AddContactDialogState extends State<AddContactDialog> {
                 final n = (content['display_name'] as String?)?.trim() ??
                     (content['name'] as String?)?.trim();
                 if (n != null && n.isNotEmpty) foundName = n;
+                final pic = (content['picture'] as String?)?.trim();
+                if (pic != null && pic.isNotEmpty && pic.length <= 2048) {
+                  pictureUrl = pic;
+                }
               } catch (e) {
                 debugPrint('[AddContact] NIP-0 profile content parse error: $e');
               }
@@ -176,6 +208,8 @@ class _AddContactDialogState extends State<AddContactDialog> {
       } else {
         setState(() { _fetchingProfile = false; _profileFound = false; _profileFetchStatus = context.l10n.addContactNoProfileFound; });
       }
+      // Fetch avatar from picture URL (fire-and-forget, graceful failure)
+      if (pictureUrl != null) _fetchAvatarFromUrl(pictureUrl!);
     } catch (e) {
       debugPrint('[AddContact] Profile fetch failed: $e');
       if (mounted) setState(() { _fetchingProfile = false; _profileFound = false; _profileFetchStatus = null; });
@@ -184,16 +218,85 @@ class _AddContactDialogState extends State<AddContactDialog> {
     }
   }
 
-  void _addManualAddress() {
-    final addr = _manualAddressController.text.trim();
-    if (addr.isEmpty) return;
-    if (!_detectedAddresses.contains(addr)) {
-      setState(() => _detectedAddresses.add(addr));
+  /// Download avatar from Blossom by SHA-256 hash, validate, and set preview.
+  Future<void> _fetchBlossomAvatar(String hash) async {
+    if (!mounted) return;
+    setState(() => _fetchingAvatar = true);
+    try {
+      final bytes = await BlossomService.instance.download(hash);
+      if (bytes == null || !mounted) {
+        if (mounted) setState(() => _fetchingAvatar = false);
+        return;
+      }
+      final validated = _validateAndDecodeAvatar(bytes);
+      if (mounted) {
+        setState(() {
+          _previewAvatarBytes = validated;
+          _fetchingAvatar = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('[AddContact] Blossom avatar fetch failed: $e');
+      if (mounted) setState(() => _fetchingAvatar = false);
     }
-    _manualAddressController.clear();
   }
 
-  void _submit() {
+  /// Fetch avatar from a URL (for Nostr profile pictures).
+  /// 1 MB cap, 5s timeout, full validation pipeline.
+  Future<void> _fetchAvatarFromUrl(String url) async {
+    if (!mounted) return;
+    setState(() => _fetchingAvatar = true);
+    try {
+      final uri = Uri.tryParse(url);
+      if (uri == null || (!uri.isScheme('https') && !uri.isScheme('http'))) {
+        if (mounted) setState(() => _fetchingAvatar = false);
+        return;
+      }
+      final client = http.Client();
+      try {
+        final resp = await client.get(uri).timeout(const Duration(seconds: 5));
+        if (resp.statusCode != 200 || resp.bodyBytes.isEmpty) {
+          if (mounted) setState(() => _fetchingAvatar = false);
+          return;
+        }
+        // Avatar-specific 1 MB cap
+        if (resp.bodyBytes.length > 1024 * 1024) {
+          debugPrint('[AddContact] Nostr avatar too large: ${resp.bodyBytes.length} bytes');
+          if (mounted) setState(() => _fetchingAvatar = false);
+          return;
+        }
+        final validated = _validateAndDecodeAvatar(resp.bodyBytes);
+        if (mounted) {
+          setState(() {
+            _previewAvatarBytes = validated;
+            _fetchingAvatar = false;
+          });
+        }
+      } finally {
+        client.close();
+      }
+    } catch (e) {
+      debugPrint('[AddContact] Nostr avatar fetch failed: $e');
+      if (mounted) setState(() => _fetchingAvatar = false);
+    }
+  }
+
+  /// Validate image bytes (magic bytes + dimensions) then decode→re-encode
+  /// as 256×256 JPEG. Returns null on any failure.
+  static Uint8List? _validateAndDecodeAvatar(Uint8List bytes) {
+    // 1 MB avatar-specific cap
+    if (bytes.length > 1024 * 1024) return null;
+    // Magic byte + dimension check
+    final validation = MediaValidator.validateImage(bytes);
+    if (!validation.isValid) return null;
+    // Decode, crop square, re-encode — strips all metadata/exploits
+    final decoded = img.decodeImage(bytes);
+    if (decoded == null) return null;
+    final resized = img.copyResizeCropSquare(decoded, size: 256);
+    return Uint8List.fromList(img.encodeJpg(resized, quality: 85));
+  }
+
+  Future<void> _submit() async {
     if (_detectedAddresses.isEmpty) return;
     // Deduplicate to prevent the same address appearing twice.
     final uniqueAddrs = _detectedAddresses.toSet().toList();
@@ -214,14 +317,24 @@ class _AddContactDialogState extends State<AddContactDialog> {
       final raw = atIdx > 0 ? primaryAddr.substring(0, atIdx) : primaryAddr;
       name = raw.length > 12 ? raw.substring(0, 12) : raw;
     }
-    widget.onAdd(Contact(
-      id: const Uuid().v4(),
+    final contactId = const Uuid().v4();
+    final contact = Contact(
+      id: contactId,
       name: name,
       transportAddresses: ta,
       transportPriority: tp,
       publicKey: '',
-    ));
-    Navigator.of(context).pop();
+    );
+    // Save fetched avatar so it appears immediately on home screen.
+    if (_previewAvatarBytes != null) {
+      try {
+        await LocalStorageService().saveAvatar(contactId, base64Encode(_previewAvatarBytes!));
+      } catch (e) {
+        debugPrint('[AddContact] Failed to save preview avatar: $e');
+      }
+    }
+    widget.onAdd(contact);
+    if (mounted) Navigator.of(context).pop();
   }
 
   @override
@@ -263,8 +376,6 @@ class _AddContactDialogState extends State<AddContactDialog> {
               const SizedBox(height: 20),
 
               // ── Paste area ───────────────────────────────────
-              _label(context.l10n.addContactInviteLinkLabel),
-              const SizedBox(height: 8),
               Row(children: [
                 Expanded(
                   child: GestureDetector(
@@ -324,143 +435,175 @@ class _AddContactDialogState extends State<AddContactDialog> {
                 ),
               ]),
 
-              // ── Detected routes summary ──────────────────────
+              // ── Preview card (when addresses detected) ───────
               if (_detectedAddresses.isNotEmpty) ...[
-                const SizedBox(height: 10),
+                const SizedBox(height: 12),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  padding: const EdgeInsets.all(DesignTokens.spacing12),
                   decoration: BoxDecoration(
-                    color: AppTheme.primary.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(10),
+                    color: AppTheme.surfaceVariant,
+                    borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
                     border: Border.all(color: AppTheme.primary.withValues(alpha: 0.2)),
                   ),
-                  child: Row(children: [
-                    Icon(Icons.shuffle_rounded, size: 14, color: AppTheme.primary),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        _detectedAddresses.length == 1
-                            ? context.l10n.addContactAddressDetected
-                            : context.l10n.addContactRoutesDetected(_detectedAddresses.length),
-                        style: GoogleFonts.inter(
-                            color: AppTheme.primary, fontSize: 11, fontWeight: FontWeight.w600),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          // Avatar with loading overlay
+                          Stack(
+                            children: [
+                              AvatarWidget(
+                                name: _nameController.text.trim(),
+                                size: 56,
+                                imageBytes: _previewAvatarBytes,
+                              ),
+                              if (_fetchingAvatar)
+                                SizedBox(
+                                  width: 56, height: 56,
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      color: Colors.black.withValues(alpha: 0.3),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Center(
+                                      child: SizedBox(
+                                        width: 20, height: 20,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2, color: Colors.white),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                          const SizedBox(width: DesignTokens.spacing12),
+                          // Name field + transport badges
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                TextField(
+                                  controller: _nameController,
+                                  style: GoogleFonts.inter(
+                                    color: AppTheme.textPrimary,
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                  decoration: InputDecoration(
+                                    hintText: context.l10n.addContactDisplayNameHint,
+                                    hintStyle: GoogleFonts.inter(
+                                      color: AppTheme.textSecondary.withValues(alpha: 0.5),
+                                      fontSize: 13,
+                                    ),
+                                    isDense: true,
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 10, vertical: 8),
+                                    filled: true,
+                                    fillColor: AppTheme.surface,
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                      borderSide: BorderSide.none,
+                                    ),
+                                    enabledBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                      borderSide: BorderSide.none,
+                                    ),
+                                    focusedBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                      borderSide: BorderSide(
+                                        color: AppTheme.primary, width: 1),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                // Transport badge chips
+                                Wrap(
+                                  spacing: 4,
+                                  runSpacing: 4,
+                                  children: _detectedAddresses
+                                      .map(_detectProvider)
+                                      .toSet()
+                                      .map((t) => Container(
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 7, vertical: 2),
+                                            decoration: BoxDecoration(
+                                              color: AppTheme.primary.withValues(alpha: 0.12),
+                                              borderRadius: BorderRadius.circular(6),
+                                            ),
+                                            child: Text(
+                                              t,
+                                              style: GoogleFonts.inter(
+                                                color: AppTheme.primary,
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                          ))
+                                      .toList(),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                    Icon(Icons.check_circle_rounded, size: 14, color: AppTheme.primary),
-                  ]),
-                ),
-              ],
-
-              // ── Nostr fetch status ───────────────────────────
-              if (_profileFetchStatus != null) ...[
-                const SizedBox(height: 6),
-                Row(children: [
-                  if (_fetchingProfile)
-                    SizedBox(width: 11, height: 11,
-                        child: CircularProgressIndicator(strokeWidth: 1.5, color: AppTheme.primary))
-                  else
-                    Icon(
-                      _profileFound
-                          ? Icons.check_circle_outline_rounded
-                          : Icons.info_outline_rounded,
-                      size: 13,
-                      color: _profileFound
-                          ? AppTheme.online
-                          : AppTheme.textSecondary,
-                    ),
-                  const SizedBox(width: 5),
-                  Text(_profileFetchStatus!,
-                      style: GoogleFonts.inter(
-                          fontSize: 11,
-                          color: _profileFound
-                              ? AppTheme.online
-                              : AppTheme.textSecondary)),
-                ]),
-              ],
-              const SizedBox(height: 16),
-
-              // ── Name field ───────────────────────────────────
-              _label(context.l10n.addContactDisplayNameLabel),
-              const SizedBox(height: 8),
-              TextField(
-                controller: _nameController,
-                style: GoogleFonts.inter(color: AppTheme.textPrimary, fontSize: 14),
-                decoration: InputDecoration(
-                  hintText: context.l10n.addContactDisplayNameHint,
-                  hintStyle: GoogleFonts.inter(
-                      color: AppTheme.textSecondary.withValues(alpha: 0.5), fontSize: 12),
-                  filled: true, fillColor: AppTheme.surfaceVariant,
-                  border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                  enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: AppTheme.primary, width: 1.5),
-                  ),
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                ),
-              ),
-
-              // ── Manual address entry ─────────────────────────
-              const SizedBox(height: 12),
-              GestureDetector(
-                onTap: () => setState(() => _showManual = !_showManual),
-                child: Row(children: [
-                  Icon(_showManual ? Icons.expand_less : Icons.expand_more,
-                      size: 16, color: AppTheme.textSecondary),
-                  const SizedBox(width: 4),
-                  Text(context.l10n.addContactAddManually,
-                      style: GoogleFonts.inter(
-                          color: AppTheme.textSecondary, fontSize: 12)),
-                ]),
-              ),
-              if (_showManual) ...[
-                const SizedBox(height: 8),
-                Row(children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _manualAddressController,
-                      style: GoogleFonts.jetBrainsMono(
-                          color: AppTheme.textPrimary, fontSize: 12),
-                      decoration: InputDecoration(
-                        hintText: context.l10n.addContactManualHint,
-                        hintStyle: GoogleFonts.inter(
-                            color: AppTheme.textSecondary.withValues(alpha: 0.4),
-                            fontSize: 11),
-                        filled: true, fillColor: AppTheme.surfaceVariant,
-                        border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            borderSide: BorderSide.none),
-                        enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            borderSide: BorderSide.none),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          borderSide: BorderSide(color: AppTheme.primary, width: 1),
+                      const SizedBox(height: 8),
+                      // Route count + status
+                      Row(children: [
+                        Icon(Icons.shuffle_rounded, size: 12, color: AppTheme.textSecondary),
+                        const SizedBox(width: 4),
+                        Text(
+                          '${_detectedAddresses.length} ${_detectedAddresses.length == 1 ? 'route' : 'routes'}',
+                          style: GoogleFonts.inter(
+                              color: AppTheme.textSecondary,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500),
                         ),
-                        contentPadding:
-                            const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                      ),
-                      onSubmitted: (_) => _addManualAddress(),
-                    ),
+                        const SizedBox(width: 8),
+                        Icon(Icons.check_circle_rounded, size: 12, color: AppTheme.online),
+                        const SizedBox(width: 3),
+                        Text(
+                          'Ready to add',
+                          style: GoogleFonts.inter(
+                              color: AppTheme.online,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500),
+                        ),
+                      ]),
+                      // Nostr fetch status
+                      if (_profileFetchStatus != null) ...[
+                        const SizedBox(height: 4),
+                        Row(children: [
+                          if (_fetchingProfile)
+                            SizedBox(width: 11, height: 11,
+                                child: CircularProgressIndicator(
+                                    strokeWidth: 1.5, color: AppTheme.primary))
+                          else
+                            Icon(
+                              _profileFound
+                                  ? Icons.check_circle_outline_rounded
+                                  : Icons.info_outline_rounded,
+                              size: 12,
+                              color: _profileFound
+                                  ? AppTheme.online
+                                  : AppTheme.textSecondary,
+                            ),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(_profileFetchStatus!,
+                                style: GoogleFonts.inter(
+                                    fontSize: 10,
+                                    color: _profileFound
+                                        ? AppTheme.online
+                                        : AppTheme.textSecondary)),
+                          ),
+                        ]),
+                      ],
+                    ],
                   ),
-                  const SizedBox(width: 8),
-                  InkWell(
-                    onTap: _addManualAddress,
-                    borderRadius: BorderRadius.circular(8),
-                    child: Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: AppTheme.primary.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Icon(Icons.add, size: 16, color: AppTheme.primary),
-                    ),
-                  ),
-                ]),
+                ),
               ],
+
               const SizedBox(height: 20),
 
               // ── Add button ───────────────────────────────────
@@ -487,12 +630,6 @@ class _AddContactDialogState extends State<AddContactDialog> {
     );
   }
 
-  Widget _label(String text) => Text(text,
-      style: GoogleFonts.inter(
-          color: AppTheme.textSecondary,
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
-          letterSpacing: 0.5));
 }
 
 /// Parse a pulse:// or messenger:// deep link into {name, addresses}.

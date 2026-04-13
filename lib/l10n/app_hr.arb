@@ -778,5 +778,31 @@
   "torForceNostrTitle": "Usmjeri poruke putem Tor",
   "torForcePulseDisabled": "Tor mora biti prvo omogućen",
   "torForcePulseSubtitle": "Sve Pulse relay veze ići će putem Tor. Sporije, ali skriva vaš IP od poslužitelja.",
-  "torForcePulseTitle": "Usmjeri Pulse relay putem Tor"
+  "torForcePulseTitle": "Usmjeri Pulse relay putem Tor",
+  "joinChannelTitle": "Pridruži se kanalu",
+  "joinChannelDescription": "URL KANALA",
+  "joinChannelUrlHint": "https://channel.example.com",
+  "joinChannelFetching": "Dohvaćanje podataka o kanalu…",
+  "joinChannelNotFound": "Na ovom URL-u nije pronađen kanal",
+  "joinChannelNetworkError": "Nije moguće dohvatiti poslužitelj",
+  "joinChannelAlreadyJoined": "Već pridružen",
+  "joinChannelButton": "Pridruži se",
+  "channelFeedEmpty": "Još nema objava",
+  "channelLeave": "Napusti kanal",
+  "channelLeaveConfirm": "Napustiti ovaj kanal? Spremljene objave bit će obrisane.",
+  "channelInfo": "Informacije o kanalu",
+  "channelViews": "{count}",
+  "channelEdited": "uređeno",
+  "channelLoadMore": "Učitaj više",
+  "channelSearchPosts": "Pretraži objave\u2026",
+  "channelNoResults": "Nema odgovarajućih objava",
+  "channelUrl": "URL kanala",
+  "channelCreated": "Pridružen",
+  "channelPostCount": "{count} objava",
+  "@channelPostCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "channelCopyUrl": "Kopiraj URL"
 }

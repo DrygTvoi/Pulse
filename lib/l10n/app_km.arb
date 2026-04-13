@@ -778,5 +778,31 @@
   "torForceNostrTitle": "បញ្ជូនសារតាម Tor",
   "torForcePulseDisabled": "ត្រូវបើក Tor ជាមុនសិន",
   "torForcePulseSubtitle": "ការតភ្ជាប់ Pulse relay ទាំងអស់នឹងឆ្លងកាត់ Tor។ យឺតជាង ប៉ុន្តែលាក់ IP របស់អ្នកពីម៉ាស៊ីនមេ។",
-  "torForcePulseTitle": "បញ្ជូន Pulse relay តាម Tor"
+  "torForcePulseTitle": "បញ្ជូន Pulse relay តាម Tor",
+  "joinChannelTitle": "ចូលរួមឆានែល",
+  "joinChannelDescription": "URL ឆានែល",
+  "joinChannelUrlHint": "https://channel.example.com",
+  "joinChannelFetching": "កំពុងទាញយកព័ត៌មានឆានែល…",
+  "joinChannelNotFound": "រកមិនឃើញឆានែលនៅ URL នេះ",
+  "joinChannelNetworkError": "មិនអាចទាក់ទងម៉ាស៊ីនមេបានទេ",
+  "joinChannelAlreadyJoined": "បានចូលរួមហើយ",
+  "joinChannelButton": "ចូលរួម",
+  "channelFeedEmpty": "មិនទាន់មានការបង្ហោះទេ",
+  "channelLeave": "ចាកចេញពីឆានែល",
+  "channelLeaveConfirm": "ចាកចេញពីឆានែលនេះ? ការបង្ហោះដែលបានរក្សាទុកនឹងត្រូវលុប។",
+  "channelInfo": "ព័ត៌មានឆានែល",
+  "channelViews": "{count}",
+  "channelEdited": "បានកែសម្រួល",
+  "channelLoadMore": "ផ្ទុកបន្ថែម",
+  "channelSearchPosts": "\u179f\u17d2\u179c\u17c2\u1784\u179a\u1780\u179f\u17c6\u178e\u17c1\u179a\u2026",
+  "channelNoResults": "\u1782\u17d2\u1798\u17b6\u1793\u179f\u17c6\u178e\u17c1\u179a\u178e\u17b6\u178a\u17c2\u179b\u178f\u17d2\u179a\u17bc\u179c\u1782\u17d2\u1793\u17b6",
+  "channelUrl": "URL \u1786\u17b6\u178e\u17c2\u179b",
+  "channelCreated": "\u1785\u17bc\u179b\u179a\u17bd\u1798",
+  "channelPostCount": "{count} \u179f\u17c6\u178e\u17c1\u179a",
+  "@channelPostCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "channelCopyUrl": "\u1785\u1798\u17d2\u179b\u1784 URL"
 }

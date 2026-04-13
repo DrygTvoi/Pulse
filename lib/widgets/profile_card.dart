@@ -11,6 +11,7 @@ import '../l10n/l10n_ext.dart';
 import '../theme/app_theme.dart';
 import '../theme/design_tokens.dart';
 import '../controllers/chat_controller.dart';
+import '../services/blossom_service.dart';
 import '../services/signal_service.dart';
 import 'avatar_widget.dart';
 
@@ -80,15 +81,26 @@ class _ProfileCardState extends State<ProfileCard> {
     if (mounted) setState(() => _avatarBytes = Uint8List.fromList(jpeg));
   }
 
-  String _buildInviteLink(List<String> addresses, String name) {
-    final payload = addresses.length == 1
-        ? jsonEncode({'a': addresses.first, 'n': name})
-        : jsonEncode({'a': addresses, 'n': name});
-    final cfg = base64Encode(utf8.encode(payload));
+  Future<String> _buildInviteLink(List<String> addresses, String name) async {
+    String? avatarHash;
+    if (_avatarBytes != null && _avatarBytes!.isNotEmpty) {
+      try {
+        final result = await BlossomService.instance.upload(_avatarBytes!);
+        if (result != null) avatarHash = result.hash;
+      } catch (e) {
+        debugPrint('[ProfileCard] Avatar upload failed (link will omit avatar): $e');
+      }
+    }
+    final json = <String, dynamic>{
+      'a': addresses.length == 1 ? addresses.first : addresses,
+      'n': name,
+      if (avatarHash != null) 'av': avatarHash,
+    };
+    final cfg = base64Encode(utf8.encode(jsonEncode(json)));
     return 'pulse://add?cfg=$cfg';
   }
 
-  void _showMyQrDialog() {
+  Future<void> _showMyQrDialog() async {
     final addresses = ChatController().shareableAddresses;
     if (addresses.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -99,126 +111,143 @@ class _ProfileCardState extends State<ProfileCard> {
     }
 
     final myName = _nameController.text.trim();
-    final inviteLink = _buildInviteLink(addresses, myName);
+
+    // Show dialog immediately with a loading state, then update when link is ready.
+    String? inviteLink;
+    final dialogStateSetter = ValueNotifier<bool>(false); // true = link ready
 
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog.adaptive(
-        backgroundColor: AppTheme.surface,
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(DesignTokens.dialogRadius)),
-        title: Text(
-          context.l10n.settingsShareMyAddress,
-          style: GoogleFonts.inter(
-            color: AppTheme.textPrimary,
-            fontWeight: FontWeight.w700,
-            fontSize: DesignTokens.fontXl,
-          ),
-        ),
-        content: SizedBox(
-          width: 300,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius:
-                      BorderRadius.circular(DesignTokens.radiusMedium),
-                ),
-                padding: const EdgeInsets.all(DesignTokens.cardPadding),
-                child: QrImageView(data: inviteLink, size: 220),
-              ),
-              const SizedBox(height: DesignTokens.spacing12),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: DesignTokens.spacing10,
-                    vertical: DesignTokens.spacing6),
-                decoration: BoxDecoration(
-                  color: AppTheme.primary.withValues(alpha: 0.1),
-                  borderRadius:
-                      BorderRadius.circular(DesignTokens.radiusSmall),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.route_rounded,
-                        size: DesignTokens.fontMd, color: AppTheme.primary),
-                    const SizedBox(width: DesignTokens.spacing6),
-                    Text(
-                      '${addresses.length} ${addresses.length == 1 ? 'route' : 'routes'} included',
-                      style: GoogleFonts.inter(
-                        color: AppTheme.primary,
-                        fontSize: DesignTokens.fontSm,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: DesignTokens.spacing12),
-              Container(
-                padding: const EdgeInsets.all(DesignTokens.spacing12),
-                decoration: BoxDecoration(
-                  color: AppTheme.surfaceVariant,
-                  borderRadius:
-                      BorderRadius.circular(DesignTokens.spacing10),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      ctx.l10n.settingsInviteLink,
-                      style: GoogleFonts.inter(
-                        color: AppTheme.textSecondary,
-                        fontSize: DesignTokens.fontXs,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                    const SizedBox(height: DesignTokens.spacing4),
-                    SelectableText(
-                      inviteLink,
-                      style: GoogleFonts.jetBrainsMono(
-                          color: AppTheme.textPrimary,
-                          fontSize: DesignTokens.fontXs),
-                      maxLines: 3,
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Clipboard.setData(ClipboardData(text: inviteLink));
-              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                content: Text(context.l10n.settingsInviteLinkCopied,
-                    style: GoogleFonts.inter(color: AppTheme.onPrimary)),
-                backgroundColor: AppTheme.primary,
-                duration: const Duration(seconds: 2),
-              ));
-            },
-            child: Text(
-              context.l10n.settingsCopyLink,
-              style: GoogleFonts.inter(
-                color: AppTheme.primary,
-                fontWeight: FontWeight.w600,
-              ),
+      builder: (ctx) => ValueListenableBuilder<bool>(
+        valueListenable: dialogStateSetter,
+        builder: (ctx, ready, _) => AlertDialog.adaptive(
+          backgroundColor: AppTheme.surface,
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(DesignTokens.dialogRadius)),
+          title: Text(
+            context.l10n.settingsShareMyAddress,
+            style: GoogleFonts.inter(
+              color: AppTheme.textPrimary,
+              fontWeight: FontWeight.w700,
+              fontSize: DesignTokens.fontXl,
             ),
           ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(
-              context.l10n.close,
-              style: GoogleFonts.inter(color: AppTheme.textSecondary),
-            ),
+          content: SizedBox(
+            width: 300,
+            child: !ready
+                ? const SizedBox(
+                    height: 280,
+                    child: Center(child: CircularProgressIndicator()),
+                  )
+                : Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius:
+                              BorderRadius.circular(DesignTokens.radiusMedium),
+                        ),
+                        padding: const EdgeInsets.all(DesignTokens.cardPadding),
+                        child: QrImageView(data: inviteLink!, size: 220),
+                      ),
+                      const SizedBox(height: DesignTokens.spacing12),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: DesignTokens.spacing10,
+                            vertical: DesignTokens.spacing6),
+                        decoration: BoxDecoration(
+                          color: AppTheme.primary.withValues(alpha: 0.1),
+                          borderRadius:
+                              BorderRadius.circular(DesignTokens.radiusSmall),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.route_rounded,
+                                size: DesignTokens.fontMd, color: AppTheme.primary),
+                            const SizedBox(width: DesignTokens.spacing6),
+                            Text(
+                              '${addresses.length} ${addresses.length == 1 ? 'route' : 'routes'} included',
+                              style: GoogleFonts.inter(
+                                color: AppTheme.primary,
+                                fontSize: DesignTokens.fontSm,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: DesignTokens.spacing12),
+                      Container(
+                        padding: const EdgeInsets.all(DesignTokens.spacing12),
+                        decoration: BoxDecoration(
+                          color: AppTheme.surfaceVariant,
+                          borderRadius:
+                              BorderRadius.circular(DesignTokens.spacing10),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              ctx.l10n.settingsInviteLink,
+                              style: GoogleFonts.inter(
+                                color: AppTheme.textSecondary,
+                                fontSize: DesignTokens.fontXs,
+                                fontWeight: FontWeight.w600,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                            const SizedBox(height: DesignTokens.spacing4),
+                            SelectableText(
+                              inviteLink!,
+                              style: GoogleFonts.jetBrainsMono(
+                                  color: AppTheme.textPrimary,
+                                  fontSize: DesignTokens.fontXs),
+                              maxLines: 3,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
           ),
-        ],
+          actions: [
+            TextButton(
+              onPressed: ready
+                  ? () {
+                      Clipboard.setData(ClipboardData(text: inviteLink!));
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                        content: Text(context.l10n.settingsInviteLinkCopied,
+                            style: GoogleFonts.inter(color: AppTheme.onPrimary)),
+                        backgroundColor: AppTheme.primary,
+                        duration: const Duration(seconds: 2),
+                      ));
+                    }
+                  : null,
+              child: Text(
+                context.l10n.settingsCopyLink,
+                style: GoogleFonts.inter(
+                  color: ready ? AppTheme.primary : AppTheme.textSecondary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text(
+                context.l10n.close,
+                style: GoogleFonts.inter(color: AppTheme.textSecondary),
+              ),
+            ),
+          ],
+        ),
       ),
     );
+
+    // Build the link (may upload avatar to Blossom — takes time).
+    inviteLink = await _buildInviteLink(addresses, myName);
+    dialogStateSetter.value = true;
   }
 
   Future<void> _save() async {

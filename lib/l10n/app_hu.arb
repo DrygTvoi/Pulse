@@ -778,5 +778,31 @@
   "torForceNostrTitle": "Üzenetek irányítása Tor-on keresztül",
   "torForcePulseDisabled": "Először a Tor-t kell engedélyezni",
   "torForcePulseSubtitle": "Minden Pulse relay kapcsolat Tor-on keresztül megy. Lassabb, de elrejti az IP-címedet a szerver elől.",
-  "torForcePulseTitle": "Pulse relay irányítása Tor-on keresztül"
+  "torForcePulseTitle": "Pulse relay irányítása Tor-on keresztül",
+  "joinChannelTitle": "Csatlakozás csatornához",
+  "joinChannelDescription": "CSATORNA URL",
+  "joinChannelUrlHint": "https://channel.example.com",
+  "joinChannelFetching": "Csatorna adatainak lekérése…",
+  "joinChannelNotFound": "Nem található csatorna ezen az URL-en",
+  "joinChannelNetworkError": "A szerver nem érhető el",
+  "joinChannelAlreadyJoined": "Már csatlakozott",
+  "joinChannelButton": "Csatlakozás",
+  "channelFeedEmpty": "Még nincsenek bejegyzések",
+  "channelLeave": "Csatorna elhagyása",
+  "channelLeaveConfirm": "Elhagyja ezt a csatornát? A tárolt bejegyzések törlődnek.",
+  "channelInfo": "Csatorna adatai",
+  "channelViews": "{count}",
+  "channelEdited": "szerkesztve",
+  "channelLoadMore": "Több betöltése",
+  "channelSearchPosts": "Bejegyzések keresése\u2026",
+  "channelNoResults": "Nincs találat",
+  "channelUrl": "Csatorna URL",
+  "channelCreated": "Csatlakozva",
+  "channelPostCount": "{count} bejegyzés",
+  "@channelPostCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "channelCopyUrl": "URL másolása"
 }

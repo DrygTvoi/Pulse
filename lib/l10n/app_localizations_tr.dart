@@ -2646,4 +2646,72 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get newCall => 'Yeni arama';
+
+  @override
+  String get joinChannelTitle => 'Kanala Katıl';
+
+  @override
+  String get joinChannelDescription => 'KANAL URL\'Sİ';
+
+  @override
+  String get joinChannelUrlHint => 'https://channel.example.com';
+
+  @override
+  String get joinChannelFetching => 'Kanal bilgileri alınıyor…';
+
+  @override
+  String get joinChannelNotFound => 'Bu URL\'de kanal bulunamadı';
+
+  @override
+  String get joinChannelNetworkError => 'Sunucuya ulaşılamadı';
+
+  @override
+  String get joinChannelAlreadyJoined => 'Zaten katıldınız';
+
+  @override
+  String get joinChannelButton => 'Katıl';
+
+  @override
+  String get channelFeedEmpty => 'Henüz gönderi yok';
+
+  @override
+  String get channelLeave => 'Kanaldan Ayrıl';
+
+  @override
+  String get channelLeaveConfirm =>
+      'Bu kanaldan ayrılsın mı? Önbelleğe alınan gönderiler silinecek.';
+
+  @override
+  String get channelInfo => 'Kanal Bilgisi';
+
+  @override
+  String channelViews(String count) {
+    return '$count';
+  }
+
+  @override
+  String get channelEdited => 'düzenlendi';
+
+  @override
+  String get channelLoadMore => 'Daha fazla yükle';
+
+  @override
+  String get channelSearchPosts => 'Gönderileri ara…';
+
+  @override
+  String get channelNoResults => 'Eşleşen gönderi yok';
+
+  @override
+  String get channelUrl => 'Kanal URL';
+
+  @override
+  String get channelCreated => 'Katıldı';
+
+  @override
+  String channelPostCount(int count) {
+    return '$count gönderi';
+  }
+
+  @override
+  String get channelCopyUrl => 'URL kopyala';
 }

@@ -778,5 +778,31 @@
   "torForceNostrTitle": "Kirim pesan melalui Tor",
   "torForcePulseDisabled": "Tor harus diaktifkan terlebih dahulu",
   "torForcePulseSubtitle": "Semua koneksi Pulse relay akan melalui Tor. Lebih lambat tetapi menyembunyikan IP Anda dari server.",
-  "torForcePulseTitle": "Kirim Pulse relay melalui Tor"
+  "torForcePulseTitle": "Kirim Pulse relay melalui Tor",
+  "joinChannelTitle": "Gabung Saluran",
+  "joinChannelDescription": "URL SALURAN",
+  "joinChannelUrlHint": "https://channel.example.com",
+  "joinChannelFetching": "Mengambil info saluran…",
+  "joinChannelNotFound": "Saluran tidak ditemukan di URL ini",
+  "joinChannelNetworkError": "Tidak dapat menjangkau server",
+  "joinChannelAlreadyJoined": "Sudah bergabung",
+  "joinChannelButton": "Gabung",
+  "channelFeedEmpty": "Belum ada postingan",
+  "channelLeave": "Tinggalkan Saluran",
+  "channelLeaveConfirm": "Tinggalkan saluran ini? Postingan yang di-cache akan dihapus.",
+  "channelInfo": "Info Saluran",
+  "channelViews": "{count}",
+  "channelEdited": "diedit",
+  "channelLoadMore": "Muat lagi",
+  "channelSearchPosts": "Cari postingan\u2026",
+  "channelNoResults": "Tidak ada postingan yang cocok",
+  "channelUrl": "URL saluran",
+  "channelCreated": "Bergabung",
+  "channelPostCount": "{count} postingan",
+  "@channelPostCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "channelCopyUrl": "Salin URL"
 }

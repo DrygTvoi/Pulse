@@ -778,5 +778,31 @@
   "torForceNostrTitle": "Xabarlarni Tor orqali yo'naltirish",
   "torForcePulseDisabled": "Avval Tor yoqilishi kerak",
   "torForcePulseSubtitle": "Barcha Pulse relay ulanishlari Tor orqali o'tadi. Sekinroq, lekin IP manzilingizni serverdan yashiradi.",
-  "torForcePulseTitle": "Pulse relay-ni Tor orqali yo'naltirish"
+  "torForcePulseTitle": "Pulse relay-ni Tor orqali yo'naltirish",
+  "joinChannelTitle": "Kanalga qo'shilish",
+  "joinChannelDescription": "KANAL URL",
+  "joinChannelUrlHint": "https://channel.example.com",
+  "joinChannelFetching": "Kanal ma'lumotlari olinmoqda…",
+  "joinChannelNotFound": "Bu URL'da kanal topilmadi",
+  "joinChannelNetworkError": "Serverga ulanib bo'lmadi",
+  "joinChannelAlreadyJoined": "Allaqachon qo'shilgan",
+  "joinChannelButton": "Qo'shilish",
+  "channelFeedEmpty": "Hozircha postlar yo'q",
+  "channelLeave": "Kanalni tark etish",
+  "channelLeaveConfirm": "Bu kanalni tark etasizmi? Saqlangan postlar o'chiriladi.",
+  "channelInfo": "Kanal ma'lumotlari",
+  "channelViews": "{count}",
+  "channelEdited": "tahrirlangan",
+  "channelLoadMore": "Ko'proq yuklash",
+  "channelSearchPosts": "Postlarni qidirish\u2026",
+  "channelNoResults": "Mos postlar topilmadi",
+  "channelUrl": "Kanal URL",
+  "channelCreated": "Qo\u02bbshilgan",
+  "channelPostCount": "{count} post",
+  "@channelPostCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "channelCopyUrl": "URL nusxalash"
 }

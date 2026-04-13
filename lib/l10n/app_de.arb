@@ -778,5 +778,31 @@
   "torForceNostrTitle": "Nachrichten über Tor leiten",
   "torForcePulseDisabled": "Tor muss zuerst aktiviert werden",
   "torForcePulseSubtitle": "Alle Pulse-Relay-Verbindungen werden über Tor geleitet. Langsamer, aber Ihre IP wird vor dem Server verborgen.",
-  "torForcePulseTitle": "Pulse-Relay über Tor leiten"
+  "torForcePulseTitle": "Pulse-Relay über Tor leiten",
+  "joinChannelTitle": "Kanal beitreten",
+  "joinChannelDescription": "KANAL-URL",
+  "joinChannelUrlHint": "https://channel.example.com",
+  "joinChannelFetching": "Kanalinformationen werden abgerufen…",
+  "joinChannelNotFound": "Kein Kanal unter dieser URL gefunden",
+  "joinChannelNetworkError": "Server nicht erreichbar",
+  "joinChannelAlreadyJoined": "Bereits beigetreten",
+  "joinChannelButton": "Beitreten",
+  "channelFeedEmpty": "Noch keine Beiträge",
+  "channelLeave": "Kanal verlassen",
+  "channelLeaveConfirm": "Diesen Kanal verlassen? Gespeicherte Beiträge werden gelöscht.",
+  "channelInfo": "Kanalinfo",
+  "channelViews": "{count}",
+  "channelEdited": "bearbeitet",
+  "channelLoadMore": "Mehr laden",
+  "channelSearchPosts": "Beiträge suchen\u2026",
+  "channelNoResults": "Keine passenden Beiträge",
+  "channelUrl": "Kanal-URL",
+  "channelCreated": "Beigetreten",
+  "channelPostCount": "{count} Beiträge",
+  "@channelPostCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "channelCopyUrl": "URL kopieren"
 }

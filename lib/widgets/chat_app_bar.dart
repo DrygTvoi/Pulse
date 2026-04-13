@@ -24,6 +24,8 @@ PreferredSizeWidget buildChatAppBar({
   required void Function(bool muted) onMuteChanged,
   required void Function(int seconds) onTtlChanged,
   bool embedded = false,
+  bool infoPanelOpen = false,
+  VoidCallback? onToggleInfoPanel,
 }) {
   // Granular selectors — only rebuild when THIS contact's status changes,
   // not on every ChatController notification.
@@ -116,6 +118,15 @@ PreferredSizeWidget buildChatAppBar({
               : CallScreen(contact: contact, myId: myId, isCaller: true),
         )),
       ),
+      if (embedded && onToggleInfoPanel != null)
+        IconButton(
+          icon: Icon(
+            infoPanelOpen ? Icons.view_sidebar_rounded : Icons.view_sidebar_outlined,
+            color: infoPanelOpen ? AppTheme.primary : AppTheme.textSecondary,
+          ),
+          tooltip: infoPanelOpen ? context.l10n.close : context.l10n.moreOptions,
+          onPressed: onToggleInfoPanel,
+        ),
       PopupMenuButton<String>(
         icon: Icon(Icons.more_vert_rounded, color: AppTheme.textSecondary),
         tooltip: context.l10n.moreOptions,

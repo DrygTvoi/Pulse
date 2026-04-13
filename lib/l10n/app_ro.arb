@@ -778,5 +778,31 @@
   "torForceNostrTitle": "Rutează mesajele prin Tor",
   "torForcePulseDisabled": "Tor trebuie activat mai întâi",
   "torForcePulseSubtitle": "Toate conexiunile relay-ului Pulse vor trece prin Tor. Mai lent, dar ascunde IP-ul tău de server.",
-  "torForcePulseTitle": "Rutează relay-ul Pulse prin Tor"
+  "torForcePulseTitle": "Rutează relay-ul Pulse prin Tor",
+  "joinChannelTitle": "Alătură-te canalului",
+  "joinChannelDescription": "URL CANAL",
+  "joinChannelUrlHint": "https://channel.example.com",
+  "joinChannelFetching": "Se obțin informațiile canalului…",
+  "joinChannelNotFound": "Niciun canal găsit la acest URL",
+  "joinChannelNetworkError": "Nu s-a putut contacta serverul",
+  "joinChannelAlreadyJoined": "Deja abonat",
+  "joinChannelButton": "Alătură-te",
+  "channelFeedEmpty": "Încă nu există postări",
+  "channelLeave": "Părăsește canalul",
+  "channelLeaveConfirm": "Părăsești acest canal? Postările salvate vor fi șterse.",
+  "channelInfo": "Info canal",
+  "channelViews": "{count}",
+  "channelEdited": "editat",
+  "channelLoadMore": "Încarcă mai multe",
+  "channelSearchPosts": "C\u0103utare postare\u2026",
+  "channelNoResults": "Nicio postare potrivit\u0103",
+  "channelUrl": "URL canal",
+  "channelCreated": "Al\u0103turat",
+  "channelPostCount": "{count} post\u0103ri",
+  "@channelPostCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "channelCopyUrl": "Copiaz\u0103 URL"
 }

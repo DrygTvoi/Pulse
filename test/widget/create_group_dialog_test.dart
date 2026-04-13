@@ -107,7 +107,7 @@ void main() {
   });
 
   group('CreateGroupDialog', () {
-    testWidgets('has dialog structure with "New Group" title',
+    testWidgets('Step 1: shows "New Group" title and group name field',
         (WidgetTester tester) async {
       await tester.pumpWidget(buildTestableWidget(
         child: CreateGroupDialog(onCreate: (_) {}),
@@ -115,28 +115,16 @@ void main() {
       ));
       await tester.pumpAndSettle();
 
-      // Open the dialog
       await tester.tap(find.text('Show Dialog'));
       await tester.pumpAndSettle();
 
       expect(find.text('New Group'), findsOneWidget);
-    });
-
-    testWidgets('has a group name text field with hint',
-        (WidgetTester tester) async {
-      await tester.pumpWidget(buildTestableWidget(
-        child: CreateGroupDialog(onCreate: (_) {}),
-        repository: _FakeContactRepository(),
-      ));
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.text('Show Dialog'));
-      await tester.pumpAndSettle();
-
       expect(find.text('Group name'), findsOneWidget);
+      // Step 1 has Next button, not Create
+      expect(find.text('Next'), findsOneWidget);
     });
 
-    testWidgets('has "Select members" label',
+    testWidgets('Step 1: Next button disabled when name is empty',
         (WidgetTester tester) async {
       await tester.pumpWidget(buildTestableWidget(
         child: CreateGroupDialog(onCreate: (_) {}),
@@ -147,25 +135,12 @@ void main() {
       await tester.tap(find.text('Show Dialog'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Select members (min 2)'), findsOneWidget);
+      // Find the FilledButton and check it's disabled
+      final button = tester.widget<FilledButton>(find.widgetWithText(FilledButton, 'Next'));
+      expect(button.onPressed, isNull);
     });
 
-    testWidgets('has Cancel and Create action buttons',
-        (WidgetTester tester) async {
-      await tester.pumpWidget(buildTestableWidget(
-        child: CreateGroupDialog(onCreate: (_) {}),
-        repository: _FakeContactRepository(),
-      ));
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.text('Show Dialog'));
-      await tester.pumpAndSettle();
-
-      expect(find.text('Cancel'), findsOneWidget);
-      expect(find.text('Create'), findsOneWidget);
-    });
-
-    testWidgets('shows "No contacts yet" when repository is empty',
+    testWidgets('Navigates to Step 2 after entering name and tapping Next',
         (WidgetTester tester) async {
       await tester.pumpWidget(buildTestableWidget(
         child: CreateGroupDialog(onCreate: (_) {}),
@@ -176,7 +151,63 @@ void main() {
       await tester.tap(find.text('Show Dialog'));
       await tester.pumpAndSettle();
 
+      // Enter group name
+      await tester.enterText(find.byType(TextField), 'Test Group');
+      await tester.pumpAndSettle();
+
+      // Tap Next
+      await tester.tap(find.text('Next'));
+      await tester.pumpAndSettle();
+
+      // Step 2 should show member selection and Create button
+      expect(find.text('Select members (min 2)'), findsOneWidget);
+      expect(find.textContaining('Create'), findsOneWidget);
+    });
+
+    testWidgets('Step 2: shows "No contacts yet" when repository is empty',
+        (WidgetTester tester) async {
+      await tester.pumpWidget(buildTestableWidget(
+        child: CreateGroupDialog(onCreate: (_) {}),
+        repository: _FakeContactRepository([]),
+      ));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Show Dialog'));
+      await tester.pumpAndSettle();
+
+      // Go to step 2
+      await tester.enterText(find.byType(TextField), 'Test Group');
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Next'));
+      await tester.pumpAndSettle();
+
       expect(find.text('No contacts yet. Add contacts first.'), findsOneWidget);
+    });
+
+    testWidgets('Step 2: back button returns to Step 1',
+        (WidgetTester tester) async {
+      await tester.pumpWidget(buildTestableWidget(
+        child: CreateGroupDialog(onCreate: (_) {}),
+        repository: _FakeContactRepository(),
+      ));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Show Dialog'));
+      await tester.pumpAndSettle();
+
+      // Go to step 2
+      await tester.enterText(find.byType(TextField), 'Test Group');
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Next'));
+      await tester.pumpAndSettle();
+
+      // Tap back
+      await tester.tap(find.byIcon(Icons.arrow_back_rounded));
+      await tester.pumpAndSettle();
+
+      // Should be back on step 1
+      expect(find.text('Next'), findsOneWidget);
+      expect(find.text('New Group'), findsOneWidget);
     });
   });
 }

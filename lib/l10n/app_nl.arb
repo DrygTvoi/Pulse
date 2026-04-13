@@ -778,5 +778,31 @@
   "torForceNostrTitle": "Berichten via Tor routeren",
   "torForcePulseDisabled": "Tor moet eerst worden ingeschakeld",
   "torForcePulseSubtitle": "Alle Pulse relay-verbindingen gaan via Tor. Langzamer maar verbergt uw IP voor de server.",
-  "torForcePulseTitle": "Pulse relay via Tor routeren"
+  "torForcePulseTitle": "Pulse relay via Tor routeren",
+  "joinChannelTitle": "Kanaal volgen",
+  "joinChannelDescription": "KANAAL-URL",
+  "joinChannelUrlHint": "https://channel.example.com",
+  "joinChannelFetching": "Kanaalinformatie ophalen…",
+  "joinChannelNotFound": "Geen kanaal gevonden op deze URL",
+  "joinChannelNetworkError": "Kan server niet bereiken",
+  "joinChannelAlreadyJoined": "Al gevolgd",
+  "joinChannelButton": "Volgen",
+  "channelFeedEmpty": "Nog geen berichten",
+  "channelLeave": "Kanaal verlaten",
+  "channelLeaveConfirm": "Dit kanaal verlaten? Opgeslagen berichten worden verwijderd.",
+  "channelInfo": "Kanaalinfo",
+  "channelViews": "{count}",
+  "channelEdited": "bewerkt",
+  "channelLoadMore": "Meer laden",
+  "channelSearchPosts": "Berichten zoeken\u2026",
+  "channelNoResults": "Geen overeenkomende berichten",
+  "channelUrl": "Kanaal-URL",
+  "channelCreated": "Lid geworden",
+  "channelPostCount": "{count} berichten",
+  "@channelPostCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "channelCopyUrl": "URL kopi\u00ebren"
 }

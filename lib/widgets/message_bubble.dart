@@ -20,6 +20,51 @@ import 'call_record_bubble.dart';
 
 final _urlRegex = RegExp(r'https?://[^\s<>"]+[^\s<>".!?,)]', caseSensitive: false);
 
+// ─── LRU parse cache — avoids re-parsing on every widget rebuild ─────────────
+
+class _ParseResult {
+  final Map<String, dynamic>? callRecord;
+  final MediaPayload? media;
+  final BlossomPayload? blossomPayload;
+
+  const _ParseResult({this.callRecord, this.media, this.blossomPayload});
+}
+
+class _ParseCache {
+  static const _maxSize = 256;
+  static final _cache = <String, _ParseResult>{}; // insertion-ordered
+
+  static _ParseResult get(String text) {
+    final cached = _cache[text];
+    if (cached != null) {
+      // Move to end (most recently used)
+      _cache.remove(text);
+      _cache[text] = cached;
+      return cached;
+    }
+    final callRecord = tryParseCallRecord(text);
+    final media = MediaService.parse(text);
+    final blossomPayload =
+        media == null ? BlossomPayloadHelpers.parseBlossomPayload(text) : null;
+    final result = _ParseResult(
+      callRecord: callRecord,
+      media: media,
+      blossomPayload: blossomPayload,
+    );
+    _cache[text] = result;
+    if (_cache.length > _maxSize) {
+      _cache.remove(_cache.keys.first);
+    }
+    return result;
+  }
+
+  static void invalidate(String text) {
+    _cache.remove(text);
+  }
+}
+
+// ─── Message bubble ─────────────────────────────────────────────────────────
+
 class MessageBubble extends StatelessWidget {
   final String message;
   final DateTime timestamp;
@@ -72,20 +117,44 @@ class MessageBubble extends StatelessWidget {
 
   static const _unencryptedPrefix = '\u26A0\uFE0F UNENCRYPTED: ';
 
+  // ── Cached colors (avoid repeated .withValues allocations) ──
+  static final _white70 = Colors.white.withValues(alpha: 0.70);
+  static final _white65 = Colors.white.withValues(alpha: 0.65);
+  static final _white55 = Colors.white.withValues(alpha: 0.55);
+  static final _white50 = Colors.white.withValues(alpha: 0.50);
+  static final _white45 = Colors.white.withValues(alpha: 0.45);
+  static final _white20 = Colors.white.withValues(alpha: 0.20);
+  static final _white12 = Colors.white.withValues(alpha: 0.12);
+
+  // ── Cached text styles (avoid GoogleFonts map-lookup per build) ──
+  static final _timestampStyle = GoogleFonts.inter(color: _white70, fontSize: DesignTokens.fontSm);
+  static final _editedStyle = GoogleFonts.inter(fontSize: DesignTokens.fontXs, color: _white45);
+  static final _reactionCountStyle = GoogleFonts.inter(fontSize: DesignTokens.fontSm, color: _white55);
+  static final _replySenderStyle = GoogleFonts.inter(
+      fontSize: DesignTokens.fontXs, fontWeight: FontWeight.w700,
+      color: Colors.white.withValues(alpha: DesignTokens.opacityFull));
+  static final _replyTextStyle = GoogleFonts.inter(fontSize: DesignTokens.fontSm, color: _white65);
+  static final _fileNameStyle = GoogleFonts.inter(
+      color: Colors.white, fontWeight: FontWeight.w600, fontSize: DesignTokens.fontMd);
+  static final _fileSizeStyle = GoogleFonts.inter(color: _white65, fontSize: DesignTokens.fontSm);
+  static final _snackBarStyle = GoogleFonts.inter(fontSize: DesignTokens.fontMd);
+
   @override
   Widget build(BuildContext context) {
     final isUnencrypted = message.startsWith(_unencryptedPrefix);
     final rawText = isUnencrypted ? message.substring(_unencryptedPrefix.length) : message;
 
+    // Cached parse results — avoids re-parsing on every rebuild.
+    final parsed = _ParseCache.get(rawText);
+
     // Call history record — render as centered system row, not a bubble.
-    final callRecord = tryParseCallRecord(rawText);
-    if (callRecord != null) {
+    if (parsed.callRecord != null) {
       return CallRecordBubble(message: rawText, timestamp: timestamp, isMe: isMe);
     }
 
     // Detect media payload
-    final media = MediaService.parse(rawText);
-    final blossomPayload = media == null ? BlossomPayloadHelpers.parseBlossomPayload(rawText) : null;
+    final media = parsed.media;
+    final blossomPayload = parsed.blossomPayload;
 
     final Color bgColor = isUnencrypted
         ? const Color(0xFF8B1A1A)
@@ -181,10 +250,7 @@ class MessageBubble extends StatelessWidget {
                           children: [
                             Text(emoji, style: const TextStyle(fontSize: DesignTokens.fontLg)),
                             const SizedBox(width: DesignTokens.spacing4),
-                            Text('$count',
-                                style: GoogleFonts.inter(
-                                    fontSize: DesignTokens.fontSm,
-                                    color: Colors.white.withValues(alpha: 0.55))),
+                            Text('$count', style: _reactionCountStyle),
                           ],
                         ),
                       ),
@@ -285,9 +351,7 @@ class MessageBubble extends StatelessWidget {
           ),
         _buildLinkedText(context, displayText),
         if (isEdited)
-          Text('(${context.l10n.chatEdited})',
-              style: GoogleFonts.inter(
-                  fontSize: DesignTokens.fontXs, color: Colors.white.withValues(alpha: 0.45))),
+          Text('(${context.l10n.chatEdited})', style: _editedStyle),
         const SizedBox(height: 3),
         _buildTimestamp(),
       ],
@@ -375,7 +439,7 @@ class MessageBubble extends StatelessWidget {
       await file.writeAsBytes(media.data);
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(context.l10n.bubbleSavedTo(dir.path), style: GoogleFonts.inter(fontSize: DesignTokens.fontMd)),
+          content: Text(context.l10n.bubbleSavedTo(dir.path), style: _snackBarStyle),
           backgroundColor: AppTheme.surfaceVariant,
           duration: const Duration(seconds: 3),
         ));
@@ -383,7 +447,7 @@ class MessageBubble extends StatelessWidget {
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(context.l10n.bubbleSaveFailed('$e'), style: GoogleFonts.inter(fontSize: DesignTokens.fontMd)),
+          content: Text(context.l10n.bubbleSaveFailed('$e'), style: _snackBarStyle),
           backgroundColor: Colors.red.shade900,
         ));
       }
@@ -393,7 +457,7 @@ class MessageBubble extends StatelessWidget {
   Widget _buildReplyQuote(BuildContext context) {
     // Resolve display text — friendly label for media payloads
     String displayText;
-    final replyMedia = MediaService.parse(replyToText!);
+    final replyMedia = _ParseCache.get(replyToText!).media;
     if (replyMedia != null) {
       if (replyMedia.isImage) { displayText = '\u{1F4F7} ${context.l10n.bubbleReplyPhoto}'; }
       else if (replyMedia.isVoice) { displayText = '\u{1F399} ${context.l10n.bubbleReplyVoice}'; }
@@ -418,7 +482,7 @@ class MessageBubble extends StatelessWidget {
             width: 3,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(DesignTokens.radiusXs),
-              color: Colors.white.withValues(alpha: 0.5),
+              color: _white50,
             ),
           ),
           const SizedBox(width: DesignTokens.spacing8),
@@ -432,16 +496,11 @@ class MessageBubble extends StatelessWidget {
                     replyToSender!.length > 20
                         ? replyToSender!.substring(0, 20)
                         : replyToSender!,
-                    style: GoogleFonts.inter(
-                        fontSize: DesignTokens.fontXs,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white.withValues(alpha: DesignTokens.opacityFull)),
+                    style: _replySenderStyle,
                   ),
                 Text(
                   displayText,
-                  style: GoogleFonts.inter(
-                      fontSize: DesignTokens.fontSm,
-                      color: Colors.white.withValues(alpha: 0.65)),
+                  style: _replyTextStyle,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -484,6 +543,7 @@ class MessageBubble extends StatelessWidget {
                   media.data,
                   fit: BoxFit.cover,
                   gaplessPlayback: true,
+                  cacheWidth: 520,
                   errorBuilder: (context, error, stack) => Container(
                     width: 260,
                     height: 120,
@@ -541,16 +601,14 @@ class MessageBubble extends StatelessWidget {
                   children: [
                     Text(
                       media.name,
-                      style: GoogleFonts.inter(
-                          color: Colors.white, fontWeight: FontWeight.w600, fontSize: DesignTokens.fontMd),
+                      style: _fileNameStyle,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: DesignTokens.spacing2),
                     Text(
                       media.sizeLabel,
-                      style: GoogleFonts.inter(
-                          color: Colors.white.withValues(alpha: 0.65), fontSize: DesignTokens.fontSm),
+                      style: _fileSizeStyle,
                     ),
                   ],
                 ),
@@ -561,7 +619,7 @@ class MessageBubble extends StatelessWidget {
                 child: Container(
                   padding: const EdgeInsets.all(DesignTokens.spacing6),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.12),
+                    color: _white12,
                     borderRadius: BorderRadius.circular(DesignTokens.radiusSmall),
                   ),
                   child: const Icon(Icons.download_rounded, color: Colors.white70, size: DesignTokens.fontHeading),
@@ -578,7 +636,7 @@ class MessageBubble extends StatelessWidget {
               child: LinearProgressIndicator(
                 value: uploadProgress,
                 minHeight: 3,
-                backgroundColor: Colors.white.withValues(alpha: 0.2),
+                backgroundColor: _white20,
                 valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primary),
               ),
             ),
@@ -592,7 +650,7 @@ class MessageBubble extends StatelessWidget {
     return Row(mainAxisSize: MainAxisSize.min, children: [
       Text(
         '${timestamp.hour.toString().padLeft(2, '0')}:${timestamp.minute.toString().padLeft(2, '0')}',
-        style: GoogleFonts.inter(color: Colors.white.withValues(alpha: 0.70), fontSize: DesignTokens.fontSm),
+        style: _timestampStyle,
       ),
       if (isMe && status.isNotEmpty) ...[
         const SizedBox(width: DesignTokens.spacing4),
@@ -616,12 +674,12 @@ class MessageBubble extends StatelessWidget {
       case 'sending':
         return SizedBox(
           width: 11, height: 11,
-          child: CircularProgressIndicator(strokeWidth: 1.5, color: Colors.white.withValues(alpha: 0.55)),
+          child: CircularProgressIndicator(strokeWidth: 1.5, color: _white55),
         );
       case 'sent':
-        return Icon(Icons.done_rounded, size: 13, color: Colors.white.withValues(alpha: 0.7));
+        return Icon(Icons.done_rounded, size: 13, color: _white70);
       case 'delivered':
-        return Icon(Icons.done_all_rounded, size: 13, color: Colors.white.withValues(alpha: 0.7));
+        return Icon(Icons.done_all_rounded, size: 13, color: _white70);
       case 'read':
         return Icon(Icons.done_all_rounded, size: 13, color: AppTheme.primary);
       case 'failed':
@@ -630,7 +688,7 @@ class MessageBubble extends StatelessWidget {
           child: const Icon(Icons.error_outline_rounded, size: 13, color: Colors.orangeAccent),
         );
       case 'scheduled':
-        return Icon(Icons.schedule_rounded, size: 13, color: Colors.white.withValues(alpha: 0.55));
+        return Icon(Icons.schedule_rounded, size: 13, color: _white55);
       default:
         return const SizedBox.shrink();
     }

@@ -778,5 +778,31 @@
   "torForceNostrTitle": "メッセージをTor経由で送信",
   "torForcePulseDisabled": "先にTorを有効にしてください",
   "torForcePulseSubtitle": "すべてのPulseリレー接続がTor経由になります。速度は低下しますが、サーバーからIPアドレスを隠します。",
-  "torForcePulseTitle": "PulseリレーをTor経由で接続"
+  "torForcePulseTitle": "PulseリレーをTor経由で接続",
+  "joinChannelTitle": "チャンネルに参加",
+  "joinChannelDescription": "チャンネルURL",
+  "joinChannelUrlHint": "https://channel.example.com",
+  "joinChannelFetching": "チャンネル情報を取得中…",
+  "joinChannelNotFound": "このURLにチャンネルが見つかりません",
+  "joinChannelNetworkError": "サーバーに接続できません",
+  "joinChannelAlreadyJoined": "参加済み",
+  "joinChannelButton": "参加",
+  "channelFeedEmpty": "まだ投稿がありません",
+  "channelLeave": "チャンネルを退出",
+  "channelLeaveConfirm": "このチャンネルを退出しますか？キャッシュされた投稿は削除されます。",
+  "channelInfo": "チャンネル情報",
+  "channelViews": "{count}",
+  "channelEdited": "編集済み",
+  "channelLoadMore": "もっと読み込む",
+  "channelSearchPosts": "\u6295\u7a3f\u3092\u691c\u7d22\u2026",
+  "channelNoResults": "\u4e00\u81f4\u3059\u308b\u6295\u7a3f\u306a\u3057",
+  "channelUrl": "\u30c1\u30e3\u30f3\u30cd\u30ebURL",
+  "channelCreated": "\u53c2\u52a0\u6e08\u307f",
+  "channelPostCount": "{count}\u4ef6\u306e\u6295\u7a3f",
+  "@channelPostCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "channelCopyUrl": "URL\u3092\u30b3\u30d4\u30fc"
 }

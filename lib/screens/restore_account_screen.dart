@@ -41,6 +41,11 @@ class RestoreAccountScreen extends StatefulWidget {
 }
 
 class _RestoreAccountScreenState extends State<RestoreAccountScreen> {
+  static final _lowerRegex   = RegExp(r'[a-z]');
+  static final _upperRegex   = RegExp(r'[A-Z]');
+  static final _digitRegex   = RegExp(r'[0-9]');
+  static final _specialRegex = RegExp(r'[^a-zA-Z0-9]');
+
   final _nameController     = TextEditingController();
   final _passwordController = TextEditingController();
   int  _colorIndex   = 0;
@@ -66,10 +71,10 @@ class _RestoreAccountScreenState extends State<RestoreAccountScreen> {
   bool get _hasVariety {
     final p = _passwordController.text;
     int classes = 0;
-    if (p.contains(RegExp(r'[a-z]'))) classes++;
-    if (p.contains(RegExp(r'[A-Z]'))) classes++;
-    if (p.contains(RegExp(r'[0-9]'))) classes++;
-    if (p.contains(RegExp(r'[^a-zA-Z0-9]'))) classes++;
+    if (p.contains(_lowerRegex)) classes++;
+    if (p.contains(_upperRegex)) classes++;
+    if (p.contains(_digitRegex)) classes++;
+    if (p.contains(_specialRegex)) classes++;
     return classes >= 3;
   }
 
@@ -83,10 +88,10 @@ class _RestoreAccountScreenState extends State<RestoreAccountScreen> {
     final p = _passwordController.text;
     if (p.isEmpty) return 0;
     int charset = 0;
-    if (p.contains(RegExp(r'[a-z]'))) charset += 26;
-    if (p.contains(RegExp(r'[A-Z]'))) charset += 26;
-    if (p.contains(RegExp(r'[0-9]'))) charset += 10;
-    if (p.contains(RegExp(r'[^a-zA-Z0-9]'))) charset += 32;
+    if (p.contains(_lowerRegex)) charset += 26;
+    if (p.contains(_upperRegex)) charset += 26;
+    if (p.contains(_digitRegex)) charset += 10;
+    if (p.contains(_specialRegex)) charset += 32;
     if (charset == 0) charset = 26;
     // Penalize low uniqueness (repeated characters reduce effective entropy).
     final uniqueChars = p.split('').toSet().length;

@@ -2656,4 +2656,72 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get newCall => 'Nova chamada';
+
+  @override
+  String get joinChannelTitle => 'Entrar no canal';
+
+  @override
+  String get joinChannelDescription => 'URL DO CANAL';
+
+  @override
+  String get joinChannelUrlHint => 'https://channel.example.com';
+
+  @override
+  String get joinChannelFetching => 'Obtendo informações do canal…';
+
+  @override
+  String get joinChannelNotFound => 'Nenhum canal encontrado nesta URL';
+
+  @override
+  String get joinChannelNetworkError => 'Não foi possível contactar o servidor';
+
+  @override
+  String get joinChannelAlreadyJoined => 'Já inscrito';
+
+  @override
+  String get joinChannelButton => 'Entrar';
+
+  @override
+  String get channelFeedEmpty => 'Ainda não há publicações';
+
+  @override
+  String get channelLeave => 'Sair do canal';
+
+  @override
+  String get channelLeaveConfirm =>
+      'Sair deste canal? As publicações em cache serão apagadas.';
+
+  @override
+  String get channelInfo => 'Info do canal';
+
+  @override
+  String channelViews(String count) {
+    return '$count';
+  }
+
+  @override
+  String get channelEdited => 'editado';
+
+  @override
+  String get channelLoadMore => 'Carregar mais';
+
+  @override
+  String get channelSearchPosts => 'Pesquisar postagens…';
+
+  @override
+  String get channelNoResults => 'Nenhuma postagem correspondente';
+
+  @override
+  String get channelUrl => 'URL do canal';
+
+  @override
+  String get channelCreated => 'Entrou';
+
+  @override
+  String channelPostCount(int count) {
+    return '$count postagens';
+  }
+
+  @override
+  String get channelCopyUrl => 'Copiar URL';
 }

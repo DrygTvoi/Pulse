@@ -66,7 +66,7 @@ Future<void> showContactProfile(
   );
 }
 
-class _ContactProfileSheet extends StatefulWidget {
+class _ContactProfileSheet extends StatelessWidget {
   final Contact contact;
   final bool isAdmin;
   final void Function(Contact updated)? onContactUpdated;
@@ -82,10 +82,71 @@ class _ContactProfileSheet extends StatefulWidget {
   });
 
   @override
-  State<_ContactProfileSheet> createState() => _ContactProfileSheetState();
+  Widget build(BuildContext context) {
+    final screenH = MediaQuery.of(context).size.height;
+    return Container(
+      constraints: BoxConstraints(maxHeight: screenH * 0.85),
+      decoration: BoxDecoration(
+        color: AppTheme.surface,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(DesignTokens.dialogPadding)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (PlatformUtils.isMobile)
+            Container(
+              margin: const EdgeInsets.only(top: DesignTokens.spacing12),
+              width: DesignTokens.avatarXs,
+              height: DesignTokens.spacing4,
+              decoration: BoxDecoration(
+                color: AppTheme.textSecondary.withValues(alpha: DesignTokens.opacityMedium),
+                borderRadius: BorderRadius.circular(DesignTokens.radiusXs),
+              ),
+            ),
+          Flexible(
+            child: ContactProfileBody(
+              contact: contact,
+              isAdmin: isAdmin,
+              isEmbeddedPanel: false,
+              onContactUpdated: onContactUpdated,
+              onDeleteContact: onDeleteContact,
+              onClearHistory: onClearHistory,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
-class _ContactProfileSheetState extends State<_ContactProfileSheet> {
+/// Reusable contact/group profile body.
+/// Used both inside the bottom sheet/dialog and as an embedded side panel.
+class ContactProfileBody extends StatefulWidget {
+  final Contact contact;
+  final bool isAdmin;
+  /// When true, close actions call [onClose] instead of Navigator.pop.
+  final bool isEmbeddedPanel;
+  final VoidCallback? onClose;
+  final void Function(Contact updated)? onContactUpdated;
+  final void Function()? onDeleteContact;
+  final void Function()? onClearHistory;
+
+  const ContactProfileBody({
+    super.key,
+    required this.contact,
+    required this.isAdmin,
+    this.isEmbeddedPanel = false,
+    this.onClose,
+    this.onContactUpdated,
+    this.onDeleteContact,
+    this.onClearHistory,
+  });
+
+  @override
+  State<ContactProfileBody> createState() => _ContactProfileBodyState();
+}
+
+class _ContactProfileBodyState extends State<ContactProfileBody> {
   late Contact _contact;
   String? _contactFingerprint;
   String _ownFingerprint = '';
@@ -96,6 +157,15 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
     super.initState();
     _contact = widget.contact;
     _loadFingerprints();
+  }
+
+  @override
+  void didUpdateWidget(covariant ContactProfileBody oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.contact.id != widget.contact.id) {
+      _contact = widget.contact;
+      _loadFingerprints();
+    }
   }
 
   Future<void> _loadFingerprints() async {
@@ -297,7 +367,7 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
     unawaited(context.read<ChatController>().broadcastGroupUpdate(updated));
     await context.read<IContactRepository>().removeContact(_contact.id);
     if (mounted) {
-      Navigator.pop(context);
+      _dismiss();
       widget.onDeleteContact?.call();
     }
   }
@@ -514,7 +584,6 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
                 constraints: BoxConstraints(
                     maxHeight: MediaQuery.of(context).size.height * 0.4),
                 child: ListView.builder(
-                  shrinkWrap: true,
                   itemCount: candidates.length,
                   itemBuilder: (_, i) {
                     final c = candidates[i];
@@ -602,89 +671,71 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
     ).then((_) => ctrl.dispose());
   }
 
+  void _dismiss() {
+    if (widget.isEmbeddedPanel) {
+      widget.onClose?.call();
+    } else {
+      Navigator.pop(context);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final screenH = MediaQuery.of(context).size.height;
-    return Container(
-      constraints: BoxConstraints(maxHeight: screenH * 0.85),
-      decoration: BoxDecoration(
-        color: AppTheme.surface,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(DesignTokens.dialogPadding)),
-      ),
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(DesignTokens.spacing20, DesignTokens.spacing20, DesignTokens.spacing20, DesignTokens.spacing32),
       child: Column(
-        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // Drag handle (mobile only)
-          if (PlatformUtils.isMobile)
-            Container(
-              margin: const EdgeInsets.only(top: DesignTokens.spacing12),
-              width: DesignTokens.avatarXs,
-              height: DesignTokens.spacing4,
-              decoration: BoxDecoration(
-                color: AppTheme.textSecondary.withValues(alpha: DesignTokens.opacityMedium),
-                borderRadius: BorderRadius.circular(DesignTokens.radiusXs),
-              ),
-            ),
-          Flexible(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(DesignTokens.spacing20, DesignTokens.spacing20, DesignTokens.spacing20, DesignTokens.spacing32),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  _buildAvatar(),
-                  const SizedBox(height: DesignTokens.spacing14),
-                  GestureDetector(
-                    onTap: _contact.isGroup && widget.isAdmin ? _showRenameDialog : null,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Flexible(
-                          child: Text(
-                            _contact.name,
-                            style: GoogleFonts.inter(
-                              color: AppTheme.textPrimary,
-                              fontSize: DesignTokens.fontDisplay,
-                              fontWeight: FontWeight.w700,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
-                        if (_contact.isGroup && widget.isAdmin) ...[
-                          const SizedBox(width: DesignTokens.spacing6),
-                          Icon(Icons.edit_rounded,
-                              size: DesignTokens.fontLg, color: AppTheme.textSecondary),
-                        ],
-                      ],
+          _buildAvatar(),
+          const SizedBox(height: DesignTokens.spacing14),
+          GestureDetector(
+            onTap: _contact.isGroup && widget.isAdmin ? _showRenameDialog : null,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Flexible(
+                  child: Text(
+                    _contact.name,
+                    style: GoogleFonts.inter(
+                      color: AppTheme.textPrimary,
+                      fontSize: DesignTokens.fontDisplay,
+                      fontWeight: FontWeight.w700,
                     ),
+                    textAlign: TextAlign.center,
                   ),
-                  if (_contact.bio.isNotEmpty) ...[
-                    const SizedBox(height: DesignTokens.spacing8),
-                    Text(
-                      _contact.bio,
-                      textAlign: TextAlign.center,
-                      style: GoogleFonts.inter(
-                          color: AppTheme.textSecondary, fontSize: DesignTokens.fontMd),
-                    ),
-                  ],
-                  const SizedBox(height: DesignTokens.spacing6),
-                  _buildProviderBadge(),
-                  const SizedBox(height: DesignTokens.spacing20),
-                  _buildAddressRow(),
-                  if (!_contact.isGroup && (_contactFingerprint != null || _ownFingerprint.isNotEmpty)) ...[
-                    const SizedBox(height: DesignTokens.spacing12),
-                    _buildFingerprintSection(),
-                  ],
-                  if (_contact.isGroup) ...[
-                    const SizedBox(height: DesignTokens.spacing20),
-                    _buildMembersSection(),
-                  ],
-                  const SizedBox(height: DesignTokens.spacing24),
-                  _buildActions(context),
+                ),
+                if (_contact.isGroup && widget.isAdmin) ...[
+                  const SizedBox(width: DesignTokens.spacing6),
+                  Icon(Icons.edit_rounded,
+                      size: DesignTokens.fontLg, color: AppTheme.textSecondary),
                 ],
-              ),
+              ],
             ),
           ),
+          if (_contact.bio.isNotEmpty) ...[
+            const SizedBox(height: DesignTokens.spacing8),
+            Text(
+              _contact.bio,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.inter(
+                  color: AppTheme.textSecondary, fontSize: DesignTokens.fontMd),
+            ),
+          ],
+          const SizedBox(height: DesignTokens.spacing6),
+          _buildProviderBadge(),
+          const SizedBox(height: DesignTokens.spacing20),
+          _buildAddressRow(),
+          if (!_contact.isGroup && (_contactFingerprint != null || _ownFingerprint.isNotEmpty)) ...[
+            const SizedBox(height: DesignTokens.spacing12),
+            _buildFingerprintSection(),
+          ],
+          if (_contact.isGroup) ...[
+            const SizedBox(height: DesignTokens.spacing20),
+            _buildMembersSection(),
+          ],
+          const SizedBox(height: DesignTokens.spacing24),
+          _buildActions(context),
         ],
       ),
     );
@@ -1075,7 +1126,7 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
             label: context.l10n.profileVerifySafetyNumber,
             color: _isVerified ? AppTheme.online : AppTheme.primary,
             onTap: () {
-              Navigator.pop(context);
+              _dismiss();
               Navigator.push(context, MaterialPageRoute(
                 builder: (_) => VerifyIdentityScreen(
                   contactName: _contact.name,
@@ -1113,7 +1164,7 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
           label: context.l10n.profileClearChatHistory,
           color: AppTheme.textSecondary,
           onTap: () {
-            Navigator.pop(context);
+            _dismiss();
             widget.onClearHistory?.call();
           },
         ),
@@ -1132,7 +1183,7 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
           label: _contact.isGroup ? context.l10n.profileDeleteGroup : context.l10n.profileDeleteContact,
           color: AppTheme.error,
           onTap: () {
-            Navigator.pop(context);
+            _dismiss();
             widget.onDeleteContact?.call();
           },
         ),

@@ -2643,4 +2643,72 @@ class AppLocalizationsMs extends AppLocalizations {
 
   @override
   String get newCall => 'Panggilan baharu';
+
+  @override
+  String get joinChannelTitle => 'Sertai Saluran';
+
+  @override
+  String get joinChannelDescription => 'URL SALURAN';
+
+  @override
+  String get joinChannelUrlHint => 'https://channel.example.com';
+
+  @override
+  String get joinChannelFetching => 'Mendapatkan maklumat saluran…';
+
+  @override
+  String get joinChannelNotFound => 'Saluran tidak ditemui di URL ini';
+
+  @override
+  String get joinChannelNetworkError => 'Tidak dapat menghubungi pelayan';
+
+  @override
+  String get joinChannelAlreadyJoined => 'Sudah menyertai';
+
+  @override
+  String get joinChannelButton => 'Sertai';
+
+  @override
+  String get channelFeedEmpty => 'Belum ada siaran';
+
+  @override
+  String get channelLeave => 'Tinggalkan Saluran';
+
+  @override
+  String get channelLeaveConfirm =>
+      'Tinggalkan saluran ini? Siaran yang di-cache akan dipadam.';
+
+  @override
+  String get channelInfo => 'Maklumat Saluran';
+
+  @override
+  String channelViews(String count) {
+    return '$count';
+  }
+
+  @override
+  String get channelEdited => 'disunting';
+
+  @override
+  String get channelLoadMore => 'Muat lagi';
+
+  @override
+  String get channelSearchPosts => 'Cari siaran…';
+
+  @override
+  String get channelNoResults => 'Tiada siaran sepadan';
+
+  @override
+  String get channelUrl => 'URL saluran';
+
+  @override
+  String get channelCreated => 'Disertai';
+
+  @override
+  String channelPostCount(int count) {
+    return '$count siaran';
+  }
+
+  @override
+  String get channelCopyUrl => 'Salin URL';
 }

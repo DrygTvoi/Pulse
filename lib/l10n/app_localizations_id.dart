@@ -2638,4 +2638,72 @@ class AppLocalizationsId extends AppLocalizations {
 
   @override
   String get newCall => 'Panggilan baru';
+
+  @override
+  String get joinChannelTitle => 'Gabung Saluran';
+
+  @override
+  String get joinChannelDescription => 'URL SALURAN';
+
+  @override
+  String get joinChannelUrlHint => 'https://channel.example.com';
+
+  @override
+  String get joinChannelFetching => 'Mengambil info saluran…';
+
+  @override
+  String get joinChannelNotFound => 'Saluran tidak ditemukan di URL ini';
+
+  @override
+  String get joinChannelNetworkError => 'Tidak dapat menjangkau server';
+
+  @override
+  String get joinChannelAlreadyJoined => 'Sudah bergabung';
+
+  @override
+  String get joinChannelButton => 'Gabung';
+
+  @override
+  String get channelFeedEmpty => 'Belum ada postingan';
+
+  @override
+  String get channelLeave => 'Tinggalkan Saluran';
+
+  @override
+  String get channelLeaveConfirm =>
+      'Tinggalkan saluran ini? Postingan yang di-cache akan dihapus.';
+
+  @override
+  String get channelInfo => 'Info Saluran';
+
+  @override
+  String channelViews(String count) {
+    return '$count';
+  }
+
+  @override
+  String get channelEdited => 'diedit';
+
+  @override
+  String get channelLoadMore => 'Muat lagi';
+
+  @override
+  String get channelSearchPosts => 'Cari postingan…';
+
+  @override
+  String get channelNoResults => 'Tidak ada postingan yang cocok';
+
+  @override
+  String get channelUrl => 'URL saluran';
+
+  @override
+  String get channelCreated => 'Bergabung';
+
+  @override
+  String channelPostCount(int count) {
+    return '$count postingan';
+  }
+
+  @override
+  String get channelCopyUrl => 'Salin URL';
 }

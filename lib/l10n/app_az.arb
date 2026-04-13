@@ -778,5 +778,31 @@
   "torForceNostrTitle": "Mesajları Tor vasitəsilə yönləndir",
   "torForcePulseDisabled": "Əvvəlcə Tor aktivləşdirilməlidir",
   "torForcePulseSubtitle": "Bütün Pulse relay bağlantıları Tor vasitəsilə keçəcək. Daha yavaş, lakin IP ünvanınızı serverdən gizlədir.",
-  "torForcePulseTitle": "Pulse relay-i Tor vasitəsilə yönləndir"
+  "torForcePulseTitle": "Pulse relay-i Tor vasitəsilə yönləndir",
+  "joinChannelTitle": "Kanala qoşul",
+  "joinChannelDescription": "KANAL URL",
+  "joinChannelUrlHint": "https://channel.example.com",
+  "joinChannelFetching": "Kanal məlumatları alınır…",
+  "joinChannelNotFound": "Bu URL-də kanal tapılmadı",
+  "joinChannelNetworkError": "Serverə qoşulmaq mümkün olmadı",
+  "joinChannelAlreadyJoined": "Artıq qoşulub",
+  "joinChannelButton": "Qoşul",
+  "channelFeedEmpty": "Hələ göndəriş yoxdur",
+  "channelLeave": "Kanaldan çıx",
+  "channelLeaveConfirm": "Bu kanaldan çıxmaq istəyirsiniz? Keşlənmiş göndərişlər silinəcək.",
+  "channelInfo": "Kanal məlumatı",
+  "channelViews": "{count}",
+  "channelEdited": "redaktə edilib",
+  "channelLoadMore": "Daha çox yüklə",
+  "channelSearchPosts": "Yazıları axtar\u2026",
+  "channelNoResults": "Uyğun yazı yoxdur",
+  "channelUrl": "Kanal URL",
+  "channelCreated": "Qoşulub",
+  "channelPostCount": "{count} yazı",
+  "@channelPostCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "channelCopyUrl": "URL kopyala"
 }

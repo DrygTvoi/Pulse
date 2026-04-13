@@ -2650,4 +2650,72 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String get newCall => 'Uusi puhelu';
+
+  @override
+  String get joinChannelTitle => 'Liity kanavalle';
+
+  @override
+  String get joinChannelDescription => 'KANAVAN URL';
+
+  @override
+  String get joinChannelUrlHint => 'https://channel.example.com';
+
+  @override
+  String get joinChannelFetching => 'Haetaan kanavan tietoja…';
+
+  @override
+  String get joinChannelNotFound => 'Kanavaa ei löytynyt tästä osoitteesta';
+
+  @override
+  String get joinChannelNetworkError => 'Palvelimeen ei saatu yhteyttä';
+
+  @override
+  String get joinChannelAlreadyJoined => 'Jo liitytty';
+
+  @override
+  String get joinChannelButton => 'Liity';
+
+  @override
+  String get channelFeedEmpty => 'Ei vielä julkaisuja';
+
+  @override
+  String get channelLeave => 'Poistu kanavalta';
+
+  @override
+  String get channelLeaveConfirm =>
+      'Poistu tältä kanavalta? Välimuistissa olevat julkaisut poistetaan.';
+
+  @override
+  String get channelInfo => 'Kanavan tiedot';
+
+  @override
+  String channelViews(String count) {
+    return '$count';
+  }
+
+  @override
+  String get channelEdited => 'muokattu';
+
+  @override
+  String get channelLoadMore => 'Lataa lisää';
+
+  @override
+  String get channelSearchPosts => 'Hae julkaisuja…';
+
+  @override
+  String get channelNoResults => 'Ei vastaavia julkaisuja';
+
+  @override
+  String get channelUrl => 'Kanavan URL';
+
+  @override
+  String get channelCreated => 'Liittynyt';
+
+  @override
+  String channelPostCount(int count) {
+    return '$count julkaisua';
+  }
+
+  @override
+  String get channelCopyUrl => 'Kopioi URL';
 }

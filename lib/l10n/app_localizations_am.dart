@@ -2587,4 +2587,71 @@ class AppLocalizationsAm extends AppLocalizations {
 
   @override
   String get newCall => 'አዲስ ጥሪ';
+
+  @override
+  String get joinChannelTitle => 'ቻናል ይቀላቀሉ';
+
+  @override
+  String get joinChannelDescription => 'የቻናል URL';
+
+  @override
+  String get joinChannelUrlHint => 'https://channel.example.com';
+
+  @override
+  String get joinChannelFetching => 'የቻናል መረጃ በማምጣት ላይ…';
+
+  @override
+  String get joinChannelNotFound => 'በዚህ URL ላይ ቻናል አልተገኘም';
+
+  @override
+  String get joinChannelNetworkError => 'ሰርቨሩን ማግኘት አልተቻለም';
+
+  @override
+  String get joinChannelAlreadyJoined => 'ቀድሞ ተቀላቅሏል';
+
+  @override
+  String get joinChannelButton => 'ይቀላቀሉ';
+
+  @override
+  String get channelFeedEmpty => 'ገና ልጥፎች የሉም';
+
+  @override
+  String get channelLeave => 'ቻናል ለቅ';
+
+  @override
+  String get channelLeaveConfirm => 'ይህን ቻናል ይለቁ? የተቀመጡ ልጥፎች ይሰረዛሉ።';
+
+  @override
+  String get channelInfo => 'የቻናል መረጃ';
+
+  @override
+  String channelViews(String count) {
+    return '$count';
+  }
+
+  @override
+  String get channelEdited => 'ተስተካክሏል';
+
+  @override
+  String get channelLoadMore => 'ተጨማሪ ጫን';
+
+  @override
+  String get channelSearchPosts => 'ልኡክ ጽሁፎችን ፈልግ…';
+
+  @override
+  String get channelNoResults => 'ተመሳሳይ ልኡክ ጽሁፎች የሉም';
+
+  @override
+  String get channelUrl => 'የቻናል URL';
+
+  @override
+  String get channelCreated => 'ተቀላቅሏል';
+
+  @override
+  String channelPostCount(int count) {
+    return '$count ልኡክ ጽሁፎች';
+  }
+
+  @override
+  String get channelCopyUrl => 'URL ቅዳ';
 }

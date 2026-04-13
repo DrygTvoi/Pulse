@@ -2635,4 +2635,72 @@ class AppLocalizationsKm extends AppLocalizations {
 
   @override
   String get newCall => 'ការហៅថ្មី';
+
+  @override
+  String get joinChannelTitle => 'ចូលរួមឆានែល';
+
+  @override
+  String get joinChannelDescription => 'URL ឆានែល';
+
+  @override
+  String get joinChannelUrlHint => 'https://channel.example.com';
+
+  @override
+  String get joinChannelFetching => 'កំពុងទាញយកព័ត៌មានឆានែល…';
+
+  @override
+  String get joinChannelNotFound => 'រកមិនឃើញឆានែលនៅ URL នេះ';
+
+  @override
+  String get joinChannelNetworkError => 'មិនអាចទាក់ទងម៉ាស៊ីនមេបានទេ';
+
+  @override
+  String get joinChannelAlreadyJoined => 'បានចូលរួមហើយ';
+
+  @override
+  String get joinChannelButton => 'ចូលរួម';
+
+  @override
+  String get channelFeedEmpty => 'មិនទាន់មានការបង្ហោះទេ';
+
+  @override
+  String get channelLeave => 'ចាកចេញពីឆានែល';
+
+  @override
+  String get channelLeaveConfirm =>
+      'ចាកចេញពីឆានែលនេះ? ការបង្ហោះដែលបានរក្សាទុកនឹងត្រូវលុប។';
+
+  @override
+  String get channelInfo => 'ព័ត៌មានឆានែល';
+
+  @override
+  String channelViews(String count) {
+    return '$count';
+  }
+
+  @override
+  String get channelEdited => 'បានកែសម្រួល';
+
+  @override
+  String get channelLoadMore => 'ផ្ទុកបន្ថែម';
+
+  @override
+  String get channelSearchPosts => 'ស្វែងរកសំណេរ…';
+
+  @override
+  String get channelNoResults => 'គ្មានសំណេរណាដែលត្រូវគ្នា';
+
+  @override
+  String get channelUrl => 'URL ឆាណែល';
+
+  @override
+  String get channelCreated => 'ចូលរួម';
+
+  @override
+  String channelPostCount(int count) {
+    return '$count សំណេរ';
+  }
+
+  @override
+  String get channelCopyUrl => 'ចម្លង URL';
 }

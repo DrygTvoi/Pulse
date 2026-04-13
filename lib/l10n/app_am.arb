@@ -778,5 +778,31 @@
   "torForceNostrTitle": "መልዕክቶችን በ Tor በኩል አስተላልፍ",
   "torForcePulseDisabled": "Tor መጀመሪያ መንቃት አለበት",
   "torForcePulseSubtitle": "ሁሉም የ Pulse relay ግንኙነቶች በ Tor ይሄዳሉ። ቀርፋፋ ነው ግን IP አድራሻዎን ከሰርቨር ይደብቃል።",
-  "torForcePulseTitle": "Pulse relay በ Tor በኩል አስተላልፍ"
+  "torForcePulseTitle": "Pulse relay በ Tor በኩል አስተላልፍ",
+  "joinChannelTitle": "ቻናል ይቀላቀሉ",
+  "joinChannelDescription": "የቻናል URL",
+  "joinChannelUrlHint": "https://channel.example.com",
+  "joinChannelFetching": "የቻናል መረጃ በማምጣት ላይ…",
+  "joinChannelNotFound": "በዚህ URL ላይ ቻናል አልተገኘም",
+  "joinChannelNetworkError": "ሰርቨሩን ማግኘት አልተቻለም",
+  "joinChannelAlreadyJoined": "ቀድሞ ተቀላቅሏል",
+  "joinChannelButton": "ይቀላቀሉ",
+  "channelFeedEmpty": "ገና ልጥፎች የሉም",
+  "channelLeave": "ቻናል ለቅ",
+  "channelLeaveConfirm": "ይህን ቻናል ይለቁ? የተቀመጡ ልጥፎች ይሰረዛሉ።",
+  "channelInfo": "የቻናል መረጃ",
+  "channelViews": "{count}",
+  "channelEdited": "ተስተካክሏል",
+  "channelLoadMore": "ተጨማሪ ጫን",
+  "channelSearchPosts": "ልኡክ ጽሁፎችን ፈልግ\u2026",
+  "channelNoResults": "ተመሳሳይ ልኡክ ጽሁፎች የሉም",
+  "channelUrl": "የቻናል URL",
+  "channelCreated": "ተቀላቅሏል",
+  "channelPostCount": "{count} ልኡክ ጽሁፎች",
+  "@channelPostCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "channelCopyUrl": "URL ቅዳ"
 }

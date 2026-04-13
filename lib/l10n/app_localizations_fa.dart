@@ -2625,4 +2625,72 @@ class AppLocalizationsFa extends AppLocalizations {
 
   @override
   String get newCall => 'تماس جدید';
+
+  @override
+  String get joinChannelTitle => 'پیوستن به کانال';
+
+  @override
+  String get joinChannelDescription => 'آدرس کانال';
+
+  @override
+  String get joinChannelUrlHint => 'https://channel.example.com';
+
+  @override
+  String get joinChannelFetching => 'دریافت اطلاعات کانال…';
+
+  @override
+  String get joinChannelNotFound => 'کانالی در این آدرس یافت نشد';
+
+  @override
+  String get joinChannelNetworkError => 'دسترسی به سرور ممکن نیست';
+
+  @override
+  String get joinChannelAlreadyJoined => 'قبلاً عضو شده‌اید';
+
+  @override
+  String get joinChannelButton => 'پیوستن';
+
+  @override
+  String get channelFeedEmpty => 'هنوز پستی وجود ندارد';
+
+  @override
+  String get channelLeave => 'ترک کانال';
+
+  @override
+  String get channelLeaveConfirm =>
+      'از این کانال خارج شوید؟ پست‌های ذخیره‌شده حذف خواهند شد.';
+
+  @override
+  String get channelInfo => 'اطلاعات کانال';
+
+  @override
+  String channelViews(String count) {
+    return '$count';
+  }
+
+  @override
+  String get channelEdited => 'ویرایش‌شده';
+
+  @override
+  String get channelLoadMore => 'بارگذاری بیشتر';
+
+  @override
+  String get channelSearchPosts => 'جستجوی پست‌ها…';
+
+  @override
+  String get channelNoResults => 'پست مطابقی یافت نشد';
+
+  @override
+  String get channelUrl => 'URL کانال';
+
+  @override
+  String get channelCreated => 'عضو شده';
+
+  @override
+  String channelPostCount(int count) {
+    return '$count پست';
+  }
+
+  @override
+  String get channelCopyUrl => 'کپی URL';
 }

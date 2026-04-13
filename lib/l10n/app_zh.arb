@@ -778,5 +778,31 @@
   "torForceNostrTitle": "通过 Tor 路由消息",
   "torForcePulseDisabled": "必须先启用 Tor",
   "torForcePulseSubtitle": "所有 Pulse 中继连接将通过 Tor 传输。速度较慢，但可向服务器隐藏您的 IP 地址。",
-  "torForcePulseTitle": "通过 Tor 路由 Pulse 中继"
+  "torForcePulseTitle": "通过 Tor 路由 Pulse 中继",
+  "joinChannelTitle": "加入频道",
+  "joinChannelDescription": "频道 URL",
+  "joinChannelUrlHint": "https://channel.example.com",
+  "joinChannelFetching": "正在获取频道信息…",
+  "joinChannelNotFound": "在此 URL 未找到频道",
+  "joinChannelNetworkError": "无法连接到服务器",
+  "joinChannelAlreadyJoined": "已加入",
+  "joinChannelButton": "加入",
+  "channelFeedEmpty": "暂无帖子",
+  "channelLeave": "退出频道",
+  "channelLeaveConfirm": "退出此频道？缓存的帖子将被删除。",
+  "channelInfo": "频道信息",
+  "channelViews": "{count}",
+  "channelEdited": "已编辑",
+  "channelLoadMore": "加载更多",
+  "channelSearchPosts": "\u641c\u7d22\u5e16\u5b50\u2026",
+  "channelNoResults": "\u6ca1\u6709\u5339\u914d\u7684\u5e16\u5b50",
+  "channelUrl": "\u9891\u9053 URL",
+  "channelCreated": "\u5df2\u52a0\u5165",
+  "channelPostCount": "{count} \u7bc7\u5e16\u5b50",
+  "@channelPostCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "channelCopyUrl": "\u590d\u5236 URL"
 }

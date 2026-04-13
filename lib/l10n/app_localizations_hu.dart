@@ -2653,4 +2653,72 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get newCall => 'Új hívás';
+
+  @override
+  String get joinChannelTitle => 'Csatlakozás csatornához';
+
+  @override
+  String get joinChannelDescription => 'CSATORNA URL';
+
+  @override
+  String get joinChannelUrlHint => 'https://channel.example.com';
+
+  @override
+  String get joinChannelFetching => 'Csatorna adatainak lekérése…';
+
+  @override
+  String get joinChannelNotFound => 'Nem található csatorna ezen az URL-en';
+
+  @override
+  String get joinChannelNetworkError => 'A szerver nem érhető el';
+
+  @override
+  String get joinChannelAlreadyJoined => 'Már csatlakozott';
+
+  @override
+  String get joinChannelButton => 'Csatlakozás';
+
+  @override
+  String get channelFeedEmpty => 'Még nincsenek bejegyzések';
+
+  @override
+  String get channelLeave => 'Csatorna elhagyása';
+
+  @override
+  String get channelLeaveConfirm =>
+      'Elhagyja ezt a csatornát? A tárolt bejegyzések törlődnek.';
+
+  @override
+  String get channelInfo => 'Csatorna adatai';
+
+  @override
+  String channelViews(String count) {
+    return '$count';
+  }
+
+  @override
+  String get channelEdited => 'szerkesztve';
+
+  @override
+  String get channelLoadMore => 'Több betöltése';
+
+  @override
+  String get channelSearchPosts => 'Bejegyzések keresése…';
+
+  @override
+  String get channelNoResults => 'Nincs találat';
+
+  @override
+  String get channelUrl => 'Csatorna URL';
+
+  @override
+  String get channelCreated => 'Csatlakozva';
+
+  @override
+  String channelPostCount(int count) {
+    return '$count bejegyzés';
+  }
+
+  @override
+  String get channelCopyUrl => 'URL másolása';
 }

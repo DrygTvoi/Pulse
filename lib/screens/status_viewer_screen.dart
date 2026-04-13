@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:async';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../models/user_status.dart';
@@ -25,6 +26,7 @@ class _StatusViewerScreenState extends State<StatusViewerScreen>
   late int _current;
   late AnimationController _progressCtrl;
   Timer? _advanceTimer;
+  final Map<int, Uint8List> _decodedMedia = {};
 
   @override
   void initState() {
@@ -228,11 +230,11 @@ class _StatusViewerScreenState extends State<StatusViewerScreen>
 
   Widget _buildMediaBackground(String mediaPayload) {
     try {
-      final bytes = base64Decode(mediaPayload.contains(',')
-          ? mediaPayload.split(',').last
-          : mediaPayload);
+      final bytes = _decodedMedia[_current] ??= base64Decode(
+        mediaPayload.contains(',') ? mediaPayload.split(',').last : mediaPayload,
+      );
       return Positioned.fill(
-        child: Image.memory(bytes, fit: BoxFit.cover),
+        child: Image.memory(bytes, fit: BoxFit.cover, gaplessPlayback: true),
       );
     } catch (_) {
       return Container(color: Colors.black87);

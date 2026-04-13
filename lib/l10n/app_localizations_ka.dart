@@ -2647,4 +2647,72 @@ class AppLocalizationsKa extends AppLocalizations {
 
   @override
   String get newCall => 'ახალი ზარი';
+
+  @override
+  String get joinChannelTitle => 'არხში გაწევრიანება';
+
+  @override
+  String get joinChannelDescription => 'არხის URL';
+
+  @override
+  String get joinChannelUrlHint => 'https://channel.example.com';
+
+  @override
+  String get joinChannelFetching => 'არხის ინფორმაციის მიღება…';
+
+  @override
+  String get joinChannelNotFound => 'ამ URL-ზე არხი ვერ მოიძებნა';
+
+  @override
+  String get joinChannelNetworkError => 'სერვერთან დაკავშირება ვერ მოხერხდა';
+
+  @override
+  String get joinChannelAlreadyJoined => 'უკვე გაწევრიანებულია';
+
+  @override
+  String get joinChannelButton => 'გაწევრიანება';
+
+  @override
+  String get channelFeedEmpty => 'ჯერ პოსტები არ არის';
+
+  @override
+  String get channelLeave => 'არხიდან გასვლა';
+
+  @override
+  String get channelLeaveConfirm =>
+      'გსურთ ამ არხიდან გასვლა? ქეშირებული პოსტები წაიშლება.';
+
+  @override
+  String get channelInfo => 'არხის ინფორმაცია';
+
+  @override
+  String channelViews(String count) {
+    return '$count';
+  }
+
+  @override
+  String get channelEdited => 'რედაქტირებული';
+
+  @override
+  String get channelLoadMore => 'მეტის ჩატვირთვა';
+
+  @override
+  String get channelSearchPosts => 'პოსტების ძიება…';
+
+  @override
+  String get channelNoResults => 'შესაბამისი პოსტები არ მოიძებნა';
+
+  @override
+  String get channelUrl => 'არხის URL';
+
+  @override
+  String get channelCreated => 'გაწერილი';
+
+  @override
+  String channelPostCount(int count) {
+    return '$count პოსტი';
+  }
+
+  @override
+  String get channelCopyUrl => 'URL-ის კოპირება';
 }

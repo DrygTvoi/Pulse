@@ -778,5 +778,31 @@
   "torForceNostrTitle": "Mesajları Tor üzerinden yönlendir",
   "torForcePulseDisabled": "Önce Tor etkinleştirilmelidir",
   "torForcePulseSubtitle": "Tüm Pulse relay bağlantıları Tor üzerinden geçecek. Daha yavaş ama IP adresinizi sunucudan gizler.",
-  "torForcePulseTitle": "Pulse relay'i Tor üzerinden yönlendir"
+  "torForcePulseTitle": "Pulse relay'i Tor üzerinden yönlendir",
+  "joinChannelTitle": "Kanala Katıl",
+  "joinChannelDescription": "KANAL URL'Sİ",
+  "joinChannelUrlHint": "https://channel.example.com",
+  "joinChannelFetching": "Kanal bilgileri alınıyor…",
+  "joinChannelNotFound": "Bu URL'de kanal bulunamadı",
+  "joinChannelNetworkError": "Sunucuya ulaşılamadı",
+  "joinChannelAlreadyJoined": "Zaten katıldınız",
+  "joinChannelButton": "Katıl",
+  "channelFeedEmpty": "Henüz gönderi yok",
+  "channelLeave": "Kanaldan Ayrıl",
+  "channelLeaveConfirm": "Bu kanaldan ayrılsın mı? Önbelleğe alınan gönderiler silinecek.",
+  "channelInfo": "Kanal Bilgisi",
+  "channelViews": "{count}",
+  "channelEdited": "düzenlendi",
+  "channelLoadMore": "Daha fazla yükle",
+  "channelSearchPosts": "G\u00f6nderileri ara\u2026",
+  "channelNoResults": "E\u015fle\u015fen g\u00f6nderi yok",
+  "channelUrl": "Kanal URL",
+  "channelCreated": "Kat\u0131ld\u0131",
+  "channelPostCount": "{count} g\u00f6nderi",
+  "@channelPostCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "channelCopyUrl": "URL kopyala"
 }

@@ -778,5 +778,31 @@
   "torForceNostrTitle": "Halakan mesej melalui Tor",
   "torForcePulseDisabled": "Tor perlu diaktifkan terlebih dahulu",
   "torForcePulseSubtitle": "Semua sambungan Pulse relay akan melalui Tor. Lebih perlahan tetapi menyembunyikan IP anda daripada pelayan.",
-  "torForcePulseTitle": "Halakan Pulse relay melalui Tor"
+  "torForcePulseTitle": "Halakan Pulse relay melalui Tor",
+  "joinChannelTitle": "Sertai Saluran",
+  "joinChannelDescription": "URL SALURAN",
+  "joinChannelUrlHint": "https://channel.example.com",
+  "joinChannelFetching": "Mendapatkan maklumat saluran…",
+  "joinChannelNotFound": "Saluran tidak ditemui di URL ini",
+  "joinChannelNetworkError": "Tidak dapat menghubungi pelayan",
+  "joinChannelAlreadyJoined": "Sudah menyertai",
+  "joinChannelButton": "Sertai",
+  "channelFeedEmpty": "Belum ada siaran",
+  "channelLeave": "Tinggalkan Saluran",
+  "channelLeaveConfirm": "Tinggalkan saluran ini? Siaran yang di-cache akan dipadam.",
+  "channelInfo": "Maklumat Saluran",
+  "channelViews": "{count}",
+  "channelEdited": "disunting",
+  "channelLoadMore": "Muat lagi",
+  "channelSearchPosts": "Cari siaran\u2026",
+  "channelNoResults": "Tiada siaran sepadan",
+  "channelUrl": "URL saluran",
+  "channelCreated": "Disertai",
+  "channelPostCount": "{count} siaran",
+  "@channelPostCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "channelCopyUrl": "Salin URL"
 }

@@ -778,5 +778,31 @@
   "torForceNostrTitle": "Send meldinger via Tor",
   "torForcePulseDisabled": "Tor må aktiveres først",
   "torForcePulseSubtitle": "Alle Pulse relay-tilkoblinger vil gå gjennom Tor. Tregere, men skjuler IP-en din fra serveren.",
-  "torForcePulseTitle": "Rut Pulse relay via Tor"
+  "torForcePulseTitle": "Rut Pulse relay via Tor",
+  "joinChannelTitle": "Bli med i kanal",
+  "joinChannelDescription": "KANAL-URL",
+  "joinChannelUrlHint": "https://channel.example.com",
+  "joinChannelFetching": "Henter kanalinformasjon…",
+  "joinChannelNotFound": "Ingen kanal funnet på denne URLen",
+  "joinChannelNetworkError": "Kunne ikke nå serveren",
+  "joinChannelAlreadyJoined": "Allerede med",
+  "joinChannelButton": "Bli med",
+  "channelFeedEmpty": "Ingen innlegg ennå",
+  "channelLeave": "Forlat kanal",
+  "channelLeaveConfirm": "Forlate denne kanalen? Bufrede innlegg vil bli slettet.",
+  "channelInfo": "Kanalinfo",
+  "channelViews": "{count}",
+  "channelEdited": "redigert",
+  "channelLoadMore": "Last flere",
+  "channelSearchPosts": "S\u00f8k i innlegg\u2026",
+  "channelNoResults": "Ingen treff",
+  "channelUrl": "Kanal-URL",
+  "channelCreated": "Ble med",
+  "channelPostCount": "{count} innlegg",
+  "@channelPostCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "channelCopyUrl": "Kopier URL"
 }

@@ -96,7 +96,14 @@ class Contact {
       transportPriority.isNotEmpty ? transportPriority.first : 'Nostr';
 
   /// Primary transport address (first address of the highest-priority transport).
+  /// Cached lazily — safe because Contact instances are immutable (copyWith
+  /// creates a new instance).
+  String? _cachedDatabaseId;
   String get databaseId {
+    return _cachedDatabaseId ??= _computeDatabaseId();
+  }
+
+  String _computeDatabaseId() {
     for (final t in transportPriority) {
       final addrs = transportAddresses[t];
       if (addrs != null && addrs.isNotEmpty) return addrs.first;
@@ -109,11 +116,13 @@ class Contact {
   }
 
   /// All addresses except the primary, flattened for backward compat.
+  /// Cached lazily — safe because Contact instances are immutable (copyWith
+  /// creates a new instance).
+  List<String>? _cachedAlternateAddresses;
   List<String> get alternateAddresses {
-    final primary = databaseId;
-    return transportAddresses.values
+    return _cachedAlternateAddresses ??= transportAddresses.values
         .expand((a) => a)
-        .where((a) => a != primary)
+        .where((a) => a != databaseId)
         .toList();
   }
 
@@ -256,6 +265,7 @@ class Contact {
   // ── Address classification helper ──────────────────────────────────────
 
   static final _sessionAddrRegex = RegExp(r'^[0-9a-f]{66}$');
+  static final _nostrPubRegex = RegExp(r'^[0-9a-f]{64}$');
   static final _pulseAddrRegex = RegExp(r'^[0-9a-f]{64}@https://', caseSensitive: false);
 
   static String _providerFromAddress(String address) {
@@ -265,7 +275,7 @@ class Contact {
       return 'Session';
     }
     if (lower.contains('@wss://') || lower.contains('@ws://') ||
-        RegExp(r'^[0-9a-f]{64}$').hasMatch(lower)) {
+        _nostrPubRegex.hasMatch(lower)) {
       return 'Nostr';
     }
     if (_pulseAddrRegex.hasMatch(lower)) return 'Pulse';

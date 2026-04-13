@@ -13,9 +13,8 @@ import '../utils/platform_utils.dart';
 class MessageInputBar extends StatelessWidget {
   final TextEditingController controller;
   final FocusNode focusNode;
-  final bool inputFocused;
-  final bool isRecording;
-  final int recordingSeconds;
+  final ValueNotifier<bool> isRecording;
+  final ValueNotifier<int> recordingSeconds;
   final Message? replyingTo;
   final String? editingMessageId;
   final int scheduledCount;
@@ -38,7 +37,6 @@ class MessageInputBar extends StatelessWidget {
     super.key,
     required this.controller,
     required this.focusNode,
-    required this.inputFocused,
     required this.isRecording,
     required this.recordingSeconds,
     required this.replyingTo,
@@ -63,12 +61,13 @@ class MessageInputBar extends StatelessWidget {
     if (m == null) return '';
     final payload = m.encryptedPayload;
     if (MediaService.isMediaPayload(payload)) {
-      final parsed = MediaService.parse(payload);
-      if (parsed?.isImage == true) return '📷 Photo';
-      if (parsed?.isVoice == true) return '🎙 Voice message';
-      if (parsed?.isVideoNote == true) return '🎥 Video message';
-      if (parsed?.isGif == true) return 'GIF';
-      return '📎 ${parsed?.name ?? 'File'}';
+      final meta = MediaService.parseType(payload);
+      if (meta == null) return '📎 File';
+      if (meta.type == 'img') return '📷 Photo';
+      if (meta.type == 'voice') return '🎙 Voice message';
+      if (meta.type == 'video_note') return '🎥 Video message';
+      if (meta.type == 'gif') return 'GIF';
+      return '📎 ${meta.name}';
     }
     return payload.length > 60 ? '${payload.substring(0, 60)}…' : payload;
   }
@@ -155,7 +154,15 @@ class MessageInputBar extends StatelessWidget {
               ),
             Padding(
               padding: const EdgeInsets.fromLTRB(DesignTokens.spacing4, DesignTokens.spacing4, DesignTokens.spacing6, DesignTokens.spacing8),
-              child: isRecording ? _buildRecordingBar(context) : _buildNormalInputBar(context),
+              child: ValueListenableBuilder<bool>(
+                valueListenable: isRecording,
+                builder: (context, recording, _) => recording
+                    ? ValueListenableBuilder<int>(
+                        valueListenable: recordingSeconds,
+                        builder: (context, seconds, _) => _buildRecordingBar(context, seconds),
+                      )
+                    : _buildNormalInputBar(context),
+              ),
             ),
           ],
         ),
@@ -245,7 +252,7 @@ class MessageInputBar extends StatelessWidget {
     );
   }
 
-  Widget _buildRecordingBar(BuildContext context) {
+  Widget _buildRecordingBar(BuildContext context, int seconds) {
     return Row(children: [
       // Cancel
       Semantics(
@@ -279,7 +286,7 @@ class MessageInputBar extends StatelessWidget {
               const _PulsingDot(),
               const SizedBox(width: DesignTokens.spacing10),
               Text(
-                _fmtRecording(recordingSeconds),
+                _fmtRecording(seconds),
                 style: GoogleFonts.jetBrainsMono(
                     color: Colors.red, fontSize: DesignTokens.fontXl, fontWeight: FontWeight.w600),
               ),

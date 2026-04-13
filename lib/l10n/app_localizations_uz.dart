@@ -2656,4 +2656,72 @@ class AppLocalizationsUz extends AppLocalizations {
 
   @override
   String get newCall => 'Yangi qo\'ng\'iroq';
+
+  @override
+  String get joinChannelTitle => 'Kanalga qo\'shilish';
+
+  @override
+  String get joinChannelDescription => 'KANAL URL';
+
+  @override
+  String get joinChannelUrlHint => 'https://channel.example.com';
+
+  @override
+  String get joinChannelFetching => 'Kanal ma\'lumotlari olinmoqda…';
+
+  @override
+  String get joinChannelNotFound => 'Bu URL\'da kanal topilmadi';
+
+  @override
+  String get joinChannelNetworkError => 'Serverga ulanib bo\'lmadi';
+
+  @override
+  String get joinChannelAlreadyJoined => 'Allaqachon qo\'shilgan';
+
+  @override
+  String get joinChannelButton => 'Qo\'shilish';
+
+  @override
+  String get channelFeedEmpty => 'Hozircha postlar yo\'q';
+
+  @override
+  String get channelLeave => 'Kanalni tark etish';
+
+  @override
+  String get channelLeaveConfirm =>
+      'Bu kanalni tark etasizmi? Saqlangan postlar o\'chiriladi.';
+
+  @override
+  String get channelInfo => 'Kanal ma\'lumotlari';
+
+  @override
+  String channelViews(String count) {
+    return '$count';
+  }
+
+  @override
+  String get channelEdited => 'tahrirlangan';
+
+  @override
+  String get channelLoadMore => 'Ko\'proq yuklash';
+
+  @override
+  String get channelSearchPosts => 'Postlarni qidirish…';
+
+  @override
+  String get channelNoResults => 'Mos postlar topilmadi';
+
+  @override
+  String get channelUrl => 'Kanal URL';
+
+  @override
+  String get channelCreated => 'Qoʻshilgan';
+
+  @override
+  String channelPostCount(int count) {
+    return '$count post';
+  }
+
+  @override
+  String get channelCopyUrl => 'URL nusxalash';
 }

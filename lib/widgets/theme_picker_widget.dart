@@ -23,9 +23,9 @@ class ThemePickerWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final notifier = context.watch<ThemeNotifier>();
-    final mode = notifier.themeMode;
-    final accent = notifier.primary;
+    final (mode, accent) = context.select<ThemeNotifier, (ThemeMode, Color)>(
+      (t) => (t.themeMode, t.primary),
+    );
     final l = context.l10n;
 
     final modes = [

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:uuid/uuid.dart';
@@ -19,6 +20,7 @@ class StatusCreatorScreen extends StatefulWidget {
 class _StatusCreatorScreenState extends State<StatusCreatorScreen> {
   final TextEditingController _textCtrl = TextEditingController();
   String? _mediaPayload; // base64-encoded photo
+  Uint8List? _mediaBytes;
   bool _publishing = false;
 
   @override
@@ -40,7 +42,14 @@ class _StatusCreatorScreenState extends State<StatusCreatorScreen> {
       } catch (_) {
         base64data = decoded;
       }
-      setState(() => _mediaPayload = base64data);
+      Uint8List? decodedBytes;
+      if (base64data != null) {
+        try { decodedBytes = base64Decode(base64data); } catch (_) {}
+      }
+      setState(() {
+        _mediaPayload = base64data;
+        _mediaBytes = decodedBytes;
+      });
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -178,19 +187,14 @@ class _StatusCreatorScreenState extends State<StatusCreatorScreen> {
                 children: [
                   ClipRRect(
                     borderRadius: BorderRadius.circular(12),
-                    child: Builder(builder: (_) {
-                      try {
-                        final bytes = base64Decode(_mediaPayload!);
-                        return Image.memory(bytes, height: 200, width: double.infinity, fit: BoxFit.cover);
-                      } catch (_) {
-                        return Container(height: 200, color: AppTheme.surface);
-                      }
-                    }),
+                    child: _mediaBytes != null
+                        ? Image.memory(_mediaBytes!, height: 200, width: double.infinity, fit: BoxFit.cover)
+                        : Container(height: 200, color: AppTheme.surface),
                   ),
                   Positioned(
                     top: 8, right: 8,
                     child: GestureDetector(
-                      onTap: () => setState(() => _mediaPayload = null),
+                      onTap: () => setState(() { _mediaPayload = null; _mediaBytes = null; }),
                       child: Container(
                         padding: const EdgeInsets.all(4),
                         decoration: const BoxDecoration(

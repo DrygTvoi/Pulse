@@ -2630,4 +2630,72 @@ class AppLocalizationsNo extends AppLocalizations {
 
   @override
   String get newCall => 'Ny samtale';
+
+  @override
+  String get joinChannelTitle => 'Bli med i kanal';
+
+  @override
+  String get joinChannelDescription => 'KANAL-URL';
+
+  @override
+  String get joinChannelUrlHint => 'https://channel.example.com';
+
+  @override
+  String get joinChannelFetching => 'Henter kanalinformasjon…';
+
+  @override
+  String get joinChannelNotFound => 'Ingen kanal funnet på denne URLen';
+
+  @override
+  String get joinChannelNetworkError => 'Kunne ikke nå serveren';
+
+  @override
+  String get joinChannelAlreadyJoined => 'Allerede med';
+
+  @override
+  String get joinChannelButton => 'Bli med';
+
+  @override
+  String get channelFeedEmpty => 'Ingen innlegg ennå';
+
+  @override
+  String get channelLeave => 'Forlat kanal';
+
+  @override
+  String get channelLeaveConfirm =>
+      'Forlate denne kanalen? Bufrede innlegg vil bli slettet.';
+
+  @override
+  String get channelInfo => 'Kanalinfo';
+
+  @override
+  String channelViews(String count) {
+    return '$count';
+  }
+
+  @override
+  String get channelEdited => 'redigert';
+
+  @override
+  String get channelLoadMore => 'Last flere';
+
+  @override
+  String get channelSearchPosts => 'Søk i innlegg…';
+
+  @override
+  String get channelNoResults => 'Ingen treff';
+
+  @override
+  String get channelUrl => 'Kanal-URL';
+
+  @override
+  String get channelCreated => 'Ble med';
+
+  @override
+  String channelPostCount(int count) {
+    return '$count innlegg';
+  }
+
+  @override
+  String get channelCopyUrl => 'Kopier URL';
 }

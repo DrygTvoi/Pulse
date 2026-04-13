@@ -778,5 +778,31 @@
   "torForceNostrTitle": "შეტყობინებების გაგზავნა Tor-ით",
   "torForcePulseDisabled": "ჯერ Tor უნდა ჩაირთოს",
   "torForcePulseSubtitle": "ყველა Pulse relay კავშირი გაივლის Tor-ს. უფრო ნელია, მაგრამ მალავს თქვენს IP-ს სერვერისგან.",
-  "torForcePulseTitle": "Pulse relay-ის გატარება Tor-ით"
+  "torForcePulseTitle": "Pulse relay-ის გატარება Tor-ით",
+  "joinChannelTitle": "არხში გაწევრიანება",
+  "joinChannelDescription": "არხის URL",
+  "joinChannelUrlHint": "https://channel.example.com",
+  "joinChannelFetching": "არხის ინფორმაციის მიღება…",
+  "joinChannelNotFound": "ამ URL-ზე არხი ვერ მოიძებნა",
+  "joinChannelNetworkError": "სერვერთან დაკავშირება ვერ მოხერხდა",
+  "joinChannelAlreadyJoined": "უკვე გაწევრიანებულია",
+  "joinChannelButton": "გაწევრიანება",
+  "channelFeedEmpty": "ჯერ პოსტები არ არის",
+  "channelLeave": "არხიდან გასვლა",
+  "channelLeaveConfirm": "გსურთ ამ არხიდან გასვლა? ქეშირებული პოსტები წაიშლება.",
+  "channelInfo": "არხის ინფორმაცია",
+  "channelViews": "{count}",
+  "channelEdited": "რედაქტირებული",
+  "channelLoadMore": "მეტის ჩატვირთვა",
+  "channelSearchPosts": "\u10de\u10dd\u10e1\u10e2\u10d4\u10d1\u10d8\u10e1 \u10eb\u10d8\u10d4\u10d1\u10d0\u2026",
+  "channelNoResults": "\u10e8\u10d4\u10e1\u10d0\u10d1\u10d0\u10db\u10d8\u10e1\u10d8 \u10de\u10dd\u10e1\u10e2\u10d4\u10d1\u10d8 \u10d0\u10e0 \u10db\u10dd\u10d8\u10eb\u10d4\u10d1\u10dc\u10d0",
+  "channelUrl": "\u10d0\u10e0\u10ee\u10d8\u10e1 URL",
+  "channelCreated": "\u10d2\u10d0\u10ec\u10d4\u10e0\u10d8\u10da\u10d8",
+  "channelPostCount": "{count} \u10de\u10dd\u10e1\u10e2\u10d8",
+  "@channelPostCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "channelCopyUrl": "URL-\u10d8\u10e1 \u10d9\u10dd\u10de\u10d8\u10e0\u10d4\u10d1\u10d0"
 }

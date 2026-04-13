@@ -54,6 +54,15 @@ class _SfuCallScreenState extends State<SfuCallScreen> {
   bool _ready = false;
   RTCIceConnectionState? _iceState;
 
+  // Contact lookup cache — avoids O(N) findByAddress scan per participant per rebuild
+  Map<String, Contact>? _contactByAddress;
+  Contact? _findContact(BuildContext context, String address) {
+    _contactByAddress ??= {
+      for (final c in context.read<IContactRepository>().contacts) c.databaseId: c
+    };
+    return _contactByAddress![address];
+  }
+
   @override
   void initState() {
     super.initState();
@@ -324,7 +333,7 @@ class _SfuCallScreenState extends State<SfuCallScreen> {
     final isDominant = pubkey == _dominant;
     final isPinned = pubkey == _pinnedPubkey;
 
-    final contact = context.read<IContactRepository>().findByAddress(pubkey);
+    final contact = _findContact(context, pubkey);
     final name = contact?.name ?? (pubkey.length > 8 ? pubkey.substring(0, 8) : pubkey);
 
     return GestureDetector(

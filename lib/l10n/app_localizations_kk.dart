@@ -2643,4 +2643,72 @@ class AppLocalizationsKk extends AppLocalizations {
 
   @override
   String get newCall => 'Жаңа қоңырау';
+
+  @override
+  String get joinChannelTitle => 'Арнаға қосылу';
+
+  @override
+  String get joinChannelDescription => 'АРНА URL';
+
+  @override
+  String get joinChannelUrlHint => 'https://channel.example.com';
+
+  @override
+  String get joinChannelFetching => 'Арна ақпараты алынуда…';
+
+  @override
+  String get joinChannelNotFound => 'Бұл URL бойынша арна табылмады';
+
+  @override
+  String get joinChannelNetworkError => 'Серверге қосылу мүмкін емес';
+
+  @override
+  String get joinChannelAlreadyJoined => 'Бұрыннан қосылған';
+
+  @override
+  String get joinChannelButton => 'Қосылу';
+
+  @override
+  String get channelFeedEmpty => 'Әзірше жазбалар жоқ';
+
+  @override
+  String get channelLeave => 'Арнадан шығу';
+
+  @override
+  String get channelLeaveConfirm =>
+      'Бұл арнадан шығу керек пе? Сақталған жазбалар жойылады.';
+
+  @override
+  String get channelInfo => 'Арна ақпараты';
+
+  @override
+  String channelViews(String count) {
+    return '$count';
+  }
+
+  @override
+  String get channelEdited => 'өңделген';
+
+  @override
+  String get channelLoadMore => 'Тағы жүктеу';
+
+  @override
+  String get channelSearchPosts => 'Жазбаларды іздеу…';
+
+  @override
+  String get channelNoResults => 'Сәйкес жазбалар жоқ';
+
+  @override
+  String get channelUrl => 'Арна URL';
+
+  @override
+  String get channelCreated => 'Қосылды';
+
+  @override
+  String channelPostCount(int count) {
+    return '$count жазба';
+  }
+
+  @override
+  String get channelCopyUrl => 'URL көшіру';
 }

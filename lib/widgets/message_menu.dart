@@ -296,7 +296,6 @@ void showForwardPicker({
           ),
           Flexible(
             child: ListView.builder(
-              shrinkWrap: true,
               itemCount: contacts.length,
               itemBuilder: (ctx, i) {
                 final c = contacts[i];
@@ -510,7 +509,6 @@ void showScheduledPanel({
               else
                 Flexible(
                   child: ListView.builder(
-                    shrinkWrap: true,
                     itemCount: items.length,
                     itemBuilder: (_, i) {
                       final m = items[i];

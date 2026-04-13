@@ -51,6 +51,14 @@ class _GroupCallScreenState extends State<GroupCallScreen> {
 
   CallTransportProfile _currentProfile = CallTransportProfile.auto;
 
+  // Contact lookup cache — avoids O(N) scan per participant per rebuild
+  Map<String, Contact>? _contactCache;
+  Map<String, Contact> _getContactMap(BuildContext context) {
+    return _contactCache ??= {
+      for (final c in context.read<IContactRepository>().contacts) c.id: c
+    };
+  }
+
   // Jitsi fallback
   bool _isJitsi = false;
   String? _jitsiRoom;
@@ -672,9 +680,7 @@ class _GroupCallScreenState extends State<GroupCallScreen> {
     final state = _peerStates[memberId];
     final connected = state == RTCIceConnectionState.RTCIceConnectionStateConnected ||
         state == RTCIceConnectionState.RTCIceConnectionStateCompleted;
-    final memberContact = context.read<IContactRepository>().contacts
-        .cast<Contact?>()
-        .firstWhere((c) => c?.id == memberId, orElse: () => null);
+    final memberContact = _getContactMap(context)[memberId];
     final isSpeaking = _speakingPeers[memberId] ?? false;
 
     return Stack(children: [

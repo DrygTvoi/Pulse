@@ -2638,4 +2638,72 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get newCall => 'नया कॉल';
+
+  @override
+  String get joinChannelTitle => 'चैनल से जुड़ें';
+
+  @override
+  String get joinChannelDescription => 'चैनल URL';
+
+  @override
+  String get joinChannelUrlHint => 'https://channel.example.com';
+
+  @override
+  String get joinChannelFetching => 'चैनल जानकारी प्राप्त हो रही है…';
+
+  @override
+  String get joinChannelNotFound => 'इस URL पर कोई चैनल नहीं मिला';
+
+  @override
+  String get joinChannelNetworkError => 'सर्वर तक नहीं पहुँच सके';
+
+  @override
+  String get joinChannelAlreadyJoined => 'पहले से जुड़े हुए';
+
+  @override
+  String get joinChannelButton => 'जुड़ें';
+
+  @override
+  String get channelFeedEmpty => 'अभी तक कोई पोस्ट नहीं';
+
+  @override
+  String get channelLeave => 'चैनल छोड़ें';
+
+  @override
+  String get channelLeaveConfirm =>
+      'इस चैनल को छोड़ें? कैश्ड पोस्ट हटा दी जाएँगी।';
+
+  @override
+  String get channelInfo => 'चैनल जानकारी';
+
+  @override
+  String channelViews(String count) {
+    return '$count';
+  }
+
+  @override
+  String get channelEdited => 'संपादित';
+
+  @override
+  String get channelLoadMore => 'और लोड करें';
+
+  @override
+  String get channelSearchPosts => 'पोस्ट खोजें…';
+
+  @override
+  String get channelNoResults => 'कोई मेल खाते पोस्ट नहीं';
+
+  @override
+  String get channelUrl => 'चैनल URL';
+
+  @override
+  String get channelCreated => 'जुड़े';
+
+  @override
+  String channelPostCount(int count) {
+    return '$count पोस्ट';
+  }
+
+  @override
+  String get channelCopyUrl => 'URL कॉपी करें';
 }

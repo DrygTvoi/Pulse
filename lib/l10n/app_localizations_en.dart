@@ -2622,4 +2622,72 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get newCall => 'New call';
+
+  @override
+  String get joinChannelTitle => 'Join Channel';
+
+  @override
+  String get joinChannelDescription => 'CHANNEL URL';
+
+  @override
+  String get joinChannelUrlHint => 'https://channel.example.com';
+
+  @override
+  String get joinChannelFetching => 'Fetching channel info…';
+
+  @override
+  String get joinChannelNotFound => 'Channel not found at this URL';
+
+  @override
+  String get joinChannelNetworkError => 'Could not reach server';
+
+  @override
+  String get joinChannelAlreadyJoined => 'Already joined';
+
+  @override
+  String get joinChannelButton => 'Join';
+
+  @override
+  String get channelFeedEmpty => 'No posts yet';
+
+  @override
+  String get channelLeave => 'Leave Channel';
+
+  @override
+  String get channelLeaveConfirm =>
+      'Leave this channel? Cached posts will be deleted.';
+
+  @override
+  String get channelInfo => 'Channel Info';
+
+  @override
+  String channelViews(String count) {
+    return '$count';
+  }
+
+  @override
+  String get channelEdited => 'edited';
+
+  @override
+  String get channelLoadMore => 'Load more';
+
+  @override
+  String get channelSearchPosts => 'Search posts…';
+
+  @override
+  String get channelNoResults => 'No matching posts';
+
+  @override
+  String get channelUrl => 'Channel URL';
+
+  @override
+  String get channelCreated => 'Joined';
+
+  @override
+  String channelPostCount(int count) {
+    return '$count posts';
+  }
+
+  @override
+  String get channelCopyUrl => 'Copy URL';
 }

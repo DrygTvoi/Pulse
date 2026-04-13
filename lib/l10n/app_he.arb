@@ -778,5 +778,31 @@
   "torForceNostrTitle": "נתב הודעות דרך Tor",
   "torForcePulseDisabled": "יש להפעיל את Tor קודם",
   "torForcePulseSubtitle": "כל חיבורי Pulse relay יעברו דרך Tor. איטי יותר אך מסתיר את כתובת ה-IP שלך מהשרת.",
-  "torForcePulseTitle": "נתב Pulse relay דרך Tor"
+  "torForcePulseTitle": "נתב Pulse relay דרך Tor",
+  "joinChannelTitle": "הצטרף לערוץ",
+  "joinChannelDescription": "כתובת הערוץ",
+  "joinChannelUrlHint": "https://channel.example.com",
+  "joinChannelFetching": "מביא מידע על הערוץ…",
+  "joinChannelNotFound": "לא נמצא ערוץ בכתובת זו",
+  "joinChannelNetworkError": "לא ניתן להגיע לשרת",
+  "joinChannelAlreadyJoined": "כבר הצטרפת",
+  "joinChannelButton": "הצטרף",
+  "channelFeedEmpty": "אין פרסומים עדיין",
+  "channelLeave": "עזוב ערוץ",
+  "channelLeaveConfirm": "לעזוב ערוץ זה? פרסומים שמורים יימחקו.",
+  "channelInfo": "מידע על הערוץ",
+  "channelViews": "{count}",
+  "channelEdited": "נערך",
+  "channelLoadMore": "טען עוד",
+  "channelSearchPosts": "חיפוש פוסטים\u2026",
+  "channelNoResults": "אין פוסטים תואמים",
+  "channelUrl": "URL הערוץ",
+  "channelCreated": "הצטרף",
+  "channelPostCount": "{count} פוסטים",
+  "@channelPostCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "channelCopyUrl": "העתק URL"
 }

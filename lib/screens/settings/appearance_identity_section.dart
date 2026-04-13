@@ -103,7 +103,6 @@ class AppearanceIdentitySection extends StatelessWidget {
           Expanded(
             child: ListView(
               controller: scrollController,
-              shrinkWrap: PlatformUtils.isDesktop,
               children: [
                 // System default option
                 _LanguageTile(

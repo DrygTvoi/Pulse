@@ -778,5 +778,31 @@
   "torForceNostrTitle": "Enrutar mensajes a través de Tor",
   "torForcePulseDisabled": "Tor debe estar activado primero",
   "torForcePulseSubtitle": "Todas las conexiones de Pulse relay pasarán por Tor. Más lento pero oculta tu IP del servidor.",
-  "torForcePulseTitle": "Enrutar Pulse relay a través de Tor"
+  "torForcePulseTitle": "Enrutar Pulse relay a través de Tor",
+  "joinChannelTitle": "Unirse al canal",
+  "joinChannelDescription": "URL DEL CANAL",
+  "joinChannelUrlHint": "https://channel.example.com",
+  "joinChannelFetching": "Obteniendo información del canal…",
+  "joinChannelNotFound": "No se encontró canal en esta URL",
+  "joinChannelNetworkError": "No se pudo conectar al servidor",
+  "joinChannelAlreadyJoined": "Ya unido",
+  "joinChannelButton": "Unirse",
+  "channelFeedEmpty": "Aún no hay publicaciones",
+  "channelLeave": "Salir del canal",
+  "channelLeaveConfirm": "¿Salir de este canal? Las publicaciones en caché se eliminarán.",
+  "channelInfo": "Info del canal",
+  "channelViews": "{count}",
+  "channelEdited": "editado",
+  "channelLoadMore": "Cargar más",
+  "channelSearchPosts": "Buscar publicaciones\u2026",
+  "channelNoResults": "Sin publicaciones coincidentes",
+  "channelUrl": "URL del canal",
+  "channelCreated": "Unido",
+  "channelPostCount": "{count} publicaciones",
+  "@channelPostCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "channelCopyUrl": "Copiar URL"
 }

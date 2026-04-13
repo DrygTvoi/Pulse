@@ -778,5 +778,31 @@
   "torForceNostrTitle": "Reititä viestit Tor-verkon kautta",
   "torForcePulseDisabled": "Tor täytyy ottaa käyttöön ensin",
   "torForcePulseSubtitle": "Kaikki Pulse relay -yhteydet kulkevat Tor-verkon kautta. Hitaampi, mutta piilottaa IP-osoitteesi palvelimelta.",
-  "torForcePulseTitle": "Reititä Pulse relay Tor-verkon kautta"
+  "torForcePulseTitle": "Reititä Pulse relay Tor-verkon kautta",
+  "joinChannelTitle": "Liity kanavalle",
+  "joinChannelDescription": "KANAVAN URL",
+  "joinChannelUrlHint": "https://channel.example.com",
+  "joinChannelFetching": "Haetaan kanavan tietoja…",
+  "joinChannelNotFound": "Kanavaa ei löytynyt tästä osoitteesta",
+  "joinChannelNetworkError": "Palvelimeen ei saatu yhteyttä",
+  "joinChannelAlreadyJoined": "Jo liitytty",
+  "joinChannelButton": "Liity",
+  "channelFeedEmpty": "Ei vielä julkaisuja",
+  "channelLeave": "Poistu kanavalta",
+  "channelLeaveConfirm": "Poistu tältä kanavalta? Välimuistissa olevat julkaisut poistetaan.",
+  "channelInfo": "Kanavan tiedot",
+  "channelViews": "{count}",
+  "channelEdited": "muokattu",
+  "channelLoadMore": "Lataa lisää",
+  "channelSearchPosts": "Hae julkaisuja\u2026",
+  "channelNoResults": "Ei vastaavia julkaisuja",
+  "channelUrl": "Kanavan URL",
+  "channelCreated": "Liittynyt",
+  "channelPostCount": "{count} julkaisua",
+  "@channelPostCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "channelCopyUrl": "Kopioi URL"
 }

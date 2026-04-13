@@ -778,5 +778,31 @@
   "torForceNostrTitle": "Send beskeder via Tor",
   "torForcePulseDisabled": "Tor skal aktiveres først",
   "torForcePulseSubtitle": "Alle Pulse relay-forbindelser vil gå gennem Tor. Langsommere, men skjuler din IP fra serveren.",
-  "torForcePulseTitle": "Send Pulse relay via Tor"
+  "torForcePulseTitle": "Send Pulse relay via Tor",
+  "joinChannelTitle": "Tilslut kanal",
+  "joinChannelDescription": "KANAL-URL",
+  "joinChannelUrlHint": "https://channel.example.com",
+  "joinChannelFetching": "Henter kanaloplysninger…",
+  "joinChannelNotFound": "Ingen kanal fundet på denne URL",
+  "joinChannelNetworkError": "Kunne ikke nå serveren",
+  "joinChannelAlreadyJoined": "Allerede tilsluttet",
+  "joinChannelButton": "Tilslut",
+  "channelFeedEmpty": "Ingen opslag endnu",
+  "channelLeave": "Forlad kanal",
+  "channelLeaveConfirm": "Forlad denne kanal? Gemte opslag vil blive slettet.",
+  "channelInfo": "Kanalinfo",
+  "channelViews": "{count}",
+  "channelEdited": "redigeret",
+  "channelLoadMore": "Indlæs flere",
+  "channelSearchPosts": "Søg i opslag\u2026",
+  "channelNoResults": "Ingen matchende opslag",
+  "channelUrl": "Kanal-URL",
+  "channelCreated": "Tilmeldt",
+  "channelPostCount": "{count} opslag",
+  "@channelPostCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "channelCopyUrl": "Kopiér URL"
 }

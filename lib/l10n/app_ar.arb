@@ -778,5 +778,31 @@
   "torForceNostrTitle": "توجيه الرسائل عبر Tor",
   "torForcePulseDisabled": "يجب تفعيل Tor أولاً",
   "torForcePulseSubtitle": "جميع اتصالات Pulse relay ستمر عبر Tor. أبطأ لكنه يخفي عنوان IP الخاص بك من الخادم.",
-  "torForcePulseTitle": "توجيه Pulse relay عبر Tor"
+  "torForcePulseTitle": "توجيه Pulse relay عبر Tor",
+  "joinChannelTitle": "انضم إلى القناة",
+  "joinChannelDescription": "رابط القناة",
+  "joinChannelUrlHint": "https://channel.example.com",
+  "joinChannelFetching": "جارٍ جلب معلومات القناة…",
+  "joinChannelNotFound": "لم يتم العثور على قناة في هذا الرابط",
+  "joinChannelNetworkError": "تعذّر الوصول إلى الخادم",
+  "joinChannelAlreadyJoined": "منضم بالفعل",
+  "joinChannelButton": "انضمام",
+  "channelFeedEmpty": "لا توجد منشورات بعد",
+  "channelLeave": "مغادرة القناة",
+  "channelLeaveConfirm": "مغادرة هذه القناة؟ ستُحذف المنشورات المخزنة مؤقتاً.",
+  "channelInfo": "معلومات القناة",
+  "channelViews": "{count}",
+  "channelEdited": "معدّل",
+  "channelLoadMore": "تحميل المزيد",
+  "channelSearchPosts": "بحث في المنشورات\u2026",
+  "channelNoResults": "لا توجد منشورات مطابقة",
+  "channelUrl": "رابط القناة",
+  "channelCreated": "انضممت",
+  "channelPostCount": "{count} منشور",
+  "@channelPostCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "channelCopyUrl": "نسخ الرابط"
 }

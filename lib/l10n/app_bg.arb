@@ -778,5 +778,31 @@
   "torForceNostrTitle": "Насочване на съобщенията през Tor",
   "torForcePulseDisabled": "Tor трябва първо да бъде включен",
   "torForcePulseSubtitle": "Всички Pulse relay връзки ще минават през Tor. По-бавно, но скрива IP адреса ви от сървъра.",
-  "torForcePulseTitle": "Насочване на Pulse relay през Tor"
+  "torForcePulseTitle": "Насочване на Pulse relay през Tor",
+  "joinChannelTitle": "Присъединяване към канал",
+  "joinChannelDescription": "URL НА КАНАЛА",
+  "joinChannelUrlHint": "https://channel.example.com",
+  "joinChannelFetching": "Извличане на информация за канала…",
+  "joinChannelNotFound": "Не е намерен канал на този URL",
+  "joinChannelNetworkError": "Няма връзка със сървъра",
+  "joinChannelAlreadyJoined": "Вече сте присъединени",
+  "joinChannelButton": "Присъединяване",
+  "channelFeedEmpty": "Все още няма публикации",
+  "channelLeave": "Напускане на канала",
+  "channelLeaveConfirm": "Напускане на този канал? Кешираните публикации ще бъдат изтрити.",
+  "channelInfo": "Информация за канала",
+  "channelViews": "{count}",
+  "channelEdited": "редактирано",
+  "channelLoadMore": "Зареди още",
+  "channelSearchPosts": "Търсене на публикации\u2026",
+  "channelNoResults": "Няма съвпадащи публикации",
+  "channelUrl": "URL на канала",
+  "channelCreated": "Присъединен",
+  "channelPostCount": "{count} публикации",
+  "@channelPostCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "channelCopyUrl": "Копиране на URL"
 }

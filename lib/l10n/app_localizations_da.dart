@@ -2632,4 +2632,72 @@ class AppLocalizationsDa extends AppLocalizations {
 
   @override
   String get newCall => 'Nyt opkald';
+
+  @override
+  String get joinChannelTitle => 'Tilslut kanal';
+
+  @override
+  String get joinChannelDescription => 'KANAL-URL';
+
+  @override
+  String get joinChannelUrlHint => 'https://channel.example.com';
+
+  @override
+  String get joinChannelFetching => 'Henter kanaloplysninger…';
+
+  @override
+  String get joinChannelNotFound => 'Ingen kanal fundet på denne URL';
+
+  @override
+  String get joinChannelNetworkError => 'Kunne ikke nå serveren';
+
+  @override
+  String get joinChannelAlreadyJoined => 'Allerede tilsluttet';
+
+  @override
+  String get joinChannelButton => 'Tilslut';
+
+  @override
+  String get channelFeedEmpty => 'Ingen opslag endnu';
+
+  @override
+  String get channelLeave => 'Forlad kanal';
+
+  @override
+  String get channelLeaveConfirm =>
+      'Forlad denne kanal? Gemte opslag vil blive slettet.';
+
+  @override
+  String get channelInfo => 'Kanalinfo';
+
+  @override
+  String channelViews(String count) {
+    return '$count';
+  }
+
+  @override
+  String get channelEdited => 'redigeret';
+
+  @override
+  String get channelLoadMore => 'Indlæs flere';
+
+  @override
+  String get channelSearchPosts => 'Søg i opslag…';
+
+  @override
+  String get channelNoResults => 'Ingen matchende opslag';
+
+  @override
+  String get channelUrl => 'Kanal-URL';
+
+  @override
+  String get channelCreated => 'Tilmeldt';
+
+  @override
+  String channelPostCount(int count) {
+    return '$count opslag';
+  }
+
+  @override
+  String get channelCopyUrl => 'Kopiér URL';
 }

@@ -2647,4 +2647,72 @@ class AppLocalizationsLv extends AppLocalizations {
 
   @override
   String get newCall => 'Jauns zvans';
+
+  @override
+  String get joinChannelTitle => 'Pievienoties kanālam';
+
+  @override
+  String get joinChannelDescription => 'KANĀLA URL';
+
+  @override
+  String get joinChannelUrlHint => 'https://channel.example.com';
+
+  @override
+  String get joinChannelFetching => 'Iegūst kanāla informāciju…';
+
+  @override
+  String get joinChannelNotFound => 'Kanāls šajā URL nav atrasts';
+
+  @override
+  String get joinChannelNetworkError => 'Nevar sasniegt serveri';
+
+  @override
+  String get joinChannelAlreadyJoined => 'Jau pievienojies';
+
+  @override
+  String get joinChannelButton => 'Pievienoties';
+
+  @override
+  String get channelFeedEmpty => 'Vēl nav ierakstu';
+
+  @override
+  String get channelLeave => 'Pamest kanālu';
+
+  @override
+  String get channelLeaveConfirm =>
+      'Pamest šo kanālu? Saglabātie ieraksti tiks dzēsti.';
+
+  @override
+  String get channelInfo => 'Kanāla informācija';
+
+  @override
+  String channelViews(String count) {
+    return '$count';
+  }
+
+  @override
+  String get channelEdited => 'rediģēts';
+
+  @override
+  String get channelLoadMore => 'Ielādēt vairāk';
+
+  @override
+  String get channelSearchPosts => 'Meklēt ierakstus…';
+
+  @override
+  String get channelNoResults => 'Nav atbilstošu ierakstu';
+
+  @override
+  String get channelUrl => 'Kanāla URL';
+
+  @override
+  String get channelCreated => 'Pievienojies';
+
+  @override
+  String channelPostCount(int count) {
+    return '$count ieraksti';
+  }
+
+  @override
+  String get channelCopyUrl => 'Kopēt URL';
 }

@@ -778,5 +778,31 @@
   "torForceNostrTitle": "Хабарларды Tor арқылы жіберу",
   "torForcePulseDisabled": "Алдымен Tor қосылуы керек",
   "torForcePulseSubtitle": "Барлық Pulse relay қосылымдары Tor арқылы өтеді. Баяу, бірақ IP мекенжайыңызды серверден жасырады.",
-  "torForcePulseTitle": "Pulse relay-ді Tor арқылы бағыттау"
+  "torForcePulseTitle": "Pulse relay-ді Tor арқылы бағыттау",
+  "joinChannelTitle": "Арнаға қосылу",
+  "joinChannelDescription": "АРНА URL",
+  "joinChannelUrlHint": "https://channel.example.com",
+  "joinChannelFetching": "Арна ақпараты алынуда…",
+  "joinChannelNotFound": "Бұл URL бойынша арна табылмады",
+  "joinChannelNetworkError": "Серверге қосылу мүмкін емес",
+  "joinChannelAlreadyJoined": "Бұрыннан қосылған",
+  "joinChannelButton": "Қосылу",
+  "channelFeedEmpty": "Әзірше жазбалар жоқ",
+  "channelLeave": "Арнадан шығу",
+  "channelLeaveConfirm": "Бұл арнадан шығу керек пе? Сақталған жазбалар жойылады.",
+  "channelInfo": "Арна ақпараты",
+  "channelViews": "{count}",
+  "channelEdited": "өңделген",
+  "channelLoadMore": "Тағы жүктеу",
+  "channelSearchPosts": "\u0416\u0430\u0437\u0431\u0430\u043b\u0430\u0440\u0434\u044b \u0456\u0437\u0434\u0435\u0443\u2026",
+  "channelNoResults": "\u0421\u04d9\u0439\u043a\u0435\u0441 \u0436\u0430\u0437\u0431\u0430\u043b\u0430\u0440 \u0436\u043e\u049b",
+  "channelUrl": "\u0410\u0440\u043d\u0430 URL",
+  "channelCreated": "\u049a\u043e\u0441\u044b\u043b\u0434\u044b",
+  "channelPostCount": "{count} \u0436\u0430\u0437\u0431\u0430",
+  "@channelPostCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "channelCopyUrl": "URL \u043a\u04e9\u0448\u0456\u0440\u0443"
 }

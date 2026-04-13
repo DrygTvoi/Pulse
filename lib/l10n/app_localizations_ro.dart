@@ -2649,4 +2649,72 @@ class AppLocalizationsRo extends AppLocalizations {
 
   @override
   String get newCall => 'Apel nou';
+
+  @override
+  String get joinChannelTitle => 'Alătură-te canalului';
+
+  @override
+  String get joinChannelDescription => 'URL CANAL';
+
+  @override
+  String get joinChannelUrlHint => 'https://channel.example.com';
+
+  @override
+  String get joinChannelFetching => 'Se obțin informațiile canalului…';
+
+  @override
+  String get joinChannelNotFound => 'Niciun canal găsit la acest URL';
+
+  @override
+  String get joinChannelNetworkError => 'Nu s-a putut contacta serverul';
+
+  @override
+  String get joinChannelAlreadyJoined => 'Deja abonat';
+
+  @override
+  String get joinChannelButton => 'Alătură-te';
+
+  @override
+  String get channelFeedEmpty => 'Încă nu există postări';
+
+  @override
+  String get channelLeave => 'Părăsește canalul';
+
+  @override
+  String get channelLeaveConfirm =>
+      'Părăsești acest canal? Postările salvate vor fi șterse.';
+
+  @override
+  String get channelInfo => 'Info canal';
+
+  @override
+  String channelViews(String count) {
+    return '$count';
+  }
+
+  @override
+  String get channelEdited => 'editat';
+
+  @override
+  String get channelLoadMore => 'Încarcă mai multe';
+
+  @override
+  String get channelSearchPosts => 'Căutare postare…';
+
+  @override
+  String get channelNoResults => 'Nicio postare potrivită';
+
+  @override
+  String get channelUrl => 'URL canal';
+
+  @override
+  String get channelCreated => 'Alăturat';
+
+  @override
+  String channelPostCount(int count) {
+    return '$count postări';
+  }
+
+  @override
+  String get channelCopyUrl => 'Copiază URL';
 }

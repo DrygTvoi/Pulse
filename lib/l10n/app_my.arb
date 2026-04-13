@@ -778,5 +778,31 @@
   "torForceNostrTitle": "မက်ဆေ့ချ်များကို Tor မှတဆင့် ပို့ပါ",
   "torForcePulseDisabled": "Tor ကို အရင်ဖွင့်ရန် လိုအပ်သည်",
   "torForcePulseSubtitle": "Pulse relay ချိတ်ဆက်မှုအားလုံး Tor မှတဆင့် သွားပါမည်။ ပိုနှေးသော်လည်း ဆာဗာမှ သင်၏ IP ကို ဝှက်ထားသည်။",
-  "torForcePulseTitle": "Pulse relay ကို Tor မှတဆင့် ချိတ်ဆက်ပါ"
+  "torForcePulseTitle": "Pulse relay ကို Tor မှတဆင့် ချိတ်ဆက်ပါ",
+  "joinChannelTitle": "ချန်နယ်သို့ ပူးပေါင်းပါ",
+  "joinChannelDescription": "ချန်နယ် URL",
+  "joinChannelUrlHint": "https://channel.example.com",
+  "joinChannelFetching": "ချန်နယ်အချက်အလက် ရယူနေသည်…",
+  "joinChannelNotFound": "ဤ URL တွင် ချန်နယ်မတွေ့ပါ",
+  "joinChannelNetworkError": "ဆာဗာသို့ ဆက်သွယ်မရပါ",
+  "joinChannelAlreadyJoined": "ပူးပေါင်းပြီးသားဖြစ်သည်",
+  "joinChannelButton": "ပူးပေါင်းမည်",
+  "channelFeedEmpty": "ပို့စ်များ မရှိသေးပါ",
+  "channelLeave": "ချန်နယ်မှ ထွက်ခွာမည်",
+  "channelLeaveConfirm": "ဤချန်နယ်မှ ထွက်ခွာမည်လား? သိမ်းဆည်းထားသော ပို့စ်များ ဖျက်ပစ်မည်။",
+  "channelInfo": "ချန်နယ်အချက်အလက်",
+  "channelViews": "{count}",
+  "channelEdited": "ပြင်ဆင်ပြီး",
+  "channelLoadMore": "နောက်ထပ်ဖတ်ရန်",
+  "channelSearchPosts": "\u1015\u102d\u102f\u1037\u1005\u103a\u1019\u103b\u102c\u1038 \u101b\u103e\u102c\u1015\u102b\u2026",
+  "channelNoResults": "\u1000\u102d\u102f\u1000\u103a\u100a\u102e\u101e\u1031\u102c \u1015\u102d\u102f\u1037\u1005\u103a\u1019\u101b\u103e\u102d\u1015\u102b",
+  "channelUrl": "\u1001\u103b\u1014\u103a\u1014\u101a\u103a URL",
+  "channelCreated": "\u1015\u102b\u101d\u1004\u103a\u1015\u103c\u102e\u1038",
+  "channelPostCount": "{count} \u1015\u102d\u102f\u1037\u1005\u103a",
+  "@channelPostCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "channelCopyUrl": "URL \u1000\u1030\u1038\u101a\u1030\u1015\u102b"
 }

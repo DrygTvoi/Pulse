@@ -778,5 +778,31 @@
   "torForceNostrTitle": "පණිවිඩ Tor හරහා යොමු කරන්න",
   "torForcePulseDisabled": "පළමුව Tor සක්‍රිය කළ යුතුය",
   "torForcePulseSubtitle": "සියලුම Pulse relay සම්බන්ධතා Tor හරහා යනු ඇත. මන්දගාමී නමුත් සේවාදායකයෙන් ඔබේ IP සඟවයි.",
-  "torForcePulseTitle": "Pulse relay Tor හරහා යොමු කරන්න"
+  "torForcePulseTitle": "Pulse relay Tor හරහා යොමු කරන්න",
+  "joinChannelTitle": "නාලිකාවට සම්බන්ධ වන්න",
+  "joinChannelDescription": "නාලිකා URL",
+  "joinChannelUrlHint": "https://channel.example.com",
+  "joinChannelFetching": "නාලිකා තොරතුරු ලබා ගනිමින්…",
+  "joinChannelNotFound": "මෙම URL හි නාලිකාවක් හමු නොවීය",
+  "joinChannelNetworkError": "සේවාදායකයට සම්බන්ධ විය නොහැක",
+  "joinChannelAlreadyJoined": "දැනටමත් සම්බන්ධයි",
+  "joinChannelButton": "සම්බන්ධ වන්න",
+  "channelFeedEmpty": "තවම පළ කිරීම් නැත",
+  "channelLeave": "නාලිකාව අත්හරින්න",
+  "channelLeaveConfirm": "මෙම නාලිකාව අත්හරිනවාද? සුරැකි පළ කිරීම් මකනු ලැබේ.",
+  "channelInfo": "නාලිකා තොරතුරු",
+  "channelViews": "{count}",
+  "channelEdited": "සංස්කරණය කළ",
+  "channelLoadMore": "තව පූරණය කරන්න",
+  "channelSearchPosts": "\u0db4\u0ddc\u0dc3\u0dca\u0da7\u0dca \u0dc3\u0ddc\u0dba\u0db1\u0dca\u0db1\u2026",
+  "channelNoResults": "\u0d9c\u0dd0\u0dbd\u0db5\u0dd2\u0dba \u0db4\u0ddc\u0dc3\u0dca\u0da7\u0dca \u0db1\u0dd0\u0dad",
+  "channelUrl": "\u0da0\u0dd0\u0db1\u0dbd\u0dca URL",
+  "channelCreated": "\u0d91\u0d9a\u0dca \u0dc0\u0dd6",
+  "channelPostCount": "{count} \u0db4\u0ddc\u0dc3\u0dca\u0da7\u0dca",
+  "@channelPostCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "channelCopyUrl": "URL \u0db4\u0dd2\u0da7\u0db4\u0dad\u0dca \u0d9a\u0dbb\u0db1\u0dca\u0db1"
 }

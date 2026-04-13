@@ -102,9 +102,9 @@ class DesignTokens {
   static const double buttonPaddingV = 14.0;
 
   // ── Shadows ─────────────────────────────────────────────────
-  static List<BoxShadow> get shadowSm => [const BoxShadow(color: Color(0x0F000000), blurRadius: 4, offset: Offset(0, 1))];
-  static List<BoxShadow> get shadowMd => [const BoxShadow(color: Color(0x14000000), blurRadius: 8, offset: Offset(0, 2))];
-  static List<BoxShadow> get shadowLg => [const BoxShadow(color: Color(0x1F000000), blurRadius: 16, offset: Offset(0, 4))];
+  static const shadowSm = [BoxShadow(color: Color(0x0F000000), blurRadius: 4, offset: Offset(0, 1))];
+  static const shadowMd = [BoxShadow(color: Color(0x14000000), blurRadius: 8, offset: Offset(0, 2))];
+  static const shadowLg = [BoxShadow(color: Color(0x1F000000), blurRadius: 16, offset: Offset(0, 4))];
 
   // ── Opacity ────────────────────────────────────────────────
   static const double opacitySubtle = 0.08;

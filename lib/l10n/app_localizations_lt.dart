@@ -2654,4 +2654,72 @@ class AppLocalizationsLt extends AppLocalizations {
 
   @override
   String get newCall => 'Naujas skambutis';
+
+  @override
+  String get joinChannelTitle => 'Prisijungti prie kanalo';
+
+  @override
+  String get joinChannelDescription => 'KANALO URL';
+
+  @override
+  String get joinChannelUrlHint => 'https://channel.example.com';
+
+  @override
+  String get joinChannelFetching => 'Gaunama kanalo informacija…';
+
+  @override
+  String get joinChannelNotFound => 'Šiuo URL kanalas nerastas';
+
+  @override
+  String get joinChannelNetworkError => 'Nepavyko pasiekti serverio';
+
+  @override
+  String get joinChannelAlreadyJoined => 'Jau prisijungta';
+
+  @override
+  String get joinChannelButton => 'Prisijungti';
+
+  @override
+  String get channelFeedEmpty => 'Kol kas įrašų nėra';
+
+  @override
+  String get channelLeave => 'Palikti kanalą';
+
+  @override
+  String get channelLeaveConfirm =>
+      'Palikti šį kanalą? Išsaugoti įrašai bus ištrinti.';
+
+  @override
+  String get channelInfo => 'Kanalo informacija';
+
+  @override
+  String channelViews(String count) {
+    return '$count';
+  }
+
+  @override
+  String get channelEdited => 'redaguota';
+
+  @override
+  String get channelLoadMore => 'Įkelti daugiau';
+
+  @override
+  String get channelSearchPosts => 'Ieškoti įrašų…';
+
+  @override
+  String get channelNoResults => 'Nerasta atitinkančių įrašų';
+
+  @override
+  String get channelUrl => 'Kanalo URL';
+
+  @override
+  String get channelCreated => 'Prisijungta';
+
+  @override
+  String channelPostCount(int count) {
+    return '$count įrašų';
+  }
+
+  @override
+  String get channelCopyUrl => 'Kopijuoti URL';
 }

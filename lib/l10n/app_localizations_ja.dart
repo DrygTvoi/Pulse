@@ -2544,4 +2544,71 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get newCall => '新しい通話';
+
+  @override
+  String get joinChannelTitle => 'チャンネルに参加';
+
+  @override
+  String get joinChannelDescription => 'チャンネルURL';
+
+  @override
+  String get joinChannelUrlHint => 'https://channel.example.com';
+
+  @override
+  String get joinChannelFetching => 'チャンネル情報を取得中…';
+
+  @override
+  String get joinChannelNotFound => 'このURLにチャンネルが見つかりません';
+
+  @override
+  String get joinChannelNetworkError => 'サーバーに接続できません';
+
+  @override
+  String get joinChannelAlreadyJoined => '参加済み';
+
+  @override
+  String get joinChannelButton => '参加';
+
+  @override
+  String get channelFeedEmpty => 'まだ投稿がありません';
+
+  @override
+  String get channelLeave => 'チャンネルを退出';
+
+  @override
+  String get channelLeaveConfirm => 'このチャンネルを退出しますか？キャッシュされた投稿は削除されます。';
+
+  @override
+  String get channelInfo => 'チャンネル情報';
+
+  @override
+  String channelViews(String count) {
+    return '$count';
+  }
+
+  @override
+  String get channelEdited => '編集済み';
+
+  @override
+  String get channelLoadMore => 'もっと読み込む';
+
+  @override
+  String get channelSearchPosts => '投稿を検索…';
+
+  @override
+  String get channelNoResults => '一致する投稿なし';
+
+  @override
+  String get channelUrl => 'チャンネルURL';
+
+  @override
+  String get channelCreated => '参加済み';
+
+  @override
+  String channelPostCount(int count) {
+    return '$count件の投稿';
+  }
+
+  @override
+  String get channelCopyUrl => 'URLをコピー';
 }

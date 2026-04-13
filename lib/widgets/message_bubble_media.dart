@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
@@ -39,6 +40,7 @@ class VoiceBubble extends StatefulWidget {
 
 class _VoiceBubbleState extends State<VoiceBubble> {
   final AudioPlayer _player = AudioPlayer();
+  late final List<StreamSubscription> _playerSubs;
   bool _isPlaying = false;
   Duration _position = Duration.zero;
   Duration _total = Duration.zero;
@@ -49,34 +51,39 @@ class _VoiceBubbleState extends State<VoiceBubble> {
   void initState() {
     super.initState();
     _total = Duration(seconds: widget.media.durationSeconds);
-    _player.onPlayerStateChanged.listen((state) {
-      if (!mounted) return;
-      setState(() => _isPlaying = state == PlayerState.playing);
-    });
-    _player.onPositionChanged.listen((pos) {
-      if (!mounted) return;
-      setState(() => _position = pos);
-    });
-    _player.onDurationChanged.listen((dur) {
-      if (!mounted) return;
-      setState(() => _total = dur);
-    });
-    _player.onPlayerComplete.listen((_) {
-      if (!mounted) return;
-      setState(() {
-        _isPlaying = false;
-        _position = Duration.zero;
-      });
-      // Delete temp file after playback ends; it will be re-created on replay.
-      if (_tmpPath != null) {
-        File(_tmpPath!).delete().catchError((_) => File(_tmpPath!));
-        _tmpPath = null;
-      }
-    });
+    _playerSubs = [
+      _player.onPlayerStateChanged.listen((state) {
+        if (!mounted) return;
+        setState(() => _isPlaying = state == PlayerState.playing);
+      }),
+      _player.onPositionChanged.listen((pos) {
+        if (!mounted) return;
+        setState(() => _position = pos);
+      }),
+      _player.onDurationChanged.listen((dur) {
+        if (!mounted) return;
+        setState(() => _total = dur);
+      }),
+      _player.onPlayerComplete.listen((_) {
+        if (!mounted) return;
+        setState(() {
+          _isPlaying = false;
+          _position = Duration.zero;
+        });
+        // Delete temp file after playback ends; it will be re-created on replay.
+        if (_tmpPath != null) {
+          File(_tmpPath!).delete().catchError((_) => File(_tmpPath!));
+          _tmpPath = null;
+        }
+      }),
+    ];
   }
 
   @override
   void dispose() {
+    for (final s in _playerSubs) {
+      s.cancel();
+    }
     _player.dispose();
     if (_tmpPath != null) {
       File(_tmpPath!).delete().catchError((_) => File(_tmpPath!));
@@ -490,11 +497,26 @@ class _BlossomMediaWidgetState extends State<BlossomMediaWidget> {
   bool _loading = false;
   double _progress = 0;
   String? _error;
+  Uint8List? _thumbnailBytes;
 
   @override
   void initState() {
     super.initState();
+    _decodeThumbnail();
     _checkCache();
+  }
+
+  @override
+  void didUpdateWidget(BlossomMediaWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.payload.thumbnail != widget.payload.thumbnail) {
+      _decodeThumbnail();
+    }
+  }
+
+  void _decodeThumbnail() {
+    final t = widget.payload.thumbnail;
+    _thumbnailBytes = (t != null && t.isNotEmpty) ? base64Decode(t) : null;
   }
 
   Future<void> _checkCache() async {
@@ -590,7 +612,7 @@ class _BlossomMediaWidgetState extends State<BlossomMediaWidget> {
     }
 
     // Thumbnail preview (if available) or placeholder
-    if (isImage && p.thumbnail != null && p.thumbnail!.isNotEmpty) {
+    if (isImage && _thumbnailBytes != null) {
       return ClipRRect(
         borderRadius: widget.radius,
         child: GestureDetector(
@@ -603,7 +625,7 @@ class _BlossomMediaWidgetState extends State<BlossomMediaWidget> {
                 child: Opacity(
                   opacity: 0.5,
                   child: Image.memory(
-                    base64Decode(p.thumbnail!),
+                    _thumbnailBytes!,
                     fit: BoxFit.cover,
                     gaplessPlayback: true,
                   ),

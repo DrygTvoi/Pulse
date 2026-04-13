@@ -778,5 +778,31 @@
   "torForceNostrTitle": "ارسال پیام‌ها از طریق Tor",
   "torForcePulseDisabled": "ابتدا باید Tor فعال شود",
   "torForcePulseSubtitle": "تمام اتصالات Pulse relay از طریق Tor عبور خواهند کرد. کندتر است اما IP شما را از سرور پنهان می‌کند.",
-  "torForcePulseTitle": "ارسال Pulse relay از طریق Tor"
+  "torForcePulseTitle": "ارسال Pulse relay از طریق Tor",
+  "joinChannelTitle": "پیوستن به کانال",
+  "joinChannelDescription": "آدرس کانال",
+  "joinChannelUrlHint": "https://channel.example.com",
+  "joinChannelFetching": "دریافت اطلاعات کانال…",
+  "joinChannelNotFound": "کانالی در این آدرس یافت نشد",
+  "joinChannelNetworkError": "دسترسی به سرور ممکن نیست",
+  "joinChannelAlreadyJoined": "قبلاً عضو شده‌اید",
+  "joinChannelButton": "پیوستن",
+  "channelFeedEmpty": "هنوز پستی وجود ندارد",
+  "channelLeave": "ترک کانال",
+  "channelLeaveConfirm": "از این کانال خارج شوید؟ پست‌های ذخیره‌شده حذف خواهند شد.",
+  "channelInfo": "اطلاعات کانال",
+  "channelViews": "{count}",
+  "channelEdited": "ویرایش‌شده",
+  "channelLoadMore": "بارگذاری بیشتر",
+  "channelSearchPosts": "جستجوی پست\u200cها\u2026",
+  "channelNoResults": "پست مطابقی یافت نشد",
+  "channelUrl": "URL کانال",
+  "channelCreated": "عضو شده",
+  "channelPostCount": "{count} پست",
+  "@channelPostCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "channelCopyUrl": "کپی URL"
 }

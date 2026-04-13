@@ -2601,4 +2601,71 @@ class AppLocalizationsHe extends AppLocalizations {
 
   @override
   String get newCall => 'שיחה חדשה';
+
+  @override
+  String get joinChannelTitle => 'הצטרף לערוץ';
+
+  @override
+  String get joinChannelDescription => 'כתובת הערוץ';
+
+  @override
+  String get joinChannelUrlHint => 'https://channel.example.com';
+
+  @override
+  String get joinChannelFetching => 'מביא מידע על הערוץ…';
+
+  @override
+  String get joinChannelNotFound => 'לא נמצא ערוץ בכתובת זו';
+
+  @override
+  String get joinChannelNetworkError => 'לא ניתן להגיע לשרת';
+
+  @override
+  String get joinChannelAlreadyJoined => 'כבר הצטרפת';
+
+  @override
+  String get joinChannelButton => 'הצטרף';
+
+  @override
+  String get channelFeedEmpty => 'אין פרסומים עדיין';
+
+  @override
+  String get channelLeave => 'עזוב ערוץ';
+
+  @override
+  String get channelLeaveConfirm => 'לעזוב ערוץ זה? פרסומים שמורים יימחקו.';
+
+  @override
+  String get channelInfo => 'מידע על הערוץ';
+
+  @override
+  String channelViews(String count) {
+    return '$count';
+  }
+
+  @override
+  String get channelEdited => 'נערך';
+
+  @override
+  String get channelLoadMore => 'טען עוד';
+
+  @override
+  String get channelSearchPosts => 'חיפוש פוסטים…';
+
+  @override
+  String get channelNoResults => 'אין פוסטים תואמים';
+
+  @override
+  String get channelUrl => 'URL הערוץ';
+
+  @override
+  String get channelCreated => 'הצטרף';
+
+  @override
+  String channelPostCount(int count) {
+    return '$count פוסטים';
+  }
+
+  @override
+  String get channelCopyUrl => 'העתק URL';
 }

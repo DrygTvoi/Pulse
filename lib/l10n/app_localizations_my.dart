@@ -2650,4 +2650,72 @@ class AppLocalizationsMy extends AppLocalizations {
 
   @override
   String get newCall => 'ခေါ်ဆိုမှု အသစ်';
+
+  @override
+  String get joinChannelTitle => 'ချန်နယ်သို့ ပူးပေါင်းပါ';
+
+  @override
+  String get joinChannelDescription => 'ချန်နယ် URL';
+
+  @override
+  String get joinChannelUrlHint => 'https://channel.example.com';
+
+  @override
+  String get joinChannelFetching => 'ချန်နယ်အချက်အလက် ရယူနေသည်…';
+
+  @override
+  String get joinChannelNotFound => 'ဤ URL တွင် ချန်နယ်မတွေ့ပါ';
+
+  @override
+  String get joinChannelNetworkError => 'ဆာဗာသို့ ဆက်သွယ်မရပါ';
+
+  @override
+  String get joinChannelAlreadyJoined => 'ပူးပေါင်းပြီးသားဖြစ်သည်';
+
+  @override
+  String get joinChannelButton => 'ပူးပေါင်းမည်';
+
+  @override
+  String get channelFeedEmpty => 'ပို့စ်များ မရှိသေးပါ';
+
+  @override
+  String get channelLeave => 'ချန်နယ်မှ ထွက်ခွာမည်';
+
+  @override
+  String get channelLeaveConfirm =>
+      'ဤချန်နယ်မှ ထွက်ခွာမည်လား? သိမ်းဆည်းထားသော ပို့စ်များ ဖျက်ပစ်မည်။';
+
+  @override
+  String get channelInfo => 'ချန်နယ်အချက်အလက်';
+
+  @override
+  String channelViews(String count) {
+    return '$count';
+  }
+
+  @override
+  String get channelEdited => 'ပြင်ဆင်ပြီး';
+
+  @override
+  String get channelLoadMore => 'နောက်ထပ်ဖတ်ရန်';
+
+  @override
+  String get channelSearchPosts => 'ပို့စ်များ ရှာပါ…';
+
+  @override
+  String get channelNoResults => 'ကိုက်ညီသော ပို့စ်မရှိပါ';
+
+  @override
+  String get channelUrl => 'ချန်နယ် URL';
+
+  @override
+  String get channelCreated => 'ပါဝင်ပြီး';
+
+  @override
+  String channelPostCount(int count) {
+    return '$count ပို့စ်';
+  }
+
+  @override
+  String get channelCopyUrl => 'URL ကူးယူပါ';
 }

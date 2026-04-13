@@ -1613,5 +1613,39 @@
   "callsEmptySubtitle": "Your call history will appear here",
   "appBarEncrypted": "end-to-end encrypted",
   "newStatus": "New status",
-  "newCall": "New call"
+  "newCall": "New call",
+
+  "joinChannelTitle": "Join Channel",
+  "joinChannelDescription": "CHANNEL URL",
+  "joinChannelUrlHint": "https://channel.example.com",
+  "joinChannelFetching": "Fetching channel info\u2026",
+  "joinChannelNotFound": "Channel not found at this URL",
+  "joinChannelNetworkError": "Could not reach server",
+  "joinChannelAlreadyJoined": "Already joined",
+  "joinChannelButton": "Join",
+
+  "channelFeedEmpty": "No posts yet",
+  "channelLeave": "Leave Channel",
+  "channelLeaveConfirm": "Leave this channel? Cached posts will be deleted.",
+  "channelInfo": "Channel Info",
+  "channelViews": "{count}",
+  "@channelViews": {
+    "placeholders": {
+      "count": { "type": "String" }
+    }
+  },
+  "channelEdited": "edited",
+  "channelLoadMore": "Load more",
+
+  "channelSearchPosts": "Search posts\u2026",
+  "channelNoResults": "No matching posts",
+  "channelUrl": "Channel URL",
+  "channelCreated": "Joined",
+  "channelPostCount": "{count} posts",
+  "@channelPostCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "channelCopyUrl": "Copy URL"
 }

@@ -2634,4 +2634,72 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get newCall => 'مكالمة جديدة';
+
+  @override
+  String get joinChannelTitle => 'انضم إلى القناة';
+
+  @override
+  String get joinChannelDescription => 'رابط القناة';
+
+  @override
+  String get joinChannelUrlHint => 'https://channel.example.com';
+
+  @override
+  String get joinChannelFetching => 'جارٍ جلب معلومات القناة…';
+
+  @override
+  String get joinChannelNotFound => 'لم يتم العثور على قناة في هذا الرابط';
+
+  @override
+  String get joinChannelNetworkError => 'تعذّر الوصول إلى الخادم';
+
+  @override
+  String get joinChannelAlreadyJoined => 'منضم بالفعل';
+
+  @override
+  String get joinChannelButton => 'انضمام';
+
+  @override
+  String get channelFeedEmpty => 'لا توجد منشورات بعد';
+
+  @override
+  String get channelLeave => 'مغادرة القناة';
+
+  @override
+  String get channelLeaveConfirm =>
+      'مغادرة هذه القناة؟ ستُحذف المنشورات المخزنة مؤقتاً.';
+
+  @override
+  String get channelInfo => 'معلومات القناة';
+
+  @override
+  String channelViews(String count) {
+    return '$count';
+  }
+
+  @override
+  String get channelEdited => 'معدّل';
+
+  @override
+  String get channelLoadMore => 'تحميل المزيد';
+
+  @override
+  String get channelSearchPosts => 'بحث في المنشورات…';
+
+  @override
+  String get channelNoResults => 'لا توجد منشورات مطابقة';
+
+  @override
+  String get channelUrl => 'رابط القناة';
+
+  @override
+  String get channelCreated => 'انضممت';
+
+  @override
+  String channelPostCount(int count) {
+    return '$count منشور';
+  }
+
+  @override
+  String get channelCopyUrl => 'نسخ الرابط';
 }

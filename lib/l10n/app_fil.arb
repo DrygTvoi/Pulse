@@ -778,5 +778,31 @@
   "torForceNostrTitle": "I-route ang mga mensahe sa pamamagitan ng Tor",
   "torForcePulseDisabled": "Kailangang i-enable muna ang Tor",
   "torForcePulseSubtitle": "Lahat ng koneksyon sa Pulse relay ay dadaan sa Tor. Mas mabagal pero itinatago ang iyong IP mula sa server.",
-  "torForcePulseTitle": "I-route ang Pulse relay sa pamamagitan ng Tor"
+  "torForcePulseTitle": "I-route ang Pulse relay sa pamamagitan ng Tor",
+  "joinChannelTitle": "Sumali sa channel",
+  "joinChannelDescription": "URL NG CHANNEL",
+  "joinChannelUrlHint": "https://channel.example.com",
+  "joinChannelFetching": "Kinukuha ang impormasyon ng channel…",
+  "joinChannelNotFound": "Walang nahanap na channel sa URL na ito",
+  "joinChannelNetworkError": "Hindi maabot ang server",
+  "joinChannelAlreadyJoined": "Kasali na",
+  "joinChannelButton": "Sumali",
+  "channelFeedEmpty": "Wala pang mga post",
+  "channelLeave": "Umalis sa channel",
+  "channelLeaveConfirm": "Umalis sa channel na ito? Ang mga naka-cache na post ay tatanggalin.",
+  "channelInfo": "Impormasyon ng channel",
+  "channelViews": "{count}",
+  "channelEdited": "na-edit",
+  "channelLoadMore": "Mag-load pa",
+  "channelSearchPosts": "Maghanap ng mga post\u2026",
+  "channelNoResults": "Walang tumutugmang post",
+  "channelUrl": "URL ng channel",
+  "channelCreated": "Sumali",
+  "channelPostCount": "{count} post",
+  "@channelPostCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "channelCopyUrl": "Kopyahin ang URL"
 }

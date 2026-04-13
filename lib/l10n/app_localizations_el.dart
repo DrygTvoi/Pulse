@@ -2666,4 +2666,72 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String get newCall => 'Νέα κλήση';
+
+  @override
+  String get joinChannelTitle => 'Συμμετοχή σε κανάλι';
+
+  @override
+  String get joinChannelDescription => 'URL ΚΑΝΑΛΙΟΥ';
+
+  @override
+  String get joinChannelUrlHint => 'https://channel.example.com';
+
+  @override
+  String get joinChannelFetching => 'Ανάκτηση πληροφοριών καναλιού…';
+
+  @override
+  String get joinChannelNotFound => 'Δεν βρέθηκε κανάλι σε αυτό το URL';
+
+  @override
+  String get joinChannelNetworkError => 'Αδυναμία σύνδεσης με τον διακομιστή';
+
+  @override
+  String get joinChannelAlreadyJoined => 'Ήδη εγγεγραμμένος';
+
+  @override
+  String get joinChannelButton => 'Συμμετοχή';
+
+  @override
+  String get channelFeedEmpty => 'Δεν υπάρχουν δημοσιεύσεις ακόμα';
+
+  @override
+  String get channelLeave => 'Αποχώρηση από κανάλι';
+
+  @override
+  String get channelLeaveConfirm =>
+      'Αποχώρηση από αυτό το κανάλι; Οι αποθηκευμένες δημοσιεύσεις θα διαγραφούν.';
+
+  @override
+  String get channelInfo => 'Πληροφορίες καναλιού';
+
+  @override
+  String channelViews(String count) {
+    return '$count';
+  }
+
+  @override
+  String get channelEdited => 'επεξεργασμένο';
+
+  @override
+  String get channelLoadMore => 'Φόρτωση περισσότερων';
+
+  @override
+  String get channelSearchPosts => 'Αναζήτηση δημοσιεύσεων…';
+
+  @override
+  String get channelNoResults => 'Δεν βρέθηκαν δημοσιεύσεις';
+
+  @override
+  String get channelUrl => 'URL καναλιού';
+
+  @override
+  String get channelCreated => 'Εγγράφηκε';
+
+  @override
+  String channelPostCount(int count) {
+    return '$count δημοσιεύσεις';
+  }
+
+  @override
+  String get channelCopyUrl => 'Αντιγραφή URL';
 }

@@ -32,9 +32,8 @@ MessageInputBar _makeInputBar({
   return MessageInputBar(
     controller: controller ?? TextEditingController(),
     focusNode: focusNode ?? FocusNode(),
-    inputFocused: false,
-    isRecording: false,
-    recordingSeconds: 0,
+    isRecording: ValueNotifier<bool>(false),
+    recordingSeconds: ValueNotifier<int>(0),
     replyingTo: null,
     editingMessageId: null,
     scheduledCount: 0,
@@ -151,9 +150,8 @@ void main() {
         MessageInputBar(
           controller: TextEditingController(),
           focusNode: FocusNode(),
-          inputFocused: false,
-          isRecording: false,
-          recordingSeconds: 0,
+          isRecording: ValueNotifier<bool>(false),
+          recordingSeconds: ValueNotifier<int>(0),
           replyingTo: null,
           editingMessageId: null,
           scheduledCount: 0,

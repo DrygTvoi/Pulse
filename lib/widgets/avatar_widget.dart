@@ -29,6 +29,7 @@ class AvatarWidget extends StatelessWidget {
           imageBytes!,
           width: size,
           height: size,
+          cacheWidth: (size * 2).toInt(),
           fit: BoxFit.cover,
           gaplessPlayback: true,
         ),
@@ -72,10 +73,12 @@ class AvatarWidget extends StatelessWidget {
     return (hash % 360).abs().toDouble();
   }
 
+  static final _whitespace = RegExp(r'\s+');
+
   static String _initials(String name) {
     final trimmed = name.trim();
     if (trimmed.isEmpty) return '?';
-    final parts = trimmed.split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
+    final parts = trimmed.split(_whitespace).where((p) => p.isNotEmpty).toList();
     if (parts.length >= 2) {
       return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
     }

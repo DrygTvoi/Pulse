@@ -2624,4 +2624,71 @@ class AppLocalizationsVi extends AppLocalizations {
 
   @override
   String get newCall => 'Cuộc gọi mới';
+
+  @override
+  String get joinChannelTitle => 'Tham gia kênh';
+
+  @override
+  String get joinChannelDescription => 'URL KÊNH';
+
+  @override
+  String get joinChannelUrlHint => 'https://channel.example.com';
+
+  @override
+  String get joinChannelFetching => 'Đang lấy thông tin kênh…';
+
+  @override
+  String get joinChannelNotFound => 'Không tìm thấy kênh tại URL này';
+
+  @override
+  String get joinChannelNetworkError => 'Không thể kết nối đến máy chủ';
+
+  @override
+  String get joinChannelAlreadyJoined => 'Đã tham gia';
+
+  @override
+  String get joinChannelButton => 'Tham gia';
+
+  @override
+  String get channelFeedEmpty => 'Chưa có bài đăng nào';
+
+  @override
+  String get channelLeave => 'Rời kênh';
+
+  @override
+  String get channelLeaveConfirm => 'Rời kênh này? Bài đăng đã lưu sẽ bị xóa.';
+
+  @override
+  String get channelInfo => 'Thông tin kênh';
+
+  @override
+  String channelViews(String count) {
+    return '$count';
+  }
+
+  @override
+  String get channelEdited => 'đã sửa';
+
+  @override
+  String get channelLoadMore => 'Tải thêm';
+
+  @override
+  String get channelSearchPosts => 'Tìm bài đăng…';
+
+  @override
+  String get channelNoResults => 'Không tìm thấy bài đăng';
+
+  @override
+  String get channelUrl => 'URL kênh';
+
+  @override
+  String get channelCreated => 'Đã tham gia';
+
+  @override
+  String channelPostCount(int count) {
+    return '$count bài đăng';
+  }
+
+  @override
+  String get channelCopyUrl => 'Sao chép URL';
 }

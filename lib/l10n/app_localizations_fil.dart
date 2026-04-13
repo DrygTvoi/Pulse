@@ -2660,4 +2660,72 @@ class AppLocalizationsFil extends AppLocalizations {
 
   @override
   String get newCall => 'Bagong tawag';
+
+  @override
+  String get joinChannelTitle => 'Sumali sa channel';
+
+  @override
+  String get joinChannelDescription => 'URL NG CHANNEL';
+
+  @override
+  String get joinChannelUrlHint => 'https://channel.example.com';
+
+  @override
+  String get joinChannelFetching => 'Kinukuha ang impormasyon ng channel…';
+
+  @override
+  String get joinChannelNotFound => 'Walang nahanap na channel sa URL na ito';
+
+  @override
+  String get joinChannelNetworkError => 'Hindi maabot ang server';
+
+  @override
+  String get joinChannelAlreadyJoined => 'Kasali na';
+
+  @override
+  String get joinChannelButton => 'Sumali';
+
+  @override
+  String get channelFeedEmpty => 'Wala pang mga post';
+
+  @override
+  String get channelLeave => 'Umalis sa channel';
+
+  @override
+  String get channelLeaveConfirm =>
+      'Umalis sa channel na ito? Ang mga naka-cache na post ay tatanggalin.';
+
+  @override
+  String get channelInfo => 'Impormasyon ng channel';
+
+  @override
+  String channelViews(String count) {
+    return '$count';
+  }
+
+  @override
+  String get channelEdited => 'na-edit';
+
+  @override
+  String get channelLoadMore => 'Mag-load pa';
+
+  @override
+  String get channelSearchPosts => 'Maghanap ng mga post…';
+
+  @override
+  String get channelNoResults => 'Walang tumutugmang post';
+
+  @override
+  String get channelUrl => 'URL ng channel';
+
+  @override
+  String get channelCreated => 'Sumali';
+
+  @override
+  String channelPostCount(int count) {
+    return '$count post';
+  }
+
+  @override
+  String get channelCopyUrl => 'Kopyahin ang URL';
 }

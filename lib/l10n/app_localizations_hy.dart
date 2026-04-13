@@ -2647,4 +2647,72 @@ class AppLocalizationsHy extends AppLocalizations {
 
   @override
   String get newCall => 'Նոր զանգ';
+
+  @override
+  String get joinChannelTitle => 'Միանալ ալիքին';
+
+  @override
+  String get joinChannelDescription => 'ԱԼԻՔԻ URL';
+
+  @override
+  String get joinChannelUrlHint => 'https://channel.example.com';
+
+  @override
+  String get joinChannelFetching => 'Ալիքի տեղեկություն ստանալու է…';
+
+  @override
+  String get joinChannelNotFound => 'Այս URL-ում ալիք չի գտնվել';
+
+  @override
+  String get joinChannelNetworkError => 'Հնարավոր չէ կապվել սերվերին';
+
+  @override
+  String get joinChannelAlreadyJoined => 'Արդեն միանալ է';
+
+  @override
+  String get joinChannelButton => 'Միանալ';
+
+  @override
+  String get channelFeedEmpty => 'Դեռ գրառումներ չկան';
+
+  @override
+  String get channelLeave => 'Լքել ալիքը';
+
+  @override
+  String get channelLeaveConfirm =>
+      'Լքե՞լ այս ալիքը։ Պահված գրառումները կջնվեն։';
+
+  @override
+  String get channelInfo => 'Ալիքի տեղեկություն';
+
+  @override
+  String channelViews(String count) {
+    return '$count';
+  }
+
+  @override
+  String get channelEdited => 'խմբագրված';
+
+  @override
+  String get channelLoadMore => 'Բեռնել ավելին';
+
+  @override
+  String get channelSearchPosts => 'Փնտրել գրառումները…';
+
+  @override
+  String get channelNoResults => 'Համապատասխան գրառումներ չկան';
+
+  @override
+  String get channelUrl => 'Ալիքի URL';
+
+  @override
+  String get channelCreated => 'Միացած';
+
+  @override
+  String channelPostCount(int count) {
+    return '$count գրառում';
+  }
+
+  @override
+  String get channelCopyUrl => 'URL պատճենել';
 }

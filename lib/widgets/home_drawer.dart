@@ -13,6 +13,7 @@ class HomeDrawer extends StatelessWidget {
   final VoidCallback onNewChat;
   final VoidCallback onNewGroup;
   final VoidCallback onAddContact;
+  final VoidCallback onJoinChannel;
   final VoidCallback onSettings;
   final bool torRunning;
   final int torBootPercent;
@@ -27,6 +28,7 @@ class HomeDrawer extends StatelessWidget {
     required this.onNewChat,
     required this.onNewGroup,
     required this.onAddContact,
+    required this.onJoinChannel,
     required this.onSettings,
     this.torRunning = false,
     this.torBootPercent = 0,
@@ -120,6 +122,11 @@ class HomeDrawer extends StatelessWidget {
                 leading: Icon(Icons.person_add_rounded, color: AppTheme.textSecondary),
                 title: Text(context.l10n.contactsAddContact, style: AppTheme.menuItem),
                 onTap: onAddContact,
+              ),
+              ListTile(
+                leading: Icon(Icons.cell_tower_rounded, color: AppTheme.textSecondary),
+                title: Text(context.l10n.joinChannelTitle, style: AppTheme.menuItem),
+                onTap: onJoinChannel,
               ),
               Divider(color: AppTheme.surfaceVariant, height: 1),
               ListTile(

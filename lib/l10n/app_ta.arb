@@ -778,5 +778,31 @@
   "torForceNostrTitle": "செய்திகளை Tor வழியாக அனுப்பு",
   "torForcePulseDisabled": "முதலில் Tor இயக்கப்பட வேண்டும்",
   "torForcePulseSubtitle": "அனைத்து Pulse relay இணைப்புகளும் Tor வழியாகச் செல்லும். மெதுவானது ஆனால் சேவையகத்திடமிருந்து உங்கள் IP-ஐ மறைக்கிறது.",
-  "torForcePulseTitle": "Pulse relay-ஐ Tor வழியாக அனுப்பு"
+  "torForcePulseTitle": "Pulse relay-ஐ Tor வழியாக அனுப்பு",
+  "joinChannelTitle": "சேனலில் சேரவும்",
+  "joinChannelDescription": "சேனல் URL",
+  "joinChannelUrlHint": "https://channel.example.com",
+  "joinChannelFetching": "சேனல் தகவலைப் பெறுகிறது…",
+  "joinChannelNotFound": "இந்த URL-ல் சேனல் கிடைக்கவில்லை",
+  "joinChannelNetworkError": "சேவையகத்தை அணுக முடியவில்லை",
+  "joinChannelAlreadyJoined": "ஏற்கனவே சேர்ந்துள்ளீர்கள்",
+  "joinChannelButton": "சேரவும்",
+  "channelFeedEmpty": "இன்னும் பதிவுகள் இல்லை",
+  "channelLeave": "சேனலை விடுங்கள்",
+  "channelLeaveConfirm": "இந்த சேனலை விட்டு வெளியேறவா? தற்காலிகமாக சேமிக்கப்பட்ட பதிவுகள் நீக்கப்படும்.",
+  "channelInfo": "சேனல் தகவல்",
+  "channelViews": "{count}",
+  "channelEdited": "திருத்தப்பட்டது",
+  "channelLoadMore": "மேலும் ஏற்றவும்",
+  "channelSearchPosts": "\u0baa\u0ba4\u0bbf\u0bb5\u0bc1\u0b95\u0bb3\u0bc8 \u0ba4\u0bc7\u0b9f\u0bc1\u2026",
+  "channelNoResults": "\u0baa\u0bca\u0bb0\u0bc1\u0ba4\u0bcd\u0ba4\u0bae\u0bbe\u0ba9 \u0baa\u0ba4\u0bbf\u0bb5\u0bc1\u0b95\u0bb3\u0bcd \u0b87\u0bb2\u0bcd\u0bb2\u0bc8",
+  "channelUrl": "\u0b9a\u0bbe\u0ba9\u0bb2\u0bcd URL",
+  "channelCreated": "\u0b9a\u0bc7\u0bb0\u0bcd\u0ba8\u0bcd\u0ba4\u0ba4\u0bc1",
+  "channelPostCount": "{count} \u0baa\u0ba4\u0bbf\u0bb5\u0bc1\u0b95\u0bb3\u0bcd",
+  "@channelPostCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "channelCopyUrl": "URL \u0ba8\u0b95\u0bb2\u0bc6\u0b9f\u0bc1"
 }

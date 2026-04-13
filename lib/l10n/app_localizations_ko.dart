@@ -2543,4 +2543,71 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get newCall => '새 통화';
+
+  @override
+  String get joinChannelTitle => '채널 참여';
+
+  @override
+  String get joinChannelDescription => '채널 URL';
+
+  @override
+  String get joinChannelUrlHint => 'https://channel.example.com';
+
+  @override
+  String get joinChannelFetching => '채널 정보 가져오는 중…';
+
+  @override
+  String get joinChannelNotFound => '이 URL에서 채널을 찾을 수 없습니다';
+
+  @override
+  String get joinChannelNetworkError => '서버에 연결할 수 없습니다';
+
+  @override
+  String get joinChannelAlreadyJoined => '이미 참여함';
+
+  @override
+  String get joinChannelButton => '참여';
+
+  @override
+  String get channelFeedEmpty => '아직 게시물이 없습니다';
+
+  @override
+  String get channelLeave => '채널 나가기';
+
+  @override
+  String get channelLeaveConfirm => '이 채널을 나가시겠습니까? 캐시된 게시물이 삭제됩니다.';
+
+  @override
+  String get channelInfo => '채널 정보';
+
+  @override
+  String channelViews(String count) {
+    return '$count';
+  }
+
+  @override
+  String get channelEdited => '수정됨';
+
+  @override
+  String get channelLoadMore => '더 불러오기';
+
+  @override
+  String get channelSearchPosts => '게시물 검색…';
+
+  @override
+  String get channelNoResults => '일치하는 게시물 없음';
+
+  @override
+  String get channelUrl => '채널 URL';
+
+  @override
+  String get channelCreated => '가입됨';
+
+  @override
+  String channelPostCount(int count) {
+    return '$count개 게시물';
+  }
+
+  @override
+  String get channelCopyUrl => 'URL 복사';
 }

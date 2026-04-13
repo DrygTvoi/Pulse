@@ -2631,4 +2631,72 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String get newCall => 'Nový hovor';
+
+  @override
+  String get joinChannelTitle => 'Připojit se ke kanálu';
+
+  @override
+  String get joinChannelDescription => 'URL KANÁLU';
+
+  @override
+  String get joinChannelUrlHint => 'https://channel.example.com';
+
+  @override
+  String get joinChannelFetching => 'Načítání informací o kanálu…';
+
+  @override
+  String get joinChannelNotFound => 'Na této URL nebyl nalezen žádný kanál';
+
+  @override
+  String get joinChannelNetworkError => 'Nelze se připojit k serveru';
+
+  @override
+  String get joinChannelAlreadyJoined => 'Již připojeno';
+
+  @override
+  String get joinChannelButton => 'Připojit se';
+
+  @override
+  String get channelFeedEmpty => 'Zatím žádné příspěvky';
+
+  @override
+  String get channelLeave => 'Opustit kanál';
+
+  @override
+  String get channelLeaveConfirm =>
+      'Opustit tento kanál? Uložené příspěvky budou smazány.';
+
+  @override
+  String get channelInfo => 'Informace o kanálu';
+
+  @override
+  String channelViews(String count) {
+    return '$count';
+  }
+
+  @override
+  String get channelEdited => 'upraveno';
+
+  @override
+  String get channelLoadMore => 'Načíst další';
+
+  @override
+  String get channelSearchPosts => 'Hledat příspěvky…';
+
+  @override
+  String get channelNoResults => 'Žádné odpovídající příspěvky';
+
+  @override
+  String get channelUrl => 'URL kanálu';
+
+  @override
+  String get channelCreated => 'Připojeno';
+
+  @override
+  String channelPostCount(int count) {
+    return '$count příspěvků';
+  }
+
+  @override
+  String get channelCopyUrl => 'Kopírovat URL';
 }

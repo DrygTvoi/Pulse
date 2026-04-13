@@ -778,5 +778,31 @@
   "torForceNostrTitle": "Encaminar missatges per Tor",
   "torForcePulseDisabled": "Cal activar Tor primer",
   "torForcePulseSubtitle": "Totes les connexions de Pulse relay passaran per Tor. Més lent però amaga la teva IP del servidor.",
-  "torForcePulseTitle": "Encaminar Pulse relay per Tor"
+  "torForcePulseTitle": "Encaminar Pulse relay per Tor",
+  "joinChannelTitle": "Uneix-te al canal",
+  "joinChannelDescription": "URL DEL CANAL",
+  "joinChannelUrlHint": "https://channel.example.com",
+  "joinChannelFetching": "Obtenint informació del canal…",
+  "joinChannelNotFound": "No s'ha trobat cap canal en aquesta URL",
+  "joinChannelNetworkError": "No s'ha pogut contactar amb el servidor",
+  "joinChannelAlreadyJoined": "Ja unit",
+  "joinChannelButton": "Unir-se",
+  "channelFeedEmpty": "Encara no hi ha publicacions",
+  "channelLeave": "Sortir del canal",
+  "channelLeaveConfirm": "Sortir d'aquest canal? Les publicacions emmagatzemades s'esborraran.",
+  "channelInfo": "Informació del canal",
+  "channelViews": "{count}",
+  "channelEdited": "editat",
+  "channelLoadMore": "Carregar més",
+  "channelSearchPosts": "Cercar publicacions\u2026",
+  "channelNoResults": "Cap publicació coincident",
+  "channelUrl": "URL del canal",
+  "channelCreated": "Unit",
+  "channelPostCount": "{count} publicacions",
+  "@channelPostCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "channelCopyUrl": "Copiar URL"
 }

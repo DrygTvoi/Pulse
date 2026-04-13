@@ -787,6 +787,8 @@ class NostrInboxReader implements InboxReader {
   String _relayUrl = _defaultRelay;
   final Map<String, DateTime> _seenIds = {};
   Set<String> _persistentSeenIds = {}; // loaded from disk on init
+  Timer? _seenIdsSaveTimer; // debounce disk writes
+  bool _seenIdsDirty = false;
 
   SharedPreferences? _prefs;
   Future<SharedPreferences> _getPrefs() async =>
@@ -910,7 +912,18 @@ class NostrInboxReader implements InboxReader {
       _persistentSeenIds = Set<String>.from(
           _persistentSeenIds.toList().sublist(_persistentSeenIds.length - 1500));
     }
-    unawaited(_savePersistentIds());
+    _scheduleSaveSeenIds();
+  }
+
+  void _scheduleSaveSeenIds() {
+    _seenIdsDirty = true;
+    _seenIdsSaveTimer ??= Timer(const Duration(seconds: 5), () {
+      _seenIdsSaveTimer = null;
+      if (_seenIdsDirty) {
+        _seenIdsDirty = false;
+        unawaited(_savePersistentIds());
+      }
+    });
   }
 
   Future<void> _savePersistentIds() async {
@@ -952,6 +965,13 @@ class NostrInboxReader implements InboxReader {
   void close() {
     _running = false;
     _loopStarted = false;
+    // Flush pending seen IDs to disk before closing
+    _seenIdsSaveTimer?.cancel();
+    _seenIdsSaveTimer = null;
+    if (_seenIdsDirty) {
+      _seenIdsDirty = false;
+      unawaited(_savePersistentIds());
+    }
     try { _activeChannel?.sink.close(); } catch (_) {}
     _activeChannel = null;
     _closeSecondaryRelays();
@@ -990,13 +1010,17 @@ class NostrInboxReader implements InboxReader {
   }
 
   Future<void> _runSecondaryLoop(String relayUrl) async {
+    int failures = 0;
+    const maxFailures = 8; // give up after 8 consecutive failures
     while (_running && _secondaryRelays.contains(relayUrl)) {
+      final connectTime = DateTime.now();
       try {
         final ch = await _wsConnect(relayUrl);
         _secondaryChannels[relayUrl] = ch;
         await ch.ready;
         _registerRelayChannel(relayUrl, ch, _pendingKeyFetches);
         _secondaryConnected.add(relayUrl);
+        failures = 0; // connected — reset
         debugPrint('[Nostr] Secondary sub connected to $relayUrl');
 
         final subId = 'sec_${DateTime.now().millisecondsSinceEpoch}_${Random.secure().nextInt(0xFFFFFF).toRadixString(16)}';
@@ -1045,9 +1069,22 @@ class NostrInboxReader implements InboxReader {
       _secondaryChannels.remove(relayUrl);
       _secondaryConnected.remove(relayUrl);
       _unregisterRelayChannel(relayUrl);
-      if (_running && _secondaryRelays.contains(relayUrl)) {
-        await Future.delayed(const Duration(seconds: 10));
+      if (!_running || !_secondaryRelays.contains(relayUrl)) break;
+
+      // Short-lived connections count as failures too.
+      final uptime = DateTime.now().difference(connectTime);
+      if (uptime < const Duration(seconds: 30)) failures++;
+
+      if (failures >= maxFailures) {
+        debugPrint('[Nostr] Secondary relay $relayUrl: $maxFailures consecutive failures, giving up');
+        _secondaryRelays.remove(relayUrl);
+        break;
       }
+
+      // Exponential backoff: 10s, 20s, 40s, 80s, 160s (capped at 5 min)
+      final delaySec = min(10 * (1 << failures), 300);
+      debugPrint('[Nostr] Secondary relay $relayUrl: retry in ${delaySec}s (failure $failures/$maxFailures)');
+      await Future.delayed(Duration(seconds: delaySec));
     }
     _secondaryRunning.remove(relayUrl);
   }

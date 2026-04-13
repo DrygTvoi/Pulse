@@ -2645,4 +2645,72 @@ class AppLocalizationsSr extends AppLocalizations {
 
   @override
   String get newCall => 'Novi poziv';
+
+  @override
+  String get joinChannelTitle => 'Придружи се каналу';
+
+  @override
+  String get joinChannelDescription => 'URL КАНАЛА';
+
+  @override
+  String get joinChannelUrlHint => 'https://channel.example.com';
+
+  @override
+  String get joinChannelFetching => 'Преузимање информација о каналу…';
+
+  @override
+  String get joinChannelNotFound => 'Канал није пронађен на овом URL-у';
+
+  @override
+  String get joinChannelNetworkError => 'Не могу да дохватим сервер';
+
+  @override
+  String get joinChannelAlreadyJoined => 'Већ придружен';
+
+  @override
+  String get joinChannelButton => 'Придружи се';
+
+  @override
+  String get channelFeedEmpty => 'Још нема објава';
+
+  @override
+  String get channelLeave => 'Напусти канал';
+
+  @override
+  String get channelLeaveConfirm =>
+      'Напустити овај канал? Сачуване објаве ће бити обрисане.';
+
+  @override
+  String get channelInfo => 'Информације о каналу';
+
+  @override
+  String channelViews(String count) {
+    return '$count';
+  }
+
+  @override
+  String get channelEdited => 'измењено';
+
+  @override
+  String get channelLoadMore => 'Учитај још';
+
+  @override
+  String get channelSearchPosts => 'Претрага објава…';
+
+  @override
+  String get channelNoResults => 'Нема одговарајућих објава';
+
+  @override
+  String get channelUrl => 'URL канала';
+
+  @override
+  String get channelCreated => 'Придружен';
+
+  @override
+  String channelPostCount(int count) {
+    return '$count објава';
+  }
+
+  @override
+  String get channelCopyUrl => 'Копирај URL';
 }

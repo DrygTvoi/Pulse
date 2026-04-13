@@ -778,5 +778,31 @@
   "torForceNostrTitle": "Siųsti pranešimus per Tor",
   "torForcePulseDisabled": "Pirmiausia reikia įjungti Tor",
   "torForcePulseSubtitle": "Visi Pulse relay ryšiai eis per Tor. Lėčiau, bet slepia jūsų IP nuo serverio.",
-  "torForcePulseTitle": "Nukreipti Pulse relay per Tor"
+  "torForcePulseTitle": "Nukreipti Pulse relay per Tor",
+  "joinChannelTitle": "Prisijungti prie kanalo",
+  "joinChannelDescription": "KANALO URL",
+  "joinChannelUrlHint": "https://channel.example.com",
+  "joinChannelFetching": "Gaunama kanalo informacija…",
+  "joinChannelNotFound": "Šiuo URL kanalas nerastas",
+  "joinChannelNetworkError": "Nepavyko pasiekti serverio",
+  "joinChannelAlreadyJoined": "Jau prisijungta",
+  "joinChannelButton": "Prisijungti",
+  "channelFeedEmpty": "Kol kas įrašų nėra",
+  "channelLeave": "Palikti kanalą",
+  "channelLeaveConfirm": "Palikti šį kanalą? Išsaugoti įrašai bus ištrinti.",
+  "channelInfo": "Kanalo informacija",
+  "channelViews": "{count}",
+  "channelEdited": "redaguota",
+  "channelLoadMore": "Įkelti daugiau",
+  "channelSearchPosts": "Ie\u0161koti \u012fra\u0161\u0173\u2026",
+  "channelNoResults": "Nerasta atitinkan\u010di\u0173 \u012fra\u0161\u0173",
+  "channelUrl": "Kanalo URL",
+  "channelCreated": "Prisijungta",
+  "channelPostCount": "{count} \u012fra\u0161\u0173",
+  "@channelPostCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "channelCopyUrl": "Kopijuoti URL"
 }

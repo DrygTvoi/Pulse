@@ -108,14 +108,14 @@ class NotificationService {
         // + WAV validation on every notification just to get "Voice message").
         preview = '🎤 Voice message';
       } else if (MediaService.isMediaPayload(text)) {
-        final m = MediaService.parse(text);
-        if (m?.isImage == true) {
+        final m = MediaService.parseType(text);
+        if (m?.type == 'img') {
           preview = '📷 Photo';
-        } else if (m?.isVoice == true) {
+        } else if (m?.type == 'voice') {
           preview = '🎤 Voice message';
-        } else if (m?.isVideoNote == true) {
+        } else if (m?.type == 'video_note') {
           preview = '🎥 Video message';
-        } else if (m?.isGif == true) {
+        } else if (m?.type == 'gif') {
           preview = 'GIF';
         } else {
           // Do not leak the filename to the OS notification service —

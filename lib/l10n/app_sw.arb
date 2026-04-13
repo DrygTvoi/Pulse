@@ -778,5 +778,31 @@
   "torForceNostrTitle": "Peleka ujumbe kupitia Tor",
   "torForcePulseDisabled": "Tor lazima iwashwe kwanza",
   "torForcePulseSubtitle": "Miunganisho yote ya Pulse relay itapita kupitia Tor. Polepole zaidi lakini inaficha IP yako kutoka kwa seva.",
-  "torForcePulseTitle": "Peleka Pulse relay kupitia Tor"
+  "torForcePulseTitle": "Peleka Pulse relay kupitia Tor",
+  "joinChannelTitle": "Jiunge na Kituo",
+  "joinChannelDescription": "URL YA KITUO",
+  "joinChannelUrlHint": "https://channel.example.com",
+  "joinChannelFetching": "Inapata taarifa za kituo…",
+  "joinChannelNotFound": "Hakuna kituo kilichopatikana kwenye URL hii",
+  "joinChannelNetworkError": "Haiwezi kufikia seva",
+  "joinChannelAlreadyJoined": "Umeshajiunga",
+  "joinChannelButton": "Jiunge",
+  "channelFeedEmpty": "Hakuna machapisho bado",
+  "channelLeave": "Ondoka Kituoni",
+  "channelLeaveConfirm": "Ondoka kwenye kituo hiki? Machapisho yaliyohifadhiwa yatafutwa.",
+  "channelInfo": "Taarifa za Kituo",
+  "channelViews": "{count}",
+  "channelEdited": "imehaririwa",
+  "channelLoadMore": "Pakia zaidi",
+  "channelSearchPosts": "Tafuta machapisho\u2026",
+  "channelNoResults": "Hakuna machapisho yanayolingana",
+  "channelUrl": "URL ya kituo",
+  "channelCreated": "Umejiunga",
+  "channelPostCount": "machapisho {count}",
+  "@channelPostCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "channelCopyUrl": "Nakili URL"
 }

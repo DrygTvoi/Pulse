@@ -24,9 +24,8 @@ class StatusRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final nonGroupContacts = contacts.where((c) => !c.isGroup).toList();
-    final contactsWithStatus = nonGroupContacts
-        .where((c) => contactStatuses.containsKey(c.id))
+    final contactsWithStatus = contacts
+        .where((c) => !c.isGroup && contactStatuses.containsKey(c.id))
         .toList();
     final hasAnyStatus = ownStatus != null || contactsWithStatus.isNotEmpty;
 

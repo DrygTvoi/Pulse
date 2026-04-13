@@ -2632,4 +2632,72 @@ class AppLocalizationsSv extends AppLocalizations {
 
   @override
   String get newCall => 'Nytt samtal';
+
+  @override
+  String get joinChannelTitle => 'Gå med i kanal';
+
+  @override
+  String get joinChannelDescription => 'KANAL-URL';
+
+  @override
+  String get joinChannelUrlHint => 'https://channel.example.com';
+
+  @override
+  String get joinChannelFetching => 'Hämtar kanalinformation…';
+
+  @override
+  String get joinChannelNotFound => 'Ingen kanal hittades på denna URL';
+
+  @override
+  String get joinChannelNetworkError => 'Kunde inte nå servern';
+
+  @override
+  String get joinChannelAlreadyJoined => 'Redan med';
+
+  @override
+  String get joinChannelButton => 'Gå med';
+
+  @override
+  String get channelFeedEmpty => 'Inga inlägg ännu';
+
+  @override
+  String get channelLeave => 'Lämna kanal';
+
+  @override
+  String get channelLeaveConfirm =>
+      'Lämna denna kanal? Cachade inlägg kommer att raderas.';
+
+  @override
+  String get channelInfo => 'Kanalinfo';
+
+  @override
+  String channelViews(String count) {
+    return '$count';
+  }
+
+  @override
+  String get channelEdited => 'redigerat';
+
+  @override
+  String get channelLoadMore => 'Ladda fler';
+
+  @override
+  String get channelSearchPosts => 'Sök inlägg…';
+
+  @override
+  String get channelNoResults => 'Inga matchande inlägg';
+
+  @override
+  String get channelUrl => 'Kanal-URL';
+
+  @override
+  String get channelCreated => 'Gick med';
+
+  @override
+  String channelPostCount(int count) {
+    return '$count inlägg';
+  }
+
+  @override
+  String get channelCopyUrl => 'Kopiera URL';
 }

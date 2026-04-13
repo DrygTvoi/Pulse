@@ -1,5 +1,6 @@
 // Settings — Network section: provider, TURN, proxy, LAN toggle, BG toggle.
 // All state is self-contained; no params needed from settings_screen.
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -25,15 +26,21 @@ class _NetworkSectionState extends State<NetworkSection> {
   bool _lanModeEnabled = true;
   bool _bgServiceEnabled = false;
   String _currentProvider = 'Firebase';
-
+  late final StreamSubscription _torSub;
 
   @override
   void initState() {
     super.initState();
     _load();
-    TorService.instance.stateChanges.listen((_) {
+    _torSub = TorService.instance.stateChanges.listen((_) {
       if (mounted) setState(() {});
     });
+  }
+
+  @override
+  void dispose() {
+    _torSub.cancel();
+    super.dispose();
   }
 
   Future<void> _load() async {

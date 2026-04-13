@@ -778,5 +778,31 @@
   "torForceNostrTitle": "Smerovať správy cez Tor",
   "torForcePulseDisabled": "Najprv je potrebné zapnúť Tor",
   "torForcePulseSubtitle": "Všetky pripojenia k Pulse relay budú smerované cez Tor. Pomalšie, ale skryje vašu IP adresu pred serverom.",
-  "torForcePulseTitle": "Smerovať Pulse relay cez Tor"
+  "torForcePulseTitle": "Smerovať Pulse relay cez Tor",
+  "joinChannelTitle": "Pripojiť sa ku kanálu",
+  "joinChannelDescription": "URL KANÁLU",
+  "joinChannelUrlHint": "https://channel.example.com",
+  "joinChannelFetching": "Načítavanie informácií o kanáli…",
+  "joinChannelNotFound": "Na tejto URL nebol nájdený žiadny kanál",
+  "joinChannelNetworkError": "Nepodarilo sa spojiť so serverom",
+  "joinChannelAlreadyJoined": "Už pripojený",
+  "joinChannelButton": "Pripojiť sa",
+  "channelFeedEmpty": "Zatiaľ žiadne príspevky",
+  "channelLeave": "Opustiť kanál",
+  "channelLeaveConfirm": "Opustiť tento kanál? Uložené príspevky budú zmazané.",
+  "channelInfo": "Informácie o kanáli",
+  "channelViews": "{count}",
+  "channelEdited": "upravené",
+  "channelLoadMore": "Načítať viac",
+  "channelSearchPosts": "H\u013eada\u0165 pr\u00edspevky\u2026",
+  "channelNoResults": "\u017diadne zodpovedaj\u00face pr\u00edspevky",
+  "channelUrl": "URL kan\u00e1la",
+  "channelCreated": "Pridan\u00e9",
+  "channelPostCount": "{count} pr\u00edspevkov",
+  "@channelPostCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "channelCopyUrl": "Kop\u00edrova\u0165 URL"
 }

@@ -2635,4 +2635,72 @@ class AppLocalizationsSi extends AppLocalizations {
 
   @override
   String get newCall => 'නව ඇමතුම';
+
+  @override
+  String get joinChannelTitle => 'නාලිකාවට සම්බන්ධ වන්න';
+
+  @override
+  String get joinChannelDescription => 'නාලිකා URL';
+
+  @override
+  String get joinChannelUrlHint => 'https://channel.example.com';
+
+  @override
+  String get joinChannelFetching => 'නාලිකා තොරතුරු ලබා ගනිමින්…';
+
+  @override
+  String get joinChannelNotFound => 'මෙම URL හි නාලිකාවක් හමු නොවීය';
+
+  @override
+  String get joinChannelNetworkError => 'සේවාදායකයට සම්බන්ධ විය නොහැක';
+
+  @override
+  String get joinChannelAlreadyJoined => 'දැනටමත් සම්බන්ධයි';
+
+  @override
+  String get joinChannelButton => 'සම්බන්ධ වන්න';
+
+  @override
+  String get channelFeedEmpty => 'තවම පළ කිරීම් නැත';
+
+  @override
+  String get channelLeave => 'නාලිකාව අත්හරින්න';
+
+  @override
+  String get channelLeaveConfirm =>
+      'මෙම නාලිකාව අත්හරිනවාද? සුරැකි පළ කිරීම් මකනු ලැබේ.';
+
+  @override
+  String get channelInfo => 'නාලිකා තොරතුරු';
+
+  @override
+  String channelViews(String count) {
+    return '$count';
+  }
+
+  @override
+  String get channelEdited => 'සංස්කරණය කළ';
+
+  @override
+  String get channelLoadMore => 'තව පූරණය කරන්න';
+
+  @override
+  String get channelSearchPosts => 'පොස්ට් සොයන්න…';
+
+  @override
+  String get channelNoResults => 'ගැලඵිය පොස්ට් නැත';
+
+  @override
+  String get channelUrl => 'චැනල් URL';
+
+  @override
+  String get channelCreated => 'එක් වූ';
+
+  @override
+  String channelPostCount(int count) {
+    return '$count පොස්ට්';
+  }
+
+  @override
+  String get channelCopyUrl => 'URL පිටපත් කරන්න';
 }

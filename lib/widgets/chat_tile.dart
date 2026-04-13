@@ -43,6 +43,9 @@ class ChatTile extends StatelessWidget {
     this.onDelete,
   });
 
+  static final _durRegex = RegExp(r'"dur"\s*:\s*(\d+)');
+  static final _nameRegex = RegExp(r'"n"\s*:\s*"voice_(\d+)s');
+
   /// Returns a localised voice message label, optionally with duration.
   /// Parses `dur` from inline voice JSON, or extracts seconds from the
   /// filename in assembled-chunk JSON (e.g. "voice_15s.wav" → 15 s).
@@ -50,12 +53,12 @@ class ChatTile extends StatelessWidget {
     int? secs;
     try {
       // Fast path: look for "dur":N without full JSON decode.
-      final durMatch = RegExp(r'"dur"\s*:\s*(\d+)').firstMatch(text);
+      final durMatch = _durRegex.firstMatch(text);
       if (durMatch != null) {
         secs = int.tryParse(durMatch.group(1)!);
       } else {
         // Assembled chunk: filename is "voice_15s.wav"
-        final nameMatch = RegExp(r'"n"\s*:\s*"voice_(\d+)s').firstMatch(text);
+        final nameMatch = _nameRegex.firstMatch(text);
         if (nameMatch != null) secs = int.tryParse(nameMatch.group(1)!);
       }
     } catch (_) {}

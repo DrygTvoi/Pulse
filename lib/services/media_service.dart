@@ -183,6 +183,25 @@ class MediaService {
     }
   }
 
+  /// Lightweight type+name extraction without base64 decoding the data field.
+  /// Returns `({String type, String name})` or null for non-media payloads.
+  /// Use this instead of [parse] when you only need the media type/name
+  /// (e.g. reply previews) to avoid expensive base64 decode + validation.
+  static ({String type, String name})? parseType(String text) {
+    if (!text.startsWith('{')) return null;
+    if (text.length > MediaValidator.maxJsonBytes * 4) return null;
+    try {
+      final map = jsonDecode(text) as Map<String, dynamic>;
+      final type = map['t'];
+      if (type is! String || type.isEmpty) return null;
+      if (!map.containsKey('d')) return null;
+      final name = MediaValidator.sanitizeFilename(map['n'] as String? ?? 'file');
+      return (type: type, name: name);
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Parse a media payload securely. Returns null for non-media or invalid content.
   static MediaPayload? parse(String text) {
     if (!isMediaPayload(text)) return null;
