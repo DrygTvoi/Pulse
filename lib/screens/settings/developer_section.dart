@@ -2,6 +2,7 @@
 // Unlocked by tapping the version row 7 times in About.
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../l10n/l10n_ext.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/design_tokens.dart';
 import 'settings_widgets.dart';
@@ -34,12 +35,20 @@ class DeveloperSection extends StatefulWidget {
 }
 
 class _DeveloperSectionState extends State<DeveloperSection> {
-  static const _adapters = [
-    ('Nostr',    Icons.flash_on_outlined,    'Nostr relays (wss://)'),
-    ('Firebase', Icons.cloud_outlined,       'Firebase Realtime DB'),
-    ('Session',  Icons.security_outlined,    'Session Network'),
-    ('Pulse',    Icons.hub_outlined,         'Pulse self-hosted relay'),
-    ('LAN',      Icons.lan_outlined,         'Local network (UDP/TCP)'),
+  static const _adapterMeta = [
+    ('Nostr',    Icons.flash_on_outlined),
+    ('Firebase', Icons.cloud_outlined),
+    ('Session',  Icons.security_outlined),
+    ('Pulse',    Icons.hub_outlined),
+    ('LAN',      Icons.lan_outlined),
+  ];
+
+  List<(String, IconData, String)> _adapters(BuildContext context) => [
+    ('Nostr',    Icons.flash_on_outlined,    context.l10n.devNostrRelays),
+    ('Firebase', Icons.cloud_outlined,       context.l10n.devFirebaseDb),
+    ('Session',  Icons.security_outlined,    context.l10n.devSessionNetwork),
+    ('Pulse',    Icons.hub_outlined,         context.l10n.devPulseRelay),
+    ('LAN',      Icons.lan_outlined,         context.l10n.devLanNetwork),
   ];
 
   final Map<String, bool> _enabled = {};
@@ -55,7 +64,7 @@ class _DeveloperSectionState extends State<DeveloperSection> {
   Future<void> _load() async {
     final prefs = await SharedPreferences.getInstance();
     final map = <String, bool>{};
-    for (final (name, _, _) in _adapters) {
+    for (final (name, _) in _adapterMeta) {
       map[name] = prefs.getBool('$_kAdapterKeyPrefix$name') ?? true;
     }
     final forceRelay = prefs.getBool('dev_force_relay') ?? false;
@@ -69,13 +78,13 @@ class _DeveloperSectionState extends State<DeveloperSection> {
   }
 
   Future<void> _disableAll() async {
-    for (final (name, _, _) in _adapters) {
+    for (final (name, _) in _adapterMeta) {
       await _toggle(name, false);
     }
   }
 
   Future<void> _enableAll() async {
-    for (final (name, _, _) in _adapters) {
+    for (final (name, _) in _adapterMeta) {
       await _toggle(name, true);
     }
   }
@@ -86,17 +95,17 @@ class _DeveloperSectionState extends State<DeveloperSection> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        settingsSectionDivider('Developer'),
+        settingsSectionDivider(context.l10n.devSectionDeveloper),
         const SizedBox(height: DesignTokens.spacing8),
         Padding(
           padding: const EdgeInsets.only(left: DesignTokens.spacing4, bottom: DesignTokens.spacing10),
           child: Text(
-            'Adapter channels — disable to test specific transports.',
+            context.l10n.devAdapterChannelsHint,
             style: TextStyle(fontSize: DesignTokens.fontBody, color: AppTheme.textSecondary),
           ),
         ),
         settingsGroup(children: [
-          for (final (name, icon, subtitle) in _adapters)
+          for (final (name, icon, subtitle) in _adapters(context))
             settingsGroupRow(
               icon: icon,
               iconColor: (_enabled[name] ?? true)
@@ -117,7 +126,7 @@ class _DeveloperSectionState extends State<DeveloperSection> {
             Expanded(
               child: OutlinedButton.icon(
                 icon: const Icon(Icons.check_box_outlined, size: DesignTokens.iconSm),
-                label: const Text('Enable all'),
+                label: Text(context.l10n.devEnableAll),
                 onPressed: _enableAll,
                 style: OutlinedButton.styleFrom(
                   foregroundColor: AppTheme.primary,
@@ -129,7 +138,7 @@ class _DeveloperSectionState extends State<DeveloperSection> {
             Expanded(
               child: OutlinedButton.icon(
                 icon: const Icon(Icons.check_box_outline_blank, size: DesignTokens.iconSm),
-                label: const Text('Disable all'),
+                label: Text(context.l10n.devDisableAll),
                 onPressed: _disableAll,
                 style: OutlinedButton.styleFrom(
                   foregroundColor: Colors.redAccent,
@@ -140,14 +149,14 @@ class _DeveloperSectionState extends State<DeveloperSection> {
           ],
         ),
         const SizedBox(height: DesignTokens.spacing16),
-        settingsSectionDivider('Calls'),
+        settingsSectionDivider(context.l10n.devSectionCalls),
         const SizedBox(height: DesignTokens.spacing8),
         settingsGroup(children: [
           settingsGroupRow(
             icon: Icons.cell_tower_rounded,
             iconColor: _forceRelay ? Colors.orange : AppTheme.textSecondary,
-            title: 'Force TURN relay',
-            subtitle: 'Disable P2P — all calls via TURN servers only',
+            title: context.l10n.devForceTurnRelay,
+            subtitle: context.l10n.devForceTurnRelaySubtitle,
             trailing: Switch.adaptive(
               value: _forceRelay,
               activeThumbColor: Colors.orange,
@@ -161,7 +170,7 @@ class _DeveloperSectionState extends State<DeveloperSection> {
         ]),
         const SizedBox(height: DesignTokens.spacing8),
         Text(
-          '⚠ Changes take effect on next send/call. Restart app to apply to incoming.',
+          context.l10n.devRestartWarning,
           style: TextStyle(fontSize: DesignTokens.fontSm, color: AppTheme.textSecondary),
         ),
       ],

@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:audioplayers/audioplayers.dart';
+import '../l10n/l10n_ext.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:video_player/video_player.dart';
 import '../theme/app_theme.dart';
@@ -417,7 +418,7 @@ class GifBubble extends StatelessWidget {
                     color: Colors.black.withValues(alpha: DesignTokens.opacityHeavy),
                     borderRadius: BorderRadius.circular(6),
                   ),
-                  child: Text('GIF',
+                  child: Text(context.l10n.gifLabel,
                       style: GoogleFonts.inter(color: Colors.white, fontSize: DesignTokens.fontXs,
                           fontWeight: FontWeight.w700)),
                 ),
@@ -542,7 +543,7 @@ class _BlossomMediaWidgetState extends State<BlossomMediaWidget> {
   Future<void> _download() async {
     if (_loading) return;
     if (widget.payload.hash.isEmpty || widget.payload.key.isEmpty) {
-      setState(() => _error = 'Missing media data');
+      setState(() => _error = context.l10n.mediaMissingData);
       return;
     }
     setState(() { _loading = true; _progress = 0.1; _error = null; });
@@ -553,7 +554,7 @@ class _BlossomMediaWidgetState extends State<BlossomMediaWidget> {
         preferredServers: [widget.payload.server],
       );
       if (encrypted == null) {
-        if (mounted) setState(() { _loading = false; _error = 'Download failed'; });
+        if (mounted) setState(() { _loading = false; _error = context.l10n.mediaDownloadFailed; });
         return;
       }
       if (mounted) setState(() => _progress = 0.7);
@@ -577,7 +578,7 @@ class _BlossomMediaWidgetState extends State<BlossomMediaWidget> {
         });
       }
     } catch (e) {
-      if (mounted) setState(() { _loading = false; _error = 'Decrypt failed'; });
+      if (mounted) setState(() { _loading = false; _error = context.l10n.mediaDecryptFailed; });
     }
   }
 

@@ -155,7 +155,7 @@ class RelayDirectoryService {
       req.headers.set('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; rv:128.0) Gecko/20100101 Firefox/128.0');
       final resp = await req.close().timeout(const Duration(seconds: 8));
       if (resp.statusCode != 200) { client.close(force: true); return []; }
-      // BUG-01: cap body at 4 MB to prevent OOM from a giant API response.
+      // Cap body at 4 MB to prevent OOM from a giant API response.
       const maxBodyBytes = 4 * 1024 * 1024;
       final bodyBuf = StringBuffer();
       var bodyOk = true;
@@ -275,11 +275,11 @@ class RelayDirectoryService {
         if (url.isEmpty || url.length > 256) continue;
         final uri = Uri.tryParse(url);
         if (uri == null || uri.host.isEmpty) continue;
-        // BUG-02: reject ws:// (cleartext Nostr traffic visible to observer)
+        // Reject ws:// (cleartext Nostr traffic visible to observer)
         if (uri.scheme != 'wss') continue;
         // Reject private/loopback hosts — prevents SSRF via compromised relay directory
         if (_isPrivateHost(uri.host)) continue;
-        // BUG-03: strip embedded credentials to prevent Authorization header leakage
+        // Strip embedded credentials to prevent Authorization header leakage
         final cleanUrl = uri.userInfo.isEmpty ? url : uri.replace(userInfo: '').toString();
         relays.add(cleanUrl);
       }

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../l10n/l10n_ext.dart';
 import '../models/user_status.dart';
 
 /// Full-screen status viewer. Pass a list of (contactId, Contact, UserStatus)
@@ -243,8 +244,8 @@ class _StatusViewerScreenState extends State<StatusViewerScreen>
 
   String _formatAgo(DateTime t) {
     final diff = DateTime.now().difference(t);
-    if (diff.inMinutes < 1) return 'Just now';
-    if (diff.inHours < 1) return '${diff.inMinutes}m ago';
-    return '${diff.inHours}h ago';
+    if (diff.inMinutes < 1) return context.l10n.statusJustNow;
+    if (diff.inHours < 1) return context.l10n.statusMinutesAgo(diff.inMinutes);
+    return context.l10n.statusHoursAgo(diff.inHours);
   }
 }

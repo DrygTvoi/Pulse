@@ -325,7 +325,7 @@ class MediaService {
       Uint8List? thumbData;
       if (type == 'video_note' && map['thumb'] is String) {
         try {
-          // FINDING-4 fix: cap thumbnail size to prevent OOM via oversized thumb.
+          // Cap thumbnail size to prevent OOM via oversized thumb.
           final thumbStr = map['thumb'] as String;
           if (thumbStr.length <= 700000) { // ~512 KB base64
             final decoded = base64Decode(thumbStr);

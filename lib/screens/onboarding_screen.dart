@@ -7,6 +7,7 @@ import '../services/locale_notifier.dart';
 import '../l10n/l10n_ext.dart';
 import '../utils/platform_utils.dart';
 import 'setup_identity_screen.dart';
+import 'restore_account_screen.dart';
 
 class OnboardingScreen extends StatelessWidget {
   final String? initialConfig;
@@ -84,7 +85,7 @@ class OnboardingScreen extends StatelessWidget {
                       ? Icon(Icons.check_rounded,
                           color: AppTheme.primary, size: DesignTokens.iconMd)
                       : (e.key == systemCode
-                          ? Text('System',
+                          ? Text(context.l10n.systemLabel,
                               style: GoogleFonts.inter(
                                   fontSize: DesignTokens.fontBody,
                                   color: AppTheme.textSecondary))
@@ -216,6 +217,39 @@ class OnboardingScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: DesignTokens.spacing20),
+
+            // "Already have an account? Restore"
+            GestureDetector(
+              onTap: () async {
+                final prefs = await SharedPreferences.getInstance();
+                await prefs.setBool('onboarding_done', true);
+                if (!context.mounted) return;
+                Navigator.of(context).pushReplacement(
+                  MaterialPageRoute(
+                    builder: (_) => const RestoreAccountScreen(),
+                  ),
+                );
+              },
+              child: Text.rich(
+                TextSpan(
+                  text: context.l10n.setupAlreadyHaveAccount,
+                  style: GoogleFonts.inter(
+                    color: AppTheme.textSecondary,
+                    fontSize: DesignTokens.fontLg,
+                  ),
+                  children: [
+                    TextSpan(
+                      text: context.l10n.setupRestore,
+                      style: GoogleFonts.inter(
+                        color: AppTheme.primary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: DesignTokens.spacing16),
 
             // "Continue in [Language]" link
             GestureDetector(

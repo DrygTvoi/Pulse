@@ -20,8 +20,8 @@ class AppearanceIdentitySection extends StatelessWidget {
     final bg = tn.background;
     // Map of preset primary+bg to name
     const presets = <(int, int), String>{
-      (0xFF00A884, 0xFF111B21): 'Pulse',
       (0xFF5288C1, 0xFF17212B): 'Ocean',
+      (0xFF00A884, 0xFF111B21): 'Jade',
       (0xFF3A76F0, 0xFF1B1B1B): 'Cobalt',
       (0xFFBB86FC, 0xFF000000): 'Midnight',
       (0xFF00A884, 0xFFF0F2F5): 'Light',

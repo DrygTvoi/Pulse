@@ -245,6 +245,24 @@ class ChatController extends ChangeNotifier {
   final StreamController<String> _typingStreamCtrl = StreamController.broadcast();
   Stream<String> get typingUpdates => _typingStreamCtrl.stream;
   bool isContactTyping(String contactId) => _broadcaster.isContactTyping(contactId);
+  Set<String> getGroupTypingMembers(String groupId) => _broadcaster.getGroupTypingMembers(groupId);
+
+  /// Resolve group typing member IDs to short display names.
+  List<String> getGroupTypingNames(String groupId) {
+    final memberIds = _broadcaster.getGroupTypingMembers(groupId);
+    if (memberIds.isEmpty) return [];
+    final names = <String>[];
+    for (final id in memberIds) {
+      final contact = _contacts.findById(id);
+      if (contact != null) {
+        final name = contact.name.split(' ').first.split(',').first.trim();
+        names.add(name.isNotEmpty ? name : id.substring(0, 8));
+      } else {
+        names.add(id.length > 8 ? '${id.substring(0, 8)}…' : id);
+      }
+    }
+    return names;
+  }
 
   // Call streams
   final StreamController<Map<String, dynamic>> _incomingCallController = StreamController.broadcast();
@@ -391,6 +409,18 @@ class ChatController extends ChangeNotifier {
   // Online status delegation
   bool isOnline(String contactId) => _broadcaster.isOnline(contactId);
   String lastSeenLabel(String contactId) => _broadcaster.lastSeenLabel(contactId);
+
+  /// Update online status from any incoming signal's sender ID.
+  /// O(1) via contact index — safe for high-frequency calls.
+  void _markSenderOnline(String fromId) {
+    final idx = _getContactIndex();
+    final c = idx[fromId] ?? idx[fromId.split('@').first];
+    if (c != null) _broadcaster.updateLastSeen(c.id);
+  }
+
+  /// Send heartbeat to a specific contact (e.g. when opening chat).
+  void sendHeartbeatTo(Contact contact) =>
+      unawaited(_broadcaster.sendHeartbeatTo(contact));
 
   /// Load persisted message history for a contact's room.
   Future<void> loadRoomHistory(Contact contact) async {
@@ -1246,18 +1276,22 @@ class ChatController extends ChangeNotifier {
       final targetId = e.groupId ?? e.contact.id;
       _broadcaster.handleTypingEvent(targetId, (id) {
         if (!_typingStreamCtrl.isClosed) _typingStreamCtrl.add(id);
-      });
+        _scheduleNotify();
+      }, memberId: e.groupId != null ? e.contact.id : null);
     }));
 
     _dispatcherSubs.add(d.readReceipts.listen((e) {
+      _markSenderOnline(e.fromId);
       _handleReadReceipt(e.fromId);
     }));
 
     _dispatcherSubs.add(d.groupReadReceipts.listen((e) {
+      _markSenderOnline(e.fromId);
       _handleGroupReadReceipt(e.fromId, e.groupId, e.msgId);
     }));
 
     _dispatcherSubs.add(d.deliveryAcks.listen((e) {
+      _markSenderOnline(e.fromId);
       _handleDeliveryAck(e.fromId, e.msgId, groupId: e.groupId);
     }));
 
@@ -1291,7 +1325,7 @@ class ChatController extends ChangeNotifier {
         final idx = _repo.messageIndexById(room.contact.id, e.msgId);
         debugPrint('[Edit] Message lookup: idx=$idx msgId=${e.msgId}');
         if (idx != -1) {
-          // FINDING-4 fix: only the original sender may edit their own message.
+          // Only the original sender may edit their own message.
           // Compare by pubkey prefix (before '@') to allow editing via alternate
           // relay addresses — msg.senderId may contain a different relay URL than
           // the contact's current primary address.
@@ -1499,7 +1533,7 @@ class ChatController extends ChangeNotifier {
       // Only the group creator may update membership.
       // F1 fix: reject updates for groups without a creatorId — a null/empty
       // creatorId means the check was previously skipped, letting anyone update.
-      // FINDING-2 fix: creatorId is a UUID but e.senderId is a transport
+      // creatorId is a UUID but e.senderId is a transport
       // address — they were never equal. Resolve sender to a contact UUID first.
       if (group.creatorId == null || group.creatorId!.isEmpty) {
         debugPrint('[Group] Rejected group_update: group has no creatorId');
@@ -1514,7 +1548,7 @@ class ChatController extends ChangeNotifier {
           return;
         }
       }
-      // BUG-5 fix: length comparison missed membership swap (same count, different set).
+      // Length comparison missed membership swap (same count, different set).
       final memberRemoved = group.members.toSet().difference(e.members.toSet()).isNotEmpty;
       final updated = group.copyWith(
         name: e.groupName.isNotEmpty ? e.groupName : group.name,
@@ -1586,7 +1620,7 @@ class ChatController extends ChangeNotifier {
         break;
       }
     }
-    // FINDING-7 fix: reject receipts from unresolved senders.
+    // Reject receipts from unresolved senders.
     // The fallback reader?.id ?? fromId would let an attacker forge a receipt
     // by sending a UUID that happens to match a group member's ID.
     if (reader == null) return;
@@ -1662,12 +1696,16 @@ class ChatController extends ChangeNotifier {
 
         // All real messages must be E2EE-wrapped (plaintext fallback removed).
         // Non-E2EE payloads are server chaff or invalid — drop silently.
-        if (!rawPayload.startsWith('E2EE||')) continue;
+        if (!rawPayload.startsWith('E2EE||')) {
+          debugPrint('[Chat] ⏭ Non-E2EE payload from ${msg.senderId.substring(0, 12)}…: ${rawPayload.substring(0, 30.clamp(0, rawPayload.length))}…');
+          continue;
+        }
 
         String decryptedRaw = rawPayload;
         if (rawPayload.startsWith('E2EE||')) {
           final fastContact = contactByDbId[msg.senderId]
               ?? contactByDbId[msg.senderId.split('@').first];
+          debugPrint('[Chat] Contact lookup for ${msg.senderId.substring(0, 16)}…: ${fastContact?.name ?? "NOT FOUND"} (index has ${contactByDbId.length} entries)');
           if (fastContact != null) {
             try {
               decryptedRaw = await _signalService.decryptMessage(fastContact.databaseId, rawPayload);
@@ -1795,6 +1833,13 @@ class ChatController extends ChangeNotifier {
             ?? contactByDbId[msg.senderId.split('@').first];
 
         if (senderContact != null) {
+          // Sender is provably online — update status.
+          _broadcaster.updateLastSeen(senderContact.id);
+          // Message arrived — clear typing indicator immediately (1-on-1).
+          _broadcaster.clearTyping(senderContact.id, (id) {
+            if (!_typingStreamCtrl.isClosed) _typingStreamCtrl.add(id);
+            _scheduleNotify();
+          });
           // Learn sender's transport address: if they sent from a different
           // address (e.g. Pulse vs Nostr), store it so SmartRouter can use it.
           final incomingAddr = msg.senderId;
@@ -1825,7 +1870,7 @@ class ChatController extends ChangeNotifier {
                   final skGroupId = parsed['_group'] as String?;
                   final ct = parsed['ct'] as String?;
                   if (skGroupId != null && ct != null) {
-                    // BUG-1 fix: check membership BEFORE decrypting to prevent
+                    // Check membership BEFORE decrypting to prevent
                     // removed members from advancing the ratchet or leaking plaintext.
                     final skg = _contacts.findById(skGroupId);
                     final skGroup = (skg != null && skg.isGroup) ? skg : null;
@@ -1855,6 +1900,11 @@ class ChatController extends ChangeNotifier {
                   final isMember = groupContact?.members.contains(senderContact.id) ?? false;
                   if (groupContact != null && isMember) {
                     targetContact = groupContact;
+                    // Clear group-specific typing for this member.
+                    _broadcaster.clearTyping(senderContact.id, (id) {
+                      if (!_typingStreamCtrl.isClosed) _typingStreamCtrl.add(id);
+                      _scheduleNotify();
+                    }, groupId: groupId);
                     finalText = parsed['text'] as String? ?? displayText;
                     groupReplyToId = parsed['_replyToId'] as String?;
                     groupReplyToText = parsed['_replyToText'] as String?;
@@ -3122,7 +3172,7 @@ class ChatController extends ChangeNotifier {
         debugPrint('[Chat] _handleRemoteDelete: matched room cId=$cId');
         final idx = _repo.messageIndexById(room.contact.id, msgId);
         if (idx != -1) {
-          // FINDING-1 fix: verify the message was sent by this contact.
+          // Verify the message was sent by this contact.
           // Without this, a contact could delete your own outgoing messages.
           final msg = room.messages[idx];
           final senderPub = msg.senderId.split('@').first;
@@ -3430,7 +3480,7 @@ class ChatController extends ChangeNotifier {
     final _ex = _contacts.findById(invite.groupId);
     if (_ex != null && _ex.isGroup) return;
     // Only the declared creator should be allowed to send group invites.
-    // FINDING-5 fix: require creatorId to always be present — if absent,
+    // Require creatorId to always be present — if absent,
     // any known contact could forge a group invite unconditionally.
     if (invite.creatorId == null || invite.creatorId!.isEmpty) {
       debugPrint('[Group] Rejected invite with no creatorId');
@@ -3614,7 +3664,7 @@ class ChatController extends ChangeNotifier {
     final before = existing.length;
     for (final r in relays) {
       if (existing.length >= maxRelays) break;
-      // BUG-05: validate relay URLs received from untrusted peers
+      // Validate relay URLs received from untrusted peers
       if (r.length > maxUrlLen) continue;
       final uri = Uri.tryParse(r);
       if (uri == null || uri.host.isEmpty) continue;
@@ -3860,7 +3910,7 @@ class ChatController extends ChangeNotifier {
       debugPrint('[Resume] chunk_req for $fileId but not in pending sends — ignoring');
       return;
     }
-    // FINDING-6 fix: cap and deduplicate indices — prevents amplification
+    // Cap and deduplicate indices — prevents amplification
     // attack where attacker sends chunk_req with thousands of duplicate indices.
     final uniqueIndices = missingIndices.toSet().take(50).toList();
     debugPrint('[Resume] Re-sending ${uniqueIndices.length} chunks for $fileId to $recipientId');

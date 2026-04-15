@@ -10,6 +10,8 @@ import '../services/signal_service.dart';
 import '../services/key_derivation_service.dart';
 import '../services/password_hasher.dart';
 import '../services/session_key_service.dart';
+import '../services/recovery_key_service.dart';
+import '../widgets/pin_input.dart';
 import 'dart:math';
 import 'dart:convert';
 import 'dart:typed_data';
@@ -41,16 +43,16 @@ class RestoreAccountScreen extends StatefulWidget {
 }
 
 class _RestoreAccountScreenState extends State<RestoreAccountScreen> {
-  static final _lowerRegex   = RegExp(r'[a-z]');
-  static final _upperRegex   = RegExp(r'[A-Z]');
-  static final _digitRegex   = RegExp(r'[0-9]');
-  static final _specialRegex = RegExp(r'[^a-zA-Z0-9]');
+  final _nameController = TextEditingController();
+  final _keyController = TextEditingController();
+  int  _colorIndex  = 0;
+  bool _isLoading   = false;
 
-  final _nameController     = TextEditingController();
-  final _passwordController = TextEditingController();
-  int  _colorIndex   = 0;
-  bool _isLoading    = false;
-  bool _showPassword = false;
+  // PIN setup step
+  bool _showPinStep = false;
+  bool _settingPin  = false;
+  String _firstPin  = '';
+  String? _pinError;
 
   Future<String>? _relayProbe;
 
@@ -63,68 +65,43 @@ class _RestoreAccountScreenState extends State<RestoreAccountScreen> {
   @override
   void dispose() {
     _nameController.dispose();
-    _passwordController.dispose();
+    _keyController.dispose();
     super.dispose();
-  }
-
-  /// True if password meets variety requirements (3 of 4 character classes).
-  bool get _hasVariety {
-    final p = _passwordController.text;
-    int classes = 0;
-    if (p.contains(_lowerRegex)) classes++;
-    if (p.contains(_upperRegex)) classes++;
-    if (p.contains(_digitRegex)) classes++;
-    if (p.contains(_specialRegex)) classes++;
-    return classes >= 3;
   }
 
   bool get _canSubmit =>
       !_isLoading &&
       _nameController.text.trim().isNotEmpty &&
-      _passwordController.text.length >= 16 &&
-      _hasVariety;
+      RecoveryKeyService.isValid(_keyController.text);
 
-  double get _entropyBits {
-    final p = _passwordController.text;
-    if (p.isEmpty) return 0;
-    int charset = 0;
-    if (p.contains(_lowerRegex)) charset += 26;
-    if (p.contains(_upperRegex)) charset += 26;
-    if (p.contains(_digitRegex)) charset += 10;
-    if (p.contains(_specialRegex)) charset += 32;
-    if (charset == 0) charset = 26;
-    // Penalize low uniqueness (repeated characters reduce effective entropy).
-    final uniqueChars = p.split('').toSet().length;
-    final uniqueRatio = uniqueChars / p.length;
-    return p.length * (log(charset) / ln2) * uniqueRatio;
-  }
+  // ── PIN step ────────────────────────────────────────────────────────────
 
-  String _entropyLabel(BuildContext context) {
-    final l = context.l10n;
-    if (!_hasVariety && _passwordController.text.length >= 16) return l.setupEntropyWeakNeedsVariety;
-    final bits = _entropyBits;
-    if (bits < 50) return l.setupEntropyWeak;
-    if (bits < 80) return l.setupEntropyOk;
-    return l.setupEntropyStrong;
-  }
-
-  Color get _entropyColor {
-    if (!_hasVariety && _passwordController.text.length >= 16) return const Color(0xFFF87171);
-    final bits = _entropyBits;
-    if (bits < 50) return const Color(0xFFF87171);
-    if (bits < 80) return const Color(0xFFFBBF24);
-    return const Color(0xFF34D399);
+  void _onPinComplete(String pin) {
+    if (!_settingPin) {
+      setState(() {
+        _firstPin = pin;
+        _settingPin = true;
+        _pinError = null;
+      });
+    } else {
+      if (pin == _firstPin) {
+        _restore(pin);
+      } else {
+        setState(() {
+          _pinError = context.l10n.setupPinMismatch;
+          _settingPin = false;
+          _firstPin = '';
+        });
+      }
+    }
   }
 
   // ── Restore ───────────────────────────────────────────────────────────────
 
-  Future<void> _restore() async {
-    if (!_canSubmit) return;
-    // Guard against double-tap: set synchronously before first await so a
-    // concurrent call that checks _canSubmit (reads _isLoading) sees true.
+  Future<void> _restore(String pin) async {
+    if (_isLoading) return;
     _isLoading = true;
 
-    // Guard against silently overwriting an existing identity.
     const ss = FlutterSecureStorage();
     final existingKey = await ss.read(key: 'nostr_privkey');
     if (existingKey != null && existingKey.isNotEmpty) {
@@ -133,19 +110,15 @@ class _RestoreAccountScreenState extends State<RestoreAccountScreen> {
         context: context,
         barrierDismissible: false,
         builder: (ctx) => AlertDialog(
-          title: const Text('Replace existing identity?'),
-          content: const Text(
-              'An identity already exists on this device. Restoring will '
-              'permanently replace your current Nostr key and Oxen seed. '
-              'All contacts will lose the ability to reach your current address.\n\n'
-              'This cannot be undone.'),
+          title: Text(context.l10n.replaceIdentityTitle),
+          content: Text(context.l10n.replaceIdentityBodyRestore),
           actions: [
             TextButton(
                 onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('Cancel')),
+                child: Text(context.l10n.cancel)),
             TextButton(
                 onPressed: () => Navigator.pop(ctx, true),
-                child: Text('Replace',
+                child: Text(context.l10n.replace,
                     style: TextStyle(color: Theme.of(ctx).colorScheme.error))),
           ],
         ),
@@ -158,10 +131,9 @@ class _RestoreAccountScreenState extends State<RestoreAccountScreen> {
 
     setState(() => _isLoading = true);
 
-    final name     = _nameController.text.trim();
-    final password = _passwordController.text;
+    final name = _nameController.text.trim();
+    final password = RecoveryKeyService.normalize(_keyController.text);
 
-    // Derive all 3 keys in parallel — each runs in its own isolate.
     final results = await Future.wait([
       KeyDerivationService.deriveNostrKey(password),
       KeyDerivationService.deriveSessionSeed(password),
@@ -183,23 +155,22 @@ class _RestoreAccountScreenState extends State<RestoreAccountScreen> {
     await ss.write(key: 'pulse_privkey', value: pulseHex);
     pulseKeyBytes.fillRange(0, pulseKeyBytes.length, 0);
 
-    // Run Signal init, Session init, password hashing, and relay probe in parallel.
     final signalService = SignalService();
-    final salt = _generateSalt();
+    final pinSalt = _generateSalt();
     final parallelResults = await Future.wait([
-      signalService.initialize().then((_) => signalService.getPublicBundle()),  // [0]
-      SessionKeyService.instance.initialize(),                                   // [1]
-      PasswordHasher.hash(password, salt),                                       // [2]
-      SharedPreferences.getInstance(),                                           // [3]
-      _relayProbe ?? Future.value(null),                                         // [4]
+      signalService.initialize().then((_) => signalService.getPublicBundle()),
+      SessionKeyService.instance.initialize(),
+      PasswordHasher.hash(pin, pinSalt),
+      SharedPreferences.getInstance(),
+      _relayProbe ?? Future.value(null),
     ]);
 
     final bundle = parallelResults[0] as Map<String, dynamic>;
-    final hash = parallelResults[2] as String;
+    final pinHash = parallelResults[2] as String;
     final prefs = parallelResults[3] as SharedPreferences;
     final probedRelay = parallelResults[4] as String?;
 
-    final uuid       = const Uuid().v4();
+    final uuid = const Uuid().v4();
     final realPubKey = base64Encode(
         Uint8List.fromList(List<int>.from(bundle['identityKey'])));
 
@@ -207,10 +178,8 @@ class _RestoreAccountScreenState extends State<RestoreAccountScreen> {
     final pubkeyHex = deriveNostrPubkeyHex(privkeyHex);
     final sessionId = SessionKeyService.instance.sessionId;
 
-    // Purge NIP-44 nonce cache before writing new identity.
     nip44.clearNonceCache();
 
-    // Write all prefs and secure storage in parallel.
     await Future.wait([
       prefs.setString('nostr_relay', relay),
       prefs.setString('user_identity', jsonEncode(Identity(
@@ -231,12 +200,12 @@ class _RestoreAccountScreenState extends State<RestoreAccountScreen> {
         'databaseId': sessionId,
         'selfId': sessionId,
       }])),
-      ss.write(key: 'app_password_hash',    value: hash),
-      ss.write(key: 'app_password_salt',    value: salt),
-      ss.write(key: 'app_password_enabled', value: 'true'),
+      // Store PIN hash (not password hash)
+      ss.write(key: 'app_pin_hash', value: pinHash),
+      ss.write(key: 'app_pin_salt', value: pinSalt),
+      ss.write(key: 'app_pin_enabled', value: 'true'),
     ]);
 
-    // Fire ChatController init in background — don't block navigation.
     unawaited(ChatController().initialize());
 
     if (!mounted) return;
@@ -262,6 +231,8 @@ class _RestoreAccountScreenState extends State<RestoreAccountScreen> {
     final name    = _nameController.text.trim();
     final initial = name.isEmpty ? '?' : name[0].toUpperCase();
 
+    if (_showPinStep) return _buildPinScreen(purple);
+
     return Scaffold(
       backgroundColor: AppTheme.background,
       appBar: AppBar(
@@ -273,9 +244,7 @@ class _RestoreAccountScreenState extends State<RestoreAccountScreen> {
         ),
         title: Text(context.l10n.restoreTitle,
             style: GoogleFonts.inter(
-                color: AppTheme.textPrimary,
-                fontSize: 17,
-                fontWeight: FontWeight.w600)),
+                color: AppTheme.textPrimary, fontSize: 17, fontWeight: FontWeight.w600)),
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -289,22 +258,18 @@ class _RestoreAccountScreenState extends State<RestoreAccountScreen> {
                 decoration: BoxDecoration(
                   color: green.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(14),
-                  border:
-                      Border.all(color: green.withValues(alpha: 0.3)),
+                  border: Border.all(color: green.withValues(alpha: 0.3)),
                 ),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.info_outline_rounded,
-                        color: green, size: 18),
+                    const Icon(Icons.info_outline_rounded, color: green, size: 18),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        context.l10n.restoreInfoBanner,
+                        context.l10n.restoreKeyInfoBanner,
                         style: GoogleFonts.inter(
-                            color: AppTheme.textSecondary,
-                            fontSize: 13,
-                            height: 1.5),
+                            color: AppTheme.textSecondary, fontSize: 13, height: 1.5),
                       ),
                     ),
                   ],
@@ -324,15 +289,12 @@ class _RestoreAccountScreenState extends State<RestoreAccountScreen> {
                       decoration: BoxDecoration(
                         color: color,
                         shape: BoxShape.circle,
-                        border: Border.all(
-                            color: purple.withValues(alpha: 0.4), width: 2),
+                        border: Border.all(color: purple.withValues(alpha: 0.4), width: 2),
                       ),
                       child: Center(
                         child: Text(initial,
                             style: GoogleFonts.inter(
-                                fontSize: 36,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white)),
+                                fontSize: 36, fontWeight: FontWeight.bold, color: Colors.white)),
                       ),
                     ),
                     Container(
@@ -340,19 +302,16 @@ class _RestoreAccountScreenState extends State<RestoreAccountScreen> {
                       decoration: BoxDecoration(
                         color: AppTheme.surface,
                         shape: BoxShape.circle,
-                        border: Border.all(
-                            color: AppTheme.surfaceVariant, width: 2),
+                        border: Border.all(color: AppTheme.surfaceVariant, width: 2),
                       ),
-                      child: const Icon(Icons.color_lens_rounded,
-                          size: 14, color: Colors.white70),
+                      child: const Icon(Icons.color_lens_rounded, size: 14, color: Colors.white70),
                     ),
                   ],
                 ),
               ),
               const SizedBox(height: 6),
               Text(context.l10n.restoreNewNickname,
-                  style: GoogleFonts.inter(
-                      color: AppTheme.textSecondary, fontSize: 11)),
+                  style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: 11)),
               const SizedBox(height: 28),
 
               // Name
@@ -364,47 +323,31 @@ class _RestoreAccountScreenState extends State<RestoreAccountScreen> {
               ),
               const SizedBox(height: 14),
 
-              // Password
-              _buildField(
-                controller: _passwordController,
-                hint: context.l10n.setupRecoveryPassword,
-                icon: Icons.lock_outline_rounded,
-                obscure: !_showPassword,
+              // Recovery key input
+              TextField(
+                controller: _keyController,
+                inputFormatters: [RecoveryKeyFormatter()],
+                textCapitalization: TextCapitalization.characters,
                 onChanged: (_) => setState(() {}),
-                suffix: IconButton(
-                  icon: Icon(
-                    _showPassword
-                        ? Icons.visibility_off_outlined
-                        : Icons.visibility_outlined,
-                    color: AppTheme.textSecondary, size: 20,
+                style: GoogleFonts.jetBrainsMono(
+                    color: AppTheme.textPrimary, fontSize: 15, letterSpacing: 1.2),
+                decoration: InputDecoration(
+                  hintText: context.l10n.restoreKeyHint,
+                  hintStyle: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: 15),
+                  prefixIcon: Icon(Icons.key_rounded, color: AppTheme.textSecondary, size: 20),
+                  filled: true,
+                  fillColor: AppTheme.surfaceVariant,
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+                  enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: const BorderSide(color: purple, width: 2),
                   ),
-                  onPressed: () =>
-                      setState(() => _showPassword = !_showPassword),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
                 ),
               ),
-              if (_passwordController.text.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(top: 6, left: 4),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 8, height: 8,
-                        decoration: BoxDecoration(
-                          color: _entropyColor,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        context.l10n.setupEntropyBits(_entropyLabel(context), _entropyBits.round()),
-                        style: GoogleFonts.inter(
-                          fontSize: 11,
-                          color: _entropyColor,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
               const SizedBox(height: 32),
 
               SizedBox(
@@ -414,23 +357,78 @@ class _RestoreAccountScreenState extends State<RestoreAccountScreen> {
                   style: FilledButton.styleFrom(
                     backgroundColor: green,
                     disabledBackgroundColor: green.withValues(alpha: 0.3),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                   ),
-                  onPressed: _canSubmit ? _restore : null,
-                  child: _isLoading
-                      ? const SizedBox(
-                          width: 22, height: 22,
-                          child: CircularProgressIndicator(
-                              color: Colors.white, strokeWidth: 2.5))
-                      : Text(context.l10n.restoreButton,
-                          style: GoogleFonts.inter(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                              color: Colors.white)),
+                  onPressed: _canSubmit ? () => setState(() => _showPinStep = true) : null,
+                  child: Text(context.l10n.setupNext,
+                      style: GoogleFonts.inter(
+                          fontSize: 16, fontWeight: FontWeight.w700, color: Colors.white)),
                 ),
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPinScreen(Color purple) {
+    return Scaffold(
+      backgroundColor: AppTheme.background,
+      appBar: AppBar(
+        backgroundColor: AppTheme.background,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_rounded, color: Colors.white70),
+          onPressed: () => setState(() {
+            _showPinStep = false;
+            _settingPin = false;
+            _firstPin = '';
+            _pinError = null;
+          }),
+        ),
+        title: Text(context.l10n.restoreTitle,
+            style: GoogleFonts.inter(
+                color: AppTheme.textPrimary, fontSize: 17, fontWeight: FontWeight.w600)),
+      ),
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+            child: Column(
+              children: [
+                Icon(Icons.pin_rounded, size: 48, color: purple),
+                const SizedBox(height: 16),
+                if (_isLoading)
+                  Column(children: [
+                    const SizedBox(height: 40),
+                    const SizedBox(
+                        width: 32, height: 32,
+                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5)),
+                    const SizedBox(height: 16),
+                    Text(context.l10n.setupRestoringAccount,
+                        style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: 14)),
+                  ])
+                else
+                  PinInput(
+                    key: ValueKey('restore_pin_$_settingPin'),
+                    title: _settingPin
+                        ? context.l10n.setupPinConfirm
+                        : context.l10n.setupPinSet,
+                    error: _pinError,
+                    onComplete: _onPinComplete,
+                  ),
+                if (!_isLoading) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    context.l10n.setupPinHint,
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.inter(
+                        color: AppTheme.textSecondary, fontSize: 12, height: 1.4),
+                  ),
+                ],
+              ],
+            ),
           ),
         ),
       ),
@@ -453,24 +451,20 @@ class _RestoreAccountScreenState extends State<RestoreAccountScreen> {
       style: GoogleFonts.inter(color: AppTheme.textPrimary, fontSize: 15),
       decoration: InputDecoration(
         hintText: hint,
-        hintStyle:
-            GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: 15),
+        hintStyle: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: 15),
         prefixIcon: Icon(icon, color: AppTheme.textSecondary, size: 20),
         suffixIcon: suffix,
         filled: true,
         fillColor: AppTheme.surfaceVariant,
         border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(14),
-            borderSide: BorderSide.none),
+            borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
         enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(14),
-            borderSide: BorderSide.none),
+            borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
           borderSide: const BorderSide(color: purple, width: 2),
         ),
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
       ),
     );
   }

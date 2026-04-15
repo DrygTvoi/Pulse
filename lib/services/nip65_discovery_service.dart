@@ -163,7 +163,7 @@ class Nip65DiscoveryService {
 
           if (msg[0] != 'EVENT' || msg.length < 3) continue;
           final event = msg[2] as Map<String, dynamic>;
-          // BUG-03: verify Schnorr signature before trusting relay URLs.
+          // Verify Schnorr signature before trusting relay URLs.
           // A malicious relay can inject kind:10002 events with arbitrary 'r'
           // tags under any pubkey, poisoning relay discovery without this check.
           if (!eb.verifyEventSignature(event)) {
@@ -176,7 +176,7 @@ class Nip65DiscoveryService {
             if (tag is! List || tag.length < 2 || tag[0] != 'r') continue;
             final url = tag[1] as String? ?? '';
             if (url.isEmpty || url.length > 2048) continue; // guard oversized URLs
-            // BUG-02: reject ws:// (cleartext); only accept encrypted wss://
+            // Reject ws:// (cleartext); only accept encrypted wss://
             if (url.startsWith('wss://')) {
               relays.add(url);
             }

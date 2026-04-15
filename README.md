@@ -2,7 +2,7 @@
 
 End-to-end encrypted, decentralized messenger. No central servers. No data collection. No backdoors.
 
-You bring your own transport — Nostr, Firebase, Oxen/Session, Waku, self-hosted Pulse relay, or LAN — and messages are encrypted with the **Signal Protocol** plus a **Kyber-1024 post-quantum hybrid layer** before they ever leave your device.
+You bring your own transport — Nostr, Firebase, Oxen/Session, self-hosted Pulse relay, or LAN — and messages are encrypted with the **Signal Protocol** plus a **Kyber-1024 post-quantum hybrid layer** before they ever leave your device.
 
 ---
 
@@ -17,7 +17,7 @@ plaintext
   → NIP-44 v2 encrypt (XChaCha20)           Firebase SSE                     → NIP-44 decrypt
   → NIP-59 Gift Wrap (ephemeral key)        Oxen HTTP                        → Signal decrypt
   → Kyber-1024 wrap (PQC2||ct||n||aes)      Pulse WebSocket                  → PQC unwrap
-  → send                                    Waku REST                        → MessageEnvelope unwrap
+  → send                                                                     → MessageEnvelope unwrap
                                             LAN UDP/TCP                      → plaintext
 ```
 
@@ -37,7 +37,7 @@ Every message is also wrapped in a `MessageEnvelope` carrying the sender's canon
 - Signal Protocol E2EE (Double Ratchet + X3DH key exchange)
 - Kyber-1024 post-quantum hybrid — harvest-now/decrypt-later resistant
 - NIP-44 v2 encryption + NIP-59 Gift Wrap (metadata privacy)
-- Cross-adapter federation — Nostr ↔ Firebase ↔ Oxen ↔ Pulse transparently
+- Cross-adapter federation — Nostr ↔ Firebase ↔ Oxen ↔ Pulse ↔ LAN transparently
 - SmartRouter: auto-failover across multiple transport addresses per contact
 - Group chats (mesh broadcast to all members)
 - Media sharing — images (compressed, max 1280px) and files (up to 100 MB, chunked)
@@ -57,11 +57,10 @@ Every message is also wrapped in a `MessageEnvelope` carrying the sender's canon
 - Automatic fallback to relay-only mode (TURN TLS/443) when direct P2P fails
 - Call duration timer, ICE connection state display
 
-**Transports (6)**
+**Transports (5)**
 - **Nostr** — WebSocket; pseudonymous, decentralized relay network; NIP-44/NIP-59
 - **Firebase** — HTTP SSE receive + REST send; works anywhere Google is accessible
 - **Oxen/Session** — HTTP JSON-RPC polling; onion-routed storage network
-- **Waku v2** — HTTP REST polling against a local nwaku node; privacy-preserving p2p
 - **Pulse** — self-hosted WebSocket relay with Ed25519 auth + federation + built-in TURN
 - **LAN** — UDP/TCP local broadcast; works with zero internet (offline mesh)
 
@@ -154,13 +153,13 @@ The wire format is versioned (`PQC2||...`) so future algorithms (e.g. ML-DSA sig
 
 ## Transports
 
-| | Nostr | Firebase | Oxen/Session | Waku v2 | Pulse | LAN |
-|---|---|---|---|---|---|---|
-| Protocol | WebSocket | HTTP SSE + REST | HTTP JSON-RPC | HTTP REST | WebSocket | UDP/TCP |
-| Identity | `pubkey@wss://relay` | `userId@https://fb.url` | 66-char hex (`05…`) | custom | `ed25519@https://server` | local IP |
-| Works in CN/IR | ⚠️ (with Tor/PT) | ❌ | ✅ | local only | ✅ (self-hosted) | ✅ (no internet) |
-| Requires server | Public Nostr relay | Firebase project | Oxen seed nodes | Local nwaku | Self-hosted | None |
-| Metadata privacy | Gift Wrap | Minimal | Onion routing | Content topics | Server-only | Broadcast |
+| | Nostr | Firebase | Oxen/Session | Pulse | LAN |
+|---|---|---|---|---|---|
+| Protocol | WebSocket | HTTP SSE + REST | HTTP JSON-RPC | WebSocket | UDP/TCP |
+| Identity | `pubkey@wss://relay` | `userId@https://fb.url` | 66-char hex (`05…`) | `ed25519@https://server` | local IP |
+| Works in CN/IR | ⚠️ (with Tor/PT) | ❌ | ✅ | ✅ (self-hosted) | ✅ (no internet) |
+| Requires server | Public Nostr relay | Firebase project | Oxen seed nodes | Self-hosted | None |
+| Metadata privacy | Gift Wrap | Minimal | Onion routing | Server-only | Broadcast |
 
 Adding a new transport means implementing two interfaces: `InboxReader` and `MessageSender`.
 
@@ -175,7 +174,6 @@ lib/
 │   ├── nostr_adapter.dart           Nostr WebSocket (NIP-04/44/59, Gift Wrap, adaptive relay)
 │   ├── firebase_adapter.dart        Firebase SSE reader + REST sender
 │   ├── oxen_adapter.dart            Oxen/Session HTTP JSON-RPC reader + sender
-│   ├── waku_adapter.dart            Waku v2 HTTP REST reader + sender
 │   ├── pulse_adapter.dart           Self-hosted Pulse relay (Ed25519 auth, federation)
 │   └── lan_adapter.dart             LAN UDP/TCP broadcast (offline mesh)
 ├── controllers/
@@ -250,7 +248,7 @@ plaintext
   → GiftWrapService.wrap()          ephemeral key + ±2h jitter (Nostr)
   → CryptoLayer.wrap()              Kyber-1024 encapsulate + AES-256-GCM
       PQC2 || <kyber_ct> || <nonce> || <aes_gcm_ct>
-  → InboxManager.sendMessage()      Nostr / Firebase / Oxen / Pulse / Waku / LAN
+  → InboxManager.sendMessage()      Nostr / Firebase / Oxen / Pulse / LAN
 ```
 
 ### Data flow (incoming message)
@@ -318,7 +316,7 @@ docker compose up -d
 ### Prerequisites
 
 - Flutter 3.x (Linux desktop + Android targets)
-- One of: public Nostr relay, Firebase project, Oxen seed nodes (public), or self-hosted Pulse server
+- One of: public Nostr relay, Firebase project, Oxen seed nodes (public), self-hosted Pulse server, or LAN
 
 ### Run
 
@@ -421,7 +419,6 @@ CI runs on every push: analyze → test → build APK (`.github/workflows/ci.yml
 - **Multi-device / linked devices** — share identity across machines
 - **iOS build** — transport and crypto layers are platform-agnostic; UI is responsive
 - **Full i18n** — ~400 strings remaining beyond the current 90
-- **Waku v2 auto-discovery** — production-ready Waku peer finding
 - **Group E2EE** — Sender Keys or MLS for efficient group encryption
 
 ---
@@ -431,7 +428,7 @@ CI runs on every push: analyze → test → build APK (`.github/workflows/ci.yml
 - **Calls in censored regions**: unreliable without Tor or a dedicated TURN server; configure in Settings → Calls & TURN
 - **Group calls ≥5**: Jitsi fallback requires a browser; shows "not E2EE" warning
 - **Scheduled messages**: timers are process-local; fires only while app is running
-- **Wire protocol labels**: still use `/aegis/1/...` (Waku) and `Aegis_PQC_v1` (crypto) from pre-rename era
+- **Wire protocol labels**: crypto layer still uses `Aegis_PQC_v1` from pre-rename era (kept for backward compatibility)
 
 ---
 

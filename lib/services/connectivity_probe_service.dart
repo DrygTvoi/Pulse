@@ -273,7 +273,7 @@ class ConnectivityProbeService {
 
   /// Force a fresh probe regardless of cache age.
   Future<void> forceProbe() async {
-    // BUG-08: previously completeError() was called on the old _firstRunCompleter,
+    // Previously completeError() was called on the old _firstRunCompleter,
     // which meant main.dart's unawaited(firstRunDone.then(...)) never fired after
     // a forceProbe triggered by a network change — ChatController never reconnected.
     // Fix: complete with current _last so existing waiters are notified immediately.
@@ -773,7 +773,7 @@ class ConnectivityProbeService {
     try {
       if (port == 443 || port == 8443) {
         // TLS probe — catches GFW TLS-level RST on ClientHello.
-        // MED-2 fix: validate certs. A MITM that accepts all TLS connections
+        // Validate certs. A MITM that accepts all TLS connections
         // with fake certs would otherwise make every probe succeed, suppressing
         // Tor bootstrap entirely even when all real connections are blocked.
         final sock = await SecureSocket.connect(host, port,

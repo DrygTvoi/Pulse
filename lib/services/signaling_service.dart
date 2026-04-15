@@ -45,10 +45,10 @@ class SignalingService {
   // Used to select the appropriate audio bitrate in SDP constraints.
   bool _primaryRestricted = false;
   // True after the first offer sets our profile — prevents peer from
-  // forcing profile changes via re-offers/ICE restarts (MED-3).
+  // forcing profile changes via re-offers/ICE restarts.
   bool _profileLocked = false;
 
-  // FINDING-7: ICE candidate flood protection — reset on each new offer/answer.
+  // ICE candidate flood protection — reset on each new offer/answer.
   int _candidatesReceived = 0;
   int _secondaryCandidatesReceived = 0; // F1-3: secondary path counter
   static const _kMaxCandidates = 200;
@@ -518,13 +518,13 @@ class SignalingService {
       } else {
         _remoteYggPubkey = null;
       }
-      // FINDING-9: Require a=fingerprint: in SDP — prevents DTLS-bypass attack
+      // Require a=fingerprint: in SDP — prevents DTLS-bypass attack
       final sdp = data['sdp'] as String? ?? '';
       if (!sdp.contains('a=fingerprint:')) {
         debugPrint('[Signaling] Rejected offer SDP without a=fingerprint: (DTLS bypass attempt)');
         return;
       }
-      // FINDING-7: Reset candidate counter for new session
+      // Reset candidate counter for new session
       _candidatesReceived = 0;
       // First-offer profile hint: mirror the caller's iceTransportPolicy so
       // both sides match on initial setup. Ignored on re-offers/ICE-restarts
@@ -561,13 +561,13 @@ class SignalingService {
       } else if (yggPub != null) {
         _remoteYggPubkey = null; // reject malformed pubkey
       }
-      // FINDING-9: Require a=fingerprint: in SDP — prevents DTLS-bypass attack
+      // Require a=fingerprint: in SDP — prevents DTLS-bypass attack
       final sdp = data['sdp'] as String? ?? '';
       if (!sdp.contains('a=fingerprint:')) {
         debugPrint('[Signaling] Rejected answer SDP without a=fingerprint: (DTLS bypass attempt)');
         return;
       }
-      // FINDING-7: Reset candidate counter for new session
+      // Reset candidate counter for new session
       _candidatesReceived = 0;
       await peerConnection?.setRemoteDescription(RTCSessionDescription(sdp, data['type'] as String? ?? 'answer'));
       _remoteDescriptionSet = true;
@@ -777,7 +777,7 @@ class SignalingService {
 
   Future<void> _handleCandidate(Map<String, dynamic> data) async {
     try {
-      // FINDING-7: Reject excess candidates — prevents CPU/memory flood
+      // Reject excess candidates — prevents CPU/memory flood
       if (++_candidatesReceived > _kMaxCandidates) {
         debugPrint('[Signaling] ICE candidate limit reached, dropping');
         return;
@@ -823,7 +823,7 @@ class SignalingService {
     if (remotePubkey == null) return c; // no pubkey from remote → can't route
     final line = c.candidate ?? '';
     // Only intercept relay-type candidates — host/srflx candidates with a
-    // Yggdrasil-looking IP should not be proxied (MED-1: non-relay bypass).
+    // Yggdrasil-looking IP should not be proxied (non-relay bypass).
     if (!line.contains('typ relay')) return c;
     // Match Yggdrasil node addresses. Prefix 0x02 + 7-bit count = first hextet
     // 0x0200–0x027f, displayed as "200:"–"27f:". Pattern: 2[0-7][0-9a-fA-F]

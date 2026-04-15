@@ -53,7 +53,7 @@ class _TurnScreenState extends State<TurnScreen> {
       if (!validScheme || url.length > 512) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('TURN URL must start with turn: or turns: (max 512 chars)')),
+            SnackBar(content: Text(context.l10n.turnUrlValidation)),
           );
         }
         return;

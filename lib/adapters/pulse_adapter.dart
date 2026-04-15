@@ -416,7 +416,7 @@ class PulseInboxReader implements InboxReader {
     }
 
     debugPrint('[Pulse] Initialized: pubkey=${_pubkeyHex.isNotEmpty ? '${_pubkeyHex.substring(0, 8)}...' : 'EMPTY'}, '
-        'seed=${_seed.length}B, wsUrl=$_wsUrl, fp=${_certFingerprint.isNotEmpty ? '${_certFingerprint.substring(0, 8)}...' : 'none'}');
+        'seed=<redacted>, wsUrl=$_wsUrl, fp=${_certFingerprint.isNotEmpty ? '${_certFingerprint.substring(0, 8)}...' : 'none'}');
 
     // Load Tor + CF Worker + Force-Tor settings
     final prefs = await _getPrefs();
@@ -455,7 +455,7 @@ class PulseInboxReader implements InboxReader {
   void _ensureLoop() {
     if (_loopStarted) return;
     if (_seed.isEmpty || _wsUrl.isEmpty) {
-      debugPrint('[Pulse] _ensureLoop aborted: seed=${_seed.length}B, wsUrl=${_wsUrl.isEmpty ? 'EMPTY' : _wsUrl}');
+      debugPrint('[Pulse] _ensureLoop aborted: seed=<redacted>, wsUrl=${_wsUrl.isEmpty ? 'EMPTY' : _wsUrl}');
       return;
     }
     debugPrint('[Pulse] Starting connection loop → $_wsUrl');

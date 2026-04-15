@@ -20,7 +20,7 @@ class ThemeNotifier extends ChangeNotifier {
   Color? _customTextSecondary;
   Color? _customOutgoingBubble;
   Color? _customIncomingBubble;
-  double _borderRadius = 12.0;
+  double _borderRadius = 14.0;
   String _fontFamily = 'Inter';
   TargetPlatform? _customPlatform; // null = use device platform
 
@@ -30,20 +30,20 @@ class ThemeNotifier extends ChangeNotifier {
   bool get isDark => _mode == ThemeMode.dark;
 
   // ── Effective palette getters ─────────────────────────────────────────────
-  Color get primary       => _customPrimary    ?? const Color(0xFF00A884);
+  Color get primary       => _customPrimary    ?? const Color(0xFF5288C1);
   Color get primaryLight  => Color.lerp(primary, Colors.white, 0.3)!;
-  Color get accent        => _customAccent     ?? (isDark ? const Color(0xFF53BDEB) : const Color(0xFF027EB5));
+  Color get accent        => _customAccent     ?? (isDark ? const Color(0xFF64B5F6) : const Color(0xFF027EB5));
   Color get error         => isDark ? const Color(0xFFFF2D55) : const Color(0xFFD93025);
 
-  Color get background    => _customBg         ?? (isDark ? const Color(0xFF111B21) : const Color(0xFFF0F2F5));
-  Color get surface       => _customSurf       ?? (isDark ? const Color(0xFF202C33) : const Color(0xFFFFFFFF));
-  Color get surfaceVariant=> _customSurfVar    ?? (isDark ? const Color(0xFF2A3942) : const Color(0xFFE9ECEF));
-  Color get textPrimary   => _customTextPrimary    ?? (isDark ? const Color(0xFFE9EDEF) : const Color(0xFF111B21));
-  Color get textSecondary => _customTextSecondary  ?? (isDark ? const Color(0xFF8696A0) : const Color(0xFF667781));
+  Color get background    => _customBg         ?? (isDark ? const Color(0xFF17212B) : const Color(0xFFF0F2F5));
+  Color get surface       => _customSurf       ?? (isDark ? const Color(0xFF232E3C) : const Color(0xFFFFFFFF));
+  Color get surfaceVariant=> _customSurfVar    ?? (isDark ? const Color(0xFF2B3C4E) : const Color(0xFFE9ECEF));
+  Color get textPrimary   => _customTextPrimary    ?? (isDark ? const Color(0xFFEEF0F1) : const Color(0xFF111B21));
+  Color get textSecondary => _customTextSecondary  ?? (isDark ? const Color(0xFF7A8E9B) : const Color(0xFF667781));
 
-  // ── Bubble colors (WhatsApp 2025) ───────────────────────────────────────
-  Color get outgoingBubble => _customOutgoingBubble ?? (isDark ? const Color(0xFF005C4B) : const Color(0xFFD9FDD3));
-  Color get incomingBubble => _customIncomingBubble ?? (isDark ? surfaceVariant : const Color(0xFFFFFFFF));
+  // ── Bubble colors ─────────────────────────────────────────────────────
+  Color get outgoingBubble => _customOutgoingBubble ?? (isDark ? const Color(0xFF2B5278) : const Color(0xFFD9FDD3));
+  Color get incomingBubble => _customIncomingBubble ?? (isDark ? const Color(0xFF182533) : const Color(0xFFFFFFFF));
 
   ThemeNotifier._internal() {
     _loadFromPrefs();
@@ -64,7 +64,7 @@ class ThemeNotifier extends ChangeNotifier {
       if (prefs.containsKey('theme_text_sec'))   _customTextSecondary  = Color(prefs.getInt('theme_text_sec')!);
       if (prefs.containsKey('theme_bubble_out')) _customOutgoingBubble = Color(prefs.getInt('theme_bubble_out')!);
       if (prefs.containsKey('theme_bubble_in'))  _customIncomingBubble = Color(prefs.getInt('theme_bubble_in')!);
-      _borderRadius = prefs.getDouble('theme_radius') ?? 12.0;
+      _borderRadius = prefs.getDouble('theme_radius') ?? 14.0;
       _fontFamily   = prefs.getString('theme_font')   ?? 'Inter';
       _customPlatform = _platformFromString(prefs.getString('theme_platform'));
     }

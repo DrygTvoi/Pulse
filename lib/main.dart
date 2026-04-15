@@ -76,8 +76,9 @@ Future<void> main() async {
 
       // Check if app-level password lock is enabled
       const ss = FlutterSecureStorage();
-      final passwordEnabled =
-          hasIdentity && await ss.read(key: 'app_password_enabled') == 'true';
+      final lockEnabled = hasIdentity &&
+          ((await ss.read(key: 'app_pin_enabled') == 'true') ||
+           (await ss.read(key: 'app_password_enabled') == 'true'));
 
       // Load probe cache BEFORE initializing ChatController so auto-registration
       // can use probe results for secondary Nostr relay subscriptions.
@@ -93,7 +94,7 @@ Future<void> main() async {
       // When a password lock is enabled, defer this broadcast until AFTER the user
       // authenticates — otherwise contacts receive a presence update before the user
       // has unlocked, leaking the device-active timestamp.
-      if (!passwordEnabled) {
+      if (!lockEnabled) {
         unawaited(chatController.broadcastAddressUpdate());
       }
 
@@ -156,7 +157,7 @@ Future<void> main() async {
           child: PulseApp(
             hasIdentity: hasIdentity,
             showOnboarding: !onboardingDone && !hasIdentity,
-            passwordEnabled: passwordEnabled,
+            passwordEnabled: lockEnabled,
           ),
         ),
       );
@@ -242,9 +243,12 @@ class _PulseAppState extends State<PulseApp> with WidgetsBindingObserver {
   /// Reads current password state from SecureStorage and pushes LockScreen if needed.
   Future<void> _checkAndLock() async {
     const ss = FlutterSecureStorage();
-    final enabled = await ss.read(key: 'app_password_enabled') == 'true';
-    if (!enabled) return;
-    final hash = await ss.read(key: 'app_password_hash');
+    final pinEnabled = await ss.read(key: 'app_pin_enabled') == 'true';
+    final pwEnabled = await ss.read(key: 'app_password_enabled') == 'true';
+    if (!pinEnabled && !pwEnabled) return;
+    final hash = pinEnabled
+        ? await ss.read(key: 'app_pin_hash')
+        : await ss.read(key: 'app_password_hash');
     if (hash == null) return;
     _navigatorKey.currentState?.pushAndRemoveUntil(
       MaterialPageRoute(builder: (_) => const LockScreen()),

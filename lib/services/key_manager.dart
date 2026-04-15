@@ -249,7 +249,10 @@ class KeyManager {
           await _secureStorage.read(key: 'nostr_privkey') ?? '';
       if (privkey.isEmpty) return payload;
       final recipientPub = extractPubkey(contact.databaseId, [contact]);
-      if (recipientPub == null) return payload;
+      if (recipientPub == null) {
+        debugPrint('[KeyManager] HMAC sign: no recipientPub for ${contact.databaseId.substring(0, 12)}…');
+        return payload;
+      }
       final senderPub = selfPubkey ?? deriveNostrPubkeyHex(privkey);
       final canonical = jsonEncode({'t': type, 'p': payload});
       final hmac = signSignalPayload(privkey, recipientPub, canonical);
@@ -267,9 +270,12 @@ class KeyManager {
     try {
       final privkey =
           await _secureStorage.read(key: 'nostr_privkey') ?? '';
-      // FINDING-9 fix: empty privkey must REJECT, not accept all signatures.
+      // Empty privkey must REJECT, not accept all signatures.
       // Returning true here would let any forged signal pass after key loss.
-      if (privkey.isEmpty) return false;
+      if (privkey.isEmpty) {
+        debugPrint('[KeyManager] HMAC verify: no privkey — rejecting $type');
+        return false;
+      }
       final cleanPayload = Map<String, dynamic>.from(payload)
         ..remove('_sig')
         ..remove('_spk');

@@ -2698,4 +2698,346 @@ class AppLocalizationsNo extends AppLocalizations {
 
   @override
   String get channelCopyUrl => 'Kopier URL';
+
+  @override
+  String get setupNext => 'Next';
+
+  @override
+  String get setupKeyWarning =>
+      'A recovery key will be generated for you. It is the only way to restore your account — there is no server, no password reset.';
+
+  @override
+  String get setupKeyTitle => 'Your Recovery Key';
+
+  @override
+  String get setupKeySubtitle =>
+      'Write this key down and store it in a safe place. You will need it to restore your account on a new device.';
+
+  @override
+  String get setupKeyCopied => 'Copied!';
+
+  @override
+  String get setupKeyWroteItDown => 'I wrote it down';
+
+  @override
+  String get setupKeyWarnBody =>
+      'This key is NOT stored anywhere. If you lose it, your account cannot be recovered.';
+
+  @override
+  String get setupVerifyTitle => 'Verify Recovery Key';
+
+  @override
+  String get setupVerifySubtitle =>
+      'Re-enter your recovery key to confirm you saved it correctly.';
+
+  @override
+  String get setupVerifyButton => 'Verify';
+
+  @override
+  String get setupKeyMismatch => 'Key does not match. Check and try again.';
+
+  @override
+  String get setupSkipVerify => 'Skip verification';
+
+  @override
+  String get setupSkipVerifyTitle => 'Skip verification?';
+
+  @override
+  String get setupSkipVerifyBody =>
+      'If you lose your recovery key, your account cannot be restored. Are you sure you want to skip?';
+
+  @override
+  String get setupPinSet => 'Set a PIN';
+
+  @override
+  String get setupPinConfirm => 'Confirm PIN';
+
+  @override
+  String get setupPinHint =>
+      'This PIN unlocks the app. Your recovery key is used only to restore your account.';
+
+  @override
+  String get setupPinMismatch => 'PINs do not match. Try again.';
+
+  @override
+  String get setupCreatingAccount => 'Creating account…';
+
+  @override
+  String get setupRestoringAccount => 'Restoring account…';
+
+  @override
+  String get restoreKeyInfoBanner =>
+      'Enter your recovery key — your address (Nostr + Session) will be restored automatically. Contacts and messages were stored locally only.';
+
+  @override
+  String get restoreKeyHint => 'Recovery key';
+
+  @override
+  String get lockPinSubtitle => 'Enter your PIN to continue';
+
+  @override
+  String get lockWrongPin => 'Wrong PIN';
+
+  @override
+  String get settingsChangePin => 'Change PIN';
+
+  @override
+  String get settingsChangePinSubtitle => 'Update your app unlock PIN';
+
+  @override
+  String get settingsEnterCurrentPin => 'Enter your current PIN to continue';
+
+  @override
+  String get settingsPinChanged => 'PIN updated';
+
+  @override
+  String get settingsPinEnabled => 'PIN lock enabled';
+
+  @override
+  String get settingsRecoveryKeyInfo => 'Recovery Key';
+
+  @override
+  String get settingsRecoveryKeyInfoSubtitle =>
+      'Your recovery key is not stored — keep your written copy safe';
+
+  @override
+  String get replaceIdentityTitle => 'Replace existing identity?';
+
+  @override
+  String get replaceIdentityBodyRestore =>
+      'An identity already exists on this device. Restoring will permanently replace your current Nostr key and Oxen seed. All contacts will lose the ability to reach your current address.\n\nThis cannot be undone.';
+
+  @override
+  String get replaceIdentityBodyCreate =>
+      'An identity already exists on this device. Creating a new one will permanently replace your current Nostr key and Oxen seed. All contacts will lose the ability to reach your current address.\n\nThis cannot be undone.';
+
+  @override
+  String get replace => 'Replace';
+
+  @override
+  String get callNoScreenSources => 'No screen sources available';
+
+  @override
+  String get callScreenShareQuality => 'Screen Share Quality';
+
+  @override
+  String get callFrameRate => 'Frame rate';
+
+  @override
+  String get callResolution => 'Resolution';
+
+  @override
+  String get callAutoResolution => 'Auto = native screen resolution';
+
+  @override
+  String get callStartSharing => 'Start sharing';
+
+  @override
+  String get callCameraUnavailable =>
+      'Camera unavailable — may be in use by another app';
+
+  @override
+  String get themeResetToDefaults => 'Reset to defaults';
+
+  @override
+  String get backupSaveToDownloadsTitle => 'Save backup to Downloads?';
+
+  @override
+  String backupSaveToDownloadsBody(String path) {
+    return 'No file picker available. The backup will be saved to:\n$path';
+  }
+
+  @override
+  String get systemLabel => 'System';
+
+  @override
+  String get next => 'Next';
+
+  @override
+  String get gifLabel => 'GIF';
+
+  @override
+  String devTapsRemaining(int remaining) {
+    return '$remaining more taps to enable developer mode';
+  }
+
+  @override
+  String get devModeEnabled => 'Developer mode enabled';
+
+  @override
+  String get devTools => 'Developer Tools';
+
+  @override
+  String get devAdapterDiagnostics => 'Adapter toggles & diagnostics';
+
+  @override
+  String get devEnableAll => 'Enable all';
+
+  @override
+  String get devDisableAll => 'Disable all';
+
+  @override
+  String get turnUrlValidation =>
+      'TURN URL must start with turn: or turns: (max 512 chars)';
+
+  @override
+  String get callMissedCall => 'Missed call';
+
+  @override
+  String get callOutgoingCall => 'Outgoing call';
+
+  @override
+  String get callIncomingCall => 'Incoming call';
+
+  @override
+  String get mediaMissingData => 'Missing media data';
+
+  @override
+  String get mediaDownloadFailed => 'Download failed';
+
+  @override
+  String get mediaDecryptFailed => 'Decrypt failed';
+
+  @override
+  String get callEndCallBanner => 'End call';
+
+  @override
+  String get meFallback => 'Me';
+
+  @override
+  String get imageSaveToDownloads => 'Save to Downloads';
+
+  @override
+  String imageSavedToPath(String path) {
+    return 'Saved to $path';
+  }
+
+  @override
+  String get callScreenShareRequiresPermission =>
+      'Screen sharing requires permission';
+
+  @override
+  String get callScreenShareUnavailable => 'Screen sharing unavailable';
+
+  @override
+  String get statusJustNow => 'Just now';
+
+  @override
+  String statusMinutesAgo(int minutes) {
+    return '${minutes}m ago';
+  }
+
+  @override
+  String statusHoursAgo(int hours) {
+    return '${hours}h ago';
+  }
+
+  @override
+  String addContactRoutes(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count routes',
+      one: '1 route',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get addContactReadyToAdd => 'Ready to add';
+
+  @override
+  String groupSelectedCount(int count) {
+    return '$count selected';
+  }
+
+  @override
+  String get paste => 'Paste';
+
+  @override
+  String get sfuAudioOnly => 'Audio only';
+
+  @override
+  String sfuParticipants(int count) {
+    return '$count participants';
+  }
+
+  @override
+  String get dataUnencryptedBackup => 'Unencrypted backup';
+
+  @override
+  String get dataUnencryptedBackupBody =>
+      'This file is an unencrypted identity backup and will overwrite your current keys. Only import files you created yourself. Proceed?';
+
+  @override
+  String get dataImportAnyway => 'Import anyway';
+
+  @override
+  String get securityStorageError => 'Security storage error — restart the app';
+
+  @override
+  String get aboutDevModeActive => 'Developer mode active';
+
+  @override
+  String get themeColors => 'Colors';
+
+  @override
+  String get themePrimaryAccent => 'Primary accent';
+
+  @override
+  String get themeSecondaryAccent => 'Secondary accent';
+
+  @override
+  String get themeBackground => 'Background';
+
+  @override
+  String get themeSurface => 'Surface';
+
+  @override
+  String get themeChatBubbles => 'Chat Bubbles';
+
+  @override
+  String get themeOutgoingMessage => 'Outgoing message';
+
+  @override
+  String get themeIncomingMessage => 'Incoming message';
+
+  @override
+  String get themeShape => 'Shape';
+
+  @override
+  String get devSectionDeveloper => 'Developer';
+
+  @override
+  String get devAdapterChannelsHint =>
+      'Adapter channels — disable to test specific transports.';
+
+  @override
+  String get devNostrRelays => 'Nostr relays (wss://)';
+
+  @override
+  String get devFirebaseDb => 'Firebase Realtime DB';
+
+  @override
+  String get devSessionNetwork => 'Session Network';
+
+  @override
+  String get devPulseRelay => 'Pulse self-hosted relay';
+
+  @override
+  String get devLanNetwork => 'Local network (UDP/TCP)';
+
+  @override
+  String get devSectionCalls => 'Calls';
+
+  @override
+  String get devForceTurnRelay => 'Force TURN relay';
+
+  @override
+  String get devForceTurnRelaySubtitle =>
+      'Disable P2P — all calls via TURN servers only';
+
+  @override
+  String get devRestartWarning =>
+      '⚠ Changes take effect on next send/call. Restart app to apply to incoming.';
 }

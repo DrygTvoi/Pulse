@@ -324,10 +324,10 @@ class SignalDispatcher {
     'status_update',
     'msg_delete',
     'edit',
-    // BUG-2 fix: unauthenticated SKDM injection allows key replacement on
+    // Unauthenticated SKDM injection allows key replacement on
     // Firebase/Oxen transports where sender is not a bare Nostr pubkey.
     'sender_key_dist',
-    // FINDING-2 fix: chunk_req must be authenticated to prevent amplification DoS.
+    // chunk_req must be authenticated to prevent amplification DoS.
     'chunk_req',
     // F-TTL fix: ttl_update must be authenticated — an unauthenticated sender
     // could set TTL to 0 and silently wipe all messages in a conversation.
@@ -614,7 +614,7 @@ class SignalDispatcher {
           if (payload is Map) {
             final msgId = payload['msgId'] as String? ?? '';
             final text = payload['text'] as String? ?? '';
-            // FINDING-2 fix: use authenticated transport sender, not
+            // Use authenticated transport sender, not
             // payload['from'] which is attacker-controlled and would allow
             // an authenticated peer to resolve a different contact as editor.
             final from = sig['senderId'] as String? ?? '';
@@ -713,7 +713,7 @@ class SignalDispatcher {
             _relayExchangeCtrl.add(SignalRelayExchangeEvent(relays));
           }
         } else if (sigType == 'turn_exchange') {
-          // FINDING-2 fix: gate on known contact, same as relay_exchange.
+          // Gate on known contact, same as relay_exchange.
           final turnContact = _resolveContact(sigSender, contactByDbId);
           if (turnContact == null) {
             debugPrint('[SignalDispatcher] turn_exchange from unknown sender '
@@ -896,7 +896,7 @@ class SignalDispatcher {
             }
           }
         } else if (sigType == 'chunk_req') {
-          // FINDING-2 fix: only accept chunk resend requests from known contacts.
+          // Only accept chunk resend requests from known contacts.
           final chunkContact = _resolveContact(sigSender, contactByDbId);
           if (chunkContact == null) {
             debugPrint('[SignalDispatcher] chunk_req from unknown sender '

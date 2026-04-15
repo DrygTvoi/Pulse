@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../l10n/l10n_ext.dart';
 import '../theme/app_theme.dart';
 import '../theme/design_tokens.dart';
 import '../models/contact.dart';
@@ -71,14 +72,14 @@ class ContactTile extends StatelessWidget {
                         if (isE2eeActive) ...[
                           Icon(Icons.lock_rounded, size: DesignTokens.fontSm, color: AppTheme.primary),
                           const SizedBox(width: DesignTokens.spacing2),
-                          Text('E2EE',
+                          Text(context.l10n.contactTileE2ee,
                               style: GoogleFonts.inter(
                                   color: AppTheme.primary, fontSize: DesignTokens.fontSm, fontWeight: FontWeight.w600)),
                           const SizedBox(width: DesignTokens.spacing6),
                         ],
                         Expanded(
                           child: Text(
-                            subtitleOverride ?? 'Tap to chat',
+                            subtitleOverride ?? context.l10n.contactTileTapToChat,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: AppTheme.caption,

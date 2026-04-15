@@ -67,7 +67,7 @@ class HomeDrawer extends StatelessWidget {
                           clipBehavior: Clip.none,
                           children: [
                             AvatarWidget(
-                              name: ownName.isNotEmpty ? ownName : 'Me',
+                              name: ownName.isNotEmpty ? ownName : context.l10n.meFallback,
                               size: 64,
                               imageBytes: ownAvatarBytes,
                             ),
@@ -84,7 +84,7 @@ class HomeDrawer extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              ownName.isNotEmpty ? ownName : 'Me',
+                              ownName.isNotEmpty ? ownName : context.l10n.meFallback,
                               style: AppTheme.titleLarge,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
@@ -95,7 +95,7 @@ class HomeDrawer extends StatelessWidget {
                                 spacing: DesignTokens.spacing4,
                                 children: [
                                   if (torRunning) _buildTorBadge(),
-                                  if (showNoEch) _buildNoEchBadge(),
+                                  if (showNoEch) _buildNoEchBadge(context),
                                 ],
                               ),
                             ],
@@ -169,7 +169,7 @@ class HomeDrawer extends StatelessWidget {
     );
   }
 
-  Widget _buildNoEchBadge() {
+  Widget _buildNoEchBadge(BuildContext context) {
     final color = Colors.amber.shade700;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -178,7 +178,7 @@ class HomeDrawer extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: color.withValues(alpha: 0.4), width: 0.5),
       ),
-      child: Text('No ECH', style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.w600)),
+      child: Text(context.l10n.homeNoEch, style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.w600)),
     );
   }
 

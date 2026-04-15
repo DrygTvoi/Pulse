@@ -39,7 +39,7 @@ class UserStatus {
 
   factory UserStatus.fromJson(Map<String, dynamic> json) {
     final now = DateTime.now();
-    // FINDING-3: Reject future createdAt (replay / clock-skew attack)
+    // Reject future createdAt (replay / clock-skew attack)
     final rawCreated = DateTime.fromMillisecondsSinceEpoch((json['createdAt'] as int?) ?? 0);
     final effectiveCreated =
         rawCreated.isAfter(now.add(const Duration(minutes: 1))) ? now : rawCreated;
@@ -48,7 +48,7 @@ class UserStatus {
     final maxExpiry = effectiveCreated.add(const Duration(hours: 25));
     final effectiveExpiry = rawExpiry.isAfter(maxExpiry) ? maxExpiry : rawExpiry;
 
-    // FINDING-4: Size limits — text 500 chars, media 512 KB base64
+    // Size limits — text 500 chars, media 512 KB base64
     const maxTextLen = 500;
     const maxMediaLen = 512 * 1024;
     final rawText = (json['text'] as String?) ?? '';

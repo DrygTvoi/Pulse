@@ -6,14 +6,14 @@ import '../theme/design_tokens.dart';
 /// Wraps a message bubble with swipe-right-to-reply gesture.
 class SwipeableBubble extends StatefulWidget {
   final Widget child;
-  final VoidCallback onLongPress;
+  final void Function(Offset)? onTapUp;
   final VoidCallback onSwiped;
   final void Function(Offset)? onSecondaryTapUp;
 
   const SwipeableBubble({
     super.key,
     required this.child,
-    required this.onLongPress,
+    this.onTapUp,
     required this.onSwiped,
     this.onSecondaryTapUp,
   });
@@ -96,7 +96,7 @@ class _SwipeableBubbleState extends State<SwipeableBubble>
         }
       },
       child: GestureDetector(
-      onLongPress: widget.onLongPress,
+      onTapUp: (details) => widget.onTapUp?.call(details.globalPosition),
       onHorizontalDragUpdate: _onDragUpdate,
       onHorizontalDragEnd: _onDragEnd,
       child: Stack(

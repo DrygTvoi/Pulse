@@ -157,7 +157,7 @@ class _JoinChannelDialogState extends State<JoinChannelDialog> {
                 ),
                 const SizedBox(width: 8),
                 Tooltip(
-                  message: 'Paste',
+                  message: context.l10n.paste,
                   child: InkWell(
                     onTap: () async {
                       final data = await Clipboard.getData(Clipboard.kTextPlain);

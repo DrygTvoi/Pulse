@@ -1281,7 +1281,7 @@ class NostrInboxReader implements InboxReader {
                     if (data[0] == 'EVENT' && data.length >= 3) {
                       try {
                         final fetchEvent = data[2] as Map<String, dynamic>;
-                        // FINDING-2 fix: verify Schnorr signature before trusting
+                        // Verify Schnorr signature before trusting
                         // Signal bundle content — a malicious relay could inject
                         // fabricated prekeys enabling MITM on all future messages.
                         if (!eb.verifyEventSignature(fetchEvent)) {
@@ -1674,7 +1674,7 @@ class NostrInboxReader implements InboxReader {
           final data = jsonDecode(raw as String) as List;
           if (data[0] == 'EVENT' && data[1] == subId) {
             final event = data[2] as Map<String, dynamic>;
-            // FINDING-2 fix: verify Schnorr signature on one-shot key fetch
+            // Verify Schnorr signature on one-shot key fetch
             if (!eb.verifyEventSignature(event)) {
               debugPrint('[Nostr] fetchPublicKeys one-shot: invalid sig — dropped');
             } else {

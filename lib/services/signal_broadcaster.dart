@@ -37,9 +37,12 @@ class SignalBroadcaster {
   // Online status
   final Map<String, DateTime> _lastSeen = {};
 
-  // Typing state
+  // Typing state (1-on-1)
   final Map<String, bool> _isTypingMap = {};
   final Map<String, Timer> _typingTimers = {};
+
+  // Group typing state: groupId → { memberId → expiry timer }
+  final Map<String, Map<String, Timer>> _groupTypingMembers = {};
 
   // Heartbeat timer
   Timer? _heartbeatTimer;
@@ -78,10 +81,33 @@ class SignalBroadcaster {
 
   bool isContactTyping(String contactId) => _isTypingMap[contactId] ?? false;
 
+  /// Currently typing member IDs for a group chat.
+  Set<String> getGroupTypingMembers(String groupId) =>
+      _groupTypingMembers[groupId]?.keys.toSet() ?? const {};
+
   /// Process an incoming typing event and update local state.
+  /// For groups, pass [memberId] to track per-member typing.
   /// Calls [onTypingChanged] with the targetId when state changes.
   void handleTypingEvent(
-      String targetId, void Function(String) onTypingChanged) {
+      String targetId, void Function(String) onTypingChanged,
+      {String? memberId}) {
+    // Group typing: track individual member
+    if (memberId != null) {
+      final members = _groupTypingMembers.putIfAbsent(targetId, () => {});
+      members[memberId]?.cancel();
+      members[memberId] = Timer(const Duration(seconds: 4), () {
+        members.remove(memberId);
+        if (members.isEmpty) {
+          _groupTypingMembers.remove(targetId);
+          _isTypingMap.remove(targetId);
+        }
+        onTypingChanged(targetId);
+      });
+      _isTypingMap[targetId] = true;
+      onTypingChanged(targetId);
+      return;
+    }
+    // 1-on-1 typing
     _isTypingMap[targetId] = true;
     onTypingChanged(targetId);
     _typingTimers[targetId]?.cancel();
@@ -98,10 +124,37 @@ class SignalBroadcaster {
     });
   }
 
+  /// Clear typing state for a contact (e.g. when their message arrives).
+  /// For groups, pass [groupId] to clear only that member from the group.
+  void clearTyping(String contactId, void Function(String) onTypingChanged,
+      {String? groupId}) {
+    if (groupId != null) {
+      final members = _groupTypingMembers[groupId];
+      if (members != null && members.containsKey(contactId)) {
+        members[contactId]?.cancel();
+        members.remove(contactId);
+        if (members.isEmpty) {
+          _groupTypingMembers.remove(groupId);
+          _isTypingMap.remove(groupId);
+        }
+        onTypingChanged(groupId);
+      }
+      return;
+    }
+    if (_isTypingMap.containsKey(contactId)) {
+      _isTypingMap.remove(contactId);
+      _typingTimers[contactId]?.cancel();
+      _typingTimers.remove(contactId);
+      onTypingChanged(contactId);
+    }
+  }
+
   // ── Heartbeats ───────────────────────────────────────────────────────────
 
   void startHeartbeats(List<Contact> Function() contactsGetter) {
     _heartbeatTimer?.cancel();
+    // Fire immediately so contacts see us online right away.
+    unawaited(_sendHeartbeats(contactsGetter()));
     _heartbeatTimer = Timer.periodic(const Duration(minutes: 2), (_) {
       unawaited(_sendHeartbeats(contactsGetter()));
     });
@@ -124,6 +177,23 @@ class SignalBroadcaster {
           {'from': selfId, 'ts': ts}));
     }
     await Future.wait(futures);
+  }
+
+  // Per-contact heartbeat throttle: contactId → last sent timestamp
+  final Map<String, int> _lastHbSent = {};
+
+  /// Send a heartbeat to a single contact (e.g. when opening their chat).
+  /// Throttled to at most once per 30 seconds per contact.
+  Future<void> sendHeartbeatTo(Contact contact) async {
+    if (contact.isGroup) return;
+    final identity = _getIdentity();
+    final selfId = _getSelfId();
+    if (identity == null || selfId.isEmpty) return;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final last = _lastHbSent[contact.id] ?? 0;
+    if (now - last < 30000) return; // throttle 30s
+    _lastHbSent[contact.id] = now;
+    await _sendSignalTo(contact, 'heartbeat', {'from': selfId, 'ts': now});
   }
 
   // ── Typing ────────────────────────────────────────────────────────────────
@@ -333,7 +403,7 @@ class SignalBroadcaster {
 
   Future<void> sendGroupHistory(
       Contact target, Contact group, List<Message> messages) async {
-    // BUG-4 fix: sending history to new members violates group forward secrecy.
+    // Sending history to new members violates group forward secrecy.
     // Messages were stored as plaintext locally; forwarding them exposes pre-join
     // content to the new member and to any compromised relay in the chain.
     // New members start fresh — they see only messages sent after joining.
@@ -606,5 +676,11 @@ class SignalBroadcaster {
     }
     _typingTimers.clear();
     _isTypingMap.clear();
+    for (final members in _groupTypingMembers.values) {
+      for (final t in members.values) {
+        t.cancel();
+      }
+    }
+    _groupTypingMembers.clear();
   }
 }

@@ -127,6 +127,8 @@ class _ChatScreenState extends State<ChatScreen> {
       unawaited(ctrl.markRoomAsRead(_contact));
       if (_contact.isGroup) unawaited(ctrl.markGroupMessagesRead(_contact));
       ctrl.setActiveRoom(_contact.id);
+      // Let the contact know we're online when opening their chat.
+      ctrl.sendHeartbeatTo(_contact);
       // Load mute + draft in parallel, then single setState
       final ttl = ctrl.getChatTtlCached(_contact.id);
       final results = await Future.wait([
@@ -947,8 +949,9 @@ class _ChatScreenState extends State<ChatScreen> {
                         return RepaintBoundary(
                           key: ValueKey('rb_${msg.id}'),
                           child: SwipeableBubble(
-                          onLongPress: () => menu.showMessageMenu(
+                          onTapUp: (pos) => menu.showMessageContextMenu(
                             context: context,
+                            position: pos,
                             message: msg,
                             myId: myId,
                             contact: _contact,
@@ -1116,6 +1119,58 @@ class _ChatScreenState extends State<ChatScreen> {
                 ),
             ],
           ),
+        ),
+        // Typing indicator — shown above the input bar like Telegram/WhatsApp
+        Selector<ChatController, bool>(
+          selector: (_, c) => c.isContactTyping(_contact.id),
+          builder: (context, isTyping, _) {
+            String typingLabel;
+            if (!isTyping) {
+              typingLabel = '';
+            } else if (_contact.isGroup) {
+              final cc = context.read<ChatController>();
+              final names = cc.getGroupTypingNames(_contact.id);
+              if (names.isEmpty) {
+                typingLabel = context.l10n.appBarTyping;
+              } else if (names.length == 1) {
+                typingLabel = '${names.first} ${context.l10n.appBarTyping}';
+              } else if (names.length == 2) {
+                typingLabel = '${names[0]}, ${names[1]} ${context.l10n.appBarTyping}';
+              } else {
+                typingLabel = '${names.length} ${context.l10n.appBarTyping}';
+              }
+            } else {
+              typingLabel = context.l10n.appBarTyping;
+            }
+            return AnimatedSize(
+              duration: const Duration(milliseconds: 150),
+              curve: Curves.easeOut,
+              alignment: Alignment.topCenter,
+              child: isTyping
+                  ? Align(
+                      alignment: Alignment.centerLeft,
+                      child: Padding(
+                        padding: const EdgeInsets.only(left: DesignTokens.spacing14, bottom: DesignTokens.spacing2),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              typingLabel,
+                              style: GoogleFonts.inter(
+                                fontSize: DesignTokens.fontXs,
+                                color: AppTheme.textSecondary,
+                                fontStyle: FontStyle.italic,
+                              ),
+                            ),
+                            const SizedBox(width: DesignTokens.spacing4),
+                            const _TypingDots(),
+                          ],
+                        ),
+                      ),
+                    )
+                  : const SizedBox.shrink(),
+            );
+          },
         ),
         MessageInputBar(
           controller: _controller,
@@ -1327,4 +1382,50 @@ class _MessageEntry {
   final bool isGrouped;
   final bool isLast;
   const _MessageEntry({required this.message, required this.isGrouped, required this.isLast});
+}
+
+/// Animated "..." dots for the typing indicator above the input bar.
+class _TypingDots extends StatefulWidget {
+  const _TypingDots();
+
+  @override
+  State<_TypingDots> createState() => _TypingDotsState();
+}
+
+class _TypingDotsState extends State<_TypingDots> with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 900))..repeat();
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _ctrl,
+      builder: (_, __) {
+        final t = _ctrl.value;
+        return Row(mainAxisSize: MainAxisSize.min, children: [
+          for (int i = 0; i < 3; i++) ...[
+            if (i > 0) const SizedBox(width: DesignTokens.spacing2),
+            Opacity(
+              opacity: ((t * 3 - i) % 1.0).clamp(0.3, 1.0),
+              child: Container(
+                width: 3, height: 3,
+                decoration: BoxDecoration(color: AppTheme.textSecondary, shape: BoxShape.circle),
+              ),
+            ),
+          ],
+        ]);
+      },
+    );
+  }
 }

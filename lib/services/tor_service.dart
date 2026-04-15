@@ -85,7 +85,7 @@ class TorService {
     if (_starting) return false; // prevent concurrent start()
     _starting = true;
 
-    // BUG-01 fix: do NOT adopt an arbitrary SOCKS5 listener on our port.
+    // Do NOT adopt an arbitrary SOCKS5 listener on our port.
     // Any local process (malicious co-installed app on Android) could open
     // port 9250, pass the TCP probe, and intercept all traffic. Only trust
     // a SOCKS5 we launched ourselves in this session (_process != null).
@@ -105,7 +105,7 @@ class TorService {
       await Future.delayed(const Duration(milliseconds: 800));
       if (await _isSocks5Listening(socksPort)) {
         debugPrint('[TorService] Port still occupied — cannot start');
-        _starting = false; // FINDING-1 fix: reset flag so retry is possible
+        _starting = false; // Reset flag so retry is possible
         return false;
       }
     }
@@ -113,7 +113,7 @@ class TorService {
     final torPath = await _findTor();
     if (torPath == null) {
       debugPrint('[TorService] tor binary not found');
-      _starting = false; // FINDING-1 fix: reset flag so future call can retry
+      _starting = false; // Reset flag so future call can retry
       return false;
     }
 

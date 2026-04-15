@@ -200,27 +200,9 @@ class IceServerConfig {
       }
     }
 
-    // Community presets — TEMPORARILY DISABLED (debugging relay-only calls)
-    // final enabled = prefs.getStringList(_kEnabledPresets) ?? ['openrelay', 'freestun'];
-    // for (final preset in kTurnPresets) {
-    //   if (!enabled.contains(preset['id'] as String)) continue;
-    //   for (final s in preset['servers'] as List) {
-    //     servers.add(Map<String, dynamic>.from(s as Map));
-    //   }
-    // }
-
-    // Probe-discovered TURN servers — TEMPORARILY DISABLED
-    // final probeTurnRaw = prefs.getString(_kProbeTurnKey);
-    // if (probeTurnRaw != null) {
-    //   try {
-    //     final list = jsonDecode(probeTurnRaw) as List;
-    //     for (final s in list) {
-    //       servers.add(Map<String, dynamic>.from(s as Map));
-    //     }
-    //   } catch (e) {
-    //     debugPrint('[ICE] Failed to parse probe TURN servers: $e');
-    //   }
-    // }
+    // Community presets, probe results, peer/NIP-117/Ygg/Psiphon/Tor TURN
+    // sources are not yet wired up. They will be enabled in a future release
+    // once relay-only call testing is complete.
 
     // Custom TURN server (BYOD — highest priority, added last so WebRTC tries it first)
     final url  = await ss.read(key: _kCustomUrl)      ?? '';
@@ -234,42 +216,6 @@ class IceServerConfig {
       });
     }
 
-    // Peer TURN servers — TEMPORARILY DISABLED
-    // final peerTurnRaw = prefs.getString(_kPeerTurnKey);
-    // if (peerTurnRaw != null) {
-    //   try {
-    //     final list = jsonDecode(peerTurnRaw) as List;
-    //     for (final s in list) {
-    //       servers.add(Map<String, dynamic>.from(s as Map));
-    //     }
-    //   } catch (e) {
-    //     debugPrint('[ICE] Failed to parse peer TURN servers: $e');
-    //   }
-    // }
-
-    // NIP-117 TURN servers — TEMPORARILY DISABLED
-    // final nip117TurnRaw = prefs.getString(_kNip117TurnKey);
-    // if (nip117TurnRaw != null) {
-    //   try {
-    //     final list = jsonDecode(nip117TurnRaw) as List;
-    //     for (final s in list) {
-    //       servers.add(Map<String, dynamic>.from(s as Map));
-    //     }
-    //   } catch (e) {
-    //     debugPrint('[ICE] Failed to parse NIP-117 TURN servers: $e');
-    //   }
-    // }
-
-    // Yggdrasil TURN relay — TEMPORARILY DISABLED
-    // final yggEntry = YggdrasilService.instance.iceServerEntry;
-    // if (yggEntry != null) servers.add(yggEntry);
-
-    // Psiphon TURN proxies — TEMPORARILY DISABLED
-    // servers.addAll(PsiphonTurnProxy.allIceServerEntries);
-
-    // Tor TURN proxies — TEMPORARILY DISABLED
-    // servers.addAll(TorTurnProxy.allIceServerEntries);
-
     return servers;
   }
 
@@ -280,7 +226,6 @@ class IceServerConfig {
   /// Plain UDP and plain TCP TURN are excluded.
   static Future<List<Map<String, dynamic>>> loadRelay() async {
     final all = await load();
-    // Psiphon/Tor TURN proxies — TEMPORARILY DISABLED
     final result = <Map<String, dynamic>>[];
 
     for (final server in all) {
@@ -356,7 +301,7 @@ class IceServerConfig {
       final url = s['urls'] as String? ?? '';
       if (url.isEmpty) continue;
       if (!url.startsWith('turn:') && !url.startsWith('turns:')) continue;
-      // FINDING-5: Reject TURN servers pointing at private/loopback addresses
+      // Reject TURN servers pointing at private/loopback addresses
       // received via peer exchange — prevents SSRF via trusted-peer vector.
       final host = _extractTurnHost(url);
       if (host.isEmpty || _isTurnHostPrivate(host)) continue;
@@ -393,7 +338,7 @@ class IceServerConfig {
     debugPrint('[ICE] Saved ${safe.length} NIP-117 TURN server(s)');
   }
 
-  // ── Private IP helpers (FINDING-5) ─────────────────────────────────────────
+  // ── Private IP helpers ─────────────────────────────────────────────────────
 
   static String _extractTurnHost(String turnUrl) {
     try {

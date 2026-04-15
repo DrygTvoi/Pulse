@@ -21,6 +21,8 @@ import 'pqc_service.dart';
 /// Key derivation:
 ///   messageKey = HKDF-SHA256(kyber_shared_secret, info="Aegis_PQC_v1")
 ///
+/// Note: Pulse (wire label kept as 'Aegis_PQC_v1' for backward compatibility)
+///
 /// Backward compatibility:
 ///   Messages not starting with `PQC2||` pass through unchanged (v1 / legacy).
 ///   If the contact has no kyberPublicKey in their bundle, wrap() is a no-op.

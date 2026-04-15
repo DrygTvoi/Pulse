@@ -96,7 +96,7 @@ class DataSection extends StatelessWidget {
                   setS(() => error = context.l10n.settingsPasswordCannotBeEmpty);
                   return;
                 }
-                // BUG-2: backup file protects all private keys (Signal, Nostr, Session,
+                // Backup file protects all private keys (Signal, Nostr, Session,
                 // PQC) — enforce the same 16-char minimum as identity creation.
                 if (pw.length < 16) {
                   setS(() => error = context.l10n.settingsPasswordMin4Chars
@@ -138,9 +138,15 @@ class DataSection extends StatelessWidget {
   // password.  Returns false if the user cancels or exceeds 5 attempts.
 
   Future<bool> _confirmWithAppPassword(BuildContext context) async {
-    final hash = await _secureStorage.read(key: 'app_password_hash');
-    final salt = await _secureStorage.read(key: 'app_password_salt');
-    if (hash == null || salt == null) return true; // no password set
+    // Detect mode: PIN or legacy password
+    final pinHash = await _secureStorage.read(key: 'app_pin_hash');
+    final pinSalt = await _secureStorage.read(key: 'app_pin_salt');
+    final isPinMode = pinHash != null && pinSalt != null &&
+        (await _secureStorage.read(key: 'app_pin_enabled') == 'true');
+
+    final hash = isPinMode ? pinHash : await _secureStorage.read(key: 'app_password_hash');
+    final salt = isPinMode ? pinSalt : await _secureStorage.read(key: 'app_password_salt');
+    if (hash == null || salt == null) return true; // no lock set
     if (!context.mounted) return false;
 
     final ctrl = TextEditingController();
@@ -157,24 +163,26 @@ class DataSection extends StatelessWidget {
           backgroundColor: AppTheme.surface,
           shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(DesignTokens.dialogRadius)),
-          title: Text(context.l10n.settingsCurrentPassword,
+          title: Text(
+              isPinMode ? context.l10n.settingsEnterCurrentPin : context.l10n.settingsCurrentPassword,
               style: GoogleFonts.inter(
                   color: AppTheme.textPrimary, fontWeight: FontWeight.w700, fontSize: DesignTokens.fontXl)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(context.l10n.settingsEnterCurrentPassword,
+              Text(isPinMode ? context.l10n.lockPinSubtitle : context.l10n.settingsEnterCurrentPassword,
                   style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: DesignTokens.fontMd)),
               const SizedBox(height: DesignTokens.spacing16),
               SettingsPasswordField(
                 controller: ctrl,
                 obscure: !showPass,
                 onToggleObscure: () => setS(() => showPass = !showPass),
-                hintText: context.l10n.settingsCurrentPassword,
+                hintText: isPinMode ? 'PIN' : context.l10n.settingsCurrentPassword,
                 autofocus: true,
                 errorText: error,
                 onChanged: (_) => setS(() => error = null),
+                keyboardType: isPinMode ? TextInputType.number : TextInputType.text,
               ),
             ],
           ),
@@ -196,7 +204,8 @@ class DataSection extends StatelessWidget {
                     await Future.delayed(const Duration(seconds: 1));
                     if (ctx.mounted) Navigator.of(ctx).pop(false);
                   } else {
-                    setS(() => error = context.l10n.securityIncorrectPassword);
+                    setS(() => error =
+                        isPinMode ? context.l10n.lockWrongPin : context.l10n.securityIncorrectPassword);
                   }
                 }
               },
@@ -444,7 +453,7 @@ class DataSection extends StatelessWidget {
                   }
                   data = bundle;
                 } else {
-                  // BUG-3: Legacy plaintext backup — require current password
+                  // Legacy plaintext backup — require current password
                   // + explicit confirmation before importing unencrypted keys.
                   // Without the password gate, a social-engineering attack
                   // (trick user into importing a crafted file) can replace all
@@ -454,11 +463,9 @@ class DataSection extends StatelessWidget {
                   if (!context.mounted) return;
                   final confirmed = await showConfirmDialog(
                     context,
-                    title: 'Unencrypted backup',
-                    message: 'This file is an unencrypted identity backup and will '
-                        'overwrite your current keys. Only import files you '
-                        'created yourself. Proceed?',
-                    confirmLabel: 'Import anyway',
+                    title: context.l10n.dataUnencryptedBackup,
+                    message: context.l10n.dataUnencryptedBackupBody,
+                    confirmLabel: context.l10n.dataImportAnyway,
                     destructive: true,
                   );
                   if (!confirmed) return;
@@ -609,15 +616,15 @@ class DataSection extends StatelessWidget {
         final confirmed = await showDialog<bool>(
           context: context,
           builder: (ctx) => AlertDialog(
-            title: const Text('Save backup to Downloads?'),
-            content: Text('No file picker available. The backup will be saved to:\n$fallbackPath'),
+            title: Text(context.l10n.backupSaveToDownloadsTitle),
+            content: Text(context.l10n.backupSaveToDownloadsBody(fallbackPath)),
             actions: [
               TextButton(
                   onPressed: () => Navigator.pop(ctx, false),
-                  child: const Text('Cancel')),
+                  child: Text(context.l10n.cancel)),
               TextButton(
                   onPressed: () => Navigator.pop(ctx, true),
-                  child: const Text('Save')),
+                  child: Text(context.l10n.save)),
             ],
           ),
         );
@@ -1034,7 +1041,7 @@ class DataSection extends StatelessWidget {
 
   // ── Key format validators ────────────────────────────────────────────────
 
-  // FINDING-13 fix: accept uppercase hex (e.g. from other Nostr clients),
+  // Accept uppercase hex (e.g. from other Nostr clients),
   // normalise to lowercase before writing.
   static bool _isValidHex(String s, int expectedLen) =>
       s.length == expectedLen && RegExp(r'^[0-9a-fA-F]+$').hasMatch(s);

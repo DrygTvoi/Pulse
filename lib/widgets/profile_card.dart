@@ -517,7 +517,7 @@ class InboxAddressCard extends StatelessWidget {
                     onTap: () {
                       Clipboard.setData(ClipboardData(text: address));
                       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                        content: Text('Address copied!', style: GoogleFonts.inter()),
+                        content: Text(context.l10n.profileCardAddressCopied, style: GoogleFonts.inter()),
                         backgroundColor: AppTheme.primary,
                         behavior: SnackBarBehavior.floating,
                         duration: const Duration(seconds: 2),

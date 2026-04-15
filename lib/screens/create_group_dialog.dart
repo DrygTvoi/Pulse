@@ -222,7 +222,7 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text('Next', style: GoogleFonts.inter(
+                  Text(context.l10n.next, style: GoogleFonts.inter(
                       fontWeight: FontWeight.w700, fontSize: 15, color: AppTheme.onPrimary)),
                   const SizedBox(width: 6),
                   Icon(Icons.arrow_forward_rounded, size: 18, color: AppTheme.onPrimary),
@@ -328,7 +328,7 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
                       color: AppTheme.textSecondary, fontSize: 11, fontWeight: FontWeight.w600)),
               const Spacer(),
               if (_selectedIds.isNotEmpty)
-                Text('${_selectedIds.length} selected',
+                Text(context.l10n.groupSelectedCount(_selectedIds.length),
                     style: GoogleFonts.inter(
                         color: AppTheme.primary, fontSize: 11, fontWeight: FontWeight.w600)),
             ]),

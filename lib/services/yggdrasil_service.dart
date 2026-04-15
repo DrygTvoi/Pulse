@@ -162,7 +162,7 @@ class YggdrasilService {
   /// same target reuse the same proxy (deduplicated on the Go side).
   Future<int?> proxyRemote(String yggRelayAddr, String remotePubkey) async {
     if (!isReady) return null;
-    // FINDING-8 fix: cap input lengths to prevent Go binary amplification via
+    // Cap input lengths to prevent Go binary amplification via
     // malicious ICE candidate with a huge address string.
     if (yggRelayAddr.length > 60 || remotePubkey.length > 64) {
       debugPrint('[Yggdrasil] proxyRemote rejected oversized params');

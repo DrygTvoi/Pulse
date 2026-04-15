@@ -29,7 +29,6 @@ PreferredSizeWidget buildChatAppBar({
 }) {
   // Granular selectors — only rebuild when THIS contact's status changes,
   // not on every ChatController notification.
-  final isTyping = context.select<ChatController, bool>((c) => c.isContactTyping(contact.id));
   final isOnline = context.select<ChatController, bool>((c) => c.isOnline(contact.id));
   final lastSeen = context.select<ChatController, String>((c) => c.lastSeenLabel(contact.id));
   final hasPqc = context.select<ChatController, bool>((c) => c.hasPqcKey(contact.databaseId));
@@ -65,9 +64,7 @@ PreferredSizeWidget buildChatAppBar({
             children: [
               Text(contact.name,
                   style: GoogleFonts.inter(fontSize: DesignTokens.fontXl, fontWeight: FontWeight.w700, color: AppTheme.textPrimary)),
-              isTyping
-                  ? _buildTypingIndicator(context)
-                  : isOnline
+              isOnline
                       ? Row(mainAxisSize: MainAxisSize.min, children: [
                           Container(width: DesignTokens.spacing8, height: DesignTokens.spacing8,
                               decoration: BoxDecoration(
@@ -270,16 +267,6 @@ Widget buildChatAvatar(String name, double size) {
   );
 }
 
-Widget _buildTypingIndicator(BuildContext context) {
-  return Row(mainAxisSize: MainAxisSize.min, children: [
-    Text(context.l10n.appBarTyping,
-        style: GoogleFonts.inter(
-            fontSize: DesignTokens.fontSm, color: AppTheme.primary, fontWeight: FontWeight.w500)),
-    const SizedBox(width: DesignTokens.spacing4),
-    const TypingDots(),
-  ]);
-}
-
 Widget _buildProviderBadge(String provider) {
   final meta = {
     'Firebase': (icon: Icons.local_fire_department_rounded, color: AppTheme.providerFirebase),
@@ -297,49 +284,3 @@ Widget _buildProviderBadge(String provider) {
   ]);
 }
 
-/// Animated "..." dots for typing indicator in AppBar.
-class TypingDots extends StatefulWidget {
-  const TypingDots({super.key});
-
-  @override
-  State<TypingDots> createState() => _TypingDotsState();
-}
-
-class _TypingDotsState extends State<TypingDots> with SingleTickerProviderStateMixin {
-  late AnimationController _ctrl;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 900))
-      ..repeat();
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _ctrl,
-      builder: (_, a) {
-        final t = _ctrl.value;
-        return Row(mainAxisSize: MainAxisSize.min, children: [
-          for (int i = 0; i < 3; i++) ...[
-            if (i > 0) const SizedBox(width: DesignTokens.spacing2),
-            Opacity(
-              opacity: ((t * 3 - i) % 1.0).clamp(0.2, 1.0),
-              child: Container(
-                width: DesignTokens.spacing4, height: DesignTokens.spacing4,
-                decoration: BoxDecoration(color: AppTheme.primary, shape: BoxShape.circle),
-              ),
-            ),
-          ],
-        ]);
-      },
-    );
-  }
-}

@@ -95,7 +95,7 @@ class CircuitBreakerService {
         final map = jsonDecode(raw) as Map<String, dynamic>;
         for (final entry in map.entries) {
           final v = entry.value as Map<String, dynamic>;
-          // FINDING-6 fix: clamp values to prevent SharedPrefs poisoning from
+          // Clamp values to prevent SharedPrefs poisoning from
           // permanently blocking relays (e.g. via rooted device or adb).
           _state[entry.key] = _BreakerState(
             failures: ((v['f'] as int? ?? 0)).clamp(0, 100),

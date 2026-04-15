@@ -553,7 +553,7 @@ class _AddContactDialogState extends State<AddContactDialog> {
                         Icon(Icons.shuffle_rounded, size: 12, color: AppTheme.textSecondary),
                         const SizedBox(width: 4),
                         Text(
-                          '${_detectedAddresses.length} ${_detectedAddresses.length == 1 ? 'route' : 'routes'}',
+                          context.l10n.addContactRoutes(_detectedAddresses.length),
                           style: GoogleFonts.inter(
                               color: AppTheme.textSecondary,
                               fontSize: 11,
@@ -563,7 +563,7 @@ class _AddContactDialogState extends State<AddContactDialog> {
                         Icon(Icons.check_circle_rounded, size: 12, color: AppTheme.online),
                         const SizedBox(width: 3),
                         Text(
-                          'Ready to add',
+                          context.l10n.addContactReadyToAdd,
                           style: GoogleFonts.inter(
                               color: AppTheme.online,
                               fontSize: 11,

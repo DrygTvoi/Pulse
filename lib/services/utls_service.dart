@@ -115,7 +115,7 @@ class UTLSService {
         // Older binaries print just "PORT" — token remains null (no auth).
         final parts = line.trim().split(' ');
         final port = int.tryParse(parts[0]);
-        // BUG-07 fix: validate port is in unprivileged range before trusting
+        // Validate port is in unprivileged range before trusting
         if (port != null && port >= 1024 && port <= 65535 &&
             !portCompleter.isCompleted) {
           if (parts.length >= 2 && parts[1].length == 64) {

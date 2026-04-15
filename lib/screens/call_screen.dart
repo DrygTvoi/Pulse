@@ -424,7 +424,7 @@ class _CallScreenState extends State<CallScreen> {
       if (mounted) {
         setState(() {
           _ready = false;
-          // FINDING-11: Never expose internal exception text to the UI
+          // Never expose internal exception text to the UI
           _initError = 'Failed to start call. Please try again.';
         });
       }
@@ -900,9 +900,9 @@ class _CallScreenState extends State<CallScreen> {
           if (sources.isEmpty) {
             debugPrint('[CallScreen] No desktop sources found');
             if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                content: Text('No screen sources available'),
-                duration: Duration(seconds: 2),
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                content: Text(context.l10n.callNoScreenSources),
+                duration: const Duration(seconds: 2),
               ));
             }
             return;
@@ -1005,8 +1005,8 @@ class _CallScreenState extends State<CallScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text(Platform.isAndroid
-              ? 'Screen sharing requires permission'
-              : 'Screen sharing unavailable'),
+              ? context.l10n.callScreenShareRequiresPermission
+              : context.l10n.callScreenShareUnavailable),
           duration: const Duration(seconds: 2),
         ));
       }
@@ -1034,11 +1034,11 @@ class _CallScreenState extends State<CallScreen> {
                 color: AppTheme.textSecondary.withValues(alpha: DesignTokens.opacityMedium),
                 borderRadius: BorderRadius.circular(DesignTokens.radiusXs)))),
           if (!PlatformUtils.isDesktop) SizedBox(height: DesignTokens.spacing16),
-          Text('Screen Share Quality',
+          Text(context.l10n.callScreenShareQuality,
             style: GoogleFonts.inter(color: AppTheme.textPrimary,
               fontSize: DesignTokens.fontXl, fontWeight: FontWeight.w700)),
           SizedBox(height: DesignTokens.spacing16),
-          Text('Frame rate', style: GoogleFonts.inter(
+          Text(context.l10n.callFrameRate, style: GoogleFonts.inter(
             color: AppTheme.textSecondary, fontSize: DesignTokens.fontBody)),
           SizedBox(height: DesignTokens.spacing8),
           _buildQualityChips(
@@ -1048,7 +1048,7 @@ class _CallScreenState extends State<CallScreen> {
             onSelect: (v) => setS(() => selFps = v),
           ),
           SizedBox(height: DesignTokens.spacing16),
-          Text('Resolution', style: GoogleFonts.inter(
+          Text(context.l10n.callResolution, style: GoogleFonts.inter(
             color: AppTheme.textSecondary, fontSize: DesignTokens.fontBody)),
           SizedBox(height: DesignTokens.spacing8),
           _buildQualityChips(
@@ -1058,7 +1058,7 @@ class _CallScreenState extends State<CallScreen> {
             onSelect: (v) => setS(() => selResWidth = v),
           ),
           SizedBox(height: DesignTokens.spacing6),
-          Text('Auto = native screen resolution',
+          Text(context.l10n.callAutoResolution,
             style: GoogleFonts.inter(color: AppTheme.textSecondary,
               fontSize: DesignTokens.fontSm)),
           SizedBox(height: DesignTokens.spacing20),
@@ -1072,7 +1072,7 @@ class _CallScreenState extends State<CallScreen> {
                   borderRadius: BorderRadius.circular(DesignTokens.radiusMedium)),
                 padding: EdgeInsets.symmetric(vertical: DesignTokens.spacing14)),
               onPressed: () => Navigator.pop(ctx, (selFps, selResWidth)),
-              child: Text('Start sharing',
+              child: Text(context.l10n.callStartSharing,
                 style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
             ),
           ),
@@ -1194,7 +1194,7 @@ class _CallScreenState extends State<CallScreen> {
           debugPrint('[CallScreen] Failed to enable camera: $e');
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-              content: const Text('Camera unavailable — may be in use by another app'),
+              content: Text(context.l10n.callCameraUnavailable),
               backgroundColor: Colors.red.shade700,
               duration: const Duration(seconds: 3),
             ));

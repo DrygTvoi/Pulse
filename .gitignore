@@ -92,3 +92,6 @@ server/deploy/pulse-server
 
 # Old app icon (renamed to pulse)
 assets/icons/aegis.png
+
+# Flutter tooling
+.metadata

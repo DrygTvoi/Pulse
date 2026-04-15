@@ -2350,7 +2350,7 @@ abstract class AppLocalizations {
   /// **'Save Profile'**
   String get profileCardSaveProfile;
 
-  /// Placeholder shown when display name is empty
+  /// Placeholder when name is empty
   ///
   /// In en, this message translates to:
   /// **'Your Name'**
@@ -4684,13 +4684,13 @@ abstract class AppLocalizations {
   /// **'Search emoji...'**
   String get emojiSearchHint;
 
-  /// No description provided for @contactTileE2ee.
+  /// Badge label for end-to-end encrypted contact
   ///
   /// In en, this message translates to:
   /// **'E2EE'**
   String get contactTileE2ee;
 
-  /// No description provided for @contactTileTapToChat.
+  /// Default subtitle for contact tile
   ///
   /// In en, this message translates to:
   /// **'Tap to chat'**
@@ -4983,6 +4983,612 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Copy URL'**
   String get channelCopyUrl;
+
+  /// No description provided for @setupNext.
+  ///
+  /// In en, this message translates to:
+  /// **'Next'**
+  String get setupNext;
+
+  /// No description provided for @setupKeyWarning.
+  ///
+  /// In en, this message translates to:
+  /// **'A recovery key will be generated for you. It is the only way to restore your account — there is no server, no password reset.'**
+  String get setupKeyWarning;
+
+  /// No description provided for @setupKeyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Your Recovery Key'**
+  String get setupKeyTitle;
+
+  /// No description provided for @setupKeySubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Write this key down and store it in a safe place. You will need it to restore your account on a new device.'**
+  String get setupKeySubtitle;
+
+  /// No description provided for @setupKeyCopied.
+  ///
+  /// In en, this message translates to:
+  /// **'Copied!'**
+  String get setupKeyCopied;
+
+  /// No description provided for @setupKeyWroteItDown.
+  ///
+  /// In en, this message translates to:
+  /// **'I wrote it down'**
+  String get setupKeyWroteItDown;
+
+  /// No description provided for @setupKeyWarnBody.
+  ///
+  /// In en, this message translates to:
+  /// **'This key is NOT stored anywhere. If you lose it, your account cannot be recovered.'**
+  String get setupKeyWarnBody;
+
+  /// No description provided for @setupVerifyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Verify Recovery Key'**
+  String get setupVerifyTitle;
+
+  /// No description provided for @setupVerifySubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Re-enter your recovery key to confirm you saved it correctly.'**
+  String get setupVerifySubtitle;
+
+  /// No description provided for @setupVerifyButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Verify'**
+  String get setupVerifyButton;
+
+  /// No description provided for @setupKeyMismatch.
+  ///
+  /// In en, this message translates to:
+  /// **'Key does not match. Check and try again.'**
+  String get setupKeyMismatch;
+
+  /// No description provided for @setupSkipVerify.
+  ///
+  /// In en, this message translates to:
+  /// **'Skip verification'**
+  String get setupSkipVerify;
+
+  /// No description provided for @setupSkipVerifyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Skip verification?'**
+  String get setupSkipVerifyTitle;
+
+  /// No description provided for @setupSkipVerifyBody.
+  ///
+  /// In en, this message translates to:
+  /// **'If you lose your recovery key, your account cannot be restored. Are you sure you want to skip?'**
+  String get setupSkipVerifyBody;
+
+  /// No description provided for @setupPinSet.
+  ///
+  /// In en, this message translates to:
+  /// **'Set a PIN'**
+  String get setupPinSet;
+
+  /// No description provided for @setupPinConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm PIN'**
+  String get setupPinConfirm;
+
+  /// No description provided for @setupPinHint.
+  ///
+  /// In en, this message translates to:
+  /// **'This PIN unlocks the app. Your recovery key is used only to restore your account.'**
+  String get setupPinHint;
+
+  /// No description provided for @setupPinMismatch.
+  ///
+  /// In en, this message translates to:
+  /// **'PINs do not match. Try again.'**
+  String get setupPinMismatch;
+
+  /// No description provided for @setupCreatingAccount.
+  ///
+  /// In en, this message translates to:
+  /// **'Creating account…'**
+  String get setupCreatingAccount;
+
+  /// No description provided for @setupRestoringAccount.
+  ///
+  /// In en, this message translates to:
+  /// **'Restoring account…'**
+  String get setupRestoringAccount;
+
+  /// No description provided for @restoreKeyInfoBanner.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter your recovery key — your address (Nostr + Session) will be restored automatically. Contacts and messages were stored locally only.'**
+  String get restoreKeyInfoBanner;
+
+  /// No description provided for @restoreKeyHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Recovery key'**
+  String get restoreKeyHint;
+
+  /// No description provided for @lockPinSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter your PIN to continue'**
+  String get lockPinSubtitle;
+
+  /// No description provided for @lockWrongPin.
+  ///
+  /// In en, this message translates to:
+  /// **'Wrong PIN'**
+  String get lockWrongPin;
+
+  /// No description provided for @settingsChangePin.
+  ///
+  /// In en, this message translates to:
+  /// **'Change PIN'**
+  String get settingsChangePin;
+
+  /// No description provided for @settingsChangePinSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Update your app unlock PIN'**
+  String get settingsChangePinSubtitle;
+
+  /// No description provided for @settingsEnterCurrentPin.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter your current PIN to continue'**
+  String get settingsEnterCurrentPin;
+
+  /// No description provided for @settingsPinChanged.
+  ///
+  /// In en, this message translates to:
+  /// **'PIN updated'**
+  String get settingsPinChanged;
+
+  /// No description provided for @settingsPinEnabled.
+  ///
+  /// In en, this message translates to:
+  /// **'PIN lock enabled'**
+  String get settingsPinEnabled;
+
+  /// No description provided for @settingsRecoveryKeyInfo.
+  ///
+  /// In en, this message translates to:
+  /// **'Recovery Key'**
+  String get settingsRecoveryKeyInfo;
+
+  /// No description provided for @settingsRecoveryKeyInfoSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Your recovery key is not stored — keep your written copy safe'**
+  String get settingsRecoveryKeyInfoSubtitle;
+
+  /// Title for identity replacement confirmation dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Replace existing identity?'**
+  String get replaceIdentityTitle;
+
+  /// Body for identity replacement dialog when restoring
+  ///
+  /// In en, this message translates to:
+  /// **'An identity already exists on this device. Restoring will permanently replace your current Nostr key and Oxen seed. All contacts will lose the ability to reach your current address.\n\nThis cannot be undone.'**
+  String get replaceIdentityBodyRestore;
+
+  /// Body for identity replacement dialog when creating
+  ///
+  /// In en, this message translates to:
+  /// **'An identity already exists on this device. Creating a new one will permanently replace your current Nostr key and Oxen seed. All contacts will lose the ability to reach your current address.\n\nThis cannot be undone.'**
+  String get replaceIdentityBodyCreate;
+
+  /// Button label to confirm replacing identity
+  ///
+  /// In en, this message translates to:
+  /// **'Replace'**
+  String get replace;
+
+  /// Snackbar when no screen share sources found
+  ///
+  /// In en, this message translates to:
+  /// **'No screen sources available'**
+  String get callNoScreenSources;
+
+  /// Title for screen share quality dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Screen Share Quality'**
+  String get callScreenShareQuality;
+
+  /// Label for frame rate slider in screen share dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Frame rate'**
+  String get callFrameRate;
+
+  /// Label for resolution slider in screen share dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Resolution'**
+  String get callResolution;
+
+  /// Hint text for auto resolution option
+  ///
+  /// In en, this message translates to:
+  /// **'Auto = native screen resolution'**
+  String get callAutoResolution;
+
+  /// Button to start screen sharing
+  ///
+  /// In en, this message translates to:
+  /// **'Start sharing'**
+  String get callStartSharing;
+
+  /// Snackbar when camera cannot be opened
+  ///
+  /// In en, this message translates to:
+  /// **'Camera unavailable — may be in use by another app'**
+  String get callCameraUnavailable;
+
+  /// Button to reset theme colors to defaults
+  ///
+  /// In en, this message translates to:
+  /// **'Reset to defaults'**
+  String get themeResetToDefaults;
+
+  /// Title for fallback backup save dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Save backup to Downloads?'**
+  String get backupSaveToDownloadsTitle;
+
+  /// Body for fallback backup save dialog
+  ///
+  /// In en, this message translates to:
+  /// **'No file picker available. The backup will be saved to:\n{path}'**
+  String backupSaveToDownloadsBody(String path);
+
+  /// Label for system language option in language picker
+  ///
+  /// In en, this message translates to:
+  /// **'System'**
+  String get systemLabel;
+
+  /// Generic next button label
+  ///
+  /// In en, this message translates to:
+  /// **'Next'**
+  String get next;
+
+  /// Label shown on GIF media messages
+  ///
+  /// In en, this message translates to:
+  /// **'GIF'**
+  String get gifLabel;
+
+  /// Snackbar showing remaining taps to unlock developer mode
+  ///
+  /// In en, this message translates to:
+  /// **'{remaining} more taps to enable developer mode'**
+  String devTapsRemaining(int remaining);
+
+  /// Snackbar when developer mode is unlocked
+  ///
+  /// In en, this message translates to:
+  /// **'Developer mode enabled'**
+  String get devModeEnabled;
+
+  /// Title for developer tools screen and settings row
+  ///
+  /// In en, this message translates to:
+  /// **'Developer Tools'**
+  String get devTools;
+
+  /// Subtitle for developer tools settings row
+  ///
+  /// In en, this message translates to:
+  /// **'Adapter toggles & diagnostics'**
+  String get devAdapterDiagnostics;
+
+  /// Button to enable all adapter toggles
+  ///
+  /// In en, this message translates to:
+  /// **'Enable all'**
+  String get devEnableAll;
+
+  /// Button to disable all adapter toggles
+  ///
+  /// In en, this message translates to:
+  /// **'Disable all'**
+  String get devDisableAll;
+
+  /// Validation error for TURN server URL input
+  ///
+  /// In en, this message translates to:
+  /// **'TURN URL must start with turn: or turns: (max 512 chars)'**
+  String get turnUrlValidation;
+
+  /// Label for a missed call record
+  ///
+  /// In en, this message translates to:
+  /// **'Missed call'**
+  String get callMissedCall;
+
+  /// Label for an outgoing call record
+  ///
+  /// In en, this message translates to:
+  /// **'Outgoing call'**
+  String get callOutgoingCall;
+
+  /// Label for an incoming call record
+  ///
+  /// In en, this message translates to:
+  /// **'Incoming call'**
+  String get callIncomingCall;
+
+  /// Error when media payload has no hash or key
+  ///
+  /// In en, this message translates to:
+  /// **'Missing media data'**
+  String get mediaMissingData;
+
+  /// Error when media download fails
+  ///
+  /// In en, this message translates to:
+  /// **'Download failed'**
+  String get mediaDownloadFailed;
+
+  /// Error when media decryption fails
+  ///
+  /// In en, this message translates to:
+  /// **'Decrypt failed'**
+  String get mediaDecryptFailed;
+
+  /// Tooltip for end-call button on minimized call banner
+  ///
+  /// In en, this message translates to:
+  /// **'End call'**
+  String get callEndCallBanner;
+
+  /// Fallback display name when own name is empty
+  ///
+  /// In en, this message translates to:
+  /// **'Me'**
+  String get meFallback;
+
+  /// Tooltip for save-to-downloads button in image viewer
+  ///
+  /// In en, this message translates to:
+  /// **'Save to Downloads'**
+  String get imageSaveToDownloads;
+
+  /// Snackbar after saving image to a directory
+  ///
+  /// In en, this message translates to:
+  /// **'Saved to {path}'**
+  String imageSavedToPath(String path);
+
+  /// Snackbar when screen share permission is denied on Android
+  ///
+  /// In en, this message translates to:
+  /// **'Screen sharing requires permission'**
+  String get callScreenShareRequiresPermission;
+
+  /// Snackbar when screen share is not available on desktop
+  ///
+  /// In en, this message translates to:
+  /// **'Screen sharing unavailable'**
+  String get callScreenShareUnavailable;
+
+  /// Relative time label for less than a minute ago
+  ///
+  /// In en, this message translates to:
+  /// **'Just now'**
+  String get statusJustNow;
+
+  /// Relative time label for minutes ago
+  ///
+  /// In en, this message translates to:
+  /// **'{minutes}m ago'**
+  String statusMinutesAgo(int minutes);
+
+  /// Relative time label for hours ago
+  ///
+  /// In en, this message translates to:
+  /// **'{hours}h ago'**
+  String statusHoursAgo(int hours);
+
+  /// Pluralized route count in add contact preview
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 route} other{{count} routes}}'**
+  String addContactRoutes(int count);
+
+  /// Status label when contact is ready to be added
+  ///
+  /// In en, this message translates to:
+  /// **'Ready to add'**
+  String get addContactReadyToAdd;
+
+  /// Label showing number of selected members in create group dialog
+  ///
+  /// In en, this message translates to:
+  /// **'{count} selected'**
+  String groupSelectedCount(int count);
+
+  /// Tooltip for paste button
+  ///
+  /// In en, this message translates to:
+  /// **'Paste'**
+  String get paste;
+
+  /// Badge shown on SFU participant tile when video is off
+  ///
+  /// In en, this message translates to:
+  /// **'Audio only'**
+  String get sfuAudioOnly;
+
+  /// Participant count in SFU call top bar
+  ///
+  /// In en, this message translates to:
+  /// **'{count} participants'**
+  String sfuParticipants(int count);
+
+  /// Title for unencrypted identity import confirmation dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Unencrypted backup'**
+  String get dataUnencryptedBackup;
+
+  /// Body for unencrypted identity import confirmation dialog
+  ///
+  /// In en, this message translates to:
+  /// **'This file is an unencrypted identity backup and will overwrite your current keys. Only import files you created yourself. Proceed?'**
+  String get dataUnencryptedBackupBody;
+
+  /// Confirm button for unencrypted identity import
+  ///
+  /// In en, this message translates to:
+  /// **'Import anyway'**
+  String get dataImportAnyway;
+
+  /// Error when secure storage read fails
+  ///
+  /// In en, this message translates to:
+  /// **'Security storage error — restart the app'**
+  String get securityStorageError;
+
+  /// Subtitle suffix when developer mode is enabled
+  ///
+  /// In en, this message translates to:
+  /// **'Developer mode active'**
+  String get aboutDevModeActive;
+
+  /// Section label for color customization in theme screen
+  ///
+  /// In en, this message translates to:
+  /// **'Colors'**
+  String get themeColors;
+
+  /// Label for primary accent color picker
+  ///
+  /// In en, this message translates to:
+  /// **'Primary accent'**
+  String get themePrimaryAccent;
+
+  /// Label for secondary accent color picker
+  ///
+  /// In en, this message translates to:
+  /// **'Secondary accent'**
+  String get themeSecondaryAccent;
+
+  /// Label for background color picker
+  ///
+  /// In en, this message translates to:
+  /// **'Background'**
+  String get themeBackground;
+
+  /// Label for surface color picker
+  ///
+  /// In en, this message translates to:
+  /// **'Surface'**
+  String get themeSurface;
+
+  /// Section label for chat bubble color customization
+  ///
+  /// In en, this message translates to:
+  /// **'Chat Bubbles'**
+  String get themeChatBubbles;
+
+  /// Label for outgoing bubble color picker
+  ///
+  /// In en, this message translates to:
+  /// **'Outgoing message'**
+  String get themeOutgoingMessage;
+
+  /// Label for incoming bubble color picker
+  ///
+  /// In en, this message translates to:
+  /// **'Incoming message'**
+  String get themeIncomingMessage;
+
+  /// Section label for border radius customization
+  ///
+  /// In en, this message translates to:
+  /// **'Shape'**
+  String get themeShape;
+
+  /// Section divider label for developer settings
+  ///
+  /// In en, this message translates to:
+  /// **'Developer'**
+  String get devSectionDeveloper;
+
+  /// Hint text below developer section divider
+  ///
+  /// In en, this message translates to:
+  /// **'Adapter channels — disable to test specific transports.'**
+  String get devAdapterChannelsHint;
+
+  /// Subtitle for Nostr adapter toggle
+  ///
+  /// In en, this message translates to:
+  /// **'Nostr relays (wss://)'**
+  String get devNostrRelays;
+
+  /// Subtitle for Firebase adapter toggle
+  ///
+  /// In en, this message translates to:
+  /// **'Firebase Realtime DB'**
+  String get devFirebaseDb;
+
+  /// Subtitle for Session adapter toggle
+  ///
+  /// In en, this message translates to:
+  /// **'Session Network'**
+  String get devSessionNetwork;
+
+  /// Subtitle for Pulse adapter toggle
+  ///
+  /// In en, this message translates to:
+  /// **'Pulse self-hosted relay'**
+  String get devPulseRelay;
+
+  /// Subtitle for LAN adapter toggle
+  ///
+  /// In en, this message translates to:
+  /// **'Local network (UDP/TCP)'**
+  String get devLanNetwork;
+
+  /// Section divider label for call settings in developer section
+  ///
+  /// In en, this message translates to:
+  /// **'Calls'**
+  String get devSectionCalls;
+
+  /// Title for force TURN relay toggle
+  ///
+  /// In en, this message translates to:
+  /// **'Force TURN relay'**
+  String get devForceTurnRelay;
+
+  /// Subtitle for force TURN relay toggle
+  ///
+  /// In en, this message translates to:
+  /// **'Disable P2P — all calls via TURN servers only'**
+  String get devForceTurnRelaySubtitle;
+
+  /// Warning text about dev toggle changes needing restart
+  ///
+  /// In en, this message translates to:
+  /// **'⚠ Changes take effect on next send/call. Restart app to apply to incoming.'**
+  String get devRestartWarning;
 }
 
 class _AppLocalizationsDelegate

@@ -136,9 +136,9 @@ class NotificationService {
         );
         notification.show();
       } else if (_flnPlugin != null) {
-        // FINDING-5 fix: use per-contact ID so notifications from different
+        // Use per-contact ID so notifications from different
         // senders don't overwrite each other.
-        // FINDING-6 fix: visibility:secret hides sender name on lock screen.
+        // visibility:secret hides sender name on lock screen.
         final notifId = event.contactId.hashCode.abs() % 100000;
         _flnPlugin!.show(
           notifId,

@@ -31,7 +31,7 @@ class ImageViewerScreen extends StatelessWidget {
         actions: [
           IconButton(
             icon: const Icon(Icons.download_rounded, color: Colors.white),
-            tooltip: 'Save to Downloads',
+            tooltip: context.l10n.imageSaveToDownloads,
             onPressed: () => _saveImage(context),
           ),
         ],
@@ -60,7 +60,7 @@ class ImageViewerScreen extends StatelessWidget {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text(
-            'Saved to ${dir.path}',
+            context.l10n.imageSavedToPath(dir.path),
             style: GoogleFonts.inter(fontSize: 13),
           ),
           backgroundColor: AppTheme.surfaceVariant,

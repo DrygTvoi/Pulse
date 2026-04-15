@@ -14,117 +14,8 @@ import '../controllers/chat_controller.dart';
 import '../services/media_service.dart';
 import '../l10n/l10n_ext.dart';
 
-/// Shows the long-press context menu for a message (reply, forward, react,
-/// copy, edit, retry, cancel scheduled, delete).
-void showMessageMenu({
-  required BuildContext context,
-  required Message message,
-  required String myId,
-  required VoidCallback onReply,
-  required void Function(Message) onForward,
-  required void Function(String msgId) onShowEmojiPicker,
-  required void Function(Message) onDelete,
-  required void Function(String id, String text) onEdit,
-  required Contact contact,
-}) {
-  HapticFeedback.mediumImpact();
-  final chatController = context.read<ChatController>();
-  final isMe = message.senderId == myId;
-  showModalBottomSheet(
-    context: context,
-    backgroundColor: AppTheme.surface,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(DesignTokens.radiusXl)),
-    ),
-    builder: (_) => SafeArea(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: DesignTokens.spacing40, height: DesignTokens.spacing4,
-            margin: const EdgeInsets.only(top: DesignTokens.spacing12, bottom: DesignTokens.spacing4),
-            decoration: BoxDecoration(
-              color: AppTheme.textSecondary.withValues(alpha: DesignTokens.opacityMedium),
-              borderRadius: BorderRadius.circular(DesignTokens.radiusXs),
-            ),
-          ),
-          ListTile(
-            leading: Icon(Icons.reply_rounded, color: AppTheme.textSecondary),
-            title: Text(context.l10n.menuReply, style: GoogleFonts.inter(color: AppTheme.textPrimary)),
-            onTap: () {
-              Navigator.pop(context);
-              onReply();
-            },
-          ),
-          ListTile(
-            leading: Icon(Icons.forward_rounded, color: AppTheme.textSecondary),
-            title: Text(context.l10n.menuForward, style: GoogleFonts.inter(color: AppTheme.textPrimary)),
-            onTap: () {
-              Navigator.pop(context);
-              onForward(message);
-            },
-          ),
-          ListTile(
-            leading: Icon(Icons.add_reaction_outlined, color: AppTheme.textSecondary),
-            title: Text(context.l10n.menuReact, style: GoogleFonts.inter(color: AppTheme.textPrimary)),
-            onTap: () {
-              Navigator.pop(context);
-              onShowEmojiPicker(message.id);
-            },
-          ),
-          ListTile(
-            leading: Icon(Icons.copy_rounded, color: AppTheme.textSecondary),
-            title: Text(context.l10n.menuCopy, style: GoogleFonts.inter(color: AppTheme.textPrimary)),
-            onTap: () {
-              Navigator.pop(context);
-              Clipboard.setData(ClipboardData(text: message.encryptedPayload));
-            },
-          ),
-          if (isMe && !MediaService.isMediaPayload(message.encryptedPayload))
-            ListTile(
-              leading: Icon(Icons.edit_outlined, color: AppTheme.primary),
-              title: Text(context.l10n.menuEdit, style: GoogleFonts.inter(color: AppTheme.primary)),
-              onTap: () {
-                Navigator.pop(context);
-                onEdit(message.id, message.encryptedPayload);
-              },
-            ),
-          if (message.status == 'failed')
-            ListTile(
-              leading: Icon(Icons.refresh_rounded, color: AppTheme.primary),
-              title: Text(context.l10n.menuRetry, style: GoogleFonts.inter(color: AppTheme.primary)),
-              onTap: () {
-                Navigator.pop(context);
-                chatController.retryMessage(contact, message);
-              },
-            ),
-          if (message.status == 'scheduled')
-            ListTile(
-              leading: const Icon(Icons.cancel_rounded, color: Colors.redAccent),
-              title: Text(context.l10n.menuCancelScheduled, style: GoogleFonts.inter(color: Colors.redAccent)),
-              onTap: () {
-                Navigator.pop(context);
-                chatController.cancelScheduledMessage(contact, message.id);
-              },
-            ),
-          ListTile(
-            leading: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent),
-            title: Text(context.l10n.menuDelete, style: GoogleFonts.inter(color: Colors.redAccent)),
-            onTap: () {
-              Navigator.pop(context);
-              onDelete(message);
-            },
-          ),
-          const SizedBox(height: DesignTokens.spacing8),
-        ],
-      ),
-    ),
-  );
-}
-
-/// Shows a desktop right-click context menu for a message, positioned at
-/// the click point. Same actions as [showMessageMenu] but rendered as a
-/// [PopupMenuButton]-style overlay instead of a bottom sheet.
+/// Shows a context menu for a message at the given position (tap or
+/// right-click). Rendered as a [PopupMenuButton]-style overlay.
 void showMessageContextMenu({
   required BuildContext context,
   required Offset position,
@@ -137,6 +28,7 @@ void showMessageContextMenu({
   required void Function(String id, String text) onEdit,
   required Contact contact,
 }) {
+  HapticFeedback.lightImpact();
   final chatController = context.read<ChatController>();
   final isMe = message.senderId == myId;
 

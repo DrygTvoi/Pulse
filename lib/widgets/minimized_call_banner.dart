@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../l10n/l10n_ext.dart';
 import '../theme/app_theme.dart';
 import '../theme/design_tokens.dart';
 import '../models/contact.dart';
@@ -73,7 +74,7 @@ class MinimizedCallBanner extends StatelessWidget {
                       ),
                       IconButton(
                         icon: const Icon(Icons.call_end_rounded, color: Colors.white),
-                        tooltip: 'End call',
+                        tooltip: context.l10n.callEndCallBanner,
                         onPressed: onHangUp,
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(

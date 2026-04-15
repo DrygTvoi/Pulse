@@ -1366,8 +1366,6 @@
 
   "profileCardSaved": "Profile saved!",
   "@profileCardSaved": { "description": "Snackbar shown after saving profile" },
-  "profileCardYourName": "Your Name",
-  "@profileCardYourName": { "description": "Placeholder shown when display name is empty" },
   "profileCardFingerprintCopied": "Fingerprint copied",
   "@profileCardFingerprintCopied": { "description": "Snackbar shown after copying E2EE fingerprint" },
   "profileCardE2eeIdentity": "E2EE Identity",
@@ -1647,5 +1645,250 @@
       "count": { "type": "int" }
     }
   },
-  "channelCopyUrl": "Copy URL"
+  "channelCopyUrl": "Copy URL",
+
+  "setupNext": "Next",
+  "setupKeyWarning": "A recovery key will be generated for you. It is the only way to restore your account \u2014 there is no server, no password reset.",
+  "setupKeyTitle": "Your Recovery Key",
+  "setupKeySubtitle": "Write this key down and store it in a safe place. You will need it to restore your account on a new device.",
+  "setupKeyCopied": "Copied!",
+  "setupKeyWroteItDown": "I wrote it down",
+  "setupKeyWarnBody": "This key is NOT stored anywhere. If you lose it, your account cannot be recovered.",
+  "setupVerifyTitle": "Verify Recovery Key",
+  "setupVerifySubtitle": "Re-enter your recovery key to confirm you saved it correctly.",
+  "setupVerifyButton": "Verify",
+  "setupKeyMismatch": "Key does not match. Check and try again.",
+  "setupSkipVerify": "Skip verification",
+  "setupSkipVerifyTitle": "Skip verification?",
+  "setupSkipVerifyBody": "If you lose your recovery key, your account cannot be restored. Are you sure you want to skip?",
+  "setupPinSet": "Set a PIN",
+  "setupPinConfirm": "Confirm PIN",
+  "setupPinHint": "This PIN unlocks the app. Your recovery key is used only to restore your account.",
+  "setupPinMismatch": "PINs do not match. Try again.",
+  "setupCreatingAccount": "Creating account\u2026",
+  "setupRestoringAccount": "Restoring account\u2026",
+
+  "restoreKeyInfoBanner": "Enter your recovery key \u2014 your address (Nostr + Session) will be restored automatically. Contacts and messages were stored locally only.",
+  "restoreKeyHint": "Recovery key",
+
+  "lockPinSubtitle": "Enter your PIN to continue",
+  "lockWrongPin": "Wrong PIN",
+
+  "settingsChangePin": "Change PIN",
+  "settingsChangePinSubtitle": "Update your app unlock PIN",
+  "settingsEnterCurrentPin": "Enter your current PIN to continue",
+  "settingsPinChanged": "PIN updated",
+  "settingsPinEnabled": "PIN lock enabled",
+  "settingsRecoveryKeyInfo": "Recovery Key",
+  "settingsRecoveryKeyInfoSubtitle": "Your recovery key is not stored \u2014 keep your written copy safe",
+
+  "replaceIdentityTitle": "Replace existing identity?",
+  "@replaceIdentityTitle": { "description": "Title for identity replacement confirmation dialog" },
+  "replaceIdentityBodyRestore": "An identity already exists on this device. Restoring will permanently replace your current Nostr key and Oxen seed. All contacts will lose the ability to reach your current address.\n\nThis cannot be undone.",
+  "@replaceIdentityBodyRestore": { "description": "Body for identity replacement dialog when restoring" },
+  "replaceIdentityBodyCreate": "An identity already exists on this device. Creating a new one will permanently replace your current Nostr key and Oxen seed. All contacts will lose the ability to reach your current address.\n\nThis cannot be undone.",
+  "@replaceIdentityBodyCreate": { "description": "Body for identity replacement dialog when creating" },
+  "replace": "Replace",
+  "@replace": { "description": "Button label to confirm replacing identity" },
+
+  "callNoScreenSources": "No screen sources available",
+  "@callNoScreenSources": { "description": "Snackbar when no screen share sources found" },
+  "callScreenShareQuality": "Screen Share Quality",
+  "@callScreenShareQuality": { "description": "Title for screen share quality dialog" },
+  "callFrameRate": "Frame rate",
+  "@callFrameRate": { "description": "Label for frame rate slider in screen share dialog" },
+  "callResolution": "Resolution",
+  "@callResolution": { "description": "Label for resolution slider in screen share dialog" },
+  "callAutoResolution": "Auto = native screen resolution",
+  "@callAutoResolution": { "description": "Hint text for auto resolution option" },
+  "callStartSharing": "Start sharing",
+  "@callStartSharing": { "description": "Button to start screen sharing" },
+  "callCameraUnavailable": "Camera unavailable \u2014 may be in use by another app",
+  "@callCameraUnavailable": { "description": "Snackbar when camera cannot be opened" },
+
+  "themeResetToDefaults": "Reset to defaults",
+  "@themeResetToDefaults": { "description": "Button to reset theme colors to defaults" },
+
+  "backupSaveToDownloadsTitle": "Save backup to Downloads?",
+  "@backupSaveToDownloadsTitle": { "description": "Title for fallback backup save dialog" },
+  "backupSaveToDownloadsBody": "No file picker available. The backup will be saved to:\n{path}",
+  "@backupSaveToDownloadsBody": {
+    "description": "Body for fallback backup save dialog",
+    "placeholders": {
+      "path": { "type": "String" }
+    }
+  },
+
+  "systemLabel": "System",
+  "@systemLabel": { "description": "Label for system language option in language picker" },
+
+  "next": "Next",
+  "@next": { "description": "Generic next button label" },
+
+  "contactTileE2ee": "E2EE",
+  "@contactTileE2ee": { "description": "Badge label for end-to-end encrypted contact" },
+  "contactTileTapToChat": "Tap to chat",
+  "@contactTileTapToChat": { "description": "Default subtitle for contact tile" },
+
+  "gifLabel": "GIF",
+  "@gifLabel": { "description": "Label shown on GIF media messages" },
+
+  "devTapsRemaining": "{remaining} more taps to enable developer mode",
+  "@devTapsRemaining": {
+    "description": "Snackbar showing remaining taps to unlock developer mode",
+    "placeholders": {
+      "remaining": { "type": "int" }
+    }
+  },
+  "devModeEnabled": "Developer mode enabled",
+  "@devModeEnabled": { "description": "Snackbar when developer mode is unlocked" },
+  "devTools": "Developer Tools",
+  "@devTools": { "description": "Title for developer tools screen and settings row" },
+  "devAdapterDiagnostics": "Adapter toggles & diagnostics",
+  "@devAdapterDiagnostics": { "description": "Subtitle for developer tools settings row" },
+  "devEnableAll": "Enable all",
+  "@devEnableAll": { "description": "Button to enable all adapter toggles" },
+  "devDisableAll": "Disable all",
+  "@devDisableAll": { "description": "Button to disable all adapter toggles" },
+
+  "turnUrlValidation": "TURN URL must start with turn: or turns: (max 512 chars)",
+  "@turnUrlValidation": { "description": "Validation error for TURN server URL input" },
+
+  "callMissedCall": "Missed call",
+  "@callMissedCall": { "description": "Label for a missed call record" },
+  "callOutgoingCall": "Outgoing call",
+  "@callOutgoingCall": { "description": "Label for an outgoing call record" },
+  "callIncomingCall": "Incoming call",
+  "@callIncomingCall": { "description": "Label for an incoming call record" },
+
+  "mediaMissingData": "Missing media data",
+  "@mediaMissingData": { "description": "Error when media payload has no hash or key" },
+  "mediaDownloadFailed": "Download failed",
+  "@mediaDownloadFailed": { "description": "Error when media download fails" },
+  "mediaDecryptFailed": "Decrypt failed",
+  "@mediaDecryptFailed": { "description": "Error when media decryption fails" },
+
+  "callEndCallBanner": "End call",
+  "@callEndCallBanner": { "description": "Tooltip for end-call button on minimized call banner" },
+
+  "meFallback": "Me",
+  "@meFallback": { "description": "Fallback display name when own name is empty" },
+
+  "imageSaveToDownloads": "Save to Downloads",
+  "@imageSaveToDownloads": { "description": "Tooltip for save-to-downloads button in image viewer" },
+  "imageSavedToPath": "Saved to {path}",
+  "@imageSavedToPath": {
+    "description": "Snackbar after saving image to a directory",
+    "placeholders": {
+      "path": { "type": "String" }
+    }
+  },
+
+  "callScreenShareRequiresPermission": "Screen sharing requires permission",
+  "@callScreenShareRequiresPermission": { "description": "Snackbar when screen share permission is denied on Android" },
+  "callScreenShareUnavailable": "Screen sharing unavailable",
+  "@callScreenShareUnavailable": { "description": "Snackbar when screen share is not available on desktop" },
+
+  "statusJustNow": "Just now",
+  "@statusJustNow": { "description": "Relative time label for less than a minute ago" },
+  "statusMinutesAgo": "{minutes}m ago",
+  "@statusMinutesAgo": {
+    "description": "Relative time label for minutes ago",
+    "placeholders": {
+      "minutes": { "type": "int" }
+    }
+  },
+  "statusHoursAgo": "{hours}h ago",
+  "@statusHoursAgo": {
+    "description": "Relative time label for hours ago",
+    "placeholders": {
+      "hours": { "type": "int" }
+    }
+  },
+
+  "addContactRoutes": "{count, plural, =1{1 route} other{{count} routes}}",
+  "@addContactRoutes": {
+    "description": "Pluralized route count in add contact preview",
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "addContactReadyToAdd": "Ready to add",
+  "@addContactReadyToAdd": { "description": "Status label when contact is ready to be added" },
+
+  "groupSelectedCount": "{count} selected",
+  "@groupSelectedCount": {
+    "description": "Label showing number of selected members in create group dialog",
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+
+  "paste": "Paste",
+  "@paste": { "description": "Tooltip for paste button" },
+
+  "sfuAudioOnly": "Audio only",
+  "@sfuAudioOnly": { "description": "Badge shown on SFU participant tile when video is off" },
+  "sfuParticipants": "{count} participants",
+  "@sfuParticipants": {
+    "description": "Participant count in SFU call top bar",
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+
+  "dataUnencryptedBackup": "Unencrypted backup",
+  "@dataUnencryptedBackup": { "description": "Title for unencrypted identity import confirmation dialog" },
+  "dataUnencryptedBackupBody": "This file is an unencrypted identity backup and will overwrite your current keys. Only import files you created yourself. Proceed?",
+  "@dataUnencryptedBackupBody": { "description": "Body for unencrypted identity import confirmation dialog" },
+  "dataImportAnyway": "Import anyway",
+  "@dataImportAnyway": { "description": "Confirm button for unencrypted identity import" },
+
+  "securityStorageError": "Security storage error \u2014 restart the app",
+  "@securityStorageError": { "description": "Error when secure storage read fails" },
+
+  "aboutDevModeActive": "Developer mode active",
+  "@aboutDevModeActive": { "description": "Subtitle suffix when developer mode is enabled" },
+
+  "themeColors": "Colors",
+  "@themeColors": { "description": "Section label for color customization in theme screen" },
+  "themePrimaryAccent": "Primary accent",
+  "@themePrimaryAccent": { "description": "Label for primary accent color picker" },
+  "themeSecondaryAccent": "Secondary accent",
+  "@themeSecondaryAccent": { "description": "Label for secondary accent color picker" },
+  "themeBackground": "Background",
+  "@themeBackground": { "description": "Label for background color picker" },
+  "themeSurface": "Surface",
+  "@themeSurface": { "description": "Label for surface color picker" },
+  "themeChatBubbles": "Chat Bubbles",
+  "@themeChatBubbles": { "description": "Section label for chat bubble color customization" },
+  "themeOutgoingMessage": "Outgoing message",
+  "@themeOutgoingMessage": { "description": "Label for outgoing bubble color picker" },
+  "themeIncomingMessage": "Incoming message",
+  "@themeIncomingMessage": { "description": "Label for incoming bubble color picker" },
+  "themeShape": "Shape",
+  "@themeShape": { "description": "Section label for border radius customization" },
+
+  "devSectionDeveloper": "Developer",
+  "@devSectionDeveloper": { "description": "Section divider label for developer settings" },
+  "devAdapterChannelsHint": "Adapter channels \u2014 disable to test specific transports.",
+  "@devAdapterChannelsHint": { "description": "Hint text below developer section divider" },
+  "devNostrRelays": "Nostr relays (wss://)",
+  "@devNostrRelays": { "description": "Subtitle for Nostr adapter toggle" },
+  "devFirebaseDb": "Firebase Realtime DB",
+  "@devFirebaseDb": { "description": "Subtitle for Firebase adapter toggle" },
+  "devSessionNetwork": "Session Network",
+  "@devSessionNetwork": { "description": "Subtitle for Session adapter toggle" },
+  "devPulseRelay": "Pulse self-hosted relay",
+  "@devPulseRelay": { "description": "Subtitle for Pulse adapter toggle" },
+  "devLanNetwork": "Local network (UDP/TCP)",
+  "@devLanNetwork": { "description": "Subtitle for LAN adapter toggle" },
+  "devSectionCalls": "Calls",
+  "@devSectionCalls": { "description": "Section divider label for call settings in developer section" },
+  "devForceTurnRelay": "Force TURN relay",
+  "@devForceTurnRelay": { "description": "Title for force TURN relay toggle" },
+  "devForceTurnRelaySubtitle": "Disable P2P \u2014 all calls via TURN servers only",
+  "@devForceTurnRelaySubtitle": { "description": "Subtitle for force TURN relay toggle" },
+  "devRestartWarning": "\u26a0 Changes take effect on next send/call. Restart app to apply to incoming.",
+  "@devRestartWarning": { "description": "Warning text about dev toggle changes needing restart" }
 }

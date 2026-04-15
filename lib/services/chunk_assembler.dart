@@ -72,7 +72,7 @@ class ChunkAssembler {
       }
 
       _pendingChunks[fid] ??= {};
-      // FINDING-1 fix: subtract old chunk size before replacing to prevent
+      // Subtract old chunk size before replacing to prevent
       // counter inflation via repeated retransmission of the same index.
       final existing = _pendingChunks[fid]![idx];
       if (existing != null) _totalBufferedBytes -= existing.length;

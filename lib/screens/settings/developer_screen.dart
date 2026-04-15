@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../l10n/l10n_ext.dart';
 import '../../theme/app_theme.dart';
 import 'developer_section.dart';
 
@@ -11,7 +12,7 @@ class DeveloperScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: AppTheme.background,
       appBar: AppBar(
-        title: Text('Developer Tools',
+        title: Text(context.l10n.devTools,
             style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
         backgroundColor: AppTheme.surface,
         elevation: 0,

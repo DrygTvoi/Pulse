@@ -1,4 +1,4 @@
-// Settings — Security section: app password and panic key management.
+// Settings — Security section: app lock (PIN / legacy password) and panic key management.
 import 'dart:math';
 import 'dart:typed_data';
 import 'package:convert/convert.dart';
@@ -11,6 +11,7 @@ import '../../theme/design_tokens.dart';
 import '../../l10n/l10n_ext.dart';
 import '../../widgets/password_setup_dialog.dart';
 import '../../widgets/panic_key_dialog.dart';
+import '../../widgets/pin_input.dart';
 import 'settings_widgets.dart';
 
 class SecuritySection extends StatefulWidget {
@@ -34,12 +35,96 @@ class SecuritySection extends StatefulWidget {
 class _SecuritySectionState extends State<SecuritySection> {
   static const _secureStorage = FlutterSecureStorage();
 
+  /// true if using PIN-based auth, false if legacy password.
+  bool _isPinMode = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _detectMode();
+  }
+
+  Future<void> _detectMode() async {
+    final pinEnabled = await _secureStorage.read(key: 'app_pin_enabled') == 'true';
+    if (mounted) setState(() => _isPinMode = pinEnabled);
+  }
+
   String _generateSalt() {
     final rng = Random.secure();
     final saltBytes =
         Uint8List.fromList(List.generate(32, (_) => rng.nextInt(256)));
     return hex.encode(saltBytes);
   }
+
+  // ── Confirm current PIN dialog ──────────────────────────────────────────
+
+  Future<bool> _showConfirmPinDialog({
+    required String title,
+    required String subtitle,
+  }) async {
+    int attempts = 0;
+    const maxAttempts = 5;
+    String? error;
+
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setS) => AlertDialog.adaptive(
+          backgroundColor: AppTheme.surface,
+          title: Text(title,
+              style: GoogleFonts.inter(
+                  color: AppTheme.textPrimary,
+                  fontWeight: FontWeight.w700,
+                  fontSize: DesignTokens.fontXl)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(subtitle,
+                  style: GoogleFonts.inter(
+                      color: AppTheme.textSecondary, fontSize: DesignTokens.fontMd)),
+              const SizedBox(height: DesignTokens.spacing16),
+              PinInput(
+                key: ValueKey('confirm_pin_$error'),
+                error: error,
+                onComplete: (pin) async {
+                  final hash = await _secureStorage.read(key: 'app_pin_hash');
+                  final salt = await _secureStorage.read(key: 'app_pin_salt');
+                  if (hash == null || salt == null) {
+                    setS(() => error = context.l10n.securityStorageError);
+                    return;
+                  }
+                  if (attempts >= maxAttempts) return;
+                  if (await PasswordHasher.verify(pin, salt, hash)) {
+                    if (ctx.mounted) Navigator.of(ctx).pop(true);
+                  } else {
+                    attempts++;
+                    if (attempts >= maxAttempts) {
+                      setS(() => error = context.l10n.lockTooManyAttempts);
+                      await Future.delayed(const Duration(seconds: 1));
+                      if (ctx.mounted) Navigator.of(ctx).pop(false);
+                    } else {
+                      setS(() => error = context.l10n.lockWrongPin);
+                    }
+                  }
+                },
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: Text(context.l10n.cancel,
+                  style: GoogleFonts.inter(color: AppTheme.textSecondary)),
+            ),
+          ],
+        ),
+      ),
+    );
+    return result == true;
+  }
+
+  // ── Confirm current password dialog (legacy) ─────────────────────────────
 
   Future<bool> _showConfirmPasswordDialog(
       {required String title, required String subtitle}) async {
@@ -96,20 +181,16 @@ class _SecuritySectionState extends State<SecuritySection> {
                 final salt =
                     await _secureStorage.read(key: 'app_password_salt');
                 if (hash == null || salt == null) {
-                  // FINDING-12 fix: fail closed — storage integrity error.
-                  // Silently granting would allow physical accessor with adb
-                  // to bypass auth by deleting the secure storage keys.
-                  setS(() => error = 'Security storage error — restart the app');
+                  setS(() => error = context.l10n.securityStorageError);
                   return;
                 }
-                if (attempts >= maxAttempts) return; // already locked
+                if (attempts >= maxAttempts) return;
                 if (await PasswordHasher.verify(
                     controller.text, salt, hash)) {
                   if (ctx.mounted) Navigator.of(ctx).pop(true);
                 } else {
                   attempts++;
                   if (attempts >= maxAttempts) {
-                    // Lock the dialog: too many wrong guesses.
                     setS(() => error = context.l10n.lockTooManyAttempts);
                     await Future.delayed(const Duration(seconds: 1));
                     if (ctx.mounted) Navigator.of(ctx).pop(false);
@@ -132,6 +213,72 @@ class _SecuritySectionState extends State<SecuritySection> {
     controller.dispose();
     return result == true;
   }
+
+  /// Confirm using whichever mode is active.
+  Future<bool> _confirmAuth({required String title, required String subtitle}) {
+    if (_isPinMode) {
+      return _showConfirmPinDialog(title: title, subtitle: subtitle);
+    }
+    return _showConfirmPasswordDialog(title: title, subtitle: subtitle);
+  }
+
+  // ── Change PIN ──────────────────────────────────────────────────────────
+
+  Future<void> _changePin() async {
+    final confirmed = await _showConfirmPinDialog(
+      title: context.l10n.settingsChangePin,
+      subtitle: context.l10n.settingsEnterCurrentPin,
+    );
+    if (!confirmed || !mounted) return;
+
+    // Show new PIN entry dialog
+    String? firstPin;
+    String? error;
+    final newPin = await showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setS) => AlertDialog.adaptive(
+          backgroundColor: AppTheme.surface,
+          title: Text(
+            firstPin == null ? context.l10n.setupPinSet : context.l10n.setupPinConfirm,
+            style: GoogleFonts.inter(
+                color: AppTheme.textPrimary, fontWeight: FontWeight.w700,
+                fontSize: DesignTokens.fontXl),
+          ),
+          content: PinInput(
+            key: ValueKey('new_pin_${firstPin != null}$error'),
+            error: error,
+            onComplete: (pin) {
+              if (firstPin == null) {
+                setS(() { firstPin = pin; error = null; });
+              } else if (pin == firstPin) {
+                Navigator.of(ctx).pop(pin);
+              } else {
+                setS(() { firstPin = null; error = context.l10n.setupPinMismatch; });
+              }
+            },
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(null),
+              child: Text(context.l10n.cancel,
+                  style: GoogleFonts.inter(color: AppTheme.textSecondary)),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (newPin == null || !mounted) return;
+
+    final salt = _generateSalt();
+    final hash = await PasswordHasher.hash(newPin, salt);
+    await _secureStorage.write(key: 'app_pin_hash', value: hash);
+    await _secureStorage.write(key: 'app_pin_salt', value: salt);
+    if (mounted) showSuccessSnackBar(context, context.l10n.settingsPinChanged);
+  }
+
+  // ── Enable password (legacy) ────────────────────────────────────────────
 
   Future<void> _enablePassword() async {
     await showDialog<void>(
@@ -156,19 +303,27 @@ class _SecuritySectionState extends State<SecuritySection> {
     }
   }
 
-  Future<void> _disablePassword() async {
-    final confirmed = await _showConfirmPasswordDialog(
+  Future<void> _disableLock() async {
+    final confirmed = await _confirmAuth(
         title: context.l10n.settingsDisableAppPassword,
-        subtitle: context.l10n.settingsEnterCurrentPassword);
+        subtitle: _isPinMode
+            ? context.l10n.settingsEnterCurrentPin
+            : context.l10n.settingsEnterCurrentPassword);
     if (!confirmed) return;
 
-    await _secureStorage.delete(key: 'app_password_hash');
-    await _secureStorage.delete(key: 'app_password_salt');
-    await _secureStorage.delete(key: 'app_password_enabled');
-    await _secureStorage.delete(key: 'app_panic_key_hash');
-    await _secureStorage.delete(key: 'app_panic_key_salt');
+    await Future.wait([
+      _secureStorage.delete(key: 'app_password_hash'),
+      _secureStorage.delete(key: 'app_password_salt'),
+      _secureStorage.delete(key: 'app_password_enabled'),
+      _secureStorage.delete(key: 'app_pin_hash'),
+      _secureStorage.delete(key: 'app_pin_salt'),
+      _secureStorage.delete(key: 'app_pin_enabled'),
+      _secureStorage.delete(key: 'app_panic_key_hash'),
+      _secureStorage.delete(key: 'app_panic_key_salt'),
+    ]);
     widget.onPasswordEnabledChanged(false);
     widget.onPanicKeyEnabledChanged(false);
+    setState(() => _isPinMode = false);
   }
 
   Future<void> _changePassword() async {
@@ -198,13 +353,12 @@ class _SecuritySectionState extends State<SecuritySection> {
   }
 
   Future<void> _managePanicKey() async {
-    // Require current password before allowing panic key changes — an attacker
-    // with brief physical access to an unlocked phone could otherwise replace
-    // the panic key with their own, defeating the duress wipe mechanism.
     if (widget.passwordEnabled) {
-      final confirmed = await _showConfirmPasswordDialog(
+      final confirmed = await _confirmAuth(
         title: context.l10n.panicSetPanicKey,
-        subtitle: context.l10n.settingsEnterCurrentPassword,
+        subtitle: _isPinMode
+            ? context.l10n.settingsEnterCurrentPin
+            : context.l10n.settingsEnterCurrentPassword,
       );
       if (!confirmed || !mounted) return;
     }
@@ -228,12 +382,12 @@ class _SecuritySectionState extends State<SecuritySection> {
   }
 
   Future<void> _removePanicKey() async {
-    // Same guard as _managePanicKey — prevent attacker from silently
-    // disabling the duress wipe by removing the panic key.
     if (widget.passwordEnabled) {
-      final confirmed = await _showConfirmPasswordDialog(
+      final confirmed = await _confirmAuth(
         title: context.l10n.settingsRemovePanicKey,
-        subtitle: context.l10n.settingsEnterCurrentPassword,
+        subtitle: _isPinMode
+            ? context.l10n.settingsEnterCurrentPin
+            : context.l10n.settingsEnterCurrentPassword,
       );
       if (!confirmed || !mounted) return;
     }
@@ -259,7 +413,7 @@ class _SecuritySectionState extends State<SecuritySection> {
         const SizedBox(height: DesignTokens.spacing14),
 
         settingsGroup(children: [
-          // App Password row
+          // App Lock row
           InkWell(
             onTap: widget.passwordEnabled ? null : _enablePassword,
             child: Padding(
@@ -290,7 +444,9 @@ class _SecuritySectionState extends State<SecuritySection> {
                       ),
                       Text(
                         widget.passwordEnabled
-                            ? context.l10n.settingsPasswordEnabled
+                            ? (_isPinMode
+                                ? context.l10n.settingsPinEnabled
+                                : context.l10n.settingsPasswordEnabled)
                             : context.l10n.settingsPasswordDisabled,
                         style: GoogleFonts.inter(
                             color: AppTheme.textSecondary, fontSize: DesignTokens.fontBody),
@@ -301,7 +457,7 @@ class _SecuritySectionState extends State<SecuritySection> {
                 Switch.adaptive(
                   value: widget.passwordEnabled,
                   onChanged: (val) =>
-                      val ? _enablePassword() : _disablePassword(),
+                      val ? _enablePassword() : _disableLock(),
                   activeThumbColor: AppTheme.info,
                 ),
               ]),
@@ -309,13 +465,31 @@ class _SecuritySectionState extends State<SecuritySection> {
           ),
 
           if (widget.passwordEnabled) ...[
-            settingsGroupRow(
-              icon: Icons.password_rounded,
-              iconColor: const Color(0xFF34D399),
-              title: context.l10n.settingsChangePassword,
-              subtitle: context.l10n.settingsChangePasswordSubtitle,
-              onTap: _changePassword,
-            ),
+            if (_isPinMode)
+              settingsGroupRow(
+                icon: Icons.pin_rounded,
+                iconColor: const Color(0xFF34D399),
+                title: context.l10n.settingsChangePin,
+                subtitle: context.l10n.settingsChangePinSubtitle,
+                onTap: _changePin,
+              )
+            else
+              settingsGroupRow(
+                icon: Icons.password_rounded,
+                iconColor: const Color(0xFF34D399),
+                title: context.l10n.settingsChangePassword,
+                subtitle: context.l10n.settingsChangePasswordSubtitle,
+                onTap: _changePassword,
+              ),
+            // Recovery key info (PIN mode only)
+            if (_isPinMode)
+              settingsGroupRow(
+                icon: Icons.key_rounded,
+                iconColor: AppTheme.warning,
+                title: context.l10n.settingsRecoveryKeyInfo,
+                subtitle: context.l10n.settingsRecoveryKeyInfoSubtitle,
+                onTap: () {},
+              ),
             settingsGroupRow(
               icon: Icons.warning_amber_rounded,
               iconColor: AppTheme.errorLight,

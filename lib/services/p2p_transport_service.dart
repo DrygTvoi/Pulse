@@ -57,7 +57,7 @@ class P2PTransportService {
 
   final Map<String, _P2PConn> _conns = {};
 
-  // FINDING-7 fix: rate-limit p2p_offer per contact — rapid offers tear down
+  // Rate-limit p2p_offer per contact — rapid offers tear down
   // the existing DataChannel and prevent the connection from stabilising.
   final Map<String, DateTime> _lastOfferTime = {};
   static const _kMinOfferIntervalSec = 10;

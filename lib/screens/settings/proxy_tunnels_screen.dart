@@ -50,7 +50,7 @@ class _ProxyTunnelsScreenState extends State<ProxyTunnelsScreen> {
 
   StreamSubscription<void>? _torStateSub;
 
-  // BUG-4: settings loaded flag — prevents saving during initial field population.
+  // Settings loaded flag — prevents saving during initial field population.
   bool _settingsLoaded = false;
 
   @override
@@ -147,7 +147,7 @@ class _ProxyTunnelsScreenState extends State<ProxyTunnelsScreen> {
       _customProxyHostController.text = customProxyHost;
       _customProxyPortController.text = customProxyPort.toString();
       _cfWorkerRelayController.text = cfWorkerRelay;
-      _settingsLoaded = true; // BUG-4: allow listeners to save from this point
+      _settingsLoaded = true; // Allow listeners to save from this point
     });
   }
 

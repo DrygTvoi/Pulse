@@ -144,7 +144,7 @@ class ChannelService extends ChangeNotifier {
         return token;
       }
     } catch (e) {
-      debugPrint('[ChannelService] _getToken error: $e');
+      debugPrint('[ChannelService] _getToken error (details redacted)');
     }
     return '';
   }

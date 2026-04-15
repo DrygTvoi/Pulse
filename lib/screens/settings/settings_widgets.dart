@@ -1,6 +1,7 @@
 // Shared UI helper widgets used by multiple settings sections.
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../l10n/l10n_ext.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/design_tokens.dart';
 
@@ -328,6 +329,7 @@ class SettingsPasswordField extends StatelessWidget {
   final String? errorText;
   final bool autofocus;
   final ValueChanged<String>? onChanged;
+  final TextInputType? keyboardType;
 
   const SettingsPasswordField({
     super.key,
@@ -338,6 +340,7 @@ class SettingsPasswordField extends StatelessWidget {
     this.errorText,
     this.autofocus = false,
     this.onChanged,
+    this.keyboardType,
   });
 
   @override
@@ -350,6 +353,7 @@ class SettingsPasswordField extends StatelessWidget {
           controller: controller,
           obscureText: obscure,
           autofocus: autofocus,
+          keyboardType: keyboardType,
           style: GoogleFonts.inter(
               color: AppTheme.textPrimary, fontSize: DesignTokens.fontInput),
           decoration: InputDecoration(
@@ -433,13 +437,13 @@ Future<bool> showConfirmDialog(
       actions: [
         TextButton(
           onPressed: () => Navigator.of(ctx).pop(false),
-          child: Text('Cancel',
+          child: Text(context.l10n.cancel,
               style: GoogleFonts.inter(color: AppTheme.textSecondary)),
         ),
         TextButton(
           onPressed: () => Navigator.of(ctx).pop(true),
           child: Text(
-            confirmLabel ?? 'Confirm',
+            confirmLabel ?? context.l10n.confirm,
             style: GoogleFonts.inter(
               color: destructive
                   ? AppTheme.errorLight

@@ -39,20 +39,6 @@ class _Preset {
 
 const _presets = [
   _Preset(
-    name: 'Pulse',
-    primary:       Color(0xFF00A884),
-    accent:        Color(0xFF53BDEB),
-    bg:            Color(0xFF111B21),
-    surf:          Color(0xFF202C33),
-    surfVar:       Color(0xFF2A3942),
-    textPrimary:   Color(0xFFE9EDEF),
-    textSecondary: Color(0xFF8696A0),
-    outgoingBubble: Color(0xFF005C4B),
-    incomingBubble: Color(0xFF2A3942),
-    mode:   ThemeMode.dark,
-    radius: 12,
-  ),
-  _Preset(
     name: 'Ocean',
     primary:       Color(0xFF5288C1),
     accent:        Color(0xFF64B5F6),
@@ -65,6 +51,20 @@ const _presets = [
     incomingBubble: Color(0xFF182533),
     mode:   ThemeMode.dark,
     radius: 14,
+  ),
+  _Preset(
+    name: 'Jade',
+    primary:       Color(0xFF00A884),
+    accent:        Color(0xFF53BDEB),
+    bg:            Color(0xFF111B21),
+    surf:          Color(0xFF202C33),
+    surfVar:       Color(0xFF2A3942),
+    textPrimary:   Color(0xFFE9EDEF),
+    textSecondary: Color(0xFF8696A0),
+    outgoingBubble: Color(0xFF005C4B),
+    incomingBubble: Color(0xFF2A3942),
+    mode:   ThemeMode.dark,
+    radius: 12,
   ),
   _Preset(
     name: 'Cobalt',
@@ -186,31 +186,31 @@ class _DynamicThemeScreenState extends State<DynamicThemeScreen> {
           const SizedBox(height: 24),
 
           // ── Colors ─────────────────────────────────────────────────────
-          _sectionLabel('Colors', theme),
+          _sectionLabel(context.l10n.themeColors, theme),
           const SizedBox(height: 12),
           _ColorRow(
-            label: 'Primary accent',
+            label: context.l10n.themePrimaryAccent,
             color: theme.primary,
             expanded: _expandedColorKey == 'primary',
             onToggle: () => _toggleExpand('primary'),
             onChanged: (c) => ThemeNotifier.instance.updateColors(primary: c),
           ),
           _ColorRow(
-            label: 'Secondary accent',
+            label: context.l10n.themeSecondaryAccent,
             color: theme.accent,
             expanded: _expandedColorKey == 'accent',
             onToggle: () => _toggleExpand('accent'),
             onChanged: (c) => ThemeNotifier.instance.updateColors(accent: c),
           ),
           _ColorRow(
-            label: 'Background',
+            label: context.l10n.themeBackground,
             color: theme.background,
             expanded: _expandedColorKey == 'bg',
             onToggle: () => _toggleExpand('bg'),
             onChanged: (c) => ThemeNotifier.instance.updateBackground(c),
           ),
           _ColorRow(
-            label: 'Surface',
+            label: context.l10n.themeSurface,
             color: theme.surface,
             expanded: _expandedColorKey == 'surf',
             onToggle: () => _toggleExpand('surf'),
@@ -222,17 +222,17 @@ class _DynamicThemeScreenState extends State<DynamicThemeScreen> {
           const SizedBox(height: 24),
 
           // ── Chat Bubbles ───────────────────────────────────────────────
-          _sectionLabel('Chat Bubbles', theme),
+          _sectionLabel(context.l10n.themeChatBubbles, theme),
           const SizedBox(height: 12),
           _ColorRow(
-            label: 'Outgoing message',
+            label: context.l10n.themeOutgoingMessage,
             color: theme.outgoingBubble,
             expanded: _expandedColorKey == 'bubbleOut',
             onToggle: () => _toggleExpand('bubbleOut'),
             onChanged: (c) => ThemeNotifier.instance.updateBubbleColors(outgoing: c),
           ),
           _ColorRow(
-            label: 'Incoming message',
+            label: context.l10n.themeIncomingMessage,
             color: theme.incomingBubble,
             expanded: _expandedColorKey == 'bubbleIn',
             onToggle: () => _toggleExpand('bubbleIn'),
@@ -244,7 +244,7 @@ class _DynamicThemeScreenState extends State<DynamicThemeScreen> {
           const SizedBox(height: 24),
 
           // ── Shape ──────────────────────────────────────────────────────
-          _sectionLabel('Shape', theme),
+          _sectionLabel(context.l10n.themeShape, theme),
           const SizedBox(height: 4),
           _buildRadiusSlider(theme),
 
@@ -261,7 +261,7 @@ class _DynamicThemeScreenState extends State<DynamicThemeScreen> {
                 });
               },
               icon: Icon(Icons.restart_alt_rounded, size: 18, color: AppTheme.textSecondary),
-              label: Text('Reset to defaults',
+              label: Text(context.l10n.themeResetToDefaults,
                   style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: 13, fontWeight: FontWeight.w500)),
             ),
           ),

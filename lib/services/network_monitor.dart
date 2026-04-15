@@ -41,7 +41,7 @@ class NetworkMonitor {
       if (ipsChanged) {
         _lastIps = currentIps;
         debugPrint('[NetworkMonitor] Interface IPs changed: $currentIps');
-        // FINDING-11 fix: only fire here when connectivity status didn't also
+        // Only fire here when connectivity status didn't also
         // change — avoids double-fire when both conditions occur simultaneously.
         if (was == _available) onNetworkChanged?.call();
       }

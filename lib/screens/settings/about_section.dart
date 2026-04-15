@@ -57,7 +57,7 @@ class _AboutSectionState extends State<AboutSection> {
     if (_tapCount < 7) {
       if (remaining <= 3) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('$remaining more taps to enable developer mode'),
+          content: Text(context.l10n.devTapsRemaining(remaining)),
           duration: const Duration(milliseconds: 800),
         ));
       }
@@ -67,9 +67,9 @@ class _AboutSectionState extends State<AboutSection> {
     await prefs.setBool('dev_mode_enabled', true);
     setState(() => _devModeAlreadyEnabled = true);
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-      content: Text('Developer mode enabled'),
-      duration: Duration(seconds: 2),
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(context.l10n.devModeEnabled),
+      duration: const Duration(seconds: 2),
     ));
     setState(() {}); // refresh to show Developer Tools row
   }
@@ -88,7 +88,7 @@ class _AboutSectionState extends State<AboutSection> {
             iconColor: const Color(0xFF1ABC9C),
             title: 'Pulse',
             subtitle: _devModeAlreadyEnabled
-                ? 'v$kAppVersion · Developer mode active'
+                ? 'v$kAppVersion · ${context.l10n.aboutDevModeActive}'
                 : 'v$kAppVersion',
             onTap: _onVersionTap,
             trailing: _devModeAlreadyEnabled
@@ -120,8 +120,8 @@ class _AboutSectionState extends State<AboutSection> {
             settingsGroupRow(
               icon: Icons.code,
               iconColor: AppTheme.primary,
-              title: 'Developer Tools',
-              subtitle: 'Adapter toggles & diagnostics',
+              title: context.l10n.devTools,
+              subtitle: context.l10n.devAdapterDiagnostics,
               onTap: () => Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => const DeveloperScreen()),

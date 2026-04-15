@@ -351,7 +351,7 @@ class _SfuCallScreenState extends State<SfuCallScreen> {
         if (!hasVideo && _activeSet.isNotEmpty) Positioned(left: 8, top: 8, child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
           decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(6)),
-          child: Text('Audio only', style: GoogleFonts.inter(color: Colors.white54, fontSize: 10)),
+          child: Text(context.l10n.sfuAudioOnly, style: GoogleFonts.inter(color: Colors.white54, fontSize: 10)),
         )),
         Positioned(left: 10, bottom: 10, child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -395,7 +395,7 @@ class _SfuCallScreenState extends State<SfuCallScreen> {
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(widget.group.name, style: GoogleFonts.inter(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700)),
           const SizedBox(height: 2),
-          Text('$status  ${_participantTracks.length + 1} participants',
+          Text('$status  ${context.l10n.sfuParticipants(_participantTracks.length + 1)}',
               style: GoogleFonts.inter(color: Colors.white70, fontSize: 12)),
         ])),
         if (connected) Container(

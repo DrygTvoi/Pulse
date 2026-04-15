@@ -81,7 +81,7 @@ Future<List<String>> _discoverSnodes() async {
         return nodes;
       }
     } catch (e) {
-      debugPrint('[Session] Seed $seed error: $e');
+      debugPrint('[Session] Seed ${seed.length > 30 ? '${seed.substring(0, 30)}...' : seed} error: $e');
     }
   }
   } finally {
@@ -240,7 +240,7 @@ class SessionInboxReader implements InboxReader {
     await SessionKeyService.instance.initialize();
     if (apiKey.isNotEmpty) {
       if (!apiKey.startsWith('https://')) {
-        debugPrint('[Session] Rejected non-HTTPS node URL: $apiKey');
+        debugPrint('[Session] Rejected non-HTTPS node URL: ${apiKey.length > 20 ? '${apiKey.substring(0, 20)}...' : apiKey}');
         _usingDiscovery = true;
         return;
       }

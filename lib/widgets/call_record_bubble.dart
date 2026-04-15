@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../l10n/l10n_ext.dart';
 import '../theme/app_theme.dart';
 import '../theme/design_tokens.dart';
 
@@ -51,15 +52,15 @@ class CallRecordBubble extends StatelessWidget {
     if (!connected && !outgoing) {
       icon = Icons.call_missed_rounded;
       iconColor = Colors.redAccent;
-      label = 'Missed call';
+      label = context.l10n.callMissedCall;
     } else if (outgoing) {
       icon = Icons.call_made_rounded;
       iconColor = connected ? Colors.green : Colors.grey;
-      label = 'Outgoing call';
+      label = context.l10n.callOutgoingCall;
     } else {
       icon = Icons.call_received_rounded;
       iconColor = Colors.green;
-      label = 'Incoming call';
+      label = context.l10n.callIncomingCall;
     }
 
     final durationStr = connected && dur > 0
