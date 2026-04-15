@@ -588,7 +588,7 @@ class AppLocalizationsDa extends AppLocalizations {
   String get onboardingNext => 'Næste';
 
   @override
-  String get onboardingGetStarted => 'Kom i gang';
+  String get onboardingGetStarted => 'Opret konto';
 
   @override
   String get onboardingWelcomeTitle => 'Velkommen til Pulse';
@@ -1204,7 +1204,15 @@ class AppLocalizationsDa extends AppLocalizations {
   String get passwordSkipForNow => 'Spring over for nu';
 
   @override
-  String get passwordMinChars => 'Adgangskoden skal være mindst 6 tegn';
+  String get passwordMinChars => 'Adgangskoden skal være mindst 8 tegn';
+
+  @override
+  String get passwordNeedsVariety =>
+      'Skal indeholde bogstaver, tal og specialtegn';
+
+  @override
+  String get passwordRequirements =>
+      'Min. 8 tegn med bogstaver, tal og et specialtegn';
 
   @override
   String get passwordsDoNotMatch => 'Adgangskoderne stemmer ikke overens';
@@ -2702,105 +2710,79 @@ class AppLocalizationsDa extends AppLocalizations {
   String get channelCopyUrl => 'Kopiér URL';
 
   @override
-  String get setupNext => 'Next';
+  String get setupNext => 'Næste';
 
   @override
   String get setupKeyWarning =>
-      'A recovery key will be generated for you. It is the only way to restore your account — there is no server, no password reset.';
+      'Der vil blive genereret en gendannelsesnøgle til dig. Det er den eneste måde at gendanne din konto på en ny enhed — der er ingen server, ingen nulstilling af adgangskode.';
 
   @override
-  String get setupKeyTitle => 'Your Recovery Key';
+  String get setupKeyTitle => 'Din gendannelsesnøgle';
 
   @override
   String get setupKeySubtitle =>
-      'Write this key down and store it in a safe place. You will need it to restore your account on a new device.';
+      'Skriv denne nøgle ned og opbevar den et sikkert sted. Du får brug for den til at gendanne din konto på en ny enhed.';
 
   @override
-  String get setupKeyCopied => 'Copied!';
+  String get setupKeyCopied => 'Kopieret!';
 
   @override
-  String get setupKeyWroteItDown => 'I wrote it down';
+  String get setupKeyWroteItDown => 'Jeg har skrevet den ned';
 
   @override
   String get setupKeyWarnBody =>
-      'This key is NOT stored anywhere. If you lose it, your account cannot be recovered.';
+      'Skriv denne nøgle ned som backup. Du kan også se den senere under Indstillinger → Sikkerhed.';
 
   @override
-  String get setupVerifyTitle => 'Verify Recovery Key';
+  String get setupVerifyTitle => 'Bekræft gendannelsesnøgle';
 
   @override
   String get setupVerifySubtitle =>
-      'Re-enter your recovery key to confirm you saved it correctly.';
+      'Indtast din gendannelsesnøgle igen for at bekræfte, at du har gemt den korrekt.';
 
   @override
-  String get setupVerifyButton => 'Verify';
+  String get setupVerifyButton => 'Bekræft';
 
   @override
-  String get setupKeyMismatch => 'Key does not match. Check and try again.';
+  String get setupKeyMismatch => 'Nøglen matcher ikke. Tjek og prøv igen.';
 
   @override
-  String get setupSkipVerify => 'Skip verification';
+  String get setupSkipVerify => 'Spring bekræftelse over';
 
   @override
-  String get setupSkipVerifyTitle => 'Skip verification?';
+  String get setupSkipVerifyTitle => 'Spring bekræftelse over?';
 
   @override
   String get setupSkipVerifyBody =>
-      'If you lose your recovery key, your account cannot be restored. Are you sure you want to skip?';
+      'Hvis du mister din gendannelsesnøgle, kan din konto ikke gendannes. Er du sikker på, at du vil springe over?';
 
   @override
-  String get setupPinSet => 'Set a PIN';
+  String get setupCreatingAccount => 'Opretter konto…';
 
   @override
-  String get setupPinConfirm => 'Confirm PIN';
-
-  @override
-  String get setupPinHint =>
-      'This PIN unlocks the app. Your recovery key is used only to restore your account.';
-
-  @override
-  String get setupPinMismatch => 'PINs do not match. Try again.';
-
-  @override
-  String get setupCreatingAccount => 'Creating account…';
-
-  @override
-  String get setupRestoringAccount => 'Restoring account…';
+  String get setupRestoringAccount => 'Gendanner konto…';
 
   @override
   String get restoreKeyInfoBanner =>
-      'Enter your recovery key — your address (Nostr + Session) will be restored automatically. Contacts and messages were stored locally only.';
+      'Indtast din gendannelsesnøgle — din adresse (Nostr + Session) gendannes automatisk. Kontakter og beskeder var kun gemt lokalt.';
 
   @override
-  String get restoreKeyHint => 'Recovery key';
+  String get restoreKeyHint => 'Gendannelsesnøgle';
 
   @override
-  String get lockPinSubtitle => 'Enter your PIN to continue';
+  String get settingsViewRecoveryKey => 'Vis gendannelsesnøgle';
 
   @override
-  String get lockWrongPin => 'Wrong PIN';
+  String get settingsViewRecoveryKeySubtitle =>
+      'Vis din kontos gendannelsesnøgle';
 
   @override
-  String get settingsChangePin => 'Change PIN';
+  String get settingsRecoveryKeyNotStored =>
+      'Gendannelsesnøgle ikke tilgængelig (oprettet før denne funktion)';
 
   @override
-  String get settingsChangePinSubtitle => 'Update your app unlock PIN';
-
-  @override
-  String get settingsEnterCurrentPin => 'Enter your current PIN to continue';
-
-  @override
-  String get settingsPinChanged => 'PIN updated';
-
-  @override
-  String get settingsPinEnabled => 'PIN lock enabled';
-
-  @override
-  String get settingsRecoveryKeyInfo => 'Recovery Key';
-
-  @override
-  String get settingsRecoveryKeyInfoSubtitle =>
-      'Your recovery key is not stored — keep your written copy safe';
+  String get settingsRecoveryKeyWarning =>
+      'Opbevar denne nøgle sikkert. Enhver med den kan gendanne din konto på en anden enhed.';
 
   @override
   String get replaceIdentityTitle => 'Replace existing identity?';

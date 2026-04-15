@@ -1,4 +1,4 @@
-// Settings — Security section: app lock (PIN / legacy password) and panic key management.
+// Settings — Security section: app lock, recovery key, and panic key management.
 import 'dart:math';
 import 'dart:typed_data';
 import 'package:convert/convert.dart';
@@ -11,7 +11,6 @@ import '../../theme/design_tokens.dart';
 import '../../l10n/l10n_ext.dart';
 import '../../widgets/password_setup_dialog.dart';
 import '../../widgets/panic_key_dialog.dart';
-import '../../widgets/pin_input.dart';
 import 'settings_widgets.dart';
 
 class SecuritySection extends StatefulWidget {
@@ -35,20 +34,6 @@ class SecuritySection extends StatefulWidget {
 class _SecuritySectionState extends State<SecuritySection> {
   static const _secureStorage = FlutterSecureStorage();
 
-  /// true if using PIN-based auth, false if legacy password.
-  bool _isPinMode = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _detectMode();
-  }
-
-  Future<void> _detectMode() async {
-    final pinEnabled = await _secureStorage.read(key: 'app_pin_enabled') == 'true';
-    if (mounted) setState(() => _isPinMode = pinEnabled);
-  }
-
   String _generateSalt() {
     final rng = Random.secure();
     final saltBytes =
@@ -56,75 +41,7 @@ class _SecuritySectionState extends State<SecuritySection> {
     return hex.encode(saltBytes);
   }
 
-  // ── Confirm current PIN dialog ──────────────────────────────────────────
-
-  Future<bool> _showConfirmPinDialog({
-    required String title,
-    required String subtitle,
-  }) async {
-    int attempts = 0;
-    const maxAttempts = 5;
-    String? error;
-
-    final result = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setS) => AlertDialog.adaptive(
-          backgroundColor: AppTheme.surface,
-          title: Text(title,
-              style: GoogleFonts.inter(
-                  color: AppTheme.textPrimary,
-                  fontWeight: FontWeight.w700,
-                  fontSize: DesignTokens.fontXl)),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(subtitle,
-                  style: GoogleFonts.inter(
-                      color: AppTheme.textSecondary, fontSize: DesignTokens.fontMd)),
-              const SizedBox(height: DesignTokens.spacing16),
-              PinInput(
-                key: ValueKey('confirm_pin_$error'),
-                error: error,
-                onComplete: (pin) async {
-                  final hash = await _secureStorage.read(key: 'app_pin_hash');
-                  final salt = await _secureStorage.read(key: 'app_pin_salt');
-                  if (hash == null || salt == null) {
-                    setS(() => error = context.l10n.securityStorageError);
-                    return;
-                  }
-                  if (attempts >= maxAttempts) return;
-                  if (await PasswordHasher.verify(pin, salt, hash)) {
-                    if (ctx.mounted) Navigator.of(ctx).pop(true);
-                  } else {
-                    attempts++;
-                    if (attempts >= maxAttempts) {
-                      setS(() => error = context.l10n.lockTooManyAttempts);
-                      await Future.delayed(const Duration(seconds: 1));
-                      if (ctx.mounted) Navigator.of(ctx).pop(false);
-                    } else {
-                      setS(() => error = context.l10n.lockWrongPin);
-                    }
-                  }
-                },
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(false),
-              child: Text(context.l10n.cancel,
-                  style: GoogleFonts.inter(color: AppTheme.textSecondary)),
-            ),
-          ],
-        ),
-      ),
-    );
-    return result == true;
-  }
-
-  // ── Confirm current password dialog (legacy) ─────────────────────────────
+  // ── Confirm current password dialog ─────────────────────────────────────
 
   Future<bool> _showConfirmPasswordDialog(
       {required String title, required String subtitle}) async {
@@ -214,71 +131,12 @@ class _SecuritySectionState extends State<SecuritySection> {
     return result == true;
   }
 
-  /// Confirm using whichever mode is active.
+  /// Confirm using current password.
   Future<bool> _confirmAuth({required String title, required String subtitle}) {
-    if (_isPinMode) {
-      return _showConfirmPinDialog(title: title, subtitle: subtitle);
-    }
     return _showConfirmPasswordDialog(title: title, subtitle: subtitle);
   }
 
-  // ── Change PIN ──────────────────────────────────────────────────────────
-
-  Future<void> _changePin() async {
-    final confirmed = await _showConfirmPinDialog(
-      title: context.l10n.settingsChangePin,
-      subtitle: context.l10n.settingsEnterCurrentPin,
-    );
-    if (!confirmed || !mounted) return;
-
-    // Show new PIN entry dialog
-    String? firstPin;
-    String? error;
-    final newPin = await showDialog<String>(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setS) => AlertDialog.adaptive(
-          backgroundColor: AppTheme.surface,
-          title: Text(
-            firstPin == null ? context.l10n.setupPinSet : context.l10n.setupPinConfirm,
-            style: GoogleFonts.inter(
-                color: AppTheme.textPrimary, fontWeight: FontWeight.w700,
-                fontSize: DesignTokens.fontXl),
-          ),
-          content: PinInput(
-            key: ValueKey('new_pin_${firstPin != null}$error'),
-            error: error,
-            onComplete: (pin) {
-              if (firstPin == null) {
-                setS(() { firstPin = pin; error = null; });
-              } else if (pin == firstPin) {
-                Navigator.of(ctx).pop(pin);
-              } else {
-                setS(() { firstPin = null; error = context.l10n.setupPinMismatch; });
-              }
-            },
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(null),
-              child: Text(context.l10n.cancel,
-                  style: GoogleFonts.inter(color: AppTheme.textSecondary)),
-            ),
-          ],
-        ),
-      ),
-    );
-    if (newPin == null || !mounted) return;
-
-    final salt = _generateSalt();
-    final hash = await PasswordHasher.hash(newPin, salt);
-    await _secureStorage.write(key: 'app_pin_hash', value: hash);
-    await _secureStorage.write(key: 'app_pin_salt', value: salt);
-    if (mounted) showSuccessSnackBar(context, context.l10n.settingsPinChanged);
-  }
-
-  // ── Enable password (legacy) ────────────────────────────────────────────
+  // ── Enable password ────────────────────────────────────────────────────
 
   Future<void> _enablePassword() async {
     await showDialog<void>(
@@ -306,9 +164,7 @@ class _SecuritySectionState extends State<SecuritySection> {
   Future<void> _disableLock() async {
     final confirmed = await _confirmAuth(
         title: context.l10n.settingsDisableAppPassword,
-        subtitle: _isPinMode
-            ? context.l10n.settingsEnterCurrentPin
-            : context.l10n.settingsEnterCurrentPassword);
+        subtitle: context.l10n.settingsEnterCurrentPassword);
     if (!confirmed) return;
 
     await Future.wait([
@@ -323,7 +179,6 @@ class _SecuritySectionState extends State<SecuritySection> {
     ]);
     widget.onPasswordEnabledChanged(false);
     widget.onPanicKeyEnabledChanged(false);
-    setState(() => _isPinMode = false);
   }
 
   Future<void> _changePassword() async {
@@ -352,13 +207,76 @@ class _SecuritySectionState extends State<SecuritySection> {
     }
   }
 
+  // ── View Recovery Key ────────────────────────────────────────────────────
+
+  Future<void> _viewRecoveryKey() async {
+    final confirmed = await _confirmAuth(
+      title: context.l10n.settingsViewRecoveryKey,
+      subtitle: context.l10n.settingsEnterCurrentPassword,
+    );
+    if (!confirmed || !mounted) return;
+
+    final key = await _secureStorage.read(key: 'recovery_key');
+    if (key == null || key.isEmpty) {
+      if (mounted) showWarningSnackBar(context, context.l10n.settingsRecoveryKeyNotStored);
+      return;
+    }
+
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog.adaptive(
+        backgroundColor: AppTheme.surface,
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(DesignTokens.dialogRadius)),
+        title: Text(context.l10n.settingsViewRecoveryKey,
+            style: GoogleFonts.inter(
+                color: AppTheme.textPrimary, fontWeight: FontWeight.w700)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(DesignTokens.spacing16),
+              decoration: BoxDecoration(
+                color: AppTheme.surfaceVariant,
+                borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
+                border: Border.all(color: AppTheme.warning.withValues(alpha: 0.3)),
+              ),
+              child: SelectableText(
+                key,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.jetBrainsMono(
+                  fontSize: DesignTokens.fontInput,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.textPrimary,
+                  letterSpacing: 1.5,
+                ),
+              ),
+            ),
+            const SizedBox(height: DesignTokens.spacing12),
+            Text(context.l10n.settingsRecoveryKeyWarning,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.inter(
+                    color: AppTheme.textSecondary, fontSize: DesignTokens.fontBody, height: 1.4)),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: Text(context.l10n.close,
+                style: GoogleFonts.inter(color: AppTheme.textSecondary)),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _managePanicKey() async {
     if (widget.passwordEnabled) {
       final confirmed = await _confirmAuth(
         title: context.l10n.panicSetPanicKey,
-        subtitle: _isPinMode
-            ? context.l10n.settingsEnterCurrentPin
-            : context.l10n.settingsEnterCurrentPassword,
+        subtitle: context.l10n.settingsEnterCurrentPassword,
       );
       if (!confirmed || !mounted) return;
     }
@@ -385,9 +303,7 @@ class _SecuritySectionState extends State<SecuritySection> {
     if (widget.passwordEnabled) {
       final confirmed = await _confirmAuth(
         title: context.l10n.settingsRemovePanicKey,
-        subtitle: _isPinMode
-            ? context.l10n.settingsEnterCurrentPin
-            : context.l10n.settingsEnterCurrentPassword,
+        subtitle: context.l10n.settingsEnterCurrentPassword,
       );
       if (!confirmed || !mounted) return;
     }
@@ -444,9 +360,7 @@ class _SecuritySectionState extends State<SecuritySection> {
                       ),
                       Text(
                         widget.passwordEnabled
-                            ? (_isPinMode
-                                ? context.l10n.settingsPinEnabled
-                                : context.l10n.settingsPasswordEnabled)
+                            ? context.l10n.settingsPasswordEnabled
                             : context.l10n.settingsPasswordDisabled,
                         style: GoogleFonts.inter(
                             color: AppTheme.textSecondary, fontSize: DesignTokens.fontBody),
@@ -465,15 +379,6 @@ class _SecuritySectionState extends State<SecuritySection> {
           ),
 
           if (widget.passwordEnabled) ...[
-            if (_isPinMode)
-              settingsGroupRow(
-                icon: Icons.pin_rounded,
-                iconColor: const Color(0xFF34D399),
-                title: context.l10n.settingsChangePin,
-                subtitle: context.l10n.settingsChangePinSubtitle,
-                onTap: _changePin,
-              )
-            else
               settingsGroupRow(
                 icon: Icons.password_rounded,
                 iconColor: const Color(0xFF34D399),
@@ -481,14 +386,12 @@ class _SecuritySectionState extends State<SecuritySection> {
                 subtitle: context.l10n.settingsChangePasswordSubtitle,
                 onTap: _changePassword,
               ),
-            // Recovery key info (PIN mode only)
-            if (_isPinMode)
               settingsGroupRow(
                 icon: Icons.key_rounded,
                 iconColor: AppTheme.warning,
-                title: context.l10n.settingsRecoveryKeyInfo,
-                subtitle: context.l10n.settingsRecoveryKeyInfoSubtitle,
-                onTap: () {},
+                title: context.l10n.settingsViewRecoveryKey,
+                subtitle: context.l10n.settingsViewRecoveryKeySubtitle,
+                onTap: _viewRecoveryKey,
               ),
             settingsGroupRow(
               icon: Icons.warning_amber_rounded,

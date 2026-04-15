@@ -1243,7 +1243,7 @@ abstract class AppLocalizations {
   /// No description provided for @onboardingGetStarted.
   ///
   /// In en, this message translates to:
-  /// **'Get Started'**
+  /// **'Create Account'**
   String get onboardingGetStarted;
 
   /// No description provided for @onboardingWelcomeTitle.
@@ -2305,8 +2305,20 @@ abstract class AppLocalizations {
   /// Validation: password too short
   ///
   /// In en, this message translates to:
-  /// **'Password must be at least 6 characters'**
+  /// **'Password must be at least 8 characters'**
   String get passwordMinChars;
+
+  /// Validation: password lacks variety
+  ///
+  /// In en, this message translates to:
+  /// **'Must include letters, numbers, and special characters'**
+  String get passwordNeedsVariety;
+
+  /// Password requirements hint
+  ///
+  /// In en, this message translates to:
+  /// **'Min. 8 characters with letters, numbers, and a special character'**
+  String get passwordRequirements;
 
   /// Validation: passwords don't match
   ///
@@ -4993,7 +5005,7 @@ abstract class AppLocalizations {
   /// No description provided for @setupKeyWarning.
   ///
   /// In en, this message translates to:
-  /// **'A recovery key will be generated for you. It is the only way to restore your account — there is no server, no password reset.'**
+  /// **'A recovery key will be generated for you. It is the only way to restore your account on a new device — there is no server, no password reset.'**
   String get setupKeyWarning;
 
   /// No description provided for @setupKeyTitle.
@@ -5023,7 +5035,7 @@ abstract class AppLocalizations {
   /// No description provided for @setupKeyWarnBody.
   ///
   /// In en, this message translates to:
-  /// **'This key is NOT stored anywhere. If you lose it, your account cannot be recovered.'**
+  /// **'Write this key down as a backup. You can also view it later in Settings → Security.'**
   String get setupKeyWarnBody;
 
   /// No description provided for @setupVerifyTitle.
@@ -5068,30 +5080,6 @@ abstract class AppLocalizations {
   /// **'If you lose your recovery key, your account cannot be restored. Are you sure you want to skip?'**
   String get setupSkipVerifyBody;
 
-  /// No description provided for @setupPinSet.
-  ///
-  /// In en, this message translates to:
-  /// **'Set a PIN'**
-  String get setupPinSet;
-
-  /// No description provided for @setupPinConfirm.
-  ///
-  /// In en, this message translates to:
-  /// **'Confirm PIN'**
-  String get setupPinConfirm;
-
-  /// No description provided for @setupPinHint.
-  ///
-  /// In en, this message translates to:
-  /// **'This PIN unlocks the app. Your recovery key is used only to restore your account.'**
-  String get setupPinHint;
-
-  /// No description provided for @setupPinMismatch.
-  ///
-  /// In en, this message translates to:
-  /// **'PINs do not match. Try again.'**
-  String get setupPinMismatch;
-
   /// No description provided for @setupCreatingAccount.
   ///
   /// In en, this message translates to:
@@ -5116,59 +5104,29 @@ abstract class AppLocalizations {
   /// **'Recovery key'**
   String get restoreKeyHint;
 
-  /// No description provided for @lockPinSubtitle.
+  /// No description provided for @settingsViewRecoveryKey.
   ///
   /// In en, this message translates to:
-  /// **'Enter your PIN to continue'**
-  String get lockPinSubtitle;
+  /// **'View Recovery Key'**
+  String get settingsViewRecoveryKey;
 
-  /// No description provided for @lockWrongPin.
+  /// No description provided for @settingsViewRecoveryKeySubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Wrong PIN'**
-  String get lockWrongPin;
+  /// **'Show your account recovery key'**
+  String get settingsViewRecoveryKeySubtitle;
 
-  /// No description provided for @settingsChangePin.
+  /// No description provided for @settingsRecoveryKeyNotStored.
   ///
   /// In en, this message translates to:
-  /// **'Change PIN'**
-  String get settingsChangePin;
+  /// **'Recovery key not available (created before this feature)'**
+  String get settingsRecoveryKeyNotStored;
 
-  /// No description provided for @settingsChangePinSubtitle.
+  /// No description provided for @settingsRecoveryKeyWarning.
   ///
   /// In en, this message translates to:
-  /// **'Update your app unlock PIN'**
-  String get settingsChangePinSubtitle;
-
-  /// No description provided for @settingsEnterCurrentPin.
-  ///
-  /// In en, this message translates to:
-  /// **'Enter your current PIN to continue'**
-  String get settingsEnterCurrentPin;
-
-  /// No description provided for @settingsPinChanged.
-  ///
-  /// In en, this message translates to:
-  /// **'PIN updated'**
-  String get settingsPinChanged;
-
-  /// No description provided for @settingsPinEnabled.
-  ///
-  /// In en, this message translates to:
-  /// **'PIN lock enabled'**
-  String get settingsPinEnabled;
-
-  /// No description provided for @settingsRecoveryKeyInfo.
-  ///
-  /// In en, this message translates to:
-  /// **'Recovery Key'**
-  String get settingsRecoveryKeyInfo;
-
-  /// No description provided for @settingsRecoveryKeyInfoSubtitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Your recovery key is not stored — keep your written copy safe'**
-  String get settingsRecoveryKeyInfoSubtitle;
+  /// **'Keep this key safe. Anyone with it can restore your account on another device.'**
+  String get settingsRecoveryKeyWarning;
 
   /// Title for identity replacement confirmation dialog
   ///

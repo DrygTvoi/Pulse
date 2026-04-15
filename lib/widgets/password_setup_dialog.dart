@@ -39,8 +39,15 @@ class _PasswordSetupDialogState extends State<PasswordSetupDialog> {
     final pass = _passController.text;
     final confirm = _confirmController.text;
 
+    final hasLetter = RegExp(r'[a-zA-Z]').hasMatch(pass);
+    final hasDigit = RegExp(r'\d').hasMatch(pass);
+    final hasSpecial = RegExp(r'[^a-zA-Z0-9]').hasMatch(pass);
     if (pass.length < 8) {
       setState(() => _error = context.l10n.passwordMinChars);
+      return;
+    }
+    if (!hasLetter || !hasDigit || !hasSpecial) {
+      setState(() => _error = context.l10n.passwordNeedsVariety);
       return;
     }
     if (pass != confirm) {

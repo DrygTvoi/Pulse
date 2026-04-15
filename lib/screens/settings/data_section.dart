@@ -138,14 +138,8 @@ class DataSection extends StatelessWidget {
   // password.  Returns false if the user cancels or exceeds 5 attempts.
 
   Future<bool> _confirmWithAppPassword(BuildContext context) async {
-    // Detect mode: PIN or legacy password
-    final pinHash = await _secureStorage.read(key: 'app_pin_hash');
-    final pinSalt = await _secureStorage.read(key: 'app_pin_salt');
-    final isPinMode = pinHash != null && pinSalt != null &&
-        (await _secureStorage.read(key: 'app_pin_enabled') == 'true');
-
-    final hash = isPinMode ? pinHash : await _secureStorage.read(key: 'app_password_hash');
-    final salt = isPinMode ? pinSalt : await _secureStorage.read(key: 'app_password_salt');
+    final hash = await _secureStorage.read(key: 'app_password_hash');
+    final salt = await _secureStorage.read(key: 'app_password_salt');
     if (hash == null || salt == null) return true; // no lock set
     if (!context.mounted) return false;
 
@@ -164,25 +158,24 @@ class DataSection extends StatelessWidget {
           shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(DesignTokens.dialogRadius)),
           title: Text(
-              isPinMode ? context.l10n.settingsEnterCurrentPin : context.l10n.settingsCurrentPassword,
+              context.l10n.settingsCurrentPassword,
               style: GoogleFonts.inter(
                   color: AppTheme.textPrimary, fontWeight: FontWeight.w700, fontSize: DesignTokens.fontXl)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(isPinMode ? context.l10n.lockPinSubtitle : context.l10n.settingsEnterCurrentPassword,
+              Text(context.l10n.settingsEnterCurrentPassword,
                   style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: DesignTokens.fontMd)),
               const SizedBox(height: DesignTokens.spacing16),
               SettingsPasswordField(
                 controller: ctrl,
                 obscure: !showPass,
                 onToggleObscure: () => setS(() => showPass = !showPass),
-                hintText: isPinMode ? 'PIN' : context.l10n.settingsCurrentPassword,
+                hintText: context.l10n.settingsCurrentPassword,
                 autofocus: true,
                 errorText: error,
                 onChanged: (_) => setS(() => error = null),
-                keyboardType: isPinMode ? TextInputType.number : TextInputType.text,
               ),
             ],
           ),
@@ -204,8 +197,7 @@ class DataSection extends StatelessWidget {
                     await Future.delayed(const Duration(seconds: 1));
                     if (ctx.mounted) Navigator.of(ctx).pop(false);
                   } else {
-                    setS(() => error =
-                        isPinMode ? context.l10n.lockWrongPin : context.l10n.securityIncorrectPassword);
+                    setS(() => error = context.l10n.securityIncorrectPassword);
                   }
                 }
               },

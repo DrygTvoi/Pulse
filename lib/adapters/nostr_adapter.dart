@@ -38,7 +38,13 @@ const _defaultRelay = kDefaultNostrRelay;
 /// 3. `probe_nostr_relay` (connectivity probe, ~6h TTL)
 /// 4. `adaptive_cf_relay` (CF-aware, ~15min TTL)
 /// 5. `kDefaultNostrRelay` (hardcoded fallback)
-Future<List<String>> gatherKnownRelays(String primary, {int limit = 3}) async {
+/// Well-known reliable relays for key exchange fallback.
+const _kWellKnownRelays = [
+  'wss://nos.lol',
+  'wss://relay.nostr.wirednet.jp',
+];
+
+Future<List<String>> gatherKnownRelays(String primary, {int limit = 5}) async {
   final prefs = await SharedPreferences.getInstance();
   final candidates = <String>[
     primary,
@@ -46,6 +52,7 @@ Future<List<String>> gatherKnownRelays(String primary, {int limit = 3}) async {
     prefs.getString('probe_nostr_relay') ?? '',
     prefs.getString('adaptive_cf_relay') ?? '',
     kDefaultNostrRelay,
+    ..._kWellKnownRelays,
   ];
   final seen = <String>{};
   final result = <String>[];
@@ -2082,8 +2089,11 @@ class NostrMessageSender implements MessageSender {
     debugPrint('[Nostr] sendSignal: type=$type recipient=${recipientPubkey.substring(0, 8)}… relay=$relay');
 
     // Signal key bundle (sys_keys): must use real key (kind 10009, replaceable by pubkey).
+    // Use _relayUrl (sender's configured relay) — publishOwnKeys creates a sender
+    // per relay, so each sender targets a specific relay for redundancy.
     if (type == 'sys_keys') {
       if (_privateKeyHex.isEmpty) return false; // sys_keys requires real identity
+      final sysKeysRelay = _relayUrl.isNotEmpty ? _relayUrl : relay;
       try {
         final event = await eb.buildEvent(
           privkeyHex: _privateKeyHex,
@@ -2091,7 +2101,7 @@ class NostrMessageSender implements MessageSender {
           content: jsonEncode(payload),
           tags: [['d', 'signal_bundle']],
         );
-        return await _publishEvent(event, relay);
+        return await _publishEvent(event, sysKeysRelay);
       } catch (e) {
         debugPrint('[Nostr] sys_keys publish error: $e');
         return false;

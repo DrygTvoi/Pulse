@@ -7,7 +7,6 @@ import '../theme/app_theme.dart';
 import '../controllers/chat_controller.dart';
 import '../services/local_storage_service.dart';
 import '../services/password_hasher.dart';
-import '../widgets/pin_input.dart';
 import 'home_screen.dart';
 import 'setup_identity_screen.dart';
 import '../l10n/l10n_ext.dart';
@@ -25,10 +24,7 @@ class _LockScreenState extends State<LockScreen> {
   bool _loading = false;
   String? _error;
   int _attempts = 0;
-
-  /// true = PIN mode (new accounts), false = legacy password mode.
-  bool _isPinMode = true;
-  bool _modeLoaded = false;
+  bool _ready = false;
 
   static const _ss = FlutterSecureStorage();
   static const _maxAttempts = 10;
@@ -37,21 +33,14 @@ class _LockScreenState extends State<LockScreen> {
   @override
   void initState() {
     super.initState();
-    _loadMode();
+    _loadAttempts();
   }
 
-  Future<void> _loadMode() async {
-    final results = await Future.wait([
-      _ss.read(key: 'app_pin_enabled'),
-      _ss.read(key: 'app_password_enabled'),
-      _ss.read(key: _attemptsKey),
-    ]);
-    final pinEnabled = results[0] == 'true';
-    final pwEnabled = results[1] == 'true';
+  Future<void> _loadAttempts() async {
+    final saved = await _ss.read(key: _attemptsKey);
     setState(() {
-      _isPinMode = pinEnabled || !pwEnabled;
-      _modeLoaded = true;
-      _attempts = int.tryParse(results[2] ?? '') ?? 0;
+      _attempts = int.tryParse(saved ?? '') ?? 0;
+      _ready = true;
     });
   }
 
@@ -69,58 +58,7 @@ class _LockScreenState extends State<LockScreen> {
     super.dispose();
   }
 
-  // ── PIN unlock ──────────────────────────────────────────────────────────
-
-  Future<void> _unlockWithPin(String pin) async {
-    if (_loading) return;
-    _loading = true;
-    setState(() { _loading = true; _error = null; });
-
-    final hash = await _ss.read(key: 'app_pin_hash');
-    final salt = await _ss.read(key: 'app_pin_salt');
-
-    if (hash == null || salt == null) {
-      setState(() { _loading = false; _error = 'wrong'; });
-      return;
-    }
-
-    _attempts++;
-    await _persistAttempts();
-
-    // Check panic key first
-    final panicHash = await _ss.read(key: 'app_panic_key_hash');
-    final panicSalt = await _ss.read(key: 'app_panic_key_salt');
-    if (panicHash != null && panicSalt != null) {
-      if (await PasswordHasher.verify(pin, panicSalt, panicHash)) {
-        await _wipeAll();
-        return;
-      }
-    }
-
-    if (await PasswordHasher.verify(pin, salt, hash)) {
-      if (PasswordHasher.isLegacy(hash)) {
-        final newHash = await PasswordHasher.hash(pin, salt);
-        await _ss.write(key: 'app_pin_hash', value: newHash);
-      }
-      await _clearAttempts();
-      _goHome();
-      return;
-    }
-
-    if (_attempts >= _maxAttempts) {
-      setState(() => _error = 'too_many');
-      await Future.delayed(const Duration(seconds: 2));
-      await _wipeAll();
-      return;
-    }
-
-    setState(() {
-      _loading = false;
-      _error = _attempts >= 3 ? 'wrong_with_count' : 'wrong';
-    });
-  }
-
-  // ── Legacy password unlock ────────────────────────────────────────────────
+  // ── Password unlock ────────────────────────────────────────────────────
 
   Future<void> _unlockWithPassword() async {
     final entered = _controller.text;
@@ -202,14 +140,14 @@ class _LockScreenState extends State<LockScreen> {
     switch (_error) {
       case 'too_many': return context.l10n.lockTooManyAttempts;
       case 'wrong_with_count': return context.l10n.lockWrongPasswordAttempts(_attempts, _maxAttempts);
-      case 'wrong': return context.l10n.lockWrongPin;
+      case 'wrong': return context.l10n.lockWrongPassword;
       default: return _error ?? '';
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (!_modeLoaded) {
+    if (!_ready) {
       return Scaffold(
         backgroundColor: AppTheme.background,
         body: const Center(child: CircularProgressIndicator()),
@@ -242,23 +180,12 @@ class _LockScreenState extends State<LockScreen> {
                           color: AppTheme.textPrimary, fontSize: 22, fontWeight: FontWeight.w700)),
                   const SizedBox(height: 8),
                   Text(
-                    _isPinMode ? context.l10n.lockPinSubtitle : context.l10n.lockSubtitle,
+                    context.l10n.lockSubtitle,
                     style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: 14),
                   ),
                   const SizedBox(height: 40),
 
-                  if (_isPinMode)
-                    _loading
-                        ? const SizedBox(
-                            width: 22, height: 22,
-                            child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5))
-                        : PinInput(
-                            key: ValueKey('lock_pin_$_error'),
-                            error: _error != null ? _resolveError(context) : null,
-                            onComplete: _unlockWithPin,
-                          )
-                  else ...[
-                    // Legacy password field
+                  ...[
                     TextField(
                       controller: _controller,
                       obscureText: !_showPassword,

@@ -591,7 +591,7 @@ class AppLocalizationsSr extends AppLocalizations {
   String get onboardingNext => 'Следеће';
 
   @override
-  String get onboardingGetStarted => 'Започни';
+  String get onboardingGetStarted => 'Направи налог';
 
   @override
   String get onboardingWelcomeTitle => 'Добродошли у Pulse';
@@ -1209,7 +1209,15 @@ class AppLocalizationsSr extends AppLocalizations {
   String get passwordSkipForNow => 'Прескочи за сад';
 
   @override
-  String get passwordMinChars => 'Лозинка мора имати најмање 6 знакова';
+  String get passwordMinChars => 'Лозинка мора имати најмање 8 знакова';
+
+  @override
+  String get passwordNeedsVariety =>
+      'Мора садржати слова, бројеве и специјалне знакове';
+
+  @override
+  String get passwordRequirements =>
+      'Мин. 8 знакова са словима, бројевима и специјалним знаком';
 
   @override
   String get passwordsDoNotMatch => 'Лозинке се не подударају';
@@ -2715,11 +2723,11 @@ class AppLocalizationsSr extends AppLocalizations {
   String get channelCopyUrl => 'Копирај URL';
 
   @override
-  String get setupNext => 'Next';
+  String get setupNext => 'Даље';
 
   @override
   String get setupKeyWarning =>
-      'A recovery key will be generated for you. It is the only way to restore your account — there is no server, no password reset.';
+      'A recovery key will be generated for you. It is the only way to restore your account on a new device — there is no server, no password reset.';
 
   @override
   String get setupKeyTitle => 'Your Recovery Key';
@@ -2729,14 +2737,14 @@ class AppLocalizationsSr extends AppLocalizations {
       'Write this key down and store it in a safe place. You will need it to restore your account on a new device.';
 
   @override
-  String get setupKeyCopied => 'Copied!';
+  String get setupKeyCopied => 'Копирано!';
 
   @override
-  String get setupKeyWroteItDown => 'I wrote it down';
+  String get setupKeyWroteItDown => 'Записао сам';
 
   @override
   String get setupKeyWarnBody =>
-      'This key is NOT stored anywhere. If you lose it, your account cannot be recovered.';
+      'Write this key down as a backup. You can also view it later in Settings → Security.';
 
   @override
   String get setupVerifyTitle => 'Verify Recovery Key';
@@ -2746,7 +2754,7 @@ class AppLocalizationsSr extends AppLocalizations {
       'Re-enter your recovery key to confirm you saved it correctly.';
 
   @override
-  String get setupVerifyButton => 'Verify';
+  String get setupVerifyButton => 'Потврди';
 
   @override
   String get setupKeyMismatch => 'Key does not match. Check and try again.';
@@ -2762,19 +2770,6 @@ class AppLocalizationsSr extends AppLocalizations {
       'If you lose your recovery key, your account cannot be restored. Are you sure you want to skip?';
 
   @override
-  String get setupPinSet => 'Set a PIN';
-
-  @override
-  String get setupPinConfirm => 'Confirm PIN';
-
-  @override
-  String get setupPinHint =>
-      'This PIN unlocks the app. Your recovery key is used only to restore your account.';
-
-  @override
-  String get setupPinMismatch => 'PINs do not match. Try again.';
-
-  @override
   String get setupCreatingAccount => 'Creating account…';
 
   @override
@@ -2788,32 +2783,19 @@ class AppLocalizationsSr extends AppLocalizations {
   String get restoreKeyHint => 'Recovery key';
 
   @override
-  String get lockPinSubtitle => 'Enter your PIN to continue';
+  String get settingsViewRecoveryKey => 'Прикажи кључ за опоравак';
 
   @override
-  String get lockWrongPin => 'Wrong PIN';
+  String get settingsViewRecoveryKeySubtitle =>
+      'Прикажи кључ за опоравак налога';
 
   @override
-  String get settingsChangePin => 'Change PIN';
+  String get settingsRecoveryKeyNotStored =>
+      'Кључ за опоравак није доступан (направљен пре ове функције)';
 
   @override
-  String get settingsChangePinSubtitle => 'Update your app unlock PIN';
-
-  @override
-  String get settingsEnterCurrentPin => 'Enter your current PIN to continue';
-
-  @override
-  String get settingsPinChanged => 'PIN updated';
-
-  @override
-  String get settingsPinEnabled => 'PIN lock enabled';
-
-  @override
-  String get settingsRecoveryKeyInfo => 'Recovery Key';
-
-  @override
-  String get settingsRecoveryKeyInfoSubtitle =>
-      'Your recovery key is not stored — keep your written copy safe';
+  String get settingsRecoveryKeyWarning =>
+      'Чувајте овај кључ на безбедном месту. Свако ко га има може повратити ваш налог на другом уређају.';
 
   @override
   String get replaceIdentityTitle => 'Replace existing identity?';

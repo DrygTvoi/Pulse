@@ -592,7 +592,7 @@ class AppLocalizationsHu extends AppLocalizations {
   String get onboardingNext => 'Következő';
 
   @override
-  String get onboardingGetStarted => 'Kezdjük';
+  String get onboardingGetStarted => 'Fiók létrehozása';
 
   @override
   String get onboardingWelcomeTitle => 'Üdvözöl a Pulse';
@@ -1212,7 +1212,15 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get passwordMinChars =>
-      'A jelszónak legalább 6 karakter hosszúnak kell lennie';
+      'A jelszónak legalább 8 karakter hosszúnak kell lennie';
+
+  @override
+  String get passwordNeedsVariety =>
+      'Betűket, számokat és speciális karaktereket kell tartalmaznia';
+
+  @override
+  String get passwordRequirements =>
+      'Min. 8 karakter betűkkel, számokkal és speciális karakterrel';
 
   @override
   String get passwordsDoNotMatch => 'A jelszavak nem egyeznek';
@@ -2723,105 +2731,80 @@ class AppLocalizationsHu extends AppLocalizations {
   String get channelCopyUrl => 'URL másolása';
 
   @override
-  String get setupNext => 'Next';
+  String get setupNext => 'Következő';
 
   @override
   String get setupKeyWarning =>
-      'A recovery key will be generated for you. It is the only way to restore your account — there is no server, no password reset.';
+      'Egy helyreállítási kulcs lesz generálva az Ön számára. Ez az egyetlen módja a fiók visszaállításának egy új eszközön — nincs szerver, nincs jelszó-visszaállítás.';
 
   @override
-  String get setupKeyTitle => 'Your Recovery Key';
+  String get setupKeyTitle => 'Az Ön helyreállítási kulcsa';
 
   @override
   String get setupKeySubtitle =>
-      'Write this key down and store it in a safe place. You will need it to restore your account on a new device.';
+      'Írja le ezt a kulcsot és tárolja biztonságos helyen. Szüksége lesz rá a fiókja visszaállításához egy új eszközön.';
 
   @override
-  String get setupKeyCopied => 'Copied!';
+  String get setupKeyCopied => 'Másolva!';
 
   @override
-  String get setupKeyWroteItDown => 'I wrote it down';
+  String get setupKeyWroteItDown => 'Leírtam';
 
   @override
   String get setupKeyWarnBody =>
-      'This key is NOT stored anywhere. If you lose it, your account cannot be recovered.';
+      'Írja le ezt a kulcsot biztonsági mentésként. Később is megtekintheti a Beállítások → Biztonság menüben.';
 
   @override
-  String get setupVerifyTitle => 'Verify Recovery Key';
+  String get setupVerifyTitle => 'Helyreállítási kulcs ellenőrzése';
 
   @override
   String get setupVerifySubtitle =>
-      'Re-enter your recovery key to confirm you saved it correctly.';
+      'Adja meg újra a helyreállítási kulcsot, hogy megerősítse, helyesen mentette el.';
 
   @override
-  String get setupVerifyButton => 'Verify';
+  String get setupVerifyButton => 'Ellenőrzés';
 
   @override
-  String get setupKeyMismatch => 'Key does not match. Check and try again.';
+  String get setupKeyMismatch =>
+      'A kulcs nem egyezik. Ellenőrizze és próbálja újra.';
 
   @override
-  String get setupSkipVerify => 'Skip verification';
+  String get setupSkipVerify => 'Ellenőrzés kihagyása';
 
   @override
-  String get setupSkipVerifyTitle => 'Skip verification?';
+  String get setupSkipVerifyTitle => 'Kihagyja az ellenőrzést?';
 
   @override
   String get setupSkipVerifyBody =>
-      'If you lose your recovery key, your account cannot be restored. Are you sure you want to skip?';
+      'Ha elveszíti a helyreállítási kulcsát, a fiókja nem állítható vissza. Biztosan ki szeretné hagyni?';
 
   @override
-  String get setupPinSet => 'Set a PIN';
+  String get setupCreatingAccount => 'Fiók létrehozása…';
 
   @override
-  String get setupPinConfirm => 'Confirm PIN';
-
-  @override
-  String get setupPinHint =>
-      'This PIN unlocks the app. Your recovery key is used only to restore your account.';
-
-  @override
-  String get setupPinMismatch => 'PINs do not match. Try again.';
-
-  @override
-  String get setupCreatingAccount => 'Creating account…';
-
-  @override
-  String get setupRestoringAccount => 'Restoring account…';
+  String get setupRestoringAccount => 'Fiók visszaállítása…';
 
   @override
   String get restoreKeyInfoBanner =>
-      'Enter your recovery key — your address (Nostr + Session) will be restored automatically. Contacts and messages were stored locally only.';
+      'Adja meg a helyreállítási kulcsát — a címe (Nostr + Session) automatikusan visszaáll. A névjegyek és üzenetek csak helyben voltak tárolva.';
 
   @override
-  String get restoreKeyHint => 'Recovery key';
+  String get restoreKeyHint => 'Helyreállítási kulcs';
 
   @override
-  String get lockPinSubtitle => 'Enter your PIN to continue';
+  String get settingsViewRecoveryKey => 'Helyreállítási kulcs megtekintése';
 
   @override
-  String get lockWrongPin => 'Wrong PIN';
+  String get settingsViewRecoveryKeySubtitle =>
+      'Fiók helyreállítási kulcsának megjelenítése';
 
   @override
-  String get settingsChangePin => 'Change PIN';
+  String get settingsRecoveryKeyNotStored =>
+      'Helyreállítási kulcs nem elérhető (a funkció bevezetése előtt létrehozva)';
 
   @override
-  String get settingsChangePinSubtitle => 'Update your app unlock PIN';
-
-  @override
-  String get settingsEnterCurrentPin => 'Enter your current PIN to continue';
-
-  @override
-  String get settingsPinChanged => 'PIN updated';
-
-  @override
-  String get settingsPinEnabled => 'PIN lock enabled';
-
-  @override
-  String get settingsRecoveryKeyInfo => 'Recovery Key';
-
-  @override
-  String get settingsRecoveryKeyInfoSubtitle =>
-      'Your recovery key is not stored — keep your written copy safe';
+  String get settingsRecoveryKeyWarning =>
+      'Tartsa biztonságban ezt a kulcsot. Bárki, aki birtokolja, visszaállíthatja a fiókját egy másik eszközön.';
 
   @override
   String get replaceIdentityTitle => 'Replace existing identity?';

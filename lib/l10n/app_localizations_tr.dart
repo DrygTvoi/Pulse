@@ -588,7 +588,7 @@ class AppLocalizationsTr extends AppLocalizations {
   String get onboardingNext => 'İleri';
 
   @override
-  String get onboardingGetStarted => 'Başla';
+  String get onboardingGetStarted => 'Hesap Oluştur';
 
   @override
   String get onboardingWelcomeTitle => 'Pulse\'a Hoş Geldiniz';
@@ -1205,7 +1205,14 @@ class AppLocalizationsTr extends AppLocalizations {
   String get passwordSkipForNow => 'Şimdilik atla';
 
   @override
-  String get passwordMinChars => 'Parola en az 6 karakter olmalıdır';
+  String get passwordMinChars => 'Parola en az 8 karakter olmalıdır';
+
+  @override
+  String get passwordNeedsVariety => 'Harf, rakam ve özel karakter içermelidir';
+
+  @override
+  String get passwordRequirements =>
+      'Min. 8 karakter harf, rakam ve özel karakter ile';
 
   @override
   String get passwordsDoNotMatch => 'Parolalar eşleşmiyor';
@@ -2716,119 +2723,94 @@ class AppLocalizationsTr extends AppLocalizations {
   String get channelCopyUrl => 'URL kopyala';
 
   @override
-  String get setupNext => 'Next';
+  String get setupNext => 'İleri';
 
   @override
   String get setupKeyWarning =>
-      'A recovery key will be generated for you. It is the only way to restore your account — there is no server, no password reset.';
+      'Sizin için bir kurtarma anahtarı oluşturulacak. Hesabınızı yeni bir cihazda kurtarmanın tek yolu budur — sunucu yok, şifre sıfırlama yok.';
 
   @override
-  String get setupKeyTitle => 'Your Recovery Key';
+  String get setupKeyTitle => 'Kurtarma Anahtarınız';
 
   @override
   String get setupKeySubtitle =>
-      'Write this key down and store it in a safe place. You will need it to restore your account on a new device.';
+      'Bu anahtarı yazın ve güvenli bir yerde saklayın. Hesabınızı yeni bir cihazda kurtarmak için gerekecek.';
 
   @override
-  String get setupKeyCopied => 'Copied!';
+  String get setupKeyCopied => 'Kopyalandı!';
 
   @override
-  String get setupKeyWroteItDown => 'I wrote it down';
+  String get setupKeyWroteItDown => 'Yazdım';
 
   @override
   String get setupKeyWarnBody =>
-      'This key is NOT stored anywhere. If you lose it, your account cannot be recovered.';
+      'Bu anahtarı yedek olarak yazın. Ayrıca daha sonra Ayarlar → Güvenlik bölümünden görüntüleyebilirsiniz.';
 
   @override
-  String get setupVerifyTitle => 'Verify Recovery Key';
+  String get setupVerifyTitle => 'Kurtarma anahtarını doğrula';
 
   @override
   String get setupVerifySubtitle =>
-      'Re-enter your recovery key to confirm you saved it correctly.';
+      'Doğru kaydettiğinizi onaylamak için kurtarma anahtarınızı tekrar girin.';
 
   @override
-  String get setupVerifyButton => 'Verify';
+  String get setupVerifyButton => 'Doğrula';
 
   @override
-  String get setupKeyMismatch => 'Key does not match. Check and try again.';
+  String get setupKeyMismatch =>
+      'Anahtar eşleşmiyor. Kontrol edip tekrar deneyin.';
 
   @override
-  String get setupSkipVerify => 'Skip verification';
+  String get setupSkipVerify => 'Doğrulamayı atla';
 
   @override
-  String get setupSkipVerifyTitle => 'Skip verification?';
+  String get setupSkipVerifyTitle => 'Doğrulamayı atla?';
 
   @override
   String get setupSkipVerifyBody =>
-      'If you lose your recovery key, your account cannot be restored. Are you sure you want to skip?';
+      'Kurtarma anahtarınızı kaybederseniz hesabınız kurtarılamaz. Emin misiniz?';
 
   @override
-  String get setupPinSet => 'Set a PIN';
+  String get setupCreatingAccount => 'Hesap oluşturuluyor…';
 
   @override
-  String get setupPinConfirm => 'Confirm PIN';
-
-  @override
-  String get setupPinHint =>
-      'This PIN unlocks the app. Your recovery key is used only to restore your account.';
-
-  @override
-  String get setupPinMismatch => 'PINs do not match. Try again.';
-
-  @override
-  String get setupCreatingAccount => 'Creating account…';
-
-  @override
-  String get setupRestoringAccount => 'Restoring account…';
+  String get setupRestoringAccount => 'Hesap kurtarılıyor…';
 
   @override
   String get restoreKeyInfoBanner =>
-      'Enter your recovery key — your address (Nostr + Session) will be restored automatically. Contacts and messages were stored locally only.';
+      'Kurtarma anahtarınızı girin — adresiniz (Nostr + Session) otomatik olarak kurtarılacak. Kişiler ve mesajlar yalnızca yerel olarak depolanmıştı.';
 
   @override
-  String get restoreKeyHint => 'Recovery key';
+  String get restoreKeyHint => 'Kurtarma anahtarı';
 
   @override
-  String get lockPinSubtitle => 'Enter your PIN to continue';
+  String get settingsViewRecoveryKey => 'Kurtarma anahtarını görüntüle';
 
   @override
-  String get lockWrongPin => 'Wrong PIN';
+  String get settingsViewRecoveryKeySubtitle =>
+      'Hesap kurtarma anahtarınızı gösterin';
 
   @override
-  String get settingsChangePin => 'Change PIN';
+  String get settingsRecoveryKeyNotStored =>
+      'Kurtarma anahtarı mevcut değil (bu özellikten önce oluşturulmuş)';
 
   @override
-  String get settingsChangePinSubtitle => 'Update your app unlock PIN';
+  String get settingsRecoveryKeyWarning =>
+      'Bu anahtarı güvenli tutun. Anahtara sahip herkes hesabınızı başka bir cihazda kurtarabilir.';
 
   @override
-  String get settingsEnterCurrentPin => 'Enter your current PIN to continue';
-
-  @override
-  String get settingsPinChanged => 'PIN updated';
-
-  @override
-  String get settingsPinEnabled => 'PIN lock enabled';
-
-  @override
-  String get settingsRecoveryKeyInfo => 'Recovery Key';
-
-  @override
-  String get settingsRecoveryKeyInfoSubtitle =>
-      'Your recovery key is not stored — keep your written copy safe';
-
-  @override
-  String get replaceIdentityTitle => 'Replace existing identity?';
+  String get replaceIdentityTitle => 'Mevcut kimlik değiştirilsin mi?';
 
   @override
   String get replaceIdentityBodyRestore =>
-      'An identity already exists on this device. Restoring will permanently replace your current Nostr key and Oxen seed. All contacts will lose the ability to reach your current address.\n\nThis cannot be undone.';
+      'Bu cihazda zaten bir kimlik var. Kurtarma, mevcut Nostr anahtarınızı ve Oxen tohumunuzu kalıcı olarak değiştirecek. Tüm kişiler mevcut adresinize ulaşma yeteneğini kaybedecek.\n\nBu geri alınamaz.';
 
   @override
   String get replaceIdentityBodyCreate =>
-      'An identity already exists on this device. Creating a new one will permanently replace your current Nostr key and Oxen seed. All contacts will lose the ability to reach your current address.\n\nThis cannot be undone.';
+      'Bu cihazda zaten bir kimlik var. Yeni bir tane oluşturmak, mevcut Nostr anahtarınızı ve Oxen tohumunuzu kalıcı olarak değiştirecek. Tüm kişiler mevcut adresinize ulaşma yeteneğini kaybedecek.\n\nBu geri alınamaz.';
 
   @override
-  String get replace => 'Replace';
+  String get replace => 'Değiştir';
 
   @override
   String get callNoScreenSources => 'No screen sources available';

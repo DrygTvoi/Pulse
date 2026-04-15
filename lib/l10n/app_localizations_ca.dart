@@ -603,7 +603,7 @@ class AppLocalizationsCa extends AppLocalizations {
   String get onboardingNext => 'Següent';
 
   @override
-  String get onboardingGetStarted => 'Comencem';
+  String get onboardingGetStarted => 'Crear compte';
 
   @override
   String get onboardingWelcomeTitle => 'Benvingut a Pulse';
@@ -1225,7 +1225,15 @@ class AppLocalizationsCa extends AppLocalizations {
 
   @override
   String get passwordMinChars =>
-      'La contrasenya ha de tenir almenys 6 caràcters';
+      'La contrasenya ha de tenir almenys 8 caràcters';
+
+  @override
+  String get passwordNeedsVariety =>
+      'Ha d\'incloure lletres, números i caràcters especials';
+
+  @override
+  String get passwordRequirements =>
+      'Mín. 8 caràcters amb lletres, números i un caràcter especial';
 
   @override
   String get passwordsDoNotMatch => 'Les contrasenyes no coincideixen';
@@ -2750,105 +2758,80 @@ class AppLocalizationsCa extends AppLocalizations {
   String get channelCopyUrl => 'Copiar URL';
 
   @override
-  String get setupNext => 'Next';
+  String get setupNext => 'Següent';
 
   @override
   String get setupKeyWarning =>
-      'A recovery key will be generated for you. It is the only way to restore your account — there is no server, no password reset.';
+      'Es generarà una clau de recuperació per a tu. És l\'única manera de restaurar el teu compte en un dispositiu nou — no hi ha servidor, no hi ha restabliment de contrasenya.';
 
   @override
-  String get setupKeyTitle => 'Your Recovery Key';
+  String get setupKeyTitle => 'La teva clau de recuperació';
 
   @override
   String get setupKeySubtitle =>
-      'Write this key down and store it in a safe place. You will need it to restore your account on a new device.';
+      'Escriu aquesta clau i guarda-la en un lloc segur. La necessitaràs per restaurar el teu compte en un dispositiu nou.';
 
   @override
-  String get setupKeyCopied => 'Copied!';
+  String get setupKeyCopied => 'Copiat!';
 
   @override
-  String get setupKeyWroteItDown => 'I wrote it down';
+  String get setupKeyWroteItDown => 'L\'he escrit';
 
   @override
   String get setupKeyWarnBody =>
-      'This key is NOT stored anywhere. If you lose it, your account cannot be recovered.';
+      'Escriu aquesta clau com a còpia de seguretat. També pots veure-la més tard a Configuració → Seguretat.';
 
   @override
-  String get setupVerifyTitle => 'Verify Recovery Key';
+  String get setupVerifyTitle => 'Verifica la clau de recuperació';
 
   @override
   String get setupVerifySubtitle =>
-      'Re-enter your recovery key to confirm you saved it correctly.';
+      'Torna a introduir la teva clau de recuperació per confirmar que l\'has guardat correctament.';
 
   @override
-  String get setupVerifyButton => 'Verify';
+  String get setupVerifyButton => 'Verifica';
 
   @override
-  String get setupKeyMismatch => 'Key does not match. Check and try again.';
+  String get setupKeyMismatch =>
+      'La clau no coincideix. Comprova i torna a intentar-ho.';
 
   @override
-  String get setupSkipVerify => 'Skip verification';
+  String get setupSkipVerify => 'Ometre verificació';
 
   @override
-  String get setupSkipVerifyTitle => 'Skip verification?';
+  String get setupSkipVerifyTitle => 'Ometre verificació?';
 
   @override
   String get setupSkipVerifyBody =>
-      'If you lose your recovery key, your account cannot be restored. Are you sure you want to skip?';
+      'Si perds la teva clau de recuperació, el teu compte no es pot restaurar. Segur que vols ometre?';
 
   @override
-  String get setupPinSet => 'Set a PIN';
+  String get setupCreatingAccount => 'Creant compte…';
 
   @override
-  String get setupPinConfirm => 'Confirm PIN';
-
-  @override
-  String get setupPinHint =>
-      'This PIN unlocks the app. Your recovery key is used only to restore your account.';
-
-  @override
-  String get setupPinMismatch => 'PINs do not match. Try again.';
-
-  @override
-  String get setupCreatingAccount => 'Creating account…';
-
-  @override
-  String get setupRestoringAccount => 'Restoring account…';
+  String get setupRestoringAccount => 'Restaurant compte…';
 
   @override
   String get restoreKeyInfoBanner =>
-      'Enter your recovery key — your address (Nostr + Session) will be restored automatically. Contacts and messages were stored locally only.';
+      'Introdueix la teva clau de recuperació — la teva adreça (Nostr + Session) es restaurarà automàticament. Els contactes i missatges es guardaven només localment.';
 
   @override
-  String get restoreKeyHint => 'Recovery key';
+  String get restoreKeyHint => 'Clau de recuperació';
 
   @override
-  String get lockPinSubtitle => 'Enter your PIN to continue';
+  String get settingsViewRecoveryKey => 'Veure clau de recuperació';
 
   @override
-  String get lockWrongPin => 'Wrong PIN';
+  String get settingsViewRecoveryKeySubtitle =>
+      'Mostra la teva clau de recuperació del compte';
 
   @override
-  String get settingsChangePin => 'Change PIN';
+  String get settingsRecoveryKeyNotStored =>
+      'Clau de recuperació no disponible (creada abans d\'aquesta funció)';
 
   @override
-  String get settingsChangePinSubtitle => 'Update your app unlock PIN';
-
-  @override
-  String get settingsEnterCurrentPin => 'Enter your current PIN to continue';
-
-  @override
-  String get settingsPinChanged => 'PIN updated';
-
-  @override
-  String get settingsPinEnabled => 'PIN lock enabled';
-
-  @override
-  String get settingsRecoveryKeyInfo => 'Recovery Key';
-
-  @override
-  String get settingsRecoveryKeyInfoSubtitle =>
-      'Your recovery key is not stored — keep your written copy safe';
+  String get settingsRecoveryKeyWarning =>
+      'Guarda aquesta clau en un lloc segur. Qualsevol persona que la tingui pot restaurar el teu compte en un altre dispositiu.';
 
   @override
   String get replaceIdentityTitle => 'Replace existing identity?';

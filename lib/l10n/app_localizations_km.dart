@@ -586,7 +586,7 @@ class AppLocalizationsKm extends AppLocalizations {
   String get onboardingNext => 'បន្ទាប់';
 
   @override
-  String get onboardingGetStarted => 'ចាប់ផ្តើម';
+  String get onboardingGetStarted => 'បង្កើតគណនី';
 
   @override
   String get onboardingWelcomeTitle => 'សូមស្វាគមន៍មកកាន់ Pulse';
@@ -1200,7 +1200,14 @@ class AppLocalizationsKm extends AppLocalizations {
   String get passwordSkipForNow => 'រំលងសម្រាប់ពេលនេះ';
 
   @override
-  String get passwordMinChars => 'ពាក្យសម្ងាត់ត្រូវតែមានយ៉ាងហោចណាស់ 6 តួអក្សរ';
+  String get passwordMinChars => 'ពាក្យសម្ងាត់ត្រូវតែមានយ៉ាងហោចណាស់ 8 តួអក្សរ';
+
+  @override
+  String get passwordNeedsVariety => 'ត្រូវតែមានអក្សរ លេខ និងតួអក្សរពិសេស';
+
+  @override
+  String get passwordRequirements =>
+      'អប្បបរមា 8 តួអក្សរ ដែលមានអក្សរ លេខ និងតួអក្សរពិសេស';
 
   @override
   String get passwordsDoNotMatch => 'ពាក្យសម្ងាត់មិនត្រូវគ្នា';
@@ -2705,11 +2712,11 @@ class AppLocalizationsKm extends AppLocalizations {
   String get channelCopyUrl => 'ចម្លង URL';
 
   @override
-  String get setupNext => 'Next';
+  String get setupNext => 'បន្ទាប់';
 
   @override
   String get setupKeyWarning =>
-      'A recovery key will be generated for you. It is the only way to restore your account — there is no server, no password reset.';
+      'A recovery key will be generated for you. It is the only way to restore your account on a new device — there is no server, no password reset.';
 
   @override
   String get setupKeyTitle => 'Your Recovery Key';
@@ -2719,14 +2726,14 @@ class AppLocalizationsKm extends AppLocalizations {
       'Write this key down and store it in a safe place. You will need it to restore your account on a new device.';
 
   @override
-  String get setupKeyCopied => 'Copied!';
+  String get setupKeyCopied => 'បានចម្លង!';
 
   @override
-  String get setupKeyWroteItDown => 'I wrote it down';
+  String get setupKeyWroteItDown => 'ខ្ញុំបានសរសេរ';
 
   @override
   String get setupKeyWarnBody =>
-      'This key is NOT stored anywhere. If you lose it, your account cannot be recovered.';
+      'Write this key down as a backup. You can also view it later in Settings → Security.';
 
   @override
   String get setupVerifyTitle => 'Verify Recovery Key';
@@ -2736,7 +2743,7 @@ class AppLocalizationsKm extends AppLocalizations {
       'Re-enter your recovery key to confirm you saved it correctly.';
 
   @override
-  String get setupVerifyButton => 'Verify';
+  String get setupVerifyButton => 'ផ្ទៀងផ្ទាត់';
 
   @override
   String get setupKeyMismatch => 'Key does not match. Check and try again.';
@@ -2752,19 +2759,6 @@ class AppLocalizationsKm extends AppLocalizations {
       'If you lose your recovery key, your account cannot be restored. Are you sure you want to skip?';
 
   @override
-  String get setupPinSet => 'Set a PIN';
-
-  @override
-  String get setupPinConfirm => 'Confirm PIN';
-
-  @override
-  String get setupPinHint =>
-      'This PIN unlocks the app. Your recovery key is used only to restore your account.';
-
-  @override
-  String get setupPinMismatch => 'PINs do not match. Try again.';
-
-  @override
   String get setupCreatingAccount => 'Creating account…';
 
   @override
@@ -2778,32 +2772,18 @@ class AppLocalizationsKm extends AppLocalizations {
   String get restoreKeyHint => 'Recovery key';
 
   @override
-  String get lockPinSubtitle => 'Enter your PIN to continue';
+  String get settingsViewRecoveryKey => 'មើលសោសង្គ្រោះ';
 
   @override
-  String get lockWrongPin => 'Wrong PIN';
+  String get settingsViewRecoveryKeySubtitle => 'បង្ហាញសោសង្គ្រោះគណនីរបស់អ្នក';
 
   @override
-  String get settingsChangePin => 'Change PIN';
+  String get settingsRecoveryKeyNotStored =>
+      'សោសង្គ្រោះមិនអាចប្រើបាន (បង្កើតមុនមុខងារនេះ)';
 
   @override
-  String get settingsChangePinSubtitle => 'Update your app unlock PIN';
-
-  @override
-  String get settingsEnterCurrentPin => 'Enter your current PIN to continue';
-
-  @override
-  String get settingsPinChanged => 'PIN updated';
-
-  @override
-  String get settingsPinEnabled => 'PIN lock enabled';
-
-  @override
-  String get settingsRecoveryKeyInfo => 'Recovery Key';
-
-  @override
-  String get settingsRecoveryKeyInfoSubtitle =>
-      'Your recovery key is not stored — keep your written copy safe';
+  String get settingsRecoveryKeyWarning =>
+      'រក្សាសោនេះឱ្យមានសុវត្ថិភាព។ អ្នកណាដែលមានវាអាចស្ដារគណនីរបស់អ្នកនៅលើឧបករណ៍ផ្សេង។';
 
   @override
   String get replaceIdentityTitle => 'Replace existing identity?';

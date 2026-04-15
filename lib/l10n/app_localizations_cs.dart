@@ -587,7 +587,7 @@ class AppLocalizationsCs extends AppLocalizations {
   String get onboardingNext => 'Další';
 
   @override
-  String get onboardingGetStarted => 'Začít';
+  String get onboardingGetStarted => 'Vytvořit účet';
 
   @override
   String get onboardingWelcomeTitle => 'Vítejte v Pulse';
@@ -1203,7 +1203,15 @@ class AppLocalizationsCs extends AppLocalizations {
   String get passwordSkipForNow => 'Prozatím přeskočit';
 
   @override
-  String get passwordMinChars => 'Heslo musí mít alespoň 6 znaků';
+  String get passwordMinChars => 'Heslo musí mít alespoň 8 znaků';
+
+  @override
+  String get passwordNeedsVariety =>
+      'Musí obsahovat písmena, čísla a speciální znaky';
+
+  @override
+  String get passwordRequirements =>
+      'Min. 8 znaků s písmeny, čísly a speciálním znakem';
 
   @override
   String get passwordsDoNotMatch => 'Hesla se neshodují';
@@ -2701,105 +2709,79 @@ class AppLocalizationsCs extends AppLocalizations {
   String get channelCopyUrl => 'Kopírovat URL';
 
   @override
-  String get setupNext => 'Next';
+  String get setupNext => 'Další';
 
   @override
   String get setupKeyWarning =>
-      'A recovery key will be generated for you. It is the only way to restore your account — there is no server, no password reset.';
+      'Bude vám vygenerován obnovovací klíč. Je to jediný způsob, jak obnovit účet na novém zařízení — neexistuje server, neexistuje reset hesla.';
 
   @override
-  String get setupKeyTitle => 'Your Recovery Key';
+  String get setupKeyTitle => 'Váš obnovovací klíč';
 
   @override
   String get setupKeySubtitle =>
-      'Write this key down and store it in a safe place. You will need it to restore your account on a new device.';
+      'Zapište si tento klíč a uložte ho na bezpečné místo. Budete ho potřebovat k obnovení účtu na novém zařízení.';
 
   @override
-  String get setupKeyCopied => 'Copied!';
+  String get setupKeyCopied => 'Zkopírováno!';
 
   @override
-  String get setupKeyWroteItDown => 'I wrote it down';
+  String get setupKeyWroteItDown => 'Zapsal jsem si to';
 
   @override
   String get setupKeyWarnBody =>
-      'This key is NOT stored anywhere. If you lose it, your account cannot be recovered.';
+      'Zapište si tento klíč jako zálohu. Můžete si ho také zobrazit později v Nastavení → Zabezpečení.';
 
   @override
-  String get setupVerifyTitle => 'Verify Recovery Key';
+  String get setupVerifyTitle => 'Ověřte obnovovací klíč';
 
   @override
   String get setupVerifySubtitle =>
-      'Re-enter your recovery key to confirm you saved it correctly.';
+      'Zadejte znovu svůj obnovovací klíč pro potvrzení, že jste si ho správně uložili.';
 
   @override
-  String get setupVerifyButton => 'Verify';
+  String get setupVerifyButton => 'Ověřit';
 
   @override
-  String get setupKeyMismatch => 'Key does not match. Check and try again.';
+  String get setupKeyMismatch =>
+      'Klíč nesouhlasí. Zkontrolujte a zkuste to znovu.';
 
   @override
-  String get setupSkipVerify => 'Skip verification';
+  String get setupSkipVerify => 'Přeskočit ověření';
 
   @override
-  String get setupSkipVerifyTitle => 'Skip verification?';
+  String get setupSkipVerifyTitle => 'Přeskočit ověření?';
 
   @override
   String get setupSkipVerifyBody =>
-      'If you lose your recovery key, your account cannot be restored. Are you sure you want to skip?';
+      'Pokud ztratíte obnovovací klíč, váš účet nelze obnovit. Opravdu chcete přeskočit?';
 
   @override
-  String get setupPinSet => 'Set a PIN';
+  String get setupCreatingAccount => 'Vytváření účtu…';
 
   @override
-  String get setupPinConfirm => 'Confirm PIN';
-
-  @override
-  String get setupPinHint =>
-      'This PIN unlocks the app. Your recovery key is used only to restore your account.';
-
-  @override
-  String get setupPinMismatch => 'PINs do not match. Try again.';
-
-  @override
-  String get setupCreatingAccount => 'Creating account…';
-
-  @override
-  String get setupRestoringAccount => 'Restoring account…';
+  String get setupRestoringAccount => 'Obnovování účtu…';
 
   @override
   String get restoreKeyInfoBanner =>
-      'Enter your recovery key — your address (Nostr + Session) will be restored automatically. Contacts and messages were stored locally only.';
+      'Zadejte svůj obnovovací klíč — vaše adresa (Nostr + Session) bude obnovena automaticky. Kontakty a zprávy byly uloženy pouze lokálně.';
 
   @override
-  String get restoreKeyHint => 'Recovery key';
+  String get restoreKeyHint => 'Obnovovací klíč';
 
   @override
-  String get lockPinSubtitle => 'Enter your PIN to continue';
+  String get settingsViewRecoveryKey => 'Zobrazit obnovovací klíč';
 
   @override
-  String get lockWrongPin => 'Wrong PIN';
+  String get settingsViewRecoveryKeySubtitle => 'Zobrazit obnovovací klíč účtu';
 
   @override
-  String get settingsChangePin => 'Change PIN';
+  String get settingsRecoveryKeyNotStored =>
+      'Obnovovací klíč není k dispozici (vytvořen před touto funkcí)';
 
   @override
-  String get settingsChangePinSubtitle => 'Update your app unlock PIN';
-
-  @override
-  String get settingsEnterCurrentPin => 'Enter your current PIN to continue';
-
-  @override
-  String get settingsPinChanged => 'PIN updated';
-
-  @override
-  String get settingsPinEnabled => 'PIN lock enabled';
-
-  @override
-  String get settingsRecoveryKeyInfo => 'Recovery Key';
-
-  @override
-  String get settingsRecoveryKeyInfoSubtitle =>
-      'Your recovery key is not stored — keep your written copy safe';
+  String get settingsRecoveryKeyWarning =>
+      'Uchovejte tento klíč v bezpečí. Kdokoli s ním může obnovit váš účet na jiném zařízení.';
 
   @override
   String get replaceIdentityTitle => 'Replace existing identity?';

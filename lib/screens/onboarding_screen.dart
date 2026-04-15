@@ -13,11 +13,8 @@ class OnboardingScreen extends StatelessWidget {
   final String? initialConfig;
   const OnboardingScreen({super.key, this.initialConfig});
 
-  void _startMessaging(BuildContext context) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('onboarding_done', true);
-    if (!context.mounted) return;
-    Navigator.of(context).pushReplacement(
+  void _startMessaging(BuildContext context) {
+    Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => SetupIdentityScreen(initialConfig: initialConfig),
       ),
@@ -152,15 +149,13 @@ class OnboardingScreen extends StatelessWidget {
             const Spacer(flex: 3),
 
             // Logo
-            Container(
-              width: 100,
-              height: 100,
-              decoration: BoxDecoration(
-                color: AppTheme.primary,
-                borderRadius: BorderRadius.circular(28),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(28),
+              child: Image.asset(
+                'assets/icons/pulse.png',
+                width: 100,
+                height: 100,
               ),
-              child: const Icon(Icons.shield_rounded,
-                  color: Colors.white, size: 52),
             ),
             const SizedBox(height: DesignTokens.spacing20),
 
@@ -220,11 +215,8 @@ class OnboardingScreen extends StatelessWidget {
 
             // "Already have an account? Restore"
             GestureDetector(
-              onTap: () async {
-                final prefs = await SharedPreferences.getInstance();
-                await prefs.setBool('onboarding_done', true);
-                if (!context.mounted) return;
-                Navigator.of(context).pushReplacement(
+              onTap: () {
+                Navigator.of(context).push(
                   MaterialPageRoute(
                     builder: (_) => const RestoreAccountScreen(),
                   ),

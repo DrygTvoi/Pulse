@@ -583,7 +583,7 @@ class AppLocalizationsFa extends AppLocalizations {
   String get onboardingNext => 'بعدی';
 
   @override
-  String get onboardingGetStarted => 'شروع کنید';
+  String get onboardingGetStarted => 'ایجاد حساب';
 
   @override
   String get onboardingWelcomeTitle => 'به Pulse خوش آمدید';
@@ -1199,7 +1199,15 @@ class AppLocalizationsFa extends AppLocalizations {
   String get passwordSkipForNow => 'فعلاً رد شوید';
 
   @override
-  String get passwordMinChars => 'رمز عبور باید حداقل 6 کاراکتر باشد';
+  String get passwordMinChars => 'رمز عبور باید حداقل 8 کاراکتر باشد';
+
+  @override
+  String get passwordNeedsVariety =>
+      'باید شامل حروف، اعداد و کاراکترهای خاص باشد';
+
+  @override
+  String get passwordRequirements =>
+      'حداقل 8 کاراکتر با حروف، اعداد و یک کاراکتر خاص';
 
   @override
   String get passwordsDoNotMatch => 'رمزهای عبور مطابقت ندارند';
@@ -2695,105 +2703,79 @@ class AppLocalizationsFa extends AppLocalizations {
   String get channelCopyUrl => 'کپی URL';
 
   @override
-  String get setupNext => 'Next';
+  String get setupNext => 'بعدی';
 
   @override
   String get setupKeyWarning =>
-      'A recovery key will be generated for you. It is the only way to restore your account — there is no server, no password reset.';
+      'یک کلید بازیابی برای شما ایجاد خواهد شد. این تنها راه بازیابی حساب شما در دستگاه جدید است — سروری وجود ندارد، بازنشانی رمز عبور وجود ندارد.';
 
   @override
-  String get setupKeyTitle => 'Your Recovery Key';
+  String get setupKeyTitle => 'کلید بازیابی شما';
 
   @override
   String get setupKeySubtitle =>
-      'Write this key down and store it in a safe place. You will need it to restore your account on a new device.';
+      'این کلید را یادداشت کنید و در جای امنی نگهداری کنید. برای بازیابی حساب خود در دستگاه جدید به آن نیاز خواهید داشت.';
 
   @override
-  String get setupKeyCopied => 'Copied!';
+  String get setupKeyCopied => 'کپی شد!';
 
   @override
-  String get setupKeyWroteItDown => 'I wrote it down';
+  String get setupKeyWroteItDown => 'یادداشت کردم';
 
   @override
   String get setupKeyWarnBody =>
-      'This key is NOT stored anywhere. If you lose it, your account cannot be recovered.';
+      'این کلید را به عنوان پشتیبان یادداشت کنید. همچنین می‌توانید بعداً در تنظیمات → امنیت مشاهده کنید.';
 
   @override
-  String get setupVerifyTitle => 'Verify Recovery Key';
+  String get setupVerifyTitle => 'تأیید کلید بازیابی';
 
   @override
   String get setupVerifySubtitle =>
-      'Re-enter your recovery key to confirm you saved it correctly.';
+      'کلید بازیابی خود را دوباره وارد کنید تا تأیید شود که آن را درست ذخیره کرده‌اید.';
 
   @override
-  String get setupVerifyButton => 'Verify';
+  String get setupVerifyButton => 'تأیید';
 
   @override
-  String get setupKeyMismatch => 'Key does not match. Check and try again.';
+  String get setupKeyMismatch =>
+      'کلید مطابقت ندارد. بررسی کنید و دوباره امتحان کنید.';
 
   @override
-  String get setupSkipVerify => 'Skip verification';
+  String get setupSkipVerify => 'رد شدن از تأیید';
 
   @override
-  String get setupSkipVerifyTitle => 'Skip verification?';
+  String get setupSkipVerifyTitle => 'از تأیید رد شوید؟';
 
   @override
   String get setupSkipVerifyBody =>
-      'If you lose your recovery key, your account cannot be restored. Are you sure you want to skip?';
+      'اگر کلید بازیابی خود را گم کنید، حساب شما قابل بازیابی نیست. آیا مطمئن هستید که می‌خواهید رد شوید؟';
 
   @override
-  String get setupPinSet => 'Set a PIN';
+  String get setupCreatingAccount => 'در حال ایجاد حساب…';
 
   @override
-  String get setupPinConfirm => 'Confirm PIN';
-
-  @override
-  String get setupPinHint =>
-      'This PIN unlocks the app. Your recovery key is used only to restore your account.';
-
-  @override
-  String get setupPinMismatch => 'PINs do not match. Try again.';
-
-  @override
-  String get setupCreatingAccount => 'Creating account…';
-
-  @override
-  String get setupRestoringAccount => 'Restoring account…';
+  String get setupRestoringAccount => 'در حال بازیابی حساب…';
 
   @override
   String get restoreKeyInfoBanner =>
-      'Enter your recovery key — your address (Nostr + Session) will be restored automatically. Contacts and messages were stored locally only.';
+      'کلید بازیابی خود را وارد کنید — آدرس شما (Nostr + Session) به طور خودکار بازیابی می‌شود. مخاطبین و پیام‌ها فقط به صورت محلی ذخیره شده بودند.';
 
   @override
-  String get restoreKeyHint => 'Recovery key';
+  String get restoreKeyHint => 'کلید بازیابی';
 
   @override
-  String get lockPinSubtitle => 'Enter your PIN to continue';
+  String get settingsViewRecoveryKey => 'مشاهده کلید بازیابی';
 
   @override
-  String get lockWrongPin => 'Wrong PIN';
+  String get settingsViewRecoveryKeySubtitle => 'نمایش کلید بازیابی حساب';
 
   @override
-  String get settingsChangePin => 'Change PIN';
+  String get settingsRecoveryKeyNotStored =>
+      'کلید بازیابی در دسترس نیست (قبل از این قابلیت ایجاد شده)';
 
   @override
-  String get settingsChangePinSubtitle => 'Update your app unlock PIN';
-
-  @override
-  String get settingsEnterCurrentPin => 'Enter your current PIN to continue';
-
-  @override
-  String get settingsPinChanged => 'PIN updated';
-
-  @override
-  String get settingsPinEnabled => 'PIN lock enabled';
-
-  @override
-  String get settingsRecoveryKeyInfo => 'Recovery Key';
-
-  @override
-  String get settingsRecoveryKeyInfoSubtitle =>
-      'Your recovery key is not stored — keep your written copy safe';
+  String get settingsRecoveryKeyWarning =>
+      'این کلید را امن نگه دارید. هر کسی که آن را داشته باشد می‌تواند حساب شما را در دستگاه دیگری بازیابی کند.';
 
   @override
   String get replaceIdentityTitle => 'Replace existing identity?';

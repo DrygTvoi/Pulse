@@ -606,7 +606,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get onboardingNext => 'Siguiente';
 
   @override
-  String get onboardingGetStarted => 'Comenzar';
+  String get onboardingGetStarted => 'Crear cuenta';
 
   @override
   String get onboardingWelcomeTitle => 'Bienvenido a Pulse';
@@ -1227,7 +1227,15 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get passwordMinChars =>
-      'La contraseña debe tener al menos 6 caracteres';
+      'La contraseña debe tener al menos 8 caracteres';
+
+  @override
+  String get passwordNeedsVariety =>
+      'Debe incluir letras, números y caracteres especiales';
+
+  @override
+  String get passwordRequirements =>
+      'Mín. 8 caracteres con letras, números y un carácter especial';
 
   @override
   String get passwordsDoNotMatch => 'Las contraseñas no coinciden';
@@ -2738,119 +2746,94 @@ class AppLocalizationsEs extends AppLocalizations {
   String get channelCopyUrl => 'Copiar URL';
 
   @override
-  String get setupNext => 'Next';
+  String get setupNext => 'Siguiente';
 
   @override
   String get setupKeyWarning =>
-      'A recovery key will be generated for you. It is the only way to restore your account — there is no server, no password reset.';
+      'Se generará una clave de recuperación para ti. Es la única forma de restaurar tu cuenta en un nuevo dispositivo — no hay servidor, no hay restablecimiento de contraseña.';
 
   @override
-  String get setupKeyTitle => 'Your Recovery Key';
+  String get setupKeyTitle => 'Tu clave de recuperación';
 
   @override
   String get setupKeySubtitle =>
-      'Write this key down and store it in a safe place. You will need it to restore your account on a new device.';
+      'Anota esta clave y guárdala en un lugar seguro. La necesitarás para restaurar tu cuenta en un nuevo dispositivo.';
 
   @override
-  String get setupKeyCopied => 'Copied!';
+  String get setupKeyCopied => '¡Copiado!';
 
   @override
-  String get setupKeyWroteItDown => 'I wrote it down';
+  String get setupKeyWroteItDown => 'La anoté';
 
   @override
   String get setupKeyWarnBody =>
-      'This key is NOT stored anywhere. If you lose it, your account cannot be recovered.';
+      'Anota esta clave como respaldo. También puedes verla después en Ajustes → Seguridad.';
 
   @override
-  String get setupVerifyTitle => 'Verify Recovery Key';
+  String get setupVerifyTitle => 'Verificar clave de recuperación';
 
   @override
   String get setupVerifySubtitle =>
-      'Re-enter your recovery key to confirm you saved it correctly.';
+      'Vuelve a ingresar tu clave de recuperación para confirmar que la guardaste correctamente.';
 
   @override
-  String get setupVerifyButton => 'Verify';
+  String get setupVerifyButton => 'Verificar';
 
   @override
-  String get setupKeyMismatch => 'Key does not match. Check and try again.';
+  String get setupKeyMismatch =>
+      'La clave no coincide. Revisa e inténtalo de nuevo.';
 
   @override
-  String get setupSkipVerify => 'Skip verification';
+  String get setupSkipVerify => 'Omitir verificación';
 
   @override
-  String get setupSkipVerifyTitle => 'Skip verification?';
+  String get setupSkipVerifyTitle => '¿Omitir verificación?';
 
   @override
   String get setupSkipVerifyBody =>
-      'If you lose your recovery key, your account cannot be restored. Are you sure you want to skip?';
+      'Si pierdes tu clave de recuperación, tu cuenta no podrá ser restaurada. ¿Estás seguro?';
 
   @override
-  String get setupPinSet => 'Set a PIN';
+  String get setupCreatingAccount => 'Creando cuenta…';
 
   @override
-  String get setupPinConfirm => 'Confirm PIN';
-
-  @override
-  String get setupPinHint =>
-      'This PIN unlocks the app. Your recovery key is used only to restore your account.';
-
-  @override
-  String get setupPinMismatch => 'PINs do not match. Try again.';
-
-  @override
-  String get setupCreatingAccount => 'Creating account…';
-
-  @override
-  String get setupRestoringAccount => 'Restoring account…';
+  String get setupRestoringAccount => 'Restaurando cuenta…';
 
   @override
   String get restoreKeyInfoBanner =>
-      'Enter your recovery key — your address (Nostr + Session) will be restored automatically. Contacts and messages were stored locally only.';
+      'Ingresa tu clave de recuperación — tu dirección (Nostr + Session) se restaurará automáticamente. Los contactos y mensajes se almacenaban solo localmente.';
 
   @override
-  String get restoreKeyHint => 'Recovery key';
+  String get restoreKeyHint => 'Clave de recuperación';
 
   @override
-  String get lockPinSubtitle => 'Enter your PIN to continue';
+  String get settingsViewRecoveryKey => 'Ver clave de recuperación';
 
   @override
-  String get lockWrongPin => 'Wrong PIN';
+  String get settingsViewRecoveryKeySubtitle =>
+      'Mostrar la clave de recuperación de tu cuenta';
 
   @override
-  String get settingsChangePin => 'Change PIN';
+  String get settingsRecoveryKeyNotStored =>
+      'Clave de recuperación no disponible (creada antes de esta función)';
 
   @override
-  String get settingsChangePinSubtitle => 'Update your app unlock PIN';
+  String get settingsRecoveryKeyWarning =>
+      'Mantén esta clave segura. Cualquier persona que la tenga puede restaurar tu cuenta en otro dispositivo.';
 
   @override
-  String get settingsEnterCurrentPin => 'Enter your current PIN to continue';
-
-  @override
-  String get settingsPinChanged => 'PIN updated';
-
-  @override
-  String get settingsPinEnabled => 'PIN lock enabled';
-
-  @override
-  String get settingsRecoveryKeyInfo => 'Recovery Key';
-
-  @override
-  String get settingsRecoveryKeyInfoSubtitle =>
-      'Your recovery key is not stored — keep your written copy safe';
-
-  @override
-  String get replaceIdentityTitle => 'Replace existing identity?';
+  String get replaceIdentityTitle => '¿Reemplazar identidad existente?';
 
   @override
   String get replaceIdentityBodyRestore =>
-      'An identity already exists on this device. Restoring will permanently replace your current Nostr key and Oxen seed. All contacts will lose the ability to reach your current address.\n\nThis cannot be undone.';
+      'Ya existe una identidad en este dispositivo. Restaurar reemplazará permanentemente tu clave Nostr actual y semilla Oxen. Todos los contactos perderán la capacidad de comunicarse con tu dirección actual.\n\nEsto no se puede deshacer.';
 
   @override
   String get replaceIdentityBodyCreate =>
-      'An identity already exists on this device. Creating a new one will permanently replace your current Nostr key and Oxen seed. All contacts will lose the ability to reach your current address.\n\nThis cannot be undone.';
+      'Ya existe una identidad en este dispositivo. Crear una nueva reemplazará permanentemente tu clave Nostr actual y semilla Oxen. Todos los contactos perderán la capacidad de comunicarse con tu dirección actual.\n\nEsto no se puede deshacer.';
 
   @override
-  String get replace => 'Replace';
+  String get replace => 'Reemplazar';
 
   @override
   String get callNoScreenSources => 'No screen sources available';

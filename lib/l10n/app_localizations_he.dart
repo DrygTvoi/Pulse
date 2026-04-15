@@ -580,7 +580,7 @@ class AppLocalizationsHe extends AppLocalizations {
   String get onboardingNext => 'הבא';
 
   @override
-  String get onboardingGetStarted => 'בוא נתחיל';
+  String get onboardingGetStarted => 'צור חשבון';
 
   @override
   String get onboardingWelcomeTitle => 'ברוכים הבאים ל-Pulse';
@@ -1192,7 +1192,13 @@ class AppLocalizationsHe extends AppLocalizations {
   String get passwordSkipForNow => 'דלג לעת עתה';
 
   @override
-  String get passwordMinChars => 'הסיסמה חייבת להכיל לפחות 6 תווים';
+  String get passwordMinChars => 'הסיסמה חייבת להכיל לפחות 8 תווים';
+
+  @override
+  String get passwordNeedsVariety => 'חייב לכלול אותיות, מספרים ותווים מיוחדים';
+
+  @override
+  String get passwordRequirements => 'מינ. 8 תווים עם אותיות, מספרים ותו מיוחד';
 
   @override
   String get passwordsDoNotMatch => 'הסיסמאות אינן תואמות';
@@ -2670,105 +2676,78 @@ class AppLocalizationsHe extends AppLocalizations {
   String get channelCopyUrl => 'העתק URL';
 
   @override
-  String get setupNext => 'Next';
+  String get setupNext => 'הבא';
 
   @override
   String get setupKeyWarning =>
-      'A recovery key will be generated for you. It is the only way to restore your account — there is no server, no password reset.';
+      'מפתח שחזור ייוצר עבורך. זו הדרך היחידה לשחזר את החשבון שלך במכשיר חדש — אין שרת, אין איפוס סיסמה.';
 
   @override
-  String get setupKeyTitle => 'Your Recovery Key';
+  String get setupKeyTitle => 'מפתח השחזור שלך';
 
   @override
   String get setupKeySubtitle =>
-      'Write this key down and store it in a safe place. You will need it to restore your account on a new device.';
+      'רשום את המפתח הזה ושמור אותו במקום בטוח. תצטרך אותו כדי לשחזר את החשבון שלך במכשיר חדש.';
 
   @override
-  String get setupKeyCopied => 'Copied!';
+  String get setupKeyCopied => 'הועתק!';
 
   @override
-  String get setupKeyWroteItDown => 'I wrote it down';
+  String get setupKeyWroteItDown => 'רשמתי את זה';
 
   @override
   String get setupKeyWarnBody =>
-      'This key is NOT stored anywhere. If you lose it, your account cannot be recovered.';
+      'רשום את המפתח הזה כגיבוי. תוכל גם לצפות בו מאוחר יותר בהגדרות → אבטחה.';
 
   @override
-  String get setupVerifyTitle => 'Verify Recovery Key';
+  String get setupVerifyTitle => 'אמת את מפתח השחזור';
 
   @override
   String get setupVerifySubtitle =>
-      'Re-enter your recovery key to confirm you saved it correctly.';
+      'הזן מחדש את מפתח השחזור שלך כדי לאשר ששמרת אותו נכון.';
 
   @override
-  String get setupVerifyButton => 'Verify';
+  String get setupVerifyButton => 'אמת';
 
   @override
-  String get setupKeyMismatch => 'Key does not match. Check and try again.';
+  String get setupKeyMismatch => 'המפתח לא תואם. בדוק ונסה שוב.';
 
   @override
-  String get setupSkipVerify => 'Skip verification';
+  String get setupSkipVerify => 'דלג על אימות';
 
   @override
-  String get setupSkipVerifyTitle => 'Skip verification?';
+  String get setupSkipVerifyTitle => 'לדלג על אימות?';
 
   @override
   String get setupSkipVerifyBody =>
-      'If you lose your recovery key, your account cannot be restored. Are you sure you want to skip?';
+      'אם תאבד את מפתח השחזור שלך, לא ניתן יהיה לשחזר את החשבון. בטוח שברצונך לדלג?';
 
   @override
-  String get setupPinSet => 'Set a PIN';
+  String get setupCreatingAccount => 'יוצר חשבון…';
 
   @override
-  String get setupPinConfirm => 'Confirm PIN';
-
-  @override
-  String get setupPinHint =>
-      'This PIN unlocks the app. Your recovery key is used only to restore your account.';
-
-  @override
-  String get setupPinMismatch => 'PINs do not match. Try again.';
-
-  @override
-  String get setupCreatingAccount => 'Creating account…';
-
-  @override
-  String get setupRestoringAccount => 'Restoring account…';
+  String get setupRestoringAccount => 'משחזר חשבון…';
 
   @override
   String get restoreKeyInfoBanner =>
-      'Enter your recovery key — your address (Nostr + Session) will be restored automatically. Contacts and messages were stored locally only.';
+      'הזן את מפתח השחזור שלך — הכתובת שלך (Nostr + Session) תשוחזר אוטומטית. אנשי קשר והודעות אוחסנו מקומית בלבד.';
 
   @override
-  String get restoreKeyHint => 'Recovery key';
+  String get restoreKeyHint => 'מפתח שחזור';
 
   @override
-  String get lockPinSubtitle => 'Enter your PIN to continue';
+  String get settingsViewRecoveryKey => 'הצג מפתח שחזור';
 
   @override
-  String get lockWrongPin => 'Wrong PIN';
+  String get settingsViewRecoveryKeySubtitle => 'הצג את מפתח השחזור של החשבון';
 
   @override
-  String get settingsChangePin => 'Change PIN';
+  String get settingsRecoveryKeyNotStored =>
+      'מפתח שחזור לא זמין (נוצר לפני תכונה זו)';
 
   @override
-  String get settingsChangePinSubtitle => 'Update your app unlock PIN';
-
-  @override
-  String get settingsEnterCurrentPin => 'Enter your current PIN to continue';
-
-  @override
-  String get settingsPinChanged => 'PIN updated';
-
-  @override
-  String get settingsPinEnabled => 'PIN lock enabled';
-
-  @override
-  String get settingsRecoveryKeyInfo => 'Recovery Key';
-
-  @override
-  String get settingsRecoveryKeyInfoSubtitle =>
-      'Your recovery key is not stored — keep your written copy safe';
+  String get settingsRecoveryKeyWarning =>
+      'שמור על המפתח הזה במקום בטוח. כל מי שמחזיק בו יכול לשחזר את החשבון שלך במכשיר אחר.';
 
   @override
   String get replaceIdentityTitle => 'Replace existing identity?';

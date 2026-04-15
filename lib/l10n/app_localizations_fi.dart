@@ -592,7 +592,7 @@ class AppLocalizationsFi extends AppLocalizations {
   String get onboardingNext => 'Seuraava';
 
   @override
-  String get onboardingGetStarted => 'Aloita';
+  String get onboardingGetStarted => 'Luo tili';
 
   @override
   String get onboardingWelcomeTitle => 'Tervetuloa Pulseen';
@@ -1208,7 +1208,15 @@ class AppLocalizationsFi extends AppLocalizations {
   String get passwordSkipForNow => 'Ohita toistaiseksi';
 
   @override
-  String get passwordMinChars => 'Salasanan on oltava vähintään 6 merkkiä';
+  String get passwordMinChars => 'Salasanan on oltava vähintään 8 merkkiä';
+
+  @override
+  String get passwordNeedsVariety =>
+      'Täytyy sisältää kirjaimia, numeroita ja erikoismerkkejä';
+
+  @override
+  String get passwordRequirements =>
+      'Väh. 8 merkkiä kirjaimia, numeroita ja erikoismerkki';
 
   @override
   String get passwordsDoNotMatch => 'Salasanat eivät täsmää';
@@ -2720,105 +2728,79 @@ class AppLocalizationsFi extends AppLocalizations {
   String get channelCopyUrl => 'Kopioi URL';
 
   @override
-  String get setupNext => 'Next';
+  String get setupNext => 'Seuraava';
 
   @override
   String get setupKeyWarning =>
-      'A recovery key will be generated for you. It is the only way to restore your account — there is no server, no password reset.';
+      'Sinulle luodaan palautusavain. Se on ainoa tapa palauttaa tilisi uudella laitteella — ei palvelinta, ei salasanan nollausta.';
 
   @override
-  String get setupKeyTitle => 'Your Recovery Key';
+  String get setupKeyTitle => 'Palautusavaimesi';
 
   @override
   String get setupKeySubtitle =>
-      'Write this key down and store it in a safe place. You will need it to restore your account on a new device.';
+      'Kirjoita tämä avain muistiin ja säilytä se turvallisessa paikassa. Tarvitset sitä tilisi palauttamiseen uudella laitteella.';
 
   @override
-  String get setupKeyCopied => 'Copied!';
+  String get setupKeyCopied => 'Kopioitu!';
 
   @override
-  String get setupKeyWroteItDown => 'I wrote it down';
+  String get setupKeyWroteItDown => 'Kirjoitin sen muistiin';
 
   @override
   String get setupKeyWarnBody =>
-      'This key is NOT stored anywhere. If you lose it, your account cannot be recovered.';
+      'Kirjoita tämä avain muistiin varmuuskopioksi. Voit myös katsoa sen myöhemmin kohdasta Asetukset → Turvallisuus.';
 
   @override
-  String get setupVerifyTitle => 'Verify Recovery Key';
+  String get setupVerifyTitle => 'Vahvista palautusavain';
 
   @override
   String get setupVerifySubtitle =>
-      'Re-enter your recovery key to confirm you saved it correctly.';
+      'Syötä palautusavaimesi uudelleen vahvistaaksesi, että tallensit sen oikein.';
 
   @override
-  String get setupVerifyButton => 'Verify';
+  String get setupVerifyButton => 'Vahvista';
 
   @override
-  String get setupKeyMismatch => 'Key does not match. Check and try again.';
+  String get setupKeyMismatch =>
+      'Avain ei täsmää. Tarkista ja yritä uudelleen.';
 
   @override
-  String get setupSkipVerify => 'Skip verification';
+  String get setupSkipVerify => 'Ohita vahvistus';
 
   @override
-  String get setupSkipVerifyTitle => 'Skip verification?';
+  String get setupSkipVerifyTitle => 'Ohita vahvistus?';
 
   @override
   String get setupSkipVerifyBody =>
-      'If you lose your recovery key, your account cannot be restored. Are you sure you want to skip?';
+      'Jos menetät palautusavaimesi, tiliäsi ei voi palauttaa. Haluatko varmasti ohittaa?';
 
   @override
-  String get setupPinSet => 'Set a PIN';
+  String get setupCreatingAccount => 'Luodaan tiliä…';
 
   @override
-  String get setupPinConfirm => 'Confirm PIN';
-
-  @override
-  String get setupPinHint =>
-      'This PIN unlocks the app. Your recovery key is used only to restore your account.';
-
-  @override
-  String get setupPinMismatch => 'PINs do not match. Try again.';
-
-  @override
-  String get setupCreatingAccount => 'Creating account…';
-
-  @override
-  String get setupRestoringAccount => 'Restoring account…';
+  String get setupRestoringAccount => 'Palautetaan tiliä…';
 
   @override
   String get restoreKeyInfoBanner =>
-      'Enter your recovery key — your address (Nostr + Session) will be restored automatically. Contacts and messages were stored locally only.';
+      'Syötä palautusavaimesi — osoitteesi (Nostr + Session) palautetaan automaattisesti. Yhteystiedot ja viestit tallennettiin vain paikallisesti.';
 
   @override
-  String get restoreKeyHint => 'Recovery key';
+  String get restoreKeyHint => 'Palautusavain';
 
   @override
-  String get lockPinSubtitle => 'Enter your PIN to continue';
+  String get settingsViewRecoveryKey => 'Näytä palautusavain';
 
   @override
-  String get lockWrongPin => 'Wrong PIN';
+  String get settingsViewRecoveryKeySubtitle => 'Näytä tilin palautusavain';
 
   @override
-  String get settingsChangePin => 'Change PIN';
+  String get settingsRecoveryKeyNotStored =>
+      'Palautusavain ei ole saatavilla (luotu ennen tätä ominaisuutta)';
 
   @override
-  String get settingsChangePinSubtitle => 'Update your app unlock PIN';
-
-  @override
-  String get settingsEnterCurrentPin => 'Enter your current PIN to continue';
-
-  @override
-  String get settingsPinChanged => 'PIN updated';
-
-  @override
-  String get settingsPinEnabled => 'PIN lock enabled';
-
-  @override
-  String get settingsRecoveryKeyInfo => 'Recovery Key';
-
-  @override
-  String get settingsRecoveryKeyInfoSubtitle =>
-      'Your recovery key is not stored — keep your written copy safe';
+  String get settingsRecoveryKeyWarning =>
+      'Säilytä tämä avain turvassa. Kuka tahansa, jolla se on, voi palauttaa tilisi toisella laitteella.';
 
   @override
   String get replaceIdentityTitle => 'Replace existing identity?';

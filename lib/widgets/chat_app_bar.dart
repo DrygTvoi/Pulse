@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
@@ -9,6 +10,7 @@ import '../screens/call_screen.dart';
 import '../screens/group_call_screen.dart';
 import '../screens/media_gallery_screen.dart';
 import '../services/notification_service.dart';
+import '../widgets/avatar_widget.dart';
 import '../widgets/message_menu.dart' as menu;
 import '../l10n/l10n_ext.dart';
 
@@ -23,6 +25,7 @@ PreferredSizeWidget buildChatAppBar({
   required VoidCallback onSearchActivate,
   required void Function(bool muted) onMuteChanged,
   required void Function(int seconds) onTtlChanged,
+  Uint8List? avatarBytes,
   bool embedded = false,
   bool infoPanelOpen = false,
   VoidCallback? onToggleInfoPanel,
@@ -53,9 +56,9 @@ PreferredSizeWidget buildChatAppBar({
         onTap: onOpenProfile,
         child: Row(children: [
         if (embedded)
-          buildChatAvatar(contact.name, DesignTokens.avatarSm)
+          AvatarWidget(name: contact.name, size: DesignTokens.avatarSm, imageBytes: avatarBytes)
         else
-          Hero(tag: 'contact_avatar_${contact.id}', child: buildChatAvatar(contact.name, DesignTokens.avatarSm)),
+          Hero(tag: 'contact_avatar_${contact.id}', child: AvatarWidget(name: contact.name, size: DesignTokens.avatarSm, imageBytes: avatarBytes)),
         const SizedBox(width: DesignTokens.spacing10),
         Expanded(
           child: Column(

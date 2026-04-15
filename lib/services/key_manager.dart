@@ -143,7 +143,7 @@ class KeyManager {
               await _secureStorage.read(key: 'nostr_privkey') ?? '';
           if (privkey.isEmpty) return;
           final primaryRelay = _kDefaultNostrRelay;
-          final relays = await gatherKnownRelays(primaryRelay, limit: 3);
+          final relays = await gatherKnownRelays(primaryRelay, limit: 5);
           for (final relay in relays) {
             try {
               final sender = NostrMessageSender();
@@ -185,7 +185,9 @@ class KeyManager {
     try {
       final prefs = await SharedPreferences.getInstance();
       final flag = 'signal_keys_published_${provider.toLowerCase()}_$selfId';
-      if (prefs.getBool(flag) == true) return;
+      // Always re-publish Session keys (storage servers expire data).
+      // Other adapters: publish once.
+      if (provider != 'Session' && prefs.getBool(flag) == true) return;
       final bundle = await _signalService.getPublicBundle();
       if (_pqcService.isInitialized) {
         bundle['kyberPublicKey'] = _pqcService.publicKey.toList();

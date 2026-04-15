@@ -563,7 +563,7 @@ class AppLocalizationsKo extends AppLocalizations {
   String get onboardingNext => '다음';
 
   @override
-  String get onboardingGetStarted => '시작하기';
+  String get onboardingGetStarted => '계정 만들기';
 
   @override
   String get onboardingWelcomeTitle => 'Pulse에 오신 것을 환영합니다';
@@ -1156,7 +1156,13 @@ class AppLocalizationsKo extends AppLocalizations {
   String get passwordSkipForNow => '지금은 건너뛰기';
 
   @override
-  String get passwordMinChars => '비밀번호는 최소 6자 이상이어야 합니다';
+  String get passwordMinChars => '비밀번호는 최소 8자 이상이어야 합니다';
+
+  @override
+  String get passwordNeedsVariety => '문자, 숫자, 특수 문자를 포함해야 합니다';
+
+  @override
+  String get passwordRequirements => '최소 8자, 문자·숫자·특수 문자 포함';
 
   @override
   String get passwordsDoNotMatch => '비밀번호가 일치하지 않습니다';
@@ -2612,119 +2618,88 @@ class AppLocalizationsKo extends AppLocalizations {
   String get channelCopyUrl => 'URL 복사';
 
   @override
-  String get setupNext => 'Next';
+  String get setupNext => '다음';
 
   @override
   String get setupKeyWarning =>
-      'A recovery key will be generated for you. It is the only way to restore your account — there is no server, no password reset.';
+      '복구 키가 생성됩니다. 새 기기에서 계정을 복원하는 유일한 방법입니다 — 서버도, 비밀번호 재설정도 없습니다.';
 
   @override
-  String get setupKeyTitle => 'Your Recovery Key';
+  String get setupKeyTitle => '복구 키';
 
   @override
   String get setupKeySubtitle =>
-      'Write this key down and store it in a safe place. You will need it to restore your account on a new device.';
+      '이 키를 적어서 안전한 곳에 보관하세요. 새 기기에서 계정을 복원할 때 필요합니다.';
 
   @override
-  String get setupKeyCopied => 'Copied!';
+  String get setupKeyCopied => '복사됨!';
 
   @override
-  String get setupKeyWroteItDown => 'I wrote it down';
+  String get setupKeyWroteItDown => '적어 두었습니다';
 
   @override
-  String get setupKeyWarnBody =>
-      'This key is NOT stored anywhere. If you lose it, your account cannot be recovered.';
+  String get setupKeyWarnBody => '이 키를 백업으로 적어 두세요. 나중에 설정 → 보안에서도 확인할 수 있습니다.';
 
   @override
-  String get setupVerifyTitle => 'Verify Recovery Key';
+  String get setupVerifyTitle => '복구 키 확인';
 
   @override
-  String get setupVerifySubtitle =>
-      'Re-enter your recovery key to confirm you saved it correctly.';
+  String get setupVerifySubtitle => '올바르게 저장했는지 확인하기 위해 복구 키를 다시 입력하세요.';
 
   @override
-  String get setupVerifyButton => 'Verify';
+  String get setupVerifyButton => '확인';
 
   @override
-  String get setupKeyMismatch => 'Key does not match. Check and try again.';
+  String get setupKeyMismatch => '키가 일치하지 않습니다. 확인 후 다시 시도하세요.';
 
   @override
-  String get setupSkipVerify => 'Skip verification';
+  String get setupSkipVerify => '확인 건너뛰기';
 
   @override
-  String get setupSkipVerifyTitle => 'Skip verification?';
+  String get setupSkipVerifyTitle => '확인을 건너뛸까요?';
 
   @override
-  String get setupSkipVerifyBody =>
-      'If you lose your recovery key, your account cannot be restored. Are you sure you want to skip?';
+  String get setupSkipVerifyBody => '복구 키를 분실하면 계정을 복원할 수 없습니다. 확실합니까?';
 
   @override
-  String get setupPinSet => 'Set a PIN';
+  String get setupCreatingAccount => '계정 생성 중…';
 
   @override
-  String get setupPinConfirm => 'Confirm PIN';
-
-  @override
-  String get setupPinHint =>
-      'This PIN unlocks the app. Your recovery key is used only to restore your account.';
-
-  @override
-  String get setupPinMismatch => 'PINs do not match. Try again.';
-
-  @override
-  String get setupCreatingAccount => 'Creating account…';
-
-  @override
-  String get setupRestoringAccount => 'Restoring account…';
+  String get setupRestoringAccount => '계정 복원 중…';
 
   @override
   String get restoreKeyInfoBanner =>
-      'Enter your recovery key — your address (Nostr + Session) will be restored automatically. Contacts and messages were stored locally only.';
+      '복구 키를 입력하세요 — 주소(Nostr + Session)가 자동으로 복원됩니다. 연락처와 메시지는 로컬에만 저장되었습니다.';
 
   @override
-  String get restoreKeyHint => 'Recovery key';
+  String get restoreKeyHint => '복구 키';
 
   @override
-  String get lockPinSubtitle => 'Enter your PIN to continue';
+  String get settingsViewRecoveryKey => '복구 키 보기';
 
   @override
-  String get lockWrongPin => 'Wrong PIN';
+  String get settingsViewRecoveryKeySubtitle => '계정 복구 키 표시';
 
   @override
-  String get settingsChangePin => 'Change PIN';
+  String get settingsRecoveryKeyNotStored => '복구 키를 사용할 수 없습니다 (이 기능 이전에 생성됨)';
 
   @override
-  String get settingsChangePinSubtitle => 'Update your app unlock PIN';
+  String get settingsRecoveryKeyWarning =>
+      '이 키를 안전하게 보관하세요. 이 키를 가진 사람은 다른 기기에서 계정을 복원할 수 있습니다.';
 
   @override
-  String get settingsEnterCurrentPin => 'Enter your current PIN to continue';
-
-  @override
-  String get settingsPinChanged => 'PIN updated';
-
-  @override
-  String get settingsPinEnabled => 'PIN lock enabled';
-
-  @override
-  String get settingsRecoveryKeyInfo => 'Recovery Key';
-
-  @override
-  String get settingsRecoveryKeyInfoSubtitle =>
-      'Your recovery key is not stored — keep your written copy safe';
-
-  @override
-  String get replaceIdentityTitle => 'Replace existing identity?';
+  String get replaceIdentityTitle => '기존 ID를 교체하시겠습니까?';
 
   @override
   String get replaceIdentityBodyRestore =>
-      'An identity already exists on this device. Restoring will permanently replace your current Nostr key and Oxen seed. All contacts will lose the ability to reach your current address.\n\nThis cannot be undone.';
+      '이 기기에 이미 ID가 있습니다. 복원하면 현재 Nostr 키와 Oxen 시드가 영구적으로 교체됩니다. 모든 연락처가 현재 주소로 연락할 수 없게 됩니다.\n\n이 작업은 되돌릴 수 없습니다.';
 
   @override
   String get replaceIdentityBodyCreate =>
-      'An identity already exists on this device. Creating a new one will permanently replace your current Nostr key and Oxen seed. All contacts will lose the ability to reach your current address.\n\nThis cannot be undone.';
+      '이 기기에 이미 ID가 있습니다. 새 ID를 만들면 현재 Nostr 키와 Oxen 시드가 영구적으로 교체됩니다. 모든 연락처가 현재 주소로 연락할 수 없게 됩니다.\n\n이 작업은 되돌릴 수 없습니다.';
 
   @override
-  String get replace => 'Replace';
+  String get replace => '교체';
 
   @override
   String get callNoScreenSources => 'No screen sources available';

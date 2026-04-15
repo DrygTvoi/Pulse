@@ -32,15 +32,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _loadSettings() async {
-    final pinEnabled =
-        await _secureStorage.read(key: 'app_pin_enabled') == 'true';
     final passwordEnabled =
         await _secureStorage.read(key: 'app_password_enabled') == 'true';
     final panicKeyEnabled =
         (await _secureStorage.read(key: 'app_panic_key_hash')) != null;
     if (!mounted) return;
     setState(() {
-      _passwordEnabled = pinEnabled || passwordEnabled;
+      _passwordEnabled = passwordEnabled;
       _panicKeyEnabled = panicKeyEnabled;
     });
   }

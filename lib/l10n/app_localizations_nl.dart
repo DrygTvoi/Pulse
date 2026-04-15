@@ -592,7 +592,7 @@ class AppLocalizationsNl extends AppLocalizations {
   String get onboardingNext => 'Volgende';
 
   @override
-  String get onboardingGetStarted => 'Aan de slag';
+  String get onboardingGetStarted => 'Account aanmaken';
 
   @override
   String get onboardingWelcomeTitle => 'Welkom bij Pulse';
@@ -1210,7 +1210,15 @@ class AppLocalizationsNl extends AppLocalizations {
   String get passwordSkipForNow => 'Voorlopig overslaan';
 
   @override
-  String get passwordMinChars => 'Wachtwoord moet minstens 6 tekens lang zijn';
+  String get passwordMinChars => 'Wachtwoord moet minstens 8 tekens lang zijn';
+
+  @override
+  String get passwordNeedsVariety =>
+      'Moet letters, cijfers en speciale tekens bevatten';
+
+  @override
+  String get passwordRequirements =>
+      'Min. 8 tekens met letters, cijfers en een speciaal teken';
 
   @override
   String get passwordsDoNotMatch => 'Wachtwoorden komen niet overeen';
@@ -2715,119 +2723,94 @@ class AppLocalizationsNl extends AppLocalizations {
   String get channelCopyUrl => 'URL kopiëren';
 
   @override
-  String get setupNext => 'Next';
+  String get setupNext => 'Volgende';
 
   @override
   String get setupKeyWarning =>
-      'A recovery key will be generated for you. It is the only way to restore your account — there is no server, no password reset.';
+      'Er wordt een herstelsleutel voor je gegenereerd. Dit is de enige manier om je account op een nieuw apparaat te herstellen — er is geen server, geen wachtwoordreset.';
 
   @override
-  String get setupKeyTitle => 'Your Recovery Key';
+  String get setupKeyTitle => 'Je herstelsleutel';
 
   @override
   String get setupKeySubtitle =>
-      'Write this key down and store it in a safe place. You will need it to restore your account on a new device.';
+      'Schrijf deze sleutel op en bewaar hem op een veilige plek. Je hebt hem nodig om je account op een nieuw apparaat te herstellen.';
 
   @override
-  String get setupKeyCopied => 'Copied!';
+  String get setupKeyCopied => 'Gekopieerd!';
 
   @override
-  String get setupKeyWroteItDown => 'I wrote it down';
+  String get setupKeyWroteItDown => 'Ik heb het opgeschreven';
 
   @override
   String get setupKeyWarnBody =>
-      'This key is NOT stored anywhere. If you lose it, your account cannot be recovered.';
+      'Schrijf deze sleutel op als back-up. Je kunt hem ook later bekijken in Instellingen → Beveiliging.';
 
   @override
-  String get setupVerifyTitle => 'Verify Recovery Key';
+  String get setupVerifyTitle => 'Herstelsleutel verifiëren';
 
   @override
   String get setupVerifySubtitle =>
-      'Re-enter your recovery key to confirm you saved it correctly.';
+      'Voer je herstelsleutel opnieuw in om te bevestigen dat je hem correct hebt opgeslagen.';
 
   @override
-  String get setupVerifyButton => 'Verify';
+  String get setupVerifyButton => 'Verifiëren';
 
   @override
-  String get setupKeyMismatch => 'Key does not match. Check and try again.';
+  String get setupKeyMismatch =>
+      'Sleutel komt niet overeen. Controleer en probeer opnieuw.';
 
   @override
-  String get setupSkipVerify => 'Skip verification';
+  String get setupSkipVerify => 'Verificatie overslaan';
 
   @override
-  String get setupSkipVerifyTitle => 'Skip verification?';
+  String get setupSkipVerifyTitle => 'Verificatie overslaan?';
 
   @override
   String get setupSkipVerifyBody =>
-      'If you lose your recovery key, your account cannot be restored. Are you sure you want to skip?';
+      'Als je je herstelsleutel verliest, kan je account niet worden hersteld. Weet je het zeker?';
 
   @override
-  String get setupPinSet => 'Set a PIN';
+  String get setupCreatingAccount => 'Account aanmaken…';
 
   @override
-  String get setupPinConfirm => 'Confirm PIN';
-
-  @override
-  String get setupPinHint =>
-      'This PIN unlocks the app. Your recovery key is used only to restore your account.';
-
-  @override
-  String get setupPinMismatch => 'PINs do not match. Try again.';
-
-  @override
-  String get setupCreatingAccount => 'Creating account…';
-
-  @override
-  String get setupRestoringAccount => 'Restoring account…';
+  String get setupRestoringAccount => 'Account herstellen…';
 
   @override
   String get restoreKeyInfoBanner =>
-      'Enter your recovery key — your address (Nostr + Session) will be restored automatically. Contacts and messages were stored locally only.';
+      'Voer je herstelsleutel in — je adres (Nostr + Session) wordt automatisch hersteld. Contacten en berichten werden alleen lokaal opgeslagen.';
 
   @override
-  String get restoreKeyHint => 'Recovery key';
+  String get restoreKeyHint => 'Herstelsleutel';
 
   @override
-  String get lockPinSubtitle => 'Enter your PIN to continue';
+  String get settingsViewRecoveryKey => 'Herstelsleutel bekijken';
 
   @override
-  String get lockWrongPin => 'Wrong PIN';
+  String get settingsViewRecoveryKeySubtitle =>
+      'Toon je account-herstelsleutel';
 
   @override
-  String get settingsChangePin => 'Change PIN';
+  String get settingsRecoveryKeyNotStored =>
+      'Herstelsleutel niet beschikbaar (aangemaakt vóór deze functie)';
 
   @override
-  String get settingsChangePinSubtitle => 'Update your app unlock PIN';
+  String get settingsRecoveryKeyWarning =>
+      'Bewaar deze sleutel veilig. Iedereen die hem heeft, kan je account op een ander apparaat herstellen.';
 
   @override
-  String get settingsEnterCurrentPin => 'Enter your current PIN to continue';
-
-  @override
-  String get settingsPinChanged => 'PIN updated';
-
-  @override
-  String get settingsPinEnabled => 'PIN lock enabled';
-
-  @override
-  String get settingsRecoveryKeyInfo => 'Recovery Key';
-
-  @override
-  String get settingsRecoveryKeyInfoSubtitle =>
-      'Your recovery key is not stored — keep your written copy safe';
-
-  @override
-  String get replaceIdentityTitle => 'Replace existing identity?';
+  String get replaceIdentityTitle => 'Bestaande identiteit vervangen?';
 
   @override
   String get replaceIdentityBodyRestore =>
-      'An identity already exists on this device. Restoring will permanently replace your current Nostr key and Oxen seed. All contacts will lose the ability to reach your current address.\n\nThis cannot be undone.';
+      'Er bestaat al een identiteit op dit apparaat. Herstellen vervangt permanent je huidige Nostr-sleutel en Oxen-seed. Alle contacten verliezen de mogelijkheid om je huidige adres te bereiken.\n\nDit kan niet ongedaan worden gemaakt.';
 
   @override
   String get replaceIdentityBodyCreate =>
-      'An identity already exists on this device. Creating a new one will permanently replace your current Nostr key and Oxen seed. All contacts will lose the ability to reach your current address.\n\nThis cannot be undone.';
+      'Er bestaat al een identiteit op dit apparaat. Een nieuwe maken vervangt permanent je huidige Nostr-sleutel en Oxen-seed. Alle contacten verliezen de mogelijkheid om je huidige adres te bereiken.\n\nDit kan niet ongedaan worden gemaakt.';
 
   @override
-  String get replace => 'Replace';
+  String get replace => 'Vervangen';
 
   @override
   String get callNoScreenSources => 'No screen sources available';

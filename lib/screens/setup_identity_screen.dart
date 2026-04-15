@@ -12,7 +12,6 @@ import '../services/key_derivation_service.dart';
 import '../services/password_hasher.dart';
 import '../services/session_key_service.dart';
 import '../services/recovery_key_service.dart';
-import '../widgets/pin_input.dart';
 import 'dart:math';
 import 'dart:convert';
 import 'dart:typed_data';
@@ -53,10 +52,11 @@ class _SetupIdentityScreenState extends State<SetupIdentityScreen> {
   String _generatedKey = '';
   bool _keyCopied = false;
   String? _verifyError;
-  String _pin = '';
-  String? _pinError;
-  bool _settingPin = false; // false = first entry, true = confirm entry
-  String _firstPin = '';
+  final _passController2 = TextEditingController();
+  final _confirmPassController = TextEditingController();
+  bool _showPass = false;
+  bool _showConfirm = false;
+  String? _passError;
 
   Future<String>? _relayProbe;
 
@@ -72,6 +72,8 @@ class _SetupIdentityScreenState extends State<SetupIdentityScreen> {
     _nameController.dispose();
     _verifyController.dispose();
     _pageController.dispose();
+    _passController2.dispose();
+    _confirmPassController.dispose();
     super.dispose();
   }
 
@@ -133,31 +135,29 @@ class _SetupIdentityScreenState extends State<SetupIdentityScreen> {
     if (confirmed == true) _goToPage(3);
   }
 
-  // ── Page 4: PIN Setup ─────────────────────────────────────────────────────
+  // ── Page 4: Password Setup ──────────────────────────────────────────────
 
-  void _onPinComplete(String pin) {
-    if (!_settingPin) {
-      // First entry
-      setState(() {
-        _firstPin = pin;
-        _settingPin = true;
-        _pin = '';
-        _pinError = null;
-      });
-    } else {
-      // Confirm entry
-      if (pin == _firstPin) {
-        setState(() => _pin = pin);
-        _createAccount();
-      } else {
-        setState(() {
-          _pinError = context.l10n.setupPinMismatch;
-          _settingPin = false;
-          _firstPin = '';
-          _pin = '';
-        });
-      }
+  static final _hasLetter = RegExp(r'[a-zA-Z]');
+  static final _hasDigit = RegExp(r'\d');
+  static final _hasSpecial = RegExp(r'[^a-zA-Z0-9]');
+
+  void _submitPassword() {
+    final pass = _passController2.text;
+    final confirm = _confirmPassController.text;
+
+    if (pass.length < 8) {
+      setState(() => _passError = context.l10n.passwordMinChars);
+      return;
     }
+    if (!_hasLetter.hasMatch(pass) || !_hasDigit.hasMatch(pass) || !_hasSpecial.hasMatch(pass)) {
+      setState(() => _passError = context.l10n.passwordNeedsVariety);
+      return;
+    }
+    if (pass != confirm) {
+      setState(() => _passError = context.l10n.passwordsDoNotMatch);
+      return;
+    }
+    _createAccount();
   }
 
   // ── Account creation ──────────────────────────────────────────────────────
@@ -167,8 +167,10 @@ class _SetupIdentityScreenState extends State<SetupIdentityScreen> {
     _isLoading = true;
 
     const ss = FlutterSecureStorage();
+    final onboardPrefs = await SharedPreferences.getInstance();
+    final alreadyOnboarded = onboardPrefs.getBool('onboarding_done') ?? false;
     final existingKey = await ss.read(key: 'nostr_privkey');
-    if (existingKey != null && existingKey.isNotEmpty) {
+    if (alreadyOnboarded && existingKey != null && existingKey.isNotEmpty) {
       if (!mounted) return;
       final confirmed = await showDialog<bool>(
         context: context,
@@ -220,19 +222,19 @@ class _SetupIdentityScreenState extends State<SetupIdentityScreen> {
     await ss.write(key: 'pulse_privkey', value: pulseHex);
     pulseKeyBytes.fillRange(0, pulseKeyBytes.length, 0);
 
-    // Hash PIN for lock screen.
+    // Hash password for lock screen.
     final signalService = SignalService();
-    final pinSalt = _generateSalt();
+    final pwSalt = _generateSalt();
     final parallelResults = await Future.wait([
       signalService.initialize().then((_) => signalService.getPublicBundle()),
       SessionKeyService.instance.initialize(),
-      PasswordHasher.hash(_pin, pinSalt),
+      PasswordHasher.hash(_passController2.text, pwSalt),
       SharedPreferences.getInstance(),
       _relayProbe ?? Future.value(null),
     ]);
 
     final bundle = parallelResults[0] as Map<String, dynamic>;
-    final pinHash = parallelResults[2] as String;
+    final pwHash = parallelResults[2] as String;
     final prefs = parallelResults[3] as SharedPreferences;
     final probedRelay = parallelResults[4] as String?;
 
@@ -264,18 +266,20 @@ class _SetupIdentityScreenState extends State<SetupIdentityScreen> {
         'databaseId': sessionId,
         'selfId': sessionId,
       }])),
-      // Store PIN hash (not password hash)
-      ss.write(key: 'app_pin_hash', value: pinHash),
-      ss.write(key: 'app_pin_salt', value: pinSalt),
-      ss.write(key: 'app_pin_enabled', value: 'true'),
+      ss.write(key: 'app_password_hash', value: pwHash),
+      ss.write(key: 'app_password_salt', value: pwSalt),
+      ss.write(key: 'app_password_enabled', value: 'true'),
+      ss.write(key: 'recovery_key', value: _generatedKey),
     ]);
 
+    await prefs.setBool('onboarding_done', true);
     unawaited(ChatController().initialize());
 
     if (!mounted) return;
     setState(() => _isLoading = false);
-    Navigator.of(context).pushReplacement(
+    Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(builder: (_) => const HomeScreen()),
+      (_) => false,
     );
   }
 
@@ -289,23 +293,40 @@ class _SetupIdentityScreenState extends State<SetupIdentityScreen> {
 
   @override
   Widget build(BuildContext context) {
-    const purple = Color(0xFFA78BFA);
+    final accent = AppTheme.primary;
 
     return Scaffold(
       backgroundColor: AppTheme.background,
       body: SafeArea(
         child: Column(
           children: [
+            // Back button
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Padding(
+                padding: const EdgeInsets.only(left: 8, top: 8),
+                child: IconButton(
+                  icon: const Icon(Icons.arrow_back_rounded, color: Colors.white70),
+                  onPressed: () {
+                    if (_currentPage > 0) {
+                      _goToPage(_currentPage - 1);
+                    } else {
+                      Navigator.of(context).pop();
+                    }
+                  },
+                ),
+              ),
+            ),
             // Step indicator
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 8),
               child: Row(
                 children: List.generate(4, (i) => Expanded(
                   child: Container(
                     height: 3,
                     margin: const EdgeInsets.symmetric(horizontal: 2),
                     decoration: BoxDecoration(
-                      color: i <= _currentPage ? purple : AppTheme.surfaceVariant,
+                      color: i <= _currentPage ? accent : AppTheme.surfaceVariant,
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
@@ -318,10 +339,10 @@ class _SetupIdentityScreenState extends State<SetupIdentityScreen> {
                 physics: const NeverScrollableScrollPhysics(),
                 onPageChanged: (p) => setState(() => _currentPage = p),
                 children: [
-                  _buildNamePage(purple),
-                  _buildKeyDisplayPage(purple),
-                  _buildKeyVerifyPage(purple),
-                  _buildPinPage(purple),
+                  _buildNamePage(accent),
+                  _buildKeyDisplayPage(accent),
+                  _buildKeyVerifyPage(accent),
+                  _buildPasswordPage(accent),
                 ],
               ),
             ),
@@ -333,19 +354,15 @@ class _SetupIdentityScreenState extends State<SetupIdentityScreen> {
 
   // ── Page builders ─────────────────────────────────────────────────────────
 
-  Widget _buildNamePage(Color purple) {
+  Widget _buildNamePage(Color accent) {
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Container(
-            width: 72, height: 72,
-            decoration: BoxDecoration(
-              color: AppTheme.primary,
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Icon(Icons.shield_rounded, color: AppTheme.onPrimary, size: 36),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(20),
+            child: Image.asset('assets/icons/pulse.png', width: 72, height: 72),
           ),
           const SizedBox(height: 16),
           Text(context.l10n.setupCreateAnonymousAccount,
@@ -368,8 +385,8 @@ class _SetupIdentityScreenState extends State<SetupIdentityScreen> {
             height: 52,
             child: FilledButton(
               style: FilledButton.styleFrom(
-                backgroundColor: purple,
-                disabledBackgroundColor: purple.withValues(alpha: 0.3),
+                backgroundColor: accent,
+                disabledBackgroundColor: accent.withValues(alpha: 0.3),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
               ),
               onPressed: _canProceedName ? () => _goToPage(1) : null,
@@ -389,7 +406,7 @@ class _SetupIdentityScreenState extends State<SetupIdentityScreen> {
                 children: [
                   TextSpan(
                     text: context.l10n.setupRestore,
-                    style: GoogleFonts.inter(color: purple, fontWeight: FontWeight.w600),
+                    style: GoogleFonts.inter(color: accent, fontWeight: FontWeight.w600),
                   ),
                 ],
               ),
@@ -400,7 +417,7 @@ class _SetupIdentityScreenState extends State<SetupIdentityScreen> {
     );
   }
 
-  Widget _buildKeyDisplayPage(Color purple) {
+  Widget _buildKeyDisplayPage(Color accent) {
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
       child: Column(
@@ -453,18 +470,18 @@ class _SetupIdentityScreenState extends State<SetupIdentityScreen> {
             ),
           ),
           const SizedBox(height: 10),
-          // Warning
+          // Info hint
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: AppTheme.errorLight.withValues(alpha: 0.08),
+              color: AppTheme.info.withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: AppTheme.errorLight.withValues(alpha: 0.2)),
+              border: Border.all(color: AppTheme.info.withValues(alpha: 0.2)),
             ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.warning_amber_rounded, color: AppTheme.errorLight, size: 18),
+                Icon(Icons.info_outline_rounded, color: AppTheme.info, size: 18),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(context.l10n.setupKeyWarnBody,
@@ -479,7 +496,7 @@ class _SetupIdentityScreenState extends State<SetupIdentityScreen> {
             height: 52,
             child: FilledButton(
               style: FilledButton.styleFrom(
-                backgroundColor: purple,
+                backgroundColor: accent,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
               ),
               onPressed: () => _goToPage(2),
@@ -492,7 +509,7 @@ class _SetupIdentityScreenState extends State<SetupIdentityScreen> {
     );
   }
 
-  Widget _buildKeyVerifyPage(Color purple) {
+  Widget _buildKeyVerifyPage(Color accent) {
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
       child: Column(
@@ -526,7 +543,7 @@ class _SetupIdentityScreenState extends State<SetupIdentityScreen> {
                   borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide(color: purple, width: 2),
+                borderSide: BorderSide(color: accent, width: 2),
               ),
               contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
             ),
@@ -537,8 +554,8 @@ class _SetupIdentityScreenState extends State<SetupIdentityScreen> {
             height: 52,
             child: FilledButton(
               style: FilledButton.styleFrom(
-                backgroundColor: purple,
-                disabledBackgroundColor: purple.withValues(alpha: 0.3),
+                backgroundColor: accent,
+                disabledBackgroundColor: accent.withValues(alpha: 0.3),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
               ),
               onPressed: RecoveryKeyService.isValid(_verifyController.text)
@@ -559,13 +576,21 @@ class _SetupIdentityScreenState extends State<SetupIdentityScreen> {
     );
   }
 
-  Widget _buildPinPage(Color purple) {
+  Widget _buildPasswordPage(Color accent) {
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
       child: Column(
         children: [
-          Icon(Icons.pin_rounded, size: 48, color: purple),
+          Icon(Icons.lock_rounded, size: 48, color: accent),
           const SizedBox(height: 16),
+          Text(context.l10n.passwordSetAppPassword,
+              style: GoogleFonts.inter(
+                  fontSize: 20, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+          const SizedBox(height: 6),
+          Text(context.l10n.passwordProtectsMessages,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.inter(fontSize: 12, color: AppTheme.textSecondary, height: 1.4)),
+          const SizedBox(height: 28),
           if (_isLoading)
             Column(children: [
               const SizedBox(height: 40),
@@ -576,24 +601,81 @@ class _SetupIdentityScreenState extends State<SetupIdentityScreen> {
               Text(context.l10n.setupCreatingAccount,
                   style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: 14)),
             ])
-          else
-            PinInput(
-              key: ValueKey('pin_$_settingPin'),
-              title: _settingPin
-                  ? context.l10n.setupPinConfirm
-                  : context.l10n.setupPinSet,
-              error: _pinError,
-              onComplete: _onPinComplete,
+          else ...[
+            _buildPassField(
+              controller: _passController2,
+              hint: context.l10n.passwordHint,
+              visible: _showPass,
+              onToggle: () => setState(() => _showPass = !_showPass),
+              accent: accent,
             ),
-          if (!_isLoading) ...[
             const SizedBox(height: 12),
-            Text(
-              context.l10n.setupPinHint,
-              textAlign: TextAlign.center,
-              style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: 12, height: 1.4),
+            _buildPassField(
+              controller: _confirmPassController,
+              hint: context.l10n.passwordConfirmHint,
+              visible: _showConfirm,
+              onToggle: () => setState(() => _showConfirm = !_showConfirm),
+              accent: accent,
+            ),
+            if (_passError != null) ...[
+              const SizedBox(height: 10),
+              Text(_passError!,
+                  style: GoogleFonts.inter(color: AppTheme.errorLight, fontSize: 12)),
+            ],
+            const SizedBox(height: 8),
+            Text(context.l10n.passwordRequirements,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: 11, height: 1.4)),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              height: 52,
+              child: FilledButton(
+                style: FilledButton.styleFrom(
+                  backgroundColor: accent,
+                  disabledBackgroundColor: accent.withValues(alpha: 0.3),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                ),
+                onPressed: _passController2.text.length >= 8 ? _submitPassword : null,
+                child: Text(context.l10n.setupCreateAccount,
+                    style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w700, color: AppTheme.onPrimary)),
+              ),
             ),
           ],
         ],
+      ),
+    );
+  }
+
+  Widget _buildPassField({
+    required TextEditingController controller,
+    required String hint,
+    required bool visible,
+    required VoidCallback onToggle,
+    required Color accent,
+  }) {
+    return TextField(
+      controller: controller,
+      obscureText: !visible,
+      onChanged: (_) => setState(() => _passError = null),
+      style: GoogleFonts.inter(color: AppTheme.textPrimary, fontSize: 15),
+      decoration: InputDecoration(
+        hintText: hint,
+        hintStyle: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: 15),
+        filled: true,
+        fillColor: AppTheme.surfaceVariant,
+        border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide(color: accent, width: 2),
+        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+        suffixIcon: IconButton(
+          icon: Icon(visible ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+              color: AppTheme.textSecondary, size: 20),
+          onPressed: onToggle,
+        ),
       ),
     );
   }
@@ -607,7 +689,7 @@ class _SetupIdentityScreenState extends State<SetupIdentityScreen> {
     void Function(String)? onChanged,
     Widget? suffix,
   }) {
-    const purple = Color(0xFFA78BFA);
+    final accent = AppTheme.primary;
     return TextField(
       controller: controller,
       obscureText: obscure,
@@ -632,7 +714,7 @@ class _SetupIdentityScreenState extends State<SetupIdentityScreen> {
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide(
-              color: errorText != null ? AppTheme.errorLight : purple, width: 2),
+              color: errorText != null ? AppTheme.errorLight : accent, width: 2),
         ),
         contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
       ),

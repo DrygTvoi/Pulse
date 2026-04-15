@@ -586,7 +586,7 @@ class AppLocalizationsHr extends AppLocalizations {
   String get onboardingNext => 'Dalje';
 
   @override
-  String get onboardingGetStarted => 'Započni';
+  String get onboardingGetStarted => 'Stvori račun';
 
   @override
   String get onboardingWelcomeTitle => 'Dobrodošli u Pulse';
@@ -1202,7 +1202,15 @@ class AppLocalizationsHr extends AppLocalizations {
   String get passwordSkipForNow => 'Preskoči za sada';
 
   @override
-  String get passwordMinChars => 'Lozinka mora imati najmanje 6 znakova';
+  String get passwordMinChars => 'Lozinka mora imati najmanje 8 znakova';
+
+  @override
+  String get passwordNeedsVariety =>
+      'Mora sadržavati slova, brojeve i posebne znakove';
+
+  @override
+  String get passwordRequirements =>
+      'Min. 8 znakova sa slovima, brojevima i posebnim znakom';
 
   @override
   String get passwordsDoNotMatch => 'Lozinke se ne podudaraju';
@@ -2709,105 +2717,80 @@ class AppLocalizationsHr extends AppLocalizations {
   String get channelCopyUrl => 'Kopiraj URL';
 
   @override
-  String get setupNext => 'Next';
+  String get setupNext => 'Dalje';
 
   @override
   String get setupKeyWarning =>
-      'A recovery key will be generated for you. It is the only way to restore your account — there is no server, no password reset.';
+      'Za vas će biti generiran ključ za oporavak. To je jedini način da vratite svoj račun na novom uređaju — nema servera, nema resetiranja lozinke.';
 
   @override
-  String get setupKeyTitle => 'Your Recovery Key';
+  String get setupKeyTitle => 'Vaš ključ za oporavak';
 
   @override
   String get setupKeySubtitle =>
-      'Write this key down and store it in a safe place. You will need it to restore your account on a new device.';
+      'Zapišite ovaj ključ i pohranite ga na sigurno mjesto. Trebat će vam za vraćanje računa na novom uređaju.';
 
   @override
-  String get setupKeyCopied => 'Copied!';
+  String get setupKeyCopied => 'Kopirano!';
 
   @override
-  String get setupKeyWroteItDown => 'I wrote it down';
+  String get setupKeyWroteItDown => 'Zapisao sam';
 
   @override
   String get setupKeyWarnBody =>
-      'This key is NOT stored anywhere. If you lose it, your account cannot be recovered.';
+      'Zapišite ovaj ključ kao sigurnosnu kopiju. Također ga možete pogledati kasnije u Postavke → Sigurnost.';
 
   @override
-  String get setupVerifyTitle => 'Verify Recovery Key';
+  String get setupVerifyTitle => 'Potvrdite ključ za oporavak';
 
   @override
   String get setupVerifySubtitle =>
-      'Re-enter your recovery key to confirm you saved it correctly.';
+      'Ponovno unesite ključ za oporavak da biste potvrdili da ste ga ispravno spremili.';
 
   @override
-  String get setupVerifyButton => 'Verify';
+  String get setupVerifyButton => 'Potvrdi';
 
   @override
-  String get setupKeyMismatch => 'Key does not match. Check and try again.';
+  String get setupKeyMismatch =>
+      'Ključ se ne podudara. Provjerite i pokušajte ponovo.';
 
   @override
-  String get setupSkipVerify => 'Skip verification';
+  String get setupSkipVerify => 'Preskoči provjeru';
 
   @override
-  String get setupSkipVerifyTitle => 'Skip verification?';
+  String get setupSkipVerifyTitle => 'Preskočiti provjeru?';
 
   @override
   String get setupSkipVerifyBody =>
-      'If you lose your recovery key, your account cannot be restored. Are you sure you want to skip?';
+      'Ako izgubite ključ za oporavak, vaš račun se ne može vratiti. Jeste li sigurni da želite preskočiti?';
 
   @override
-  String get setupPinSet => 'Set a PIN';
+  String get setupCreatingAccount => 'Stvaranje računa…';
 
   @override
-  String get setupPinConfirm => 'Confirm PIN';
-
-  @override
-  String get setupPinHint =>
-      'This PIN unlocks the app. Your recovery key is used only to restore your account.';
-
-  @override
-  String get setupPinMismatch => 'PINs do not match. Try again.';
-
-  @override
-  String get setupCreatingAccount => 'Creating account…';
-
-  @override
-  String get setupRestoringAccount => 'Restoring account…';
+  String get setupRestoringAccount => 'Vraćanje računa…';
 
   @override
   String get restoreKeyInfoBanner =>
-      'Enter your recovery key — your address (Nostr + Session) will be restored automatically. Contacts and messages were stored locally only.';
+      'Unesite ključ za oporavak — vaša adresa (Nostr + Session) bit će automatski vraćena. Kontakti i poruke bili su pohranjeni samo lokalno.';
 
   @override
-  String get restoreKeyHint => 'Recovery key';
+  String get restoreKeyHint => 'Ključ za oporavak';
 
   @override
-  String get lockPinSubtitle => 'Enter your PIN to continue';
+  String get settingsViewRecoveryKey => 'Prikaži ključ za oporavak';
 
   @override
-  String get lockWrongPin => 'Wrong PIN';
+  String get settingsViewRecoveryKeySubtitle =>
+      'Prikaži ključ za oporavak računa';
 
   @override
-  String get settingsChangePin => 'Change PIN';
+  String get settingsRecoveryKeyNotStored =>
+      'Ključ za oporavak nije dostupan (stvoren prije ove značajke)';
 
   @override
-  String get settingsChangePinSubtitle => 'Update your app unlock PIN';
-
-  @override
-  String get settingsEnterCurrentPin => 'Enter your current PIN to continue';
-
-  @override
-  String get settingsPinChanged => 'PIN updated';
-
-  @override
-  String get settingsPinEnabled => 'PIN lock enabled';
-
-  @override
-  String get settingsRecoveryKeyInfo => 'Recovery Key';
-
-  @override
-  String get settingsRecoveryKeyInfoSubtitle =>
-      'Your recovery key is not stored — keep your written copy safe';
+  String get settingsRecoveryKeyWarning =>
+      'Čuvajte ovaj ključ na sigurnom. Svatko tko ga ima može vratiti vaš račun na drugom uređaju.';
 
   @override
   String get replaceIdentityTitle => 'Replace existing identity?';

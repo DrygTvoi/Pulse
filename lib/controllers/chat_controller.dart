@@ -2189,14 +2189,64 @@ class ChatController extends ChangeNotifier {
           throw Exception('Unknown provider: ${contact.provider}');
         }
         debugPrint('[E2EE] Fetching bundle for ${contact.name} via ${contact.provider}');
-        await contactReader.initializeReader(initApiKey, initDbId);
-        debugPrint('[E2EE] Reader initialized, fetching keys...');
-        var bundle = await contactReader.fetchPublicKeys();
-        // Fallback: try alternate addresses if primary fetch returned nothing.
+
+        // ── Key fetch strategy: Session first (reliable storage), Nostr fallback ──
+        Map<String, dynamic>? bundle;
+
+        // Priority 1: Session — storage servers keep keys ~14 days, highly reliable.
+        final sessionAddrs = contact.transportAddresses['Session'] ?? [];
+        if (sessionAddrs.isNotEmpty) {
+          try {
+            final sessionReader = SessionInboxReader();
+            final prefs = await _getPrefs();
+            final nodeUrl = prefs.getString('session_node_url') ?? prefs.getString('oxen_node_url') ?? '';
+            await sessionReader.initializeReader(nodeUrl, sessionAddrs.first);
+            bundle = await sessionReader.fetchPublicKeys();
+            if (bundle != null) {
+              debugPrint('[E2EE] Key fetch OK via Session (${sessionAddrs.first.substring(0, 8)}…)');
+            }
+          } catch (e) {
+            debugPrint('[E2EE] Session key fetch failed: $e');
+          }
+        }
+
+        // Priority 2: contact's primary transport (Nostr relay, Pulse, etc.)
+        if (bundle == null) {
+          await contactReader.initializeReader(initApiKey, initDbId);
+          debugPrint('[E2EE] Trying ${contact.provider} primary...');
+          bundle = await contactReader.fetchPublicKeys();
+        }
+
+        // Priority 3: other Nostr relays (key may exist on a different relay).
+        if (bundle == null && contact.provider == 'Nostr') {
+          final atIdx = contact.databaseId.indexOf('@');
+          final contactPubkey = atIdx > 0 ? contact.databaseId.substring(0, atIdx) : '';
+          final primaryRelay = atIdx > 0 ? contact.databaseId.substring(atIdx + 1) : '';
+          if (contactPubkey.isNotEmpty) {
+            final relays = await gatherKnownRelays(primaryRelay, limit: 3);
+            for (final relay in relays) {
+              if (relay == primaryRelay) continue;
+              try {
+                final altReader = NostrInboxReader();
+                await altReader.initializeReader('', '$contactPubkey@$relay');
+                final altBundle = await altReader.fetchPublicKeys();
+                if (altBundle != null) {
+                  debugPrint('[E2EE] Fallback key fetch OK via Nostr relay $relay');
+                  bundle = altBundle;
+                  break;
+                }
+              } catch (e) {
+                debugPrint('[E2EE] Fallback key fetch from $relay failed: $e');
+              }
+            }
+          }
+        }
+
+        // Priority 4: any remaining alternate transport.
         if (bundle == null && contact.alternateAddresses.isNotEmpty) {
           for (final alt in contact.alternateAddresses) {
             final altProvider = _providerFromAddress(alt);
-            if (altProvider.isEmpty || altProvider == contact.provider) continue;
+            if (altProvider.isEmpty || altProvider == contact.provider || altProvider == 'Session') continue;
             try {
               final altBundle = await _fetchKeysFromAddress(alt, altProvider);
               if (altBundle != null) {
@@ -2512,8 +2562,40 @@ class ChatController extends ChangeNotifier {
         } else {
           return false;
         }
-        await contactReader.initializeReader(initApiKey, initDbId);
-        final bundle = await contactReader.fetchPublicKeys();
+        // Session-first key fetch for group members
+        Map<String, dynamic>? bundle;
+        final sessionAddrs = contact.transportAddresses['Session'] ?? [];
+        if (sessionAddrs.isNotEmpty) {
+          try {
+            final sr = SessionInboxReader();
+            final prefs = await _getPrefs();
+            final nodeUrl = prefs.getString('session_node_url') ?? prefs.getString('oxen_node_url') ?? '';
+            await sr.initializeReader(nodeUrl, sessionAddrs.first);
+            bundle = await sr.fetchPublicKeys();
+            if (bundle != null) debugPrint('[E2EE] Group key fetch OK via Session');
+          } catch (_) {}
+        }
+        if (bundle == null) {
+          await contactReader.initializeReader(initApiKey, initDbId);
+          bundle = await contactReader.fetchPublicKeys();
+        }
+        // Nostr relay fallback for group members
+        if (bundle == null && contact.provider == 'Nostr') {
+          final atIdx = contact.databaseId.indexOf('@');
+          final pk = atIdx > 0 ? contact.databaseId.substring(0, atIdx) : '';
+          final pr = atIdx > 0 ? contact.databaseId.substring(atIdx + 1) : '';
+          if (pk.isNotEmpty) {
+            for (final relay in await gatherKnownRelays(pr, limit: 3)) {
+              if (relay == pr) continue;
+              try {
+                final ar = NostrInboxReader();
+                await ar.initializeReader('', '$pk@$relay');
+                final ab = await ar.fetchPublicKeys();
+                if (ab != null) { bundle = ab; break; }
+              } catch (_) {}
+            }
+          }
+        }
         if (bundle != null) {
           final keyChanged = await _signalService.buildSession(contact.databaseId, bundle);
           _keys.cacheContactKyberPk(contact.databaseId, bundle);

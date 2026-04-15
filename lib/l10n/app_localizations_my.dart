@@ -592,7 +592,7 @@ class AppLocalizationsMy extends AppLocalizations {
   String get onboardingNext => 'နောက်';
 
   @override
-  String get onboardingGetStarted => 'စတင်လိုက်ပါ';
+  String get onboardingGetStarted => 'အကောင့်ဖန်တီးပါ';
 
   @override
   String get onboardingWelcomeTitle => 'Pulse မှ ကြိုဆိုပါသည်';
@@ -1211,7 +1211,15 @@ class AppLocalizationsMy extends AppLocalizations {
   String get passwordSkipForNow => 'ယခုကျော်သွား';
 
   @override
-  String get passwordMinChars => 'စကားလုံးသည် အနည်းဆုံး စလုံး 6 လုံး ရှိရမည်';
+  String get passwordMinChars => 'စကားလုံးသည် အနည်းဆုံး စလုံး 8 လုံး ရှိရမည်';
+
+  @override
+  String get passwordNeedsVariety =>
+      'စာလုံး၊ ဂဏန်းနှင့် အထူးအက္ခရာများ ပါဝင်ရမည်';
+
+  @override
+  String get passwordRequirements =>
+      'အနည်းဆုံး 8 လုံး စာလုံး၊ ဂဏန်းနှင့် အထူးအက္ခရာ ပါဝင်ရမည်';
 
   @override
   String get passwordsDoNotMatch => 'စကားလုံးများ ကိုက်ညီမှုမရှိပါ';
@@ -2720,11 +2728,11 @@ class AppLocalizationsMy extends AppLocalizations {
   String get channelCopyUrl => 'URL ကူးယူပါ';
 
   @override
-  String get setupNext => 'Next';
+  String get setupNext => 'ရှေ့ဆက်';
 
   @override
   String get setupKeyWarning =>
-      'A recovery key will be generated for you. It is the only way to restore your account — there is no server, no password reset.';
+      'A recovery key will be generated for you. It is the only way to restore your account on a new device — there is no server, no password reset.';
 
   @override
   String get setupKeyTitle => 'Your Recovery Key';
@@ -2734,14 +2742,14 @@ class AppLocalizationsMy extends AppLocalizations {
       'Write this key down and store it in a safe place. You will need it to restore your account on a new device.';
 
   @override
-  String get setupKeyCopied => 'Copied!';
+  String get setupKeyCopied => 'ကူးယူပြီး!';
 
   @override
-  String get setupKeyWroteItDown => 'I wrote it down';
+  String get setupKeyWroteItDown => 'ရေးမှတ်ပြီးပါပြီ';
 
   @override
   String get setupKeyWarnBody =>
-      'This key is NOT stored anywhere. If you lose it, your account cannot be recovered.';
+      'Write this key down as a backup. You can also view it later in Settings → Security.';
 
   @override
   String get setupVerifyTitle => 'Verify Recovery Key';
@@ -2751,7 +2759,7 @@ class AppLocalizationsMy extends AppLocalizations {
       'Re-enter your recovery key to confirm you saved it correctly.';
 
   @override
-  String get setupVerifyButton => 'Verify';
+  String get setupVerifyButton => 'အတည်ပြု';
 
   @override
   String get setupKeyMismatch => 'Key does not match. Check and try again.';
@@ -2767,19 +2775,6 @@ class AppLocalizationsMy extends AppLocalizations {
       'If you lose your recovery key, your account cannot be restored. Are you sure you want to skip?';
 
   @override
-  String get setupPinSet => 'Set a PIN';
-
-  @override
-  String get setupPinConfirm => 'Confirm PIN';
-
-  @override
-  String get setupPinHint =>
-      'This PIN unlocks the app. Your recovery key is used only to restore your account.';
-
-  @override
-  String get setupPinMismatch => 'PINs do not match. Try again.';
-
-  @override
   String get setupCreatingAccount => 'Creating account…';
 
   @override
@@ -2793,32 +2788,19 @@ class AppLocalizationsMy extends AppLocalizations {
   String get restoreKeyHint => 'Recovery key';
 
   @override
-  String get lockPinSubtitle => 'Enter your PIN to continue';
+  String get settingsViewRecoveryKey => 'ပြန်လည်ရယူရေးသော့ကို ကြည့်ရန်';
 
   @override
-  String get lockWrongPin => 'Wrong PIN';
+  String get settingsViewRecoveryKeySubtitle =>
+      'သင့်အကောင့် ပြန်လည်ရယူရေးသော့ကို ပြသရန်';
 
   @override
-  String get settingsChangePin => 'Change PIN';
+  String get settingsRecoveryKeyNotStored =>
+      'ပြန်လည်ရယူရေးသော့ မရနိုင်ပါ (ဤလုပ်ဆောင်ချက်မတိုင်မီ ဖန်တီးခဲ့သည်)';
 
   @override
-  String get settingsChangePinSubtitle => 'Update your app unlock PIN';
-
-  @override
-  String get settingsEnterCurrentPin => 'Enter your current PIN to continue';
-
-  @override
-  String get settingsPinChanged => 'PIN updated';
-
-  @override
-  String get settingsPinEnabled => 'PIN lock enabled';
-
-  @override
-  String get settingsRecoveryKeyInfo => 'Recovery Key';
-
-  @override
-  String get settingsRecoveryKeyInfoSubtitle =>
-      'Your recovery key is not stored — keep your written copy safe';
+  String get settingsRecoveryKeyWarning =>
+      'ဤသော့ကို လုံခြုံစွာ သိမ်းဆည်းပါ။ ၎င်းကို ရသူမည်သူမဆို အခြားစက်တွင် သင့်အကောင့်ကို ပြန်လည်ရယူနိုင်ပါသည်။';
 
   @override
   String get replaceIdentityTitle => 'Replace existing identity?';

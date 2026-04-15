@@ -587,7 +587,7 @@ class AppLocalizationsHi extends AppLocalizations {
   String get onboardingNext => 'अगला';
 
   @override
-  String get onboardingGetStarted => 'शुरू करें';
+  String get onboardingGetStarted => 'खाता बनाएं';
 
   @override
   String get onboardingWelcomeTitle => 'Pulse में आपका स्वागत है';
@@ -1207,7 +1207,15 @@ class AppLocalizationsHi extends AppLocalizations {
   String get passwordSkipForNow => 'अभी छोड़ें';
 
   @override
-  String get passwordMinChars => 'पासवर्ड कम से कम 6 अक्षर का होना चाहिए';
+  String get passwordMinChars => 'पासवर्ड कम से कम 8 अक्षर का होना चाहिए';
+
+  @override
+  String get passwordNeedsVariety =>
+      'अक्षर, संख्याएं और विशेष वर्ण शामिल होने चाहिए';
+
+  @override
+  String get passwordRequirements =>
+      'न्यूनतम 8 अक्षर अक्षरों, संख्याओं और एक विशेष वर्ण के साथ';
 
   @override
   String get passwordsDoNotMatch => 'पासवर्ड मेल नहीं खाते';
@@ -2708,105 +2716,79 @@ class AppLocalizationsHi extends AppLocalizations {
   String get channelCopyUrl => 'URL कॉपी करें';
 
   @override
-  String get setupNext => 'Next';
+  String get setupNext => 'अगला';
 
   @override
   String get setupKeyWarning =>
-      'A recovery key will be generated for you. It is the only way to restore your account — there is no server, no password reset.';
+      'आपके लिए एक रिकवरी कुंजी बनाई जाएगी। यह नए डिवाइस पर अपना खाता पुनर्स्थापित करने का एकमात्र तरीका है — कोई सर्वर नहीं, कोई पासवर्ड रीसेट नहीं।';
 
   @override
-  String get setupKeyTitle => 'Your Recovery Key';
+  String get setupKeyTitle => 'आपकी रिकवरी कुंजी';
 
   @override
   String get setupKeySubtitle =>
-      'Write this key down and store it in a safe place. You will need it to restore your account on a new device.';
+      'इस कुंजी को लिख लें और सुरक्षित स्थान पर रखें। नए डिवाइस पर अपना खाता पुनर्स्थापित करने के लिए आपको इसकी आवश्यकता होगी।';
 
   @override
-  String get setupKeyCopied => 'Copied!';
+  String get setupKeyCopied => 'कॉपी किया!';
 
   @override
-  String get setupKeyWroteItDown => 'I wrote it down';
+  String get setupKeyWroteItDown => 'मैंने लिख लिया';
 
   @override
   String get setupKeyWarnBody =>
-      'This key is NOT stored anywhere. If you lose it, your account cannot be recovered.';
+      'इस कुंजी को बैकअप के रूप में लिख लें। आप इसे बाद में सेटिंग्स → सुरक्षा में भी देख सकते हैं।';
 
   @override
-  String get setupVerifyTitle => 'Verify Recovery Key';
+  String get setupVerifyTitle => 'रिकवरी कुंजी सत्यापित करें';
 
   @override
   String get setupVerifySubtitle =>
-      'Re-enter your recovery key to confirm you saved it correctly.';
+      'यह पुष्टि करने के लिए कि आपने इसे सही ढंग से सहेजा है, अपनी रिकवरी कुंजी दोबारा दर्ज करें।';
 
   @override
-  String get setupVerifyButton => 'Verify';
+  String get setupVerifyButton => 'सत्यापित करें';
 
   @override
-  String get setupKeyMismatch => 'Key does not match. Check and try again.';
+  String get setupKeyMismatch =>
+      'कुंजी मेल नहीं खाती। जांचें और पुनः प्रयास करें।';
 
   @override
-  String get setupSkipVerify => 'Skip verification';
+  String get setupSkipVerify => 'सत्यापन छोड़ें';
 
   @override
-  String get setupSkipVerifyTitle => 'Skip verification?';
+  String get setupSkipVerifyTitle => 'सत्यापन छोड़ें?';
 
   @override
   String get setupSkipVerifyBody =>
-      'If you lose your recovery key, your account cannot be restored. Are you sure you want to skip?';
+      'यदि आप अपनी रिकवरी कुंजी खो देते हैं, तो आपका खाता पुनर्स्थापित नहीं किया जा सकता। क्या आप वाकई छोड़ना चाहते हैं?';
 
   @override
-  String get setupPinSet => 'Set a PIN';
+  String get setupCreatingAccount => 'खाता बनाया जा रहा है…';
 
   @override
-  String get setupPinConfirm => 'Confirm PIN';
-
-  @override
-  String get setupPinHint =>
-      'This PIN unlocks the app. Your recovery key is used only to restore your account.';
-
-  @override
-  String get setupPinMismatch => 'PINs do not match. Try again.';
-
-  @override
-  String get setupCreatingAccount => 'Creating account…';
-
-  @override
-  String get setupRestoringAccount => 'Restoring account…';
+  String get setupRestoringAccount => 'खाता पुनर्स्थापित किया जा रहा है…';
 
   @override
   String get restoreKeyInfoBanner =>
-      'Enter your recovery key — your address (Nostr + Session) will be restored automatically. Contacts and messages were stored locally only.';
+      'अपनी रिकवरी कुंजी दर्ज करें — आपका पता (Nostr + Session) स्वचालित रूप से पुनर्स्थापित हो जाएगा। संपर्क और संदेश केवल स्थानीय रूप से संग्रहीत थे।';
 
   @override
-  String get restoreKeyHint => 'Recovery key';
+  String get restoreKeyHint => 'रिकवरी कुंजी';
 
   @override
-  String get lockPinSubtitle => 'Enter your PIN to continue';
+  String get settingsViewRecoveryKey => 'रिकवरी कुंजी देखें';
 
   @override
-  String get lockWrongPin => 'Wrong PIN';
+  String get settingsViewRecoveryKeySubtitle => 'अपनी खाता रिकवरी कुंजी दिखाएं';
 
   @override
-  String get settingsChangePin => 'Change PIN';
+  String get settingsRecoveryKeyNotStored =>
+      'रिकवरी कुंजी उपलब्ध नहीं है (इस सुविधा से पहले बनाया गया)';
 
   @override
-  String get settingsChangePinSubtitle => 'Update your app unlock PIN';
-
-  @override
-  String get settingsEnterCurrentPin => 'Enter your current PIN to continue';
-
-  @override
-  String get settingsPinChanged => 'PIN updated';
-
-  @override
-  String get settingsPinEnabled => 'PIN lock enabled';
-
-  @override
-  String get settingsRecoveryKeyInfo => 'Recovery Key';
-
-  @override
-  String get settingsRecoveryKeyInfoSubtitle =>
-      'Your recovery key is not stored — keep your written copy safe';
+  String get settingsRecoveryKeyWarning =>
+      'इस कुंजी को सुरक्षित रखें। जिसके पास भी यह है वह दूसरे डिवाइस पर आपका खाता पुनर्स्थापित कर सकता है।';
 
   @override
   String get replaceIdentityTitle => 'Replace existing identity?';

@@ -9,7 +9,6 @@ import '../services/status_service.dart';
 import '../services/local_storage_service.dart';
 import 'chat_screen.dart';
 import 'settings_screen.dart';
-import 'contacts_screen.dart';
 import 'create_group_dialog.dart';
 import 'add_contact_dialog.dart';
 import 'join_channel_dialog.dart';
@@ -922,7 +921,13 @@ class _HomeScreenState extends State<HomeScreen> {
           showNoEch: !_utlsAvailable && _torRunning,
           onNewChat: () {
             Navigator.pop(context);
-            Navigator.push(context, _slideRoute(const ContactsScreen())).then((_) => _loadAll());
+            showDialog(
+              context: context,
+              builder: (_) => AddContactDialog(onAdd: (contact) async {
+                await context.read<IContactRepository>().addContact(contact);
+                _loadAll();
+              }),
+            ).then((_) => _loadAll());
           },
           onNewGroup: () {
             Navigator.pop(context); // close drawer
@@ -944,7 +949,10 @@ class _HomeScreenState extends State<HomeScreen> {
             Navigator.pop(context);
             showDialog(
               context: context,
-              builder: (_) => AddContactDialog(onAdd: (contact) => _loadAll()),
+              builder: (_) => AddContactDialog(onAdd: (contact) async {
+                await context.read<IContactRepository>().addContact(contact);
+                _loadAll();
+              }),
             ).then((_) => _loadAll());
           },
           onJoinChannel: () {
@@ -1420,8 +1428,12 @@ class _HomeScreenState extends State<HomeScreen> {
               padding: const EdgeInsets.symmetric(horizontal: DesignTokens.spacing28, vertical: DesignTokens.buttonPaddingV),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.radiusLarge)),
             ),
-            onPressed: () => Navigator.push(
-              context, _slideRoute(const ContactsScreen()),
+            onPressed: () => showDialog(
+              context: context,
+              builder: (_) => AddContactDialog(onAdd: (contact) async {
+                await context.read<IContactRepository>().addContact(contact);
+                _loadAll();
+              }),
             ).then((_) => _loadAll()),
           ).animate().fadeIn(delay: 150.ms).slideY(begin: 0.1, end: 0),
         ],

@@ -588,7 +588,7 @@ class AppLocalizationsAz extends AppLocalizations {
   String get onboardingNext => 'Növbəti';
 
   @override
-  String get onboardingGetStarted => 'Başla';
+  String get onboardingGetStarted => 'Hesab Yarat';
 
   @override
   String get onboardingWelcomeTitle => 'Pulse-a xoş gəlmisiniz';
@@ -1209,7 +1209,15 @@ class AppLocalizationsAz extends AppLocalizations {
   String get passwordSkipForNow => 'Hələlik keç';
 
   @override
-  String get passwordMinChars => 'Parol ən azı 6 simvol olmalıdır';
+  String get passwordMinChars => 'Parol ən azı 8 simvol olmalıdır';
+
+  @override
+  String get passwordNeedsVariety =>
+      'Hərflər, rəqəmlər və xüsusi simvollar daxil olmalıdır';
+
+  @override
+  String get passwordRequirements =>
+      'Minimum 8 simvol hərflər, rəqəmlər və xüsusi simvolla';
 
   @override
   String get passwordsDoNotMatch => 'Parollar uyğun gəlmir';
@@ -2717,105 +2725,80 @@ class AppLocalizationsAz extends AppLocalizations {
   String get channelCopyUrl => 'URL kopyala';
 
   @override
-  String get setupNext => 'Next';
+  String get setupNext => 'Növbəti';
 
   @override
   String get setupKeyWarning =>
-      'A recovery key will be generated for you. It is the only way to restore your account — there is no server, no password reset.';
+      'Sizin üçün bərpa açarı yaradılacaq. Bu, hesabınızı yeni cihazda bərpa etməyin yeganə yoludur — server yoxdur, parol sıfırlama yoxdur.';
 
   @override
-  String get setupKeyTitle => 'Your Recovery Key';
+  String get setupKeyTitle => 'Bərpa Açarınız';
 
   @override
   String get setupKeySubtitle =>
-      'Write this key down and store it in a safe place. You will need it to restore your account on a new device.';
+      'Bu açarı yazın və təhlükəsiz yerdə saxlayın. Hesabınızı yeni cihazda bərpa etmək üçün lazım olacaq.';
 
   @override
-  String get setupKeyCopied => 'Copied!';
+  String get setupKeyCopied => 'Kopyalandı!';
 
   @override
-  String get setupKeyWroteItDown => 'I wrote it down';
+  String get setupKeyWroteItDown => 'Yazdım';
 
   @override
   String get setupKeyWarnBody =>
-      'This key is NOT stored anywhere. If you lose it, your account cannot be recovered.';
+      'Bu açarı ehtiyat nüsxə olaraq yazın. Daha sonra Parametrlər → Təhlükəsizlik bölməsində də görə bilərsiniz.';
 
   @override
-  String get setupVerifyTitle => 'Verify Recovery Key';
+  String get setupVerifyTitle => 'Bərpa Açarını Təsdiqlə';
 
   @override
   String get setupVerifySubtitle =>
-      'Re-enter your recovery key to confirm you saved it correctly.';
+      'Düzgün saxladığınızı təsdiqləmək üçün bərpa açarınızı yenidən daxil edin.';
 
   @override
-  String get setupVerifyButton => 'Verify';
+  String get setupVerifyButton => 'Təsdiqlə';
 
   @override
-  String get setupKeyMismatch => 'Key does not match. Check and try again.';
+  String get setupKeyMismatch =>
+      'Açar uyğun gəlmir. Yoxlayın və yenidən cəhd edin.';
 
   @override
-  String get setupSkipVerify => 'Skip verification';
+  String get setupSkipVerify => 'Təsdiqləməni keç';
 
   @override
-  String get setupSkipVerifyTitle => 'Skip verification?';
+  String get setupSkipVerifyTitle => 'Təsdiqləmə keçilsin?';
 
   @override
   String get setupSkipVerifyBody =>
-      'If you lose your recovery key, your account cannot be restored. Are you sure you want to skip?';
+      'Bərpa açarınızı itirsəniz, hesabınız bərpa edilə bilməz. Keçmək istədiyinizə əminsiniz?';
 
   @override
-  String get setupPinSet => 'Set a PIN';
+  String get setupCreatingAccount => 'Hesab yaradılır…';
 
   @override
-  String get setupPinConfirm => 'Confirm PIN';
-
-  @override
-  String get setupPinHint =>
-      'This PIN unlocks the app. Your recovery key is used only to restore your account.';
-
-  @override
-  String get setupPinMismatch => 'PINs do not match. Try again.';
-
-  @override
-  String get setupCreatingAccount => 'Creating account…';
-
-  @override
-  String get setupRestoringAccount => 'Restoring account…';
+  String get setupRestoringAccount => 'Hesab bərpa edilir…';
 
   @override
   String get restoreKeyInfoBanner =>
-      'Enter your recovery key — your address (Nostr + Session) will be restored automatically. Contacts and messages were stored locally only.';
+      'Bərpa açarınızı daxil edin — ünvanınız (Nostr + Session) avtomatik bərpa ediləcək. Kontaktlar və mesajlar yalnız yerli olaraq saxlanılıb.';
 
   @override
-  String get restoreKeyHint => 'Recovery key';
+  String get restoreKeyHint => 'Bərpa açarı';
 
   @override
-  String get lockPinSubtitle => 'Enter your PIN to continue';
+  String get settingsViewRecoveryKey => 'Bərpa Açarına Bax';
 
   @override
-  String get lockWrongPin => 'Wrong PIN';
+  String get settingsViewRecoveryKeySubtitle =>
+      'Hesab bərpa açarınızı göstərin';
 
   @override
-  String get settingsChangePin => 'Change PIN';
+  String get settingsRecoveryKeyNotStored =>
+      'Bərpa açarı mövcud deyil (bu funksiyadan əvvəl yaradılıb)';
 
   @override
-  String get settingsChangePinSubtitle => 'Update your app unlock PIN';
-
-  @override
-  String get settingsEnterCurrentPin => 'Enter your current PIN to continue';
-
-  @override
-  String get settingsPinChanged => 'PIN updated';
-
-  @override
-  String get settingsPinEnabled => 'PIN lock enabled';
-
-  @override
-  String get settingsRecoveryKeyInfo => 'Recovery Key';
-
-  @override
-  String get settingsRecoveryKeyInfoSubtitle =>
-      'Your recovery key is not stored — keep your written copy safe';
+  String get settingsRecoveryKeyWarning =>
+      'Bu açarı təhlükəsiz saxlayın. Onu əldə edən hər kəs hesabınızı başqa cihazda bərpa edə bilər.';
 
   @override
   String get replaceIdentityTitle => 'Replace existing identity?';

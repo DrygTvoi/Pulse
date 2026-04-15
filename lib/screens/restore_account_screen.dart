@@ -11,7 +11,6 @@ import '../services/key_derivation_service.dart';
 import '../services/password_hasher.dart';
 import '../services/session_key_service.dart';
 import '../services/recovery_key_service.dart';
-import '../widgets/pin_input.dart';
 import 'dart:math';
 import 'dart:convert';
 import 'dart:typed_data';
@@ -48,11 +47,13 @@ class _RestoreAccountScreenState extends State<RestoreAccountScreen> {
   int  _colorIndex  = 0;
   bool _isLoading   = false;
 
-  // PIN setup step
-  bool _showPinStep = false;
-  bool _settingPin  = false;
-  String _firstPin  = '';
-  String? _pinError;
+  // Password setup step
+  bool _showPassStep = false;
+  final _passController2 = TextEditingController();
+  final _confirmPassController = TextEditingController();
+  bool _showPass = false;
+  bool _showConfirm = false;
+  String? _passError;
 
   Future<String>? _relayProbe;
 
@@ -66,6 +67,8 @@ class _RestoreAccountScreenState extends State<RestoreAccountScreen> {
   void dispose() {
     _nameController.dispose();
     _keyController.dispose();
+    _passController2.dispose();
+    _confirmPassController.dispose();
     super.dispose();
   }
 
@@ -74,37 +77,42 @@ class _RestoreAccountScreenState extends State<RestoreAccountScreen> {
       _nameController.text.trim().isNotEmpty &&
       RecoveryKeyService.isValid(_keyController.text);
 
-  // ── PIN step ────────────────────────────────────────────────────────────
+  // ── Password step ──────────────────────────────────────────────────────
 
-  void _onPinComplete(String pin) {
-    if (!_settingPin) {
-      setState(() {
-        _firstPin = pin;
-        _settingPin = true;
-        _pinError = null;
-      });
-    } else {
-      if (pin == _firstPin) {
-        _restore(pin);
-      } else {
-        setState(() {
-          _pinError = context.l10n.setupPinMismatch;
-          _settingPin = false;
-          _firstPin = '';
-        });
-      }
+  static final _hasLetter = RegExp(r'[a-zA-Z]');
+  static final _hasDigit = RegExp(r'\d');
+  static final _hasSpecial = RegExp(r'[^a-zA-Z0-9]');
+
+  void _submitPassword() {
+    final pass = _passController2.text;
+    final confirm = _confirmPassController.text;
+
+    if (pass.length < 8) {
+      setState(() => _passError = context.l10n.passwordMinChars);
+      return;
     }
+    if (!_hasLetter.hasMatch(pass) || !_hasDigit.hasMatch(pass) || !_hasSpecial.hasMatch(pass)) {
+      setState(() => _passError = context.l10n.passwordNeedsVariety);
+      return;
+    }
+    if (pass != confirm) {
+      setState(() => _passError = context.l10n.passwordsDoNotMatch);
+      return;
+    }
+    _restore(pass);
   }
 
   // ── Restore ───────────────────────────────────────────────────────────────
 
-  Future<void> _restore(String pin) async {
+  Future<void> _restore(String appPassword) async {
     if (_isLoading) return;
     _isLoading = true;
 
     const ss = FlutterSecureStorage();
+    final onboardPrefs = await SharedPreferences.getInstance();
+    final alreadyOnboarded = onboardPrefs.getBool('onboarding_done') ?? false;
     final existingKey = await ss.read(key: 'nostr_privkey');
-    if (existingKey != null && existingKey.isNotEmpty) {
+    if (alreadyOnboarded && existingKey != null && existingKey.isNotEmpty) {
       if (!mounted) return;
       final confirmed = await showDialog<bool>(
         context: context,
@@ -156,17 +164,17 @@ class _RestoreAccountScreenState extends State<RestoreAccountScreen> {
     pulseKeyBytes.fillRange(0, pulseKeyBytes.length, 0);
 
     final signalService = SignalService();
-    final pinSalt = _generateSalt();
+    final pwSalt = _generateSalt();
     final parallelResults = await Future.wait([
       signalService.initialize().then((_) => signalService.getPublicBundle()),
       SessionKeyService.instance.initialize(),
-      PasswordHasher.hash(pin, pinSalt),
+      PasswordHasher.hash(appPassword, pwSalt),
       SharedPreferences.getInstance(),
       _relayProbe ?? Future.value(null),
     ]);
 
     final bundle = parallelResults[0] as Map<String, dynamic>;
-    final pinHash = parallelResults[2] as String;
+    final pwHash = parallelResults[2] as String;
     final prefs = parallelResults[3] as SharedPreferences;
     final probedRelay = parallelResults[4] as String?;
 
@@ -200,18 +208,22 @@ class _RestoreAccountScreenState extends State<RestoreAccountScreen> {
         'databaseId': sessionId,
         'selfId': sessionId,
       }])),
-      // Store PIN hash (not password hash)
-      ss.write(key: 'app_pin_hash', value: pinHash),
-      ss.write(key: 'app_pin_salt', value: pinSalt),
-      ss.write(key: 'app_pin_enabled', value: 'true'),
+      ss.write(key: 'app_password_hash', value: pwHash),
+      ss.write(key: 'app_password_salt', value: pwSalt),
+      ss.write(key: 'app_password_enabled', value: 'true'),
+      ss.write(key: 'recovery_key', value: RecoveryKeyService.format(
+          RecoveryKeyService.normalize(_keyController.text))),
     ]);
 
+    final prefs2 = await SharedPreferences.getInstance();
+    await prefs2.setBool('onboarding_done', true);
     unawaited(ChatController().initialize());
 
     if (!mounted) return;
     setState(() => _isLoading = false);
-    Navigator.of(context).pushReplacement(
+    Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(builder: (_) => const HomeScreen()),
+      (_) => false,
     );
   }
 
@@ -225,13 +237,13 @@ class _RestoreAccountScreenState extends State<RestoreAccountScreen> {
 
   @override
   Widget build(BuildContext context) {
-    const purple = Color(0xFFA78BFA);
+    final accent = AppTheme.primary;
     const green  = Color(0xFF34D399);
     final color   = _avatarColors[_colorIndex];
     final name    = _nameController.text.trim();
     final initial = name.isEmpty ? '?' : name[0].toUpperCase();
 
-    if (_showPinStep) return _buildPinScreen(purple);
+    if (_showPassStep) return _buildPasswordScreen(accent);
 
     return Scaffold(
       backgroundColor: AppTheme.background,
@@ -289,7 +301,7 @@ class _RestoreAccountScreenState extends State<RestoreAccountScreen> {
                       decoration: BoxDecoration(
                         color: color,
                         shape: BoxShape.circle,
-                        border: Border.all(color: purple.withValues(alpha: 0.4), width: 2),
+                        border: Border.all(color: accent.withValues(alpha: 0.4), width: 2),
                       ),
                       child: Center(
                         child: Text(initial,
@@ -343,7 +355,7 @@ class _RestoreAccountScreenState extends State<RestoreAccountScreen> {
                       borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(14),
-                    borderSide: const BorderSide(color: purple, width: 2),
+                    borderSide: BorderSide(color: accent, width: 2),
                   ),
                   contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
                 ),
@@ -359,7 +371,7 @@ class _RestoreAccountScreenState extends State<RestoreAccountScreen> {
                     disabledBackgroundColor: green.withValues(alpha: 0.3),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                   ),
-                  onPressed: _canSubmit ? () => setState(() => _showPinStep = true) : null,
+                  onPressed: _canSubmit ? () => setState(() => _showPassStep = true) : null,
                   child: Text(context.l10n.setupNext,
                       style: GoogleFonts.inter(
                           fontSize: 16, fontWeight: FontWeight.w700, color: Colors.white)),
@@ -372,7 +384,7 @@ class _RestoreAccountScreenState extends State<RestoreAccountScreen> {
     );
   }
 
-  Widget _buildPinScreen(Color purple) {
+  Widget _buildPasswordScreen(Color accent) {
     return Scaffold(
       backgroundColor: AppTheme.background,
       appBar: AppBar(
@@ -381,10 +393,8 @@ class _RestoreAccountScreenState extends State<RestoreAccountScreen> {
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded, color: Colors.white70),
           onPressed: () => setState(() {
-            _showPinStep = false;
-            _settingPin = false;
-            _firstPin = '';
-            _pinError = null;
+            _showPassStep = false;
+            _passError = null;
           }),
         ),
         title: Text(context.l10n.restoreTitle,
@@ -397,8 +407,16 @@ class _RestoreAccountScreenState extends State<RestoreAccountScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
             child: Column(
               children: [
-                Icon(Icons.pin_rounded, size: 48, color: purple),
+                Icon(Icons.lock_rounded, size: 48, color: accent),
                 const SizedBox(height: 16),
+                Text(context.l10n.passwordSetAppPassword,
+                    style: GoogleFonts.inter(
+                        fontSize: 20, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+                const SizedBox(height: 6),
+                Text(context.l10n.passwordProtectsMessages,
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.inter(fontSize: 12, color: AppTheme.textSecondary, height: 1.4)),
+                const SizedBox(height: 28),
                 if (_isLoading)
                   Column(children: [
                     const SizedBox(height: 40),
@@ -409,27 +427,83 @@ class _RestoreAccountScreenState extends State<RestoreAccountScreen> {
                     Text(context.l10n.setupRestoringAccount,
                         style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: 14)),
                   ])
-                else
-                  PinInput(
-                    key: ValueKey('restore_pin_$_settingPin'),
-                    title: _settingPin
-                        ? context.l10n.setupPinConfirm
-                        : context.l10n.setupPinSet,
-                    error: _pinError,
-                    onComplete: _onPinComplete,
+                else ...[
+                  _buildPassField(
+                    controller: _passController2,
+                    hint: context.l10n.passwordHint,
+                    visible: _showPass,
+                    onToggle: () => setState(() => _showPass = !_showPass),
+                    accent: accent,
                   ),
-                if (!_isLoading) ...[
                   const SizedBox(height: 12),
-                  Text(
-                    context.l10n.setupPinHint,
-                    textAlign: TextAlign.center,
-                    style: GoogleFonts.inter(
-                        color: AppTheme.textSecondary, fontSize: 12, height: 1.4),
+                  _buildPassField(
+                    controller: _confirmPassController,
+                    hint: context.l10n.passwordConfirmHint,
+                    visible: _showConfirm,
+                    onToggle: () => setState(() => _showConfirm = !_showConfirm),
+                    accent: accent,
+                  ),
+                  if (_passError != null) ...[
+                    const SizedBox(height: 10),
+                    Text(_passError!,
+                        style: GoogleFonts.inter(color: AppTheme.errorLight, fontSize: 12)),
+                  ],
+                  const SizedBox(height: 8),
+                  Text(context.l10n.passwordRequirements,
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: 11, height: 1.4)),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 52,
+                    child: FilledButton(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: const Color(0xFF34D399),
+                        disabledBackgroundColor: const Color(0xFF34D399).withValues(alpha: 0.3),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      ),
+                      onPressed: _passController2.text.length >= 8 ? _submitPassword : null,
+                      child: Text(context.l10n.restoreButton,
+                          style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w700, color: Colors.white)),
+                    ),
                   ),
                 ],
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPassField({
+    required TextEditingController controller,
+    required String hint,
+    required bool visible,
+    required VoidCallback onToggle,
+    required Color accent,
+  }) {
+    return TextField(
+      controller: controller,
+      obscureText: !visible,
+      onChanged: (_) => setState(() => _passError = null),
+      style: GoogleFonts.inter(color: AppTheme.textPrimary, fontSize: 15),
+      decoration: InputDecoration(
+        hintText: hint,
+        hintStyle: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: 15),
+        filled: true,
+        fillColor: AppTheme.surfaceVariant,
+        border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide(color: accent, width: 2),
+        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+        suffixIcon: IconButton(
+          icon: Icon(visible ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+              color: AppTheme.textSecondary, size: 20),
+          onPressed: onToggle,
         ),
       ),
     );
@@ -443,7 +517,7 @@ class _RestoreAccountScreenState extends State<RestoreAccountScreen> {
     void Function(String)? onChanged,
     Widget? suffix,
   }) {
-    const purple = Color(0xFFA78BFA);
+    final accent = AppTheme.primary;
     return TextField(
       controller: controller,
       obscureText: obscure,
@@ -462,7 +536,7 @@ class _RestoreAccountScreenState extends State<RestoreAccountScreen> {
             borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: purple, width: 2),
+          borderSide: BorderSide(color: accent, width: 2),
         ),
         contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
       ),

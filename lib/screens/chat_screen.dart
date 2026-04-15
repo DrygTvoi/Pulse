@@ -79,6 +79,9 @@ class _ChatScreenState extends State<ChatScreen> {
   // Key change warning banner
   bool _showKeyChangeBanner = false;
 
+  // Contact avatar bytes
+  Uint8List? _contactAvatar;
+
   // Delete animation
   final _pendingDelete = <String>{};
 
@@ -134,13 +137,20 @@ class _ChatScreenState extends State<ChatScreen> {
       final results = await Future.wait([
         NotificationService().isChatMuted(_contact.id),
         LocalStorageService().loadDraft(_contact.id),
+        LocalStorageService().loadAvatar(_contact.id),
       ]);
       final muted = results[0] as bool;
       final draft = (results[1] as String?) ?? '';
+      final avatarB64 = results[2] as String?;
+      Uint8List? avatarBytes;
+      if (avatarB64 != null && avatarB64.isNotEmpty) {
+        try { avatarBytes = base64Decode(avatarB64); } catch (_) {}
+      }
       if (mounted) {
         setState(() {
           _chatTtlSeconds = ttl;
           _chatMuted = muted;
+          _contactAvatar = avatarBytes;
         });
       }
       _scrollToBottom(animated: false);
@@ -810,6 +820,7 @@ class _ChatScreenState extends State<ChatScreen> {
               myId: myId,
               chatMuted: _chatMuted,
               chatTtlSeconds: _chatTtlSeconds,
+              avatarBytes: _contactAvatar,
               onOpenProfile: _openProfile,
               onSearchActivate: () => setState(() => _searchActive = true),
               onMuteChanged: (muted) { if (mounted) setState(() => _chatMuted = muted); },

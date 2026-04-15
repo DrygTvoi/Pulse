@@ -594,7 +594,7 @@ class AppLocalizationsFil extends AppLocalizations {
   String get onboardingNext => 'Susunod';
 
   @override
-  String get onboardingGetStarted => 'Magsimula';
+  String get onboardingGetStarted => 'Gumawa ng Account';
 
   @override
   String get onboardingWelcomeTitle => 'Maligayang pagdating sa Pulse';
@@ -1217,7 +1217,15 @@ class AppLocalizationsFil extends AppLocalizations {
 
   @override
   String get passwordMinChars =>
-      'Ang password ay dapat hindi bababa sa 6 na karakter';
+      'Ang password ay dapat hindi bababa sa 8 karakter';
+
+  @override
+  String get passwordNeedsVariety =>
+      'Dapat may kasamang letra, numero, at espesyal na karakter';
+
+  @override
+  String get passwordRequirements =>
+      'Min. 8 karakter na may letra, numero, at espesyal na karakter';
 
   @override
   String get passwordsDoNotMatch => 'Hindi magkatugma ang mga password';
@@ -2730,105 +2738,79 @@ class AppLocalizationsFil extends AppLocalizations {
   String get channelCopyUrl => 'Kopyahin ang URL';
 
   @override
-  String get setupNext => 'Next';
+  String get setupNext => 'Susunod';
 
   @override
   String get setupKeyWarning =>
-      'A recovery key will be generated for you. It is the only way to restore your account — there is no server, no password reset.';
+      'Isang recovery key ang gagawin para sa iyo. Ito ang tanging paraan upang maibalik ang iyong account sa bagong device — walang server, walang password reset.';
 
   @override
-  String get setupKeyTitle => 'Your Recovery Key';
+  String get setupKeyTitle => 'Ang Iyong Recovery Key';
 
   @override
   String get setupKeySubtitle =>
-      'Write this key down and store it in a safe place. You will need it to restore your account on a new device.';
+      'Isulat ang key na ito at itago sa ligtas na lugar. Kakailanganin mo ito upang maibalik ang iyong account sa bagong device.';
 
   @override
-  String get setupKeyCopied => 'Copied!';
+  String get setupKeyCopied => 'Nakopya!';
 
   @override
-  String get setupKeyWroteItDown => 'I wrote it down';
+  String get setupKeyWroteItDown => 'Naisulat ko na';
 
   @override
   String get setupKeyWarnBody =>
-      'This key is NOT stored anywhere. If you lose it, your account cannot be recovered.';
+      'Isulat ang key na ito bilang backup. Maaari mo rin itong tignan mamaya sa Settings → Security.';
 
   @override
-  String get setupVerifyTitle => 'Verify Recovery Key';
+  String get setupVerifyTitle => 'I-verify ang Recovery Key';
 
   @override
   String get setupVerifySubtitle =>
-      'Re-enter your recovery key to confirm you saved it correctly.';
+      'Ilagay muli ang iyong recovery key upang kumpirmahin na nai-save mo ito nang tama.';
 
   @override
-  String get setupVerifyButton => 'Verify';
+  String get setupVerifyButton => 'I-verify';
 
   @override
-  String get setupKeyMismatch => 'Key does not match. Check and try again.';
+  String get setupKeyMismatch => 'Hindi tugma ang key. Suriin at subukan muli.';
 
   @override
-  String get setupSkipVerify => 'Skip verification';
+  String get setupSkipVerify => 'Laktawan ang verification';
 
   @override
-  String get setupSkipVerifyTitle => 'Skip verification?';
+  String get setupSkipVerifyTitle => 'Laktawan ang verification?';
 
   @override
   String get setupSkipVerifyBody =>
-      'If you lose your recovery key, your account cannot be restored. Are you sure you want to skip?';
+      'Kung mawala ang iyong recovery key, hindi na maibabalik ang iyong account. Sigurado ka bang gustong laktawan?';
 
   @override
-  String get setupPinSet => 'Set a PIN';
+  String get setupCreatingAccount => 'Gumagawa ng account…';
 
   @override
-  String get setupPinConfirm => 'Confirm PIN';
-
-  @override
-  String get setupPinHint =>
-      'This PIN unlocks the app. Your recovery key is used only to restore your account.';
-
-  @override
-  String get setupPinMismatch => 'PINs do not match. Try again.';
-
-  @override
-  String get setupCreatingAccount => 'Creating account…';
-
-  @override
-  String get setupRestoringAccount => 'Restoring account…';
+  String get setupRestoringAccount => 'Ibinabalik ang account…';
 
   @override
   String get restoreKeyInfoBanner =>
-      'Enter your recovery key — your address (Nostr + Session) will be restored automatically. Contacts and messages were stored locally only.';
+      'Ilagay ang iyong recovery key — ang iyong address (Nostr + Session) ay awtomatikong maibabalik. Ang mga contact at mensahe ay lokal lang na naka-store.';
 
   @override
   String get restoreKeyHint => 'Recovery key';
 
   @override
-  String get lockPinSubtitle => 'Enter your PIN to continue';
+  String get settingsViewRecoveryKey => 'Tingnan ang Recovery Key';
 
   @override
-  String get lockWrongPin => 'Wrong PIN';
+  String get settingsViewRecoveryKeySubtitle =>
+      'Ipakita ang recovery key ng iyong account';
 
   @override
-  String get settingsChangePin => 'Change PIN';
+  String get settingsRecoveryKeyNotStored =>
+      'Hindi available ang recovery key (ginawa bago ang feature na ito)';
 
   @override
-  String get settingsChangePinSubtitle => 'Update your app unlock PIN';
-
-  @override
-  String get settingsEnterCurrentPin => 'Enter your current PIN to continue';
-
-  @override
-  String get settingsPinChanged => 'PIN updated';
-
-  @override
-  String get settingsPinEnabled => 'PIN lock enabled';
-
-  @override
-  String get settingsRecoveryKeyInfo => 'Recovery Key';
-
-  @override
-  String get settingsRecoveryKeyInfoSubtitle =>
-      'Your recovery key is not stored — keep your written copy safe';
+  String get settingsRecoveryKeyWarning =>
+      'Ingatan ang key na ito. Sinumang may hawak nito ay maaaring maibalik ang iyong account sa ibang device.';
 
   @override
   String get replaceIdentityTitle => 'Replace existing identity?';

@@ -590,7 +590,7 @@ class AppLocalizationsKa extends AppLocalizations {
   String get onboardingNext => 'შემდეგი';
 
   @override
-  String get onboardingGetStarted => 'დაწყება';
+  String get onboardingGetStarted => 'ანგარიშის შექმნა';
 
   @override
   String get onboardingWelcomeTitle => 'კეთილი იყოს თქვენი მობრძანება Pulse-ში';
@@ -1207,7 +1207,15 @@ class AppLocalizationsKa extends AppLocalizations {
   String get passwordSkipForNow => 'ჯერ გამოტოვება';
 
   @override
-  String get passwordMinChars => 'პაროლი მინიმუმ 6 სიმბოლო უნდა იყოს';
+  String get passwordMinChars => 'პაროლი მინიმუმ 8 სიმბოლო უნდა იყოს';
+
+  @override
+  String get passwordNeedsVariety =>
+      'უნდა შეიცავდეს ასოებს, რიცხვებს და სპეციალურ სიმბოლოებს';
+
+  @override
+  String get passwordRequirements =>
+      'მინ. 8 სიმბოლო ასოებით, რიცხვებით და სპეციალური სიმბოლოთი';
 
   @override
   String get passwordsDoNotMatch => 'პაროლები არ ემთხვევა';
@@ -2717,11 +2725,11 @@ class AppLocalizationsKa extends AppLocalizations {
   String get channelCopyUrl => 'URL-ის კოპირება';
 
   @override
-  String get setupNext => 'Next';
+  String get setupNext => 'შემდეგი';
 
   @override
   String get setupKeyWarning =>
-      'A recovery key will be generated for you. It is the only way to restore your account — there is no server, no password reset.';
+      'A recovery key will be generated for you. It is the only way to restore your account on a new device — there is no server, no password reset.';
 
   @override
   String get setupKeyTitle => 'Your Recovery Key';
@@ -2731,14 +2739,14 @@ class AppLocalizationsKa extends AppLocalizations {
       'Write this key down and store it in a safe place. You will need it to restore your account on a new device.';
 
   @override
-  String get setupKeyCopied => 'Copied!';
+  String get setupKeyCopied => 'დაკოპირებულია!';
 
   @override
-  String get setupKeyWroteItDown => 'I wrote it down';
+  String get setupKeyWroteItDown => 'ჩავწერე';
 
   @override
   String get setupKeyWarnBody =>
-      'This key is NOT stored anywhere. If you lose it, your account cannot be recovered.';
+      'Write this key down as a backup. You can also view it later in Settings → Security.';
 
   @override
   String get setupVerifyTitle => 'Verify Recovery Key';
@@ -2748,7 +2756,7 @@ class AppLocalizationsKa extends AppLocalizations {
       'Re-enter your recovery key to confirm you saved it correctly.';
 
   @override
-  String get setupVerifyButton => 'Verify';
+  String get setupVerifyButton => 'დადასტურება';
 
   @override
   String get setupKeyMismatch => 'Key does not match. Check and try again.';
@@ -2764,19 +2772,6 @@ class AppLocalizationsKa extends AppLocalizations {
       'If you lose your recovery key, your account cannot be restored. Are you sure you want to skip?';
 
   @override
-  String get setupPinSet => 'Set a PIN';
-
-  @override
-  String get setupPinConfirm => 'Confirm PIN';
-
-  @override
-  String get setupPinHint =>
-      'This PIN unlocks the app. Your recovery key is used only to restore your account.';
-
-  @override
-  String get setupPinMismatch => 'PINs do not match. Try again.';
-
-  @override
   String get setupCreatingAccount => 'Creating account…';
 
   @override
@@ -2790,32 +2785,19 @@ class AppLocalizationsKa extends AppLocalizations {
   String get restoreKeyHint => 'Recovery key';
 
   @override
-  String get lockPinSubtitle => 'Enter your PIN to continue';
+  String get settingsViewRecoveryKey => 'აღდგენის გასაღების ნახვა';
 
   @override
-  String get lockWrongPin => 'Wrong PIN';
+  String get settingsViewRecoveryKeySubtitle =>
+      'ანგარიშის აღდგენის გასაღების ჩვენება';
 
   @override
-  String get settingsChangePin => 'Change PIN';
+  String get settingsRecoveryKeyNotStored =>
+      'აღდგენის გასაღები მიუწვდომელია (შექმნილია ამ ფუნქციამდე)';
 
   @override
-  String get settingsChangePinSubtitle => 'Update your app unlock PIN';
-
-  @override
-  String get settingsEnterCurrentPin => 'Enter your current PIN to continue';
-
-  @override
-  String get settingsPinChanged => 'PIN updated';
-
-  @override
-  String get settingsPinEnabled => 'PIN lock enabled';
-
-  @override
-  String get settingsRecoveryKeyInfo => 'Recovery Key';
-
-  @override
-  String get settingsRecoveryKeyInfoSubtitle =>
-      'Your recovery key is not stored — keep your written copy safe';
+  String get settingsRecoveryKeyWarning =>
+      'დაიცავით ეს გასაღები უსაფრთხოდ. ნებისმიერს, ვისაც ის აქვს, შეუძლია თქვენი ანგარიშის აღდგენა სხვა მოწყობილობაზე.';
 
   @override
   String get replaceIdentityTitle => 'Replace existing identity?';

@@ -563,7 +563,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get onboardingNext => '次へ';
 
   @override
-  String get onboardingGetStarted => 'はじめる';
+  String get onboardingGetStarted => 'アカウントを作成';
 
   @override
   String get onboardingWelcomeTitle => 'Pulseへようこそ';
@@ -1155,7 +1155,13 @@ class AppLocalizationsJa extends AppLocalizations {
   String get passwordSkipForNow => '今はスキップ';
 
   @override
-  String get passwordMinChars => 'パスワードは6文字以上必要です';
+  String get passwordMinChars => 'パスワードは8文字以上必要です';
+
+  @override
+  String get passwordNeedsVariety => '英字、数字、特殊文字を含める必要があります';
+
+  @override
+  String get passwordRequirements => '8文字以上、英字・数字・特殊文字を含む';
 
   @override
   String get passwordsDoNotMatch => 'パスワードが一致しません';
@@ -2613,119 +2619,89 @@ class AppLocalizationsJa extends AppLocalizations {
   String get channelCopyUrl => 'URLをコピー';
 
   @override
-  String get setupNext => 'Next';
+  String get setupNext => '次へ';
 
   @override
   String get setupKeyWarning =>
-      'A recovery key will be generated for you. It is the only way to restore your account — there is no server, no password reset.';
+      'リカバリーキーが生成されます。新しいデバイスでアカウントを復元する唯一の方法です — サーバーもパスワードリセットもありません。';
 
   @override
-  String get setupKeyTitle => 'Your Recovery Key';
+  String get setupKeyTitle => 'あなたのリカバリーキー';
 
   @override
   String get setupKeySubtitle =>
-      'Write this key down and store it in a safe place. You will need it to restore your account on a new device.';
+      'このキーを書き留めて安全な場所に保管してください。新しいデバイスでアカウントを復元するのに必要です。';
 
   @override
-  String get setupKeyCopied => 'Copied!';
+  String get setupKeyCopied => 'コピーしました！';
 
   @override
-  String get setupKeyWroteItDown => 'I wrote it down';
+  String get setupKeyWroteItDown => '書き留めました';
 
   @override
   String get setupKeyWarnBody =>
-      'This key is NOT stored anywhere. If you lose it, your account cannot be recovered.';
+      'このキーをバックアップとして書き留めてください。設定 → セキュリティでも後から確認できます。';
 
   @override
-  String get setupVerifyTitle => 'Verify Recovery Key';
+  String get setupVerifyTitle => 'リカバリーキーの確認';
 
   @override
-  String get setupVerifySubtitle =>
-      'Re-enter your recovery key to confirm you saved it correctly.';
+  String get setupVerifySubtitle => 'リカバリーキーを再入力して正しく保存したことを確認してください。';
 
   @override
-  String get setupVerifyButton => 'Verify';
+  String get setupVerifyButton => '確認';
 
   @override
-  String get setupKeyMismatch => 'Key does not match. Check and try again.';
+  String get setupKeyMismatch => 'キーが一致しません。確認してやり直してください。';
 
   @override
-  String get setupSkipVerify => 'Skip verification';
+  String get setupSkipVerify => '確認をスキップ';
 
   @override
-  String get setupSkipVerifyTitle => 'Skip verification?';
+  String get setupSkipVerifyTitle => '確認をスキップしますか？';
 
   @override
-  String get setupSkipVerifyBody =>
-      'If you lose your recovery key, your account cannot be restored. Are you sure you want to skip?';
+  String get setupSkipVerifyBody => 'リカバリーキーを紛失すると、アカウントを復元できなくなります。よろしいですか？';
 
   @override
-  String get setupPinSet => 'Set a PIN';
+  String get setupCreatingAccount => 'アカウント作成中…';
 
   @override
-  String get setupPinConfirm => 'Confirm PIN';
-
-  @override
-  String get setupPinHint =>
-      'This PIN unlocks the app. Your recovery key is used only to restore your account.';
-
-  @override
-  String get setupPinMismatch => 'PINs do not match. Try again.';
-
-  @override
-  String get setupCreatingAccount => 'Creating account…';
-
-  @override
-  String get setupRestoringAccount => 'Restoring account…';
+  String get setupRestoringAccount => 'アカウント復元中…';
 
   @override
   String get restoreKeyInfoBanner =>
-      'Enter your recovery key — your address (Nostr + Session) will be restored automatically. Contacts and messages were stored locally only.';
+      'リカバリーキーを入力 — アドレス（Nostr + Session）は自動的に復元されます。連絡先とメッセージはローカルにのみ保存されていました。';
 
   @override
-  String get restoreKeyHint => 'Recovery key';
+  String get restoreKeyHint => 'リカバリーキー';
 
   @override
-  String get lockPinSubtitle => 'Enter your PIN to continue';
+  String get settingsViewRecoveryKey => 'リカバリーキーを表示';
 
   @override
-  String get lockWrongPin => 'Wrong PIN';
+  String get settingsViewRecoveryKeySubtitle => 'アカウントのリカバリーキーを表示';
 
   @override
-  String get settingsChangePin => 'Change PIN';
+  String get settingsRecoveryKeyNotStored => 'リカバリーキーが利用できません（この機能の前に作成されました）';
 
   @override
-  String get settingsChangePinSubtitle => 'Update your app unlock PIN';
+  String get settingsRecoveryKeyWarning =>
+      'このキーを安全に保管してください。持っている人は別のデバイスであなたのアカウントを復元できます。';
 
   @override
-  String get settingsEnterCurrentPin => 'Enter your current PIN to continue';
-
-  @override
-  String get settingsPinChanged => 'PIN updated';
-
-  @override
-  String get settingsPinEnabled => 'PIN lock enabled';
-
-  @override
-  String get settingsRecoveryKeyInfo => 'Recovery Key';
-
-  @override
-  String get settingsRecoveryKeyInfoSubtitle =>
-      'Your recovery key is not stored — keep your written copy safe';
-
-  @override
-  String get replaceIdentityTitle => 'Replace existing identity?';
+  String get replaceIdentityTitle => '既存のIDを置き換えますか？';
 
   @override
   String get replaceIdentityBodyRestore =>
-      'An identity already exists on this device. Restoring will permanently replace your current Nostr key and Oxen seed. All contacts will lose the ability to reach your current address.\n\nThis cannot be undone.';
+      'このデバイスにはすでにIDが存在します。復元すると、現在のNostrキーとOxenシードが永久に置き換えられます。すべての連絡先は現在のアドレスに連絡できなくなります。\n\nこの操作は元に戻せません。';
 
   @override
   String get replaceIdentityBodyCreate =>
-      'An identity already exists on this device. Creating a new one will permanently replace your current Nostr key and Oxen seed. All contacts will lose the ability to reach your current address.\n\nThis cannot be undone.';
+      'このデバイスにはすでにIDが存在します。新しいIDを作成すると、現在のNostrキーとOxenシードが永久に置き換えられます。すべての連絡先は現在のアドレスに連絡できなくなります。\n\nこの操作は元に戻せません。';
 
   @override
-  String get replace => 'Replace';
+  String get replace => '置き換え';
 
   @override
   String get callNoScreenSources => 'No screen sources available';

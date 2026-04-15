@@ -578,7 +578,7 @@ class AppLocalizationsAm extends AppLocalizations {
   String get onboardingNext => 'ቀጣይ';
 
   @override
-  String get onboardingGetStarted => 'ጀምር';
+  String get onboardingGetStarted => 'መለያ ፍጠር';
 
   @override
   String get onboardingWelcomeTitle => 'እንኳን ወደ Pulse በደህና መጡ';
@@ -1186,7 +1186,13 @@ class AppLocalizationsAm extends AppLocalizations {
   String get passwordSkipForNow => 'ለአሁን ዝለል';
 
   @override
-  String get passwordMinChars => 'የይለፍ ቃል ቢያንስ 6 ቁምፊዎች መሆን አለበት';
+  String get passwordMinChars => 'የይለፍ ቃል ቢያንስ 8 ቁምፊዎች መሆን አለበት';
+
+  @override
+  String get passwordNeedsVariety => 'ፊደላት፣ ቁጥሮች እና ልዩ ቁምፊዎችን ማካተት አለበት';
+
+  @override
+  String get passwordRequirements => 'ቢያንስ 8 ቁምፊዎች ከፊደላት፣ ቁጥሮች እና ልዩ ቁምፊ ጋር';
 
   @override
   String get passwordsDoNotMatch => 'የይለፍ ቃሎች አይዛመዱም';
@@ -2656,105 +2662,78 @@ class AppLocalizationsAm extends AppLocalizations {
   String get channelCopyUrl => 'URL ቅዳ';
 
   @override
-  String get setupNext => 'Next';
+  String get setupNext => 'ቀጣይ';
 
   @override
   String get setupKeyWarning =>
-      'A recovery key will be generated for you. It is the only way to restore your account — there is no server, no password reset.';
+      'ለእርስዎ የመልሶ ማግኛ ቁልፍ ይፈጠራል። ይህ መለያዎን በአዲስ መሣሪያ ላይ ለመመለስ ብቸኛው መንገድ ነው — ሰርቨር የለም፣ የይለፍ ቃል ዳግም ማስጀመር የለም።';
 
   @override
-  String get setupKeyTitle => 'Your Recovery Key';
+  String get setupKeyTitle => 'የመልሶ ማግኛ ቁልፍዎ';
 
   @override
   String get setupKeySubtitle =>
-      'Write this key down and store it in a safe place. You will need it to restore your account on a new device.';
+      'ይህን ቁልፍ ይፃፉ እና ደህንነቱ በተጠበቀ ቦታ ያስቀምጡ። መለያዎን በአዲስ መሣሪያ ላይ ለመመለስ ያስፈልግዎታል።';
 
   @override
-  String get setupKeyCopied => 'Copied!';
+  String get setupKeyCopied => 'ተቀድቷል!';
 
   @override
-  String get setupKeyWroteItDown => 'I wrote it down';
+  String get setupKeyWroteItDown => 'ጻፍኩት';
 
   @override
   String get setupKeyWarnBody =>
-      'This key is NOT stored anywhere. If you lose it, your account cannot be recovered.';
+      'ይህን ቁልፍ ለመጠባበቂያ ይፃፉ። እንዲሁም በኋላ በቅንብሮች → ደህንነት ውስጥ ማየት ይችላሉ።';
 
   @override
-  String get setupVerifyTitle => 'Verify Recovery Key';
+  String get setupVerifyTitle => 'የመልሶ ማግኛ ቁልፍ ያረጋግጡ';
 
   @override
   String get setupVerifySubtitle =>
-      'Re-enter your recovery key to confirm you saved it correctly.';
+      'በትክክል ማስቀመጥዎን ለማረጋገጥ የመልሶ ማግኛ ቁልፍዎን እንደገና ያስገቡ።';
 
   @override
-  String get setupVerifyButton => 'Verify';
+  String get setupVerifyButton => 'አረጋግጥ';
 
   @override
-  String get setupKeyMismatch => 'Key does not match. Check and try again.';
+  String get setupKeyMismatch => 'ቁልፉ አይመሳሰልም። ያረጋግጡ እና እንደገና ይሞክሩ።';
 
   @override
-  String get setupSkipVerify => 'Skip verification';
+  String get setupSkipVerify => 'ማረጋገጥን ዝለል';
 
   @override
-  String get setupSkipVerifyTitle => 'Skip verification?';
+  String get setupSkipVerifyTitle => 'ማረጋገጥን ይዝለሉ?';
 
   @override
   String get setupSkipVerifyBody =>
-      'If you lose your recovery key, your account cannot be restored. Are you sure you want to skip?';
+      'የመልሶ ማግኛ ቁልፍዎን ካጡ፣ መለያዎ ሊመለስ አይችልም። እርግጠኛ ነዎት መዝለል ይፈልጋሉ?';
 
   @override
-  String get setupPinSet => 'Set a PIN';
+  String get setupCreatingAccount => 'መለያ በመፍጠር ላይ…';
 
   @override
-  String get setupPinConfirm => 'Confirm PIN';
-
-  @override
-  String get setupPinHint =>
-      'This PIN unlocks the app. Your recovery key is used only to restore your account.';
-
-  @override
-  String get setupPinMismatch => 'PINs do not match. Try again.';
-
-  @override
-  String get setupCreatingAccount => 'Creating account…';
-
-  @override
-  String get setupRestoringAccount => 'Restoring account…';
+  String get setupRestoringAccount => 'መለያ በመመለስ ላይ…';
 
   @override
   String get restoreKeyInfoBanner =>
-      'Enter your recovery key — your address (Nostr + Session) will be restored automatically. Contacts and messages were stored locally only.';
+      'የመልሶ ማግኛ ቁልፍዎን ያስገቡ — አድራሻዎ (Nostr + Session) በራስ-ሰር ይመለሳል። እውቂያዎች እና መልዕክቶች በአካባቢው ብቻ ተከማችተዋል።';
 
   @override
-  String get restoreKeyHint => 'Recovery key';
+  String get restoreKeyHint => 'የመልሶ ማግኛ ቁልፍ';
 
   @override
-  String get lockPinSubtitle => 'Enter your PIN to continue';
+  String get settingsViewRecoveryKey => 'የመልሶ ማግኛ ቁልፍ ይመልከቱ';
 
   @override
-  String get lockWrongPin => 'Wrong PIN';
+  String get settingsViewRecoveryKeySubtitle => 'የመለያ መልሶ ማግኛ ቁልፍዎን ያሳዩ';
 
   @override
-  String get settingsChangePin => 'Change PIN';
+  String get settingsRecoveryKeyNotStored =>
+      'የመልሶ ማግኛ ቁልፍ የለም (ከዚህ ባህሪ በፊት የተፈጠረ)';
 
   @override
-  String get settingsChangePinSubtitle => 'Update your app unlock PIN';
-
-  @override
-  String get settingsEnterCurrentPin => 'Enter your current PIN to continue';
-
-  @override
-  String get settingsPinChanged => 'PIN updated';
-
-  @override
-  String get settingsPinEnabled => 'PIN lock enabled';
-
-  @override
-  String get settingsRecoveryKeyInfo => 'Recovery Key';
-
-  @override
-  String get settingsRecoveryKeyInfoSubtitle =>
-      'Your recovery key is not stored — keep your written copy safe';
+  String get settingsRecoveryKeyWarning =>
+      'ይህን ቁልፍ ደህንነቱ በተጠበቀ ሁኔታ ያስቀምጡ። ማንኛውም ሰው ይህን ቁልፍ ካገኘ በሌላ መሣሪያ ላይ መለያዎን ሊመልስ ይችላል።';
 
   @override
   String get replaceIdentityTitle => 'Replace existing identity?';

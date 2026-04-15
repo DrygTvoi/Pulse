@@ -592,7 +592,7 @@ class AppLocalizationsUk extends AppLocalizations {
   String get onboardingNext => 'Далі';
 
   @override
-  String get onboardingGetStarted => 'Почати';
+  String get onboardingGetStarted => 'Створити акаунт';
 
   @override
   String get onboardingWelcomeTitle => 'Ласкаво просимо до Pulse';
@@ -1213,7 +1213,15 @@ class AppLocalizationsUk extends AppLocalizations {
   String get passwordSkipForNow => 'Пропустити';
 
   @override
-  String get passwordMinChars => 'Пароль має бути не менше 6 символів';
+  String get passwordMinChars => 'Пароль має бути не менше 8 символів';
+
+  @override
+  String get passwordNeedsVariety =>
+      'Має містити літери, цифри та спеціальні символи';
+
+  @override
+  String get passwordRequirements =>
+      'Мін. 8 символів з літерами, цифрами та спеціальним символом';
 
   @override
   String get passwordsDoNotMatch => 'Паролі не збігаються';
@@ -2711,119 +2719,94 @@ class AppLocalizationsUk extends AppLocalizations {
   String get channelCopyUrl => 'Копіювати URL';
 
   @override
-  String get setupNext => 'Next';
+  String get setupNext => 'Далі';
 
   @override
   String get setupKeyWarning =>
-      'A recovery key will be generated for you. It is the only way to restore your account — there is no server, no password reset.';
+      'Для вас буде згенеровано ключ відновлення. Це єдиний спосіб відновити обліковий запис на новому пристрої — сервера немає, скидання пароля немає.';
 
   @override
-  String get setupKeyTitle => 'Your Recovery Key';
+  String get setupKeyTitle => 'Ваш ключ відновлення';
 
   @override
   String get setupKeySubtitle =>
-      'Write this key down and store it in a safe place. You will need it to restore your account on a new device.';
+      'Запишіть цей ключ і зберігайте його у надійному місці. Він потрібен для відновлення облікового запису на новому пристрої.';
 
   @override
-  String get setupKeyCopied => 'Copied!';
+  String get setupKeyCopied => 'Скопійовано!';
 
   @override
-  String get setupKeyWroteItDown => 'I wrote it down';
+  String get setupKeyWroteItDown => 'Я записав';
 
   @override
   String get setupKeyWarnBody =>
-      'This key is NOT stored anywhere. If you lose it, your account cannot be recovered.';
+      'Запишіть цей ключ як резервну копію. Ви також можете переглянути його пізніше в Налаштування → Безпека.';
 
   @override
-  String get setupVerifyTitle => 'Verify Recovery Key';
+  String get setupVerifyTitle => 'Перевірте ключ відновлення';
 
   @override
   String get setupVerifySubtitle =>
-      'Re-enter your recovery key to confirm you saved it correctly.';
+      'Введіть ключ повторно, щоб переконатися, що ви його правильно зберегли.';
 
   @override
-  String get setupVerifyButton => 'Verify';
+  String get setupVerifyButton => 'Перевірити';
 
   @override
-  String get setupKeyMismatch => 'Key does not match. Check and try again.';
+  String get setupKeyMismatch =>
+      'Ключ не збігається. Перевірте та спробуйте ще раз.';
 
   @override
-  String get setupSkipVerify => 'Skip verification';
+  String get setupSkipVerify => 'Пропустити перевірку';
 
   @override
-  String get setupSkipVerifyTitle => 'Skip verification?';
+  String get setupSkipVerifyTitle => 'Пропустити перевірку?';
 
   @override
   String get setupSkipVerifyBody =>
-      'If you lose your recovery key, your account cannot be restored. Are you sure you want to skip?';
+      'Якщо ви втратите ключ відновлення, ваш обліковий запис неможливо буде відновити. Ви впевнені?';
 
   @override
-  String get setupPinSet => 'Set a PIN';
+  String get setupCreatingAccount => 'Створення облікового запису…';
 
   @override
-  String get setupPinConfirm => 'Confirm PIN';
-
-  @override
-  String get setupPinHint =>
-      'This PIN unlocks the app. Your recovery key is used only to restore your account.';
-
-  @override
-  String get setupPinMismatch => 'PINs do not match. Try again.';
-
-  @override
-  String get setupCreatingAccount => 'Creating account…';
-
-  @override
-  String get setupRestoringAccount => 'Restoring account…';
+  String get setupRestoringAccount => 'Відновлення облікового запису…';
 
   @override
   String get restoreKeyInfoBanner =>
-      'Enter your recovery key — your address (Nostr + Session) will be restored automatically. Contacts and messages were stored locally only.';
+      'Введіть ключ відновлення — вашу адресу (Nostr + Session) буде відновлено автоматично. Контакти та повідомлення зберігалися лише локально.';
 
   @override
-  String get restoreKeyHint => 'Recovery key';
+  String get restoreKeyHint => 'Ключ відновлення';
 
   @override
-  String get lockPinSubtitle => 'Enter your PIN to continue';
+  String get settingsViewRecoveryKey => 'Переглянути ключ відновлення';
 
   @override
-  String get lockWrongPin => 'Wrong PIN';
+  String get settingsViewRecoveryKeySubtitle =>
+      'Показати ключ відновлення облікового запису';
 
   @override
-  String get settingsChangePin => 'Change PIN';
+  String get settingsRecoveryKeyNotStored =>
+      'Ключ відновлення недоступний (створений до цієї функції)';
 
   @override
-  String get settingsChangePinSubtitle => 'Update your app unlock PIN';
+  String get settingsRecoveryKeyWarning =>
+      'Зберігайте цей ключ у безпеці. Будь-хто, хто його має, може відновити ваш обліковий запис на іншому пристрої.';
 
   @override
-  String get settingsEnterCurrentPin => 'Enter your current PIN to continue';
-
-  @override
-  String get settingsPinChanged => 'PIN updated';
-
-  @override
-  String get settingsPinEnabled => 'PIN lock enabled';
-
-  @override
-  String get settingsRecoveryKeyInfo => 'Recovery Key';
-
-  @override
-  String get settingsRecoveryKeyInfoSubtitle =>
-      'Your recovery key is not stored — keep your written copy safe';
-
-  @override
-  String get replaceIdentityTitle => 'Replace existing identity?';
+  String get replaceIdentityTitle => 'Замінити існуючий обліковий запис?';
 
   @override
   String get replaceIdentityBodyRestore =>
-      'An identity already exists on this device. Restoring will permanently replace your current Nostr key and Oxen seed. All contacts will lose the ability to reach your current address.\n\nThis cannot be undone.';
+      'На цьому пристрої вже є обліковий запис. Відновлення назавжди замінить ваш поточний ключ Nostr та сід Oxen. Усі контакти втратять можливість зв\'язатися з вашою поточною адресою.\n\nЦю дію не можна скасувати.';
 
   @override
   String get replaceIdentityBodyCreate =>
-      'An identity already exists on this device. Creating a new one will permanently replace your current Nostr key and Oxen seed. All contacts will lose the ability to reach your current address.\n\nThis cannot be undone.';
+      'На цьому пристрої вже є обліковий запис. Створення нового назавжди замінить ваш поточний ключ Nostr та сід Oxen. Усі контакти втратять можливість зв\'язатися з вашою поточною адресою.\n\nЦю дію не можна скасувати.';
 
   @override
-  String get replace => 'Replace';
+  String get replace => 'Замінити';
 
   @override
   String get callNoScreenSources => 'No screen sources available';

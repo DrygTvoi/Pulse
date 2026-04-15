@@ -559,7 +559,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get onboardingNext => '下一步';
 
   @override
-  String get onboardingGetStarted => '开始使用';
+  String get onboardingGetStarted => '创建账户';
 
   @override
   String get onboardingWelcomeTitle => '欢迎使用 Pulse';
@@ -1148,7 +1148,13 @@ class AppLocalizationsZh extends AppLocalizations {
   String get passwordSkipForNow => '暂时跳过';
 
   @override
-  String get passwordMinChars => '密码至少需要 6 个字符';
+  String get passwordMinChars => '密码至少需要 8 个字符';
+
+  @override
+  String get passwordNeedsVariety => '必须包含字母、数字和特殊字符';
+
+  @override
+  String get passwordRequirements => '至少 8 个字符，包含字母、数字和特殊字符';
 
   @override
   String get passwordsDoNotMatch => '密码不匹配';
@@ -2593,119 +2599,85 @@ class AppLocalizationsZh extends AppLocalizations {
   String get channelCopyUrl => '复制 URL';
 
   @override
-  String get setupNext => 'Next';
+  String get setupNext => '下一步';
 
   @override
-  String get setupKeyWarning =>
-      'A recovery key will be generated for you. It is the only way to restore your account — there is no server, no password reset.';
+  String get setupKeyWarning => '将为您生成恢复密钥。这是在新设备上恢复账户的唯一方式 — 没有服务器，没有密码重置。';
 
   @override
-  String get setupKeyTitle => 'Your Recovery Key';
+  String get setupKeyTitle => '您的恢复密钥';
 
   @override
-  String get setupKeySubtitle =>
-      'Write this key down and store it in a safe place. You will need it to restore your account on a new device.';
+  String get setupKeySubtitle => '写下此密钥并存放在安全的地方。在新设备上恢复账户时需要它。';
 
   @override
-  String get setupKeyCopied => 'Copied!';
+  String get setupKeyCopied => '已复制！';
 
   @override
-  String get setupKeyWroteItDown => 'I wrote it down';
+  String get setupKeyWroteItDown => '我已记下';
 
   @override
-  String get setupKeyWarnBody =>
-      'This key is NOT stored anywhere. If you lose it, your account cannot be recovered.';
+  String get setupKeyWarnBody => '请记下此密钥作为备份。您也可以稍后在设置 → 安全中查看。';
 
   @override
-  String get setupVerifyTitle => 'Verify Recovery Key';
+  String get setupVerifyTitle => '验证恢复密钥';
 
   @override
-  String get setupVerifySubtitle =>
-      'Re-enter your recovery key to confirm you saved it correctly.';
+  String get setupVerifySubtitle => '重新输入恢复密钥以确认您已正确保存。';
 
   @override
-  String get setupVerifyButton => 'Verify';
+  String get setupVerifyButton => '验证';
 
   @override
-  String get setupKeyMismatch => 'Key does not match. Check and try again.';
+  String get setupKeyMismatch => '密钥不匹配。请检查后重试。';
 
   @override
-  String get setupSkipVerify => 'Skip verification';
+  String get setupSkipVerify => '跳过验证';
 
   @override
-  String get setupSkipVerifyTitle => 'Skip verification?';
+  String get setupSkipVerifyTitle => '跳过验证？';
 
   @override
-  String get setupSkipVerifyBody =>
-      'If you lose your recovery key, your account cannot be restored. Are you sure you want to skip?';
+  String get setupSkipVerifyBody => '如果您丢失恢复密钥，将无法恢复账户。确定吗？';
 
   @override
-  String get setupPinSet => 'Set a PIN';
+  String get setupCreatingAccount => '正在创建账户…';
 
   @override
-  String get setupPinConfirm => 'Confirm PIN';
-
-  @override
-  String get setupPinHint =>
-      'This PIN unlocks the app. Your recovery key is used only to restore your account.';
-
-  @override
-  String get setupPinMismatch => 'PINs do not match. Try again.';
-
-  @override
-  String get setupCreatingAccount => 'Creating account…';
-
-  @override
-  String get setupRestoringAccount => 'Restoring account…';
+  String get setupRestoringAccount => '正在恢复账户…';
 
   @override
   String get restoreKeyInfoBanner =>
-      'Enter your recovery key — your address (Nostr + Session) will be restored automatically. Contacts and messages were stored locally only.';
+      '输入恢复密钥 — 您的地址（Nostr + Session）将自动恢复。联系人和消息仅存储在本地。';
 
   @override
-  String get restoreKeyHint => 'Recovery key';
+  String get restoreKeyHint => '恢复密钥';
 
   @override
-  String get lockPinSubtitle => 'Enter your PIN to continue';
+  String get settingsViewRecoveryKey => '查看恢复密钥';
 
   @override
-  String get lockWrongPin => 'Wrong PIN';
+  String get settingsViewRecoveryKeySubtitle => '显示您的账户恢复密钥';
 
   @override
-  String get settingsChangePin => 'Change PIN';
+  String get settingsRecoveryKeyNotStored => '恢复密钥不可用（在此功能之前创建）';
 
   @override
-  String get settingsChangePinSubtitle => 'Update your app unlock PIN';
+  String get settingsRecoveryKeyWarning => '请妥善保管此密钥。任何拥有它的人都可以在其他设备上恢复您的账户。';
 
   @override
-  String get settingsEnterCurrentPin => 'Enter your current PIN to continue';
-
-  @override
-  String get settingsPinChanged => 'PIN updated';
-
-  @override
-  String get settingsPinEnabled => 'PIN lock enabled';
-
-  @override
-  String get settingsRecoveryKeyInfo => 'Recovery Key';
-
-  @override
-  String get settingsRecoveryKeyInfoSubtitle =>
-      'Your recovery key is not stored — keep your written copy safe';
-
-  @override
-  String get replaceIdentityTitle => 'Replace existing identity?';
+  String get replaceIdentityTitle => '替换现有身份？';
 
   @override
   String get replaceIdentityBodyRestore =>
-      'An identity already exists on this device. Restoring will permanently replace your current Nostr key and Oxen seed. All contacts will lose the ability to reach your current address.\n\nThis cannot be undone.';
+      '此设备上已存在身份。恢复将永久替换您当前的 Nostr 密钥和 Oxen 种子。所有联系人将无法联系您的当前地址。\n\n此操作无法撤销。';
 
   @override
   String get replaceIdentityBodyCreate =>
-      'An identity already exists on this device. Creating a new one will permanently replace your current Nostr key and Oxen seed. All contacts will lose the ability to reach your current address.\n\nThis cannot be undone.';
+      '此设备上已存在身份。创建新身份将永久替换您当前的 Nostr 密钥和 Oxen 种子。所有联系人将无法联系您的当前地址。\n\n此操作无法撤销。';
 
   @override
-  String get replace => 'Replace';
+  String get replace => '替换';
 
   @override
   String get callNoScreenSources => 'No screen sources available';
