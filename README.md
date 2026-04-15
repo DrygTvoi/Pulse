@@ -38,24 +38,23 @@ Every message is also wrapped in a `MessageEnvelope` carrying the sender's canon
 - Kyber-1024 post-quantum hybrid — harvest-now/decrypt-later resistant
 - NIP-44 v2 encryption + NIP-59 Gift Wrap (metadata privacy)
 - Cross-adapter federation — Nostr ↔ Firebase ↔ Oxen ↔ Pulse ↔ LAN transparently
-- SmartRouter: auto-failover across multiple transport addresses per contact
+- Per-transport address routing with priority-based failover
 - Group chats (mesh broadcast to all members)
-- Media sharing — images (compressed, max 1280px) and files (up to 100 MB, chunked)
+- Channel feeds (Telegram-style read-only broadcast channels)
+- Media sharing — images (compressed, max 1280px), files (up to 100 MB, chunked), Blossom P2P storage
 - Voice messages (up to 5 min, record + playback)
 - Disappearing messages (TTL) with cross-device sync
 - Scheduled messages — long-press Send to pick a date/time
-- Message reactions (8 emoji, long-press → React)
-- Message editing — long-press → Edit (shows "(edited)" tag)
+- Message reactions (8 emoji) and inline editing (shows "(edited)" tag)
 - Delivery status: sending → sent → delivered → read (double-check icons)
 - Auto-retry on failure with retry button on failed messages
 
 **Calls**
 - 1-on-1 audio/video calls via WebRTC
-- Screen sharing (toggle camera ↔ screen)
-- Group calls: WebRTC mesh for ≤4 participants, Jitsi fallback for ≥5
+- Screen sharing with quality controls (resolution + frame rate)
+- Group calls: WebRTC mesh for ≤4 participants, SFU for larger groups
 - Redundant Tor backup audio — secondary RTCPeerConnection via Tor relay; instant failover on ICE failure
 - Automatic fallback to relay-only mode (TURN TLS/443) when direct P2P fails
-- Call duration timer, ICE connection state display
 
 **Transports (5)**
 - **Nostr** — WebSocket; pseudonymous, decentralized relay network; NIP-44/NIP-59
@@ -69,51 +68,52 @@ Every message is also wrapped in a `MessageEnvelope` carrying the sender's canon
 - Bundled Psiphon VPN with SOCKS5 proxy + TURN tunneling
 - uTLS proxy with TLS fingerprint rotation (Chrome/Firefox/Edge/Safari) + ECH (Encrypted Client Hello)
 - DoH (DNS-over-HTTPS) via Cloudflare 1.1.1.1 — bypasses DNS poisoning
-- CF-aware relay routing: direct TCP-to-IP via DoH-resolved addresses (bypasses poisoned DNS)
+- CF-aware relay routing: direct TCP-to-IP via DoH-resolved addresses
 - Adaptive relay racing: probes Cloudflare relays via WS, fastest wins (15min TTL)
-- Autonomous relay discovery: nostr.watch, nostr.band APIs + NIP-65 peer relay exchange — zero developer infrastructure
+- Autonomous relay discovery: nostr.watch, nostr.band APIs + NIP-65 peer relay exchange
 - 5-phase connectivity probe: direct → DoH → Tor bootstrap → Tor probe → done
 - Dynamic bridge fetching from bridges.torproject.org via MOAT API (24h cache + embedded fallbacks)
 - I2P SOCKS5 proxy support for all transports
 - TURN server auto-discovery + custom TURN (Settings → Calls)
-- Auto-retry calls via TURN TLS/443 (the only reliable WebRTC path through GFW)
 
 **Security**
+- Random recovery key (`XXXX-XXXX-XXXX-XXXX-XXXX-XXXX`, ~124 bits) — replaces user-chosen passwords
+- 4-digit PIN for daily unlock (PBKDF2 200k iterations, 10-attempt wipe)
+- Recovery key → Argon2id (64 MiB, 3 iterations) → deterministic Nostr + Oxen + Pulse keys
 - Signal fingerprints for contact verification (TOFU)
-- NIP-04 Encrypt-then-MAC (HMAC-SHA256) with full PKCS#7 validation
-- ECDH HMAC-SHA256 signal signing on critical signals (addr_update, sys_keys, relay_exchange, profile_update)
+- ECDH HMAC-SHA256 signal signing on critical signals
 - Signed prekey rotation every 7 days with 2-rotation grace period
 - SQLCipher full-DB encryption with annual key rotation
 - Key zeroization on app exit (Nostr, Signal, PQC keys)
-- WS connection pool (persistent per-relay, 5min TTL) — reduces DPI fingerprint
 - Dedup sliding window (10K entries) — prevents replay
-- Chunk assembler with resource limits (16 pending, 50MB total, 5min stale eviction)
 - Rate limiter (token bucket: 30 msg/2s, 20 sig/3s per sender)
 - Circuit breaker on repeated transport failures
-- Password-derived keys (Argon2id m=64MiB t=3 p=1) — brain-wallet account restore
-- Password variety enforcement (min 16 chars, 3 of 4 char classes, entropy indicator)
+- Panic key — triggers data wipe on duress
 - PQC badge in chat header — green "+ Kyber" indicator once Kyber key is established
-- Prekey exhaustion monitoring (>3 in 24h → warning)
 
 **UX**
-- First-launch onboarding (4 slides, skippable)
-- Anonymous account creation from recovery password (brain-wallet, no random keys)
-- Account restore: same password → same Nostr pubkey → same address on any device
+- First-launch onboarding with language picker
+- 4-step account creation: name → recovery key → verify key → set PIN
+- Account restore: recovery key → same keys on any device
 - Device transfer: encrypted export/import of Signal + Kyber keys
 - Statuses/Stories: broadcast ephemeral updates to contacts
 - Avatar upload (256px JPEG, broadcast via profile_update signal)
-- Contact profiles with bio
+- Contact profiles with bio and multi-address QR/deep links
 - Typing indicators (debounced, 4-second auto-clear)
 - Full-text message search within a chat
 - Date separators and message grouping
 - Infinite scroll with paginated history (SQLite-backed)
 - Desktop notifications (local, no server)
 - Pinch-to-zoom image viewer with save-to-disk
-- App lock with password + panic key (alert on wrong password)
 - Background service on Android (keeps WebSocket alive when minimized)
 - Deep links: `pulse://add?cfg=<base64>` with multi-address support
-- Offline banner when disconnected ("messages will queue")
-- Localization: English, Russian (~90 strings; ~400 remaining)
+- Theme engine with 5 presets (Ocean, Jade, Cobalt, Midnight, Light) + full color customization
+- Localized in 51 languages
+
+**Platforms**
+- Linux desktop (primary)
+- Android (APK)
+- macOS, iOS, Windows, Web (configured, not yet tested in production)
 
 ---
 
@@ -128,7 +128,8 @@ Every message is also wrapped in a `MessageEnvelope` carrying the sender's canon
 | Hybrid KDF | HKDF-SHA256 over `Signal_SK ‖ Kyber_SS` | RFC 5869 | Security holds if either primitive survives |
 | Authenticated encryption | AES-256-GCM | NIST SP 800-38D | Integrity + confidentiality of PQC outer layer |
 | DB encryption | SQLCipher (AES-256-CBC) | — | At-rest message encryption |
-| Key derivation | Argon2id (64 MiB, 3 iterations) | RFC 9106 | Brute-force resistant password hashing |
+| Key derivation | Argon2id (64 MiB, 3 iterations) | RFC 9106 | Brute-force resistant key derivation |
+| PIN hashing | PBKDF2-SHA256 (200k iterations) | RFC 2898 | Daily unlock authentication |
 | Transport (optional) | Tor / Psiphon / I2P / uTLS | — | IP-level anonymity + DPI evasion |
 
 The wire format is versioned (`PQC2||...`) so future algorithms (e.g. ML-DSA signatures) can be added without breaking existing sessions.
@@ -139,15 +140,15 @@ The wire format is versioned (`PQC2||...`) so future algorithms (e.g. ML-DSA sig
 
 | Threat | Protected? | How |
 |---|---|---|
-| Passive eavesdropper (today) | ✅ | Signal E2EE + NIP-44 |
-| Passive eavesdropper with future quantum computer | ✅ | Kyber-1024 hybrid |
-| Active MITM with classical computer | ✅ | Signal identity keys + fingerprint verification |
-| Transport operator reading message content | ✅ | Triple-encrypted before leaving device |
-| Transport operator observing metadata (who/when) | ⚠️ Partial | Gift Wrap hides sender on Nostr; Tor/I2P/Psiphon hides IP; contact graph still visible to relay |
-| DPI / traffic analysis | ⚠️ Partial | uTLS fingerprint spoofing + obfs4/WebTunnel/Snowflake PTs |
-| DNS poisoning / hijacking | ✅ | DoH via 1.1.1.1 + CF-direct TCP-to-IP routing |
-| Compromised device | ❌ | No solution at application layer |
-| Active MITM with large-scale quantum computer | ❌ | Requires ML-DSA bundle signatures (roadmap) |
+| Passive eavesdropper (today) | Yes | Signal E2EE + NIP-44 |
+| Passive eavesdropper with future quantum computer | Yes | Kyber-1024 hybrid |
+| Active MITM with classical computer | Yes | Signal identity keys + fingerprint verification |
+| Transport operator reading message content | Yes | Triple-encrypted before leaving device |
+| Transport operator observing metadata (who/when) | Partial | Gift Wrap hides sender on Nostr; Tor/I2P/Psiphon hides IP; contact graph still visible to relay |
+| DPI / traffic analysis | Partial | uTLS fingerprint spoofing + obfs4/WebTunnel/Snowflake PTs |
+| DNS poisoning / hijacking | Yes | DoH via 1.1.1.1 + CF-direct TCP-to-IP routing |
+| Compromised device | No | No solution at application layer |
+| Active MITM with large-scale quantum computer | No | Requires ML-DSA bundle signatures (roadmap) |
 
 ---
 
@@ -157,7 +158,7 @@ The wire format is versioned (`PQC2||...`) so future algorithms (e.g. ML-DSA sig
 |---|---|---|---|---|---|
 | Protocol | WebSocket | HTTP SSE + REST | HTTP JSON-RPC | WebSocket | UDP/TCP |
 | Identity | `pubkey@wss://relay` | `userId@https://fb.url` | 66-char hex (`05…`) | `ed25519@https://server` | local IP |
-| Works in CN/IR | ⚠️ (with Tor/PT) | ❌ | ✅ | ✅ (self-hosted) | ✅ (no internet) |
+| Works in CN/IR | With Tor/PT | No | Yes | Yes (self-hosted) | Yes (no internet) |
 | Requires server | Public Nostr relay | Firebase project | Oxen seed nodes | Self-hosted | None |
 | Metadata privacy | Gift Wrap | Minimal | Onion routing | Server-only | Broadcast |
 
@@ -169,73 +170,73 @@ Adding a new transport means implementing two interfaces: `InboxReader` and `Mes
 
 ```
 lib/
-├── adapters/
-│   ├── inbox_manager.dart           InboxReader / MessageSender interfaces + router
-│   ├── nostr_adapter.dart           Nostr WebSocket (NIP-04/44/59, Gift Wrap, adaptive relay)
-│   ├── firebase_adapter.dart        Firebase SSE reader + REST sender
-│   ├── oxen_adapter.dart            Oxen/Session HTTP JSON-RPC reader + sender
-│   ├── pulse_adapter.dart           Self-hosted Pulse relay (Ed25519 auth, federation)
-│   └── lan_adapter.dart             LAN UDP/TCP broadcast (offline mesh)
+├── adapters/                           6 files
+│   ├── inbox_manager.dart              InboxReader / MessageSender interfaces + router
+│   ├── nostr_adapter.dart              Nostr WebSocket (NIP-04/44/59, Gift Wrap, adaptive relay)
+│   ├── firebase_adapter.dart           Firebase SSE reader + REST sender
+│   ├── oxen_adapter.dart               Oxen/Session HTTP JSON-RPC reader + sender
+│   ├── pulse_adapter.dart              Self-hosted Pulse relay (Ed25519 auth, shared WS)
+│   └── lan_adapter.dart                LAN UDP/TCP broadcast (offline mesh)
 ├── controllers/
-│   └── chat_controller.dart         Singleton ChangeNotifier — coordinates everything
-├── models/
-│   ├── message.dart                 Message with delivery status, reactions, edits
-│   ├── message_envelope.dart        Federation wrapper: {_v, _from, body}
-│   ├── contact.dart                 Contact with alternateAddresses for SmartRouter
-│   ├── chat_room.dart               Derived from Contact; unread count, last message
-│   ├── identity.dart                Local identity + adapter config
-│   ├── user_status.dart             Status/story model
-│   └── contact_repository.dart      Abstract contact store interface
-├── services/
-│   ├── signal_service.dart          Signal Protocol (Double Ratchet, PreKey store)
-│   ├── pqc_service.dart             Kyber-1024 keypair management (FIPS 203)
-│   ├── nip44_service.dart           NIP-44 v2 (XChaCha20 + HMAC-SHA256)
-│   ├── gift_wrap_service.dart       NIP-59 triple-layer encryption
-│   ├── nostr_event_builder.dart     Nostr event construction + Schnorr signing
-│   ├── crypto_layer.dart            PQC wrap/unwrap: HKDF-SHA256 + AES-256-GCM
-│   ├── key_manager.dart             Signal + PQC key lifecycle facade
-│   ├── key_derivation_service.dart  Argon2id brain-wallet key derivation
-│   ├── signal_broadcaster.dart      Broadcast signals (addr, profile, relay exchange)
-│   ├── signal_dispatcher.dart       Dispatch + verify incoming signals
-│   ├── local_storage_service.dart   SQLCipher message persistence
-│   ├── message_repository.dart      Paginated history + dedup + caching
-│   ├── signaling_service.dart       WebRTC 1-on-1 + Tor backup audio
-│   ├── group_signaling_service.dart WebRTC mesh for group calls
-│   ├── tor_service.dart             Bundled Tor + PT cascade (obfs4/WT/SF/plain)
-│   ├── psiphon_service.dart         Bundled Psiphon VPN
-│   ├── utls_service.dart            uTLS proxy (ECH, fingerprint rotation)
-│   ├── connectivity_probe_service.dart  5-phase relay/node/TURN discovery
-│   ├── relay_directory_service.dart Community relay APIs (nostr.watch, nostr.band)
-│   ├── nip65_discovery_service.dart NIP-65 peer relay discovery
-│   ├── adaptive_relay_service.dart  CF relay racing (fastest wins)
-│   ├── cloudflare_ip_service.dart   DoH + CIDR lookup (bypass DNS poisoning)
-│   ├── bridge_fetch_service.dart    Dynamic PT bridge fetching (MOAT API)
-│   ├── ice_server_config.dart       STUN/TURN management + probe integration
-│   ├── media_service.dart           File/image pick, compress, base64, chunking
-│   ├── voice_service.dart           Voice message record/playback
-│   ├── notification_service.dart    Desktop + mobile notifications; per-chat mute
-│   ├── status_service.dart          Status/story broadcast + delivery
-│   ├── background_service.dart      Android foreground task (keeps WS alive)
-│   ├── rate_limiter.dart            Token bucket per sender
-│   ├── chunk_assembler.dart         Multi-part file reassembly
-│   ├── circuit_breaker_service.dart Failure tracking + auto-stop retries
+│   └── chat_controller.dart            Singleton ChangeNotifier — coordinates everything
+├── models/                             9 files
+│   ├── message.dart                    Message with delivery status, reactions, edits
+│   ├── message_envelope.dart           Federation wrapper: {_v, _from, body}
+│   ├── contact.dart                    Per-transport address map + priority routing
+│   ├── channel.dart                    Broadcast channel model
+│   ├── channel_post.dart               Channel post + reactions
+│   ├── chat_room.dart                  Derived from Contact; unread count, last message
+│   ├── identity.dart                   Local identity + adapter config
+│   ├── user_status.dart                Status/story model
+│   └── contact_repository.dart         Abstract contact store interface
+├── services/                           58 files
+│   ├── signal_service.dart             Signal Protocol (Double Ratchet, PreKey store)
+│   ├── pqc_service.dart                Kyber-1024 keypair management (FIPS 203)
+│   ├── nip44_service.dart              NIP-44 v2 (XChaCha20 + HMAC-SHA256)
+│   ├── gift_wrap_service.dart          NIP-59 triple-layer encryption
+│   ├── crypto_layer.dart               PQC wrap/unwrap: HKDF-SHA256 + AES-256-GCM
+│   ├── key_manager.dart                Signal + PQC key lifecycle facade
+│   ├── key_derivation_service.dart     Argon2id key derivation from recovery key
+│   ├── recovery_key_service.dart       Generate/validate/format recovery keys
+│   ├── password_hasher.dart            PBKDF2 PIN/password hashing
+│   ├── signal_broadcaster.dart         Broadcast signals (addr, profile, relay exchange)
+│   ├── signal_dispatcher.dart          Dispatch + verify incoming signals
+│   ├── local_storage_service.dart      SQLCipher message persistence
+│   ├── channel_service.dart            Channel feed (HTTP + WebSocket live updates)
+│   ├── blossom_service.dart            Blossom P2P media storage
+│   ├── signaling_service.dart          WebRTC 1-on-1 + Tor backup audio
+│   ├── group_signaling_service.dart    WebRTC mesh for group calls
+│   ├── tor_service.dart                Bundled Tor + PT cascade (obfs4/WT/SF/plain)
+│   ├── psiphon_service.dart            Bundled Psiphon VPN
+│   ├── utls_service.dart               uTLS proxy (ECH, fingerprint rotation)
+│   ├── yggdrasil_service.dart          Yggdrasil overlay network
+│   ├── connectivity_probe_service.dart 5-phase relay/node/TURN discovery
+│   ├── relay_directory_service.dart    Community relay APIs (nostr.watch, nostr.band)
+│   ├── nip65_discovery_service.dart    NIP-65 peer relay discovery
+│   ├── ice_server_config.dart          STUN/TURN management
+│   ├── media_service.dart              File/image pick, compress, base64, chunking
+│   ├── notification_service.dart       Desktop + mobile notifications; per-chat mute
+│   ├── background_service.dart         Android foreground task (keeps WS alive)
+│   ├── rate_limiter.dart               Token bucket per sender
+│   ├── chunk_assembler.dart            Multi-part file reassembly
+│   ├── circuit_breaker_service.dart    Failure tracking + auto-stop retries
 │   └── ...
-├── screens/                         33 screens (home, chat, call, settings, onboarding, ...)
-├── widgets/                         22 reusable components
-├── theme/                           Design tokens, app theme, theme manager
-└── l10n/                            i18n: English + Russian
+├── screens/                            39 screens
+├── widgets/                            27 reusable components
+├── theme/                              Design tokens, app theme, theme manager (5 presets)
+└── l10n/                               51 locales (ARB + generated Dart)
 
-server/                              Self-hosted Pulse relay (Go)
+server/                                 Self-hosted Pulse relay (Go)
 ├── internal/
-│   ├── relay/                       WebSocket hub, message routing, rate limiting
-│   ├── store/                       SQLite persistence (users, messages, invites, keys)
-│   ├── auth/                        Ed25519 challenge-response authentication
-│   ├── federation/                  Peer-to-peer inter-server routing
-│   ├── transport/                   TLS listener
-│   └── turn/                        Built-in TURN server (pion)
-├── cmd/                             CLI commands (serve, invite, user, federation, status)
-├── Dockerfile + docker-compose.yml  Container deployment
-└── config.example.toml              Configuration template
+│   ├── relay/                          WebSocket hub, message routing, rate limiting
+│   ├── store/                          SQLite persistence (users, messages, invites, keys)
+│   ├── auth/                           Ed25519 challenge-response authentication
+│   ├── federation/                     Peer-to-peer inter-server routing
+│   ├── transport/                      TLS listener
+│   └── turn/                           Built-in TURN server (pion)
+├── cmd/                                CLI commands (serve, invite, user, federation, status)
+├── Dockerfile + docker-compose.yml     Container deployment
+└── config.example.toml                 Configuration template
 ```
 
 ### Data flow (outgoing message)
@@ -315,7 +316,7 @@ docker compose up -d
 
 ### Prerequisites
 
-- Flutter 3.x (Linux desktop + Android targets)
+- Flutter 3.x
 - One of: public Nostr relay, Firebase project, Oxen seed nodes (public), self-hosted Pulse server, or LAN
 
 ### Run
@@ -333,12 +334,17 @@ ANDROID_HOME=/path/to/android-sdk flutter build apk --debug
 
 ### First launch
 
-An onboarding wizard walks you through the key concepts. Then:
+An onboarding screen lets you pick a language and either create a new account or restore an existing one.
 
-- **Anonymous Account** — enter a recovery password (min 16 chars), get deterministic Nostr + Oxen addresses automatically (brain-wallet)
-- Same password on another device → same identity (account restore)
+**New account (4 steps):**
+1. Choose a display name
+2. App generates a random recovery key (`XXXX-XXXX-XXXX-XXXX-XXXX-XXXX`)
+3. Verify the key by re-entering it
+4. Set a 4-digit PIN for daily unlock
 
-The app probes for reachable relays in the background on first launch and caches results for 24 hours.
+The recovery key deterministically derives your Nostr, Oxen, and Pulse identities. Same key on another device = same identity (account restore).
+
+**Restore account:** enter your recovery key → set a new PIN → done.
 
 ### Adding a contact
 
@@ -363,14 +369,13 @@ The app fetches their Signal + Kyber public key bundle on first message and esta
 | ECH (Encrypted Client Hello) | Hides SNI from network observers |
 | DoH (1.1.1.1) | Bypasses DNS poisoning in CN/IR |
 | CF-direct routing | TCP-to-IP via DoH-resolved addresses; bypasses poisoned DNS entirely |
-| Autonomous relay discovery | nostr.watch + nostr.band + NIP-65 + P2P relay exchange — zero dev infrastructure |
+| Autonomous relay discovery | nostr.watch + nostr.band + NIP-65 + P2P relay exchange |
 | Adaptive relay racing | Probes CF relays via WS; fastest wins; 15min TTL |
 | Oxen transport | HTTP to public seed nodes; onion-routed |
 | LAN adapter | Works with zero internet (local mesh) |
 | TURN TLS/443 auto-fallback | Only reliable WebRTC path through GFW |
-| Configurable bootstrap timeout | 15–120s slider in Settings → Proxy & Tunnels |
 
-For maximum reliability in censored regions: Settings → **Proxy & Tunnels** → enable Tor (pick transport before connecting) or Psiphon. The app also accepts a custom TURN server in Settings → **Calls & TURN**.
+For maximum reliability in censored regions: Settings → **Proxy & Tunnels** → enable Tor or Psiphon. Custom TURN server available in Settings → **Calls & TURN**.
 
 ---
 
@@ -401,15 +406,13 @@ flutter test test/widget/              # widget only
 flutter test --reporter expanded       # verbose output
 ```
 
-**221+ passing tests** across 3 categories:
+130+ test files across 3 categories:
 
-| Category | Count | Examples |
-|---|---|---|
-| Unit tests | 75+ files | Signal Protocol, NIP-44, Gift Wrap, Kyber, relay discovery, Tor service, rate limiter, chunk assembler, password entropy, deep links, adapters |
-| Widget tests | 45+ files | All major screens + components (home, chat, call, settings, onboarding, contacts, etc.) |
-| Integration tests | 2 files | Full Signal session (PreKey + Double Ratchet bidirectional), E2E message flow |
-
-CI runs on every push: analyze → test → build APK (`.github/workflows/ci.yml`).
+| Category | Examples |
+|---|---|
+| Unit tests | Signal Protocol, NIP-44, Gift Wrap, Kyber, relay discovery, Tor service, rate limiter, chunk assembler, deep links, adapters |
+| Widget tests | All major screens + components (home, chat, call, settings, onboarding, contacts) |
+| Integration tests | Full Signal session (PreKey + Double Ratchet bidirectional), E2E message flow |
 
 ---
 
@@ -417,18 +420,17 @@ CI runs on every push: analyze → test → build APK (`.github/workflows/ci.yml
 
 - **ML-DSA (Dilithium) bundle signatures** — post-quantum identity authentication
 - **Multi-device / linked devices** — share identity across machines
-- **iOS build** — transport and crypto layers are platform-agnostic; UI is responsive
-- **Full i18n** — ~400 strings remaining beyond the current 90
 - **Group E2EE** — Sender Keys or MLS for efficient group encryption
+- **SFU end-to-end testing** — server-side complete, client integration needs real-call testing
 
 ---
 
 ## Known limitations
 
 - **Calls in censored regions**: unreliable without Tor or a dedicated TURN server; configure in Settings → Calls & TURN
-- **Group calls ≥5**: Jitsi fallback requires a browser; shows "not E2EE" warning
+- **Group calls ≥5**: SFU server-side ready, client integration not yet tested in production
 - **Scheduled messages**: timers are process-local; fires only while app is running
-- **Wire protocol labels**: crypto layer still uses `Aegis_PQC_v1` from pre-rename era (kept for backward compatibility)
+- **Wire protocol labels**: crypto layer uses `Aegis_PQC_v1` from pre-rename era (kept for backward compatibility)
 
 ---
 
