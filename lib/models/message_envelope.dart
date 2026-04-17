@@ -16,6 +16,7 @@ class MessageEnvelope {
   static const String _keyMsgId = '_id';
   static const String _keyName = '_name';
   static const String _keyAddrs = '_addrs';
+  static const String _keyAvatar = '_av';
 
   final String from;
   final String body;
@@ -29,8 +30,11 @@ class MessageEnvelope {
   /// Sender's full transport address map — allows receiver to create a
   /// complete contact with all transports (Nostr, Pulse, Session, etc.).
   final Map<String, List<String>>? senderAddresses;
+  /// Sender's avatar as base64-encoded JPEG — allows receiver to display
+  /// the avatar immediately without waiting for a separate profile_update.
+  final String? senderAvatar;
 
-  const MessageEnvelope({required this.from, required this.body, this.replyTo, this.msgId, this.senderName, this.senderAddresses});
+  const MessageEnvelope({required this.from, required this.body, this.replyTo, this.msgId, this.senderName, this.senderAddresses, this.senderAvatar});
 
   /// Wrap [body] with sender address [from] into an envelope JSON string.
   static String wrap(String from, String body, {
@@ -38,6 +42,7 @@ class MessageEnvelope {
     String? msgId,
     String? senderName,
     Map<String, List<String>>? senderAddresses,
+    String? senderAvatar,
   }) {
     final map = <String, dynamic>{
       _keyVersion: _version,
@@ -46,6 +51,7 @@ class MessageEnvelope {
     };
     if (msgId != null && msgId.isNotEmpty) map[_keyMsgId] = msgId;
     if (senderName != null && senderName.isNotEmpty) map[_keyName] = senderName;
+    if (senderAvatar != null && senderAvatar.isNotEmpty) map[_keyAvatar] = senderAvatar;
     if (senderAddresses != null && senderAddresses.isNotEmpty) {
       map[_keyAddrs] = senderAddresses.map((k, v) => MapEntry(k, List<String>.from(v)));
     }
@@ -78,6 +84,7 @@ class MessageEnvelope {
         if (id.isNotEmpty) replyTo = (id: id, text: text, sender: sender);
       }
       final senderName = map[_keyName] as String?;
+      final senderAvatar = map[_keyAvatar] as String?;
       Map<String, List<String>>? senderAddresses;
       final rawAddrs = map[_keyAddrs];
       if (rawAddrs is Map) {
@@ -86,7 +93,7 @@ class MessageEnvelope {
           (v as List).whereType<String>().toList(),
         ));
       }
-      return MessageEnvelope(from: from, body: body, replyTo: replyTo, msgId: msgId, senderName: senderName, senderAddresses: senderAddresses);
+      return MessageEnvelope(from: from, body: body, replyTo: replyTo, msgId: msgId, senderName: senderName, senderAddresses: senderAddresses, senderAvatar: senderAvatar);
     } catch (_) {
       return null;
     }

@@ -75,6 +75,7 @@ class ChatController extends ChangeNotifier {
   Identity? _identity;
   String _selfId = ''; // adapter-specific ID used as senderId in outgoing messages
   String _selfName = ''; // display name for message envelope
+  String _selfAvatar = ''; // base64 avatar for message envelope
   final SignalService _signalService = SignalService();
   StreamSubscription<void>? _bundleRefreshSub;
   final List<StreamSubscription> _messageSubs = [];
@@ -542,6 +543,7 @@ class ChatController extends ChangeNotifier {
           if (profileJson != null) {
             final profile = jsonDecode(profileJson) as Map<String, dynamic>;
             _selfName = (profile['name'] as String?) ?? '';
+            _selfAvatar = (profile['avatar'] as String?) ?? '';
           }
         } catch (_) {}
         await _signalService.initialize();
@@ -1717,7 +1719,7 @@ class ChatController extends ChangeNotifier {
 
   Future<void> _handleIncomingMessages(List<Message> newMessages) async {
     bool hasUpdates = false;
-    final contactByDbId = _getContactIndex();
+    var contactByDbId = _getContactIndex();
 
     for (var msg in newMessages) {
       try {
@@ -2127,6 +2129,13 @@ class ChatController extends ChangeNotifier {
                         onDeleted: () { if (!_disposed) notifyListeners(); });
                   }
                 }
+                // Save sender avatar from envelope if we don't have one yet.
+                if (env?.senderAvatar != null && env!.senderAvatar!.isNotEmpty) {
+                  final existing = await LocalStorageService().loadAvatar(senderContact.id);
+                  if (existing == null || existing.isEmpty) {
+                    unawaited(LocalStorageService().saveAvatar(senderContact.id, env.senderAvatar!));
+                  }
+                }
               }
             } catch (e) {
               debugPrint("Decryption failed for message ${msg.id}: $e");
@@ -2153,6 +2162,7 @@ class ChatController extends ChangeNotifier {
           );
           if (pendingContact != null) {
             _invalidateContactIndex();
+            contactByDbId = _getContactIndex();
             _repo.getOrCreateRoomWithId(pendingContact, msg.senderId, pendingContact.provider);
             final room = _repo.getRoomForContact(pendingContact.id)!;
             final resolvedId = env?.msgId ?? msg.id;
@@ -2180,12 +2190,18 @@ class ChatController extends ChangeNotifier {
               }
             }
             debugPrint('[Chat] Created pending contact for unknown sender: ${pendingContact.name}');
-            // Fire-and-forget: fetch Nostr avatar from sender's relay.
-            final nostrAddrs = pendingContact.transportAddresses['Nostr'];
-            if (nostrAddrs != null && nostrAddrs.isNotEmpty) {
-              final parts = nostrAddrs.first.split('@');
-              if (parts.length == 2) {
-                unawaited(_fetchNostrAvatarForContact(pendingContact.id, parts[0], parts[1]));
+            // Save avatar from envelope if present.
+            if (env?.senderAvatar != null && env!.senderAvatar!.isNotEmpty) {
+              unawaited(LocalStorageService().saveAvatar(pendingContact.id, env.senderAvatar!));
+              debugPrint('[Chat] Saved avatar from envelope for ${pendingContact.name}');
+            } else {
+              // Fallback: fetch Nostr avatar from sender's relay.
+              final nostrAddrs = pendingContact.transportAddresses['Nostr'];
+              if (nostrAddrs != null && nostrAddrs.isNotEmpty) {
+                final parts = nostrAddrs.first.split('@');
+                if (parts.length == 2) {
+                  unawaited(_fetchNostrAvatarForContact(pendingContact.id, parts[0], parts[1]));
+                }
               }
             }
           } else {
@@ -2324,6 +2340,7 @@ class ChatController extends ChangeNotifier {
       _selfId.isNotEmpty ? _selfId : _identity!.id, text,
       msgId: msgId, replyTo: replyInfo,
       senderName: _selfName,
+      senderAvatar: _selfAvatar,
       senderAddresses: _buildOwnTransportMap());
 
     String encryptedText;
@@ -2724,7 +2741,7 @@ class ChatController extends ChangeNotifier {
 
   Future<bool> _sendToContact(Contact contact, String plaintext, {bool noAutoRetry = false}) async {
     if (_identity == null) return false;
-    final envelope = MessageEnvelope.wrap(_selfId.isNotEmpty ? _selfId : _identity!.id, plaintext, senderName: _selfName, senderAddresses: _buildOwnTransportMap());
+    final envelope = MessageEnvelope.wrap(_selfId.isNotEmpty ? _selfId : _identity!.id, plaintext, senderName: _selfName, senderAvatar: _selfAvatar, senderAddresses: _buildOwnTransportMap());
     String encryptedText;
     try {
       encryptedText = await _signalService.encryptMessage(contact.databaseId, envelope);
@@ -3697,8 +3714,11 @@ class ChatController extends ChangeNotifier {
   Future<void> broadcastStatus(UserStatus status) =>
       _broadcaster.broadcastStatus(status, _contacts.contacts);
 
-  Future<void> broadcastProfile(String name, String about, {String avatarB64 = ''}) =>
-      _broadcaster.broadcastProfile(name, about, _contacts.contacts, avatarB64: avatarB64);
+  Future<void> broadcastProfile(String name, String about, {String avatarB64 = ''}) {
+      _selfName = name;
+      if (avatarB64.isNotEmpty) _selfAvatar = avatarB64;
+      return _broadcaster.broadcastProfile(name, about, _contacts.contacts, avatarB64: avatarB64);
+  }
 
   Future<void> broadcastAddressUpdate() async {
     // Build per-transport address map from our own addresses

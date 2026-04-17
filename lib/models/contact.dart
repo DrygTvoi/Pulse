@@ -381,10 +381,14 @@ class ContactManager implements IContactRepository {
     Map<String, List<String>>? transportAddresses,
   }) async {
     if (!canCreatePendingContact()) return null;
+    final contactId = senderId.split('@').first;
+    // Avoid duplicates: check by ID and by address.
+    final existing = findById(contactId) ?? findByAddress(senderId) ?? findByAddress(address);
+    if (existing != null) return existing;
     final Contact contact;
     if (transportAddresses != null && transportAddresses.isNotEmpty) {
       contact = Contact(
-        id: senderId.split('@').first,
+        id: contactId,
         name: senderName,
         publicKey: '',
         transportAddresses: transportAddresses,
@@ -392,7 +396,7 @@ class ContactManager implements IContactRepository {
       );
     } else {
       contact = Contact(
-        id: senderId.split('@').first,
+        id: contactId,
         name: senderName,
         publicKey: '',
         databaseId: address,
@@ -459,6 +463,8 @@ class ContactManager implements IContactRepository {
 
   @override
   Future<void> addContact(Contact contact) async {
+    // Prevent duplicate contacts with the same ID.
+    if (_idIndex.containsKey(contact.id)) return;
     _contacts.add(contact);
     _indexContact(contact);
     await LocalStorageService().saveContact(contact.id, contact.toMap());
