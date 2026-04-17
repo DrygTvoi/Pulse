@@ -5547,6 +5547,42 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'⚠ Changes take effect on next send/call. Restart app to apply to incoming.'**
   String get devRestartWarning;
+
+  /// Label for a message request from an unknown sender
+  ///
+  /// In en, this message translates to:
+  /// **'Message request'**
+  String get messageRequest;
+
+  /// No description provided for @messageRequestFrom.
+  ///
+  /// In en, this message translates to:
+  /// **'Message request from {name}'**
+  String messageRequestFrom(String name);
+
+  /// Button to accept a message request
+  ///
+  /// In en, this message translates to:
+  /// **'Accept'**
+  String get acceptContact;
+
+  /// Button to block a contact
+  ///
+  /// In en, this message translates to:
+  /// **'Block'**
+  String get blockContact;
+
+  /// Empty state for blocked contacts list
+  ///
+  /// In en, this message translates to:
+  /// **'No blocked contacts'**
+  String get blockedContactsEmpty;
+
+  /// Error when pending contact limit is reached
+  ///
+  /// In en, this message translates to:
+  /// **'Too many pending requests'**
+  String get pendingLimitReached;
 }
 
 class _AppLocalizationsDelegate

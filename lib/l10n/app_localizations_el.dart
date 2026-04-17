@@ -2820,135 +2820,136 @@ class AppLocalizationsEl extends AppLocalizations {
       'Φυλάξτε αυτό το κλειδί με ασφάλεια. Οποιοσδήποτε το έχει μπορεί να επαναφέρει τον λογαριασμό σας σε άλλη συσκευή.';
 
   @override
-  String get replaceIdentityTitle => 'Replace existing identity?';
+  String get replaceIdentityTitle => 'Αντικατάσταση υπάρχουσας ταυτότητας;';
 
   @override
   String get replaceIdentityBodyRestore =>
-      'An identity already exists on this device. Restoring will permanently replace your current Nostr key and Oxen seed. All contacts will lose the ability to reach your current address.\n\nThis cannot be undone.';
+      'Υπάρχει ήδη ταυτότητα σε αυτή τη συσκευή. Η επαναφορά θα αντικαταστήσει μόνιμα το τρέχον κλειδί Nostr και seed Oxen. Όλες οι επαφές θα χάσουν τη δυνατότητα να φτάσουν την τρέχουσα διεύθυνσή σας.\n\nΑυτό δεν μπορεί να αναιρεθεί.';
 
   @override
   String get replaceIdentityBodyCreate =>
-      'An identity already exists on this device. Creating a new one will permanently replace your current Nostr key and Oxen seed. All contacts will lose the ability to reach your current address.\n\nThis cannot be undone.';
+      'Υπάρχει ήδη ταυτότητα σε αυτή τη συσκευή. Η δημιουργία νέας θα αντικαταστήσει μόνιμα το τρέχον κλειδί Nostr και seed Oxen. Όλες οι επαφές θα χάσουν τη δυνατότητα να φτάσουν την τρέχουσα διεύθυνσή σας.\n\nΑυτό δεν μπορεί να αναιρεθεί.';
 
   @override
-  String get replace => 'Replace';
+  String get replace => 'Αντικατάσταση';
 
   @override
-  String get callNoScreenSources => 'No screen sources available';
+  String get callNoScreenSources => 'Δεν υπάρχουν διαθέσιμες πηγές οθόνης';
 
   @override
-  String get callScreenShareQuality => 'Screen Share Quality';
+  String get callScreenShareQuality => 'Ποιότητα κοινοποίησης οθόνης';
 
   @override
-  String get callFrameRate => 'Frame rate';
+  String get callFrameRate => 'Ρυθμός καρέ';
 
   @override
-  String get callResolution => 'Resolution';
+  String get callResolution => 'Ανάλυση';
 
   @override
-  String get callAutoResolution => 'Auto = native screen resolution';
+  String get callAutoResolution => 'Αυτόματη = εγγενής ανάλυση οθόνης';
 
   @override
-  String get callStartSharing => 'Start sharing';
+  String get callStartSharing => 'Έναρξη κοινοποίησης';
 
   @override
   String get callCameraUnavailable =>
-      'Camera unavailable — may be in use by another app';
+      'Η κάμερα δεν είναι διαθέσιμη — μπορεί να χρησιμοποιείται από άλλη εφαρμογή';
 
   @override
-  String get themeResetToDefaults => 'Reset to defaults';
+  String get themeResetToDefaults => 'Επαναφορά προεπιλογών';
 
   @override
-  String get backupSaveToDownloadsTitle => 'Save backup to Downloads?';
+  String get backupSaveToDownloadsTitle => 'Αποθήκευση αντιγράφου στις Λήψεις;';
 
   @override
   String backupSaveToDownloadsBody(String path) {
-    return 'No file picker available. The backup will be saved to:\n$path';
+    return 'Δεν υπάρχει διαθέσιμος επιλογέας αρχείων. Το αντίγραφο ασφαλείας θα αποθηκευτεί στο:\n$path';
   }
 
   @override
-  String get systemLabel => 'System';
+  String get systemLabel => 'Σύστημα';
 
   @override
-  String get next => 'Next';
+  String get next => 'Επόμενο';
 
   @override
   String get gifLabel => 'GIF';
 
   @override
   String devTapsRemaining(int remaining) {
-    return '$remaining more taps to enable developer mode';
+    return 'Ακόμα $remaining πατήματα για ενεργοποίηση λειτουργίας προγραμματιστή';
   }
 
   @override
-  String get devModeEnabled => 'Developer mode enabled';
+  String get devModeEnabled => 'Η λειτουργία προγραμματιστή ενεργοποιήθηκε';
 
   @override
-  String get devTools => 'Developer Tools';
+  String get devTools => 'Εργαλεία προγραμματιστή';
 
   @override
-  String get devAdapterDiagnostics => 'Adapter toggles & diagnostics';
+  String get devAdapterDiagnostics => 'Διακόπτες προσαρμογέα & διαγνωστικά';
 
   @override
-  String get devEnableAll => 'Enable all';
+  String get devEnableAll => 'Ενεργοποίηση όλων';
 
   @override
-  String get devDisableAll => 'Disable all';
+  String get devDisableAll => 'Απενεργοποίηση όλων';
 
   @override
   String get turnUrlValidation =>
-      'TURN URL must start with turn: or turns: (max 512 chars)';
+      'Το TURN URL πρέπει να ξεκινά με turn: ή turns: (μέγ. 512 χαρακτήρες)';
 
   @override
-  String get callMissedCall => 'Missed call';
+  String get callMissedCall => 'Αναπάντητη κλήση';
 
   @override
-  String get callOutgoingCall => 'Outgoing call';
+  String get callOutgoingCall => 'Εξερχόμενη κλήση';
 
   @override
-  String get callIncomingCall => 'Incoming call';
+  String get callIncomingCall => 'Εισερχόμενη κλήση';
 
   @override
-  String get mediaMissingData => 'Missing media data';
+  String get mediaMissingData => 'Λείπουν δεδομένα πολυμέσων';
 
   @override
-  String get mediaDownloadFailed => 'Download failed';
+  String get mediaDownloadFailed => 'Αποτυχία λήψης';
 
   @override
-  String get mediaDecryptFailed => 'Decrypt failed';
+  String get mediaDecryptFailed => 'Αποτυχία αποκρυπτογράφησης';
 
   @override
-  String get callEndCallBanner => 'End call';
+  String get callEndCallBanner => 'Τερματισμός κλήσης';
 
   @override
-  String get meFallback => 'Me';
+  String get meFallback => 'Εγώ';
 
   @override
-  String get imageSaveToDownloads => 'Save to Downloads';
+  String get imageSaveToDownloads => 'Αποθήκευση στις Λήψεις';
 
   @override
   String imageSavedToPath(String path) {
-    return 'Saved to $path';
+    return 'Αποθηκεύτηκε στο $path';
   }
 
   @override
   String get callScreenShareRequiresPermission =>
-      'Screen sharing requires permission';
+      'Η κοινοποίηση οθόνης απαιτεί άδεια';
 
   @override
-  String get callScreenShareUnavailable => 'Screen sharing unavailable';
+  String get callScreenShareUnavailable =>
+      'Η κοινοποίηση οθόνης δεν είναι διαθέσιμη';
 
   @override
-  String get statusJustNow => 'Just now';
+  String get statusJustNow => 'Μόλις τώρα';
 
   @override
   String statusMinutesAgo(int minutes) {
-    return '${minutes}m ago';
+    return '$minutesλ πριν';
   }
 
   @override
   String statusHoursAgo(int hours) {
-    return '${hours}h ago';
+    return '$hoursω πριν';
   }
 
   @override
@@ -2956,80 +2957,81 @@ class AppLocalizationsEl extends AppLocalizations {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
-      other: '$count routes',
-      one: '1 route',
+      other: '$count διαδρομές',
+      one: '1 διαδρομή',
     );
     return '$_temp0';
   }
 
   @override
-  String get addContactReadyToAdd => 'Ready to add';
+  String get addContactReadyToAdd => 'Έτοιμο για προσθήκη';
 
   @override
   String groupSelectedCount(int count) {
-    return '$count selected';
+    return '$count επιλεγμένα';
   }
 
   @override
-  String get paste => 'Paste';
+  String get paste => 'Επικόλληση';
 
   @override
-  String get sfuAudioOnly => 'Audio only';
+  String get sfuAudioOnly => 'Μόνο ήχος';
 
   @override
   String sfuParticipants(int count) {
-    return '$count participants';
+    return '$count συμμετέχοντες';
   }
 
   @override
-  String get dataUnencryptedBackup => 'Unencrypted backup';
+  String get dataUnencryptedBackup => 'Μη κρυπτογραφημένο αντίγραφο';
 
   @override
   String get dataUnencryptedBackupBody =>
-      'This file is an unencrypted identity backup and will overwrite your current keys. Only import files you created yourself. Proceed?';
+      'Αυτό το αρχείο είναι ένα μη κρυπτογραφημένο αντίγραφο ταυτότητας και θα αντικαταστήσει τα τρέχοντα κλειδιά σας. Εισάγετε μόνο αρχεία που δημιουργήσατε εσείς. Συνέχεια;';
 
   @override
-  String get dataImportAnyway => 'Import anyway';
+  String get dataImportAnyway => 'Εισαγωγή ούτως ή άλλως';
 
   @override
-  String get securityStorageError => 'Security storage error — restart the app';
+  String get securityStorageError =>
+      'Σφάλμα ασφαλούς αποθήκευσης — επανεκκινήστε την εφαρμογή';
 
   @override
-  String get aboutDevModeActive => 'Developer mode active';
+  String get aboutDevModeActive => 'Λειτουργία προγραμματιστή ενεργή';
 
   @override
-  String get themeColors => 'Colors';
+  String get themeColors => 'Χρώματα';
 
   @override
-  String get themePrimaryAccent => 'Primary accent';
+  String get themePrimaryAccent => 'Κύρια προφορά';
 
   @override
-  String get themeSecondaryAccent => 'Secondary accent';
+  String get themeSecondaryAccent => 'Δευτερεύουσα προφορά';
 
   @override
-  String get themeBackground => 'Background';
+  String get themeBackground => 'Φόντο';
 
   @override
-  String get themeSurface => 'Surface';
+  String get themeSurface => 'Επιφάνεια';
 
   @override
-  String get themeChatBubbles => 'Chat Bubbles';
+  String get themeChatBubbles => 'Φυσαλίδες συνομιλίας';
 
   @override
-  String get themeOutgoingMessage => 'Outgoing message';
+  String get themeOutgoingMessage => 'Εξερχόμενο μήνυμα';
 
   @override
-  String get themeIncomingMessage => 'Incoming message';
+  String get themeIncomingMessage => 'Εισερχόμενο μήνυμα';
 
   @override
-  String get themeShape => 'Shape';
+  String get themeShape => 'Σχήμα';
 
   @override
-  String get devSectionDeveloper => 'Developer';
+  String get devSectionDeveloper => 'Προγραμματιστής';
 
   @override
   String get devAdapterChannelsHint =>
-      'Adapter channels — disable to test specific transports.';
+      'Κανάλια προσαρμογέα — απενεργοποιήστε για δοκιμή συγκεκριμένων μεταφορών.';
 
   @override
   String get devNostrRelays => 'Nostr relays (wss://)';
@@ -3038,25 +3040,45 @@ class AppLocalizationsEl extends AppLocalizations {
   String get devFirebaseDb => 'Firebase Realtime DB';
 
   @override
-  String get devSessionNetwork => 'Session Network';
+  String get devSessionNetwork => 'Δίκτυο Session';
 
   @override
-  String get devPulseRelay => 'Pulse self-hosted relay';
+  String get devPulseRelay => 'Pulse αυτο-φιλοξενούμενο relay';
 
   @override
-  String get devLanNetwork => 'Local network (UDP/TCP)';
+  String get devLanNetwork => 'Τοπικό δίκτυο (UDP/TCP)';
 
   @override
-  String get devSectionCalls => 'Calls';
+  String get devSectionCalls => 'Κλήσεις';
 
   @override
-  String get devForceTurnRelay => 'Force TURN relay';
+  String get devForceTurnRelay => 'Αναγκαστικό TURN relay';
 
   @override
   String get devForceTurnRelaySubtitle =>
-      'Disable P2P — all calls via TURN servers only';
+      'Απενεργοποίηση P2P — όλες οι κλήσεις μόνο μέσω TURN servers';
 
   @override
   String get devRestartWarning =>
-      '⚠ Changes take effect on next send/call. Restart app to apply to incoming.';
+      '⚠ Οι αλλαγές ισχύουν στην επόμενη αποστολή/κλήση. Επανεκκινήστε την εφαρμογή για τις εισερχόμενες.';
+
+  @override
+  String get messageRequest => 'Message request';
+
+  @override
+  String messageRequestFrom(String name) {
+    return 'Message request from $name';
+  }
+
+  @override
+  String get acceptContact => 'Accept';
+
+  @override
+  String get blockContact => 'Block';
+
+  @override
+  String get blockedContactsEmpty => 'No blocked contacts';
+
+  @override
+  String get pendingLimitReached => 'Too many pending requests';
 }

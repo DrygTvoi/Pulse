@@ -2784,135 +2784,135 @@ class AppLocalizationsCs extends AppLocalizations {
       'Uchovejte tento klíč v bezpečí. Kdokoli s ním může obnovit váš účet na jiném zařízení.';
 
   @override
-  String get replaceIdentityTitle => 'Replace existing identity?';
+  String get replaceIdentityTitle => 'Nahradit stávající identitu?';
 
   @override
   String get replaceIdentityBodyRestore =>
-      'An identity already exists on this device. Restoring will permanently replace your current Nostr key and Oxen seed. All contacts will lose the ability to reach your current address.\n\nThis cannot be undone.';
+      'Na tomto zařízení již existuje identita. Obnovení trvale nahradí váš aktuální Nostr klíč a Oxen seed. Všechny kontakty ztratí možnost kontaktovat vaši současnou adresu.\n\nTuto akci nelze vrátit zpět.';
 
   @override
   String get replaceIdentityBodyCreate =>
-      'An identity already exists on this device. Creating a new one will permanently replace your current Nostr key and Oxen seed. All contacts will lose the ability to reach your current address.\n\nThis cannot be undone.';
+      'Na tomto zařízení již existuje identita. Vytvoření nové trvale nahradí váš aktuální Nostr klíč a Oxen seed. Všechny kontakty ztratí možnost kontaktovat vaši současnou adresu.\n\nTuto akci nelze vrátit zpět.';
 
   @override
-  String get replace => 'Replace';
+  String get replace => 'Nahradit';
 
   @override
-  String get callNoScreenSources => 'No screen sources available';
+  String get callNoScreenSources => 'Nejsou dostupné žádné zdroje obrazovky';
 
   @override
-  String get callScreenShareQuality => 'Screen Share Quality';
+  String get callScreenShareQuality => 'Kvalita sdílení obrazovky';
 
   @override
-  String get callFrameRate => 'Frame rate';
+  String get callFrameRate => 'Snímková frekvence';
 
   @override
-  String get callResolution => 'Resolution';
+  String get callResolution => 'Rozlišení';
 
   @override
-  String get callAutoResolution => 'Auto = native screen resolution';
+  String get callAutoResolution => 'Auto = nativní rozlišení obrazovky';
 
   @override
-  String get callStartSharing => 'Start sharing';
+  String get callStartSharing => 'Zahájit sdílení';
 
   @override
   String get callCameraUnavailable =>
-      'Camera unavailable — may be in use by another app';
+      'Kamera není dostupná — může být používána jinou aplikací';
 
   @override
-  String get themeResetToDefaults => 'Reset to defaults';
+  String get themeResetToDefaults => 'Obnovit výchozí';
 
   @override
-  String get backupSaveToDownloadsTitle => 'Save backup to Downloads?';
+  String get backupSaveToDownloadsTitle => 'Uložit zálohu do Stažených?';
 
   @override
   String backupSaveToDownloadsBody(String path) {
-    return 'No file picker available. The backup will be saved to:\n$path';
+    return 'Není k dispozici výběr souborů. Záloha bude uložena do:\n$path';
   }
 
   @override
-  String get systemLabel => 'System';
+  String get systemLabel => 'Systém';
 
   @override
-  String get next => 'Next';
+  String get next => 'Další';
 
   @override
   String get gifLabel => 'GIF';
 
   @override
   String devTapsRemaining(int remaining) {
-    return '$remaining more taps to enable developer mode';
+    return 'Ještě $remaining klepnutí pro zapnutí vývojářského režimu';
   }
 
   @override
-  String get devModeEnabled => 'Developer mode enabled';
+  String get devModeEnabled => 'Vývojářský režim zapnut';
 
   @override
-  String get devTools => 'Developer Tools';
+  String get devTools => 'Vývojářské nástroje';
 
   @override
-  String get devAdapterDiagnostics => 'Adapter toggles & diagnostics';
+  String get devAdapterDiagnostics => 'Přepínače adaptéru a diagnostika';
 
   @override
-  String get devEnableAll => 'Enable all';
+  String get devEnableAll => 'Aktivovat vše';
 
   @override
-  String get devDisableAll => 'Disable all';
+  String get devDisableAll => 'Deaktivovat vše';
 
   @override
   String get turnUrlValidation =>
-      'TURN URL must start with turn: or turns: (max 512 chars)';
+      'TURN URL musí začínat turn: nebo turns: (max 512 znaků)';
 
   @override
-  String get callMissedCall => 'Missed call';
+  String get callMissedCall => 'Zmeškaný hovor';
 
   @override
-  String get callOutgoingCall => 'Outgoing call';
+  String get callOutgoingCall => 'Odchozí hovor';
 
   @override
-  String get callIncomingCall => 'Incoming call';
+  String get callIncomingCall => 'Příchozí hovor';
 
   @override
-  String get mediaMissingData => 'Missing media data';
+  String get mediaMissingData => 'Chybějící mediální data';
 
   @override
-  String get mediaDownloadFailed => 'Download failed';
+  String get mediaDownloadFailed => 'Stahování selhalo';
 
   @override
-  String get mediaDecryptFailed => 'Decrypt failed';
+  String get mediaDecryptFailed => 'Dešifrování selhalo';
 
   @override
-  String get callEndCallBanner => 'End call';
+  String get callEndCallBanner => 'Ukončit hovor';
 
   @override
-  String get meFallback => 'Me';
+  String get meFallback => 'Já';
 
   @override
-  String get imageSaveToDownloads => 'Save to Downloads';
+  String get imageSaveToDownloads => 'Uložit do Stažených';
 
   @override
   String imageSavedToPath(String path) {
-    return 'Saved to $path';
+    return 'Uloženo do $path';
   }
 
   @override
   String get callScreenShareRequiresPermission =>
-      'Screen sharing requires permission';
+      'Sdílení obrazovky vyžaduje oprávnění';
 
   @override
-  String get callScreenShareUnavailable => 'Screen sharing unavailable';
+  String get callScreenShareUnavailable => 'Sdílení obrazovky není dostupné';
 
   @override
-  String get statusJustNow => 'Just now';
+  String get statusJustNow => 'Právě teď';
 
   @override
   String statusMinutesAgo(int minutes) {
-    return '${minutes}m ago';
+    return 'před ${minutes}m';
   }
 
   @override
   String statusHoursAgo(int hours) {
-    return '${hours}h ago';
+    return 'před ${hours}h';
   }
 
   @override
@@ -2920,107 +2920,128 @@ class AppLocalizationsCs extends AppLocalizations {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
-      other: '$count routes',
-      one: '1 route',
+      other: '$count tras',
+      one: '1 trasa',
     );
     return '$_temp0';
   }
 
   @override
-  String get addContactReadyToAdd => 'Ready to add';
+  String get addContactReadyToAdd => 'Připraveno k přidání';
 
   @override
   String groupSelectedCount(int count) {
-    return '$count selected';
+    return '$count vybráno';
   }
 
   @override
-  String get paste => 'Paste';
+  String get paste => 'Vložit';
 
   @override
-  String get sfuAudioOnly => 'Audio only';
+  String get sfuAudioOnly => 'Pouze zvuk';
 
   @override
   String sfuParticipants(int count) {
-    return '$count participants';
+    return '$count účastníků';
   }
 
   @override
-  String get dataUnencryptedBackup => 'Unencrypted backup';
+  String get dataUnencryptedBackup => 'Nešifrovaná záloha';
 
   @override
   String get dataUnencryptedBackupBody =>
-      'This file is an unencrypted identity backup and will overwrite your current keys. Only import files you created yourself. Proceed?';
+      'Tento soubor je nešifrovaná záloha identity a přepíše vaše stávající klíče. Importujte pouze soubory, které jste sami vytvořili. Pokračovat?';
 
   @override
-  String get dataImportAnyway => 'Import anyway';
+  String get dataImportAnyway => 'Přesto importovat';
 
   @override
-  String get securityStorageError => 'Security storage error — restart the app';
+  String get securityStorageError =>
+      'Chyba bezpečného úložiště — restartujte aplikaci';
 
   @override
-  String get aboutDevModeActive => 'Developer mode active';
+  String get aboutDevModeActive => 'Vývojářský režim aktivní';
 
   @override
-  String get themeColors => 'Colors';
+  String get themeColors => 'Barvy';
 
   @override
-  String get themePrimaryAccent => 'Primary accent';
+  String get themePrimaryAccent => 'Primární akcent';
 
   @override
-  String get themeSecondaryAccent => 'Secondary accent';
+  String get themeSecondaryAccent => 'Sekundární akcent';
 
   @override
-  String get themeBackground => 'Background';
+  String get themeBackground => 'Pozadí';
 
   @override
-  String get themeSurface => 'Surface';
+  String get themeSurface => 'Povrch';
 
   @override
-  String get themeChatBubbles => 'Chat Bubbles';
+  String get themeChatBubbles => 'Chatovací bubliny';
 
   @override
-  String get themeOutgoingMessage => 'Outgoing message';
+  String get themeOutgoingMessage => 'Odchozí zpráva';
 
   @override
-  String get themeIncomingMessage => 'Incoming message';
+  String get themeIncomingMessage => 'Příchozí zpráva';
 
   @override
-  String get themeShape => 'Shape';
+  String get themeShape => 'Tvar';
 
   @override
-  String get devSectionDeveloper => 'Developer';
+  String get devSectionDeveloper => 'Vývojář';
 
   @override
   String get devAdapterChannelsHint =>
-      'Adapter channels — disable to test specific transports.';
+      'Kanály adaptéru — deaktivujte pro testování konkrétních přenosů.';
 
   @override
-  String get devNostrRelays => 'Nostr relays (wss://)';
+  String get devNostrRelays => 'Nostr relay (wss://)';
 
   @override
   String get devFirebaseDb => 'Firebase Realtime DB';
 
   @override
-  String get devSessionNetwork => 'Session Network';
+  String get devSessionNetwork => 'Síť Session';
 
   @override
-  String get devPulseRelay => 'Pulse self-hosted relay';
+  String get devPulseRelay => 'Pulse samohostovaný relay';
 
   @override
-  String get devLanNetwork => 'Local network (UDP/TCP)';
+  String get devLanNetwork => 'Lokální síť (UDP/TCP)';
 
   @override
-  String get devSectionCalls => 'Calls';
+  String get devSectionCalls => 'Hovory';
 
   @override
-  String get devForceTurnRelay => 'Force TURN relay';
+  String get devForceTurnRelay => 'Vynutit TURN relay';
 
   @override
   String get devForceTurnRelaySubtitle =>
-      'Disable P2P — all calls via TURN servers only';
+      'Deaktivovat P2P — všechny hovory pouze přes TURN servery';
 
   @override
   String get devRestartWarning =>
-      '⚠ Changes take effect on next send/call. Restart app to apply to incoming.';
+      '⚠ Změny se projeví při dalším odesílání/hovoru. Restartujte aplikaci pro příchozí.';
+
+  @override
+  String get messageRequest => 'Message request';
+
+  @override
+  String messageRequestFrom(String name) {
+    return 'Message request from $name';
+  }
+
+  @override
+  String get acceptContact => 'Accept';
+
+  @override
+  String get blockContact => 'Block';
+
+  @override
+  String get blockedContactsEmpty => 'No blocked contacts';
+
+  @override
+  String get pendingLimitReached => 'Too many pending requests';
 }

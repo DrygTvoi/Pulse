@@ -2803,135 +2803,136 @@ class AppLocalizationsMy extends AppLocalizations {
       'ဤသော့ကို လုံခြုံစွာ သိမ်းဆည်းပါ။ ၎င်းကို ရသူမည်သူမဆို အခြားစက်တွင် သင့်အကောင့်ကို ပြန်လည်ရယူနိုင်ပါသည်။';
 
   @override
-  String get replaceIdentityTitle => 'Replace existing identity?';
+  String get replaceIdentityTitle => 'ရှိပြီးသား အထောက်အထားကို အစားထိုးမလား?';
 
   @override
   String get replaceIdentityBodyRestore =>
-      'An identity already exists on this device. Restoring will permanently replace your current Nostr key and Oxen seed. All contacts will lose the ability to reach your current address.\n\nThis cannot be undone.';
+      'ဤစက်ပစ္စည်းတွင် အထောက်အထားရှိပြီးသားဖြစ်သည်။ ပြန်လည်ရယူခြင်းသည် သင့်လက်ရှိ Nostr သော့နှင့် Oxen seed ကို အပြီးအပိုင်အစားထိုးမည်ဖြစ်သည်။ အဆက်အသွယ်အားလုံး သင့်လက်ရှိလိပ်စာသို့ ဆက်သွယ်နိုင်စွမ်း ဆုံးရှုံးမည်ဖြစ်သည်။\n\nဤလုပ်ဆောင်ချက်ကို ပြန်ဖျက်ဤမရပါ။';
 
   @override
   String get replaceIdentityBodyCreate =>
-      'An identity already exists on this device. Creating a new one will permanently replace your current Nostr key and Oxen seed. All contacts will lose the ability to reach your current address.\n\nThis cannot be undone.';
+      'ဤစက်ပစ္စည်းတွင် အထောက်အထားရှိပြီးသားဖြစ်သည်။ အသစ်ဖန်တီးခြင်းသည် သင့်လက်ရှိ Nostr သော့နှင့် Oxen seed ကို အပြီးအပိုင်အစားထိုးမည်ဖြစ်သည်။ အဆက်အသွယ်အားလုံး သင့်လက်ရှိလိပ်စာသို့ ဆက်သွယ်နိုင်စွမ်း ဆုံးရှုံးမည်ဖြစ်သည်။\n\nဤလုပ်ဆောင်ချက်ကို ပြန်ဖျက်ဤမရပါ။';
 
   @override
-  String get replace => 'Replace';
+  String get replace => 'အစားထိုး';
 
   @override
-  String get callNoScreenSources => 'No screen sources available';
+  String get callNoScreenSources => 'စခရင်အရင်းအမြစ် မရရှိနိုင်ပါ';
 
   @override
-  String get callScreenShareQuality => 'Screen Share Quality';
+  String get callScreenShareQuality => 'စခရင်မျှဝေမှု အရည်အသွေး';
 
   @override
-  String get callFrameRate => 'Frame rate';
+  String get callFrameRate => 'ဖရိမ်နှုန်း';
 
   @override
-  String get callResolution => 'Resolution';
+  String get callResolution => 'ရုပ်ထွက်';
 
   @override
-  String get callAutoResolution => 'Auto = native screen resolution';
+  String get callAutoResolution => 'အလိုအလျောက် = မူရင်းစခရင် ရုပ်ထွက်';
 
   @override
-  String get callStartSharing => 'Start sharing';
+  String get callStartSharing => 'မျှဝေမှု စတင်ရန်';
 
   @override
   String get callCameraUnavailable =>
-      'Camera unavailable — may be in use by another app';
+      'ကင်မရာ မရရှိနိုင်ပါ — အခြားအက်ပ်တစ်ခုက အသုံးပြုနေနိုင်သည်';
 
   @override
-  String get themeResetToDefaults => 'Reset to defaults';
+  String get themeResetToDefaults => 'မူလအတိုင်း ပြန်ထားရန်';
 
   @override
-  String get backupSaveToDownloadsTitle => 'Save backup to Downloads?';
+  String get backupSaveToDownloadsTitle =>
+      'အရန်ကူးကို ဒေါင်လုဒ်များသို့ သိမ်းမလား?';
 
   @override
   String backupSaveToDownloadsBody(String path) {
-    return 'No file picker available. The backup will be saved to:\n$path';
+    return 'ဖိုင်ရွေးချယ်စနစ် မရရှိနိုင်ပါ။ အရန်ကူးကို ဤနေရာတွင် သိမ်းဆည်းပါမည်:\n$path';
   }
 
   @override
-  String get systemLabel => 'System';
+  String get systemLabel => 'စနစ်';
 
   @override
-  String get next => 'Next';
+  String get next => 'ရှေ့ဆက်';
 
   @override
   String get gifLabel => 'GIF';
 
   @override
   String devTapsRemaining(int remaining) {
-    return '$remaining more taps to enable developer mode';
+    return 'Developer မုဒ်ဖွင့်ရန် နောက်ထပ် $remaining ကြိမ် နှိပ်ပါ';
   }
 
   @override
-  String get devModeEnabled => 'Developer mode enabled';
+  String get devModeEnabled => 'Developer မုဒ် ဖွင့်ထားသည်';
 
   @override
-  String get devTools => 'Developer Tools';
+  String get devTools => 'Developer ကိရိယာများ';
 
   @override
-  String get devAdapterDiagnostics => 'Adapter toggles & diagnostics';
+  String get devAdapterDiagnostics => 'Adapter ခလုတ်များနှင့် ရောဂါရှာဖွေမှု';
 
   @override
-  String get devEnableAll => 'Enable all';
+  String get devEnableAll => 'အားလုံးဖွင့်ရန်';
 
   @override
-  String get devDisableAll => 'Disable all';
+  String get devDisableAll => 'အားလုံးပိတ်ရန်';
 
   @override
   String get turnUrlValidation =>
-      'TURN URL must start with turn: or turns: (max 512 chars)';
+      'TURN URL သည် turn: သို့မဟုတ် turns: ဖြင့် စတင်ရမည် (အများဆုံး 512 လုံး)';
 
   @override
-  String get callMissedCall => 'Missed call';
+  String get callMissedCall => 'လွတ်သွားသော ဖုန်းခေါ်ဆိုမှု';
 
   @override
-  String get callOutgoingCall => 'Outgoing call';
+  String get callOutgoingCall => 'အထွက်ဖုန်းခေါ်ဆိုမှု';
 
   @override
-  String get callIncomingCall => 'Incoming call';
+  String get callIncomingCall => 'အဝင်ဖုန်းခေါ်ဆိုမှု';
 
   @override
-  String get mediaMissingData => 'Missing media data';
+  String get mediaMissingData => 'မီဒီယာဒေတာ ပျက်ဆုံးနေသည်';
 
   @override
-  String get mediaDownloadFailed => 'Download failed';
+  String get mediaDownloadFailed => 'ဒေါင်လုဒ် မအောင်မြင်ပါ';
 
   @override
-  String get mediaDecryptFailed => 'Decrypt failed';
+  String get mediaDecryptFailed => 'ကုဒ်ဖြည်ခြင်း မအောင်မြင်ပါ';
 
   @override
-  String get callEndCallBanner => 'End call';
+  String get callEndCallBanner => 'ဖုန်းချရန်';
 
   @override
-  String get meFallback => 'Me';
+  String get meFallback => 'ကျွနုပ်';
 
   @override
-  String get imageSaveToDownloads => 'Save to Downloads';
+  String get imageSaveToDownloads => 'ဒေါင်လုဒ်များသို့ သိမ်းရန်';
 
   @override
   String imageSavedToPath(String path) {
-    return 'Saved to $path';
+    return '$path သို့ သိမ်းဆည်းပြီ';
   }
 
   @override
   String get callScreenShareRequiresPermission =>
-      'Screen sharing requires permission';
+      'စခရင်မျှဝေရန် ခွင့်ပြုချက်လိုအပ်သည်';
 
   @override
-  String get callScreenShareUnavailable => 'Screen sharing unavailable';
+  String get callScreenShareUnavailable => 'စခရင်မျှဝေမှု မရရှိနိုင်ပါ';
 
   @override
-  String get statusJustNow => 'Just now';
+  String get statusJustNow => 'ယခုလေးတင်';
 
   @override
   String statusMinutesAgo(int minutes) {
-    return '${minutes}m ago';
+    return '$minutes မိနစ် အကြာက';
   }
 
   @override
   String statusHoursAgo(int hours) {
-    return '${hours}h ago';
+    return '$hours နာရီ အကြာက';
   }
 
   @override
@@ -2939,80 +2940,81 @@ class AppLocalizationsMy extends AppLocalizations {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
-      other: '$count routes',
-      one: '1 route',
+      other: 'လမ်းကြောင်း $count ခု',
+      one: 'လမ်းကြောင်း ၁ ခု',
     );
     return '$_temp0';
   }
 
   @override
-  String get addContactReadyToAdd => 'Ready to add';
+  String get addContactReadyToAdd => 'ထည့်ရန် အဆင်သင့်ဖြစ်ပါပြီ';
 
   @override
   String groupSelectedCount(int count) {
-    return '$count selected';
+    return '$count ခု ရွေးချယ်ထားသည်';
   }
 
   @override
-  String get paste => 'Paste';
+  String get paste => 'ကူးထည့်';
 
   @override
-  String get sfuAudioOnly => 'Audio only';
+  String get sfuAudioOnly => 'အသံသာ';
 
   @override
   String sfuParticipants(int count) {
-    return '$count participants';
+    return 'ပါဝင်သူ $count ဦး';
   }
 
   @override
-  String get dataUnencryptedBackup => 'Unencrypted backup';
+  String get dataUnencryptedBackup => 'ကုဒ်ဝှက်မထားသော အရန်ကူး';
 
   @override
   String get dataUnencryptedBackupBody =>
-      'This file is an unencrypted identity backup and will overwrite your current keys. Only import files you created yourself. Proceed?';
+      'ဤဖိုင်သည် ကုဒ်ဝှက်မထားသော အထောက်အထားအရန်ကူးဖြစ်ပြီ သင့်လက်ရှိသော့များကို အစားထိုးမည်ဖြစ်သည်။ သင်ကိုယ်တိုင်ဖန်တီးထားသောဖိုင်များကိုသာ တင်သွင်းပါ။ ဆက်လက်မလား?';
 
   @override
-  String get dataImportAnyway => 'Import anyway';
+  String get dataImportAnyway => 'ဘာပဲဖြစ်ဖြစ် တင်သွင်းရန်';
 
   @override
-  String get securityStorageError => 'Security storage error — restart the app';
+  String get securityStorageError =>
+      'လုံခြုံရေး သိုလှောင်မှု အမှား — အက်ပ်ကို ပြန်ဖွင့်ပါ';
 
   @override
-  String get aboutDevModeActive => 'Developer mode active';
+  String get aboutDevModeActive => 'Developer မုဒ် အသက်ဝင်နေသည်';
 
   @override
-  String get themeColors => 'Colors';
+  String get themeColors => 'အရောင်များ';
 
   @override
-  String get themePrimaryAccent => 'Primary accent';
+  String get themePrimaryAccent => 'အဓိက အရောင်အသွင်';
 
   @override
-  String get themeSecondaryAccent => 'Secondary accent';
+  String get themeSecondaryAccent => 'ဒုတိယ အရောင်အသွင်';
 
   @override
-  String get themeBackground => 'Background';
+  String get themeBackground => 'နောက်ခံ';
 
   @override
-  String get themeSurface => 'Surface';
+  String get themeSurface => 'မျက်နှာပြင်';
 
   @override
-  String get themeChatBubbles => 'Chat Bubbles';
+  String get themeChatBubbles => 'ချက်တင် ပူဖောင်းများ';
 
   @override
-  String get themeOutgoingMessage => 'Outgoing message';
+  String get themeOutgoingMessage => 'အထွက်မက်ဆေ့ချ်';
 
   @override
-  String get themeIncomingMessage => 'Incoming message';
+  String get themeIncomingMessage => 'အဝင်မက်ဆေ့ချ်';
 
   @override
-  String get themeShape => 'Shape';
+  String get themeShape => 'ပုံသဏ္ဍာန်';
 
   @override
   String get devSectionDeveloper => 'Developer';
 
   @override
   String get devAdapterChannelsHint =>
-      'Adapter channels — disable to test specific transports.';
+      'Adapter ချန်နယ်များ — သတ်မှတ် transport များကို စမ်းသပ်ရန် ပိတ်ပါ။';
 
   @override
   String get devNostrRelays => 'Nostr relays (wss://)';
@@ -3024,22 +3026,42 @@ class AppLocalizationsMy extends AppLocalizations {
   String get devSessionNetwork => 'Session Network';
 
   @override
-  String get devPulseRelay => 'Pulse self-hosted relay';
+  String get devPulseRelay => 'Pulse ကိုယ်ပိုင် relay';
 
   @override
-  String get devLanNetwork => 'Local network (UDP/TCP)';
+  String get devLanNetwork => 'ပြည်တွင်းကွန်ယက် (UDP/TCP)';
 
   @override
-  String get devSectionCalls => 'Calls';
+  String get devSectionCalls => 'ဖုန်းခေါ်ဆိုမှုများ';
 
   @override
-  String get devForceTurnRelay => 'Force TURN relay';
+  String get devForceTurnRelay => 'TURN relay အတင်းသုံးရန်';
 
   @override
   String get devForceTurnRelaySubtitle =>
-      'Disable P2P — all calls via TURN servers only';
+      'P2P ပိတ်ရန် — ဖုန်းခေါ်ဆိုမှုအားလုံး TURN ဆာဗာများမှတစ်ဆင့်သာ';
 
   @override
   String get devRestartWarning =>
-      '⚠ Changes take effect on next send/call. Restart app to apply to incoming.';
+      '⚠ ပြောင်းလဲမှုများသည် နောက်တစ်ကြိမ် ပို့/ခေါ်သည့်အခါ အကျိုးသက်ရောက်မည်။ အဝင်များအတွက် အက်ပ်ကို ပြန်ဖွင့်ပါ။';
+
+  @override
+  String get messageRequest => 'Message request';
+
+  @override
+  String messageRequestFrom(String name) {
+    return 'Message request from $name';
+  }
+
+  @override
+  String get acceptContact => 'Accept';
+
+  @override
+  String get blockContact => 'Block';
+
+  @override
+  String get blockedContactsEmpty => 'No blocked contacts';
+
+  @override
+  String get pendingLimitReached => 'Too many pending requests';
 }

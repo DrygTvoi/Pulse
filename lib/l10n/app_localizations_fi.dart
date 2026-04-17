@@ -2803,135 +2803,136 @@ class AppLocalizationsFi extends AppLocalizations {
       'Säilytä tämä avain turvassa. Kuka tahansa, jolla se on, voi palauttaa tilisi toisella laitteella.';
 
   @override
-  String get replaceIdentityTitle => 'Replace existing identity?';
+  String get replaceIdentityTitle => 'Korvaa olemassa oleva identiteetti?';
 
   @override
   String get replaceIdentityBodyRestore =>
-      'An identity already exists on this device. Restoring will permanently replace your current Nostr key and Oxen seed. All contacts will lose the ability to reach your current address.\n\nThis cannot be undone.';
+      'Tällä laitteella on jo identiteetti. Palauttaminen korvaa pysyvästi nykyisen Nostr-avaimesi ja Oxen-siemenesi. Kaikki yhteyshenkilöt menettävät mahdollisuuden tavoittaa nykyisen osoitteesi.\n\nTätä ei voi kumota.';
 
   @override
   String get replaceIdentityBodyCreate =>
-      'An identity already exists on this device. Creating a new one will permanently replace your current Nostr key and Oxen seed. All contacts will lose the ability to reach your current address.\n\nThis cannot be undone.';
+      'Tällä laitteella on jo identiteetti. Uuden luominen korvaa pysyvästi nykyisen Nostr-avaimesi ja Oxen-siemenesi. Kaikki yhteyshenkilöt menettävät mahdollisuuden tavoittaa nykyisen osoitteesi.\n\nTätä ei voi kumota.';
 
   @override
-  String get replace => 'Replace';
+  String get replace => 'Korvaa';
 
   @override
-  String get callNoScreenSources => 'No screen sources available';
+  String get callNoScreenSources => 'Ei käytettävissä olevia näyttölähteitä';
 
   @override
-  String get callScreenShareQuality => 'Screen Share Quality';
+  String get callScreenShareQuality => 'Näytön jakamisen laatu';
 
   @override
-  String get callFrameRate => 'Frame rate';
+  String get callFrameRate => 'Kuvataajuus';
 
   @override
-  String get callResolution => 'Resolution';
+  String get callResolution => 'Tarkkuus';
 
   @override
-  String get callAutoResolution => 'Auto = native screen resolution';
+  String get callAutoResolution => 'Auto = näytön alkuperäinen tarkkuus';
 
   @override
-  String get callStartSharing => 'Start sharing';
+  String get callStartSharing => 'Aloita jakaminen';
 
   @override
   String get callCameraUnavailable =>
-      'Camera unavailable — may be in use by another app';
+      'Kamera ei käytettävissä — saattaa olla toisen sovelluksen käytössä';
 
   @override
-  String get themeResetToDefaults => 'Reset to defaults';
+  String get themeResetToDefaults => 'Palauta oletukset';
 
   @override
-  String get backupSaveToDownloadsTitle => 'Save backup to Downloads?';
+  String get backupSaveToDownloadsTitle =>
+      'Tallenna varmuuskopio Lataukset-kansioon?';
 
   @override
   String backupSaveToDownloadsBody(String path) {
-    return 'No file picker available. The backup will be saved to:\n$path';
+    return 'Tiedostovalitsinta ei ole käytettävissä. Varmuuskopio tallennetaan:\n$path';
   }
 
   @override
-  String get systemLabel => 'System';
+  String get systemLabel => 'Järjestelmä';
 
   @override
-  String get next => 'Next';
+  String get next => 'Seuraava';
 
   @override
   String get gifLabel => 'GIF';
 
   @override
   String devTapsRemaining(int remaining) {
-    return '$remaining more taps to enable developer mode';
+    return 'Vielä $remaining napautusta kehittäjätilan käyttöönottoon';
   }
 
   @override
-  String get devModeEnabled => 'Developer mode enabled';
+  String get devModeEnabled => 'Kehittäjätila käytössä';
 
   @override
-  String get devTools => 'Developer Tools';
+  String get devTools => 'Kehittäjätyökalut';
 
   @override
-  String get devAdapterDiagnostics => 'Adapter toggles & diagnostics';
+  String get devAdapterDiagnostics => 'Sovittimen kytkimet ja diagnostiikka';
 
   @override
-  String get devEnableAll => 'Enable all';
+  String get devEnableAll => 'Ota kaikki käyttöön';
 
   @override
-  String get devDisableAll => 'Disable all';
+  String get devDisableAll => 'Poista kaikki käytöstä';
 
   @override
   String get turnUrlValidation =>
-      'TURN URL must start with turn: or turns: (max 512 chars)';
+      'TURN-URL:n on alettava turn: tai turns: (enintään 512 merkkiä)';
 
   @override
-  String get callMissedCall => 'Missed call';
+  String get callMissedCall => 'Vastaamaton puhelu';
 
   @override
-  String get callOutgoingCall => 'Outgoing call';
+  String get callOutgoingCall => 'Lähtevä puhelu';
 
   @override
-  String get callIncomingCall => 'Incoming call';
+  String get callIncomingCall => 'Saapuva puhelu';
 
   @override
-  String get mediaMissingData => 'Missing media data';
+  String get mediaMissingData => 'Puuttuvat mediatiedot';
 
   @override
-  String get mediaDownloadFailed => 'Download failed';
+  String get mediaDownloadFailed => 'Lataus epäonnistui';
 
   @override
-  String get mediaDecryptFailed => 'Decrypt failed';
+  String get mediaDecryptFailed => 'Salauksen purku epäonnistui';
 
   @override
-  String get callEndCallBanner => 'End call';
+  String get callEndCallBanner => 'Lopeta puhelu';
 
   @override
-  String get meFallback => 'Me';
+  String get meFallback => 'Minä';
 
   @override
-  String get imageSaveToDownloads => 'Save to Downloads';
+  String get imageSaveToDownloads => 'Tallenna Latauksiin';
 
   @override
   String imageSavedToPath(String path) {
-    return 'Saved to $path';
+    return 'Tallennettu kohteeseen $path';
   }
 
   @override
   String get callScreenShareRequiresPermission =>
-      'Screen sharing requires permission';
+      'Näytön jakaminen vaatii luvan';
 
   @override
-  String get callScreenShareUnavailable => 'Screen sharing unavailable';
+  String get callScreenShareUnavailable => 'Näytön jakaminen ei käytettävissä';
 
   @override
-  String get statusJustNow => 'Just now';
+  String get statusJustNow => 'Juuri nyt';
 
   @override
   String statusMinutesAgo(int minutes) {
-    return '${minutes}m ago';
+    return '${minutes}min sitten';
   }
 
   @override
   String statusHoursAgo(int hours) {
-    return '${hours}h ago';
+    return '${hours}t sitten';
   }
 
   @override
@@ -2939,107 +2940,128 @@ class AppLocalizationsFi extends AppLocalizations {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
-      other: '$count routes',
-      one: '1 route',
+      other: '$count reittiä',
+      one: '1 reitti',
     );
     return '$_temp0';
   }
 
   @override
-  String get addContactReadyToAdd => 'Ready to add';
+  String get addContactReadyToAdd => 'Valmis lisättäväksi';
 
   @override
   String groupSelectedCount(int count) {
-    return '$count selected';
+    return '$count valittu';
   }
 
   @override
-  String get paste => 'Paste';
+  String get paste => 'Liitä';
 
   @override
-  String get sfuAudioOnly => 'Audio only';
+  String get sfuAudioOnly => 'Vain ääni';
 
   @override
   String sfuParticipants(int count) {
-    return '$count participants';
+    return '$count osallistujaa';
   }
 
   @override
-  String get dataUnencryptedBackup => 'Unencrypted backup';
+  String get dataUnencryptedBackup => 'Salaamaton varmuuskopio';
 
   @override
   String get dataUnencryptedBackupBody =>
-      'This file is an unencrypted identity backup and will overwrite your current keys. Only import files you created yourself. Proceed?';
+      'Tämä tiedosto on salaamaton identiteettivarmistus ja korvaa nykyiset avaimesi. Tuo vain itse luomiasi tiedostoja. Jatka?';
 
   @override
-  String get dataImportAnyway => 'Import anyway';
+  String get dataImportAnyway => 'Tuo silti';
 
   @override
-  String get securityStorageError => 'Security storage error — restart the app';
+  String get securityStorageError =>
+      'Turvatallennusvirhe — käynnistä sovellus uudelleen';
 
   @override
-  String get aboutDevModeActive => 'Developer mode active';
+  String get aboutDevModeActive => 'Kehittäjätila aktiivinen';
 
   @override
-  String get themeColors => 'Colors';
+  String get themeColors => 'Värit';
 
   @override
-  String get themePrimaryAccent => 'Primary accent';
+  String get themePrimaryAccent => 'Pääkorostus';
 
   @override
-  String get themeSecondaryAccent => 'Secondary accent';
+  String get themeSecondaryAccent => 'Toissijainen korostus';
 
   @override
-  String get themeBackground => 'Background';
+  String get themeBackground => 'Tausta';
 
   @override
-  String get themeSurface => 'Surface';
+  String get themeSurface => 'Pinta';
 
   @override
-  String get themeChatBubbles => 'Chat Bubbles';
+  String get themeChatBubbles => 'Chat-kuplat';
 
   @override
-  String get themeOutgoingMessage => 'Outgoing message';
+  String get themeOutgoingMessage => 'Lähtevä viesti';
 
   @override
-  String get themeIncomingMessage => 'Incoming message';
+  String get themeIncomingMessage => 'Saapuva viesti';
 
   @override
-  String get themeShape => 'Shape';
+  String get themeShape => 'Muoto';
 
   @override
-  String get devSectionDeveloper => 'Developer';
+  String get devSectionDeveloper => 'Kehittäjä';
 
   @override
   String get devAdapterChannelsHint =>
-      'Adapter channels — disable to test specific transports.';
+      'Sovitinkanavat — poista käytöstä testataksesi tiettyjä kuljetuksia.';
 
   @override
-  String get devNostrRelays => 'Nostr relays (wss://)';
+  String get devNostrRelays => 'Nostr-releet (wss://)';
 
   @override
   String get devFirebaseDb => 'Firebase Realtime DB';
 
   @override
-  String get devSessionNetwork => 'Session Network';
+  String get devSessionNetwork => 'Session-verkko';
 
   @override
-  String get devPulseRelay => 'Pulse self-hosted relay';
+  String get devPulseRelay => 'Pulse itse isännöity relay';
 
   @override
-  String get devLanNetwork => 'Local network (UDP/TCP)';
+  String get devLanNetwork => 'Paikallisverkko (UDP/TCP)';
 
   @override
-  String get devSectionCalls => 'Calls';
+  String get devSectionCalls => 'Puhelut';
 
   @override
-  String get devForceTurnRelay => 'Force TURN relay';
+  String get devForceTurnRelay => 'Pakota TURN-relay';
 
   @override
   String get devForceTurnRelaySubtitle =>
-      'Disable P2P — all calls via TURN servers only';
+      'Poista P2P käytöstä — kaikki puhelut vain TURN-palvelimien kautta';
 
   @override
   String get devRestartWarning =>
-      '⚠ Changes take effect on next send/call. Restart app to apply to incoming.';
+      '⚠ Muutokset tulevat voimaan seuraavassa lähetyksessä/puhelussa. Käynnistä sovellus uudelleen saapuvia varten.';
+
+  @override
+  String get messageRequest => 'Message request';
+
+  @override
+  String messageRequestFrom(String name) {
+    return 'Message request from $name';
+  }
+
+  @override
+  String get acceptContact => 'Accept';
+
+  @override
+  String get blockContact => 'Block';
+
+  @override
+  String get blockedContactsEmpty => 'No blocked contacts';
+
+  @override
+  String get pendingLimitReached => 'Too many pending requests';
 }

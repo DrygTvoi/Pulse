@@ -2836,121 +2836,123 @@ class AppLocalizationsFr extends AppLocalizations {
   String get replace => 'Remplacer';
 
   @override
-  String get callNoScreenSources => 'No screen sources available';
+  String get callNoScreenSources => 'Aucune source d\'écran disponible';
 
   @override
-  String get callScreenShareQuality => 'Screen Share Quality';
+  String get callScreenShareQuality => 'Qualité du partage d\'écran';
 
   @override
-  String get callFrameRate => 'Frame rate';
+  String get callFrameRate => 'Fréquence d\'images';
 
   @override
-  String get callResolution => 'Resolution';
+  String get callResolution => 'Résolution';
 
   @override
-  String get callAutoResolution => 'Auto = native screen resolution';
+  String get callAutoResolution => 'Auto = résolution native de l\'écran';
 
   @override
-  String get callStartSharing => 'Start sharing';
+  String get callStartSharing => 'Commencer le partage';
 
   @override
   String get callCameraUnavailable =>
-      'Camera unavailable — may be in use by another app';
+      'Caméra indisponible — peut être utilisée par une autre application';
 
   @override
-  String get themeResetToDefaults => 'Reset to defaults';
+  String get themeResetToDefaults => 'Réinitialiser par défaut';
 
   @override
-  String get backupSaveToDownloadsTitle => 'Save backup to Downloads?';
+  String get backupSaveToDownloadsTitle =>
+      'Enregistrer la sauvegarde dans Téléchargements ?';
 
   @override
   String backupSaveToDownloadsBody(String path) {
-    return 'No file picker available. The backup will be saved to:\n$path';
+    return 'Aucun sélecteur de fichiers disponible. La sauvegarde sera enregistrée dans :\n$path';
   }
 
   @override
-  String get systemLabel => 'System';
+  String get systemLabel => 'Système';
 
   @override
-  String get next => 'Next';
+  String get next => 'Suivant';
 
   @override
   String get gifLabel => 'GIF';
 
   @override
   String devTapsRemaining(int remaining) {
-    return '$remaining more taps to enable developer mode';
+    return 'Encore $remaining appuis pour activer le mode développeur';
   }
 
   @override
-  String get devModeEnabled => 'Developer mode enabled';
+  String get devModeEnabled => 'Mode développeur activé';
 
   @override
-  String get devTools => 'Developer Tools';
+  String get devTools => 'Outils de développement';
 
   @override
-  String get devAdapterDiagnostics => 'Adapter toggles & diagnostics';
+  String get devAdapterDiagnostics =>
+      'Interrupteurs d\'adaptateur et diagnostics';
 
   @override
-  String get devEnableAll => 'Enable all';
+  String get devEnableAll => 'Tout activer';
 
   @override
-  String get devDisableAll => 'Disable all';
+  String get devDisableAll => 'Tout désactiver';
 
   @override
   String get turnUrlValidation =>
-      'TURN URL must start with turn: or turns: (max 512 chars)';
+      'L\'URL TURN doit commencer par turn: ou turns: (max 512 caractères)';
 
   @override
-  String get callMissedCall => 'Missed call';
+  String get callMissedCall => 'Appel manqué';
 
   @override
-  String get callOutgoingCall => 'Outgoing call';
+  String get callOutgoingCall => 'Appel sortant';
 
   @override
-  String get callIncomingCall => 'Incoming call';
+  String get callIncomingCall => 'Appel entrant';
 
   @override
-  String get mediaMissingData => 'Missing media data';
+  String get mediaMissingData => 'Données média manquantes';
 
   @override
-  String get mediaDownloadFailed => 'Download failed';
+  String get mediaDownloadFailed => 'Échec du téléchargement';
 
   @override
-  String get mediaDecryptFailed => 'Decrypt failed';
+  String get mediaDecryptFailed => 'Échec du déchiffrement';
 
   @override
-  String get callEndCallBanner => 'End call';
+  String get callEndCallBanner => 'Terminer l\'appel';
 
   @override
-  String get meFallback => 'Me';
+  String get meFallback => 'Moi';
 
   @override
-  String get imageSaveToDownloads => 'Save to Downloads';
+  String get imageSaveToDownloads => 'Enregistrer dans Téléchargements';
 
   @override
   String imageSavedToPath(String path) {
-    return 'Saved to $path';
+    return 'Enregistré dans $path';
   }
 
   @override
   String get callScreenShareRequiresPermission =>
-      'Screen sharing requires permission';
+      'Le partage d\'écran nécessite une autorisation';
 
   @override
-  String get callScreenShareUnavailable => 'Screen sharing unavailable';
+  String get callScreenShareUnavailable => 'Partage d\'écran indisponible';
 
   @override
-  String get statusJustNow => 'Just now';
+  String get statusJustNow => 'À l\'instant';
 
   @override
   String statusMinutesAgo(int minutes) {
-    return '${minutes}m ago';
+    return 'il y a ${minutes}m';
   }
 
   @override
   String statusHoursAgo(int hours) {
-    return '${hours}h ago';
+    return 'il y a ${hours}h';
   }
 
   @override
@@ -2965,18 +2967,18 @@ class AppLocalizationsFr extends AppLocalizations {
   }
 
   @override
-  String get addContactReadyToAdd => 'Ready to add';
+  String get addContactReadyToAdd => 'Prêt à ajouter';
 
   @override
   String groupSelectedCount(int count) {
-    return '$count selected';
+    return '$count sélectionnés';
   }
 
   @override
-  String get paste => 'Paste';
+  String get paste => 'Coller';
 
   @override
-  String get sfuAudioOnly => 'Audio only';
+  String get sfuAudioOnly => 'Audio uniquement';
 
   @override
   String sfuParticipants(int count) {
@@ -2984,81 +2986,102 @@ class AppLocalizationsFr extends AppLocalizations {
   }
 
   @override
-  String get dataUnencryptedBackup => 'Unencrypted backup';
+  String get dataUnencryptedBackup => 'Sauvegarde non chiffrée';
 
   @override
   String get dataUnencryptedBackupBody =>
-      'This file is an unencrypted identity backup and will overwrite your current keys. Only import files you created yourself. Proceed?';
+      'Ce fichier est une sauvegarde d\'identité non chiffrée et écrasera vos clés actuelles. N\'importez que des fichiers que vous avez créés vous-même. Continuer ?';
 
   @override
-  String get dataImportAnyway => 'Import anyway';
+  String get dataImportAnyway => 'Importer quand même';
 
   @override
-  String get securityStorageError => 'Security storage error — restart the app';
+  String get securityStorageError =>
+      'Erreur de stockage sécurisé — redémarrez l\'application';
 
   @override
-  String get aboutDevModeActive => 'Developer mode active';
+  String get aboutDevModeActive => 'Mode développeur actif';
 
   @override
-  String get themeColors => 'Colors';
+  String get themeColors => 'Couleurs';
 
   @override
-  String get themePrimaryAccent => 'Primary accent';
+  String get themePrimaryAccent => 'Accent primaire';
 
   @override
-  String get themeSecondaryAccent => 'Secondary accent';
+  String get themeSecondaryAccent => 'Accent secondaire';
 
   @override
-  String get themeBackground => 'Background';
+  String get themeBackground => 'Arrière-plan';
 
   @override
   String get themeSurface => 'Surface';
 
   @override
-  String get themeChatBubbles => 'Chat Bubbles';
+  String get themeChatBubbles => 'Bulles de discussion';
 
   @override
-  String get themeOutgoingMessage => 'Outgoing message';
+  String get themeOutgoingMessage => 'Message sortant';
 
   @override
-  String get themeIncomingMessage => 'Incoming message';
+  String get themeIncomingMessage => 'Message entrant';
 
   @override
-  String get themeShape => 'Shape';
+  String get themeShape => 'Forme';
 
   @override
-  String get devSectionDeveloper => 'Developer';
+  String get devSectionDeveloper => 'Développeur';
 
   @override
   String get devAdapterChannelsHint =>
-      'Adapter channels — disable to test specific transports.';
+      'Canaux d\'adaptateur — désactiver pour tester des transports spécifiques.';
 
   @override
-  String get devNostrRelays => 'Nostr relays (wss://)';
+  String get devNostrRelays => 'Relais Nostr (wss://)';
 
   @override
   String get devFirebaseDb => 'Firebase Realtime DB';
 
   @override
-  String get devSessionNetwork => 'Session Network';
+  String get devSessionNetwork => 'Réseau Session';
 
   @override
-  String get devPulseRelay => 'Pulse self-hosted relay';
+  String get devPulseRelay => 'Relais Pulse auto-hébergé';
 
   @override
-  String get devLanNetwork => 'Local network (UDP/TCP)';
+  String get devLanNetwork => 'Réseau local (UDP/TCP)';
 
   @override
-  String get devSectionCalls => 'Calls';
+  String get devSectionCalls => 'Appels';
 
   @override
-  String get devForceTurnRelay => 'Force TURN relay';
+  String get devForceTurnRelay => 'Forcer le relais TURN';
 
   @override
   String get devForceTurnRelaySubtitle =>
-      'Disable P2P — all calls via TURN servers only';
+      'Désactiver P2P — tous les appels via serveurs TURN uniquement';
 
   @override
   String get devRestartWarning =>
-      '⚠ Changes take effect on next send/call. Restart app to apply to incoming.';
+      '⚠ Les changements prennent effet au prochain envoi/appel. Redémarrez l\'app pour les appliquer aux entrants.';
+
+  @override
+  String get messageRequest => 'Message request';
+
+  @override
+  String messageRequestFrom(String name) {
+    return 'Message request from $name';
+  }
+
+  @override
+  String get acceptContact => 'Accept';
+
+  @override
+  String get blockContact => 'Block';
+
+  @override
+  String get blockedContactsEmpty => 'No blocked contacts';
+
+  @override
+  String get pendingLimitReached => 'Too many pending requests';
 }

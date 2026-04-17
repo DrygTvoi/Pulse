@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../services/local_storage_service.dart';
 import '../services/signal_service.dart';
 import 'contact_repository.dart';
@@ -22,6 +24,9 @@ class Contact {
   final String? creatorId;
   /// Bio/about text received via profile_update signal.
   final String bio;
+  /// True for contacts auto-created from incoming messages by unknown senders.
+  /// Pending contacts have restricted capabilities until accepted.
+  final bool isPending;
 
   // Private generative constructor
   Contact._raw({
@@ -35,6 +40,7 @@ class Contact {
     this.members = const [],
     this.creatorId,
     this.bio = '',
+    this.isPending = false,
   });
 
   /// Create a Contact, accepting either new-style transportAddresses or
@@ -53,6 +59,7 @@ class Contact {
     String? databaseId,
     List<String>? alternateAddresses,
     String bio = '',
+    bool isPending = false,
   }) {
     Map<String, List<String>> ta;
     List<String> tp;
@@ -86,6 +93,7 @@ class Contact {
       members: members,
       creatorId: creatorId,
       bio: bio,
+      isPending: isPending,
     );
   }
 
@@ -149,6 +157,7 @@ class Contact {
       if (creatorId != null) 'creatorId': creatorId,
       'alternateAddresses': alternateAddresses,
       if (bio.isNotEmpty) 'bio': bio,
+      if (isPending) 'isPending': true,
     };
   }
 
@@ -161,6 +170,7 @@ class Contact {
     List<String>? members,
     String? creatorId,
     String? bio,
+    bool? isPending,
     // Legacy params — translated to transport fields
     String? provider,
     String? databaseId,
@@ -179,6 +189,7 @@ class Contact {
         members: members ?? this.members,
         creatorId: creatorId ?? this.creatorId,
         bio: bio ?? this.bio,
+        isPending: isPending ?? this.isPending,
       );
     }
     // If caller uses legacy params, rebuild transport map
@@ -204,6 +215,7 @@ class Contact {
         members: members ?? this.members,
         creatorId: creatorId ?? this.creatorId,
         bio: bio ?? this.bio,
+        isPending: isPending ?? this.isPending,
       );
     }
     // No transport changes — keep existing
@@ -218,6 +230,7 @@ class Contact {
       members: members ?? this.members,
       creatorId: creatorId ?? this.creatorId,
       bio: bio ?? this.bio,
+      isPending: isPending ?? this.isPending,
     );
   }
 
@@ -259,6 +272,7 @@ class Contact {
       members: (map['members'] as List?)?.whereType<String>().toList() ?? [],
       creatorId: map['creatorId'] as String?,
       bio: (map['bio'] as String?) ?? '',
+      isPending: map['isPending'] as bool? ?? false,
     );
   }
 
@@ -267,6 +281,9 @@ class Contact {
   static final _sessionAddrRegex = RegExp(r'^[0-9a-f]{66}$');
   static final _nostrPubRegex = RegExp(r'^[0-9a-f]{64}$');
   static final _pulseAddrRegex = RegExp(r'^[0-9a-f]{64}@https://', caseSensitive: false);
+
+  /// Classify an address into its transport provider name.
+  static String providerFromAddress(String address) => _providerFromAddress(address);
 
   static String _providerFromAddress(String address) {
     final lower = address.toLowerCase();
@@ -296,6 +313,96 @@ class ContactManager implements IContactRepository {
   // O(1) lookup indices — rebuilt on load/add/remove/update.
   final Map<String, Contact> _idIndex = {};
   final Map<String, Contact> _addressIndex = {};
+
+  // ── Block list ──────────────────────────────────────────────���───────────
+  static const _blockedPrefsKey = 'blocked_contact_ids';
+  final Set<String> _blockedIds = {};
+  Set<String> get blockedIds => Set.unmodifiable(_blockedIds);
+
+  bool isBlocked(String id) => _blockedIds.contains(id);
+
+  Future<void> loadBlockList() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_blockedPrefsKey);
+    _blockedIds.clear();
+    if (raw != null) {
+      try {
+        _blockedIds.addAll(
+          (jsonDecode(raw) as List).whereType<String>(),
+        );
+      } catch (_) {}
+    }
+  }
+
+  Future<void> _saveBlockList() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_blockedPrefsKey, jsonEncode(_blockedIds.toList()));
+  }
+
+  Future<void> blockContact(String id) async {
+    _blockedIds.add(id);
+    await _saveBlockList();
+    // Also remove the contact and wipe chat history
+    final contact = findById(id);
+    if (contact != null) {
+      await removeContact(id);
+      await LocalStorageService().clearHistory(contact.storageKey);
+    }
+  }
+
+  Future<void> unblockContact(String id) async {
+    _blockedIds.remove(id);
+    await _saveBlockList();
+  }
+
+  // ── Pending contact rate limiting ──────────────────────────────────��────
+  static const int maxPendingContacts = 50;
+  static const int maxPendingPerMinute = 5;
+  final List<DateTime> _pendingCreationTimes = [];
+
+  int get pendingContactCount =>
+      _contacts.where((c) => c.isPending).length;
+
+  bool canCreatePendingContact() {
+    if (pendingContactCount >= maxPendingContacts) return false;
+    final now = DateTime.now();
+    _pendingCreationTimes.removeWhere(
+      (t) => now.difference(t).inSeconds > 60,
+    );
+    return _pendingCreationTimes.length < maxPendingPerMinute;
+  }
+
+  /// Creates a pending contact from an unknown sender's incoming message.
+  /// Returns the new contact, or null if limits are exceeded.
+  Future<Contact?> createPendingContact({
+    required String senderId,
+    required String senderName,
+    required String address,
+    Map<String, List<String>>? transportAddresses,
+  }) async {
+    if (!canCreatePendingContact()) return null;
+    final Contact contact;
+    if (transportAddresses != null && transportAddresses.isNotEmpty) {
+      contact = Contact(
+        id: senderId.split('@').first,
+        name: senderName,
+        publicKey: '',
+        transportAddresses: transportAddresses,
+        isPending: true,
+      );
+    } else {
+      contact = Contact(
+        id: senderId.split('@').first,
+        name: senderName,
+        publicKey: '',
+        databaseId: address,
+        isPending: true,
+      );
+    }
+    await addContact(contact);
+    _pendingCreationTimes.add(DateTime.now());
+    return contact;
+  }
 
   void _rebuildIndices() {
     _idIndex.clear();
@@ -347,6 +454,7 @@ class ContactManager implements IContactRepository {
       _contacts = [];
     }
     _rebuildIndices();
+    await loadBlockList();
   }
 
   @override

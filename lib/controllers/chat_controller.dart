@@ -43,6 +43,9 @@ import '../services/voice_service.dart';
 import '../services/sender_key_service.dart';
 import '../services/signal_dispatcher.dart';
 import '../services/ice_server_config.dart';
+import '../services/media_validator.dart';
+import 'package:web_socket_channel/web_socket_channel.dart';
+import 'package:http/http.dart' as http;
 import '../models/contact_repository.dart';
 // Facade services
 import '../services/message_repository.dart';
@@ -71,6 +74,7 @@ class ChatController extends ChangeNotifier {
 
   Identity? _identity;
   String _selfId = ''; // adapter-specific ID used as senderId in outgoing messages
+  String _selfName = ''; // display name for message envelope
   final SignalService _signalService = SignalService();
   StreamSubscription<void>? _bundleRefreshSub;
   final List<StreamSubscription> _messageSubs = [];
@@ -318,6 +322,70 @@ class ChatController extends ChangeNotifier {
   String get selfId => _selfId;
   List<String> get allAddresses => List.unmodifiable(_allAddresses);
 
+  /// Build a transport address map from our own addresses for envelope sharing.
+  /// Uses shareableAddresses (includes all known Nostr relays, not just primary).
+  Map<String, List<String>> _buildOwnTransportMap() {
+    final map = <String, List<String>>{};
+    for (final addr in shareableAddresses) {
+      final transport = Contact.providerFromAddress(addr);
+      final list = map[transport] ??= [];
+      if (!list.contains(addr)) list.add(addr);
+    }
+    return map;
+  }
+
+  /// Fetch Nostr kind:0 profile avatar for a contact (fire-and-forget).
+  /// Queries the relay for NIP-0 metadata, downloads the picture URL,
+  /// validates+resizes, and saves to local DB.
+  Future<void> _fetchNostrAvatarForContact(String contactId, String pubkey, String relayWs) async {
+    try {
+      final channel = WebSocketChannel.connect(Uri.parse(relayWs));
+      try {
+        final subId = 'meta_${DateTime.now().millisecondsSinceEpoch}';
+        channel.sink.add(jsonEncode(['REQ', subId, {'kinds': [0], 'authors': [pubkey], 'limit': 1}]));
+        String? pictureUrl;
+        await for (final raw in channel.stream.timeout(const Duration(seconds: 6))) {
+          try {
+            final msg = jsonDecode(raw as String) as List<dynamic>;
+            if (msg.isEmpty) continue;
+            if (msg[0] == 'EVENT' && msg.length >= 3) {
+              final event = msg[2] as Map<String, dynamic>;
+              if (event['kind'] == 0) {
+                final content = jsonDecode(event['content'] as String) as Map<String, dynamic>;
+                final pic = (content['picture'] as String?)?.trim();
+                if (pic != null && pic.isNotEmpty && pic.length <= 2048) pictureUrl = pic;
+              }
+            } else if (msg[0] == 'EOSE') { break; }
+          } catch (_) { continue; }
+        }
+        if (pictureUrl != null) {
+          final uri = Uri.tryParse(pictureUrl);
+          if (uri != null && (uri.isScheme('https') || uri.isScheme('http'))) {
+            final client = http.Client();
+            try {
+              final resp = await client.get(uri).timeout(const Duration(seconds: 5));
+              if (resp.statusCode == 200 && resp.bodyBytes.isNotEmpty && resp.bodyBytes.length <= 1024 * 1024) {
+                final validation = MediaValidator.validateImage(resp.bodyBytes);
+                if (validation.isValid) {
+                  final decoded = img.decodeImage(resp.bodyBytes);
+                  if (decoded != null) {
+                    final resized = img.copyResizeCropSquare(decoded, size: 256);
+                    final jpeg = Uint8List.fromList(img.encodeJpg(resized, quality: 85));
+                    await LocalStorageService().saveAvatar(contactId, base64Encode(jpeg));
+                    debugPrint('[Chat] Fetched Nostr avatar for $contactId');
+                    _scheduleNotify();
+                  }
+                }
+              }
+            } finally { client.close(); }
+          }
+        }
+      } finally { channel.sink.close(); }
+    } catch (e) {
+      debugPrint('[Chat] Nostr avatar fetch failed for $contactId: $e');
+    }
+  }
+
   /// Returns addresses enriched with all currently known working relays.
   /// For Nostr, the pubkey is replicated across identity relay + probed relay +
   /// adaptive relay so invite links always contain fresh, reachable routes.
@@ -468,6 +536,14 @@ class ChatController extends ChangeNotifier {
           _connectionStatus = ConnectionStatus.disconnected;
           return;
         }
+        // Load display name for message envelope (used in message requests).
+        try {
+          final profileJson = prefs.getString('user_profile');
+          if (profileJson != null) {
+            final profile = jsonDecode(profileJson) as Map<String, dynamic>;
+            _selfName = (profile['name'] as String?) ?? '';
+          }
+        } catch (_) {}
         await _signalService.initialize();
         await PqcService().initialize();
 
@@ -1672,6 +1748,12 @@ class ChatController extends ChangeNotifier {
           continue;
         }
 
+        // Block list check BEFORE decryption — saves CPU against spam.
+        final senderPubKey = msg.senderId.split('@').first;
+        if (ContactManager().isBlocked(senderPubKey) || ContactManager().isBlocked(msg.senderId)) {
+          continue;
+        }
+
         String rawPayload = msg.encryptedPayload;
         if (rawPayload.startsWith('PQC2||')) {
           try {
@@ -1702,6 +1784,7 @@ class ChatController extends ChangeNotifier {
         }
 
         String decryptedRaw = rawPayload;
+        Contact? _fallbackDecryptContact;
         if (rawPayload.startsWith('E2EE||')) {
           final fastContact = contactByDbId[msg.senderId]
               ?? contactByDbId[msg.senderId.split('@').first];
@@ -1744,11 +1827,22 @@ class ChatController extends ChangeNotifier {
                   try {
                     decryptedRaw = await _signalService.decryptMessage(addr, rawPayload);
                     debugPrint('[Chat] Decrypt OK via contact ${c.name} key: $addr');
+                    _fallbackDecryptContact = c;
                     break;
                   } catch (e) { /* try next */ }
                 }
                 if (decryptedRaw != rawPayload) break;
               }
+            }
+          }
+          // Last resort: unknown sender — try decrypt with raw senderId.
+          // Signal PreKeyMessage can be decrypted using only our own keys.
+          if (decryptedRaw == rawPayload && fastContact == null) {
+            try {
+              decryptedRaw = await _signalService.decryptMessage(msg.senderId, rawPayload);
+              debugPrint('[Chat] Decrypt OK for unknown sender via raw senderId: ${msg.senderId}');
+            } catch (e) {
+              debugPrint('[Chat] Unknown sender decrypt failed for ${msg.senderId}: $e');
             }
           }
         }
@@ -1831,6 +1925,8 @@ class ChatController extends ChangeNotifier {
             ?? contactByDbId[canonicalSenderId.split('@').first];
         senderContact ??= contactByDbId[msg.senderId]
             ?? contactByDbId[msg.senderId.split('@').first];
+        // Use contact found during fallback decrypt (sender used different relay).
+        senderContact ??= _fallbackDecryptContact;
 
         if (senderContact != null) {
           // Sender is provably online — update status.
@@ -1840,19 +1936,45 @@ class ChatController extends ChangeNotifier {
             if (!_typingStreamCtrl.isClosed) _typingStreamCtrl.add(id);
             _scheduleNotify();
           });
-          // Learn sender's transport address: if they sent from a different
-          // address (e.g. Pulse vs Nostr), store it so SmartRouter can use it.
-          final incomingAddr = msg.senderId;
-          if (incomingAddr.contains('@') &&
-              incomingAddr != senderContact.databaseId &&
-              !senderContact.alternateAddresses.contains(incomingAddr)) {
-            final updated = senderContact.copyWith(
-              alternateAddresses: [...senderContact.alternateAddresses, incomingAddr],
+          // Learn sender's transport addresses from envelope and incoming msg.
+          {
+            var didUpdate = false;
+            var ta = Map<String, List<String>>.from(
+              senderContact.transportAddresses.map((k, v) => MapEntry(k, List<String>.from(v))),
             );
-            await _contacts.updateContact(updated);
-            _invalidateContactIndex();
-            senderContact = updated;
-            debugPrint('[Chat] Learned new route for ${senderContact.name}: $incomingAddr');
+            // Merge full address map from envelope (all sender transports).
+            final envAddrs = env?.senderAddresses;
+            if (envAddrs != null) {
+              for (final entry in envAddrs.entries) {
+                final existing = ta[entry.key] ?? <String>[];
+                for (final addr in entry.value) {
+                  if (!existing.contains(addr)) {
+                    existing.add(addr);
+                    didUpdate = true;
+                  }
+                }
+                if (existing.isNotEmpty) ta[entry.key] = existing;
+              }
+            }
+            // Also learn the single incoming transport address.
+            final incomingAddr = msg.senderId;
+            if (incomingAddr.contains('@') &&
+                !senderContact.alternateAddresses.contains(incomingAddr)) {
+              final transport = Contact.providerFromAddress(incomingAddr);
+              final existing = ta[transport] ?? <String>[];
+              if (!existing.contains(incomingAddr)) {
+                existing.add(incomingAddr);
+                ta[transport] = existing;
+                didUpdate = true;
+              }
+            }
+            if (didUpdate) {
+              final updated = senderContact.copyWith(transportAddresses: ta);
+              await _contacts.updateContact(updated);
+              _invalidateContactIndex();
+              senderContact = updated;
+              debugPrint('[Chat] Learned new routes for ${senderContact.name}: ${ta.keys.join(', ')}');
+            }
           }
           _repo.getOrCreateRoomWithId(senderContact, msg.senderId, senderContact.provider);
           final room = _repo.getRoomForContact(senderContact.id)!;
@@ -2010,6 +2132,65 @@ class ChatController extends ChangeNotifier {
               debugPrint("Decryption failed for message ${msg.id}: $e");
             }
           }
+        } else {
+          // Unknown sender — auto-create pending contact (message request).
+          final envName = env?.senderName;
+          final fallbackName = canonicalSenderId.split('@').first;
+          final pendingName = (envName != null && envName.isNotEmpty)
+              ? envName
+              : (fallbackName.length > 8 ? '${fallbackName.substring(0, 8)}...' : fallbackName);
+          // Use the fullest address available for routing replies.
+          // canonicalSenderId (from envelope) often has pubkey@wss://relay,
+          // while msg.senderId from Nostr is bare pubkey.
+          final pendingAddress = canonicalSenderId.contains('@')
+              ? canonicalSenderId
+              : (msg.senderId.contains('@') ? msg.senderId : canonicalSenderId);
+          final pendingContact = await ContactManager().createPendingContact(
+            senderId: canonicalSenderId,
+            senderName: pendingName,
+            address: pendingAddress,
+            transportAddresses: env?.senderAddresses,
+          );
+          if (pendingContact != null) {
+            _invalidateContactIndex();
+            _repo.getOrCreateRoomWithId(pendingContact, msg.senderId, pendingContact.provider);
+            final room = _repo.getRoomForContact(pendingContact.id)!;
+            final resolvedId = env?.msgId ?? msg.id;
+            if (!room.messages.any((m) => m.id == resolvedId)) {
+              final decryptedMsg = Message(
+                id: resolvedId,
+                senderId: msg.senderId,
+                receiverId: msg.receiverId,
+                encryptedPayload: bodyText,
+                timestamp: msg.timestamp,
+                adapterType: msg.adapterType,
+                isRead: false,
+              );
+              _insertMessageSorted(room.messages, decryptedMsg);
+              _repo.trackMessageId(pendingContact.id, decryptedMsg.id);
+              await LocalStorageService().saveMessage(
+                  pendingContact.storageKey, decryptedMsg.toJson());
+              hasUpdates = true;
+              if (!_newMsgController.isClosed) {
+                _newMsgController.add((contactId: pendingContact.id, message: decryptedMsg));
+              }
+              _unreadCounts[pendingContact.id] = (_unreadCounts[pendingContact.id] ?? 0) + 1;
+              if (!_unreadChangedCtrl.isClosed) {
+                _unreadChangedCtrl.add(pendingContact.id);
+              }
+            }
+            debugPrint('[Chat] Created pending contact for unknown sender: ${pendingContact.name}');
+            // Fire-and-forget: fetch Nostr avatar from sender's relay.
+            final nostrAddrs = pendingContact.transportAddresses['Nostr'];
+            if (nostrAddrs != null && nostrAddrs.isNotEmpty) {
+              final parts = nostrAddrs.first.split('@');
+              if (parts.length == 2) {
+                unawaited(_fetchNostrAvatarForContact(pendingContact.id, parts[0], parts[1]));
+              }
+            }
+          } else {
+            debugPrint('[Chat] Pending contact limit reached — dropping message from ${msg.senderId}');
+          }
         }
       } catch (e) {
         debugPrint('[ChatController] Skipping malformed message ${msg.id}: $e');
@@ -2141,7 +2322,9 @@ class ChatController extends ChangeNotifier {
 
     final envelope = MessageEnvelope.wrap(
       _selfId.isNotEmpty ? _selfId : _identity!.id, text,
-      msgId: msgId, replyTo: replyInfo);
+      msgId: msgId, replyTo: replyInfo,
+      senderName: _selfName,
+      senderAddresses: _buildOwnTransportMap());
 
     String encryptedText;
     try {
@@ -2189,49 +2372,61 @@ class ChatController extends ChangeNotifier {
           throw Exception('Unknown provider: ${contact.provider}');
         }
         debugPrint('[E2EE] Fetching bundle for ${contact.name} via ${contact.provider}');
+        debugPrint('[E2EE] transportAddresses=${contact.transportAddresses}');
 
-        // ── Key fetch strategy: Session first (reliable storage), Nostr fallback ──
+        // ── Key fetch strategy: Nostr relays first, then other transports ──
+        // Session swarm cannot be read by others (requires owner auth), so we
+        // push our keys into the contact's Session inbox instead (below).
         Map<String, dynamic>? bundle;
 
-        // Priority 1: Session — storage servers keep keys ~14 days, highly reliable.
-        final sessionAddrs = contact.transportAddresses['Session'] ?? [];
-        if (sessionAddrs.isNotEmpty) {
+        // Priority 1: Try ALL Nostr relays the contact has.
+        final nostrAddrs = contact.transportAddresses['Nostr'] ?? [];
+        for (final addr in nostrAddrs) {
+          if (bundle != null) break;
           try {
-            final sessionReader = SessionInboxReader();
-            final prefs = await _getPrefs();
-            final nodeUrl = prefs.getString('session_node_url') ?? prefs.getString('oxen_node_url') ?? '';
-            await sessionReader.initializeReader(nodeUrl, sessionAddrs.first);
-            bundle = await sessionReader.fetchPublicKeys();
+            final reader = NostrInboxReader();
+            await reader.initializeReader('', addr);
+            debugPrint('[E2EE] Trying Nostr: $addr');
+            bundle = await reader.fetchPublicKeys();
             if (bundle != null) {
-              debugPrint('[E2EE] Key fetch OK via Session (${sessionAddrs.first.substring(0, 8)}…)');
+              debugPrint('[E2EE] Key fetch OK via Nostr ($addr)');
             }
           } catch (e) {
-            debugPrint('[E2EE] Session key fetch failed: $e');
+            debugPrint('[E2EE] Nostr key fetch failed ($addr): $e');
           }
         }
 
-        // Priority 2: contact's primary transport (Nostr relay, Pulse, etc.)
-        if (bundle == null) {
+        // Priority 2: contact's primary transport (if not Nostr).
+        if (bundle == null && contact.provider != 'Nostr') {
           await contactReader.initializeReader(initApiKey, initDbId);
           debugPrint('[E2EE] Trying ${contact.provider} primary...');
           bundle = await contactReader.fetchPublicKeys();
         }
 
-        // Priority 3: other Nostr relays (key may exist on a different relay).
-        if (bundle == null && contact.provider == 'Nostr') {
-          final atIdx = contact.databaseId.indexOf('@');
-          final contactPubkey = atIdx > 0 ? contact.databaseId.substring(0, atIdx) : '';
-          final primaryRelay = atIdx > 0 ? contact.databaseId.substring(atIdx + 1) : '';
+        // Priority 3: well-known Nostr relays (key may exist on a relay we don't know about).
+        if (bundle == null) {
+          // Extract contact's Nostr pubkey from any Nostr address.
+          String contactPubkey = '';
+          for (final addr in nostrAddrs) {
+            final atIdx = addr.indexOf('@');
+            if (atIdx > 0) { contactPubkey = addr.substring(0, atIdx); break; }
+          }
           if (contactPubkey.isNotEmpty) {
-            final relays = await gatherKnownRelays(primaryRelay, limit: 3);
-            for (final relay in relays) {
-              if (relay == primaryRelay) continue;
+            final knownRelays = nostrAddrs.map((a) {
+              final i = a.indexOf('@');
+              return i > 0 ? a.substring(i + 1) : '';
+            }).where((r) => r.isNotEmpty).toSet();
+            final fallbackRelays = await gatherKnownRelays(
+              knownRelays.isNotEmpty ? knownRelays.first : '', limit: 5);
+            for (final relay in fallbackRelays) {
+              if (knownRelays.contains(relay)) continue;
               try {
                 final altReader = NostrInboxReader();
                 await altReader.initializeReader('', '$contactPubkey@$relay');
+                debugPrint('[E2EE] Trying fallback Nostr relay: $relay');
                 final altBundle = await altReader.fetchPublicKeys();
                 if (altBundle != null) {
-                  debugPrint('[E2EE] Fallback key fetch OK via Nostr relay $relay');
+                  debugPrint('[E2EE] Key fetch OK via fallback relay $relay');
                   bundle = altBundle;
                   break;
                 }
@@ -2242,7 +2437,7 @@ class ChatController extends ChangeNotifier {
           }
         }
 
-        // Priority 4: any remaining alternate transport.
+        // Priority 4: any remaining alternate transport (Pulse, Firebase).
         if (bundle == null && contact.alternateAddresses.isNotEmpty) {
           for (final alt in contact.alternateAddresses) {
             final altProvider = _providerFromAddress(alt);
@@ -2258,6 +2453,13 @@ class ChatController extends ChangeNotifier {
               debugPrint('[E2EE] Fallback key fetch from $altProvider failed: $e');
             }
           }
+        }
+
+        // Push our own keys to contact's Session inbox so they can build a
+        // session for replying (Session inbox is write-by-anyone, read-by-owner).
+        final sessionAddrs = contact.transportAddresses['Session'] ?? [];
+        if (sessionAddrs.isNotEmpty) {
+          unawaited(_keys.publishSessionKeysTo(contact, _selfId));
         }
         debugPrint('[E2EE] fetchPublicKeys: ${bundle != null ? "${bundle.keys.length} keys" : "null"}');
         if (bundle != null) {
@@ -2522,7 +2724,7 @@ class ChatController extends ChangeNotifier {
 
   Future<bool> _sendToContact(Contact contact, String plaintext, {bool noAutoRetry = false}) async {
     if (_identity == null) return false;
-    final envelope = MessageEnvelope.wrap(_selfId.isNotEmpty ? _selfId : _identity!.id, plaintext);
+    final envelope = MessageEnvelope.wrap(_selfId.isNotEmpty ? _selfId : _identity!.id, plaintext, senderName: _selfName, senderAddresses: _buildOwnTransportMap());
     String encryptedText;
     try {
       encryptedText = await _signalService.encryptMessage(contact.databaseId, envelope);

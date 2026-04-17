@@ -2680,121 +2680,118 @@ class AppLocalizationsZh extends AppLocalizations {
   String get replace => '替换';
 
   @override
-  String get callNoScreenSources => 'No screen sources available';
+  String get callNoScreenSources => '没有可用的屏幕源';
 
   @override
-  String get callScreenShareQuality => 'Screen Share Quality';
+  String get callScreenShareQuality => '屏幕共享质量';
 
   @override
-  String get callFrameRate => 'Frame rate';
+  String get callFrameRate => '帧率';
 
   @override
-  String get callResolution => 'Resolution';
+  String get callResolution => '分辨率';
 
   @override
-  String get callAutoResolution => 'Auto = native screen resolution';
+  String get callAutoResolution => '自动 = 原生屏幕分辨率';
 
   @override
-  String get callStartSharing => 'Start sharing';
+  String get callStartSharing => '开始共享';
 
   @override
-  String get callCameraUnavailable =>
-      'Camera unavailable — may be in use by another app';
+  String get callCameraUnavailable => '摄像头不可用 — 可能正被其他应用使用';
 
   @override
-  String get themeResetToDefaults => 'Reset to defaults';
+  String get themeResetToDefaults => '重置为默认';
 
   @override
-  String get backupSaveToDownloadsTitle => 'Save backup to Downloads?';
+  String get backupSaveToDownloadsTitle => '将备份保存到下载？';
 
   @override
   String backupSaveToDownloadsBody(String path) {
-    return 'No file picker available. The backup will be saved to:\n$path';
+    return '没有可用的文件选择器。备份将保存到：\n$path';
   }
 
   @override
-  String get systemLabel => 'System';
+  String get systemLabel => '系统';
 
   @override
-  String get next => 'Next';
+  String get next => '下一步';
 
   @override
   String get gifLabel => 'GIF';
 
   @override
   String devTapsRemaining(int remaining) {
-    return '$remaining more taps to enable developer mode';
+    return '再点击 $remaining 次以启用开发者模式';
   }
 
   @override
-  String get devModeEnabled => 'Developer mode enabled';
+  String get devModeEnabled => '开发者模式已启用';
 
   @override
-  String get devTools => 'Developer Tools';
+  String get devTools => '开发者工具';
 
   @override
-  String get devAdapterDiagnostics => 'Adapter toggles & diagnostics';
+  String get devAdapterDiagnostics => '适配器开关与诊断';
 
   @override
-  String get devEnableAll => 'Enable all';
+  String get devEnableAll => '全部启用';
 
   @override
-  String get devDisableAll => 'Disable all';
+  String get devDisableAll => '全部禁用';
 
   @override
-  String get turnUrlValidation =>
-      'TURN URL must start with turn: or turns: (max 512 chars)';
+  String get turnUrlValidation => 'TURN URL 必须以 turn: 或 turns: 开头（最多 512 个字符）';
 
   @override
-  String get callMissedCall => 'Missed call';
+  String get callMissedCall => '未接来电';
 
   @override
-  String get callOutgoingCall => 'Outgoing call';
+  String get callOutgoingCall => '去电';
 
   @override
-  String get callIncomingCall => 'Incoming call';
+  String get callIncomingCall => '来电';
 
   @override
-  String get mediaMissingData => 'Missing media data';
+  String get mediaMissingData => '缺少媒体数据';
 
   @override
-  String get mediaDownloadFailed => 'Download failed';
+  String get mediaDownloadFailed => '下载失败';
 
   @override
-  String get mediaDecryptFailed => 'Decrypt failed';
+  String get mediaDecryptFailed => '解密失败';
 
   @override
-  String get callEndCallBanner => 'End call';
+  String get callEndCallBanner => '结束通话';
 
   @override
-  String get meFallback => 'Me';
+  String get meFallback => '我';
 
   @override
-  String get imageSaveToDownloads => 'Save to Downloads';
+  String get imageSaveToDownloads => '保存到下载';
 
   @override
   String imageSavedToPath(String path) {
-    return 'Saved to $path';
+    return '已保存到 $path';
   }
 
   @override
-  String get callScreenShareRequiresPermission =>
-      'Screen sharing requires permission';
+  String get callScreenShareRequiresPermission => '屏幕共享需要权限';
 
   @override
-  String get callScreenShareUnavailable => 'Screen sharing unavailable';
+  String get callScreenShareUnavailable => '屏幕共享不可用';
 
   @override
-  String get statusJustNow => 'Just now';
+  String get statusJustNow => '刚刚';
 
   @override
   String statusMinutesAgo(int minutes) {
-    return '${minutes}m ago';
+    return '$minutes分钟前';
   }
 
   @override
   String statusHoursAgo(int hours) {
-    return '${hours}h ago';
+    return '$hours小时前';
   }
 
   @override
@@ -2802,107 +2799,124 @@ class AppLocalizationsZh extends AppLocalizations {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
-      other: '$count routes',
-      one: '1 route',
+      other: '$count 条路由',
+      one: '1 条路由',
     );
     return '$_temp0';
   }
 
   @override
-  String get addContactReadyToAdd => 'Ready to add';
+  String get addContactReadyToAdd => '准备添加';
 
   @override
   String groupSelectedCount(int count) {
-    return '$count selected';
+    return '已选择 $count 个';
   }
 
   @override
-  String get paste => 'Paste';
+  String get paste => '粘贴';
 
   @override
-  String get sfuAudioOnly => 'Audio only';
+  String get sfuAudioOnly => '仅音频';
 
   @override
   String sfuParticipants(int count) {
-    return '$count participants';
+    return '$count 位参与者';
   }
 
   @override
-  String get dataUnencryptedBackup => 'Unencrypted backup';
+  String get dataUnencryptedBackup => '未加密备份';
 
   @override
   String get dataUnencryptedBackupBody =>
-      'This file is an unencrypted identity backup and will overwrite your current keys. Only import files you created yourself. Proceed?';
+      '此文件是未加密的身份备份，将覆盖您当前的密钥。仅导入您自己创建的文件。是否继续？';
 
   @override
-  String get dataImportAnyway => 'Import anyway';
+  String get dataImportAnyway => '仍然导入';
 
   @override
-  String get securityStorageError => 'Security storage error — restart the app';
+  String get securityStorageError => '安全存储错误 — 请重启应用';
 
   @override
-  String get aboutDevModeActive => 'Developer mode active';
+  String get aboutDevModeActive => '开发者模式已激活';
 
   @override
-  String get themeColors => 'Colors';
+  String get themeColors => '颜色';
 
   @override
-  String get themePrimaryAccent => 'Primary accent';
+  String get themePrimaryAccent => '主要强调色';
 
   @override
-  String get themeSecondaryAccent => 'Secondary accent';
+  String get themeSecondaryAccent => '次要强调色';
 
   @override
-  String get themeBackground => 'Background';
+  String get themeBackground => '背景';
 
   @override
-  String get themeSurface => 'Surface';
+  String get themeSurface => '表面';
 
   @override
-  String get themeChatBubbles => 'Chat Bubbles';
+  String get themeChatBubbles => '聊天气泡';
 
   @override
-  String get themeOutgoingMessage => 'Outgoing message';
+  String get themeOutgoingMessage => '发送消息';
 
   @override
-  String get themeIncomingMessage => 'Incoming message';
+  String get themeIncomingMessage => '接收消息';
 
   @override
-  String get themeShape => 'Shape';
+  String get themeShape => '形状';
 
   @override
-  String get devSectionDeveloper => 'Developer';
+  String get devSectionDeveloper => '开发者';
 
   @override
-  String get devAdapterChannelsHint =>
-      'Adapter channels — disable to test specific transports.';
+  String get devAdapterChannelsHint => '适配器通道 — 禁用以测试特定传输。';
 
   @override
-  String get devNostrRelays => 'Nostr relays (wss://)';
+  String get devNostrRelays => 'Nostr 中继 (wss://)';
 
   @override
   String get devFirebaseDb => 'Firebase Realtime DB';
 
   @override
-  String get devSessionNetwork => 'Session Network';
+  String get devSessionNetwork => 'Session 网络';
 
   @override
-  String get devPulseRelay => 'Pulse self-hosted relay';
+  String get devPulseRelay => 'Pulse 自托管中继';
 
   @override
-  String get devLanNetwork => 'Local network (UDP/TCP)';
+  String get devLanNetwork => '本地网络 (UDP/TCP)';
 
   @override
-  String get devSectionCalls => 'Calls';
+  String get devSectionCalls => '通话';
 
   @override
-  String get devForceTurnRelay => 'Force TURN relay';
+  String get devForceTurnRelay => '强制 TURN 中继';
 
   @override
-  String get devForceTurnRelaySubtitle =>
-      'Disable P2P — all calls via TURN servers only';
+  String get devForceTurnRelaySubtitle => '禁用 P2P — 所有通话仅通过 TURN 服务器';
 
   @override
-  String get devRestartWarning =>
-      '⚠ Changes take effect on next send/call. Restart app to apply to incoming.';
+  String get devRestartWarning => '⚠ 更改将在下次发送/通话时生效。重启应用以应用于传入连接。';
+
+  @override
+  String get messageRequest => 'Message request';
+
+  @override
+  String messageRequestFrom(String name) {
+    return 'Message request from $name';
+  }
+
+  @override
+  String get acceptContact => 'Accept';
+
+  @override
+  String get blockContact => 'Block';
+
+  @override
+  String get blockedContactsEmpty => 'No blocked contacts';
+
+  @override
+  String get pendingLimitReached => 'Too many pending requests';
 }

@@ -2778,135 +2778,135 @@ class AppLocalizationsFa extends AppLocalizations {
       'این کلید را امن نگه دارید. هر کسی که آن را داشته باشد می‌تواند حساب شما را در دستگاه دیگری بازیابی کند.';
 
   @override
-  String get replaceIdentityTitle => 'Replace existing identity?';
+  String get replaceIdentityTitle => 'هویت موجود جایگزین شود؟';
 
   @override
   String get replaceIdentityBodyRestore =>
-      'An identity already exists on this device. Restoring will permanently replace your current Nostr key and Oxen seed. All contacts will lose the ability to reach your current address.\n\nThis cannot be undone.';
+      'هویتی روی این دستگاه وجود دارد. بازیابی کلید Nostr و seed Oxen فعلی شما را برای همیشه جایگزین می‌کند. همه مخاطبین توانایی دسترسی به آدرس فعلی شما را از دست خواهند داد.\n\nاین قابل بازگشت نیست.';
 
   @override
   String get replaceIdentityBodyCreate =>
-      'An identity already exists on this device. Creating a new one will permanently replace your current Nostr key and Oxen seed. All contacts will lose the ability to reach your current address.\n\nThis cannot be undone.';
+      'هویتی روی این دستگاه وجود دارد. ایجاد یکی جدید کلید Nostr و seed Oxen فعلی شما را برای همیشه جایگزین می‌کند. همه مخاطبین توانایی دسترسی به آدرس فعلی شما را از دست خواهند داد.\n\nاین قابل بازگشت نیست.';
 
   @override
-  String get replace => 'Replace';
+  String get replace => 'جایگزین';
 
   @override
-  String get callNoScreenSources => 'No screen sources available';
+  String get callNoScreenSources => 'منبع صفحه‌ای در دسترس نیست';
 
   @override
-  String get callScreenShareQuality => 'Screen Share Quality';
+  String get callScreenShareQuality => 'کیفیت اشتراک‌گذاری صفحه';
 
   @override
-  String get callFrameRate => 'Frame rate';
+  String get callFrameRate => 'نرخ فریم';
 
   @override
-  String get callResolution => 'Resolution';
+  String get callResolution => 'وضوح';
 
   @override
-  String get callAutoResolution => 'Auto = native screen resolution';
+  String get callAutoResolution => 'خودکار = وضوح بومی صفحه';
 
   @override
-  String get callStartSharing => 'Start sharing';
+  String get callStartSharing => 'شروع اشتراک‌گذاری';
 
   @override
   String get callCameraUnavailable =>
-      'Camera unavailable — may be in use by another app';
+      'دوربین در دسترس نیست — ممکن است توسط برنامه دیگری استفاده شود';
 
   @override
-  String get themeResetToDefaults => 'Reset to defaults';
+  String get themeResetToDefaults => 'بازنشانی به پیش‌فرض';
 
   @override
-  String get backupSaveToDownloadsTitle => 'Save backup to Downloads?';
+  String get backupSaveToDownloadsTitle => 'ذخیره نسخه پشتیبان در دانلودها؟';
 
   @override
   String backupSaveToDownloadsBody(String path) {
-    return 'No file picker available. The backup will be saved to:\n$path';
+    return 'انتخابگر فایل در دسترس نیست. نسخه پشتیبان ذخیره می‌شود در:\n$path';
   }
 
   @override
-  String get systemLabel => 'System';
+  String get systemLabel => 'سیستم';
 
   @override
-  String get next => 'Next';
+  String get next => 'بعدی';
 
   @override
   String get gifLabel => 'GIF';
 
   @override
   String devTapsRemaining(int remaining) {
-    return '$remaining more taps to enable developer mode';
+    return '$remaining ضربه دیگر برای فعال کردن حالت توسعه‌دهنده';
   }
 
   @override
-  String get devModeEnabled => 'Developer mode enabled';
+  String get devModeEnabled => 'حالت توسعه‌دهنده فعال شد';
 
   @override
-  String get devTools => 'Developer Tools';
+  String get devTools => 'ابزارهای توسعه‌دهنده';
 
   @override
-  String get devAdapterDiagnostics => 'Adapter toggles & diagnostics';
+  String get devAdapterDiagnostics => 'سوییچ‌های آداپتور و تشخیص';
 
   @override
-  String get devEnableAll => 'Enable all';
+  String get devEnableAll => 'فعال کردن همه';
 
   @override
-  String get devDisableAll => 'Disable all';
+  String get devDisableAll => 'غیرفعال کردن همه';
 
   @override
   String get turnUrlValidation =>
-      'TURN URL must start with turn: or turns: (max 512 chars)';
+      'URL TURN باید با turn: یا turns: شروع شود (حداکثر 512 کاراکتر)';
 
   @override
-  String get callMissedCall => 'Missed call';
+  String get callMissedCall => 'تماس از دست رفته';
 
   @override
-  String get callOutgoingCall => 'Outgoing call';
+  String get callOutgoingCall => 'تماس خروجی';
 
   @override
-  String get callIncomingCall => 'Incoming call';
+  String get callIncomingCall => 'تماس ورودی';
 
   @override
-  String get mediaMissingData => 'Missing media data';
+  String get mediaMissingData => 'داده‌های رسانه‌ای مفقود';
 
   @override
-  String get mediaDownloadFailed => 'Download failed';
+  String get mediaDownloadFailed => 'دانلود ناموفق';
 
   @override
-  String get mediaDecryptFailed => 'Decrypt failed';
+  String get mediaDecryptFailed => 'رمزگشایی ناموفق';
 
   @override
-  String get callEndCallBanner => 'End call';
+  String get callEndCallBanner => 'پایان تماس';
 
   @override
-  String get meFallback => 'Me';
+  String get meFallback => 'من';
 
   @override
-  String get imageSaveToDownloads => 'Save to Downloads';
+  String get imageSaveToDownloads => 'ذخیره در دانلودها';
 
   @override
   String imageSavedToPath(String path) {
-    return 'Saved to $path';
+    return 'ذخیره شد در $path';
   }
 
   @override
   String get callScreenShareRequiresPermission =>
-      'Screen sharing requires permission';
+      'اشتراک‌گذاری صفحه نیاز به مجوز دارد';
 
   @override
-  String get callScreenShareUnavailable => 'Screen sharing unavailable';
+  String get callScreenShareUnavailable => 'اشتراک‌گذاری صفحه در دسترس نیست';
 
   @override
-  String get statusJustNow => 'Just now';
+  String get statusJustNow => 'همین الان';
 
   @override
   String statusMinutesAgo(int minutes) {
-    return '${minutes}m ago';
+    return '$minutesد پیش';
   }
 
   @override
   String statusHoursAgo(int hours) {
-    return '${hours}h ago';
+    return '$hoursس پیش';
   }
 
   @override
@@ -2914,107 +2914,128 @@ class AppLocalizationsFa extends AppLocalizations {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
-      other: '$count routes',
-      one: '1 route',
+      other: '$count مسیر',
+      one: '1 مسیر',
     );
     return '$_temp0';
   }
 
   @override
-  String get addContactReadyToAdd => 'Ready to add';
+  String get addContactReadyToAdd => 'آماده افزودن';
 
   @override
   String groupSelectedCount(int count) {
-    return '$count selected';
+    return '$count انتخاب شده';
   }
 
   @override
-  String get paste => 'Paste';
+  String get paste => 'چسباندن';
 
   @override
-  String get sfuAudioOnly => 'Audio only';
+  String get sfuAudioOnly => 'فقط صدا';
 
   @override
   String sfuParticipants(int count) {
-    return '$count participants';
+    return '$count شرکت‌کننده';
   }
 
   @override
-  String get dataUnencryptedBackup => 'Unencrypted backup';
+  String get dataUnencryptedBackup => 'نسخه پشتیبان رمزنگاری نشده';
 
   @override
   String get dataUnencryptedBackupBody =>
-      'This file is an unencrypted identity backup and will overwrite your current keys. Only import files you created yourself. Proceed?';
+      'این فایل یک نسخه پشتیبان هویت رمزنگاری نشده است و کلیدهای فعلی شما را بازنویسی می‌کند. فقط فایل‌هایی را که خودتان ایجاد کرده‌اید وارد کنید. ادامه دهید؟';
 
   @override
-  String get dataImportAnyway => 'Import anyway';
+  String get dataImportAnyway => 'به هر حال وارد کنید';
 
   @override
-  String get securityStorageError => 'Security storage error — restart the app';
+  String get securityStorageError =>
+      'خطای ذخیره‌سازی امن — برنامه را مجدداً راه‌اندازی کنید';
 
   @override
-  String get aboutDevModeActive => 'Developer mode active';
+  String get aboutDevModeActive => 'حالت توسعه‌دهنده فعال';
 
   @override
-  String get themeColors => 'Colors';
+  String get themeColors => 'رنگ‌ها';
 
   @override
-  String get themePrimaryAccent => 'Primary accent';
+  String get themePrimaryAccent => 'تأکید اصلی';
 
   @override
-  String get themeSecondaryAccent => 'Secondary accent';
+  String get themeSecondaryAccent => 'تأکید ثانویه';
 
   @override
-  String get themeBackground => 'Background';
+  String get themeBackground => 'پس‌زمینه';
 
   @override
-  String get themeSurface => 'Surface';
+  String get themeSurface => 'سطح';
 
   @override
-  String get themeChatBubbles => 'Chat Bubbles';
+  String get themeChatBubbles => 'حباب‌های چت';
 
   @override
-  String get themeOutgoingMessage => 'Outgoing message';
+  String get themeOutgoingMessage => 'پیام خروجی';
 
   @override
-  String get themeIncomingMessage => 'Incoming message';
+  String get themeIncomingMessage => 'پیام ورودی';
 
   @override
-  String get themeShape => 'Shape';
+  String get themeShape => 'شکل';
 
   @override
-  String get devSectionDeveloper => 'Developer';
+  String get devSectionDeveloper => 'توسعه‌دهنده';
 
   @override
   String get devAdapterChannelsHint =>
-      'Adapter channels — disable to test specific transports.';
+      'کانال‌های آداپتور — غیرفعال کنید تا انتقال‌های خاص را آزمایش کنید.';
 
   @override
-  String get devNostrRelays => 'Nostr relays (wss://)';
+  String get devNostrRelays => 'Nostr relay ها (wss://)';
 
   @override
   String get devFirebaseDb => 'Firebase Realtime DB';
 
   @override
-  String get devSessionNetwork => 'Session Network';
+  String get devSessionNetwork => 'شبکه Session';
 
   @override
-  String get devPulseRelay => 'Pulse self-hosted relay';
+  String get devPulseRelay => 'Pulse relay خود میزبان';
 
   @override
-  String get devLanNetwork => 'Local network (UDP/TCP)';
+  String get devLanNetwork => 'شبکه محلی (UDP/TCP)';
 
   @override
-  String get devSectionCalls => 'Calls';
+  String get devSectionCalls => 'تماس‌ها';
 
   @override
-  String get devForceTurnRelay => 'Force TURN relay';
+  String get devForceTurnRelay => 'اجبار TURN relay';
 
   @override
   String get devForceTurnRelaySubtitle =>
-      'Disable P2P — all calls via TURN servers only';
+      'غیرفعال کردن P2P — همه تماس‌ها فقط از طریق سرورهای TURN';
 
   @override
   String get devRestartWarning =>
-      '⚠ Changes take effect on next send/call. Restart app to apply to incoming.';
+      '⚠ تغییرات در ارسال/تماس بعدی اعمال می‌شوند. برنامه را برای ورودی‌ها مجدداً راه‌اندازی کنید.';
+
+  @override
+  String get messageRequest => 'Message request';
+
+  @override
+  String messageRequestFrom(String name) {
+    return 'Message request from $name';
+  }
+
+  @override
+  String get acceptContact => 'Accept';
+
+  @override
+  String get blockContact => 'Block';
+
+  @override
+  String get blockedContactsEmpty => 'No blocked contacts';
+
+  @override
+  String get pendingLimitReached => 'Too many pending requests';
 }

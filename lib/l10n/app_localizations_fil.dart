@@ -2813,24 +2813,24 @@ class AppLocalizationsFil extends AppLocalizations {
       'Ingatan ang key na ito. Sinumang may hawak nito ay maaaring maibalik ang iyong account sa ibang device.';
 
   @override
-  String get replaceIdentityTitle => 'Replace existing identity?';
+  String get replaceIdentityTitle => 'Palitan ang umiiral na identity?';
 
   @override
   String get replaceIdentityBodyRestore =>
-      'An identity already exists on this device. Restoring will permanently replace your current Nostr key and Oxen seed. All contacts will lose the ability to reach your current address.\n\nThis cannot be undone.';
+      'May identity na sa device na ito. Ang pag-restore ay permanenteng papalitan ang iyong kasalukuyang Nostr key at Oxen seed. Lahat ng contact ay mawawalan ng kakayahang maabot ang iyong kasalukuyang address.\n\nHindi na ito mababawi.';
 
   @override
   String get replaceIdentityBodyCreate =>
-      'An identity already exists on this device. Creating a new one will permanently replace your current Nostr key and Oxen seed. All contacts will lose the ability to reach your current address.\n\nThis cannot be undone.';
+      'May identity na sa device na ito. Ang paggawa ng bago ay permanenteng papalitan ang iyong kasalukuyang Nostr key at Oxen seed. Lahat ng contact ay mawawalan ng kakayahang maabot ang iyong kasalukuyang address.\n\nHindi na ito mababawi.';
 
   @override
-  String get replace => 'Replace';
+  String get replace => 'Palitan';
 
   @override
-  String get callNoScreenSources => 'No screen sources available';
+  String get callNoScreenSources => 'Walang magagamit na screen sources';
 
   @override
-  String get callScreenShareQuality => 'Screen Share Quality';
+  String get callScreenShareQuality => 'Kalidad ng Screen Share';
 
   @override
   String get callFrameRate => 'Frame rate';
@@ -2839,109 +2839,109 @@ class AppLocalizationsFil extends AppLocalizations {
   String get callResolution => 'Resolution';
 
   @override
-  String get callAutoResolution => 'Auto = native screen resolution';
+  String get callAutoResolution => 'Auto = native na resolution ng screen';
 
   @override
-  String get callStartSharing => 'Start sharing';
+  String get callStartSharing => 'Simulan ang pagbabahagi';
 
   @override
   String get callCameraUnavailable =>
-      'Camera unavailable — may be in use by another app';
+      'Hindi magagamit ang camera — maaaring ginagamit ng ibang app';
 
   @override
-  String get themeResetToDefaults => 'Reset to defaults';
+  String get themeResetToDefaults => 'I-reset sa defaults';
 
   @override
-  String get backupSaveToDownloadsTitle => 'Save backup to Downloads?';
+  String get backupSaveToDownloadsTitle => 'I-save ang backup sa Downloads?';
 
   @override
   String backupSaveToDownloadsBody(String path) {
-    return 'No file picker available. The backup will be saved to:\n$path';
+    return 'Walang file picker na magagamit. Ang backup ay ise-save sa:\n$path';
   }
 
   @override
-  String get systemLabel => 'System';
+  String get systemLabel => 'Sistema';
 
   @override
-  String get next => 'Next';
+  String get next => 'Susunod';
 
   @override
   String get gifLabel => 'GIF';
 
   @override
   String devTapsRemaining(int remaining) {
-    return '$remaining more taps to enable developer mode';
+    return '$remaining pang tap upang i-enable ang developer mode';
   }
 
   @override
-  String get devModeEnabled => 'Developer mode enabled';
+  String get devModeEnabled => 'Na-enable ang developer mode';
 
   @override
   String get devTools => 'Developer Tools';
 
   @override
-  String get devAdapterDiagnostics => 'Adapter toggles & diagnostics';
+  String get devAdapterDiagnostics => 'Adapter toggles at diagnostics';
 
   @override
-  String get devEnableAll => 'Enable all';
+  String get devEnableAll => 'I-enable lahat';
 
   @override
-  String get devDisableAll => 'Disable all';
+  String get devDisableAll => 'I-disable lahat';
 
   @override
   String get turnUrlValidation =>
-      'TURN URL must start with turn: or turns: (max 512 chars)';
+      'Ang TURN URL ay dapat magsimula sa turn: o turns: (max 512 characters)';
 
   @override
-  String get callMissedCall => 'Missed call';
+  String get callMissedCall => 'Hindi nasagot na tawag';
 
   @override
-  String get callOutgoingCall => 'Outgoing call';
+  String get callOutgoingCall => 'Papalabas na tawag';
 
   @override
-  String get callIncomingCall => 'Incoming call';
+  String get callIncomingCall => 'Papasok na tawag';
 
   @override
-  String get mediaMissingData => 'Missing media data';
+  String get mediaMissingData => 'Kulang ang media data';
 
   @override
-  String get mediaDownloadFailed => 'Download failed';
+  String get mediaDownloadFailed => 'Nabigo ang download';
 
   @override
-  String get mediaDecryptFailed => 'Decrypt failed';
+  String get mediaDecryptFailed => 'Nabigo ang decrypt';
 
   @override
-  String get callEndCallBanner => 'End call';
+  String get callEndCallBanner => 'Tapusin ang tawag';
 
   @override
-  String get meFallback => 'Me';
+  String get meFallback => 'Ako';
 
   @override
-  String get imageSaveToDownloads => 'Save to Downloads';
+  String get imageSaveToDownloads => 'I-save sa Downloads';
 
   @override
   String imageSavedToPath(String path) {
-    return 'Saved to $path';
+    return 'Na-save sa $path';
   }
 
   @override
   String get callScreenShareRequiresPermission =>
-      'Screen sharing requires permission';
+      'Kailangan ng pahintulot ang screen sharing';
 
   @override
-  String get callScreenShareUnavailable => 'Screen sharing unavailable';
+  String get callScreenShareUnavailable => 'Hindi magagamit ang screen sharing';
 
   @override
-  String get statusJustNow => 'Just now';
+  String get statusJustNow => 'Ngayon lang';
 
   @override
   String statusMinutesAgo(int minutes) {
-    return '${minutes}m ago';
+    return '${minutes}m nakalipas';
   }
 
   @override
   String statusHoursAgo(int hours) {
-    return '${hours}h ago';
+    return '${hours}o nakalipas';
   }
 
   @override
@@ -2949,55 +2949,56 @@ class AppLocalizationsFil extends AppLocalizations {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
-      other: '$count routes',
-      one: '1 route',
+      other: '$count ruta',
+      one: '1 ruta',
     );
     return '$_temp0';
   }
 
   @override
-  String get addContactReadyToAdd => 'Ready to add';
+  String get addContactReadyToAdd => 'Handa nang idagdag';
 
   @override
   String groupSelectedCount(int count) {
-    return '$count selected';
+    return '$count ang napili';
   }
 
   @override
-  String get paste => 'Paste';
+  String get paste => 'I-paste';
 
   @override
-  String get sfuAudioOnly => 'Audio only';
+  String get sfuAudioOnly => 'Audio lang';
 
   @override
   String sfuParticipants(int count) {
-    return '$count participants';
+    return '$count kalahok';
   }
 
   @override
-  String get dataUnencryptedBackup => 'Unencrypted backup';
+  String get dataUnencryptedBackup => 'Hindi naka-encrypt na backup';
 
   @override
   String get dataUnencryptedBackupBody =>
-      'This file is an unencrypted identity backup and will overwrite your current keys. Only import files you created yourself. Proceed?';
+      'Ang file na ito ay isang hindi naka-encrypt na identity backup at papalitan ang iyong kasalukuyang mga key. Mag-import lamang ng mga file na ikaw mismo ang gumawa. Magpatuloy?';
 
   @override
-  String get dataImportAnyway => 'Import anyway';
+  String get dataImportAnyway => 'I-import pa rin';
 
   @override
-  String get securityStorageError => 'Security storage error — restart the app';
+  String get securityStorageError =>
+      'Error sa secure storage — i-restart ang app';
 
   @override
-  String get aboutDevModeActive => 'Developer mode active';
+  String get aboutDevModeActive => 'Aktibo ang developer mode';
 
   @override
-  String get themeColors => 'Colors';
+  String get themeColors => 'Mga Kulay';
 
   @override
-  String get themePrimaryAccent => 'Primary accent';
+  String get themePrimaryAccent => 'Pangunahing accent';
 
   @override
-  String get themeSecondaryAccent => 'Secondary accent';
+  String get themeSecondaryAccent => 'Pangalawang accent';
 
   @override
   String get themeBackground => 'Background';
@@ -3009,20 +3010,20 @@ class AppLocalizationsFil extends AppLocalizations {
   String get themeChatBubbles => 'Chat Bubbles';
 
   @override
-  String get themeOutgoingMessage => 'Outgoing message';
+  String get themeOutgoingMessage => 'Papalabas na mensahe';
 
   @override
-  String get themeIncomingMessage => 'Incoming message';
+  String get themeIncomingMessage => 'Papasok na mensahe';
 
   @override
-  String get themeShape => 'Shape';
+  String get themeShape => 'Hugis';
 
   @override
   String get devSectionDeveloper => 'Developer';
 
   @override
   String get devAdapterChannelsHint =>
-      'Adapter channels — disable to test specific transports.';
+      'Mga channel ng adapter — i-disable upang subukan ang mga tiyak na transport.';
 
   @override
   String get devNostrRelays => 'Nostr relays (wss://)';
@@ -3040,16 +3041,36 @@ class AppLocalizationsFil extends AppLocalizations {
   String get devLanNetwork => 'Local network (UDP/TCP)';
 
   @override
-  String get devSectionCalls => 'Calls';
+  String get devSectionCalls => 'Mga Tawag';
 
   @override
-  String get devForceTurnRelay => 'Force TURN relay';
+  String get devForceTurnRelay => 'Ipilit ang TURN relay';
 
   @override
   String get devForceTurnRelaySubtitle =>
-      'Disable P2P — all calls via TURN servers only';
+      'I-disable ang P2P — lahat ng tawag sa TURN servers lang';
 
   @override
   String get devRestartWarning =>
-      '⚠ Changes take effect on next send/call. Restart app to apply to incoming.';
+      '⚠ Magkakabisa ang mga pagbabago sa susunod na pagpapadala/tawag. I-restart ang app para sa mga papasok.';
+
+  @override
+  String get messageRequest => 'Message request';
+
+  @override
+  String messageRequestFrom(String name) {
+    return 'Message request from $name';
+  }
+
+  @override
+  String get acceptContact => 'Accept';
+
+  @override
+  String get blockContact => 'Block';
+
+  @override
+  String get blockedContactsEmpty => 'No blocked contacts';
+
+  @override
+  String get pendingLimitReached => 'Too many pending requests';
 }

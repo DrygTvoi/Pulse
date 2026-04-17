@@ -78,7 +78,7 @@ Every message is also wrapped in a `MessageEnvelope` carrying the sender's canon
 
 **Security**
 - Random recovery key (`XXXX-XXXX-XXXX-XXXX-XXXX-XXXX`, ~124 bits) — replaces user-chosen passwords
-- 4-digit PIN for daily unlock (PBKDF2 200k iterations, 10-attempt wipe)
+- Unlock password for daily use (PBKDF2 200k iterations, 10-attempt wipe)
 - Recovery key → Argon2id (64 MiB, 3 iterations) → deterministic Nostr + Oxen + Pulse keys
 - Signal fingerprints for contact verification (TOFU)
 - ECDH HMAC-SHA256 signal signing on critical signals
@@ -93,7 +93,7 @@ Every message is also wrapped in a `MessageEnvelope` carrying the sender's canon
 
 **UX**
 - First-launch onboarding with language picker
-- 4-step account creation: name → recovery key → verify key → set PIN
+- 4-step account creation: name → recovery key → verify key → set password
 - Account restore: recovery key → same keys on any device
 - Device transfer: encrypted export/import of Signal + Kyber keys
 - Statuses/Stories: broadcast ephemeral updates to contacts
@@ -129,7 +129,7 @@ Every message is also wrapped in a `MessageEnvelope` carrying the sender's canon
 | Authenticated encryption | AES-256-GCM | NIST SP 800-38D | Integrity + confidentiality of PQC outer layer |
 | DB encryption | SQLCipher (AES-256-CBC) | — | At-rest message encryption |
 | Key derivation | Argon2id (64 MiB, 3 iterations) | RFC 9106 | Brute-force resistant key derivation |
-| PIN hashing | PBKDF2-SHA256 (200k iterations) | RFC 2898 | Daily unlock authentication |
+| Password hashing | PBKDF2-SHA256 (200k iterations) | RFC 2898 | Daily unlock authentication |
 | Transport (optional) | Tor / Psiphon / I2P / uTLS | — | IP-level anonymity + DPI evasion |
 
 The wire format is versioned (`PQC2||...`) so future algorithms (e.g. ML-DSA signatures) can be added without breaking existing sessions.
@@ -340,11 +340,11 @@ An onboarding screen lets you pick a language and either create a new account or
 1. Choose a display name
 2. App generates a random recovery key (`XXXX-XXXX-XXXX-XXXX-XXXX-XXXX`)
 3. Verify the key by re-entering it
-4. Set a 4-digit PIN for daily unlock
+4. Set an unlock password for daily use
 
 The recovery key deterministically derives your Nostr, Oxen, and Pulse identities. Same key on another device = same identity (account restore).
 
-**Restore account:** enter your recovery key → set a new PIN → done.
+**Restore account:** enter your recovery key → set a new password → done.
 
 ### Adding a contact
 
@@ -419,8 +419,7 @@ flutter test --reporter expanded       # verbose output
 ## Roadmap
 
 - **ML-DSA (Dilithium) bundle signatures** — post-quantum identity authentication
-- **Multi-device / linked devices** — share identity across machines
-- **Group E2EE** — Sender Keys or MLS for efficient group encryption
+- **Multi-device sync** — real-time linked devices (currently: one-time device transfer only)
 - **SFU end-to-end testing** — server-side complete, client integration needs real-call testing
 
 ---

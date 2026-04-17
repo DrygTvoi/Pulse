@@ -2807,135 +2807,136 @@ class AppLocalizationsSw extends AppLocalizations {
       'Hifadhi ufunguo huu kwa usalama. Yeyote aliye nao anaweza kurejesha akaunti yako kwenye kifaa kingine.';
 
   @override
-  String get replaceIdentityTitle => 'Replace existing identity?';
+  String get replaceIdentityTitle => 'Badilisha utambulisho uliopo?';
 
   @override
   String get replaceIdentityBodyRestore =>
-      'An identity already exists on this device. Restoring will permanently replace your current Nostr key and Oxen seed. All contacts will lose the ability to reach your current address.\n\nThis cannot be undone.';
+      'Utambulisho tayari upo kwenye kifaa hiki. Kurejesha kutabadilisha kabisa ufunguo wako wa sasa wa Nostr na mbegu ya Oxen. Mawasiliano yote watapoteza uwezo wa kufikia anwani yako ya sasa.\n\nHii haiwezi kutendushwa.';
 
   @override
   String get replaceIdentityBodyCreate =>
-      'An identity already exists on this device. Creating a new one will permanently replace your current Nostr key and Oxen seed. All contacts will lose the ability to reach your current address.\n\nThis cannot be undone.';
+      'Utambulisho tayari upo kwenye kifaa hiki. Kuunda mpya kutabadilisha kabisa ufunguo wako wa sasa wa Nostr na mbegu ya Oxen. Mawasiliano yote watapoteza uwezo wa kufikia anwani yako ya sasa.\n\nHii haiwezi kutendushwa.';
 
   @override
-  String get replace => 'Replace';
+  String get replace => 'Badilisha';
 
   @override
-  String get callNoScreenSources => 'No screen sources available';
+  String get callNoScreenSources => 'Hakuna vyanzo vya skrini vinavyopatikana';
 
   @override
-  String get callScreenShareQuality => 'Screen Share Quality';
+  String get callScreenShareQuality => 'Ubora wa kushiriki skrini';
 
   @override
-  String get callFrameRate => 'Frame rate';
+  String get callFrameRate => 'Kiwango cha fremu';
 
   @override
-  String get callResolution => 'Resolution';
+  String get callResolution => 'Ubora';
 
   @override
-  String get callAutoResolution => 'Auto = native screen resolution';
+  String get callAutoResolution => 'Otomatiki = ubora asili wa skrini';
 
   @override
-  String get callStartSharing => 'Start sharing';
+  String get callStartSharing => 'Anza kushiriki';
 
   @override
   String get callCameraUnavailable =>
-      'Camera unavailable — may be in use by another app';
+      'Kamera haipatikani — inaweza kutumiwa na programu nyingine';
 
   @override
-  String get themeResetToDefaults => 'Reset to defaults';
+  String get themeResetToDefaults => 'Rejesha chaguo-msingi';
 
   @override
-  String get backupSaveToDownloadsTitle => 'Save backup to Downloads?';
+  String get backupSaveToDownloadsTitle =>
+      'Hifadhi nakala rudufu kwenye Vipakuzi?';
 
   @override
   String backupSaveToDownloadsBody(String path) {
-    return 'No file picker available. The backup will be saved to:\n$path';
+    return 'Kichaguzi cha faili hakipatikani. Nakala rudufu itahifadhiwa kwenye:\n$path';
   }
 
   @override
-  String get systemLabel => 'System';
+  String get systemLabel => 'Mfumo';
 
   @override
-  String get next => 'Next';
+  String get next => 'Ifuatayo';
 
   @override
   String get gifLabel => 'GIF';
 
   @override
   String devTapsRemaining(int remaining) {
-    return '$remaining more taps to enable developer mode';
+    return 'Miguso $remaining zaidi ili kuwasha hali ya msanidi programu';
   }
 
   @override
-  String get devModeEnabled => 'Developer mode enabled';
+  String get devModeEnabled => 'Hali ya msanidi programu imewashwa';
 
   @override
-  String get devTools => 'Developer Tools';
+  String get devTools => 'Zana za Msanidi Programu';
 
   @override
-  String get devAdapterDiagnostics => 'Adapter toggles & diagnostics';
+  String get devAdapterDiagnostics => 'Viwashio vya adapta na uchunguzi';
 
   @override
-  String get devEnableAll => 'Enable all';
+  String get devEnableAll => 'Washa zote';
 
   @override
-  String get devDisableAll => 'Disable all';
+  String get devDisableAll => 'Zima zote';
 
   @override
   String get turnUrlValidation =>
-      'TURN URL must start with turn: or turns: (max 512 chars)';
+      'TURN URL lazima ianze na turn: au turns: (herufi 512 upeo)';
 
   @override
-  String get callMissedCall => 'Missed call';
+  String get callMissedCall => 'Simu iliyokosekana';
 
   @override
-  String get callOutgoingCall => 'Outgoing call';
+  String get callOutgoingCall => 'Simu inayotoka';
 
   @override
-  String get callIncomingCall => 'Incoming call';
+  String get callIncomingCall => 'Simu inayoingia';
 
   @override
-  String get mediaMissingData => 'Missing media data';
+  String get mediaMissingData => 'Data ya media haipo';
 
   @override
-  String get mediaDownloadFailed => 'Download failed';
+  String get mediaDownloadFailed => 'Kupakua kumeshindikana';
 
   @override
-  String get mediaDecryptFailed => 'Decrypt failed';
+  String get mediaDecryptFailed => 'Kusimbua kumeshindikana';
 
   @override
-  String get callEndCallBanner => 'End call';
+  String get callEndCallBanner => 'Maliza simu';
 
   @override
-  String get meFallback => 'Me';
+  String get meFallback => 'Mimi';
 
   @override
-  String get imageSaveToDownloads => 'Save to Downloads';
+  String get imageSaveToDownloads => 'Hifadhi kwenye Vipakuzi';
 
   @override
   String imageSavedToPath(String path) {
-    return 'Saved to $path';
+    return 'Imehifadhiwa kwenye $path';
   }
 
   @override
   String get callScreenShareRequiresPermission =>
-      'Screen sharing requires permission';
+      'Kushiriki skrini kunahitaji ruhusa';
 
   @override
-  String get callScreenShareUnavailable => 'Screen sharing unavailable';
+  String get callScreenShareUnavailable => 'Kushiriki skrini hakupatikani';
 
   @override
-  String get statusJustNow => 'Just now';
+  String get statusJustNow => 'Sasa hivi';
 
   @override
   String statusMinutesAgo(int minutes) {
-    return '${minutes}m ago';
+    return 'Dakika $minutes zilizopita';
   }
 
   @override
   String statusHoursAgo(int hours) {
-    return '${hours}h ago';
+    return 'Saa $hours zilizopita';
   }
 
   @override
@@ -2943,80 +2944,81 @@ class AppLocalizationsSw extends AppLocalizations {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
-      other: '$count routes',
-      one: '1 route',
+      other: 'njia $count',
+      one: 'njia 1',
     );
     return '$_temp0';
   }
 
   @override
-  String get addContactReadyToAdd => 'Ready to add';
+  String get addContactReadyToAdd => 'Tayari kuongeza';
 
   @override
   String groupSelectedCount(int count) {
-    return '$count selected';
+    return '$count vimechaguliwa';
   }
 
   @override
-  String get paste => 'Paste';
+  String get paste => 'Bandika';
 
   @override
-  String get sfuAudioOnly => 'Audio only';
+  String get sfuAudioOnly => 'Sauti tu';
 
   @override
   String sfuParticipants(int count) {
-    return '$count participants';
+    return 'Washiriki $count';
   }
 
   @override
-  String get dataUnencryptedBackup => 'Unencrypted backup';
+  String get dataUnencryptedBackup => 'Nakala rudufu isiyosimbwa';
 
   @override
   String get dataUnencryptedBackupBody =>
-      'This file is an unencrypted identity backup and will overwrite your current keys. Only import files you created yourself. Proceed?';
+      'Faili hii ni nakala rudufu ya utambulisho isiyosimbwa na itabadilisha funguo zako za sasa. Ingiza faili ulizozunda mwenyewe tu. Endelea?';
 
   @override
-  String get dataImportAnyway => 'Import anyway';
+  String get dataImportAnyway => 'Ingiza hata hivyo';
 
   @override
-  String get securityStorageError => 'Security storage error — restart the app';
+  String get securityStorageError =>
+      'Hitilafu ya hifadhi ya usalama — anzisha upya programu';
 
   @override
-  String get aboutDevModeActive => 'Developer mode active';
+  String get aboutDevModeActive => 'Hali ya msanidi programu imewashwa';
 
   @override
-  String get themeColors => 'Colors';
+  String get themeColors => 'Rangi';
 
   @override
-  String get themePrimaryAccent => 'Primary accent';
+  String get themePrimaryAccent => 'Rangi kuu ya lafudhi';
 
   @override
-  String get themeSecondaryAccent => 'Secondary accent';
+  String get themeSecondaryAccent => 'Rangi ya pili ya lafudhi';
 
   @override
-  String get themeBackground => 'Background';
+  String get themeBackground => 'Mandharinyuma';
 
   @override
-  String get themeSurface => 'Surface';
+  String get themeSurface => 'Uso';
 
   @override
-  String get themeChatBubbles => 'Chat Bubbles';
+  String get themeChatBubbles => 'Viputo vya mazungumzo';
 
   @override
-  String get themeOutgoingMessage => 'Outgoing message';
+  String get themeOutgoingMessage => 'Ujumbe unaotoka';
 
   @override
-  String get themeIncomingMessage => 'Incoming message';
+  String get themeIncomingMessage => 'Ujumbe unaoingia';
 
   @override
-  String get themeShape => 'Shape';
+  String get themeShape => 'Umbo';
 
   @override
-  String get devSectionDeveloper => 'Developer';
+  String get devSectionDeveloper => 'Msanidi Programu';
 
   @override
   String get devAdapterChannelsHint =>
-      'Adapter channels — disable to test specific transports.';
+      'Chaneli za adapta — zima ili kujaribu usafiri maalum.';
 
   @override
   String get devNostrRelays => 'Nostr relays (wss://)';
@@ -3025,25 +3027,45 @@ class AppLocalizationsSw extends AppLocalizations {
   String get devFirebaseDb => 'Firebase Realtime DB';
 
   @override
-  String get devSessionNetwork => 'Session Network';
+  String get devSessionNetwork => 'Mtandao wa Session';
 
   @override
-  String get devPulseRelay => 'Pulse self-hosted relay';
+  String get devPulseRelay => 'Pulse relay ya binafsi';
 
   @override
-  String get devLanNetwork => 'Local network (UDP/TCP)';
+  String get devLanNetwork => 'Mtandao wa ndani (UDP/TCP)';
 
   @override
-  String get devSectionCalls => 'Calls';
+  String get devSectionCalls => 'Simu';
 
   @override
-  String get devForceTurnRelay => 'Force TURN relay';
+  String get devForceTurnRelay => 'Lazimisha TURN relay';
 
   @override
   String get devForceTurnRelaySubtitle =>
-      'Disable P2P — all calls via TURN servers only';
+      'Zima P2P — simu zote kupitia seva za TURN tu';
 
   @override
   String get devRestartWarning =>
-      '⚠ Changes take effect on next send/call. Restart app to apply to incoming.';
+      '⚠ Mabadiliko yatatekelezwa wakati wa kutuma/kupiga simu ijayo. Anzisha upya programu kwa zinazoingia.';
+
+  @override
+  String get messageRequest => 'Message request';
+
+  @override
+  String messageRequestFrom(String name) {
+    return 'Message request from $name';
+  }
+
+  @override
+  String get acceptContact => 'Accept';
+
+  @override
+  String get blockContact => 'Block';
+
+  @override
+  String get blockedContactsEmpty => 'No blocked contacts';
+
+  @override
+  String get pendingLimitReached => 'Too many pending requests';
 }

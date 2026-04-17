@@ -2809,121 +2809,122 @@ class AppLocalizationsUk extends AppLocalizations {
   String get replace => 'Замінити';
 
   @override
-  String get callNoScreenSources => 'No screen sources available';
+  String get callNoScreenSources => 'Немає доступних джерел екрана';
 
   @override
-  String get callScreenShareQuality => 'Screen Share Quality';
+  String get callScreenShareQuality => 'Якість демонстрації екрана';
 
   @override
-  String get callFrameRate => 'Frame rate';
+  String get callFrameRate => 'Частота кадрів';
 
   @override
-  String get callResolution => 'Resolution';
+  String get callResolution => 'Роздільність';
 
   @override
-  String get callAutoResolution => 'Auto = native screen resolution';
+  String get callAutoResolution => 'Авто = рідна роздільність екрана';
 
   @override
-  String get callStartSharing => 'Start sharing';
+  String get callStartSharing => 'Почати демонстрацію';
 
   @override
   String get callCameraUnavailable =>
-      'Camera unavailable — may be in use by another app';
+      'Камера недоступна — можливо, використовується іншим додатком';
 
   @override
-  String get themeResetToDefaults => 'Reset to defaults';
+  String get themeResetToDefaults => 'Скинути до стандартних';
 
   @override
-  String get backupSaveToDownloadsTitle => 'Save backup to Downloads?';
+  String get backupSaveToDownloadsTitle =>
+      'Зберегти резервну копію в Завантаження?';
 
   @override
   String backupSaveToDownloadsBody(String path) {
-    return 'No file picker available. The backup will be saved to:\n$path';
+    return 'Засіб вибору файлів недоступний. Резервну копію буде збережено в:\n$path';
   }
 
   @override
-  String get systemLabel => 'System';
+  String get systemLabel => 'Система';
 
   @override
-  String get next => 'Next';
+  String get next => 'Далі';
 
   @override
   String get gifLabel => 'GIF';
 
   @override
   String devTapsRemaining(int remaining) {
-    return '$remaining more taps to enable developer mode';
+    return 'Ще $remaining натискань для увімкнення режиму розробника';
   }
 
   @override
-  String get devModeEnabled => 'Developer mode enabled';
+  String get devModeEnabled => 'Режим розробника увімкнено';
 
   @override
-  String get devTools => 'Developer Tools';
+  String get devTools => 'Інструменти розробника';
 
   @override
-  String get devAdapterDiagnostics => 'Adapter toggles & diagnostics';
+  String get devAdapterDiagnostics => 'Перемикачі адаптерів та діагностика';
 
   @override
-  String get devEnableAll => 'Enable all';
+  String get devEnableAll => 'Увімкнути все';
 
   @override
-  String get devDisableAll => 'Disable all';
+  String get devDisableAll => 'Вимкнути все';
 
   @override
   String get turnUrlValidation =>
-      'TURN URL must start with turn: or turns: (max 512 chars)';
+      'URL TURN повинен починатися з turn: або turns: (макс. 512 символів)';
 
   @override
-  String get callMissedCall => 'Missed call';
+  String get callMissedCall => 'Пропущений виклик';
 
   @override
-  String get callOutgoingCall => 'Outgoing call';
+  String get callOutgoingCall => 'Вихідний виклик';
 
   @override
-  String get callIncomingCall => 'Incoming call';
+  String get callIncomingCall => 'Вхідний виклик';
 
   @override
-  String get mediaMissingData => 'Missing media data';
+  String get mediaMissingData => 'Відсутні дані медіа';
 
   @override
-  String get mediaDownloadFailed => 'Download failed';
+  String get mediaDownloadFailed => 'Помилка завантаження';
 
   @override
-  String get mediaDecryptFailed => 'Decrypt failed';
+  String get mediaDecryptFailed => 'Помилка розшифрування';
 
   @override
-  String get callEndCallBanner => 'End call';
+  String get callEndCallBanner => 'Завершити виклик';
 
   @override
-  String get meFallback => 'Me';
+  String get meFallback => 'Я';
 
   @override
-  String get imageSaveToDownloads => 'Save to Downloads';
+  String get imageSaveToDownloads => 'Зберегти в Завантаження';
 
   @override
   String imageSavedToPath(String path) {
-    return 'Saved to $path';
+    return 'Збережено в $path';
   }
 
   @override
   String get callScreenShareRequiresPermission =>
-      'Screen sharing requires permission';
+      'Для демонстрації екрана потрібен дозвіл';
 
   @override
-  String get callScreenShareUnavailable => 'Screen sharing unavailable';
+  String get callScreenShareUnavailable => 'Демонстрація екрана недоступна';
 
   @override
-  String get statusJustNow => 'Just now';
+  String get statusJustNow => 'Щойно';
 
   @override
   String statusMinutesAgo(int minutes) {
-    return '${minutes}m ago';
+    return '$minutesхв тому';
   }
 
   @override
   String statusHoursAgo(int hours) {
-    return '${hours}h ago';
+    return '$hoursгод тому';
   }
 
   @override
@@ -2931,107 +2932,128 @@ class AppLocalizationsUk extends AppLocalizations {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
-      other: '$count routes',
-      one: '1 route',
+      other: '$count маршрутів',
+      one: '1 маршрут',
     );
     return '$_temp0';
   }
 
   @override
-  String get addContactReadyToAdd => 'Ready to add';
+  String get addContactReadyToAdd => 'Готовий до додавання';
 
   @override
   String groupSelectedCount(int count) {
-    return '$count selected';
+    return '$count обрано';
   }
 
   @override
-  String get paste => 'Paste';
+  String get paste => 'Вставити';
 
   @override
-  String get sfuAudioOnly => 'Audio only';
+  String get sfuAudioOnly => 'Лише аудіо';
 
   @override
   String sfuParticipants(int count) {
-    return '$count participants';
+    return '$count учасників';
   }
 
   @override
-  String get dataUnencryptedBackup => 'Unencrypted backup';
+  String get dataUnencryptedBackup => 'Незашифрована резервна копія';
 
   @override
   String get dataUnencryptedBackupBody =>
-      'This file is an unencrypted identity backup and will overwrite your current keys. Only import files you created yourself. Proceed?';
+      'Цей файл є незашифрованою резервною копією особистості та перезапише ваші поточні ключі. Імпортуйте лише файли, створені вами. Продовжити?';
 
   @override
-  String get dataImportAnyway => 'Import anyway';
+  String get dataImportAnyway => 'Імпортувати все одно';
 
   @override
-  String get securityStorageError => 'Security storage error — restart the app';
+  String get securityStorageError =>
+      'Помилка безпечного сховища — перезапустіть додаток';
 
   @override
-  String get aboutDevModeActive => 'Developer mode active';
+  String get aboutDevModeActive => 'Режим розробника активний';
 
   @override
-  String get themeColors => 'Colors';
+  String get themeColors => 'Кольори';
 
   @override
-  String get themePrimaryAccent => 'Primary accent';
+  String get themePrimaryAccent => 'Основний акцент';
 
   @override
-  String get themeSecondaryAccent => 'Secondary accent';
+  String get themeSecondaryAccent => 'Вторинний акцент';
 
   @override
-  String get themeBackground => 'Background';
+  String get themeBackground => 'Фон';
 
   @override
-  String get themeSurface => 'Surface';
+  String get themeSurface => 'Поверхня';
 
   @override
-  String get themeChatBubbles => 'Chat Bubbles';
+  String get themeChatBubbles => 'Бульбашки чату';
 
   @override
-  String get themeOutgoingMessage => 'Outgoing message';
+  String get themeOutgoingMessage => 'Вихідне повідомлення';
 
   @override
-  String get themeIncomingMessage => 'Incoming message';
+  String get themeIncomingMessage => 'Вхідне повідомлення';
 
   @override
-  String get themeShape => 'Shape';
+  String get themeShape => 'Форма';
 
   @override
-  String get devSectionDeveloper => 'Developer';
+  String get devSectionDeveloper => 'Розробник';
 
   @override
   String get devAdapterChannelsHint =>
-      'Adapter channels — disable to test specific transports.';
+      'Канали адаптерів — вимкніть для тестування окремих транспортів.';
 
   @override
-  String get devNostrRelays => 'Nostr relays (wss://)';
+  String get devNostrRelays => 'Nostr-реле (wss://)';
 
   @override
   String get devFirebaseDb => 'Firebase Realtime DB';
 
   @override
-  String get devSessionNetwork => 'Session Network';
+  String get devSessionNetwork => 'Мережа Session';
 
   @override
-  String get devPulseRelay => 'Pulse self-hosted relay';
+  String get devPulseRelay => 'Pulse самостійно розміщений relay';
 
   @override
-  String get devLanNetwork => 'Local network (UDP/TCP)';
+  String get devLanNetwork => 'Локальна мережа (UDP/TCP)';
 
   @override
-  String get devSectionCalls => 'Calls';
+  String get devSectionCalls => 'Виклики';
 
   @override
-  String get devForceTurnRelay => 'Force TURN relay';
+  String get devForceTurnRelay => 'Примусовий TURN-relay';
 
   @override
   String get devForceTurnRelaySubtitle =>
-      'Disable P2P — all calls via TURN servers only';
+      'Вимкнути P2P — всі виклики лише через TURN-сервери';
 
   @override
   String get devRestartWarning =>
-      '⚠ Changes take effect on next send/call. Restart app to apply to incoming.';
+      '⚠ Зміни набудуть чинності при наступному надсиланні/виклику. Перезапустіть додаток для вхідних.';
+
+  @override
+  String get messageRequest => 'Message request';
+
+  @override
+  String messageRequestFrom(String name) {
+    return 'Message request from $name';
+  }
+
+  @override
+  String get acceptContact => 'Accept';
+
+  @override
+  String get blockContact => 'Block';
+
+  @override
+  String get blockedContactsEmpty => 'No blocked contacts';
+
+  @override
+  String get pendingLimitReached => 'Too many pending requests';
 }

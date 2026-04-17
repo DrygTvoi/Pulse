@@ -2809,135 +2809,136 @@ class AppLocalizationsUz extends AppLocalizations {
       'Bu kalitni xavfsiz saqlang. Uni olgan har kim hisobingizni boshqa qurilmada tiklashi mumkin.';
 
   @override
-  String get replaceIdentityTitle => 'Replace existing identity?';
+  String get replaceIdentityTitle => 'Mavjud shaxsiyatni almashtirish?';
 
   @override
   String get replaceIdentityBodyRestore =>
-      'An identity already exists on this device. Restoring will permanently replace your current Nostr key and Oxen seed. All contacts will lose the ability to reach your current address.\n\nThis cannot be undone.';
+      'Bu qurilmada shaxsiyat allaqachon mavjud. Tiklash joriy Nostr kalitingiz va Oxen urug\'ingizni butunlay almashtiradi. Barcha kontaktlar joriy manzilingizga yetib bora olmaydi.\n\nBu amalni qaytarib bo\'lmaydi.';
 
   @override
   String get replaceIdentityBodyCreate =>
-      'An identity already exists on this device. Creating a new one will permanently replace your current Nostr key and Oxen seed. All contacts will lose the ability to reach your current address.\n\nThis cannot be undone.';
+      'Bu qurilmada shaxsiyat allaqachon mavjud. Yangi yaratish joriy Nostr kalitingiz va Oxen urug\'ingizni butunlay almashtiradi. Barcha kontaktlar joriy manzilingizga yetib bora olmaydi.\n\nBu amalni qaytarib bo\'lmaydi.';
 
   @override
-  String get replace => 'Replace';
+  String get replace => 'Almashtirish';
 
   @override
-  String get callNoScreenSources => 'No screen sources available';
+  String get callNoScreenSources => 'Ekran manbalari mavjud emas';
 
   @override
-  String get callScreenShareQuality => 'Screen Share Quality';
+  String get callScreenShareQuality => 'Ekranni ulashish sifati';
 
   @override
-  String get callFrameRate => 'Frame rate';
+  String get callFrameRate => 'Kadr tezligi';
 
   @override
-  String get callResolution => 'Resolution';
+  String get callResolution => 'Ruxsat';
 
   @override
-  String get callAutoResolution => 'Auto = native screen resolution';
+  String get callAutoResolution => 'Avtomatik = ekranning asl ruxsati';
 
   @override
-  String get callStartSharing => 'Start sharing';
+  String get callStartSharing => 'Ulashishni boshlash';
 
   @override
   String get callCameraUnavailable =>
-      'Camera unavailable — may be in use by another app';
+      'Kamera mavjud emas — boshqa ilova foydalanayotgan bo\'lishi mumkin';
 
   @override
-  String get themeResetToDefaults => 'Reset to defaults';
+  String get themeResetToDefaults => 'Standartga qaytarish';
 
   @override
-  String get backupSaveToDownloadsTitle => 'Save backup to Downloads?';
+  String get backupSaveToDownloadsTitle =>
+      'Zaxira nusxani Yuklanmalarga saqlash?';
 
   @override
   String backupSaveToDownloadsBody(String path) {
-    return 'No file picker available. The backup will be saved to:\n$path';
+    return 'Fayl tanlash vositasi mavjud emas. Zaxira nusxa bu yerga saqlanadi:\n$path';
   }
 
   @override
-  String get systemLabel => 'System';
+  String get systemLabel => 'Tizim';
 
   @override
-  String get next => 'Next';
+  String get next => 'Keyingi';
 
   @override
   String get gifLabel => 'GIF';
 
   @override
   String devTapsRemaining(int remaining) {
-    return '$remaining more taps to enable developer mode';
+    return 'Dasturchi rejimini yoqish uchun yana $remaining marta bosing';
   }
 
   @override
-  String get devModeEnabled => 'Developer mode enabled';
+  String get devModeEnabled => 'Dasturchi rejimi yoqildi';
 
   @override
-  String get devTools => 'Developer Tools';
+  String get devTools => 'Dasturchi vositalari';
 
   @override
-  String get devAdapterDiagnostics => 'Adapter toggles & diagnostics';
+  String get devAdapterDiagnostics => 'Adapter kalitlari va diagnostika';
 
   @override
-  String get devEnableAll => 'Enable all';
+  String get devEnableAll => 'Barchasini yoqish';
 
   @override
-  String get devDisableAll => 'Disable all';
+  String get devDisableAll => 'Barchasini o\'chirish';
 
   @override
   String get turnUrlValidation =>
-      'TURN URL must start with turn: or turns: (max 512 chars)';
+      'TURN URL turn: yoki turns: bilan boshlanishi kerak (maksimal 512 belgi)';
 
   @override
-  String get callMissedCall => 'Missed call';
+  String get callMissedCall => 'O\'tkazib yuborilgan qo\'ng\'iroq';
 
   @override
-  String get callOutgoingCall => 'Outgoing call';
+  String get callOutgoingCall => 'Chiquvchi qo\'ng\'iroq';
 
   @override
-  String get callIncomingCall => 'Incoming call';
+  String get callIncomingCall => 'Kiruvchi qo\'ng\'iroq';
 
   @override
-  String get mediaMissingData => 'Missing media data';
+  String get mediaMissingData => 'Media ma\'lumotlar yo\'q';
 
   @override
-  String get mediaDownloadFailed => 'Download failed';
+  String get mediaDownloadFailed => 'Yuklab olish muvaffaqiyatsiz';
 
   @override
-  String get mediaDecryptFailed => 'Decrypt failed';
+  String get mediaDecryptFailed => 'Shifrlashni ochish muvaffaqiyatsiz';
 
   @override
-  String get callEndCallBanner => 'End call';
+  String get callEndCallBanner => 'Qo\'ng\'iroqni tugatish';
 
   @override
-  String get meFallback => 'Me';
+  String get meFallback => 'Men';
 
   @override
-  String get imageSaveToDownloads => 'Save to Downloads';
+  String get imageSaveToDownloads => 'Yuklanmalarga saqlash';
 
   @override
   String imageSavedToPath(String path) {
-    return 'Saved to $path';
+    return '$path ga saqlandi';
   }
 
   @override
   String get callScreenShareRequiresPermission =>
-      'Screen sharing requires permission';
+      'Ekranni ulashish uchun ruxsat kerak';
 
   @override
-  String get callScreenShareUnavailable => 'Screen sharing unavailable';
+  String get callScreenShareUnavailable => 'Ekranni ulashish mavjud emas';
 
   @override
-  String get statusJustNow => 'Just now';
+  String get statusJustNow => 'Hozirgina';
 
   @override
   String statusMinutesAgo(int minutes) {
-    return '${minutes}m ago';
+    return '$minutes daqiqa oldin';
   }
 
   @override
   String statusHoursAgo(int hours) {
-    return '${hours}h ago';
+    return '$hours soat oldin';
   }
 
   @override
@@ -2945,80 +2946,81 @@ class AppLocalizationsUz extends AppLocalizations {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
-      other: '$count routes',
-      one: '1 route',
+      other: '$count marshrut',
+      one: '1 marshrut',
     );
     return '$_temp0';
   }
 
   @override
-  String get addContactReadyToAdd => 'Ready to add';
+  String get addContactReadyToAdd => 'Qo\'shishga tayyor';
 
   @override
   String groupSelectedCount(int count) {
-    return '$count selected';
+    return '$count tanlangan';
   }
 
   @override
-  String get paste => 'Paste';
+  String get paste => 'Qo\'yish';
 
   @override
-  String get sfuAudioOnly => 'Audio only';
+  String get sfuAudioOnly => 'Faqat audio';
 
   @override
   String sfuParticipants(int count) {
-    return '$count participants';
+    return '$count ishtirokchi';
   }
 
   @override
-  String get dataUnencryptedBackup => 'Unencrypted backup';
+  String get dataUnencryptedBackup => 'Shifrlanmagan zaxira nusxa';
 
   @override
   String get dataUnencryptedBackupBody =>
-      'This file is an unencrypted identity backup and will overwrite your current keys. Only import files you created yourself. Proceed?';
+      'Bu fayl shifrlanmagan shaxsiyat zaxira nusxasi bo\'lib, joriy kalitlaringizni qayta yozadi. Faqat o\'zingiz yaratgan fayllarni import qiling. Davom etasizmi?';
 
   @override
-  String get dataImportAnyway => 'Import anyway';
+  String get dataImportAnyway => 'Baribir import qilish';
 
   @override
-  String get securityStorageError => 'Security storage error — restart the app';
+  String get securityStorageError =>
+      'Xavfsizlik xotira xatosi — ilovani qayta ishga tushiring';
 
   @override
-  String get aboutDevModeActive => 'Developer mode active';
+  String get aboutDevModeActive => 'Dasturchi rejimi faol';
 
   @override
-  String get themeColors => 'Colors';
+  String get themeColors => 'Ranglar';
 
   @override
-  String get themePrimaryAccent => 'Primary accent';
+  String get themePrimaryAccent => 'Asosiy urg\'u';
 
   @override
-  String get themeSecondaryAccent => 'Secondary accent';
+  String get themeSecondaryAccent => 'Ikkinchi darajali urg\'u';
 
   @override
-  String get themeBackground => 'Background';
+  String get themeBackground => 'Fon';
 
   @override
-  String get themeSurface => 'Surface';
+  String get themeSurface => 'Sirt';
 
   @override
-  String get themeChatBubbles => 'Chat Bubbles';
+  String get themeChatBubbles => 'Chat pufakchalari';
 
   @override
-  String get themeOutgoingMessage => 'Outgoing message';
+  String get themeOutgoingMessage => 'Chiquvchi xabar';
 
   @override
-  String get themeIncomingMessage => 'Incoming message';
+  String get themeIncomingMessage => 'Kiruvchi xabar';
 
   @override
-  String get themeShape => 'Shape';
+  String get themeShape => 'Shakl';
 
   @override
-  String get devSectionDeveloper => 'Developer';
+  String get devSectionDeveloper => 'Dasturchi';
 
   @override
   String get devAdapterChannelsHint =>
-      'Adapter channels — disable to test specific transports.';
+      'Adapter kanallari — ma\'lum transportlarni sinash uchun o\'chiring.';
 
   @override
   String get devNostrRelays => 'Nostr relays (wss://)';
@@ -3027,25 +3029,45 @@ class AppLocalizationsUz extends AppLocalizations {
   String get devFirebaseDb => 'Firebase Realtime DB';
 
   @override
-  String get devSessionNetwork => 'Session Network';
+  String get devSessionNetwork => 'Session tarmog\'i';
 
   @override
-  String get devPulseRelay => 'Pulse self-hosted relay';
+  String get devPulseRelay => 'Pulse o\'z-o\'ziga xost relay';
 
   @override
-  String get devLanNetwork => 'Local network (UDP/TCP)';
+  String get devLanNetwork => 'Mahalliy tarmoq (UDP/TCP)';
 
   @override
-  String get devSectionCalls => 'Calls';
+  String get devSectionCalls => 'Qo\'ng\'iroqlar';
 
   @override
-  String get devForceTurnRelay => 'Force TURN relay';
+  String get devForceTurnRelay => 'TURN relay majburlash';
 
   @override
   String get devForceTurnRelaySubtitle =>
-      'Disable P2P — all calls via TURN servers only';
+      'P2P o\'chirish — barcha qo\'ng\'iroqlar faqat TURN serverlar orqali';
 
   @override
   String get devRestartWarning =>
-      '⚠ Changes take effect on next send/call. Restart app to apply to incoming.';
+      '⚠ O\'zgarishlar keyingi yuborish/qo\'ng\'iroqda kuchga kiradi. Kiruvchilar uchun ilovani qayta ishga tushiring.';
+
+  @override
+  String get messageRequest => 'Message request';
+
+  @override
+  String messageRequestFrom(String name) {
+    return 'Message request from $name';
+  }
+
+  @override
+  String get acceptContact => 'Accept';
+
+  @override
+  String get blockContact => 'Block';
+
+  @override
+  String get blockedContactsEmpty => 'No blocked contacts';
+
+  @override
+  String get pendingLimitReached => 'Too many pending requests';
 }

@@ -2807,135 +2807,136 @@ class AppLocalizationsLt extends AppLocalizations {
       'Saugokite šį raktą. Bet kas, turintis jį, gali atkurti jūsų paskyrą kitame įrenginyje.';
 
   @override
-  String get replaceIdentityTitle => 'Replace existing identity?';
+  String get replaceIdentityTitle => 'Pakeisti esamą tapatybę?';
 
   @override
   String get replaceIdentityBodyRestore =>
-      'An identity already exists on this device. Restoring will permanently replace your current Nostr key and Oxen seed. All contacts will lose the ability to reach your current address.\n\nThis cannot be undone.';
+      'Šiame įrenginyje jau yra tapatybė. Atkūrimas visam laikui pakeis jūsų darbartinį Nostr raktą ir Oxen sėklą. Visi kontaktai praras galimybę pasiekti jūsų darbartinį adresą.\n\nŠio veiksmo anuliuoti negalima.';
 
   @override
   String get replaceIdentityBodyCreate =>
-      'An identity already exists on this device. Creating a new one will permanently replace your current Nostr key and Oxen seed. All contacts will lose the ability to reach your current address.\n\nThis cannot be undone.';
+      'Šiame įrenginyje jau yra tapatybė. Sukūrus naują, jūsų dabartinis Nostr raktas ir Oxen sėkla bus visam laikui pakeisti. Visi kontaktai praras galimybę pasiekti jūsų darbartinį adresą.\n\nŠio veiksmo anuliuoti negalima.';
 
   @override
-  String get replace => 'Replace';
+  String get replace => 'Pakeisti';
 
   @override
-  String get callNoScreenSources => 'No screen sources available';
+  String get callNoScreenSources => 'Nėra prienamų ekrano šaltinių';
 
   @override
-  String get callScreenShareQuality => 'Screen Share Quality';
+  String get callScreenShareQuality => 'Ekrano dalijimosi kokybė';
 
   @override
-  String get callFrameRate => 'Frame rate';
+  String get callFrameRate => 'Kadrų dažnis';
 
   @override
-  String get callResolution => 'Resolution';
+  String get callResolution => 'Raiška';
 
   @override
-  String get callAutoResolution => 'Auto = native screen resolution';
+  String get callAutoResolution => 'Automatinė = ekrano natūrali raiška';
 
   @override
-  String get callStartSharing => 'Start sharing';
+  String get callStartSharing => 'Pradėti dalintis';
 
   @override
   String get callCameraUnavailable =>
-      'Camera unavailable — may be in use by another app';
+      'Kamera nepasiekiama — gali būti naudojama kitos programos';
 
   @override
-  String get themeResetToDefaults => 'Reset to defaults';
+  String get themeResetToDefaults => 'Atkurti numatytuosius';
 
   @override
-  String get backupSaveToDownloadsTitle => 'Save backup to Downloads?';
+  String get backupSaveToDownloadsTitle =>
+      'Išsaugoti atsarginę kopiją į Atsisiuntimus?';
 
   @override
   String backupSaveToDownloadsBody(String path) {
-    return 'No file picker available. The backup will be saved to:\n$path';
+    return 'Failų pasirinkiklis nepasiekiamas. Atsarginė kopija bus išsaugota:\n$path';
   }
 
   @override
-  String get systemLabel => 'System';
+  String get systemLabel => 'Sistema';
 
   @override
-  String get next => 'Next';
+  String get next => 'Kitas';
 
   @override
   String get gifLabel => 'GIF';
 
   @override
   String devTapsRemaining(int remaining) {
-    return '$remaining more taps to enable developer mode';
+    return 'Dar $remaining bakstelejimai kūrėjo režimui įjungti';
   }
 
   @override
-  String get devModeEnabled => 'Developer mode enabled';
+  String get devModeEnabled => 'Kūrėjo režimas įjungtas';
 
   @override
-  String get devTools => 'Developer Tools';
+  String get devTools => 'Kūrėjo įrankiai';
 
   @override
-  String get devAdapterDiagnostics => 'Adapter toggles & diagnostics';
+  String get devAdapterDiagnostics => 'Adapterio perjungimai ir diagnostika';
 
   @override
-  String get devEnableAll => 'Enable all';
+  String get devEnableAll => 'Įjungti viską';
 
   @override
-  String get devDisableAll => 'Disable all';
+  String get devDisableAll => 'Išjungti viską';
 
   @override
   String get turnUrlValidation =>
-      'TURN URL must start with turn: or turns: (max 512 chars)';
+      'TURN URL turi prasidėti turn: arba turns: (maks. 512 simbolių)';
 
   @override
-  String get callMissedCall => 'Missed call';
+  String get callMissedCall => 'Praleistas skambutis';
 
   @override
-  String get callOutgoingCall => 'Outgoing call';
+  String get callOutgoingCall => 'Išeinantis skambutis';
 
   @override
-  String get callIncomingCall => 'Incoming call';
+  String get callIncomingCall => 'Įeinantis skambutis';
 
   @override
-  String get mediaMissingData => 'Missing media data';
+  String get mediaMissingData => 'Trūksta medijos duomenų';
 
   @override
-  String get mediaDownloadFailed => 'Download failed';
+  String get mediaDownloadFailed => 'Atsisiuntimas nepavyko';
 
   @override
-  String get mediaDecryptFailed => 'Decrypt failed';
+  String get mediaDecryptFailed => 'Iššifravimas nepavyko';
 
   @override
-  String get callEndCallBanner => 'End call';
+  String get callEndCallBanner => 'Baigti skambutį';
 
   @override
-  String get meFallback => 'Me';
+  String get meFallback => 'Aš';
 
   @override
-  String get imageSaveToDownloads => 'Save to Downloads';
+  String get imageSaveToDownloads => 'Išsaugoti į Atsisiuntimus';
 
   @override
   String imageSavedToPath(String path) {
-    return 'Saved to $path';
+    return 'Išsaugota į $path';
   }
 
   @override
   String get callScreenShareRequiresPermission =>
-      'Screen sharing requires permission';
+      'Ekrano dalijimuisi reikia leidimo';
 
   @override
-  String get callScreenShareUnavailable => 'Screen sharing unavailable';
+  String get callScreenShareUnavailable => 'Ekrano dalinimasis nepasiekiamas';
 
   @override
-  String get statusJustNow => 'Just now';
+  String get statusJustNow => 'Ką tik';
 
   @override
   String statusMinutesAgo(int minutes) {
-    return '${minutes}m ago';
+    return 'prieš $minutes min.';
   }
 
   @override
   String statusHoursAgo(int hours) {
-    return '${hours}h ago';
+    return 'prieš $hours val.';
   }
 
   @override
@@ -2943,83 +2944,84 @@ class AppLocalizationsLt extends AppLocalizations {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
-      other: '$count routes',
-      one: '1 route',
+      other: '$count maršrutų',
+      one: '1 maršrutas',
     );
     return '$_temp0';
   }
 
   @override
-  String get addContactReadyToAdd => 'Ready to add';
+  String get addContactReadyToAdd => 'Paruošta pridėti';
 
   @override
   String groupSelectedCount(int count) {
-    return '$count selected';
+    return '$count pasirinkta';
   }
 
   @override
-  String get paste => 'Paste';
+  String get paste => 'Įklijuoti';
 
   @override
-  String get sfuAudioOnly => 'Audio only';
+  String get sfuAudioOnly => 'Tik garsas';
 
   @override
   String sfuParticipants(int count) {
-    return '$count participants';
+    return '$count dalyvių';
   }
 
   @override
-  String get dataUnencryptedBackup => 'Unencrypted backup';
+  String get dataUnencryptedBackup => 'Nešifruota atsarginė kopija';
 
   @override
   String get dataUnencryptedBackupBody =>
-      'This file is an unencrypted identity backup and will overwrite your current keys. Only import files you created yourself. Proceed?';
+      'Šis failas yra nešifruota tapatybės atsarginė kopija ir perrašys jūsų esamus raktus. Importuokite tik savo sukurtus failus. Tęsti?';
 
   @override
-  String get dataImportAnyway => 'Import anyway';
+  String get dataImportAnyway => 'Vis tiek importuoti';
 
   @override
-  String get securityStorageError => 'Security storage error — restart the app';
+  String get securityStorageError =>
+      'Saugios saugyklos klaida — paleiskite programą iš naujo';
 
   @override
-  String get aboutDevModeActive => 'Developer mode active';
+  String get aboutDevModeActive => 'Kūrėjo režimas aktyvus';
 
   @override
-  String get themeColors => 'Colors';
+  String get themeColors => 'Spalvos';
 
   @override
-  String get themePrimaryAccent => 'Primary accent';
+  String get themePrimaryAccent => 'Pagrindinis akcentas';
 
   @override
-  String get themeSecondaryAccent => 'Secondary accent';
+  String get themeSecondaryAccent => 'Antrinis akcentas';
 
   @override
-  String get themeBackground => 'Background';
+  String get themeBackground => 'Fonas';
 
   @override
-  String get themeSurface => 'Surface';
+  String get themeSurface => 'Paviršius';
 
   @override
-  String get themeChatBubbles => 'Chat Bubbles';
+  String get themeChatBubbles => 'Pokalbio burbulai';
 
   @override
-  String get themeOutgoingMessage => 'Outgoing message';
+  String get themeOutgoingMessage => 'Išsiųstas pranešimas';
 
   @override
-  String get themeIncomingMessage => 'Incoming message';
+  String get themeIncomingMessage => 'Gautas pranešimas';
 
   @override
-  String get themeShape => 'Shape';
+  String get themeShape => 'Forma';
 
   @override
-  String get devSectionDeveloper => 'Developer';
+  String get devSectionDeveloper => 'Kūrėjas';
 
   @override
   String get devAdapterChannelsHint =>
-      'Adapter channels — disable to test specific transports.';
+      'Adapterio kanalai — išjunkite norėdami testuoti konkrečius transportus.';
 
   @override
-  String get devNostrRelays => 'Nostr relays (wss://)';
+  String get devNostrRelays => 'Nostr retransliatoriai (wss://)';
 
   @override
   String get devFirebaseDb => 'Firebase Realtime DB';
@@ -3028,22 +3030,42 @@ class AppLocalizationsLt extends AppLocalizations {
   String get devSessionNetwork => 'Session Network';
 
   @override
-  String get devPulseRelay => 'Pulse self-hosted relay';
+  String get devPulseRelay => 'Pulse savavaikiškai talpinamas retransliatorius';
 
   @override
-  String get devLanNetwork => 'Local network (UDP/TCP)';
+  String get devLanNetwork => 'Vietinis tinklas (UDP/TCP)';
 
   @override
-  String get devSectionCalls => 'Calls';
+  String get devSectionCalls => 'Skambučiai';
 
   @override
-  String get devForceTurnRelay => 'Force TURN relay';
+  String get devForceTurnRelay => 'Priverstinai naudoti TURN relay';
 
   @override
   String get devForceTurnRelaySubtitle =>
-      'Disable P2P — all calls via TURN servers only';
+      'Išjungti P2P — visi skambučiai tik per TURN serverius';
 
   @override
   String get devRestartWarning =>
-      '⚠ Changes take effect on next send/call. Restart app to apply to incoming.';
+      '⚠ Pakeitimai įsigalioja kitą kartą siunčiant/skambinant. Paleiskite programą iš naujo, kad taikytųsi gaunamiems.';
+
+  @override
+  String get messageRequest => 'Message request';
+
+  @override
+  String messageRequestFrom(String name) {
+    return 'Message request from $name';
+  }
+
+  @override
+  String get acceptContact => 'Accept';
+
+  @override
+  String get blockContact => 'Block';
+
+  @override
+  String get blockedContactsEmpty => 'No blocked contacts';
+
+  @override
+  String get pendingLimitReached => 'Too many pending requests';
 }

@@ -876,6 +876,77 @@ class _ChatScreenState extends State<ChatScreen> {
               ),
             ),
           ),
+        // Message request banner for pending contacts
+        if (_contact.isPending)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: DesignTokens.spacing14, vertical: DesignTokens.spacing14),
+            decoration: BoxDecoration(
+              color: AppTheme.surface,
+              border: Border(bottom: BorderSide(color: AppTheme.surfaceVariant, width: 0.5)),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.person_add_alt_1_rounded, color: AppTheme.primary, size: 20),
+                    const SizedBox(width: DesignTokens.spacing8),
+                    Expanded(
+                      child: Text(
+                        context.l10n.messageRequestFrom(_contact.name),
+                        style: GoogleFonts.inter(
+                          color: AppTheme.textPrimary,
+                          fontSize: DesignTokens.fontMd,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: DesignTokens.spacing10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () async {
+                          ContactManager().blockContact(_contact.id);
+                          if (mounted) {
+                            if (widget.embedded) {
+                              widget.onCloseEmbedded?.call();
+                            } else {
+                              Navigator.pop(context);
+                            }
+                          }
+                        },
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.redAccent,
+                          side: const BorderSide(color: Colors.redAccent, width: 0.5),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.radiusMedium)),
+                        ),
+                        child: Text(context.l10n.blockContact),
+                      ),
+                    ),
+                    const SizedBox(width: DesignTokens.spacing10),
+                    Expanded(
+                      child: FilledButton(
+                        onPressed: () async {
+                          final updated = _contact.copyWith(isPending: false);
+                          await context.read<IContactRepository>().updateContact(updated);
+                          if (mounted) setState(() => _contact = updated);
+                        },
+                        style: FilledButton.styleFrom(
+                          backgroundColor: AppTheme.primary,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.radiusMedium)),
+                        ),
+                        child: Text(context.l10n.acceptContact),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
         Expanded(
           child: Stack(
             children: [
@@ -1183,39 +1254,41 @@ class _ChatScreenState extends State<ChatScreen> {
             );
           },
         ),
-        MessageInputBar(
-          controller: _controller,
-          focusNode: _inputFocusNode,
-          isRecording: _isRecording,
-          recordingSeconds: _recordingSeconds,
-          replyingTo: _replyingTo,
-          editingMessageId: _editingMessageId,
-          scheduledCount: _cachedScheduledCount,
-          showEmojiPicker: _showEmojiPicker,
-          onSend: _sendMessage,
-          onAttach: () => _sendMedia(),
-          onStartRecording: _startRecording,
-          onStopRecording: _stopRecording,
-          onCancelRecording: _cancelRecording,
-          onCancelReply: () => setState(() => _replyingTo = null),
-          onCancelEdit: () => setState(() {
-            _editingMessageId = null;
-            _controller.clear();
-          }),
-          onSchedulePicker: _showSchedulePicker,
-          onShowScheduledPanel: () => menu.showScheduledPanel(
-            context: context,
-            scheduled: scheduledMsgs,
-            contact: _contact,
+        if (!_contact.isPending) ...[
+          MessageInputBar(
+            controller: _controller,
+            focusNode: _inputFocusNode,
+            isRecording: _isRecording,
+            recordingSeconds: _recordingSeconds,
+            replyingTo: _replyingTo,
+            editingMessageId: _editingMessageId,
+            scheduledCount: _cachedScheduledCount,
+            showEmojiPicker: _showEmojiPicker,
+            onSend: _sendMessage,
+            onAttach: () => _sendMedia(),
+            onStartRecording: _startRecording,
+            onStopRecording: _stopRecording,
+            onCancelRecording: _cancelRecording,
+            onCancelReply: () => setState(() => _replyingTo = null),
+            onCancelEdit: () => setState(() {
+              _editingMessageId = null;
+              _controller.clear();
+            }),
+            onSchedulePicker: _showSchedulePicker,
+            onShowScheduledPanel: () => menu.showScheduledPanel(
+              context: context,
+              scheduled: scheduledMsgs,
+              contact: _contact,
+            ),
+            onToggleEmojiPicker: _toggleEmojiPicker,
+            onRecordVideoNote: _recordVideoNote,
           ),
-          onToggleEmojiPicker: _toggleEmojiPicker,
-          onRecordVideoNote: _recordVideoNote,
-        ),
-        if (_showEmojiPicker)
-          EmojiPickerPanel(
-            onEmojiSelected: _onEmojiSelected,
-            onBackspace: _onEmojiBackspace,
-          ),
+          if (_showEmojiPicker)
+            EmojiPickerPanel(
+              onEmojiSelected: _onEmojiSelected,
+              onBackspace: _onEmojiBackspace,
+            ),
+        ],
       ])),
         if (_infoPanelOpen && widget.embedded) _buildInfoPanel(),
       ]),

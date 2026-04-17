@@ -14,6 +14,8 @@ class MessageEnvelope {
   static const String _keyBody = 'body';
   static const String _keyReplyTo = '_replyTo';
   static const String _keyMsgId = '_id';
+  static const String _keyName = '_name';
+  static const String _keyAddrs = '_addrs';
 
   final String from;
   final String body;
@@ -22,13 +24,20 @@ class MessageEnvelope {
   /// the same ID regardless of transport-layer message ID (Nostr event hash,
   /// Firebase push key, etc.). Required for cross-device reactions/deletes.
   final String? msgId;
+  /// Sender's display name — used for message requests from unknown senders.
+  final String? senderName;
+  /// Sender's full transport address map — allows receiver to create a
+  /// complete contact with all transports (Nostr, Pulse, Session, etc.).
+  final Map<String, List<String>>? senderAddresses;
 
-  const MessageEnvelope({required this.from, required this.body, this.replyTo, this.msgId});
+  const MessageEnvelope({required this.from, required this.body, this.replyTo, this.msgId, this.senderName, this.senderAddresses});
 
   /// Wrap [body] with sender address [from] into an envelope JSON string.
   static String wrap(String from, String body, {
     ({String id, String text, String sender})? replyTo,
     String? msgId,
+    String? senderName,
+    Map<String, List<String>>? senderAddresses,
   }) {
     final map = <String, dynamic>{
       _keyVersion: _version,
@@ -36,6 +45,10 @@ class MessageEnvelope {
       _keyBody: body,
     };
     if (msgId != null && msgId.isNotEmpty) map[_keyMsgId] = msgId;
+    if (senderName != null && senderName.isNotEmpty) map[_keyName] = senderName;
+    if (senderAddresses != null && senderAddresses.isNotEmpty) {
+      map[_keyAddrs] = senderAddresses.map((k, v) => MapEntry(k, List<String>.from(v)));
+    }
     if (replyTo != null) {
       map[_keyReplyTo] = {
         'id': replyTo.id,
@@ -64,7 +77,16 @@ class MessageEnvelope {
         final sender = replyMap['sender'] as String? ?? '';
         if (id.isNotEmpty) replyTo = (id: id, text: text, sender: sender);
       }
-      return MessageEnvelope(from: from, body: body, replyTo: replyTo, msgId: msgId);
+      final senderName = map[_keyName] as String?;
+      Map<String, List<String>>? senderAddresses;
+      final rawAddrs = map[_keyAddrs];
+      if (rawAddrs is Map) {
+        senderAddresses = rawAddrs.map((k, v) => MapEntry(
+          k as String,
+          (v as List).whereType<String>().toList(),
+        ));
+      }
+      return MessageEnvelope(from: from, body: body, replyTo: replyTo, msgId: msgId, senderName: senderName, senderAddresses: senderAddresses);
     } catch (_) {
       return null;
     }

@@ -178,6 +178,14 @@ class ChatTile extends StatelessWidget {
                           child: Icon(Icons.group_rounded, size: DesignTokens.fontMd, color: AppTheme.primary),
                         ),
                       ),
+                    if (contact.isPending)
+                      Positioned(bottom: -1, right: -1,
+                        child: Container(
+                          padding: const EdgeInsets.all(DesignTokens.spacing2),
+                          decoration: BoxDecoration(color: AppTheme.surface, shape: BoxShape.circle),
+                          child: Icon(Icons.schedule_rounded, size: DesignTokens.fontMd, color: AppTheme.textSecondary),
+                        ),
+                      ),
                     if (!contact.isGroup && isOnline)
                       Positioned(
                         bottom: 0, right: 0,

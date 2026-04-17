@@ -2785,135 +2785,135 @@ class AppLocalizationsDa extends AppLocalizations {
       'Opbevar denne nøgle sikkert. Enhver med den kan gendanne din konto på en anden enhed.';
 
   @override
-  String get replaceIdentityTitle => 'Replace existing identity?';
+  String get replaceIdentityTitle => 'Erstat eksisterende identitet?';
 
   @override
   String get replaceIdentityBodyRestore =>
-      'An identity already exists on this device. Restoring will permanently replace your current Nostr key and Oxen seed. All contacts will lose the ability to reach your current address.\n\nThis cannot be undone.';
+      'Der findes allerede en identitet på denne enhed. Gendannelse vil permanent erstatte din nuværende Nostr-nøgle og Oxen-seed. Alle kontakter vil miste muligheden for at nå din nuværende adresse.\n\nDette kan ikke fortrydes.';
 
   @override
   String get replaceIdentityBodyCreate =>
-      'An identity already exists on this device. Creating a new one will permanently replace your current Nostr key and Oxen seed. All contacts will lose the ability to reach your current address.\n\nThis cannot be undone.';
+      'Der findes allerede en identitet på denne enhed. Oprettelse af en ny vil permanent erstatte din nuværende Nostr-nøgle og Oxen-seed. Alle kontakter vil miste muligheden for at nå din nuværende adresse.\n\nDette kan ikke fortrydes.';
 
   @override
-  String get replace => 'Replace';
+  String get replace => 'Erstat';
 
   @override
-  String get callNoScreenSources => 'No screen sources available';
+  String get callNoScreenSources => 'Ingen skærmkilder tilgængelige';
 
   @override
-  String get callScreenShareQuality => 'Screen Share Quality';
+  String get callScreenShareQuality => 'Skærmdelingskvalitet';
 
   @override
-  String get callFrameRate => 'Frame rate';
+  String get callFrameRate => 'Billedhastighed';
 
   @override
-  String get callResolution => 'Resolution';
+  String get callResolution => 'Opløsning';
 
   @override
-  String get callAutoResolution => 'Auto = native screen resolution';
+  String get callAutoResolution => 'Auto = skærmens native opløsning';
 
   @override
-  String get callStartSharing => 'Start sharing';
+  String get callStartSharing => 'Start deling';
 
   @override
   String get callCameraUnavailable =>
-      'Camera unavailable — may be in use by another app';
+      'Kamera utilgængeligt — bruges muligvis af en anden app';
 
   @override
-  String get themeResetToDefaults => 'Reset to defaults';
+  String get themeResetToDefaults => 'Nulstil til standard';
 
   @override
-  String get backupSaveToDownloadsTitle => 'Save backup to Downloads?';
+  String get backupSaveToDownloadsTitle => 'Gem sikkerhedskopi i Overførsler?';
 
   @override
   String backupSaveToDownloadsBody(String path) {
-    return 'No file picker available. The backup will be saved to:\n$path';
+    return 'Ingen filvælger tilgængelig. Sikkerhedskopien gemmes i:\n$path';
   }
 
   @override
   String get systemLabel => 'System';
 
   @override
-  String get next => 'Next';
+  String get next => 'Næste';
 
   @override
   String get gifLabel => 'GIF';
 
   @override
   String devTapsRemaining(int remaining) {
-    return '$remaining more taps to enable developer mode';
+    return '$remaining tryk mere for at aktivere udviklertilstand';
   }
 
   @override
-  String get devModeEnabled => 'Developer mode enabled';
+  String get devModeEnabled => 'Udviklertilstand aktiveret';
 
   @override
-  String get devTools => 'Developer Tools';
+  String get devTools => 'Udviklerværktøjer';
 
   @override
-  String get devAdapterDiagnostics => 'Adapter toggles & diagnostics';
+  String get devAdapterDiagnostics => 'Adapterskift og diagnostik';
 
   @override
-  String get devEnableAll => 'Enable all';
+  String get devEnableAll => 'Aktivér alle';
 
   @override
-  String get devDisableAll => 'Disable all';
+  String get devDisableAll => 'Deaktivér alle';
 
   @override
   String get turnUrlValidation =>
-      'TURN URL must start with turn: or turns: (max 512 chars)';
+      'TURN-URL skal starte med turn: eller turns: (maks. 512 tegn)';
 
   @override
-  String get callMissedCall => 'Missed call';
+  String get callMissedCall => 'Ubesvaret opkald';
 
   @override
-  String get callOutgoingCall => 'Outgoing call';
+  String get callOutgoingCall => 'Udgående opkald';
 
   @override
-  String get callIncomingCall => 'Incoming call';
+  String get callIncomingCall => 'Indgående opkald';
 
   @override
-  String get mediaMissingData => 'Missing media data';
+  String get mediaMissingData => 'Manglende mediedata';
 
   @override
-  String get mediaDownloadFailed => 'Download failed';
+  String get mediaDownloadFailed => 'Download mislykkedes';
 
   @override
-  String get mediaDecryptFailed => 'Decrypt failed';
+  String get mediaDecryptFailed => 'Dekryptering mislykkedes';
 
   @override
-  String get callEndCallBanner => 'End call';
+  String get callEndCallBanner => 'Afslut opkald';
 
   @override
-  String get meFallback => 'Me';
+  String get meFallback => 'Mig';
 
   @override
-  String get imageSaveToDownloads => 'Save to Downloads';
+  String get imageSaveToDownloads => 'Gem i Overførsler';
 
   @override
   String imageSavedToPath(String path) {
-    return 'Saved to $path';
+    return 'Gemt i $path';
   }
 
   @override
   String get callScreenShareRequiresPermission =>
-      'Screen sharing requires permission';
+      'Skærmdeling kræver tilladelse';
 
   @override
-  String get callScreenShareUnavailable => 'Screen sharing unavailable';
+  String get callScreenShareUnavailable => 'Skærmdeling utilgængelig';
 
   @override
-  String get statusJustNow => 'Just now';
+  String get statusJustNow => 'Lige nu';
 
   @override
   String statusMinutesAgo(int minutes) {
-    return '${minutes}m ago';
+    return '${minutes}m siden';
   }
 
   @override
   String statusHoursAgo(int hours) {
-    return '${hours}h ago';
+    return '${hours}t siden';
   }
 
   @override
@@ -2921,107 +2921,127 @@ class AppLocalizationsDa extends AppLocalizations {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
-      other: '$count routes',
-      one: '1 route',
+      other: '$count ruter',
+      one: '1 rute',
     );
     return '$_temp0';
   }
 
   @override
-  String get addContactReadyToAdd => 'Ready to add';
+  String get addContactReadyToAdd => 'Klar til at tilføje';
 
   @override
   String groupSelectedCount(int count) {
-    return '$count selected';
+    return '$count valgt';
   }
 
   @override
-  String get paste => 'Paste';
+  String get paste => 'Indsæt';
 
   @override
-  String get sfuAudioOnly => 'Audio only';
+  String get sfuAudioOnly => 'Kun lyd';
 
   @override
   String sfuParticipants(int count) {
-    return '$count participants';
+    return '$count deltagere';
   }
 
   @override
-  String get dataUnencryptedBackup => 'Unencrypted backup';
+  String get dataUnencryptedBackup => 'Ukrypteret sikkerhedskopi';
 
   @override
   String get dataUnencryptedBackupBody =>
-      'This file is an unencrypted identity backup and will overwrite your current keys. Only import files you created yourself. Proceed?';
+      'Denne fil er en ukrypteret identitets-sikkerhedskopi og vil overskrive dine nuværende nøgler. Importér kun filer du selv har oprettet. Fortsæt?';
 
   @override
-  String get dataImportAnyway => 'Import anyway';
+  String get dataImportAnyway => 'Importér alligevel';
 
   @override
-  String get securityStorageError => 'Security storage error — restart the app';
+  String get securityStorageError => 'Sikkerhedslagringsfejl — genstart appen';
 
   @override
-  String get aboutDevModeActive => 'Developer mode active';
+  String get aboutDevModeActive => 'Udviklertilstand aktiv';
 
   @override
-  String get themeColors => 'Colors';
+  String get themeColors => 'Farver';
 
   @override
-  String get themePrimaryAccent => 'Primary accent';
+  String get themePrimaryAccent => 'Primær accent';
 
   @override
-  String get themeSecondaryAccent => 'Secondary accent';
+  String get themeSecondaryAccent => 'Sekundær accent';
 
   @override
-  String get themeBackground => 'Background';
+  String get themeBackground => 'Baggrund';
 
   @override
-  String get themeSurface => 'Surface';
+  String get themeSurface => 'Overflade';
 
   @override
-  String get themeChatBubbles => 'Chat Bubbles';
+  String get themeChatBubbles => 'Chatbobler';
 
   @override
-  String get themeOutgoingMessage => 'Outgoing message';
+  String get themeOutgoingMessage => 'Udgående besked';
 
   @override
-  String get themeIncomingMessage => 'Incoming message';
+  String get themeIncomingMessage => 'Indgående besked';
 
   @override
-  String get themeShape => 'Shape';
+  String get themeShape => 'Form';
 
   @override
-  String get devSectionDeveloper => 'Developer';
+  String get devSectionDeveloper => 'Udvikler';
 
   @override
   String get devAdapterChannelsHint =>
-      'Adapter channels — disable to test specific transports.';
+      'Adapterkanaler — deaktivér for at teste specifikke transporter.';
 
   @override
-  String get devNostrRelays => 'Nostr relays (wss://)';
+  String get devNostrRelays => 'Nostr-relæer (wss://)';
 
   @override
   String get devFirebaseDb => 'Firebase Realtime DB';
 
   @override
-  String get devSessionNetwork => 'Session Network';
+  String get devSessionNetwork => 'Session-netværk';
 
   @override
-  String get devPulseRelay => 'Pulse self-hosted relay';
+  String get devPulseRelay => 'Pulse selvhostet relay';
 
   @override
-  String get devLanNetwork => 'Local network (UDP/TCP)';
+  String get devLanNetwork => 'Lokalt netværk (UDP/TCP)';
 
   @override
-  String get devSectionCalls => 'Calls';
+  String get devSectionCalls => 'Opkald';
 
   @override
-  String get devForceTurnRelay => 'Force TURN relay';
+  String get devForceTurnRelay => 'Tving TURN-relay';
 
   @override
   String get devForceTurnRelaySubtitle =>
-      'Disable P2P — all calls via TURN servers only';
+      'Deaktivér P2P — alle opkald kun via TURN-servere';
 
   @override
   String get devRestartWarning =>
-      '⚠ Changes take effect on next send/call. Restart app to apply to incoming.';
+      '⚠ Ændringer træder i kraft ved næste afsendelse/opkald. Genstart appen for at anvende på indgående.';
+
+  @override
+  String get messageRequest => 'Message request';
+
+  @override
+  String messageRequestFrom(String name) {
+    return 'Message request from $name';
+  }
+
+  @override
+  String get acceptContact => 'Accept';
+
+  @override
+  String get blockContact => 'Block';
+
+  @override
+  String get blockedContactsEmpty => 'No blocked contacts';
+
+  @override
+  String get pendingLimitReached => 'Too many pending requests';
 }

@@ -1306,6 +1306,11 @@ class _HomeScreenState extends State<HomeScreen> {
           const SizedBox(width: DesignTokens.spacing12),
           Text(context.l10n.profileDeleteContact, style: GoogleFonts.inter(color: Colors.redAccent)),
         ])),
+        PopupMenuItem(value: 'block', height: 44, child: Row(children: [
+          Icon(Icons.block_rounded, color: Colors.redAccent, size: DesignTokens.iconMd),
+          const SizedBox(width: DesignTokens.spacing12),
+          Text(context.l10n.blockContact, style: GoogleFonts.inter(color: Colors.redAccent)),
+        ])),
       ],
     ).then((value) async {
       if (!mounted || value == null) return;
@@ -1317,6 +1322,9 @@ class _HomeScreenState extends State<HomeScreen> {
         chatCtrl.clearRoomHistory(c);
       } else if (value == 'delete') {
         await context.read<IContactRepository>().removeContact(c.id);
+        _loadAll();
+      } else if (value == 'block') {
+        await ContactManager().blockContact(c.id);
         _loadAll();
       }
     });

@@ -460,20 +460,40 @@ class SessionInboxReader implements InboxReader {
 
   @override
   Future<Map<String, dynamic>?> fetchPublicKeys() async {
-    if (_nodeUrl.isEmpty) return null;
+    var nodeUrl = _nodeUrl;
+    // If no node URL configured, discover via swarm lookup.
+    if (nodeUrl.isEmpty && _sessionId.isNotEmpty) {
+      final seeds = await _discoverSnodes();
+      if (seeds.isEmpty) {
+        debugPrint('[Session] fetchPublicKeys: no snodes discovered');
+        return null;
+      }
+      final swarm = await _getSwarm(_sessionId, seeds);
+      if (swarm.isEmpty) {
+        debugPrint('[Session] fetchPublicKeys: no swarm for ${_sessionId.substring(0, 8)}…');
+        return null;
+      }
+      nodeUrl = swarm.first;
+      debugPrint('[Session] fetchPublicKeys: discovered node $nodeUrl for ${_sessionId.substring(0, 8)}…');
+    }
+    if (nodeUrl.isEmpty) return null;
     try {
       final jsonBody = jsonEncode({
         'method': 'retrieve',
         'params': {'pubkey': _sessionId, 'last_hash': ''},
       });
-      final url = '$_nodeUrl/storage_rpc/v1';
+      final url = '$nodeUrl/storage_rpc/v1';
 
+      debugPrint('[Session] fetchPublicKeys: querying $url for ${_sessionId.substring(0, 8)}…');
       final res = await _client.post(
         Uri.parse(url),
         headers: {'Content-Type': 'application/json'},
         body: jsonBody,
       ).timeout(const Duration(seconds: 10));
-      if (res.statusCode != 200) return null;
+      if (res.statusCode != 200) {
+        debugPrint('[Session] fetchPublicKeys: HTTP ${res.statusCode} from $nodeUrl');
+        return null;
+      }
 
       const maxBodyBytes = 10 * 1024 * 1024; // 10 MB
       if (res.contentLength != null && res.contentLength! > maxBodyBytes) {
@@ -486,6 +506,7 @@ class SessionInboxReader implements InboxReader {
       // Storage RPC v1 returns messages at top level.
       final messages =
           ((data['messages'] as List?) ?? []).whereType<Map<String, dynamic>>().toList();
+      debugPrint('[Session] fetchPublicKeys: ${messages.length} messages from $nodeUrl');
 
       for (final item in messages.reversed) {
         try {
@@ -494,6 +515,7 @@ class SessionInboxReader implements InboxReader {
           if (raw.length > 700000) continue; // DoS guard — matches _dispatch
           final bytes = base64.decode(raw);
           final outer = jsonDecode(utf8.decode(bytes)) as Map<String, dynamic>;
+          debugPrint('[Session] fetchPublicKeys item: t=${outer['t']} type=${outer['type']}');
           if (outer['t'] == 'sig' && outer['type'] == 'sys_keys') {
             final p = outer['payload'];
             if (p is Map<String, dynamic>) return p;

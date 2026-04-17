@@ -368,6 +368,17 @@ class SignalDispatcher {
     'webrtc_reoffer', 'webrtc_reanswer',
   };
 
+  /// Signal types blocked from pending (message request) contacts.
+  /// Only safe/system signals are allowed through from pending contacts.
+  static const _blockedFromPending = <String>{
+    'relay_exchange', 'turn_exchange', 'blossom_exchange',
+    'webrtc_offer', 'webrtc_answer', 'webrtc2_offer', 'webrtc2_answer',
+    'webrtc_reoffer', 'webrtc_reanswer', 'webrtc_candidate', 'webrtc2_candidate',
+    'call_hangup', 'screen_share_start', 'screen_share_stop',
+    'addr_update', 'chunk_req', 'p2p_signal',
+    'group_invite', 'group_update', 'sender_key_dist',
+  };
+
   // ── Contact resolution ───────────────────────────────────────────────────
 
   /// Resolve a contact by senderId (full databaseId or userId part).
@@ -503,6 +514,15 @@ class SignalDispatcher {
 
         // Broadcast raw signal (for active calls).
         if (!_rawCtrl.isClosed) _rawCtrl.add(SignalRawEvent(sig));
+
+        // Gate: block sensitive signals from pending (message request) contacts.
+        if (_blockedFromPending.contains(sigType) && sigSender.isNotEmpty) {
+          final senderContact = _resolveContact(sigSender, contactByDbId);
+          if (senderContact != null && senderContact.isPending) {
+            debugPrint('[SignalDispatcher] Blocked $sigType from pending contact ${senderContact.name}');
+            continue;
+          }
+        }
 
         // ── Route by type ──────────────────────────────────────────────
         if (sigType == 'webrtc_offer') {

@@ -2736,135 +2736,133 @@ class AppLocalizationsAm extends AppLocalizations {
       'ይህን ቁልፍ ደህንነቱ በተጠበቀ ሁኔታ ያስቀምጡ። ማንኛውም ሰው ይህን ቁልፍ ካገኘ በሌላ መሣሪያ ላይ መለያዎን ሊመልስ ይችላል።';
 
   @override
-  String get replaceIdentityTitle => 'Replace existing identity?';
+  String get replaceIdentityTitle => 'ያለውን ማንነት ይተኩ?';
 
   @override
   String get replaceIdentityBodyRestore =>
-      'An identity already exists on this device. Restoring will permanently replace your current Nostr key and Oxen seed. All contacts will lose the ability to reach your current address.\n\nThis cannot be undone.';
+      'በዚህ መሣሪያ ላይ ማንነት ቀድሞ አለ። ማገገም የአሁኑን Nostr ቁልፍ እና Oxen seed ቋሚ ይተካል። ሁሉም እውቂያዎች የአሁኑን አድራሻዎን የማግኘት ችሎታ ያጣሉ።\n\nይህ ሊቀለበስ አይችልም።';
 
   @override
   String get replaceIdentityBodyCreate =>
-      'An identity already exists on this device. Creating a new one will permanently replace your current Nostr key and Oxen seed. All contacts will lose the ability to reach your current address.\n\nThis cannot be undone.';
+      'በዚህ መሣሪያ ላይ ማንነት ቀድሞ አለ። አዲስ መፍጠር የአሁኑን Nostr ቁልፍ እና Oxen seed ቋሚ ይተካል። ሁሉም እውቂያዎች የአሁኑን አድራሻዎን የማግኘት ችሎታ ያጣሉ።\n\nይህ ሊቀለበስ አይችልም።';
 
   @override
-  String get replace => 'Replace';
+  String get replace => 'ተካ';
 
   @override
-  String get callNoScreenSources => 'No screen sources available';
+  String get callNoScreenSources => 'የሚገኙ ማያ ምንጮች የሉም';
 
   @override
-  String get callScreenShareQuality => 'Screen Share Quality';
+  String get callScreenShareQuality => 'ማያ ማጋራት ጥራት';
 
   @override
-  String get callFrameRate => 'Frame rate';
+  String get callFrameRate => 'የፍሬም ፍጥነት';
 
   @override
-  String get callResolution => 'Resolution';
+  String get callResolution => 'ጥራት';
 
   @override
-  String get callAutoResolution => 'Auto = native screen resolution';
+  String get callAutoResolution => 'ራስ-ሰር = ቀዳሚ ማያ ጥራት';
 
   @override
-  String get callStartSharing => 'Start sharing';
+  String get callStartSharing => 'ማጋራት ጀምር';
 
   @override
-  String get callCameraUnavailable =>
-      'Camera unavailable — may be in use by another app';
+  String get callCameraUnavailable => 'ካሜራ አይገኝም — በሌላ መተግበሪያ ጥቅም ላይ ሊሆን ይችላል';
 
   @override
-  String get themeResetToDefaults => 'Reset to defaults';
+  String get themeResetToDefaults => 'ወደ ነባሪ ዳግም አስጀምር';
 
   @override
-  String get backupSaveToDownloadsTitle => 'Save backup to Downloads?';
+  String get backupSaveToDownloadsTitle => 'ምትኬ ወደ ውርዶች ይቀመጥ?';
 
   @override
   String backupSaveToDownloadsBody(String path) {
-    return 'No file picker available. The backup will be saved to:\n$path';
+    return 'ፋይል መምረጫ የለም። ምትኬው ይቀመጣል በ:\n$path';
   }
 
   @override
-  String get systemLabel => 'System';
+  String get systemLabel => 'ስርዓት';
 
   @override
-  String get next => 'Next';
+  String get next => 'ቀጣይ';
 
   @override
   String get gifLabel => 'GIF';
 
   @override
   String devTapsRemaining(int remaining) {
-    return '$remaining more taps to enable developer mode';
+    return 'የገንቢ ሁነታን ለማንቃት ተጨማሪ $remaining ንካ';
   }
 
   @override
-  String get devModeEnabled => 'Developer mode enabled';
+  String get devModeEnabled => 'የገንቢ ሁነታ ነቅቷል';
 
   @override
-  String get devTools => 'Developer Tools';
+  String get devTools => 'የገንቢ መሣሪያዎች';
 
   @override
-  String get devAdapterDiagnostics => 'Adapter toggles & diagnostics';
+  String get devAdapterDiagnostics => 'አስማሚ ማብሪያ/ማጥፊያ እና ምርመራ';
 
   @override
-  String get devEnableAll => 'Enable all';
+  String get devEnableAll => 'ሁሉንም አንቃ';
 
   @override
-  String get devDisableAll => 'Disable all';
+  String get devDisableAll => 'ሁሉንም አቦዝን';
 
   @override
   String get turnUrlValidation =>
-      'TURN URL must start with turn: or turns: (max 512 chars)';
+      'የ TURN URL turn: ወይም turns: መጀመር አለበት (ከፍ. 512 ቁምፊ)';
 
   @override
-  String get callMissedCall => 'Missed call';
+  String get callMissedCall => 'ያመለጠ ጥሪ';
 
   @override
-  String get callOutgoingCall => 'Outgoing call';
+  String get callOutgoingCall => 'ወጪ ጥሪ';
 
   @override
-  String get callIncomingCall => 'Incoming call';
+  String get callIncomingCall => 'ገቢ ጥሪ';
 
   @override
-  String get mediaMissingData => 'Missing media data';
+  String get mediaMissingData => 'የሚዲያ ውሂብ ይጎድላል';
 
   @override
-  String get mediaDownloadFailed => 'Download failed';
+  String get mediaDownloadFailed => 'ማውረድ አልተሳካም';
 
   @override
-  String get mediaDecryptFailed => 'Decrypt failed';
+  String get mediaDecryptFailed => 'ዲክሪፕት አልተሳካም';
 
   @override
-  String get callEndCallBanner => 'End call';
+  String get callEndCallBanner => 'ጥሪ ያቁሙ';
 
   @override
-  String get meFallback => 'Me';
+  String get meFallback => 'እኔ';
 
   @override
-  String get imageSaveToDownloads => 'Save to Downloads';
+  String get imageSaveToDownloads => 'ወደ ውርዶች ያስቀምጡ';
 
   @override
   String imageSavedToPath(String path) {
-    return 'Saved to $path';
+    return 'ተቀምጧል በ $path';
   }
 
   @override
-  String get callScreenShareRequiresPermission =>
-      'Screen sharing requires permission';
+  String get callScreenShareRequiresPermission => 'ማያ ማጋራት ፈቃድ ያስፈልጋል';
 
   @override
-  String get callScreenShareUnavailable => 'Screen sharing unavailable';
+  String get callScreenShareUnavailable => 'ማያ ማጋራት አይገኝም';
 
   @override
-  String get statusJustNow => 'Just now';
+  String get statusJustNow => 'አሁን';
 
   @override
   String statusMinutesAgo(int minutes) {
-    return '${minutes}m ago';
+    return 'ከ$minutesደ በፊት';
   }
 
   @override
   String statusHoursAgo(int hours) {
-    return '${hours}h ago';
+    return 'ከ$hoursሰ በፊት';
   }
 
   @override
@@ -2872,80 +2870,79 @@ class AppLocalizationsAm extends AppLocalizations {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
-      other: '$count routes',
-      one: '1 route',
+      other: '$count መንገዶች',
+      one: '1 መንገድ',
     );
     return '$_temp0';
   }
 
   @override
-  String get addContactReadyToAdd => 'Ready to add';
+  String get addContactReadyToAdd => 'ለመጨመር ዝግጁ';
 
   @override
   String groupSelectedCount(int count) {
-    return '$count selected';
+    return '$count ተመርጠዋል';
   }
 
   @override
-  String get paste => 'Paste';
+  String get paste => 'ለጥፍ';
 
   @override
-  String get sfuAudioOnly => 'Audio only';
+  String get sfuAudioOnly => 'ድምፅ ብቻ';
 
   @override
   String sfuParticipants(int count) {
-    return '$count participants';
+    return '$count ተሳታፊዎች';
   }
 
   @override
-  String get dataUnencryptedBackup => 'Unencrypted backup';
+  String get dataUnencryptedBackup => 'ያልተመሰጠረ ምትኬ';
 
   @override
   String get dataUnencryptedBackupBody =>
-      'This file is an unencrypted identity backup and will overwrite your current keys. Only import files you created yourself. Proceed?';
+      'ይህ ፋይል ያልተመሰጠረ የማንነት ምትኬ ሲሆን የአሁኑን ቁልፎችዎን ይተካል። የፈጠሩዋቸውን ፋይሎች ብቻ ያስገቡ። ይቀጥሉ?';
 
   @override
-  String get dataImportAnyway => 'Import anyway';
+  String get dataImportAnyway => 'ቢሆንም አስገባ';
 
   @override
-  String get securityStorageError => 'Security storage error — restart the app';
+  String get securityStorageError => 'የደህንነት ማከማቻ ስህተት — መተግበሪያውን እንደገና ያስጀምሩ';
 
   @override
-  String get aboutDevModeActive => 'Developer mode active';
+  String get aboutDevModeActive => 'የገንቢ ሁነታ ንቁ';
 
   @override
-  String get themeColors => 'Colors';
+  String get themeColors => 'ቀለሞች';
 
   @override
-  String get themePrimaryAccent => 'Primary accent';
+  String get themePrimaryAccent => 'ዋና አድምቂ';
 
   @override
-  String get themeSecondaryAccent => 'Secondary accent';
+  String get themeSecondaryAccent => 'ሁለተኛ አድምቂ';
 
   @override
-  String get themeBackground => 'Background';
+  String get themeBackground => 'ዳራ';
 
   @override
-  String get themeSurface => 'Surface';
+  String get themeSurface => 'ወለል';
 
   @override
-  String get themeChatBubbles => 'Chat Bubbles';
+  String get themeChatBubbles => 'ውይይት አረፋዎች';
 
   @override
-  String get themeOutgoingMessage => 'Outgoing message';
+  String get themeOutgoingMessage => 'ወጪ መልዕክት';
 
   @override
-  String get themeIncomingMessage => 'Incoming message';
+  String get themeIncomingMessage => 'ገቢ መልዕክት';
 
   @override
-  String get themeShape => 'Shape';
+  String get themeShape => 'ቅርፅ';
 
   @override
-  String get devSectionDeveloper => 'Developer';
+  String get devSectionDeveloper => 'ገንቢ';
 
   @override
-  String get devAdapterChannelsHint =>
-      'Adapter channels — disable to test specific transports.';
+  String get devAdapterChannelsHint => 'አስማሚ ቻናሎች — የተወሰኑ ማጓጓዣዎችን ለመሞከር አቦዝን።';
 
   @override
   String get devNostrRelays => 'Nostr relays (wss://)';
@@ -2954,25 +2951,45 @@ class AppLocalizationsAm extends AppLocalizations {
   String get devFirebaseDb => 'Firebase Realtime DB';
 
   @override
-  String get devSessionNetwork => 'Session Network';
+  String get devSessionNetwork => 'Session አውታረ መረብ';
 
   @override
-  String get devPulseRelay => 'Pulse self-hosted relay';
+  String get devPulseRelay => 'Pulse ራስ-ያስተናገደ relay';
 
   @override
-  String get devLanNetwork => 'Local network (UDP/TCP)';
+  String get devLanNetwork => 'የአካባቢ አውታረ መረብ (UDP/TCP)';
 
   @override
-  String get devSectionCalls => 'Calls';
+  String get devSectionCalls => 'ጥሪዎች';
 
   @override
-  String get devForceTurnRelay => 'Force TURN relay';
+  String get devForceTurnRelay => 'TURN relay አስገድድ';
 
   @override
   String get devForceTurnRelaySubtitle =>
-      'Disable P2P — all calls via TURN servers only';
+      'P2P አቦዝን — ሁሉም ጥሪዎች በ TURN አገልጋዮች ብቻ';
 
   @override
   String get devRestartWarning =>
-      '⚠ Changes take effect on next send/call. Restart app to apply to incoming.';
+      '⚠ ለውጦች በሚቀጥለው ልኬት/ጥሪ ተግባራዊ ይሆናሉ። ለገቢ ለመተግበር መተግበሪያውን እንደገና ያስጀምሩ።';
+
+  @override
+  String get messageRequest => 'Message request';
+
+  @override
+  String messageRequestFrom(String name) {
+    return 'Message request from $name';
+  }
+
+  @override
+  String get acceptContact => 'Accept';
+
+  @override
+  String get blockContact => 'Block';
+
+  @override
+  String get blockedContactsEmpty => 'No blocked contacts';
+
+  @override
+  String get pendingLimitReached => 'Too many pending requests';
 }

@@ -1043,7 +1043,7 @@ class NostrInboxReader implements InboxReader {
             final data = jsonDecode(raw as String) as List;
             if (data.isEmpty) continue;
             final cmd = data[0] as String;
-            if (cmd == 'EOSE' || cmd == 'NOTICE' || cmd == 'CLOSED') continue;
+            if (cmd == 'NOTICE' || cmd == 'CLOSED') continue;
             if (cmd == 'AUTH' && data.length >= 2) {
               final rawC = data[1] as String?;
               if (rawC != null && rawC.length <= 256 && _privateKeyHex.isNotEmpty) {
@@ -1058,6 +1058,32 @@ class NostrInboxReader implements InboxReader {
               if (c != null && !c.isCompleted) c.complete(accepted);
               continue;
             }
+            // Dispatch pending fetchPublicKeys responses (pool-based key fetch).
+            if (data.length >= 2) {
+              final incomingSubId = data[1] as String?;
+              if (incomingSubId != null && incomingSubId != subId) {
+                final fetchCompleter = _pendingKeyFetches[incomingSubId];
+                if (fetchCompleter != null && !fetchCompleter.isCompleted) {
+                  if (cmd == 'EVENT' && data.length >= 3) {
+                    try {
+                      final fetchEvent = data[2] as Map<String, dynamic>;
+                      if (!eb.verifyEventSignature(fetchEvent)) {
+                        debugPrint('[Nostr] fetchPublicKeys secondary: invalid sig — dropped');
+                      } else {
+                        final bundle = jsonDecode(fetchEvent['content'] as String) as Map<String, dynamic>;
+                        fetchCompleter.complete(bundle);
+                      }
+                    } catch (e) {
+                      debugPrint('[Nostr] fetchPublicKeys secondary parse error: $e');
+                    }
+                  } else if (cmd == 'EOSE') {
+                    fetchCompleter.complete(null);
+                  }
+                  continue;
+                }
+              }
+            }
+            if (cmd == 'EOSE') continue;
             if (data.length < 3 || cmd != 'EVENT') continue;
             final event = data[2] as Map<String, dynamic>?;
             if (event == null) continue;
@@ -1601,7 +1627,11 @@ class NostrInboxReader implements InboxReader {
   /// only if the shared loop isn't running.
   @override
   Future<Map<String, dynamic>?> fetchPublicKeys() async {
-    if (_publicKeyHex.isEmpty || _relayUrl.isEmpty) return null;
+    if (_publicKeyHex.isEmpty || _relayUrl.isEmpty) {
+      debugPrint('[Nostr] fetchPublicKeys: skip (pubkey=${_publicKeyHex.isEmpty ? "empty" : "ok"}, relay=${_relayUrl.isEmpty ? "empty" : _relayUrl})');
+      return null;
+    }
+    debugPrint('[Nostr] fetchPublicKeys: pubkey=${_publicKeyHex.substring(0, 8)}… relay=$_relayUrl');
 
     final activeChannel = _activeChannel;
     final subId = 'keys_${DateTime.now().millisecondsSinceEpoch}_${Random.secure().nextInt(0xFFFFFF).toRadixString(16)}';

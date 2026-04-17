@@ -1884,5 +1884,22 @@
   "devForceTurnRelaySubtitle": "Disable P2P \u2014 all calls via TURN servers only",
   "@devForceTurnRelaySubtitle": { "description": "Subtitle for force TURN relay toggle" },
   "devRestartWarning": "\u26a0 Changes take effect on next send/call. Restart app to apply to incoming.",
-  "@devRestartWarning": { "description": "Warning text about dev toggle changes needing restart" }
+  "@devRestartWarning": { "description": "Warning text about dev toggle changes needing restart" },
+
+  "messageRequest": "Message request",
+  "@messageRequest": { "description": "Label for a message request from an unknown sender" },
+  "messageRequestFrom": "Message request from {name}",
+  "@messageRequestFrom": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "acceptContact": "Accept",
+  "@acceptContact": { "description": "Button to accept a message request" },
+  "blockContact": "Block",
+  "@blockContact": { "description": "Button to block a contact" },
+  "blockedContactsEmpty": "No blocked contacts",
+  "@blockedContactsEmpty": { "description": "Empty state for blocked contacts list" },
+  "pendingLimitReached": "Too many pending requests",
+  "@pendingLimitReached": { "description": "Error when pending contact limit is reached" }
 }

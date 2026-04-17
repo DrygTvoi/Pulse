@@ -2764,135 +2764,135 @@ class AppLocalizationsTh extends AppLocalizations {
       'เก็บคีย์นี้ไว้อย่างปลอดภัย ใครก็ตามที่มีมันสามารถกู้คืนบัญชีของคุณบนอุปกรณ์อื่นได้';
 
   @override
-  String get replaceIdentityTitle => 'Replace existing identity?';
+  String get replaceIdentityTitle => 'แทนที่ตัวตนที่มีอยู่?';
 
   @override
   String get replaceIdentityBodyRestore =>
-      'An identity already exists on this device. Restoring will permanently replace your current Nostr key and Oxen seed. All contacts will lose the ability to reach your current address.\n\nThis cannot be undone.';
+      'มีตัวตนอยู่แล้วบนอุปกรณ์นี้ การกู้คืนจะแทนที่คีย์ Nostr และ seed ของ Oxen ปัจจุบันอย่างถาวร ผู้ติดต่อทั้งหมดจะไม่สามารถเข้าถึงที่อยู่ปัจจุบันของคุณได้\n\nไม่สามารถเลิกทำได้';
 
   @override
   String get replaceIdentityBodyCreate =>
-      'An identity already exists on this device. Creating a new one will permanently replace your current Nostr key and Oxen seed. All contacts will lose the ability to reach your current address.\n\nThis cannot be undone.';
+      'มีตัวตนอยู่แล้วบนอุปกรณ์นี้ การสร้างใหม่จะแทนที่คีย์ Nostr และ seed ของ Oxen ปัจจุบันอย่างถาวร ผู้ติดต่อทั้งหมดจะไม่สามารถเข้าถึงที่อยู่ปัจจุบันของคุณได้\n\nไม่สามารถเลิกทำได้';
 
   @override
-  String get replace => 'Replace';
+  String get replace => 'แทนที่';
 
   @override
-  String get callNoScreenSources => 'No screen sources available';
+  String get callNoScreenSources => 'ไม่มีแหล่งหน้าจอที่ใช้ได้';
 
   @override
-  String get callScreenShareQuality => 'Screen Share Quality';
+  String get callScreenShareQuality => 'คุณภาพการแชร์หน้าจอ';
 
   @override
-  String get callFrameRate => 'Frame rate';
+  String get callFrameRate => 'อัตราเฟรม';
 
   @override
-  String get callResolution => 'Resolution';
+  String get callResolution => 'ความละเอียด';
 
   @override
-  String get callAutoResolution => 'Auto = native screen resolution';
+  String get callAutoResolution => 'อัตโนมัติ = ความละเอียดหน้าจอดั้งเดิม';
 
   @override
-  String get callStartSharing => 'Start sharing';
+  String get callStartSharing => 'เริ่มแชร์';
 
   @override
   String get callCameraUnavailable =>
-      'Camera unavailable — may be in use by another app';
+      'กล้องไม่พร้อมใช้งาน — อาจถูกใช้โดยแอปอื่น';
 
   @override
-  String get themeResetToDefaults => 'Reset to defaults';
+  String get themeResetToDefaults => 'รีเซ็ตเป็นค่าเริ่มต้น';
 
   @override
-  String get backupSaveToDownloadsTitle => 'Save backup to Downloads?';
+  String get backupSaveToDownloadsTitle => 'บันทึกข้อมูลสำรองไปยังดาวน์โหลด?';
 
   @override
   String backupSaveToDownloadsBody(String path) {
-    return 'No file picker available. The backup will be saved to:\n$path';
+    return 'ตัวเลือกไฟล์ไม่พร้อมใช้งาน ข้อมูลสำรองจะถูกบันทึกไปที่:\n$path';
   }
 
   @override
-  String get systemLabel => 'System';
+  String get systemLabel => 'ระบบ';
 
   @override
-  String get next => 'Next';
+  String get next => 'ถัดไป';
 
   @override
   String get gifLabel => 'GIF';
 
   @override
   String devTapsRemaining(int remaining) {
-    return '$remaining more taps to enable developer mode';
+    return 'แตะอีก $remaining ครั้งเพื่อเปิดโหมดนักพัฒนา';
   }
 
   @override
-  String get devModeEnabled => 'Developer mode enabled';
+  String get devModeEnabled => 'เปิดใช้งานโหมดนักพัฒนาแล้ว';
 
   @override
-  String get devTools => 'Developer Tools';
+  String get devTools => 'เครื่องมือนักพัฒนา';
 
   @override
-  String get devAdapterDiagnostics => 'Adapter toggles & diagnostics';
+  String get devAdapterDiagnostics => 'สวิตช์อะแดปเตอร์และการวินิจฉัย';
 
   @override
-  String get devEnableAll => 'Enable all';
+  String get devEnableAll => 'เปิดทั้งหมด';
 
   @override
-  String get devDisableAll => 'Disable all';
+  String get devDisableAll => 'ปิดทั้งหมด';
 
   @override
   String get turnUrlValidation =>
-      'TURN URL must start with turn: or turns: (max 512 chars)';
+      'TURN URL ต้องเริ่มต้นด้วย turn: หรือ turns: (สูงสุด 512 ตัวอักษร)';
 
   @override
-  String get callMissedCall => 'Missed call';
+  String get callMissedCall => 'สายที่ไม่ได้รับ';
 
   @override
-  String get callOutgoingCall => 'Outgoing call';
+  String get callOutgoingCall => 'สายโทรออก';
 
   @override
-  String get callIncomingCall => 'Incoming call';
+  String get callIncomingCall => 'สายเรียกเข้า';
 
   @override
-  String get mediaMissingData => 'Missing media data';
+  String get mediaMissingData => 'ข้อมูลสื่อหายไป';
 
   @override
-  String get mediaDownloadFailed => 'Download failed';
+  String get mediaDownloadFailed => 'ดาวน์โหลดล้มเหลว';
 
   @override
-  String get mediaDecryptFailed => 'Decrypt failed';
+  String get mediaDecryptFailed => 'ถอดรหัสล้มเหลว';
 
   @override
-  String get callEndCallBanner => 'End call';
+  String get callEndCallBanner => 'วางสาย';
 
   @override
-  String get meFallback => 'Me';
+  String get meFallback => 'ฉัน';
 
   @override
-  String get imageSaveToDownloads => 'Save to Downloads';
+  String get imageSaveToDownloads => 'บันทึกไปยังดาวน์โหลด';
 
   @override
   String imageSavedToPath(String path) {
-    return 'Saved to $path';
+    return 'บันทึกไปที่ $path';
   }
 
   @override
   String get callScreenShareRequiresPermission =>
-      'Screen sharing requires permission';
+      'การแชร์หน้าจอต้องการสิทธิ์อนุญาต';
 
   @override
-  String get callScreenShareUnavailable => 'Screen sharing unavailable';
+  String get callScreenShareUnavailable => 'การแชร์หน้าจอไม่พร้อมใช้งาน';
 
   @override
-  String get statusJustNow => 'Just now';
+  String get statusJustNow => 'เมื่อสักครู่';
 
   @override
   String statusMinutesAgo(int minutes) {
-    return '${minutes}m ago';
+    return '$minutes นาทีที่แล้ว';
   }
 
   @override
   String statusHoursAgo(int hours) {
-    return '${hours}h ago';
+    return '$hours ชม. ที่แล้ว';
   }
 
   @override
@@ -2900,80 +2900,81 @@ class AppLocalizationsTh extends AppLocalizations {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
-      other: '$count routes',
-      one: '1 route',
+      other: '$count เส้นทาง',
+      one: '1 เส้นทาง',
     );
     return '$_temp0';
   }
 
   @override
-  String get addContactReadyToAdd => 'Ready to add';
+  String get addContactReadyToAdd => 'พร้อมที่จะเพิ่ม';
 
   @override
   String groupSelectedCount(int count) {
-    return '$count selected';
+    return 'เลือก $count รายการ';
   }
 
   @override
-  String get paste => 'Paste';
+  String get paste => 'วาง';
 
   @override
-  String get sfuAudioOnly => 'Audio only';
+  String get sfuAudioOnly => 'เสียงเท่านั้น';
 
   @override
   String sfuParticipants(int count) {
-    return '$count participants';
+    return 'ผู้เข้าร่วม $count คน';
   }
 
   @override
-  String get dataUnencryptedBackup => 'Unencrypted backup';
+  String get dataUnencryptedBackup => 'ข้อมูลสำรองที่ไม่ได้เข้ารหัส';
 
   @override
   String get dataUnencryptedBackupBody =>
-      'This file is an unencrypted identity backup and will overwrite your current keys. Only import files you created yourself. Proceed?';
+      'ไฟล์นี้เป็นข้อมูลสำรองตัวตนที่ไม่ได้เข้ารหัสและจะเขียนทับคีย์ปัจจุบันของคุณ นำเข้าเฉพาะไฟล์ที่คุณสร้างเองเท่านั้น ดำเนินการต่อ?';
 
   @override
-  String get dataImportAnyway => 'Import anyway';
+  String get dataImportAnyway => 'นำเข้าอยู่ดี';
 
   @override
-  String get securityStorageError => 'Security storage error — restart the app';
+  String get securityStorageError =>
+      'ข้อผิดพลาดที่เก็บข้อมูลความปลอดภัย — รีสตาร์ทแอป';
 
   @override
-  String get aboutDevModeActive => 'Developer mode active';
+  String get aboutDevModeActive => 'โหมดนักพัฒนาเปิดใช้งานอยู่';
 
   @override
-  String get themeColors => 'Colors';
+  String get themeColors => 'สี';
 
   @override
-  String get themePrimaryAccent => 'Primary accent';
+  String get themePrimaryAccent => 'สีเน้นหลัก';
 
   @override
-  String get themeSecondaryAccent => 'Secondary accent';
+  String get themeSecondaryAccent => 'สีเน้นรอง';
 
   @override
-  String get themeBackground => 'Background';
+  String get themeBackground => 'พื้นหลัง';
 
   @override
-  String get themeSurface => 'Surface';
+  String get themeSurface => 'พื้นผิว';
 
   @override
-  String get themeChatBubbles => 'Chat Bubbles';
+  String get themeChatBubbles => 'บับเบิลแชท';
 
   @override
-  String get themeOutgoingMessage => 'Outgoing message';
+  String get themeOutgoingMessage => 'ข้อความออก';
 
   @override
-  String get themeIncomingMessage => 'Incoming message';
+  String get themeIncomingMessage => 'ข้อความเข้า';
 
   @override
-  String get themeShape => 'Shape';
+  String get themeShape => 'รูปร่าง';
 
   @override
-  String get devSectionDeveloper => 'Developer';
+  String get devSectionDeveloper => 'นักพัฒนา';
 
   @override
   String get devAdapterChannelsHint =>
-      'Adapter channels — disable to test specific transports.';
+      'ช่องอะแดปเตอร์ — ปิดเพื่อทดสอบการส่งข้อมูลเฉพาะ';
 
   @override
   String get devNostrRelays => 'Nostr relays (wss://)';
@@ -2982,25 +2983,45 @@ class AppLocalizationsTh extends AppLocalizations {
   String get devFirebaseDb => 'Firebase Realtime DB';
 
   @override
-  String get devSessionNetwork => 'Session Network';
+  String get devSessionNetwork => 'เครือข่าย Session';
 
   @override
-  String get devPulseRelay => 'Pulse self-hosted relay';
+  String get devPulseRelay => 'Pulse relay โฮสต์เอง';
 
   @override
-  String get devLanNetwork => 'Local network (UDP/TCP)';
+  String get devLanNetwork => 'เครือข่ายท้องถิ่น (UDP/TCP)';
 
   @override
-  String get devSectionCalls => 'Calls';
+  String get devSectionCalls => 'การโทร';
 
   @override
-  String get devForceTurnRelay => 'Force TURN relay';
+  String get devForceTurnRelay => 'บังคับใช้ TURN relay';
 
   @override
   String get devForceTurnRelaySubtitle =>
-      'Disable P2P — all calls via TURN servers only';
+      'ปิด P2P — สายทั้งหมดผ่านเซิร์ฟเวอร์ TURN เท่านั้น';
 
   @override
   String get devRestartWarning =>
-      '⚠ Changes take effect on next send/call. Restart app to apply to incoming.';
+      '⚠ การเปลี่ยนแปลงจะมีผลในการส่ง/โทรครั้งถัดไป รีสตาร์ทแอปเพื่อใช้กับสายเข้า';
+
+  @override
+  String get messageRequest => 'Message request';
+
+  @override
+  String messageRequestFrom(String name) {
+    return 'Message request from $name';
+  }
+
+  @override
+  String get acceptContact => 'Accept';
+
+  @override
+  String get blockContact => 'Block';
+
+  @override
+  String get blockedContactsEmpty => 'No blocked contacts';
+
+  @override
+  String get pendingLimitReached => 'Too many pending requests';
 }

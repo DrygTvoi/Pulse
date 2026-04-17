@@ -2807,135 +2807,135 @@ class AppLocalizationsHu extends AppLocalizations {
       'Tartsa biztonságban ezt a kulcsot. Bárki, aki birtokolja, visszaállíthatja a fiókját egy másik eszközön.';
 
   @override
-  String get replaceIdentityTitle => 'Replace existing identity?';
+  String get replaceIdentityTitle => 'Meglévő identitás cseréje?';
 
   @override
   String get replaceIdentityBodyRestore =>
-      'An identity already exists on this device. Restoring will permanently replace your current Nostr key and Oxen seed. All contacts will lose the ability to reach your current address.\n\nThis cannot be undone.';
+      'Ezen az eszközön már létezik egy identitás. A visszaállítás véglegesen lecseréli a jelenlegi Nostr kulcsát és Oxen seedjét. Minden névjegy elveszíti a képességet, hogy elérje a jelenlegi címét.\n\nEz nem vonható vissza.';
 
   @override
   String get replaceIdentityBodyCreate =>
-      'An identity already exists on this device. Creating a new one will permanently replace your current Nostr key and Oxen seed. All contacts will lose the ability to reach your current address.\n\nThis cannot be undone.';
+      'Ezen az eszközön már létezik egy identitás. Új létrehozása véglegesen lecseréli a jelenlegi Nostr kulcsát és Oxen seedjét. Minden névjegy elveszíti a képességet, hogy elérje a jelenlegi címét.\n\nEz nem vonható vissza.';
 
   @override
-  String get replace => 'Replace';
+  String get replace => 'Csere';
 
   @override
-  String get callNoScreenSources => 'No screen sources available';
+  String get callNoScreenSources => 'Nem érhetők el képernyőforrások';
 
   @override
-  String get callScreenShareQuality => 'Screen Share Quality';
+  String get callScreenShareQuality => 'Képernyőmegosztás minősége';
 
   @override
-  String get callFrameRate => 'Frame rate';
+  String get callFrameRate => 'Képkockasebesség';
 
   @override
-  String get callResolution => 'Resolution';
+  String get callResolution => 'Felbontás';
 
   @override
-  String get callAutoResolution => 'Auto = native screen resolution';
+  String get callAutoResolution => 'Auto = natív képernyőfelbontás';
 
   @override
-  String get callStartSharing => 'Start sharing';
+  String get callStartSharing => 'Megosztás indítása';
 
   @override
   String get callCameraUnavailable =>
-      'Camera unavailable — may be in use by another app';
+      'Kamera nem érhető el — másik alkalmazás használhatja';
 
   @override
-  String get themeResetToDefaults => 'Reset to defaults';
+  String get themeResetToDefaults => 'Alapértékek visszaállítása';
 
   @override
-  String get backupSaveToDownloadsTitle => 'Save backup to Downloads?';
+  String get backupSaveToDownloadsTitle => 'Mentés a Letöltések mappába?';
 
   @override
   String backupSaveToDownloadsBody(String path) {
-    return 'No file picker available. The backup will be saved to:\n$path';
+    return 'Fájlválasztó nem érhető el. A biztonsági mentés ide lesz mentve:\n$path';
   }
 
   @override
-  String get systemLabel => 'System';
+  String get systemLabel => 'Rendszer';
 
   @override
-  String get next => 'Next';
+  String get next => 'Tovább';
 
   @override
   String get gifLabel => 'GIF';
 
   @override
   String devTapsRemaining(int remaining) {
-    return '$remaining more taps to enable developer mode';
+    return 'Még $remaining érintés a fejlesztői mód engedélyezéséhez';
   }
 
   @override
-  String get devModeEnabled => 'Developer mode enabled';
+  String get devModeEnabled => 'Fejlesztői mód engedélyezve';
 
   @override
-  String get devTools => 'Developer Tools';
+  String get devTools => 'Fejlesztői eszközök';
 
   @override
-  String get devAdapterDiagnostics => 'Adapter toggles & diagnostics';
+  String get devAdapterDiagnostics => 'Adapter kapcsolók és diagnosztika';
 
   @override
-  String get devEnableAll => 'Enable all';
+  String get devEnableAll => 'Mind engedélyezése';
 
   @override
-  String get devDisableAll => 'Disable all';
+  String get devDisableAll => 'Mind letiltása';
 
   @override
   String get turnUrlValidation =>
-      'TURN URL must start with turn: or turns: (max 512 chars)';
+      'A TURN URL-nek turn: vagy turns: előtaggal kell kezdődnie (max. 512 karakter)';
 
   @override
-  String get callMissedCall => 'Missed call';
+  String get callMissedCall => 'Nem fogadott hívás';
 
   @override
-  String get callOutgoingCall => 'Outgoing call';
+  String get callOutgoingCall => 'Kimenő hívás';
 
   @override
-  String get callIncomingCall => 'Incoming call';
+  String get callIncomingCall => 'Bejövő hívás';
 
   @override
-  String get mediaMissingData => 'Missing media data';
+  String get mediaMissingData => 'Hiányzó médiaadat';
 
   @override
-  String get mediaDownloadFailed => 'Download failed';
+  String get mediaDownloadFailed => 'Letöltés sikertelen';
 
   @override
-  String get mediaDecryptFailed => 'Decrypt failed';
+  String get mediaDecryptFailed => 'Visszafejtés sikertelen';
 
   @override
-  String get callEndCallBanner => 'End call';
+  String get callEndCallBanner => 'Hívás befejezése';
 
   @override
-  String get meFallback => 'Me';
+  String get meFallback => 'Én';
 
   @override
-  String get imageSaveToDownloads => 'Save to Downloads';
+  String get imageSaveToDownloads => 'Mentés a Letöltésekbe';
 
   @override
   String imageSavedToPath(String path) {
-    return 'Saved to $path';
+    return 'Mentve ide: $path';
   }
 
   @override
   String get callScreenShareRequiresPermission =>
-      'Screen sharing requires permission';
+      'A képernyőmegosztáshoz engedély szükséges';
 
   @override
-  String get callScreenShareUnavailable => 'Screen sharing unavailable';
+  String get callScreenShareUnavailable => 'Képernyőmegosztás nem érhető el';
 
   @override
-  String get statusJustNow => 'Just now';
+  String get statusJustNow => 'Most';
 
   @override
   String statusMinutesAgo(int minutes) {
-    return '${minutes}m ago';
+    return '${minutes}p ezelőtt';
   }
 
   @override
   String statusHoursAgo(int hours) {
-    return '${hours}h ago';
+    return '$hoursó ezelőtt';
   }
 
   @override
@@ -2943,107 +2943,128 @@ class AppLocalizationsHu extends AppLocalizations {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
-      other: '$count routes',
-      one: '1 route',
+      other: '$count útvonal',
+      one: '1 útvonal',
     );
     return '$_temp0';
   }
 
   @override
-  String get addContactReadyToAdd => 'Ready to add';
+  String get addContactReadyToAdd => 'Kész a hozzáadásra';
 
   @override
   String groupSelectedCount(int count) {
-    return '$count selected';
+    return '$count kiválasztva';
   }
 
   @override
-  String get paste => 'Paste';
+  String get paste => 'Beillesztés';
 
   @override
-  String get sfuAudioOnly => 'Audio only';
+  String get sfuAudioOnly => 'Csak hang';
 
   @override
   String sfuParticipants(int count) {
-    return '$count participants';
+    return '$count résztvevő';
   }
 
   @override
-  String get dataUnencryptedBackup => 'Unencrypted backup';
+  String get dataUnencryptedBackup => 'Titkosítatlan biztonsági mentés';
 
   @override
   String get dataUnencryptedBackupBody =>
-      'This file is an unencrypted identity backup and will overwrite your current keys. Only import files you created yourself. Proceed?';
+      'Ez a fájl egy titkosítatlan identitás-biztonsági mentés, és felülírja a jelenlegi kulcsait. Csak saját maga által létrehozott fájlokat importáljon. Folytatja?';
 
   @override
-  String get dataImportAnyway => 'Import anyway';
+  String get dataImportAnyway => 'Importálás mindenképp';
 
   @override
-  String get securityStorageError => 'Security storage error — restart the app';
+  String get securityStorageError =>
+      'Biztonsági tárolási hiba — indítsa újra az alkalmazást';
 
   @override
-  String get aboutDevModeActive => 'Developer mode active';
+  String get aboutDevModeActive => 'Fejlesztői mód aktív';
 
   @override
-  String get themeColors => 'Colors';
+  String get themeColors => 'Színek';
 
   @override
-  String get themePrimaryAccent => 'Primary accent';
+  String get themePrimaryAccent => 'Elsődleges kiemelés';
 
   @override
-  String get themeSecondaryAccent => 'Secondary accent';
+  String get themeSecondaryAccent => 'Másodlagos kiemelés';
 
   @override
-  String get themeBackground => 'Background';
+  String get themeBackground => 'Háttér';
 
   @override
-  String get themeSurface => 'Surface';
+  String get themeSurface => 'Felület';
 
   @override
-  String get themeChatBubbles => 'Chat Bubbles';
+  String get themeChatBubbles => 'Chatbuborékok';
 
   @override
-  String get themeOutgoingMessage => 'Outgoing message';
+  String get themeOutgoingMessage => 'Kimenő üzenet';
 
   @override
-  String get themeIncomingMessage => 'Incoming message';
+  String get themeIncomingMessage => 'Bejövő üzenet';
 
   @override
-  String get themeShape => 'Shape';
+  String get themeShape => 'Alakzat';
 
   @override
-  String get devSectionDeveloper => 'Developer';
+  String get devSectionDeveloper => 'Fejlesztő';
 
   @override
   String get devAdapterChannelsHint =>
-      'Adapter channels — disable to test specific transports.';
+      'Adaptercsatornák — tiltsa le adott szállítások teszteléséhez.';
 
   @override
-  String get devNostrRelays => 'Nostr relays (wss://)';
+  String get devNostrRelays => 'Nostr relék (wss://)';
 
   @override
   String get devFirebaseDb => 'Firebase Realtime DB';
 
   @override
-  String get devSessionNetwork => 'Session Network';
+  String get devSessionNetwork => 'Session hálózat';
 
   @override
-  String get devPulseRelay => 'Pulse self-hosted relay';
+  String get devPulseRelay => 'Pulse saját üzemeltetésű relay';
 
   @override
-  String get devLanNetwork => 'Local network (UDP/TCP)';
+  String get devLanNetwork => 'Helyi hálózat (UDP/TCP)';
 
   @override
-  String get devSectionCalls => 'Calls';
+  String get devSectionCalls => 'Hívások';
 
   @override
-  String get devForceTurnRelay => 'Force TURN relay';
+  String get devForceTurnRelay => 'TURN relay kényszerítése';
 
   @override
   String get devForceTurnRelaySubtitle =>
-      'Disable P2P — all calls via TURN servers only';
+      'P2P letiltása — minden hívás csak TURN szervereken keresztül';
 
   @override
   String get devRestartWarning =>
-      '⚠ Changes take effect on next send/call. Restart app to apply to incoming.';
+      '⚠ A változások a következő küldéskor/híváskor lépnek érvénybe. Indítsa újra az alkalmazást a bejövőkhöz.';
+
+  @override
+  String get messageRequest => 'Message request';
+
+  @override
+  String messageRequestFrom(String name) {
+    return 'Message request from $name';
+  }
+
+  @override
+  String get acceptContact => 'Accept';
+
+  @override
+  String get blockContact => 'Block';
+
+  @override
+  String get blockedContactsEmpty => 'No blocked contacts';
+
+  @override
+  String get pendingLimitReached => 'Too many pending requests';
 }

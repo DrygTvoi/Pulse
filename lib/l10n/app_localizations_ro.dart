@@ -2802,135 +2802,136 @@ class AppLocalizationsRo extends AppLocalizations {
       'Păstrați această cheie în siguranță. Oricine o are poate restaura contul dvs. pe alt dispozitiv.';
 
   @override
-  String get replaceIdentityTitle => 'Replace existing identity?';
+  String get replaceIdentityTitle => 'Înlocuiești identitatea existentă?';
 
   @override
   String get replaceIdentityBodyRestore =>
-      'An identity already exists on this device. Restoring will permanently replace your current Nostr key and Oxen seed. All contacts will lose the ability to reach your current address.\n\nThis cannot be undone.';
+      'O identitate există deja pe acest dispozitiv. Restaurarea va înlocui permanent cheia Nostr și seed-ul Oxen curente. Toate contactele vor pierde posibilitatea de a ajunge la adresa ta curentă.\n\nAceastă acțiune nu poate fi anulată.';
 
   @override
   String get replaceIdentityBodyCreate =>
-      'An identity already exists on this device. Creating a new one will permanently replace your current Nostr key and Oxen seed. All contacts will lose the ability to reach your current address.\n\nThis cannot be undone.';
+      'O identitate există deja pe acest dispozitiv. Crearea uneia noi va înlocui permanent cheia Nostr și seed-ul Oxen curente. Toate contactele vor pierde posibilitatea de a ajunge la adresa ta curentă.\n\nAceastă acțiune nu poate fi anulată.';
 
   @override
-  String get replace => 'Replace';
+  String get replace => 'Înlocuiește';
 
   @override
-  String get callNoScreenSources => 'No screen sources available';
+  String get callNoScreenSources => 'Nu sunt surse de ecran disponibile';
 
   @override
-  String get callScreenShareQuality => 'Screen Share Quality';
+  String get callScreenShareQuality => 'Calitatea partajării ecranului';
 
   @override
-  String get callFrameRate => 'Frame rate';
+  String get callFrameRate => 'Rată de cadre';
 
   @override
-  String get callResolution => 'Resolution';
+  String get callResolution => 'Rezoluție';
 
   @override
-  String get callAutoResolution => 'Auto = native screen resolution';
+  String get callAutoResolution => 'Auto = rezoluția nativă a ecranului';
 
   @override
-  String get callStartSharing => 'Start sharing';
+  String get callStartSharing => 'Începe partajarea';
 
   @override
   String get callCameraUnavailable =>
-      'Camera unavailable — may be in use by another app';
+      'Camera indisponibilă — poate fi folosită de altă aplicație';
 
   @override
-  String get themeResetToDefaults => 'Reset to defaults';
+  String get themeResetToDefaults => 'Resetare la valori implicite';
 
   @override
-  String get backupSaveToDownloadsTitle => 'Save backup to Downloads?';
+  String get backupSaveToDownloadsTitle =>
+      'Salvezi copia de rezervă în Descărcări?';
 
   @override
   String backupSaveToDownloadsBody(String path) {
-    return 'No file picker available. The backup will be saved to:\n$path';
+    return 'Selectorul de fișiere nu este disponibil. Copia de rezervă va fi salvată în:\n$path';
   }
 
   @override
-  String get systemLabel => 'System';
+  String get systemLabel => 'Sistem';
 
   @override
-  String get next => 'Next';
+  String get next => 'Următorul';
 
   @override
   String get gifLabel => 'GIF';
 
   @override
   String devTapsRemaining(int remaining) {
-    return '$remaining more taps to enable developer mode';
+    return 'Încă $remaining atingeri pentru a activa modul dezvoltator';
   }
 
   @override
-  String get devModeEnabled => 'Developer mode enabled';
+  String get devModeEnabled => 'Modul dezvoltator activat';
 
   @override
-  String get devTools => 'Developer Tools';
+  String get devTools => 'Instrumente dezvoltator';
 
   @override
-  String get devAdapterDiagnostics => 'Adapter toggles & diagnostics';
+  String get devAdapterDiagnostics => 'Comutatoare adaptor și diagnosticare';
 
   @override
-  String get devEnableAll => 'Enable all';
+  String get devEnableAll => 'Activează toate';
 
   @override
-  String get devDisableAll => 'Disable all';
+  String get devDisableAll => 'Dezactivează toate';
 
   @override
   String get turnUrlValidation =>
-      'TURN URL must start with turn: or turns: (max 512 chars)';
+      'URL-ul TURN trebuie să înceapă cu turn: sau turns: (max 512 caractere)';
 
   @override
-  String get callMissedCall => 'Missed call';
+  String get callMissedCall => 'Apel pierdut';
 
   @override
-  String get callOutgoingCall => 'Outgoing call';
+  String get callOutgoingCall => 'Apel efectuat';
 
   @override
-  String get callIncomingCall => 'Incoming call';
+  String get callIncomingCall => 'Apel primit';
 
   @override
-  String get mediaMissingData => 'Missing media data';
+  String get mediaMissingData => 'Lipsesc date media';
 
   @override
-  String get mediaDownloadFailed => 'Download failed';
+  String get mediaDownloadFailed => 'Descărcarea a eșuat';
 
   @override
-  String get mediaDecryptFailed => 'Decrypt failed';
+  String get mediaDecryptFailed => 'Decriptarea a eșuat';
 
   @override
-  String get callEndCallBanner => 'End call';
+  String get callEndCallBanner => 'Încheie apelul';
 
   @override
-  String get meFallback => 'Me';
+  String get meFallback => 'Eu';
 
   @override
-  String get imageSaveToDownloads => 'Save to Downloads';
+  String get imageSaveToDownloads => 'Salvează în Descărcări';
 
   @override
   String imageSavedToPath(String path) {
-    return 'Saved to $path';
+    return 'Salvat în $path';
   }
 
   @override
   String get callScreenShareRequiresPermission =>
-      'Screen sharing requires permission';
+      'Partajarea ecranului necesită permisiune';
 
   @override
-  String get callScreenShareUnavailable => 'Screen sharing unavailable';
+  String get callScreenShareUnavailable => 'Partajarea ecranului indisponibilă';
 
   @override
-  String get statusJustNow => 'Just now';
+  String get statusJustNow => 'Chiar acum';
 
   @override
   String statusMinutesAgo(int minutes) {
-    return '${minutes}m ago';
+    return 'acum ${minutes}m';
   }
 
   @override
   String statusHoursAgo(int hours) {
-    return '${hours}h ago';
+    return 'acum ${hours}h';
   }
 
   @override
@@ -2938,83 +2939,84 @@ class AppLocalizationsRo extends AppLocalizations {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
-      other: '$count routes',
-      one: '1 route',
+      other: '$count rute',
+      one: '1 rută',
     );
     return '$_temp0';
   }
 
   @override
-  String get addContactReadyToAdd => 'Ready to add';
+  String get addContactReadyToAdd => 'Gata de adăugat';
 
   @override
   String groupSelectedCount(int count) {
-    return '$count selected';
+    return '$count selectate';
   }
 
   @override
-  String get paste => 'Paste';
+  String get paste => 'Lipește';
 
   @override
-  String get sfuAudioOnly => 'Audio only';
+  String get sfuAudioOnly => 'Doar audio';
 
   @override
   String sfuParticipants(int count) {
-    return '$count participants';
+    return '$count participanți';
   }
 
   @override
-  String get dataUnencryptedBackup => 'Unencrypted backup';
+  String get dataUnencryptedBackup => 'Copie de rezervă necriptată';
 
   @override
   String get dataUnencryptedBackupBody =>
-      'This file is an unencrypted identity backup and will overwrite your current keys. Only import files you created yourself. Proceed?';
+      'Acest fișier este o copie de rezervă necriptată a identității și va suprascrie cheile tale curente. Importă doar fișiere create de tine. Continui?';
 
   @override
-  String get dataImportAnyway => 'Import anyway';
+  String get dataImportAnyway => 'Importă oricum';
 
   @override
-  String get securityStorageError => 'Security storage error — restart the app';
+  String get securityStorageError =>
+      'Eroare stocare de securitate — repornește aplicația';
 
   @override
-  String get aboutDevModeActive => 'Developer mode active';
+  String get aboutDevModeActive => 'Modul dezvoltator activ';
 
   @override
-  String get themeColors => 'Colors';
+  String get themeColors => 'Culori';
 
   @override
-  String get themePrimaryAccent => 'Primary accent';
+  String get themePrimaryAccent => 'Accent primar';
 
   @override
-  String get themeSecondaryAccent => 'Secondary accent';
+  String get themeSecondaryAccent => 'Accent secundar';
 
   @override
-  String get themeBackground => 'Background';
+  String get themeBackground => 'Fundal';
 
   @override
-  String get themeSurface => 'Surface';
+  String get themeSurface => 'Suprafață';
 
   @override
-  String get themeChatBubbles => 'Chat Bubbles';
+  String get themeChatBubbles => 'Baloane de chat';
 
   @override
-  String get themeOutgoingMessage => 'Outgoing message';
+  String get themeOutgoingMessage => 'Mesaj trimis';
 
   @override
-  String get themeIncomingMessage => 'Incoming message';
+  String get themeIncomingMessage => 'Mesaj primit';
 
   @override
-  String get themeShape => 'Shape';
+  String get themeShape => 'Formă';
 
   @override
-  String get devSectionDeveloper => 'Developer';
+  String get devSectionDeveloper => 'Dezvoltator';
 
   @override
   String get devAdapterChannelsHint =>
-      'Adapter channels — disable to test specific transports.';
+      'Canale adaptor — dezactivează pentru a testa transporturi specifice.';
 
   @override
-  String get devNostrRelays => 'Nostr relays (wss://)';
+  String get devNostrRelays => 'Relee Nostr (wss://)';
 
   @override
   String get devFirebaseDb => 'Firebase Realtime DB';
@@ -3023,22 +3025,42 @@ class AppLocalizationsRo extends AppLocalizations {
   String get devSessionNetwork => 'Session Network';
 
   @override
-  String get devPulseRelay => 'Pulse self-hosted relay';
+  String get devPulseRelay => 'Releu Pulse auto-găzduit';
 
   @override
-  String get devLanNetwork => 'Local network (UDP/TCP)';
+  String get devLanNetwork => 'Rețea locală (UDP/TCP)';
 
   @override
-  String get devSectionCalls => 'Calls';
+  String get devSectionCalls => 'Apeluri';
 
   @override
-  String get devForceTurnRelay => 'Force TURN relay';
+  String get devForceTurnRelay => 'Forțează TURN relay';
 
   @override
   String get devForceTurnRelaySubtitle =>
-      'Disable P2P — all calls via TURN servers only';
+      'Dezactivează P2P — toate apelurile doar prin servere TURN';
 
   @override
   String get devRestartWarning =>
-      '⚠ Changes take effect on next send/call. Restart app to apply to incoming.';
+      '⚠ Modificările se aplică la următoarea trimitere/apel. Repornește aplicația pentru a se aplica la mesajele primite.';
+
+  @override
+  String get messageRequest => 'Message request';
+
+  @override
+  String messageRequestFrom(String name) {
+    return 'Message request from $name';
+  }
+
+  @override
+  String get acceptContact => 'Accept';
+
+  @override
+  String get blockContact => 'Block';
+
+  @override
+  String get blockedContactsEmpty => 'No blocked contacts';
+
+  @override
+  String get pendingLimitReached => 'Too many pending requests';
 }

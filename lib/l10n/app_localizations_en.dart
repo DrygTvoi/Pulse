@@ -3014,4 +3014,24 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get devRestartWarning =>
       '⚠ Changes take effect on next send/call. Restart app to apply to incoming.';
+
+  @override
+  String get messageRequest => 'Message request';
+
+  @override
+  String messageRequestFrom(String name) {
+    return 'Message request from $name';
+  }
+
+  @override
+  String get acceptContact => 'Accept';
+
+  @override
+  String get blockContact => 'Block';
+
+  @override
+  String get blockedContactsEmpty => 'No blocked contacts';
+
+  @override
+  String get pendingLimitReached => 'Too many pending requests';
 }

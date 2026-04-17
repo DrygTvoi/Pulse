@@ -2800,135 +2800,136 @@ class AppLocalizationsKa extends AppLocalizations {
       'დაიცავით ეს გასაღები უსაფრთხოდ. ნებისმიერს, ვისაც ის აქვს, შეუძლია თქვენი ანგარიშის აღდგენა სხვა მოწყობილობაზე.';
 
   @override
-  String get replaceIdentityTitle => 'Replace existing identity?';
+  String get replaceIdentityTitle => 'არსებული იდენტობის ჩანაცვლება?';
 
   @override
   String get replaceIdentityBodyRestore =>
-      'An identity already exists on this device. Restoring will permanently replace your current Nostr key and Oxen seed. All contacts will lose the ability to reach your current address.\n\nThis cannot be undone.';
+      'ამ მოწყობილობაზე უკვე არსებობს იდენტობა. აღდგენა სამუდამოდ ჩაანაცვლებს თქვენს მიმდინარე Nostr გასაღებს და Oxen seed-ს. ყველა კონტაქტი დაკარგავს თქვენს მიმდინარე მისამართზე წვდომის შესაძლებლობას.\n\nამის გაუქმება შეუძლებელია.';
 
   @override
   String get replaceIdentityBodyCreate =>
-      'An identity already exists on this device. Creating a new one will permanently replace your current Nostr key and Oxen seed. All contacts will lose the ability to reach your current address.\n\nThis cannot be undone.';
+      'ამ მოწყობილობაზე უკვე არსებობს იდენტობა. ახლის შექმნა სამუდამოდ ჩაანაცვლებს თქვენს მიმდინარე Nostr გასაღებს და Oxen seed-ს. ყველა კონტაქტი დაკარგავს თქვენს მიმდინარე მისამართზე წვდომის შესაძლებლობას.\n\nამის გაუქმება შეუძლებელია.';
 
   @override
-  String get replace => 'Replace';
+  String get replace => 'ჩანაცვლება';
 
   @override
-  String get callNoScreenSources => 'No screen sources available';
+  String get callNoScreenSources => 'ეკრანის წყაროები მიუწვდომელია';
 
   @override
-  String get callScreenShareQuality => 'Screen Share Quality';
+  String get callScreenShareQuality => 'ეკრანის გაზიარების ხარისხი';
 
   @override
-  String get callFrameRate => 'Frame rate';
+  String get callFrameRate => 'კადრის სიხშირე';
 
   @override
-  String get callResolution => 'Resolution';
+  String get callResolution => 'გარჩევადობა';
 
   @override
-  String get callAutoResolution => 'Auto = native screen resolution';
+  String get callAutoResolution => 'ავტო = ეკრანის ნატიური გარჩევადობა';
 
   @override
-  String get callStartSharing => 'Start sharing';
+  String get callStartSharing => 'გაზიარების დაწყება';
 
   @override
   String get callCameraUnavailable =>
-      'Camera unavailable — may be in use by another app';
+      'კამერა მიუწვდომელია — შესაძლოა სხვა აპლიკაცია იყენებს';
 
   @override
-  String get themeResetToDefaults => 'Reset to defaults';
+  String get themeResetToDefaults => 'ნაგულისხმევზე დაბრუნება';
 
   @override
-  String get backupSaveToDownloadsTitle => 'Save backup to Downloads?';
+  String get backupSaveToDownloadsTitle =>
+      'შეინახოს სარეზერვო ასლი ჩამოტვირთვებში?';
 
   @override
   String backupSaveToDownloadsBody(String path) {
-    return 'No file picker available. The backup will be saved to:\n$path';
+    return 'ფაილის ამომრჩეველი მიუწვდომელია. სარეზერვო ასლი შეინახება:\n$path';
   }
 
   @override
-  String get systemLabel => 'System';
+  String get systemLabel => 'სისტემა';
 
   @override
-  String get next => 'Next';
+  String get next => 'შემდეგი';
 
   @override
   String get gifLabel => 'GIF';
 
   @override
   String devTapsRemaining(int remaining) {
-    return '$remaining more taps to enable developer mode';
+    return 'კიდევ $remaining შეხება დეველოპერის რეჟიმის ჩასართავად';
   }
 
   @override
-  String get devModeEnabled => 'Developer mode enabled';
+  String get devModeEnabled => 'დეველოპერის რეჟიმი ჩართულია';
 
   @override
-  String get devTools => 'Developer Tools';
+  String get devTools => 'დეველოპერის ხელსაწყოები';
 
   @override
-  String get devAdapterDiagnostics => 'Adapter toggles & diagnostics';
+  String get devAdapterDiagnostics => 'ადაპტერის გადამრთველები და დიაგნოსტიკა';
 
   @override
-  String get devEnableAll => 'Enable all';
+  String get devEnableAll => 'ყველას ჩართვა';
 
   @override
-  String get devDisableAll => 'Disable all';
+  String get devDisableAll => 'ყველას გამორთვა';
 
   @override
   String get turnUrlValidation =>
-      'TURN URL must start with turn: or turns: (max 512 chars)';
+      'TURN URL უნდა იწყებოდეს turn: ან turns: (მაქს 512 სიმბოლო)';
 
   @override
-  String get callMissedCall => 'Missed call';
+  String get callMissedCall => 'გამოტოვებული ზარი';
 
   @override
-  String get callOutgoingCall => 'Outgoing call';
+  String get callOutgoingCall => 'გამავალი ზარი';
 
   @override
-  String get callIncomingCall => 'Incoming call';
+  String get callIncomingCall => 'შემომავალი ზარი';
 
   @override
-  String get mediaMissingData => 'Missing media data';
+  String get mediaMissingData => 'მედია მონაცემები არ არის';
 
   @override
-  String get mediaDownloadFailed => 'Download failed';
+  String get mediaDownloadFailed => 'ჩამოტვირთვა ვერ მოხერხდა';
 
   @override
-  String get mediaDecryptFailed => 'Decrypt failed';
+  String get mediaDecryptFailed => 'გაშიფრვა ვერ მოხერხდა';
 
   @override
-  String get callEndCallBanner => 'End call';
+  String get callEndCallBanner => 'ზარის დასრულება';
 
   @override
-  String get meFallback => 'Me';
+  String get meFallback => 'მე';
 
   @override
-  String get imageSaveToDownloads => 'Save to Downloads';
+  String get imageSaveToDownloads => 'ჩამოტვირთვებში შენახვა';
 
   @override
   String imageSavedToPath(String path) {
-    return 'Saved to $path';
+    return 'შენახულია $path-ში';
   }
 
   @override
   String get callScreenShareRequiresPermission =>
-      'Screen sharing requires permission';
+      'ეკრანის გაზიარება მოითხოვს ნებართვას';
 
   @override
-  String get callScreenShareUnavailable => 'Screen sharing unavailable';
+  String get callScreenShareUnavailable => 'ეკრანის გაზიარება მიუწვდომელია';
 
   @override
-  String get statusJustNow => 'Just now';
+  String get statusJustNow => 'ახლახანს';
 
   @override
   String statusMinutesAgo(int minutes) {
-    return '${minutes}m ago';
+    return '$minutesწთ წინ';
   }
 
   @override
   String statusHoursAgo(int hours) {
-    return '${hours}h ago';
+    return '$hoursსთ წინ';
   }
 
   @override
@@ -2936,83 +2937,84 @@ class AppLocalizationsKa extends AppLocalizations {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
-      other: '$count routes',
-      one: '1 route',
+      other: '$count მარშრუტი',
+      one: '1 მარშრუტი',
     );
     return '$_temp0';
   }
 
   @override
-  String get addContactReadyToAdd => 'Ready to add';
+  String get addContactReadyToAdd => 'მზად არის დასამატებლად';
 
   @override
   String groupSelectedCount(int count) {
-    return '$count selected';
+    return '$count არჩეული';
   }
 
   @override
-  String get paste => 'Paste';
+  String get paste => 'ჩასმა';
 
   @override
-  String get sfuAudioOnly => 'Audio only';
+  String get sfuAudioOnly => 'მხოლოდ აუდიო';
 
   @override
   String sfuParticipants(int count) {
-    return '$count participants';
+    return '$count მონაწილე';
   }
 
   @override
-  String get dataUnencryptedBackup => 'Unencrypted backup';
+  String get dataUnencryptedBackup => 'დაუშიფრავი სარეზერვო ასლი';
 
   @override
   String get dataUnencryptedBackupBody =>
-      'This file is an unencrypted identity backup and will overwrite your current keys. Only import files you created yourself. Proceed?';
+      'ეს ფაილი არის იდენტობის დაუშიფრავი სარეზერვო ასლი და გადაწერს თქვენს მიმდინარე გასაღებებს. იმპორტი მხოლოდ თქვენ მიერ შექმნილ ფაილებს. გაგრძელება?';
 
   @override
-  String get dataImportAnyway => 'Import anyway';
+  String get dataImportAnyway => 'მაინც იმპორტი';
 
   @override
-  String get securityStorageError => 'Security storage error — restart the app';
+  String get securityStorageError =>
+      'უსაფრთხო საცავის შეცდომა — გადატვირთეთ აპი';
 
   @override
-  String get aboutDevModeActive => 'Developer mode active';
+  String get aboutDevModeActive => 'დეველოპერის რეჟიმი აქტიურია';
 
   @override
-  String get themeColors => 'Colors';
+  String get themeColors => 'ფერები';
 
   @override
-  String get themePrimaryAccent => 'Primary accent';
+  String get themePrimaryAccent => 'ძირითადი აქცენტი';
 
   @override
-  String get themeSecondaryAccent => 'Secondary accent';
+  String get themeSecondaryAccent => 'მეორეული აქცენტი';
 
   @override
-  String get themeBackground => 'Background';
+  String get themeBackground => 'ფონი';
 
   @override
-  String get themeSurface => 'Surface';
+  String get themeSurface => 'ზედაპირი';
 
   @override
-  String get themeChatBubbles => 'Chat Bubbles';
+  String get themeChatBubbles => 'ჩატის ბუშტები';
 
   @override
-  String get themeOutgoingMessage => 'Outgoing message';
+  String get themeOutgoingMessage => 'გამავალი შეტყობინება';
 
   @override
-  String get themeIncomingMessage => 'Incoming message';
+  String get themeIncomingMessage => 'შემომავალი შეტყობინება';
 
   @override
-  String get themeShape => 'Shape';
+  String get themeShape => 'ფორმა';
 
   @override
-  String get devSectionDeveloper => 'Developer';
+  String get devSectionDeveloper => 'დეველოპერი';
 
   @override
   String get devAdapterChannelsHint =>
-      'Adapter channels — disable to test specific transports.';
+      'ადაპტერის არხები — გამორთეთ კონკრეტული ტრანსპორტების შესამოწმებლად.';
 
   @override
-  String get devNostrRelays => 'Nostr relays (wss://)';
+  String get devNostrRelays => 'Nostr რილეები (wss://)';
 
   @override
   String get devFirebaseDb => 'Firebase Realtime DB';
@@ -3021,22 +3023,42 @@ class AppLocalizationsKa extends AppLocalizations {
   String get devSessionNetwork => 'Session Network';
 
   @override
-  String get devPulseRelay => 'Pulse self-hosted relay';
+  String get devPulseRelay => 'Pulse თვითჰოსტილი რილეი';
 
   @override
-  String get devLanNetwork => 'Local network (UDP/TCP)';
+  String get devLanNetwork => 'ლოკალური ქსელი (UDP/TCP)';
 
   @override
-  String get devSectionCalls => 'Calls';
+  String get devSectionCalls => 'ზარები';
 
   @override
-  String get devForceTurnRelay => 'Force TURN relay';
+  String get devForceTurnRelay => 'TURN relay-ის იძულება';
 
   @override
   String get devForceTurnRelaySubtitle =>
-      'Disable P2P — all calls via TURN servers only';
+      'P2P-ის გამორთვა — ყველა ზარი მხოლოდ TURN სერვერებით';
 
   @override
   String get devRestartWarning =>
-      '⚠ Changes take effect on next send/call. Restart app to apply to incoming.';
+      '⚠ ცვლილებები ძალაში შედის შემდეგი გაგზავნის/ზარისას. გადატვირთეთ აპი შემომავალზე გასავრცელებლად.';
+
+  @override
+  String get messageRequest => 'Message request';
+
+  @override
+  String messageRequestFrom(String name) {
+    return 'Message request from $name';
+  }
+
+  @override
+  String get acceptContact => 'Accept';
+
+  @override
+  String get blockContact => 'Block';
+
+  @override
+  String get blockedContactsEmpty => 'No blocked contacts';
+
+  @override
+  String get pendingLimitReached => 'Too many pending requests';
 }

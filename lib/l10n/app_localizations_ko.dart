@@ -2702,121 +2702,119 @@ class AppLocalizationsKo extends AppLocalizations {
   String get replace => '교체';
 
   @override
-  String get callNoScreenSources => 'No screen sources available';
+  String get callNoScreenSources => '사용 가능한 화면 소스가 없습니다';
 
   @override
-  String get callScreenShareQuality => 'Screen Share Quality';
+  String get callScreenShareQuality => '화면 공유 품질';
 
   @override
-  String get callFrameRate => 'Frame rate';
+  String get callFrameRate => '프레임 속도';
 
   @override
-  String get callResolution => 'Resolution';
+  String get callResolution => '해상도';
 
   @override
-  String get callAutoResolution => 'Auto = native screen resolution';
+  String get callAutoResolution => '자동 = 기본 화면 해상도';
 
   @override
-  String get callStartSharing => 'Start sharing';
+  String get callStartSharing => '공유 시작';
 
   @override
-  String get callCameraUnavailable =>
-      'Camera unavailable — may be in use by another app';
+  String get callCameraUnavailable => '카메라를 사용할 수 없습니다 — 다른 앱에서 사용 중일 수 있습니다';
 
   @override
-  String get themeResetToDefaults => 'Reset to defaults';
+  String get themeResetToDefaults => '기본값으로 재설정';
 
   @override
-  String get backupSaveToDownloadsTitle => 'Save backup to Downloads?';
+  String get backupSaveToDownloadsTitle => '다운로드에 백업을 저장하시겠습니까?';
 
   @override
   String backupSaveToDownloadsBody(String path) {
-    return 'No file picker available. The backup will be saved to:\n$path';
+    return '파일 선택기를 사용할 수 없습니다. 백업이 다음 위치에 저장됩니다:\n$path';
   }
 
   @override
-  String get systemLabel => 'System';
+  String get systemLabel => '시스템';
 
   @override
-  String get next => 'Next';
+  String get next => '다음';
 
   @override
   String get gifLabel => 'GIF';
 
   @override
   String devTapsRemaining(int remaining) {
-    return '$remaining more taps to enable developer mode';
+    return '개발자 모드를 활성화하려면 $remaining번 더 탭하세요';
   }
 
   @override
-  String get devModeEnabled => 'Developer mode enabled';
+  String get devModeEnabled => '개발자 모드가 활성화되었습니다';
 
   @override
-  String get devTools => 'Developer Tools';
+  String get devTools => '개발자 도구';
 
   @override
-  String get devAdapterDiagnostics => 'Adapter toggles & diagnostics';
+  String get devAdapterDiagnostics => '어댑터 전환 및 진단';
 
   @override
-  String get devEnableAll => 'Enable all';
+  String get devEnableAll => '모두 활성화';
 
   @override
-  String get devDisableAll => 'Disable all';
+  String get devDisableAll => '모두 비활성화';
 
   @override
   String get turnUrlValidation =>
-      'TURN URL must start with turn: or turns: (max 512 chars)';
+      'TURN URL은 turn: 또는 turns:로 시작해야 합니다 (최대 512자)';
 
   @override
-  String get callMissedCall => 'Missed call';
+  String get callMissedCall => '부재중 전화';
 
   @override
-  String get callOutgoingCall => 'Outgoing call';
+  String get callOutgoingCall => '발신 전화';
 
   @override
-  String get callIncomingCall => 'Incoming call';
+  String get callIncomingCall => '수신 전화';
 
   @override
-  String get mediaMissingData => 'Missing media data';
+  String get mediaMissingData => '미디어 데이터 누락';
 
   @override
-  String get mediaDownloadFailed => 'Download failed';
+  String get mediaDownloadFailed => '다운로드 실패';
 
   @override
-  String get mediaDecryptFailed => 'Decrypt failed';
+  String get mediaDecryptFailed => '복호화 실패';
 
   @override
-  String get callEndCallBanner => 'End call';
+  String get callEndCallBanner => '통화 종료';
 
   @override
-  String get meFallback => 'Me';
+  String get meFallback => '나';
 
   @override
-  String get imageSaveToDownloads => 'Save to Downloads';
+  String get imageSaveToDownloads => '다운로드에 저장';
 
   @override
   String imageSavedToPath(String path) {
-    return 'Saved to $path';
+    return '$path에 저장됨';
   }
 
   @override
-  String get callScreenShareRequiresPermission =>
-      'Screen sharing requires permission';
+  String get callScreenShareRequiresPermission => '화면 공유에는 권한이 필요합니다';
 
   @override
-  String get callScreenShareUnavailable => 'Screen sharing unavailable';
+  String get callScreenShareUnavailable => '화면 공유를 사용할 수 없습니다';
 
   @override
-  String get statusJustNow => 'Just now';
+  String get statusJustNow => '방금';
 
   @override
   String statusMinutesAgo(int minutes) {
-    return '${minutes}m ago';
+    return '$minutes분 전';
   }
 
   @override
   String statusHoursAgo(int hours) {
-    return '${hours}h ago';
+    return '$hours시간 전';
   }
 
   @override
@@ -2824,107 +2822,125 @@ class AppLocalizationsKo extends AppLocalizations {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
-      other: '$count routes',
-      one: '1 route',
+      other: '$count개 경로',
+      one: '1개 경로',
     );
     return '$_temp0';
   }
 
   @override
-  String get addContactReadyToAdd => 'Ready to add';
+  String get addContactReadyToAdd => '추가 준비 완료';
 
   @override
   String groupSelectedCount(int count) {
-    return '$count selected';
+    return '$count명 선택됨';
   }
 
   @override
-  String get paste => 'Paste';
+  String get paste => '붙여넣기';
 
   @override
-  String get sfuAudioOnly => 'Audio only';
+  String get sfuAudioOnly => '오디오만';
 
   @override
   String sfuParticipants(int count) {
-    return '$count participants';
+    return '참가자 $count명';
   }
 
   @override
-  String get dataUnencryptedBackup => 'Unencrypted backup';
+  String get dataUnencryptedBackup => '암호화되지 않은 백업';
 
   @override
   String get dataUnencryptedBackupBody =>
-      'This file is an unencrypted identity backup and will overwrite your current keys. Only import files you created yourself. Proceed?';
+      '이 파일은 암호화되지 않은 ID 백업이며 현재 키를 덮어씁니다. 본인이 만든 파일만 가져오세요. 계속하시겠습니까?';
 
   @override
-  String get dataImportAnyway => 'Import anyway';
+  String get dataImportAnyway => '그래도 가져오기';
 
   @override
-  String get securityStorageError => 'Security storage error — restart the app';
+  String get securityStorageError => '보안 저장소 오류 — 앱을 재시작하세요';
 
   @override
-  String get aboutDevModeActive => 'Developer mode active';
+  String get aboutDevModeActive => '개발자 모드 활성';
 
   @override
-  String get themeColors => 'Colors';
+  String get themeColors => '색상';
 
   @override
-  String get themePrimaryAccent => 'Primary accent';
+  String get themePrimaryAccent => '기본 강조색';
 
   @override
-  String get themeSecondaryAccent => 'Secondary accent';
+  String get themeSecondaryAccent => '보조 강조색';
 
   @override
-  String get themeBackground => 'Background';
+  String get themeBackground => '배경';
 
   @override
-  String get themeSurface => 'Surface';
+  String get themeSurface => '표면';
 
   @override
-  String get themeChatBubbles => 'Chat Bubbles';
+  String get themeChatBubbles => '채팅 말풍선';
 
   @override
-  String get themeOutgoingMessage => 'Outgoing message';
+  String get themeOutgoingMessage => '발신 메시지';
 
   @override
-  String get themeIncomingMessage => 'Incoming message';
+  String get themeIncomingMessage => '수신 메시지';
 
   @override
-  String get themeShape => 'Shape';
+  String get themeShape => '모양';
 
   @override
-  String get devSectionDeveloper => 'Developer';
+  String get devSectionDeveloper => '개발자';
 
   @override
-  String get devAdapterChannelsHint =>
-      'Adapter channels — disable to test specific transports.';
+  String get devAdapterChannelsHint => '어댑터 채널 — 특정 전송을 테스트하려면 비활성화하세요.';
 
   @override
-  String get devNostrRelays => 'Nostr relays (wss://)';
+  String get devNostrRelays => 'Nostr 릴레이 (wss://)';
 
   @override
   String get devFirebaseDb => 'Firebase Realtime DB';
 
   @override
-  String get devSessionNetwork => 'Session Network';
+  String get devSessionNetwork => 'Session 네트워크';
 
   @override
-  String get devPulseRelay => 'Pulse self-hosted relay';
+  String get devPulseRelay => 'Pulse 자체 호스팅 릴레이';
 
   @override
-  String get devLanNetwork => 'Local network (UDP/TCP)';
+  String get devLanNetwork => '로컬 네트워크 (UDP/TCP)';
 
   @override
-  String get devSectionCalls => 'Calls';
+  String get devSectionCalls => '통화';
 
   @override
-  String get devForceTurnRelay => 'Force TURN relay';
+  String get devForceTurnRelay => 'TURN 릴레이 강제';
 
   @override
-  String get devForceTurnRelaySubtitle =>
-      'Disable P2P — all calls via TURN servers only';
+  String get devForceTurnRelaySubtitle => 'P2P 비활성화 — 모든 통화를 TURN 서버로만';
 
   @override
   String get devRestartWarning =>
-      '⚠ Changes take effect on next send/call. Restart app to apply to incoming.';
+      '⚠ 변경 사항은 다음 전송/통화 시 적용됩니다. 수신에 적용하려면 앱을 재시작하세요.';
+
+  @override
+  String get messageRequest => 'Message request';
+
+  @override
+  String messageRequestFrom(String name) {
+    return 'Message request from $name';
+  }
+
+  @override
+  String get acceptContact => 'Accept';
+
+  @override
+  String get blockContact => 'Block';
+
+  @override
+  String get blockedContactsEmpty => 'No blocked contacts';
+
+  @override
+  String get pendingLimitReached => 'Too many pending requests';
 }

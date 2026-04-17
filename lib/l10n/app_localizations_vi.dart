@@ -2776,135 +2776,135 @@ class AppLocalizationsVi extends AppLocalizations {
       'Giữ khóa này an toàn. Bất kỳ ai có nó đều có thể khôi phục tài khoản của bạn trên thiết bị khác.';
 
   @override
-  String get replaceIdentityTitle => 'Replace existing identity?';
+  String get replaceIdentityTitle => 'Thay thế danh tính hiện có?';
 
   @override
   String get replaceIdentityBodyRestore =>
-      'An identity already exists on this device. Restoring will permanently replace your current Nostr key and Oxen seed. All contacts will lose the ability to reach your current address.\n\nThis cannot be undone.';
+      'Đã có danh tính trên thiết bị này. Khôi phục sẽ thay thế vĩnh viễn khóa Nostr và seed Oxen hiện tại. Tất cả liên hệ sẽ mất khả năng liên lạc với địa chỉ hiện tại của bạn.\n\nThao tác này không thể hoàn tác.';
 
   @override
   String get replaceIdentityBodyCreate =>
-      'An identity already exists on this device. Creating a new one will permanently replace your current Nostr key and Oxen seed. All contacts will lose the ability to reach your current address.\n\nThis cannot be undone.';
+      'Đã có danh tính trên thiết bị này. Tạo danh tính mới sẽ thay thế vĩnh viễn khóa Nostr và seed Oxen hiện tại. Tất cả liên hệ sẽ mất khả năng liên lạc với địa chỉ hiện tại của bạn.\n\nThao tác này không thể hoàn tác.';
 
   @override
-  String get replace => 'Replace';
+  String get replace => 'Thay thế';
 
   @override
-  String get callNoScreenSources => 'No screen sources available';
+  String get callNoScreenSources => 'Không có nguồn màn hình khả dụng';
 
   @override
-  String get callScreenShareQuality => 'Screen Share Quality';
+  String get callScreenShareQuality => 'Chất lượng chia sẻ màn hình';
 
   @override
-  String get callFrameRate => 'Frame rate';
+  String get callFrameRate => 'Tốc độ khung hình';
 
   @override
-  String get callResolution => 'Resolution';
+  String get callResolution => 'Độ phân giải';
 
   @override
-  String get callAutoResolution => 'Auto = native screen resolution';
+  String get callAutoResolution => 'Tự động = độ phân giải gốc của màn hình';
 
   @override
-  String get callStartSharing => 'Start sharing';
+  String get callStartSharing => 'Bắt đầu chia sẻ';
 
   @override
   String get callCameraUnavailable =>
-      'Camera unavailable — may be in use by another app';
+      'Camera không khả dụng — có thể đang được ứng dụng khác sử dụng';
 
   @override
-  String get themeResetToDefaults => 'Reset to defaults';
+  String get themeResetToDefaults => 'Đặt lại mặc định';
 
   @override
-  String get backupSaveToDownloadsTitle => 'Save backup to Downloads?';
+  String get backupSaveToDownloadsTitle => 'Lưu bản sao lưu vào Tải xuống?';
 
   @override
   String backupSaveToDownloadsBody(String path) {
-    return 'No file picker available. The backup will be saved to:\n$path';
+    return 'Không có trình chọn tệp. Bản sao lưu sẽ được lưu vào:\n$path';
   }
 
   @override
-  String get systemLabel => 'System';
+  String get systemLabel => 'Hệ thống';
 
   @override
-  String get next => 'Next';
+  String get next => 'Tiếp theo';
 
   @override
   String get gifLabel => 'GIF';
 
   @override
   String devTapsRemaining(int remaining) {
-    return '$remaining more taps to enable developer mode';
+    return 'Nhấn thêm $remaining lần để bật chế độ nhà phát triển';
   }
 
   @override
-  String get devModeEnabled => 'Developer mode enabled';
+  String get devModeEnabled => 'Đã bật chế độ nhà phát triển';
 
   @override
-  String get devTools => 'Developer Tools';
+  String get devTools => 'Công cụ nhà phát triển';
 
   @override
-  String get devAdapterDiagnostics => 'Adapter toggles & diagnostics';
+  String get devAdapterDiagnostics => 'Công tắc bộ điều hợp và chẩn đoán';
 
   @override
-  String get devEnableAll => 'Enable all';
+  String get devEnableAll => 'Bật tất cả';
 
   @override
-  String get devDisableAll => 'Disable all';
+  String get devDisableAll => 'Tắt tất cả';
 
   @override
   String get turnUrlValidation =>
-      'TURN URL must start with turn: or turns: (max 512 chars)';
+      'TURN URL phải bắt đầu bằng turn: hoặc turns: (tối đa 512 ký tự)';
 
   @override
-  String get callMissedCall => 'Missed call';
+  String get callMissedCall => 'Cuộc gọi nhỡ';
 
   @override
-  String get callOutgoingCall => 'Outgoing call';
+  String get callOutgoingCall => 'Cuộc gọi đi';
 
   @override
-  String get callIncomingCall => 'Incoming call';
+  String get callIncomingCall => 'Cuộc gọi đến';
 
   @override
-  String get mediaMissingData => 'Missing media data';
+  String get mediaMissingData => 'Thiếu dữ liệu media';
 
   @override
-  String get mediaDownloadFailed => 'Download failed';
+  String get mediaDownloadFailed => 'Tải xuống thất bại';
 
   @override
-  String get mediaDecryptFailed => 'Decrypt failed';
+  String get mediaDecryptFailed => 'Giải mã thất bại';
 
   @override
-  String get callEndCallBanner => 'End call';
+  String get callEndCallBanner => 'Kết thúc cuộc gọi';
 
   @override
-  String get meFallback => 'Me';
+  String get meFallback => 'Tôi';
 
   @override
-  String get imageSaveToDownloads => 'Save to Downloads';
+  String get imageSaveToDownloads => 'Lưu vào Tải xuống';
 
   @override
   String imageSavedToPath(String path) {
-    return 'Saved to $path';
+    return 'Đã lưu vào $path';
   }
 
   @override
   String get callScreenShareRequiresPermission =>
-      'Screen sharing requires permission';
+      'Chia sẻ màn hình cần quyền truy cập';
 
   @override
-  String get callScreenShareUnavailable => 'Screen sharing unavailable';
+  String get callScreenShareUnavailable => 'Chia sẻ màn hình không khả dụng';
 
   @override
-  String get statusJustNow => 'Just now';
+  String get statusJustNow => 'Vừa xong';
 
   @override
   String statusMinutesAgo(int minutes) {
-    return '${minutes}m ago';
+    return '$minutes phút trước';
   }
 
   @override
   String statusHoursAgo(int hours) {
-    return '${hours}h ago';
+    return '$hours giờ trước';
   }
 
   @override
@@ -2912,80 +2912,81 @@ class AppLocalizationsVi extends AppLocalizations {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
-      other: '$count routes',
-      one: '1 route',
+      other: '$count tuyến',
+      one: '1 tuyến',
     );
     return '$_temp0';
   }
 
   @override
-  String get addContactReadyToAdd => 'Ready to add';
+  String get addContactReadyToAdd => 'Sẵn sàng thêm';
 
   @override
   String groupSelectedCount(int count) {
-    return '$count selected';
+    return 'Đã chọn $count';
   }
 
   @override
-  String get paste => 'Paste';
+  String get paste => 'Dán';
 
   @override
-  String get sfuAudioOnly => 'Audio only';
+  String get sfuAudioOnly => 'Chỉ âm thanh';
 
   @override
   String sfuParticipants(int count) {
-    return '$count participants';
+    return '$count người tham gia';
   }
 
   @override
-  String get dataUnencryptedBackup => 'Unencrypted backup';
+  String get dataUnencryptedBackup => 'Bản sao lưu không mã hóa';
 
   @override
   String get dataUnencryptedBackupBody =>
-      'This file is an unencrypted identity backup and will overwrite your current keys. Only import files you created yourself. Proceed?';
+      'Tệp này là bản sao lưu danh tính không mã hóa và sẽ ghi đè các khóa hiện tại của bạn. Chỉ nhập các tệp bạn tự tạo. Tiếp tục?';
 
   @override
-  String get dataImportAnyway => 'Import anyway';
+  String get dataImportAnyway => 'Vẫn nhập';
 
   @override
-  String get securityStorageError => 'Security storage error — restart the app';
+  String get securityStorageError =>
+      'Lỗi bộ nhớ bảo mật — khởi động lại ứng dụng';
 
   @override
-  String get aboutDevModeActive => 'Developer mode active';
+  String get aboutDevModeActive => 'Chế độ nhà phát triển đang hoạt động';
 
   @override
-  String get themeColors => 'Colors';
+  String get themeColors => 'Màu sắc';
 
   @override
-  String get themePrimaryAccent => 'Primary accent';
+  String get themePrimaryAccent => 'Màu nhấn chính';
 
   @override
-  String get themeSecondaryAccent => 'Secondary accent';
+  String get themeSecondaryAccent => 'Màu nhấn phụ';
 
   @override
-  String get themeBackground => 'Background';
+  String get themeBackground => 'Nền';
 
   @override
-  String get themeSurface => 'Surface';
+  String get themeSurface => 'Bề mặt';
 
   @override
-  String get themeChatBubbles => 'Chat Bubbles';
+  String get themeChatBubbles => 'Bong bóng trò chuyện';
 
   @override
-  String get themeOutgoingMessage => 'Outgoing message';
+  String get themeOutgoingMessage => 'Tin nhắn đi';
 
   @override
-  String get themeIncomingMessage => 'Incoming message';
+  String get themeIncomingMessage => 'Tin nhắn đến';
 
   @override
-  String get themeShape => 'Shape';
+  String get themeShape => 'Hình dạng';
 
   @override
-  String get devSectionDeveloper => 'Developer';
+  String get devSectionDeveloper => 'Nhà phát triển';
 
   @override
   String get devAdapterChannelsHint =>
-      'Adapter channels — disable to test specific transports.';
+      'Kênh bộ điều hợp — tắt để kiểm tra các phương thức truyền tải cụ thể.';
 
   @override
   String get devNostrRelays => 'Nostr relays (wss://)';
@@ -2994,25 +2995,45 @@ class AppLocalizationsVi extends AppLocalizations {
   String get devFirebaseDb => 'Firebase Realtime DB';
 
   @override
-  String get devSessionNetwork => 'Session Network';
+  String get devSessionNetwork => 'Mạng Session';
 
   @override
-  String get devPulseRelay => 'Pulse self-hosted relay';
+  String get devPulseRelay => 'Pulse relay tự lưu trữ';
 
   @override
-  String get devLanNetwork => 'Local network (UDP/TCP)';
+  String get devLanNetwork => 'Mạng cục bộ (UDP/TCP)';
 
   @override
-  String get devSectionCalls => 'Calls';
+  String get devSectionCalls => 'Cuộc gọi';
 
   @override
-  String get devForceTurnRelay => 'Force TURN relay';
+  String get devForceTurnRelay => 'Bắt buộc TURN relay';
 
   @override
   String get devForceTurnRelaySubtitle =>
-      'Disable P2P — all calls via TURN servers only';
+      'Tắt P2P — tất cả cuộc gọi chỉ qua máy chủ TURN';
 
   @override
   String get devRestartWarning =>
-      '⚠ Changes take effect on next send/call. Restart app to apply to incoming.';
+      '⚠ Thay đổi có hiệu lực khi gửi/gọi tiếp theo. Khởi động lại ứng dụng cho cuộc gọi đến.';
+
+  @override
+  String get messageRequest => 'Message request';
+
+  @override
+  String messageRequestFrom(String name) {
+    return 'Message request from $name';
+  }
+
+  @override
+  String get acceptContact => 'Accept';
+
+  @override
+  String get blockContact => 'Block';
+
+  @override
+  String get blockedContactsEmpty => 'No blocked contacts';
+
+  @override
+  String get pendingLimitReached => 'Too many pending requests';
 }

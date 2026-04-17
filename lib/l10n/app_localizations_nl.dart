@@ -2813,121 +2813,121 @@ class AppLocalizationsNl extends AppLocalizations {
   String get replace => 'Vervangen';
 
   @override
-  String get callNoScreenSources => 'No screen sources available';
+  String get callNoScreenSources => 'Geen schermbronnen beschikbaar';
 
   @override
-  String get callScreenShareQuality => 'Screen Share Quality';
+  String get callScreenShareQuality => 'Kwaliteit schermdeling';
 
   @override
-  String get callFrameRate => 'Frame rate';
+  String get callFrameRate => 'Framesnelheid';
 
   @override
-  String get callResolution => 'Resolution';
+  String get callResolution => 'Resolutie';
 
   @override
-  String get callAutoResolution => 'Auto = native screen resolution';
+  String get callAutoResolution => 'Auto = oorspronkelijke schermresolutie';
 
   @override
-  String get callStartSharing => 'Start sharing';
+  String get callStartSharing => 'Delen starten';
 
   @override
   String get callCameraUnavailable =>
-      'Camera unavailable — may be in use by another app';
+      'Camera niet beschikbaar — wordt mogelijk gebruikt door een andere app';
 
   @override
-  String get themeResetToDefaults => 'Reset to defaults';
+  String get themeResetToDefaults => 'Standaardwaarden herstellen';
 
   @override
-  String get backupSaveToDownloadsTitle => 'Save backup to Downloads?';
+  String get backupSaveToDownloadsTitle => 'Back-up opslaan in Downloads?';
 
   @override
   String backupSaveToDownloadsBody(String path) {
-    return 'No file picker available. The backup will be saved to:\n$path';
+    return 'Geen bestandskiezer beschikbaar. De back-up wordt opgeslagen in:\n$path';
   }
 
   @override
-  String get systemLabel => 'System';
+  String get systemLabel => 'Systeem';
 
   @override
-  String get next => 'Next';
+  String get next => 'Volgende';
 
   @override
   String get gifLabel => 'GIF';
 
   @override
   String devTapsRemaining(int remaining) {
-    return '$remaining more taps to enable developer mode';
+    return 'Nog $remaining keer tikken om ontwikkelaarsmodus in te schakelen';
   }
 
   @override
-  String get devModeEnabled => 'Developer mode enabled';
+  String get devModeEnabled => 'Ontwikkelaarsmodus ingeschakeld';
 
   @override
-  String get devTools => 'Developer Tools';
+  String get devTools => 'Ontwikkelaarstools';
 
   @override
-  String get devAdapterDiagnostics => 'Adapter toggles & diagnostics';
+  String get devAdapterDiagnostics => 'Adapterschakelaars & diagnostiek';
 
   @override
-  String get devEnableAll => 'Enable all';
+  String get devEnableAll => 'Alles inschakelen';
 
   @override
-  String get devDisableAll => 'Disable all';
+  String get devDisableAll => 'Alles uitschakelen';
 
   @override
   String get turnUrlValidation =>
-      'TURN URL must start with turn: or turns: (max 512 chars)';
+      'TURN-URL moet beginnen met turn: of turns: (max 512 tekens)';
 
   @override
-  String get callMissedCall => 'Missed call';
+  String get callMissedCall => 'Gemist gesprek';
 
   @override
-  String get callOutgoingCall => 'Outgoing call';
+  String get callOutgoingCall => 'Uitgaand gesprek';
 
   @override
-  String get callIncomingCall => 'Incoming call';
+  String get callIncomingCall => 'Inkomend gesprek';
 
   @override
-  String get mediaMissingData => 'Missing media data';
+  String get mediaMissingData => 'Ontbrekende mediagegevens';
 
   @override
-  String get mediaDownloadFailed => 'Download failed';
+  String get mediaDownloadFailed => 'Download mislukt';
 
   @override
-  String get mediaDecryptFailed => 'Decrypt failed';
+  String get mediaDecryptFailed => 'Ontsleuteling mislukt';
 
   @override
-  String get callEndCallBanner => 'End call';
+  String get callEndCallBanner => 'Gesprek beëindigen';
 
   @override
-  String get meFallback => 'Me';
+  String get meFallback => 'Ik';
 
   @override
-  String get imageSaveToDownloads => 'Save to Downloads';
+  String get imageSaveToDownloads => 'Opslaan in Downloads';
 
   @override
   String imageSavedToPath(String path) {
-    return 'Saved to $path';
+    return 'Opgeslagen in $path';
   }
 
   @override
   String get callScreenShareRequiresPermission =>
-      'Screen sharing requires permission';
+      'Schermdeling vereist toestemming';
 
   @override
-  String get callScreenShareUnavailable => 'Screen sharing unavailable';
+  String get callScreenShareUnavailable => 'Schermdeling niet beschikbaar';
 
   @override
-  String get statusJustNow => 'Just now';
+  String get statusJustNow => 'Zojuist';
 
   @override
   String statusMinutesAgo(int minutes) {
-    return '${minutes}m ago';
+    return '${minutes}m geleden';
   }
 
   @override
   String statusHoursAgo(int hours) {
-    return '${hours}h ago';
+    return '${hours}u geleden';
   }
 
   @override
@@ -2942,100 +2942,120 @@ class AppLocalizationsNl extends AppLocalizations {
   }
 
   @override
-  String get addContactReadyToAdd => 'Ready to add';
+  String get addContactReadyToAdd => 'Klaar om toe te voegen';
 
   @override
   String groupSelectedCount(int count) {
-    return '$count selected';
+    return '$count geselecteerd';
   }
 
   @override
-  String get paste => 'Paste';
+  String get paste => 'Plakken';
 
   @override
-  String get sfuAudioOnly => 'Audio only';
+  String get sfuAudioOnly => 'Alleen audio';
 
   @override
   String sfuParticipants(int count) {
-    return '$count participants';
+    return '$count deelnemers';
   }
 
   @override
-  String get dataUnencryptedBackup => 'Unencrypted backup';
+  String get dataUnencryptedBackup => 'Niet-versleutelde back-up';
 
   @override
   String get dataUnencryptedBackupBody =>
-      'This file is an unencrypted identity backup and will overwrite your current keys. Only import files you created yourself. Proceed?';
+      'Dit bestand is een niet-versleutelde identiteitsback-up en overschrijft je huidige sleutels. Importeer alleen bestanden die je zelf hebt gemaakt. Doorgaan?';
 
   @override
-  String get dataImportAnyway => 'Import anyway';
+  String get dataImportAnyway => 'Toch importeren';
 
   @override
-  String get securityStorageError => 'Security storage error — restart the app';
+  String get securityStorageError => 'Beveiligingsopslagfout — herstart de app';
 
   @override
-  String get aboutDevModeActive => 'Developer mode active';
+  String get aboutDevModeActive => 'Ontwikkelaarsmodus actief';
 
   @override
-  String get themeColors => 'Colors';
+  String get themeColors => 'Kleuren';
 
   @override
-  String get themePrimaryAccent => 'Primary accent';
+  String get themePrimaryAccent => 'Primair accent';
 
   @override
-  String get themeSecondaryAccent => 'Secondary accent';
+  String get themeSecondaryAccent => 'Secundair accent';
 
   @override
-  String get themeBackground => 'Background';
+  String get themeBackground => 'Achtergrond';
 
   @override
-  String get themeSurface => 'Surface';
+  String get themeSurface => 'Oppervlak';
 
   @override
-  String get themeChatBubbles => 'Chat Bubbles';
+  String get themeChatBubbles => 'Chatballonnen';
 
   @override
-  String get themeOutgoingMessage => 'Outgoing message';
+  String get themeOutgoingMessage => 'Uitgaand bericht';
 
   @override
-  String get themeIncomingMessage => 'Incoming message';
+  String get themeIncomingMessage => 'Inkomend bericht';
 
   @override
-  String get themeShape => 'Shape';
+  String get themeShape => 'Vorm';
 
   @override
-  String get devSectionDeveloper => 'Developer';
+  String get devSectionDeveloper => 'Ontwikkelaar';
 
   @override
   String get devAdapterChannelsHint =>
-      'Adapter channels — disable to test specific transports.';
+      'Adapterkanalen — schakel uit om specifieke transporten te testen.';
 
   @override
-  String get devNostrRelays => 'Nostr relays (wss://)';
+  String get devNostrRelays => 'Nostr-relays (wss://)';
 
   @override
   String get devFirebaseDb => 'Firebase Realtime DB';
 
   @override
-  String get devSessionNetwork => 'Session Network';
+  String get devSessionNetwork => 'Session-netwerk';
 
   @override
-  String get devPulseRelay => 'Pulse self-hosted relay';
+  String get devPulseRelay => 'Pulse zelf-gehost relay';
 
   @override
-  String get devLanNetwork => 'Local network (UDP/TCP)';
+  String get devLanNetwork => 'Lokaal netwerk (UDP/TCP)';
 
   @override
-  String get devSectionCalls => 'Calls';
+  String get devSectionCalls => 'Gesprekken';
 
   @override
-  String get devForceTurnRelay => 'Force TURN relay';
+  String get devForceTurnRelay => 'TURN-relay forceren';
 
   @override
   String get devForceTurnRelaySubtitle =>
-      'Disable P2P — all calls via TURN servers only';
+      'P2P uitschakelen — alle gesprekken alleen via TURN-servers';
 
   @override
   String get devRestartWarning =>
-      '⚠ Changes take effect on next send/call. Restart app to apply to incoming.';
+      '⚠ Wijzigingen worden toegepast bij volgende verzending/oproep. Herstart de app om toe te passen op inkomende.';
+
+  @override
+  String get messageRequest => 'Message request';
+
+  @override
+  String messageRequestFrom(String name) {
+    return 'Message request from $name';
+  }
+
+  @override
+  String get acceptContact => 'Accept';
+
+  @override
+  String get blockContact => 'Block';
+
+  @override
+  String get blockedContactsEmpty => 'No blocked contacts';
+
+  @override
+  String get pendingLimitReached => 'Too many pending requests';
 }

@@ -2765,135 +2765,135 @@ class AppLocalizationsBn extends AppLocalizations {
       'এই কীটি নিরাপদ রাখুন। যার কাছে এটি আছে সে অন্য ডিভাইসে আপনার অ্যাকাউন্ট পুনরুদ্ধার করতে পারে।';
 
   @override
-  String get replaceIdentityTitle => 'Replace existing identity?';
+  String get replaceIdentityTitle => 'বিদ্যমান পরিচয় প্রতিস্থাপন করবেন?';
 
   @override
   String get replaceIdentityBodyRestore =>
-      'An identity already exists on this device. Restoring will permanently replace your current Nostr key and Oxen seed. All contacts will lose the ability to reach your current address.\n\nThis cannot be undone.';
+      'এই ডিভাইসে ইতিমধ্যে একটি পরিচয় আছে। পুনরুদ্ধার করলে আপনার বর্তমান Nostr কী এবং Oxen seed স্থায়ীভাবে প্রতিস্থাপিত হবে। সব পরিচিতি আপনার বর্তমান ঠিকানায় যোগাযোগ করার ক্ষমতা হারাবে।\n\nএটি পূর্বাবস্থায় ফেরানো যাবে না।';
 
   @override
   String get replaceIdentityBodyCreate =>
-      'An identity already exists on this device. Creating a new one will permanently replace your current Nostr key and Oxen seed. All contacts will lose the ability to reach your current address.\n\nThis cannot be undone.';
+      'এই ডিভাইসে ইতিমধ্যে একটি পরিচয় আছে। নতুন একটি তৈরি করলে আপনার বর্তমান Nostr কী এবং Oxen seed স্থায়ীভাবে প্রতিস্থাপিত হবে। সব পরিচিতি আপনার বর্তমান ঠিকানায় যোগাযোগ করার ক্ষমতা হারাবে।\n\nএটি পূর্বাবস্থায় ফেরানো যাবে না।';
 
   @override
-  String get replace => 'Replace';
+  String get replace => 'প্রতিস্থাপন';
 
   @override
-  String get callNoScreenSources => 'No screen sources available';
+  String get callNoScreenSources => 'কোনো স্ক্রিন উৎস উপলব্ধ নেই';
 
   @override
-  String get callScreenShareQuality => 'Screen Share Quality';
+  String get callScreenShareQuality => 'স্ক্রিন শেয়ার গুণমান';
 
   @override
-  String get callFrameRate => 'Frame rate';
+  String get callFrameRate => 'ফ্রেম রেট';
 
   @override
-  String get callResolution => 'Resolution';
+  String get callResolution => 'রেজোলিউশন';
 
   @override
-  String get callAutoResolution => 'Auto = native screen resolution';
+  String get callAutoResolution => 'স্বয়ংক্রিয় = নেটিভ স্ক্রিন রেজোলিউশন';
 
   @override
-  String get callStartSharing => 'Start sharing';
+  String get callStartSharing => 'শেয়ার শুরু করুন';
 
   @override
   String get callCameraUnavailable =>
-      'Camera unavailable — may be in use by another app';
+      'ক্যামেরা অনুপলব্ধ — অন্য অ্যাপে ব্যবহৃত হতে পারে';
 
   @override
-  String get themeResetToDefaults => 'Reset to defaults';
+  String get themeResetToDefaults => 'ডিফল্টে রিসেট';
 
   @override
-  String get backupSaveToDownloadsTitle => 'Save backup to Downloads?';
+  String get backupSaveToDownloadsTitle => 'ডাউনলোডে ব্যাকআপ সংরক্ষণ করবেন?';
 
   @override
   String backupSaveToDownloadsBody(String path) {
-    return 'No file picker available. The backup will be saved to:\n$path';
+    return 'ফাইল পিকার উপলব্ধ নেই। ব্যাকআপ সংরক্ষিত হবে:\n$path';
   }
 
   @override
-  String get systemLabel => 'System';
+  String get systemLabel => 'সিস্টেম';
 
   @override
-  String get next => 'Next';
+  String get next => 'পরবর্তী';
 
   @override
   String get gifLabel => 'GIF';
 
   @override
   String devTapsRemaining(int remaining) {
-    return '$remaining more taps to enable developer mode';
+    return 'ডেভেলপার মোড সক্রিয় করতে আরো $remaining ট্যাপ';
   }
 
   @override
-  String get devModeEnabled => 'Developer mode enabled';
+  String get devModeEnabled => 'ডেভেলপার মোড সক্রিয় করা হয়েছে';
 
   @override
-  String get devTools => 'Developer Tools';
+  String get devTools => 'ডেভেলপার টুলস';
 
   @override
-  String get devAdapterDiagnostics => 'Adapter toggles & diagnostics';
+  String get devAdapterDiagnostics => 'অ্যাডাপ্টার টগল ও ডায়াগনস্টিক';
 
   @override
-  String get devEnableAll => 'Enable all';
+  String get devEnableAll => 'সব সক্রিয় করুন';
 
   @override
-  String get devDisableAll => 'Disable all';
+  String get devDisableAll => 'সব নিষ্ক্রিয় করুন';
 
   @override
   String get turnUrlValidation =>
-      'TURN URL must start with turn: or turns: (max 512 chars)';
+      'TURN URL অবশ্যই turn: বা turns: দিয়ে শুরু হতে হবে (সর্বোচ্চ 512 অক্ষর)';
 
   @override
-  String get callMissedCall => 'Missed call';
+  String get callMissedCall => 'মিসড কল';
 
   @override
-  String get callOutgoingCall => 'Outgoing call';
+  String get callOutgoingCall => 'আউটগোয়িং কল';
 
   @override
-  String get callIncomingCall => 'Incoming call';
+  String get callIncomingCall => 'ইনকামিং কল';
 
   @override
-  String get mediaMissingData => 'Missing media data';
+  String get mediaMissingData => 'মিডিয়া ডেটা অনুপস্থিত';
 
   @override
-  String get mediaDownloadFailed => 'Download failed';
+  String get mediaDownloadFailed => 'ডাউনলোড ব্যর্থ';
 
   @override
-  String get mediaDecryptFailed => 'Decrypt failed';
+  String get mediaDecryptFailed => 'ডিক্রিপ্ট ব্যর্থ';
 
   @override
-  String get callEndCallBanner => 'End call';
+  String get callEndCallBanner => 'কল শেষ করুন';
 
   @override
-  String get meFallback => 'Me';
+  String get meFallback => 'আমি';
 
   @override
-  String get imageSaveToDownloads => 'Save to Downloads';
+  String get imageSaveToDownloads => 'ডাউনলোডে সংরক্ষণ করুন';
 
   @override
   String imageSavedToPath(String path) {
-    return 'Saved to $path';
+    return '$path-এ সংরক্ষিত';
   }
 
   @override
   String get callScreenShareRequiresPermission =>
-      'Screen sharing requires permission';
+      'স্ক্রিন শেয়ারের জন্য অনুমতি প্রয়োজন';
 
   @override
-  String get callScreenShareUnavailable => 'Screen sharing unavailable';
+  String get callScreenShareUnavailable => 'স্ক্রিন শেয়ার অনুপলব্ধ';
 
   @override
-  String get statusJustNow => 'Just now';
+  String get statusJustNow => 'এইমাত্র';
 
   @override
   String statusMinutesAgo(int minutes) {
-    return '${minutes}m ago';
+    return '$minutesমি আগে';
   }
 
   @override
   String statusHoursAgo(int hours) {
-    return '${hours}h ago';
+    return '$hoursঘ আগে';
   }
 
   @override
@@ -2901,107 +2901,128 @@ class AppLocalizationsBn extends AppLocalizations {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
-      other: '$count routes',
-      one: '1 route',
+      other: '$countটি রুট',
+      one: '1টি রুট',
     );
     return '$_temp0';
   }
 
   @override
-  String get addContactReadyToAdd => 'Ready to add';
+  String get addContactReadyToAdd => 'যোগ করতে প্রস্তুত';
 
   @override
   String groupSelectedCount(int count) {
-    return '$count selected';
+    return '$count নির্বাচিত';
   }
 
   @override
-  String get paste => 'Paste';
+  String get paste => 'পেস্ট';
 
   @override
-  String get sfuAudioOnly => 'Audio only';
+  String get sfuAudioOnly => 'শুধু অডিও';
 
   @override
   String sfuParticipants(int count) {
-    return '$count participants';
+    return '$count অংশগ্রহণকারী';
   }
 
   @override
-  String get dataUnencryptedBackup => 'Unencrypted backup';
+  String get dataUnencryptedBackup => 'এনক্রিপ্ট না করা ব্যাকআপ';
 
   @override
   String get dataUnencryptedBackupBody =>
-      'This file is an unencrypted identity backup and will overwrite your current keys. Only import files you created yourself. Proceed?';
+      'এই ফাইলটি একটি এনক্রিপ্ট না করা পরিচয় ব্যাকআপ এবং আপনার বর্তমান কীগুলি ওভাররাইট করবে। শুধুমাত্র আপনার তৈরি করা ফাইল আমদানি করুন। চালিয়ে যাবেন?';
 
   @override
-  String get dataImportAnyway => 'Import anyway';
+  String get dataImportAnyway => 'যাই হোক আমদানি করুন';
 
   @override
-  String get securityStorageError => 'Security storage error — restart the app';
+  String get securityStorageError =>
+      'নিরাপদ সঞ্চয়স্থান ত্রুটি — অ্যাপ রিস্টার্ট করুন';
 
   @override
-  String get aboutDevModeActive => 'Developer mode active';
+  String get aboutDevModeActive => 'ডেভেলপার মোড সক্রিয়';
 
   @override
-  String get themeColors => 'Colors';
+  String get themeColors => 'রং';
 
   @override
-  String get themePrimaryAccent => 'Primary accent';
+  String get themePrimaryAccent => 'প্রাথমিক অ্যাকসেন্ট';
 
   @override
-  String get themeSecondaryAccent => 'Secondary accent';
+  String get themeSecondaryAccent => 'দ্বিতীয় অ্যাকসেন্ট';
 
   @override
-  String get themeBackground => 'Background';
+  String get themeBackground => 'পটভূমি';
 
   @override
-  String get themeSurface => 'Surface';
+  String get themeSurface => 'পৃষ্ঠতল';
 
   @override
-  String get themeChatBubbles => 'Chat Bubbles';
+  String get themeChatBubbles => 'চ্যাট বাবল';
 
   @override
-  String get themeOutgoingMessage => 'Outgoing message';
+  String get themeOutgoingMessage => 'আউটগোয়িং বার্তা';
 
   @override
-  String get themeIncomingMessage => 'Incoming message';
+  String get themeIncomingMessage => 'ইনকামিং বার্তা';
 
   @override
-  String get themeShape => 'Shape';
+  String get themeShape => 'আকৃতি';
 
   @override
-  String get devSectionDeveloper => 'Developer';
+  String get devSectionDeveloper => 'ডেভেলপার';
 
   @override
   String get devAdapterChannelsHint =>
-      'Adapter channels — disable to test specific transports.';
+      'অ্যাডাপ্টার চ্যানেল — নির্দিষ্ট পরিবহন পরীক্ষা করতে নিষ্ক্রিয় করুন।';
 
   @override
-  String get devNostrRelays => 'Nostr relays (wss://)';
+  String get devNostrRelays => 'Nostr রিলে (wss://)';
 
   @override
   String get devFirebaseDb => 'Firebase Realtime DB';
 
   @override
-  String get devSessionNetwork => 'Session Network';
+  String get devSessionNetwork => 'Session নেটওয়ার্ক';
 
   @override
-  String get devPulseRelay => 'Pulse self-hosted relay';
+  String get devPulseRelay => 'Pulse স্ব-হোস্টেড রিলে';
 
   @override
-  String get devLanNetwork => 'Local network (UDP/TCP)';
+  String get devLanNetwork => 'স্থানীয় নেটওয়ার্ক (UDP/TCP)';
 
   @override
-  String get devSectionCalls => 'Calls';
+  String get devSectionCalls => 'কল';
 
   @override
-  String get devForceTurnRelay => 'Force TURN relay';
+  String get devForceTurnRelay => 'TURN relay বাধ্যতামূলক';
 
   @override
   String get devForceTurnRelaySubtitle =>
-      'Disable P2P — all calls via TURN servers only';
+      'P2P নিষ্ক্রিয় করুন — সব কল শুধুমাত্র TURN সার্ভারের মাধ্যমে';
 
   @override
   String get devRestartWarning =>
-      '⚠ Changes take effect on next send/call. Restart app to apply to incoming.';
+      '⚠ পরবর্তী পাঠানো/কলে পরিবর্তন কার্যকর হবে। ইনকামিংয়ে প্রয়োগ করতে অ্যাপ রিস্টার্ট করুন।';
+
+  @override
+  String get messageRequest => 'Message request';
+
+  @override
+  String messageRequestFrom(String name) {
+    return 'Message request from $name';
+  }
+
+  @override
+  String get acceptContact => 'Accept';
+
+  @override
+  String get blockContact => 'Block';
+
+  @override
+  String get blockedContactsEmpty => 'No blocked contacts';
+
+  @override
+  String get pendingLimitReached => 'Too many pending requests';
 }
