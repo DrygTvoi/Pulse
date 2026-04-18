@@ -412,13 +412,7 @@ class ContactManager implements IContactRepository {
     _idIndex.clear();
     _addressIndex.clear();
     for (final c in _contacts) {
-      _idIndex[c.id] = c;
-      // Index ALL addresses from all transports for O(1) lookup.
-      for (final addrs in c.transportAddresses.values) {
-        for (final addr in addrs) {
-          if (addr.isNotEmpty) _addressIndex[addr] = c;
-        }
-      }
+      _indexContact(c);
     }
   }
 
@@ -426,7 +420,17 @@ class ContactManager implements IContactRepository {
     _idIndex[c.id] = c;
     for (final addrs in c.transportAddresses.values) {
       for (final addr in addrs) {
-        if (addr.isNotEmpty) _addressIndex[addr] = c;
+        if (addr.isEmpty) continue;
+        _addressIndex[addr] = c;
+        // Also index the bare pubkey / Session-ID part so a sender whose
+        // incoming message uses a different relay suffix (or no suffix at
+        // all) still matches the existing contact — prevents duplicate
+        // pending contacts being created for already-accepted people.
+        final atIdx = addr.indexOf('@');
+        if (atIdx > 0) {
+          final bare = addr.substring(0, atIdx);
+          _addressIndex.putIfAbsent(bare, () => c);
+        }
       }
     }
   }
@@ -437,6 +441,13 @@ class ContactManager implements IContactRepository {
       for (final addr in addrs) {
         if (_addressIndex[addr]?.id == c.id) {
           _addressIndex.remove(addr);
+        }
+        final atIdx = addr.indexOf('@');
+        if (atIdx > 0) {
+          final bare = addr.substring(0, atIdx);
+          if (_addressIndex[bare]?.id == c.id) {
+            _addressIndex.remove(bare);
+          }
         }
       }
     }
@@ -457,8 +468,51 @@ class ContactManager implements IContactRepository {
       debugPrint('[ContactManager] Failed to load contacts: $e');
       _contacts = [];
     }
+    // One-time dedup: earlier builds could create a pending duplicate next
+    // to an already-accepted contact when the incoming message used a bare
+    // pubkey (no @relay suffix) that didn't match the accepted contact's
+    // randomly-assigned id. Drop any pending contact whose bare pubkey is
+    // shared with a non-pending, non-group contact.
+    _dedupePendingDuplicates();
     _rebuildIndices();
     await loadBlockList();
+  }
+
+  void _dedupePendingDuplicates() {
+    final bareOfAccepted = <String>{};
+    for (final c in _contacts) {
+      if (c.isPending || c.isGroup) continue;
+      for (final addrs in c.transportAddresses.values) {
+        for (final addr in addrs) {
+          if (addr.isEmpty) continue;
+          final at = addr.indexOf('@');
+          bareOfAccepted.add(at > 0 ? addr.substring(0, at) : addr);
+        }
+      }
+    }
+    if (bareOfAccepted.isEmpty) return;
+    final removed = <String>[];
+    _contacts.removeWhere((c) {
+      if (!c.isPending || c.isGroup) return false;
+      for (final addrs in c.transportAddresses.values) {
+        for (final addr in addrs) {
+          if (addr.isEmpty) continue;
+          final at = addr.indexOf('@');
+          final bare = at > 0 ? addr.substring(0, at) : addr;
+          if (bareOfAccepted.contains(bare)) {
+            removed.add(c.id);
+            return true;
+          }
+        }
+      }
+      return false;
+    });
+    for (final id in removed) {
+      unawaited(LocalStorageService().deleteContact(id));
+    }
+    if (removed.isNotEmpty) {
+      debugPrint('[ContactManager] Dropped ${removed.length} stale pending duplicate(s)');
+    }
   }
 
   @override

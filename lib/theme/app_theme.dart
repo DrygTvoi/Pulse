@@ -31,6 +31,9 @@ class AppTheme {
   static const Color providerNostr = Color(0xFF9B59B6);
   static const Color providerPulse = Color(0xFF26A69A);
   static const Color providerOxen = Color(0xFF2196F3);
+  static const Color providerSession = Color(0xFF00B495);
+  static const Color providerLan = Color(0xFF4FC3F7);
+  static const Color providerP2P = Color(0xFF66BB6A);
 
   // ── Status colors ─────────────────────────────────────
   static const Color online = Color(0xFF4CAF50);

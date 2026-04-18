@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:uuid/uuid.dart';
 import '../models/contact.dart';
 import '../models/message.dart';
 import '../models/identity.dart';
@@ -260,15 +261,55 @@ class SignalBroadcaster {
       'primary': selfId,
       'all': allAddresses,
     };
+    // Skip-if-same: heartbeat fires every 2 min even when nothing about our
+    // address map changed. Re-broadcasting an identical payload to 100
+    // contacts × 4 transports each is pure waste. Hash the payload and
+    // bail if it matches the last one we sent.
+    final fingerprint = _fingerprintPayload(payload);
+    if (fingerprint == _lastAddrBroadcastFp &&
+        DateTime.now().difference(_lastAddrBroadcastAt ?? DateTime(0)) <
+            const Duration(minutes: 30)) {
+      return;
+    }
+    _lastAddrBroadcastFp = fingerprint;
+    _lastAddrBroadcastAt = DateTime.now();
+
+    // Batch to avoid opening 100+ connections at once on large contact lists.
     final targets = contacts.where((c) => !c.isGroup).toList();
-    // addr_update is critical — send via ALL transports so the receiver gets it.
-    await Future.wait(targets.map((c) => _sendSignalToAll(c, 'addr_update', payload)));
+    const int batchSize = 20;
+    for (var i = 0; i < targets.length; i += batchSize) {
+      final end = (i + batchSize).clamp(0, targets.length);
+      final batch = targets.sublist(i, end);
+      // addr_update is critical — send via ALL transports so the receiver gets it.
+      await Future.wait(batch.map((c) => _sendSignalToAll(c, 'addr_update', payload)));
+      if (end < targets.length) {
+        await Future<void>.delayed(const Duration(milliseconds: 300));
+      }
+    }
   }
+
+  String? _lastAddrBroadcastFp;
+  DateTime? _lastAddrBroadcastAt;
+  String _fingerprintPayload(Map<String, dynamic> payload) {
+    // A stable canonical JSON string is enough of a fingerprint — the
+    // payload is small (<1 KB typical) and we only compare strings.
+    return jsonEncode(payload);
+  }
+
+  /// Public wrapper around [_sendSignalToAll] for callers outside this file.
+  /// Pushes [payload] as [type] to every transport known for [contact].
+  /// Set [pqcWrap] to false for signals that must stay decryptable even
+  /// when the Kyber session is broken (e.g. `sys_keys` recovery push).
+  Future<void> sendSignalToAllTransports(
+          Contact contact, String type, Map<String, dynamic> payload,
+          {bool pqcWrap = true}) =>
+      _sendSignalToAll(contact, type, payload, pqcWrap: pqcWrap);
 
   /// Send a signal via ALL available transports for a contact.
   /// Used for critical signals like addr_update that must reach the recipient.
   Future<void> _sendSignalToAll(
-      Contact contact, String type, Map<String, dynamic> payload) async {
+      Contact contact, String type, Map<String, dynamic> payload,
+      {bool pqcWrap = true}) async {
     final identity = _getIdentity();
     final selfId = _getSelfId();
     if (identity == null || selfId.isEmpty) return;
@@ -282,8 +323,9 @@ class SignalBroadcaster {
     } catch (e) {
       debugPrint('[Broadcaster] _sendSignalToAll: signing failed: $e');
     }
-    final effectivePayload =
-        await _maybePqcWrap(signedPayload ?? payload, contact.databaseId);
+    final effectivePayload = pqcWrap
+        ? await _maybePqcWrap(signedPayload ?? payload, contact.databaseId)
+        : (signedPayload ?? payload);
 
     // Developer mode: check adapter toggles
     final prefs = await _getPrefs();
@@ -432,7 +474,7 @@ class SignalBroadcaster {
   Future<void> sendGroupReadReceipt(
       Contact senderContact, String groupId, String msgId) {
     final selfId = _getSelfId();
-    return _sendSignalToAll(senderContact, 'msg_read',
+    return _sendSignalTo(senderContact, 'msg_read',
         {'from': selfId, 'groupId': groupId, 'msgId': msgId});
   }
 
@@ -440,13 +482,13 @@ class SignalBroadcaster {
 
   Future<void> sendReadReceipt(Contact contact) {
     final selfId = _getSelfId();
-    return _sendSignalToAll(contact, 'msg_read', {'from': selfId});
+    return _sendSignalTo(contact, 'msg_read', {'from': selfId});
   }
 
   Future<void> sendDeliveryAck(Contact contact, String msgId,
       {String? groupId}) {
     final selfId = _getSelfId();
-    return _sendSignalToAll(contact, 'msg_ack', {
+    return _sendSignalTo(contact, 'msg_ack', {
       'msgId': msgId,
       'from': selfId,
       'groupId': groupId,
@@ -460,10 +502,18 @@ class SignalBroadcaster {
   // real-time only — they are dropped when the recipient is briefly offline
   // during its connection cycle.  Sending via all transports ensures delivery.
 
+  // _sid is attached as a safety net: even though we now send these signals
+  // down a single transport (stop-on-first-success), a relay may still fan
+  // them out through multiple subscriptions on the receiver side. Dedup
+  // catches those without the receiver noticing.
+  String _newSid() => _uuid.v4();
+  static const _uuid = Uuid();
+
   Future<void> sendReactionSignal(
       Contact contact, String msgId, String emoji, String selfId,
       {bool remove = false, String? groupId}) {
-    return _sendSignalToAll(contact, 'reaction', {
+    return _sendSignalTo(contact, 'reaction', {
+      '_sid': _newSid(),
       'msgId': msgId,
       'emoji': emoji,
       'from': selfId,
@@ -474,17 +524,19 @@ class SignalBroadcaster {
 
   Future<void> sendEditSignal(Contact contact, String msgId, String text) {
     final selfId = _getSelfId();
-    return _sendSignalToAll(contact, 'edit',
-        {'msgId': msgId, 'text': text, 'from': selfId});
+    return _sendSignalTo(contact, 'edit',
+        {'_sid': _newSid(), 'msgId': msgId, 'text': text, 'from': selfId});
   }
 
   Future<void> sendGroupEditSignal(Contact group, String msgId, String text,
       List<Contact> allContacts) async {
     final selfId = _getSelfId();
+    final sid = _newSid();
     final memberContacts = allContacts
         .where((c) => !c.isGroup && group.members.contains(c.id))
         .toList();
-    await Future.wait(memberContacts.map((c) => _sendSignalToAll(c, 'edit', {
+    await Future.wait(memberContacts.map((c) => _sendSignalTo(c, 'edit', {
+          '_sid': sid,
           'msgId': msgId,
           'text': text,
           'from': selfId,
@@ -495,7 +547,8 @@ class SignalBroadcaster {
   Future<void> sendDeleteSignal(Contact contact, String msgId,
       {String? groupId}) {
     final selfId = _getSelfId();
-    return _sendSignalToAll(contact, 'msg_delete', {
+    return _sendSignalTo(contact, 'msg_delete', {
+      '_sid': _newSid(),
       'msgId': msgId,
       'groupId': groupId,
       'from': selfId,

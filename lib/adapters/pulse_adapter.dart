@@ -310,6 +310,12 @@ class _PulseSharedWs {
   static bool authenticated = false;
   /// Set to true when reader's _runLoop starts, so sender knows to wait.
   static bool readerActive = false;
+  /// Reader-maintained health flag. True on auth_ok, false when the reader's
+  /// connection cycle ends without success (server unreachable, auth rejected,
+  /// dropped connection). Sender consults this to skip Pulse instantly and
+  /// fall back to Nostr/Session without a per-send timeout. Defaults true so a
+  /// fresh boot still gives the reader a chance to connect before skipping.
+  static bool serverHealthy = true;
   /// Shared keys completers — reader resolves, sender registers.
   static final pendingKeysCompleters = <String, Completer<Map<String, dynamic>?>>{};
   /// Sealed sender delivery certificates (single-use, from auth_ok).
@@ -679,6 +685,15 @@ class PulseInboxReader implements InboxReader {
         channel = await _connectWs();
         await channel.ready;
         debugPrint('[Pulse] Connected to $_wsUrl');
+        // Track current channel so close() can tear it down even before auth
+        // completes — otherwise a concurrent reader restart (e.g. from
+        // reconnectInbox) leaves the old pre-auth connection competing with
+        // the new one and the server kicks back and forth between them.
+        _ws = channel;
+        if (!_running) {
+          try { channel.sink.close(); } catch (_) {}
+          break;
+        }
 
         // Send hello — server waits for this before sending auth_challenge
         // (probe resistance: server is silent until client proves protocol knowledge)
@@ -810,6 +825,7 @@ class PulseInboxReader implements InboxReader {
                   // this connection instead of opening a competing one.
                   _PulseSharedWs.channel = channel;
                   _PulseSharedWs.authenticated = true;
+                  _PulseSharedWs.serverHealthy = true;
                   // Set WS channel for TURN-over-WebSocket (single connection)
                   PulseTurnProxy.setWebSocketChannel(channel);
                   if (!_isHealthy && !_healthCtrl.isClosed) {
@@ -909,6 +925,13 @@ class PulseInboxReader implements InboxReader {
           _PulseSharedWs.authenticated = false;
           PulseTurnProxy.setWebSocketChannel(null);
         }
+        // Flag unhealthy only on post-auth disconnect (a reader that was
+        // authenticated and lost its connection = real server issue). Skip
+        // pre-auth closes since they usually happen when the reader is
+        // replaced during reconnect (Nostr probe etc.) and the new reader
+        // is about to auth — flagging in that case causes the sender to
+        // spuriously fall back to Session for a few seconds.
+        if (cycleSuccess) _PulseSharedWs.serverHealthy = false;
         _ws = null;
         try { channel?.sink.close(); } catch (_) {}
       }
@@ -1368,16 +1391,27 @@ class PulseMessageSender implements MessageSender {
 
     // 2b. Reader is active — wait for it to connect+authenticate.
     //     Creating a duplicate connection would kick the reader from the hub.
+    //     If the reader has already signalled the server is down, skip
+    //     entirely so the caller falls back to Nostr/Session without delay.
     if (_PulseSharedWs.readerActive) {
+      if (!_PulseSharedWs.serverHealthy) {
+        debugPrint('[Pulse/Sender] Reader reports server unhealthy — skipping Pulse');
+        return null;
+      }
       debugPrint('[Pulse/Sender] Waiting for reader to authenticate...');
-      for (int i = 0; i < 150; i++) { // up to 15 seconds
+      for (int i = 0; i < 30; i++) { // up to 3 seconds
         await Future.delayed(const Duration(milliseconds: 100));
         if (_PulseSharedWs.authenticated && _PulseSharedWs.channel != null) {
           debugPrint('[Pulse/Sender] Reader authenticated, borrowing connection');
           return _PulseSharedWs.channel;
         }
+        // Reader marked server dead mid-wait — bail early.
+        if (!_PulseSharedWs.serverHealthy) {
+          debugPrint('[Pulse/Sender] Server marked unhealthy mid-wait — skipping');
+          return null;
+        }
       }
-      debugPrint('[Pulse/Sender] Reader auth wait timed out (15s)');
+      debugPrint('[Pulse/Sender] Reader auth wait timed out (3s)');
       return null; // don't create duplicate — let caller handle failure
     }
 

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import '../models/contact.dart';
@@ -151,6 +152,16 @@ class SignalStatusUpdateEvent {
 }
 
 /// Address migration update.
+/// Peer requests we delete our Signal session with them and rebuild on
+/// next send. Triggered by the peer detecting a stale-prekey decrypt
+/// failure — their existing sessions with us can no longer decrypt our
+/// messages because the prekey bundle we used for session setup has been
+/// rotated out on their side.
+class SignalSessionResetEvent {
+  final Contact contact;
+  SignalSessionResetEvent(this.contact);
+}
+
 class SignalAddrUpdateEvent {
   final Contact contact;
   final String primary;
@@ -158,7 +169,12 @@ class SignalAddrUpdateEvent {
   /// Raw payload map — may contain 'transportAddresses' and 'transportPriority'
   /// from new-format addr_update signals.
   final Map<String, dynamic> rawPayload;
-  SignalAddrUpdateEvent(this.contact, this.primary, this.all, this.rawPayload);
+  /// Transport the signal arrived on (e.g. 'Pulse', 'Nostr', 'LAN').
+  /// Used to decide whether to trust private-IP addresses: LAN / Pulse are
+  /// trusted channels; Nostr / Firebase / Session leak metadata publicly.
+  final String? sourceTransport;
+  SignalAddrUpdateEvent(this.contact, this.primary, this.all, this.rawPayload,
+      {this.sourceTransport});
 }
 
 /// Profile update from contact.
@@ -249,6 +265,13 @@ class SignalDispatcher {
   final RateLimiter _webrtcRateLimiter =
       RateLimiter(maxTokens: 6, refillInterval: Duration(seconds: 10));
 
+  // Dedup set for edit/reaction/msg_delete — same signal is broadcast over
+  // every transport a contact has, so receivers see multiple copies. We
+  // drop any signal whose `_sid` has already been processed. Bounded to
+  // 512 entries via a FIFO queue so memory can't grow unboundedly.
+  final Set<String> _seenSignalSids = <String>{};
+  final Queue<String> _seenSignalSidsOrder = Queue<String>();
+
   // ── Streams ──────────────────────────────────────────────────────────────
   final _rawCtrl = StreamController<SignalRawEvent>.broadcast();
   final _incomingCallCtrl = StreamController<SignalIncomingCallEvent>.broadcast();
@@ -278,6 +301,8 @@ class SignalDispatcher {
   final _senderKeyDistCtrl =
       StreamController<SignalSenderKeyDistEvent>.broadcast();
   final _pqcConfirmedCtrl = StreamController<String>.broadcast();
+  final _sessionResetCtrl =
+      StreamController<SignalSessionResetEvent>.broadcast();
 
   Stream<SignalRawEvent> get rawSignals => _rawCtrl.stream;
   Stream<SignalIncomingCallEvent> get incomingCalls => _incomingCallCtrl.stream;
@@ -308,6 +333,8 @@ class SignalDispatcher {
       _senderKeyDistCtrl.stream;
   /// Emits sender address when a PQC-wrapped signal is successfully unwrapped.
   Stream<String> get pqcConfirmed => _pqcConfirmedCtrl.stream;
+  /// Peer told us to delete our Signal session with them (stale-prekey recovery).
+  Stream<SignalSessionResetEvent> get sessionResets => _sessionResetCtrl.stream;
 
   // ── Constants ────────────────────────────────────────────────────────────
 
@@ -342,6 +369,9 @@ class SignalDispatcher {
     // all signals for non-Nostr transports). Without verification a relay can
     // forge heartbeats to make any contact appear online persistently.
     'heartbeat',
+    // session_reset wipes a Signal session on receipt — a forged one would
+    // let a relay drop E2EE state for any contact. HMAC is mandatory.
+    'session_reset',
   };
 
   /// Signal types exempt from the general rate limiter (system-critical or
@@ -407,7 +437,12 @@ class SignalDispatcher {
   // ── Main dispatch entry point ────────────────────────────────────────────
 
   /// Process a batch of incoming signals, emitting typed events.
-  Future<void> dispatch(List<Map<String, dynamic>> signals) async {
+  ///
+  /// [sourceTransport] is the adapter name ('Pulse', 'Nostr', 'Firebase',
+  /// 'Session', 'LAN') the signal arrived on. Used by addr_update handling
+  /// to decide whether private-IP addresses can be trusted.
+  Future<void> dispatch(List<Map<String, dynamic>> signals,
+      {String? sourceTransport}) async {
     final contactByDbId = _contactIndexBuilder();
 
     for (var sig in signals) {
@@ -423,6 +458,27 @@ class SignalDispatcher {
             !_sigRateLimiter.allow(sigSender)) {
           debugPrint('[SignalDispatcher] Rate limited signal ($sigType) from: $sigSender');
           continue;
+        }
+        // Deduplicate copies of the same signal arriving via multiple
+        // transports (edit / reaction / msg_delete are deliberately sent
+        // over all transports for robustness — without dedup the receiver
+        // double-applies them, showing two reactions, re-running deletes,
+        // etc.). The sender attaches a unique [_sid]; we drop repeats.
+        {
+          final pl = sig['payload'];
+          if (pl is Map) {
+            final sid = pl['_sid'] as String?;
+            if (sid != null && sid.isNotEmpty) {
+              if (_seenSignalSids.contains(sid)) {
+                continue;
+              }
+              _seenSignalSids.add(sid);
+              _seenSignalSidsOrder.add(sid);
+              while (_seenSignalSidsOrder.length > 512) {
+                _seenSignalSids.remove(_seenSignalSidsOrder.removeFirst());
+              }
+            }
+          }
         }
 
         // Stricter rate limit for webrtc offer/answer (6 per 10s per sender).
@@ -809,6 +865,12 @@ class SignalDispatcher {
               }
             }
           }
+        } else if (sigType == 'session_reset') {
+          final senderId = sig['senderId'] as String? ?? '';
+          final peer = _resolveContact(senderId, contactByDbId);
+          if (peer != null && !_sessionResetCtrl.isClosed) {
+            _sessionResetCtrl.add(SignalSessionResetEvent(peer));
+          }
         } else if (sigType == 'addr_update') {
           final payload = sig['payload'];
           if (payload is Map) {
@@ -826,9 +888,13 @@ class SignalDispatcher {
             if (addrContact != null &&
                 primary.isNotEmpty &&
                 !_addrUpdateCtrl.isClosed) {
-              _addrUpdateCtrl
-                  .add(SignalAddrUpdateEvent(addrContact, primary, all,
-                      Map<String, dynamic>.from(payload as Map)));
+              _addrUpdateCtrl.add(SignalAddrUpdateEvent(
+                addrContact,
+                primary,
+                all,
+                Map<String, dynamic>.from(payload as Map),
+                sourceTransport: sourceTransport,
+              ));
             }
           }
         } else if (sigType == 'profile_update') {
@@ -968,6 +1034,7 @@ class SignalDispatcher {
     _groupInviteDeclineCtrl.close();
     _senderKeyDistCtrl.close();
     _msgDeleteCtrl.close();
+    _sessionResetCtrl.close();
     _sigRateLimiter.clear();
   }
 }

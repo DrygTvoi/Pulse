@@ -21,6 +21,7 @@ import '../widgets/message_input_bar.dart';
 import '../widgets/message_menu.dart' as menu;
 import '../widgets/swipeable_bubble.dart';
 import '../widgets/chat_app_bar.dart';
+import '../widgets/pulse_server_suggestion_banner.dart';
 import '../widgets/connection_banner.dart';
 import '../widgets/emoji_picker_panel.dart';
 import '../services/video_service.dart';
@@ -833,6 +834,10 @@ class _ChatScreenState extends State<ChatScreen> {
         Expanded(child: Column(children: [
         // Offline indicator (hidden while probe is still running)
         OfflineBanner(status: connectionStatus),
+        // Pulse server suggestion — silent no-op if we already have Pulse
+        // or the contact doesn't advertise one.
+        if (!_contact.isGroup)
+          PulseServerSuggestionBanner(contact: _contact),
         // Key change warning banner
         if (_showKeyChangeBanner)
           GestureDetector(

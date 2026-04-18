@@ -10,6 +10,7 @@ import 'package:image/image.dart' as img;
 import 'package:uuid/uuid.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import '../constants.dart';
+import '../controllers/chat_controller.dart';
 import '../l10n/l10n_ext.dart';
 import '../models/contact.dart';
 import '../services/blossom_service.dart';
@@ -36,6 +37,12 @@ class _AddContactDialogState extends State<AddContactDialog> {
   Timer? _debounceTimer;
   Uint8List? _previewAvatarBytes;
   bool _fetchingAvatar = false;
+  // When the deep link carries a Pulse address and the local user doesn't
+  // have Pulse configured, offer to adopt the same server. Checkbox is
+  // pre-checked for ergonomic one-tap onboarding.
+  bool _offerPulseJoin = false;
+  bool _joinPulseChecked = true;
+  String? _detectedPulseServerUrl;
 
   @override
   void dispose() {
@@ -121,6 +128,24 @@ class _AddContactDialogState extends State<AddContactDialog> {
         avatarHash = rawAv;
       }
 
+      // If the shared contact is on Pulse and we aren't, prep the
+      // optional server-join checkbox. Silent if we already have Pulse.
+      String? pulseUrlOffer;
+      final ctrl = ChatController();
+      if (!ctrl.hasPulseConfigured) {
+        for (final a in addresses) {
+          if (_detectProvider(a) != 'Pulse') continue;
+          final at = a.indexOf('@');
+          if (at <= 0) continue;
+          final candidate =
+              ChatController().publicPulseServerFromUrl(a.substring(at + 1));
+          if (candidate != null) {
+            pulseUrlOffer = candidate;
+            break;
+          }
+        }
+      }
+
       setState(() {
         _detectedAddresses = addresses;
         _previewAvatarBytes = null;
@@ -130,6 +155,9 @@ class _AddContactDialogState extends State<AddContactDialog> {
         // Pulse links are trusted — no NIP-0 lookup needed.
         _profileFetchStatus = null;
         _fetchingProfile = false;
+        _detectedPulseServerUrl = pulseUrlOffer;
+        _offerPulseJoin = pulseUrlOffer != null;
+        _joinPulseChecked = pulseUrlOffer != null;
       });
 
       if (avatarHash != null) _fetchBlossomAvatar(avatarHash);
@@ -334,7 +362,20 @@ class _AddContactDialogState extends State<AddContactDialog> {
       }
     }
     widget.onAdd(contact);
+    // Fire-and-forget Pulse server join if the user opted in — the dialog
+    // closes immediately, a SnackBar reports the outcome asynchronously.
+    final joinUrl = _detectedPulseServerUrl;
+    final shouldJoin = _offerPulseJoin && _joinPulseChecked && joinUrl != null;
+    final messenger = ScaffoldMessenger.maybeOf(context);
     if (mounted) Navigator.of(context).pop();
+    if (shouldJoin) {
+      ChatController().joinPulseServer(joinUrl).then((error) {
+        if (error != null) {
+          messenger?.showSnackBar(SnackBar(
+              content: Text(error), behavior: SnackBarBehavior.floating));
+        }
+      });
+    }
   }
 
   @override
@@ -605,6 +646,35 @@ class _AddContactDialogState extends State<AddContactDialog> {
               ],
 
               const SizedBox(height: 20),
+
+              // Optional "also join their Pulse server" checkbox — only
+              // rendered when the deep link carried a Pulse address and
+              // we don't have Pulse configured locally.
+              if (_offerPulseJoin && _detectedPulseServerUrl != null) ...[
+                InkWell(
+                  onTap: () => setState(() => _joinPulseChecked = !_joinPulseChecked),
+                  borderRadius: BorderRadius.circular(8),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    child: Row(children: [
+                      Checkbox(
+                        value: _joinPulseChecked,
+                        onChanged: (v) =>
+                            setState(() => _joinPulseChecked = v ?? false),
+                      ),
+                      Expanded(
+                        child: Text(
+                          'Also join their Pulse server '
+                          '(${Uri.tryParse(_detectedPulseServerUrl!)?.host ?? _detectedPulseServerUrl})',
+                          style: GoogleFonts.inter(
+                              fontSize: 13, color: AppTheme.textSecondary),
+                        ),
+                      ),
+                    ]),
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
 
               // ── Add button ───────────────────────────────────
               SizedBox(

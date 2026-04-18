@@ -122,6 +122,17 @@ class KeyManager {
     await publishOwnKeys(preferredAdapter, adapterApiKey, selfId);
   }
 
+  /// Build our current public Signal+PQC bundle for direct delivery (e.g.
+  /// pushing to a contact whose session just broke). Same shape as the one
+  /// published via `publishOwnKeys`.
+  Future<Map<String, dynamic>> buildOwnBundle() async {
+    final bundle = await _signalService.getPublicBundle();
+    if (_pqcService.isInitialized) {
+      bundle['kyberPublicKey'] = _pqcService.publicKey.toList();
+    }
+    return bundle;
+  }
+
   /// Publish Signal+PQC public bundle to own inbox.
   /// For Nostr: publishes to up to 3 known relays for redundancy.
   Future<void> publishOwnKeys(

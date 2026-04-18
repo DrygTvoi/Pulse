@@ -83,6 +83,13 @@ class ChatController extends ChangeNotifier {
   final List<StreamSubscription> _healthSubs = [];
   final List<StreamSubscription> _dispatcherSubs = [];
   final Map<String, bool> _adapterHealth = {}; // addr → isHealthy
+  /// contactId → transport name of the most recent successful delivery.
+  /// Read by the chat header to show which transport is active.
+  final Map<String, String> _lastDeliveryTransport = {};
+  /// contactId → last time we pushed a fresh sys_keys bundle in response to
+  /// a stale-prekey decrypt failure. Rate-limits recovery pushes to avoid
+  /// relay spam if the sender keeps retrying.
+  final Map<String, DateTime> _lastStaleKeyPush = {};
   List<String> _allAddresses = [];
   SignalDispatcher? _signalDispatcher;
   // PQC: contacts from whom we've successfully unwrapped a PQC message.
@@ -204,6 +211,7 @@ class ChatController extends ChangeNotifier {
   FirebaseInboxSender? _cachedFirebaseSender;
   SessionMessageSender? _cachedSessionSender;
   SessionInboxReader? _adhocSessionReader;
+  PulseInboxReader? _adhocPulseReader;
   PulseMessageSender? _cachedPulseSender;
   String? _cachedNostrPrivkey;
 
@@ -322,6 +330,19 @@ class ChatController extends ChangeNotifier {
   /// The transport-level address used as senderId (e.g. pubkey@server).
   String get selfId => _selfId;
   List<String> get allAddresses => List.unmodifiable(_allAddresses);
+
+  /// Transport name that was used for the most recent successful delivery to
+  /// [contactId], or — if no delivery has happened yet — the transport that
+  /// would be tried first on next send. Returns null only if the contact has
+  /// no known transports.
+  String? activeTransportFor(String contactId) {
+    final last = _lastDeliveryTransport[contactId];
+    if (last != null) return last;
+    final contact = _contacts.findById(contactId);
+    if (contact == null) return null;
+    final ranked = _rankedTransportsFor(contact);
+    return ranked.isNotEmpty ? ranked.first : null;
+  }
 
   /// Build a transport address map from our own addresses for envelope sharing.
   /// Uses shareableAddresses (includes all known Nostr relays, not just primary).
@@ -617,6 +638,8 @@ class ChatController extends ChangeNotifier {
       _cachedSessionSender = null;
       _adhocSessionReader?.close();
       _adhocSessionReader = null;
+      _adhocPulseReader?.close();
+      _adhocPulseReader = null;
       await _initInbox();
     } finally {
       _reconnecting = false;
@@ -776,8 +799,10 @@ class ChatController extends ChangeNotifier {
 
     if (InboxManager().reader != null) {
       final r = InboxManager().reader!;
+      final primaryTransport = _providerFromAddress(myAddress);
       _messageSubs.add(r.listenForMessages().listen(_handleIncomingMessages));
-      _signalSubs.add(r.listenForSignals().listen(_signalDispatcher!.dispatch));
+      _signalSubs.add(r.listenForSignals().listen(
+          (sigs) => _signalDispatcher!.dispatch(sigs, sourceTransport: primaryTransport)));
       _adapterHealth[myAddress] = true;
       _healthSubs.add(r.healthChanges.listen((h) => _onAdapterHealthChange(myAddress, h)));
     }
@@ -827,8 +852,10 @@ class ChatController extends ChangeNotifier {
       final reader = await InboxManager().createAdhocReader(
           cfg['provider']!, cfg['apiKey']!, cfg['databaseId']!);
       if (reader == null) continue;
+      final secondaryTransport = cfg['provider']!;
       _messageSubs.add(reader.listenForMessages().listen(_handleIncomingMessages));
-      _signalSubs.add(reader.listenForSignals().listen(_signalDispatcher!.dispatch));
+      _signalSubs.add(reader.listenForSignals().listen(
+          (sigs) => _signalDispatcher!.dispatch(sigs, sourceTransport: secondaryTransport)));
       final addr = cfg['selfId'] ?? '';
       if (addr.isNotEmpty) {
         newAddresses.add(addr);
@@ -850,8 +877,10 @@ class ChatController extends ChangeNotifier {
           final pulseApiKey = jsonEncode({'privkey': pulseKey, 'serverUrl': pulseUrl});
           final pulseReader = await InboxManager().createAdhocReader('Pulse', pulseApiKey, pulseUrl);
           if (pulseReader != null) {
+            _adhocPulseReader = pulseReader as PulseInboxReader;
             _messageSubs.add(pulseReader.listenForMessages().listen(_handleIncomingMessages));
-            _signalSubs.add(pulseReader.listenForSignals().listen(_signalDispatcher!.dispatch));
+            _signalSubs.add(pulseReader.listenForSignals().listen(
+                (sigs) => _signalDispatcher!.dispatch(sigs, sourceTransport: 'Pulse')));
             final seed = Uint8List.fromList(hex.decode(pulseKey));
             final pulsePub = await ed25519PubkeyFromSeed(seed);
             final pulseAddr = '$pulsePub@$pulseUrl';
@@ -881,7 +910,8 @@ class ChatController extends ChangeNotifier {
           if (sessionReader != null) {
             _adhocSessionReader = sessionReader as SessionInboxReader;
             _messageSubs.add(sessionReader.listenForMessages().listen(_handleIncomingMessages));
-            _signalSubs.add(sessionReader.listenForSignals().listen(_signalDispatcher!.dispatch));
+            _signalSubs.add(sessionReader.listenForSignals().listen(
+                (sigs) => _signalDispatcher!.dispatch(sigs, sourceTransport: 'Session')));
             // Remove any stale Session IDs from secondary adapters — only
             // SessionKeyService's ID is real (derived from current seed).
             newAddresses.removeWhere((a) =>
@@ -911,7 +941,8 @@ class ChatController extends ChangeNotifier {
           final nostrReader = await InboxManager().createAdhocReader('Nostr', apiKey, primaryRelay);
           if (nostrReader != null) {
             _messageSubs.add(nostrReader.listenForMessages().listen(_handleIncomingMessages));
-            _signalSubs.add(nostrReader.listenForSignals().listen(_signalDispatcher!.dispatch));
+            _signalSubs.add(nostrReader.listenForSignals().listen(
+                (sigs) => _signalDispatcher!.dispatch(sigs, sourceTransport: 'Nostr')));
             // Subscribe to additional probed relays as secondary (up to 2 more).
             // These are subscribed for receiving but NOT added to _allAddresses
             // until we confirm they actually connect (dead relays get filtered out).
@@ -965,7 +996,8 @@ class ChatController extends ChangeNotifier {
       await _lanReader!.initializeReader('', _selfId);
       await _lanSender!.initializeSender(_selfId);
       _messageSubs.add(_lanReader!.listenForMessages().listen(_handleIncomingMessages));
-      _signalSubs.add(_lanReader!.listenForSignals().listen(_signalDispatcher!.dispatch));
+      _signalSubs.add(_lanReader!.listenForSignals().listen(
+          (sigs) => _signalDispatcher!.dispatch(sigs, sourceTransport: 'LAN')));
     }
 
     NetworkMonitor.instance.startMonitoring(
@@ -1131,7 +1163,7 @@ class ChatController extends ChangeNotifier {
         debugPrint('[Chat] PQC signal wrap failed: $e');
       }
     }
-    for (final transport in contact.transportPriority) {
+    for (final transport in _rankedTransportsFor(contact)) {
       if (devModeOn && !(prefs.getBool('dev_adapter_$transport') ?? true)) continue;
       final addresses = contact.transportAddresses[transport] ?? [];
       for (final addr in addresses) {
@@ -1255,7 +1287,53 @@ class ChatController extends ChangeNotifier {
     debugPrint('[ChatController] Republished Signal bundle to all transports');
   }
 
+  /// Push our current Signal + Kyber bundle directly to [contact] as a
+  /// `sys_keys` signal. The receiver's SignalDispatcher handles `sys_keys`
+  /// by calling `buildSession` — which replaces any existing session
+  /// state with one keyed to our freshly-published prekeys. Recovers from
+  /// the "sender has a stale prekey bundle" failure mode.
+  Future<void> _pushOwnBundleTo(Contact contact) async {
+    try {
+      // Republish our fresh own-inbox bundle so that when [contact]
+      // rebuilds its session against us it pulls current prekeys.
+      unawaited(_republishAllKeys());
+      // Then tell them to drop the stale session. session_reset travels
+      // as a normal directed signal (not kind:10009 own-inbox), so it
+      // actually reaches the peer — unlike sys_keys which the Nostr
+      // adapter publishes to our own inbox regardless of the recipient.
+      await _broadcaster.sendSignalToAllTransports(
+          contact, 'session_reset', {'ts': DateTime.now().toUtc().toIso8601String()},
+          pqcWrap: false);
+      debugPrint('[ChatController] Pushed session_reset to ${contact.name} after stale-prekey failure');
+    } catch (e) {
+      debugPrint('[ChatController] Failed to push session_reset to ${contact.name}: $e');
+    }
+  }
+
   // ── Signal dispatcher ─────────────────────────────────────────────────────
+
+  /// Returns true if [addr] refers to us — either matches _selfId exactly,
+  /// appears in _allAddresses, or shares its bare pubkey with any of the
+  /// above. Used to suppress self-echo signal events that return via
+  /// relay but come back under a different address format (bare pubkey
+  /// vs full `pubkey@relay`, alternate transport, etc.).
+  bool _isOwnAddress(String addr) {
+    if (addr.isEmpty) return false;
+    if (addr == _selfId) return true;
+    if (_allAddresses.contains(addr)) return true;
+    final atIdx = addr.indexOf('@');
+    final barePeer = atIdx > 0 ? addr.substring(0, atIdx) : addr;
+    if (barePeer.isEmpty) return false;
+    final selfAt = _selfId.indexOf('@');
+    final bareSelf = selfAt > 0 ? _selfId.substring(0, selfAt) : _selfId;
+    if (barePeer == bareSelf) return true;
+    for (final a in _allAddresses) {
+      final ai = a.indexOf('@');
+      final bare = ai > 0 ? a.substring(0, ai) : a;
+      if (bare == barePeer) return true;
+    }
+    return false;
+  }
 
   /// Marks the contact index as stale so [_getContactIndex] rebuilds it.
   void _invalidateContactIndex() {
@@ -1380,8 +1458,17 @@ class ChatController extends ChangeNotifier {
       unawaited(setChatTtlSeconds(e.contact, e.seconds, sendSignal: false));
     }));
 
-    // Reactions — delegate to repo
+    // Reactions — delegate to repo.
+    // Skip self-echoes from relays: the transport-layer senderId may be a
+    // bare pubkey or a different relay URL than our _selfId, so the naive
+    // `${emoji}_${from}` composite key wouldn't match the local one we
+    // just wrote in [toggleReaction], and the user would see the reaction
+    // twice under two different author identifiers.
     _dispatcherSubs.add(d.reactions.listen((e) {
+      if (_isOwnAddress(e.from)) {
+        debugPrint('[Chat] Reaction self-echo ignored: ${e.from}');
+        return;
+      }
       debugPrint('[Chat] Reaction received: storageKey=${e.storageKey} msgId=${e.msgId} emoji=${e.emoji} from=${e.from} remove=${e.remove}');
       _repo.applyRemoteReaction(e.storageKey, e.msgId, '${e.emoji}_${e.from}', e.remove);
       if (e.remove) {
@@ -1404,20 +1491,22 @@ class ChatController extends ChangeNotifier {
         debugPrint('[Edit] Message lookup: idx=$idx msgId=${e.msgId}');
         if (idx != -1) {
           // Only the original sender may edit their own message.
-          // Compare by pubkey prefix (before '@') to allow editing via alternate
-          // relay addresses — msg.senderId may contain a different relay URL than
-          // the contact's current primary address.
+          // Match by Contact record, not raw pubkey: the original message may
+          // have been sent via a different transport than the edit (e.g.
+          // msg.senderId is a Nostr secp256k1 pubkey, e.contact.databaseId
+          // is a Pulse Ed25519 pubkey) — both belong to the same Contact.
           final msg = room.messages[idx];
-          final senderKey = msg.senderId.contains('@')
+          final msgBare = msg.senderId.contains('@')
               ? msg.senderId.split('@').first
               : msg.senderId;
-          final contactKey = e.contact.databaseId.contains('@')
-              ? e.contact.databaseId.split('@').first
-              : e.contact.databaseId;
-          debugPrint('[Edit] Ownership check: senderKey=$senderKey contactKey=$contactKey match=${senderKey == contactKey}');
-          if (senderKey != contactKey) {
-            debugPrint('[Edit] Rejected: ${e.contact.databaseId} tried to edit '
-                'message owned by ${msg.senderId}');
+          final contactIndex = _getContactIndex();
+          final msgOwner = contactIndex[msg.senderId]
+              ?? contactIndex[msgBare]
+              ?? _contacts.findByAddress(msg.senderId)
+              ?? _contacts.findByAddress(msgBare);
+          if (msgOwner?.id != e.contact.id) {
+            debugPrint('[Edit] Rejected: ${e.contact.name} (${e.contact.id}) '
+                'tried to edit message owned by ${msgOwner?.name ?? msg.senderId}');
             return;
           }
           final storageKey = room.contact.storageKey;
@@ -1453,6 +1542,14 @@ class ChatController extends ChangeNotifier {
       }
     }));
 
+    // Peer-initiated session reset: they failed to decrypt our messages
+    // because the prekey we used has been rotated out on their side.
+    // Drop our session so the next encrypt fetches their current bundle.
+    _dispatcherSubs.add(d.sessionResets.listen((e) async {
+      debugPrint('[ChatController] Peer ${e.contact.name} asked for session reset — clearing session');
+      await _signalService.deleteContactData(e.contact.databaseId);
+    }));
+
     _dispatcherSubs.add(d.p2pEvents.listen((e) {
       unawaited(P2PTransportService.instance.handleSignal(
           e.contact.id, e.type, e.payload));
@@ -1480,7 +1577,14 @@ class ChatController extends ChangeNotifier {
     _dispatcherSubs.add(d.addrUpdates.listen((e) async {
       final addrContact = e.contact;
       final payload = e.rawPayload;
-      // F3/F4-4: Validate relay addresses — only wss:// and no private IPs.
+      // Signals arriving via LAN or our own Pulse-relay are trusted channels —
+      // a peer announcing a 192.168.x address over those is legitimate (shared
+      // LAN / self-hosted relay). Public channels (Nostr, Firebase, Session)
+      // leak metadata, so still reject private IPs there.
+      final trustedSource =
+          e.sourceTransport == 'LAN' || e.sourceTransport == 'Pulse';
+      // F3/F4-4: Validate relay addresses — only wss:// and no private IPs
+      // when arrived over a public transport.
       bool isValidAltAddr(String addr) {
         final lower = addr.toLowerCase();
         // Session addresses (66-char hex) are always valid
@@ -1492,8 +1596,9 @@ class ChatController extends ChangeNotifier {
           final urlPart = addr.substring(addr.indexOf('@') + 1);
           final uri = Uri.parse(urlPart);
           final h = uri.host;
-          if (h.isEmpty || h == 'localhost' || h == '127.0.0.1' ||
-              h == '::1' || h == '0.0.0.0') { return false; }
+          if (h.isEmpty || h == '0.0.0.0') return false;
+          if (trustedSource) return true;
+          if (h == 'localhost' || h == '127.0.0.1' || h == '::1') return false;
           if (h.startsWith('192.168.') || h.startsWith('10.') ||
               h.startsWith('169.254.')) { return false; }
           if (h.startsWith('172.')) {
@@ -1787,6 +1892,16 @@ class ChatController extends ChangeNotifier {
 
         String decryptedRaw = rawPayload;
         Contact? _fallbackDecryptContact;
+        // Set when ANY decrypt attempt hits InvalidKeyIdException / missing
+        // prekey — indicates the sender is using a stale bundle, not a
+        // corrupted session. Needs a different recovery: push our fresh
+        // bundle to them so their next session build uses current prekeys.
+        bool sawStalePrekey = false;
+        bool isStalePrekeyError(Object e) {
+          final s = e.toString();
+          return s.contains('InvalidKeyIdException') ||
+              s.contains('No such prekeyrecord');
+        }
         if (rawPayload.startsWith('E2EE||')) {
           final fastContact = contactByDbId[msg.senderId]
               ?? contactByDbId[msg.senderId.split('@').first];
@@ -1795,6 +1910,7 @@ class ChatController extends ChangeNotifier {
             try {
               decryptedRaw = await _signalService.decryptMessage(fastContact.databaseId, rawPayload);
             } catch (e) {
+              if (isStalePrekeyError(e)) sawStalePrekey = true;
               debugPrint('[Chat] E2EE fast-path decrypt failed for ${fastContact.databaseId}: $e');
               sentryBreadcrumb('E2EE fast-path decrypt failed', category: 'signal');
             }
@@ -1814,6 +1930,7 @@ class ChatController extends ChangeNotifier {
                 debugPrint('[Chat] Decrypt OK via alt session key: $addr');
                 break;
               } catch (e) {
+                if (isStalePrekeyError(e)) sawStalePrekey = true;
                 debugPrint('[Chat] Alt-key decrypt failed for $addr: $e');
               }
             }
@@ -1867,7 +1984,22 @@ class ChatController extends ChangeNotifier {
           final failKey = failContact?.databaseId ?? msg.senderId;
           _e2eeFailCount[failKey] = (_e2eeFailCount[failKey] ?? 0) + 1;
           final failN = _e2eeFailCount[failKey]!;
-          if (failContact != null && failN >= 3) {
+          // Stale-prekey failures: sender is using an outdated bundle. Reset
+          // our session immediately (don't wait 3 fails) and push our
+          // current bundle back so their next send rebuilds the session
+          // against fresh prekeys. Rate-limited to once per 60s per contact.
+          if (sawStalePrekey && failContact != null) {
+            debugPrint('[Chat] Stale prekey detected for ${failContact.name} — '
+                'resetting session and pushing fresh bundle');
+            unawaited(_signalService.deleteContactData(failContact.databaseId));
+            _e2eeFailCount.remove(failKey);
+            final last = _lastStaleKeyPush[failContact.id];
+            if (last == null ||
+                DateTime.now().difference(last) > const Duration(seconds: 60)) {
+              _lastStaleKeyPush[failContact.id] = DateTime.now();
+              unawaited(_pushOwnBundleTo(failContact));
+            }
+          } else if (failContact != null && failN >= 3) {
             debugPrint('[Chat] E2EE decrypt failed ${failN}x for ${failContact.name} — '
                 'deleting stale session to force rebuild');
             unawaited(_signalService.deleteContactData(failContact.databaseId));
@@ -1927,6 +2059,19 @@ class ChatController extends ChangeNotifier {
             ?? contactByDbId[canonicalSenderId.split('@').first];
         senderContact ??= contactByDbId[msg.senderId]
             ?? contactByDbId[msg.senderId.split('@').first];
+        // Try matching by any of the sender's known transport addresses in
+        // the envelope. Prevents a duplicate pending contact being created
+        // when the sender's current canonicalSenderId was unknown to us
+        // (e.g. they just added a new Pulse/Session transport).
+        if (senderContact == null && env?.senderAddresses != null) {
+          for (final addrs in env!.senderAddresses!.values) {
+            for (final addr in addrs) {
+              final hit = contactByDbId[addr] ?? contactByDbId[addr.split('@').first];
+              if (hit != null) { senderContact = hit; break; }
+            }
+            if (senderContact != null) break;
+          }
+        }
         // Use contact found during fallback decrypt (sender used different relay).
         senderContact ??= _fallbackDecryptContact;
 
@@ -2535,11 +2680,14 @@ class ChatController extends ChangeNotifier {
     // P2P shortcut — try direct connection first regardless of transport.
     if (!contact.isGroup && P2PTransportService.instance.isConnected(contact.id)) {
       sent = P2PTransportService.instance.send(contact.id, msg.encryptedPayload);
-      if (sent) debugPrint('[P2P] Direct delivery to ${contact.name}');
+      if (sent) {
+        debugPrint('[P2P] Direct delivery to ${contact.name}');
+        _lastDeliveryTransport[contact.id] = 'P2P';
+      }
     }
 
     if (!sent) {
-      for (final transport in contact.transportPriority) {
+      for (final transport in _rankedTransportsFor(contact)) {
         if (devModeOn && !(_devPrefs.getBool('dev_adapter_$transport') ?? true)) {
           debugPrint('[Dev] Adapter $transport disabled — skipping');
           continue;
@@ -2549,6 +2697,7 @@ class ChatController extends ChangeNotifier {
           sent = await _deliverEncryptedMessage(addr, msg);
           if (sent) {
             debugPrint('[SmartRouter] Delivered via $transport: $addr');
+            _lastDeliveryTransport[contact.id] = transport;
             break;
           }
         }
@@ -2570,6 +2719,31 @@ class ChatController extends ChangeNotifier {
   static final _sessionAddrRegex = RegExp(r'^[0-9a-f]{66}$');
   static final _nostrPubRegex = RegExp(r'^[0-9a-f]{64}$');
   static final _pulseAddrRegex = RegExp(r'^[0-9a-f]{64}@https://', caseSensitive: false);
+
+  /// Static quality ranking for auto-selecting transport when sending to a
+  /// contact. Higher score wins. LAN is handled separately as a last-resort
+  /// broadcast, so it is not scored here.
+  static const Map<String, int> _transportRank = {
+    'Pulse': 40,
+    'Nostr': 30,
+    'Session': 20,
+    'Firebase': 10,
+  };
+
+  /// Transports to try when sending to [contact], ordered by quality of the
+  /// intersection of self's available transports and the contact's known
+  /// transports. Falls back to [Contact.transportPriority] ordering for any
+  /// transports the contact has but we don't list in [_transportRank].
+  List<String> _rankedTransportsFor(Contact contact) {
+    final selfTransports = _buildTransportMap(_allAddresses).keys.toSet();
+    final contactTransports = contact.transportAddresses.keys.toSet();
+    final common = selfTransports.intersection(contactTransports).toList()
+      ..sort((a, b) =>
+          (_transportRank[b] ?? 0).compareTo(_transportRank[a] ?? 0));
+    final seen = common.toSet();
+    final tail = contact.transportPriority.where((t) => !seen.contains(t));
+    return [...common, ...tail];
+  }
 
   static String _providerFromAddress(String address) {
     final lower = address.toLowerCase();
@@ -2650,7 +2824,8 @@ class ChatController extends ChangeNotifier {
     for (final addr in addresses) {
       if (addr.isEmpty) continue;
       final transport = _providerFromAddress(addr);
-      (map[transport] ??= []).add(addr);
+      final list = map[transport] ??= [];
+      if (!list.contains(addr)) list.add(addr);
     }
     return map;
   }
@@ -2857,11 +3032,14 @@ class ChatController extends ChangeNotifier {
     // P2P shortcut
     if (!contact.isGroup && P2PTransportService.instance.isConnected(contact.id)) {
       sent = P2PTransportService.instance.send(contact.id, msg.encryptedPayload);
-      if (sent) debugPrint('[P2P] Direct delivery to ${contact.name}');
+      if (sent) {
+        debugPrint('[P2P] Direct delivery to ${contact.name}');
+        _lastDeliveryTransport[contact.id] = 'P2P';
+      }
     }
 
     if (!sent) {
-      for (final transport in contact.transportPriority) {
+      for (final transport in _rankedTransportsFor(contact)) {
         if (devModeOn && !(devPrefs.getBool('dev_adapter_$transport') ?? true)) {
           debugPrint('[Dev] Adapter $transport disabled — skipping');
           continue;
@@ -2871,6 +3049,7 @@ class ChatController extends ChangeNotifier {
           sent = await _deliverEncryptedMessage(addr, msg);
           if (sent) {
             debugPrint('[SmartRouter] Delivered via $transport: $addr');
+            _lastDeliveryTransport[contact.id] = transport;
             break;
           }
         }
@@ -2885,6 +3064,7 @@ class ChatController extends ChangeNotifier {
       sent = await _lanSender!.sendMessage('', '', msg);
       if (sent) {
         debugPrint('[LAN] Delivered via local network multicast');
+        _lastDeliveryTransport[contact.id] = 'LAN';
         if (!_lanModeActive) {
           _lanModeActive = true;
           _scheduleNotify();
@@ -3463,39 +3643,56 @@ class ChatController extends ChangeNotifier {
       _scheduleNotify();
     } else {
       debugPrint('[Chat] _handleRemoteDelete 1:1: scanning ${_repo.rooms.length} rooms for fromId=$fromId');
-      bool found = false;
-      for (final room in _repo.rooms) {
-        if (room.contact.isGroup) continue;
-        final cId = room.contact.databaseId;
-        if (cId != fromId && cId.split('@').first != fromId) {
-          continue;
-        }
-        debugPrint('[Chat] _handleRemoteDelete: matched room cId=$cId');
-        final idx = _repo.messageIndexById(room.contact.id, msgId);
-        if (idx != -1) {
-          // Verify the message was sent by this contact.
-          // Without this, a contact could delete your own outgoing messages.
-          final msg = room.messages[idx];
-          final senderPub = msg.senderId.split('@').first;
-          final fromPub = fromId.split('@').first;
-          debugPrint('[Chat] _handleRemoteDelete: msg.senderId=${msg.senderId} senderPub=$senderPub fromPub=$fromPub');
-          if (senderPub != fromPub) {
-            debugPrint('[Chat] _handleRemoteDelete: sender mismatch — REJECTED');
-            break;
-          }
-          room.messages.removeAt(idx);
-          _repo.untrackMessageId(room.contact.id, msgId);
-          _repo.rebuildPositionIndex(room.contact.id);
-          unawaited(LocalStorageService().deleteMessage(room.contact.storageKey, msgId));
-          _scheduleNotify();
-          found = true;
-          debugPrint('[Chat] _handleRemoteDelete: SUCCESS — removed msgId=$msgId');
-          break;
-        } else {
-          debugPrint('[Chat] _handleRemoteDelete: msgId=$msgId NOT found in room (${room.messages.length} msgs)');
-        }
+      // Resolve sender via the contact index, which is keyed by every
+      // known transport address AND every bare pubkey. This matches even
+      // when the delete arrives through a different transport than the
+      // one the original message used (contact's databaseId may be Nostr
+      // but the delete came via Pulse with an Ed25519 address — the
+      // naive string/prefix compare we had before never matched that).
+      final idx = _getContactIndex();
+      final fromBare = fromId.contains('@') ? fromId.split('@').first : fromId;
+      final senderContact = idx[fromId]
+          ?? idx[fromBare]
+          ?? _contacts.findByAddress(fromId)
+          ?? _contacts.findByAddress(fromBare);
+      if (senderContact == null) {
+        debugPrint('[Chat] _handleRemoteDelete: no contact matches fromId=$fromId');
+        return;
       }
-      if (!found) debugPrint('[Chat] _handleRemoteDelete: NO matching room/msg found');
+      final room = _repo.getRoomForContact(senderContact.id);
+      if (room == null) {
+        debugPrint('[Chat] _handleRemoteDelete: no room for contact ${senderContact.name}');
+        return;
+      }
+      final msgIdx = _repo.messageIndexById(senderContact.id, msgId);
+      if (msgIdx == -1) {
+        debugPrint('[Chat] _handleRemoteDelete: msgId=$msgId NOT found in room (${room.messages.length} msgs)');
+        return;
+      }
+      // Ownership: the delete must come from the same identity that sent
+      // the message. Match by any address known to the sender contact —
+      // the original msg.senderId may be on a different transport than
+      // fromId but both belong to the same Contact record.
+      final msg = room.messages[msgIdx];
+      final msgBare = msg.senderId.contains('@')
+          ? msg.senderId.split('@').first
+          : msg.senderId;
+      final ownerContact = idx[msg.senderId]
+          ?? idx[msgBare]
+          ?? _contacts.findByAddress(msg.senderId)
+          ?? _contacts.findByAddress(msgBare);
+      if (ownerContact == null || ownerContact.id != senderContact.id) {
+        debugPrint('[Chat] _handleRemoteDelete: ownership mismatch — '
+            'message owned by ${ownerContact?.name ?? msg.senderId}, '
+            'delete came from ${senderContact.name}');
+        return;
+      }
+      room.messages.removeAt(msgIdx);
+      _repo.untrackMessageId(senderContact.id, msgId);
+      _repo.rebuildPositionIndex(senderContact.id);
+      unawaited(LocalStorageService().deleteMessage(room.contact.storageKey, msgId));
+      _scheduleNotify();
+      debugPrint('[Chat] _handleRemoteDelete: SUCCESS — removed msgId=$msgId from ${senderContact.name}');
     }
   }
 
@@ -3718,6 +3915,154 @@ class ChatController extends ChangeNotifier {
       _selfName = name;
       if (avatarB64.isNotEmpty) _selfAvatar = avatarB64;
       return _broadcaster.broadcastProfile(name, about, _contacts.contacts, avatarB64: avatarB64);
+  }
+
+  /// Adopt a Pulse server — saves its URL, reconnects the inbox so the
+  /// Pulse auto-register path picks it up, then tells contacts about our
+  /// new Pulse address. Returns null on success, or a user-facing error
+  /// message on failure (kept generic; details go to debug logs).
+  ///
+  /// The [inviteCode] is optional — set if the server is in invite-only
+  /// mode. Open-mode servers self-register on first auth.
+  ///
+  /// Re-entrance is rate-limited to one in-flight call per 30s to keep a
+  /// frustrated user from stacking up reconnects.
+  Future<String?> joinPulseServer(String serverUrl,
+      {String? inviteCode}) async {
+    final now = DateTime.now();
+    final lastAttempt = _lastPulseJoinAt;
+    if (lastAttempt != null && now.difference(lastAttempt) < const Duration(seconds: 30)) {
+      return 'Too soon — try again in a moment';
+    }
+    _lastPulseJoinAt = now;
+
+    // Normalize and validate URL — must be https://host[:port] (or http://
+    // for local testing). Reject private IPs silently: the banner code
+    // shouldn't have surfaced these, but belt-and-suspenders.
+    final normalized = _normalizePulseServerUrl(serverUrl);
+    if (normalized == null) return 'Invalid Pulse server URL';
+
+    // We need a Pulse private key — all identities derive one at setup,
+    // but restored-from-backup accounts without Pulse may be missing it.
+    final pulsePriv = await _secureStorage.read(key: 'pulse_privkey') ?? '';
+    if (pulsePriv.isEmpty) return 'No Pulse key in this identity';
+
+    final prefs = await _getPrefs();
+    final previousUrl = prefs.getString('pulse_server_url');
+    final previousInvite = prefs.getString('pulse_invite_code');
+
+    try {
+      await prefs.setString('pulse_server_url', normalized);
+      if (inviteCode != null && inviteCode.isNotEmpty) {
+        await prefs.setString('pulse_invite_code', inviteCode);
+      } else {
+        await prefs.remove('pulse_invite_code');
+      }
+      // Reconnect so the Pulse auto-register path (_initInbox) picks up
+      // the new URL. This also triggers an addr_update on completion
+      // (see Future.delayed at the tail of _initInbox).
+      await reconnectInbox();
+      return null;
+    } catch (e) {
+      debugPrint('[ChatController] joinPulseServer failed: $e');
+      // Rollback: restore previous prefs so we don't leave a half-set
+      // Pulse URL that'd retry on every start.
+      if (previousUrl == null) {
+        await prefs.remove('pulse_server_url');
+      } else {
+        await prefs.setString('pulse_server_url', previousUrl);
+      }
+      if (previousInvite == null) {
+        await prefs.remove('pulse_invite_code');
+      } else {
+        await prefs.setString('pulse_invite_code', previousInvite);
+      }
+      return 'Could not join Pulse server';
+    }
+  }
+
+  DateTime? _lastPulseJoinAt;
+
+  /// Parse a user-provided or deep-link Pulse URL into the canonical form
+  /// the rest of the client expects (`https://host[:port]`). Returns null
+  /// if it's obviously malformed or points at an RFC-1918 / loopback host.
+  String? _normalizePulseServerUrl(String raw) {
+    final trimmed = raw.trim();
+    if (trimmed.isEmpty) return null;
+    String withScheme = trimmed;
+    if (!withScheme.startsWith('http://') && !withScheme.startsWith('https://')) {
+      withScheme = 'https://$withScheme';
+    }
+    final uri = Uri.tryParse(withScheme);
+    if (uri == null || uri.host.isEmpty) return null;
+    final h = uri.host.toLowerCase();
+    if (h == 'localhost' || h == '127.0.0.1' || h == '::1' || h == '0.0.0.0') {
+      return null;
+    }
+    if (h.startsWith('192.168.') || h.startsWith('10.') || h.startsWith('169.254.')) return null;
+    if (h.startsWith('172.')) {
+      final seg = int.tryParse(h.split('.').elementAtOrNull(1) ?? '');
+      if (seg != null && seg >= 16 && seg <= 31) return null;
+    }
+    if (h.startsWith('fc') || h.startsWith('fd')) return null;
+    // Strip trailing slash / path — server URL should be origin only.
+    return '${uri.scheme}://${uri.host}${uri.hasPort ? ':${uri.port}' : ''}';
+  }
+
+  /// Canonicalize a user-supplied Pulse URL and reject it if it points
+  /// at a non-publicly-routable host. Exposed for UI code that wants to
+  /// check a pasted address before offering a join (e.g. the add-contact
+  /// deep-link dialog).
+  String? publicPulseServerFromUrl(String raw) => _normalizePulseServerUrl(raw);
+
+  /// Pulse server URL suggested by [contact] — either from their Pulse
+  /// transport addresses (envelope / addr_update propagated) or null if
+  /// they don't advertise Pulse. Consumed by the in-chat suggestion
+  /// banner to figure out which server to offer.
+  String? suggestedPulseServerForContact(Contact contact) {
+    final addrs = contact.transportAddresses['Pulse'] ?? const [];
+    for (final a in addrs) {
+      final at = a.indexOf('@');
+      if (at <= 0) continue;
+      final url = _normalizePulseServerUrl(a.substring(at + 1));
+      if (url != null) return url;
+    }
+    return null;
+  }
+
+  /// True if we do not currently have any Pulse inbox configured — either
+  /// as primary (identity.preferredAdapter) or as a saved secondary.
+  bool get hasPulseConfigured {
+    if (_identity?.preferredAdapter == 'pulse') return true;
+    final url = _prefs?.getString('pulse_server_url') ?? '';
+    return url.isNotEmpty;
+  }
+
+  /// Whether the user has permanently/temporarily dismissed the Pulse
+  /// suggestion banner for [contactId]. Keyed on contact+server so that
+  /// a different contact offering a different server still prompts.
+  Future<bool> isPulseSuggestionDismissed(String contactId, String serverUrl) async {
+    final prefs = await _getPrefs();
+    final key = 'pulse_sug_dismiss_${contactId}_$serverUrl';
+    final ts = prefs.getInt(key);
+    if (ts == null) return false;
+    // ts == 0 means "permanently dismissed"; otherwise it's a snooze end.
+    if (ts == 0) return true;
+    return DateTime.now().millisecondsSinceEpoch < ts;
+  }
+
+  Future<void> dismissPulseSuggestion(String contactId, String serverUrl,
+      {bool permanent = false}) async {
+    final prefs = await _getPrefs();
+    final key = 'pulse_sug_dismiss_${contactId}_$serverUrl';
+    if (permanent) {
+      await prefs.setInt(key, 0);
+    } else {
+      final snoozeUntil = DateTime.now()
+          .add(const Duration(days: 7))
+          .millisecondsSinceEpoch;
+      await prefs.setInt(key, snoozeUntil);
+    }
   }
 
   Future<void> broadcastAddressUpdate() async {
@@ -4412,6 +4757,8 @@ class ChatController extends ChangeNotifier {
     _cachedSessionSender = null;
     _adhocSessionReader?.close();
     _adhocSessionReader = null;
+    _adhocPulseReader?.zeroize();
+    _adhocPulseReader = null;
     _cachedPulseSender = null;
     _contactIndex = null;
     unawaited(VoiceService().dispose());
