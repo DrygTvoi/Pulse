@@ -450,6 +450,7 @@ class SignalDispatcher {
         // Per-sender rate limiting for non-system signals.
         final sigType = sig['type'] as String? ?? '';
         final sigSender = sig['senderId'] as String? ?? '';
+        debugPrint('[SignalDispatcher] dispatch type=$sigType sender=$sigSender transport=$sourceTransport');
         if (sigSender.isNotEmpty &&
             !_allAddressesGetter().contains(sigSender) &&
             sigSender != _selfIdGetter() &&
@@ -587,6 +588,7 @@ class SignalDispatcher {
               rawPayload is Map ? rawPayload['groupId'] as String? : null;
           final isVideoCall =
               rawPayload is Map ? (rawPayload['isVideoCall'] as bool? ?? true) : true;
+          debugPrint('[SignalDispatcher] webrtc_offer routing: groupId=$groupId sender=$sigSender');
           if (groupId != null) {
             if (!_incomingGroupCallCtrl.isClosed) {
               _incomingGroupCallCtrl.add(SignalIncomingGroupCallEvent(
@@ -597,6 +599,7 @@ class SignalDispatcher {
           } else {
             if (!_incomingCallCtrl.isClosed) {
               _incomingCallCtrl.add(SignalIncomingCallEvent(sig));
+              debugPrint('[SignalDispatcher] webrtc_offer → _incomingCallCtrl added');
             }
           }
         } else if (sigType == 'typing') {

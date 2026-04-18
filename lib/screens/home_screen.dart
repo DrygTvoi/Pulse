@@ -464,18 +464,26 @@ class _HomeScreenState extends State<HomeScreen> {
       if (sig['type'] != 'webrtc_offer') return;
       if (!mounted || _inCallScreen) return;
       final senderId = sig['senderId'] as String? ?? '';
-      // Strip @relay suffix: senderId from Nostr is bare pubkey but
-      // contact.databaseId includes @wss://relay — compare base parts.
+      // Strip @relay suffix to get the bare pubkey/id. The caller's senderId
+      // reflects THEIR primary transport (may be Nostr, Pulse, Session, …)
+      // which is frequently different from the primary we have for them
+      // locally — so matching only on our stored databaseId misses the
+      // call. Compare against every address we know for each contact.
       final senderBase = senderId.contains('@') ? senderId.split('@').first : senderId;
-      final callerContact = context.read<IContactRepository>().contacts.cast<Contact?>().firstWhere(
-        (c) {
-          final dbBase = (c?.databaseId ?? '').contains('@')
-              ? c!.databaseId.split('@').first
-              : (c?.databaseId ?? '');
-          return dbBase == senderBase || c?.id == sig['roomId'];
-        },
-        orElse: () => null,  // complex match — keep linear scan
-      );
+      bool contactMatches(Contact? c) {
+        if (c == null) return false;
+        if (c.id == sig['roomId']) return true;
+        for (final addrs in c.transportAddresses.values) {
+          for (final addr in addrs) {
+            final base = addr.contains('@') ? addr.split('@').first : addr;
+            if (base == senderBase) return true;
+          }
+        }
+        return false;
+      }
+      final callerContact = context.read<IContactRepository>().contacts
+          .cast<Contact?>()
+          .firstWhere(contactMatches, orElse: () => null);
       if (callerContact != null) {
         final prefs = await SharedPreferences.getInstance();
         final myId = prefs.getString('my_device_id') ?? ChatController().identity?.id ?? '';

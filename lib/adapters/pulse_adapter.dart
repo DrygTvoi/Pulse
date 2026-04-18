@@ -901,6 +901,10 @@ class PulseInboxReader implements InboxReader {
                   }
                 case 'signal_fail':
                   // Recipient offline for ephemeral signal (typing/heartbeat) — expected, ignore.
+                  debugPrint('[Pulse] signal_fail to=${data['to']} reason=${data['reason']}');
+                  break;
+                case 'error':
+                  debugPrint('[Pulse] server error code=${data['code']} msg=${data['message']}');
                   break;
                 default:
                   debugPrint('[Pulse] Unknown message type: $type');
@@ -1004,6 +1008,7 @@ class PulseInboxReader implements InboxReader {
   }
 
   void _dispatchSignal(Map<String, dynamic> data) {
+    debugPrint('[Pulse] _dispatchSignal from=${data['from']} keys=${data.keys.toList()}');
     final rawPayload = data['payload'];
     final payload = (rawPayload is Map<String, dynamic>) ? rawPayload : data;
     final id = payload['id'] as String? ?? '';
@@ -1027,9 +1032,10 @@ class PulseInboxReader implements InboxReader {
       // Security: override adapterType so a compromised/MITM Pulse server
       // cannot inject adapterType='nostr' and bypass HMAC verification.
       signalData['adapterType'] = 'pulse';
+      debugPrint('[Pulse] signal → stream type=${signalData['type']} senderId=${signalData['senderId']}');
       if (!_sigCtrl.isClosed) _sigCtrl.add([signalData]);
-    } catch (e) {
-      debugPrint('[Pulse] Signal dispatch error: $e');
+    } catch (e, st) {
+      debugPrint('[Pulse] Signal dispatch error: $e\n$st');
     }
 
     if (id.isNotEmpty) _sendAck(id);

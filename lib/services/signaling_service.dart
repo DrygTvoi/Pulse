@@ -281,6 +281,10 @@ class SignalingService {
 
     peerConnection!.onIceConnectionState = (RTCIceConnectionState state) {
       debugPrint('ICE state: $state');
+      if (state == RTCIceConnectionState.RTCIceConnectionStateConnected ||
+          state == RTCIceConnectionState.RTCIceConnectionStateCompleted) {
+        unawaited(_logSelectedPair());
+      }
       onConnectionState?.call(state);
     };
 
@@ -398,15 +402,30 @@ class SignalingService {
     }
   }
 
+  /// All known base identifiers (bare pubkey/id without @transport suffix)
+  /// for [contact], across every transport. An incoming signal's senderId
+  /// reflects the caller's primary transport (Nostr/Pulse/Session/…), which
+  /// often differs from our stored primary, so we accept a match on any of
+  /// them.
+  Set<String> _contactBases() {
+    final bases = <String>{};
+    for (final addrs in contact.transportAddresses.values) {
+      for (final addr in addrs) {
+        bases.add(addr.contains('@') ? addr.split('@').first : addr);
+      }
+    }
+    if (bases.isEmpty) {
+      final db = contact.databaseId;
+      bases.add(db.contains('@') ? db.split('@').first : db);
+    }
+    return bases;
+  }
+
   Future<void> _listenForSignalingData() async {
     if (contact.isGroup) return;
-
-    final expectedBase = contact.databaseId.contains('@')
-        ? contact.databaseId.split('@').first
-        : contact.databaseId;
-
+    final expectedBases = _contactBases();
     _signalSubscription = ChatController().signalStream.listen((sig) async {
-      await _processSignal(sig, expectedBase);
+      await _processSignal(sig, expectedBases);
     });
   }
 
@@ -415,29 +434,26 @@ class SignalingService {
   /// otherwise the answer SDP will have no audio tracks (one-way audio).
   Future<void> replayPendingSignals() async {
     if (contact.isGroup) return;
-    final expectedBase = contact.databaseId.contains('@')
-        ? contact.databaseId.split('@').first
-        : contact.databaseId;
-    final pending = ChatController().consumePendingCallSignals(expectedBase);
+    final expectedBases = _contactBases();
+    final pending = ChatController().consumePendingCallSignals(expectedBases);
     if (pending.isNotEmpty) {
-      debugPrint('[Signaling] Replaying ${pending.length} cached signals from $expectedBase');
+      debugPrint('[Signaling] Replaying ${pending.length} cached signals from ${expectedBases.join(",")}');
       for (final sig in pending) {
-        await _processSignal(sig, expectedBase);
+        await _processSignal(sig, expectedBases);
       }
     }
   }
 
-  Future<void> _processSignal(Map<String, dynamic> sig, String expectedBase) async {
+  Future<void> _processSignal(Map<String, dynamic> sig, Set<String> expectedBases) async {
     // F1-9: strip @relay suffix before comparing senderId (different transport formats)
     final rawSender = sig['senderId'] as String? ?? '';
     final senderBase = rawSender.contains('@') ? rawSender.split('@').first : rawSender;
-    // Match on sender identity only — roomId uses caller's local UUID which
-    // differs from callee's local UUID, so it can never match.
-    if (senderBase != expectedBase) return;
+    // Match on sender identity — caller may use any of their transports.
+    if (!expectedBases.contains(senderBase)) return;
     try {
       final type = sig['type'] as String?;
       if (type == null || !type.startsWith('webrtc')) return;
-      debugPrint('[Signaling] _processSignal: type=$type from=$senderBase (expected=$expectedBase, isCaller=$isCaller)');
+      debugPrint('[Signaling] _processSignal: type=$type from=$senderBase (isCaller=$isCaller)');
 
       // Hangup signal — no encrypted payload needed
       if (type == 'webrtc_hangup') {
@@ -505,6 +521,54 @@ class SignalingService {
       return null;
     }
     return null;
+  }
+
+  /// After ICE connects, query WebRTC stats to identify the succeeded
+  /// candidate pair so we can tell whether the call is running on direct
+  /// P2P (host/srflx) or via a TURN relay.
+  Future<void> _logSelectedPair() async {
+    try {
+      final pc = peerConnection;
+      if (pc == null) return;
+      final reports = await pc.getStats();
+      String? pairId;
+      final candidates = <String, Map<String, dynamic>>{};
+      for (final r in reports) {
+        final v = r.values;
+        if (r.type == 'candidate-pair' && v['selected'] == true) {
+          pairId = r.id;
+        } else if (r.type == 'transport' && v['selectedCandidatePairId'] is String) {
+          pairId = v['selectedCandidatePairId'] as String;
+        }
+        if (r.type == 'local-candidate' || r.type == 'remote-candidate') {
+          candidates[r.id] = Map<String, dynamic>.from(v);
+        }
+      }
+      if (pairId == null) {
+        debugPrint('[Signaling] selected pair: (not reported yet)');
+        return;
+      }
+      Map<String, dynamic>? pair;
+      for (final r in reports) {
+        if (r.id == pairId) { pair = Map<String, dynamic>.from(r.values); break; }
+      }
+      if (pair == null) return;
+      final local = candidates[pair['localCandidateId']] ?? {};
+      final remote = candidates[pair['remoteCandidateId']] ?? {};
+      final localType = local['candidateType'] ?? '?';
+      final remoteType = remote['candidateType'] ?? '?';
+      final localProto = local['protocol'] ?? '?';
+      final remoteProto = remote['protocol'] ?? '?';
+      final localAddr = '${local['ip'] ?? local['address']}:${local['port']}';
+      final remoteAddr = '${remote['ip'] ?? remote['address']}:${remote['port']}';
+      final relayProto = local['relayProtocol'];
+      debugPrint('[Signaling] selected pair: '
+          'local=$localType/$localProto $localAddr '
+          '→ remote=$remoteType/$remoteProto $remoteAddr'
+          '${relayProto != null ? " relay=$relayProto" : ""}');
+    } catch (e) {
+      debugPrint('[Signaling] getStats failed: $e');
+    }
   }
 
   Future<void> _handleOffer(Map<String, dynamic> data) async {
@@ -1223,6 +1287,7 @@ class SignalingService {
       }
     }
 
+    debugPrint('[Signaling] sending $type via ${contact.provider} → ${contact.databaseId}');
     final sent = await InboxManager().sendSystemMessage(
       contact.provider,
       contact.databaseId,
@@ -1231,6 +1296,7 @@ class SignalingService {
       type,
       sendPayload,
     );
+    debugPrint('[Signaling] send $type result: $sent');
   }
 
   /// Extract recipient's Nostr pubkey from contact addresses (for HMAC signing).

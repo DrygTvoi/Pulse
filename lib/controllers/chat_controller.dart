@@ -309,10 +309,17 @@ class ChatController extends ChangeNotifier {
     if (list.length > 50) list.removeRange(0, list.length - 50);
   }
 
-  /// Consume (get and clear) pending call signals for a given sender.
-  List<Map<String, dynamic>> consumePendingCallSignals(String senderBase) {
-    final signals = _pendingCallSignals.remove(senderBase);
-    return signals ?? [];
+  /// Consume (get and clear) pending call signals for any of [senderBases].
+  /// The caller (SignalingService) supplies every known base for a contact
+  /// because the sender might have cached signals under a different
+  /// transport's pubkey than the one we picked as primary.
+  List<Map<String, dynamic>> consumePendingCallSignals(Set<String> senderBases) {
+    final out = <Map<String, dynamic>>[];
+    for (final base in senderBases) {
+      final signals = _pendingCallSignals.remove(base);
+      if (signals != null) out.addAll(signals);
+    }
+    return out;
   }
 
   /// Force-reconnect the Nostr subscription if it appears dead.
