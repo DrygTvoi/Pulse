@@ -5,7 +5,7 @@ import (
 	"fmt"
 )
 
-const currentVersion = 4
+const currentVersion = 5
 
 var migrations = []string{
 	// Version 1: initial schema

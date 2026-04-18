@@ -4,10 +4,21 @@ import (
 	"io"
 	"net"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/gorilla/websocket"
 )
+
+// turnWSPortCounter hands out a unique ephemeral source port to every
+// turnWSConn. Without it all sessions share (127.0.0.1:0) — behind a reverse
+// proxy every client looks like the same 5-tuple to pion/turn and the second
+// Allocate-request fails with "relay already allocated for 5-TUPLE".
+var turnWSPortCounter atomic.Uint32
+
+func init() {
+	turnWSPortCounter.Store(40000) // start outside common registered range
+}
 
 // turnWSListener is a net.Listener that produces virtual connections from
 // WebSocket clients. Each authenticated client can start a TURN session by
@@ -65,10 +76,17 @@ type turnWSConn struct {
 }
 
 func newTurnWSConn(sendBinary chan []byte, remoteAddr string) *turnWSConn {
+	// Assign a unique ephemeral port per session. Port is part of pion's
+	// 5-tuple — reusing 0 caused every TURN-over-WS client to collide.
+	port := int(turnWSPortCounter.Add(1)%20000) + 40000
+	ip := net.ParseIP(remoteAddr)
+	if ip == nil {
+		ip = net.IPv4(127, 0, 0, 1)
+	}
 	return &turnWSConn{
 		sendCh:   sendBinary,
 		incoming: make(chan []byte, 64),
-		remote:   &net.TCPAddr{IP: net.ParseIP(remoteAddr), Port: 0},
+		remote:   &net.TCPAddr{IP: ip, Port: port},
 		local:    &net.TCPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 443},
 		done:     make(chan struct{}),
 	}
