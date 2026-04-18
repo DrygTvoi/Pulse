@@ -80,6 +80,7 @@ func NewServer(cfg *config.Config, hub *relay.Hub, users *store.UserStore, invit
 		innerMux.HandleFunc("/metrics/json", hub.Metrics().JSONHandler())
 	}
 
+
 	// Probe-resistant wrapper: unknown paths → decoy
 	var handler http.Handler = s.probeResistantHandler(innerMux)
 
@@ -214,14 +215,16 @@ func (s *Server) ListenAndServe() error {
 		return s.httpServer.Serve(ln)
 
 	case "self-signed":
-		tlsCfg, fp, err := GenerateSelfSignedTLS()
+		tlsCfg, fp, fresh, err := LoadOrGenerateSelfSignedTLS(s.cfg.Server.DataDir)
 		if err != nil {
 			ln.Close()
 			return fmt.Errorf("failed to generate self-signed TLS: %w", err)
 		}
 		s.certFP = fp
-		fmt.Printf("CERT_FP %s\n", fp)
-		log.Printf("[transport] cert fingerprint: %s", fp)
+		if fresh {
+			fmt.Printf("CERT_FP %s\n", fp)
+		}
+		log.Printf("[transport] cert fingerprint: %s (fresh=%v)", fp, fresh)
 		tlsLn := tls.NewListener(ln, tlsCfg)
 		httpLn := s.maybeEnableTURNMux(tlsLn)
 		log.Printf("[transport] serving TLS (self-signed) on %s", addr)

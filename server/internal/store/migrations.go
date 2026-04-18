@@ -96,6 +96,18 @@ var migrations = []string{
 
 	// Version 4: client IP tracking (optional, controlled by store_client_ip config)
 	`ALTER TABLE users ADD COLUMN last_ip TEXT NOT NULL DEFAULT '';`,
+
+	// Version 5: federation outbox — envelopes awaiting a peer that was
+	// offline when the sender originally asked us to forward.
+	`CREATE TABLE IF NOT EXISTS federation_outbox (
+		id TEXT PRIMARY KEY,
+		to_pubkey TEXT NOT NULL,
+		envelope BLOB NOT NULL,
+		created INTEGER NOT NULL,
+		attempts INTEGER NOT NULL DEFAULT 0,
+		last_attempt INTEGER NOT NULL DEFAULT 0
+	);
+	CREATE INDEX IF NOT EXISTS idx_federation_outbox_created ON federation_outbox(created);`,
 }
 
 // Migrate runs all pending migrations.

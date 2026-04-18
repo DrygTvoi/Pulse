@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"log"
+	"net"
 	"sort"
 	"sync"
 	"sync/atomic"
@@ -89,8 +90,19 @@ type Room struct {
 	// Simulcast
 	simulcast bool // true if server-side simulcast is enabled
 
+	// hasAudio is set once any audio track is published into this room. It
+	// lets speakerDetectionLoop skip rooms that have no audio at all
+	// (e.g. screen-share-only or pre-media signalling state) without
+	// scanning every participant's published tracks on each tick.
+	hasAudio atomic.Bool
+
 	api        *webrtc.API
 	onEmpty    func(roomID string) // called when room becomes empty
+
+	// closed flips to true once the room has been removed from the
+	// Manager. Callers that kept a pointer across the removal can
+	// detect it and abort. See Manager.GetRoom / onRoomEmpty.
+	closed atomic.Bool
 }
 
 // NewRoom creates a new SFU room.
@@ -285,6 +297,10 @@ func (r *Room) handleIncomingTrack(pubkey string, remote *webrtc.TrackRemote) {
 	r.Tracks[trackID] = track
 	r.mu.Unlock()
 
+	if kind == "audio" {
+		r.hasAudio.Store(true)
+	}
+
 	// Notify publisher of track ID
 	if ok {
 		p.SendMessage(trackPublishedJSON(r.ID, trackID))
@@ -399,14 +415,41 @@ func (r *Room) handleSimulcastLayer(pubkey string, remote *webrtc.TrackRemote, k
 
 // forwardRTP copies RTP packets from the remote track to the local track.
 // For audio tracks, it also extracts the audio level from RFC 6464 header extensions.
+// Uses read deadlines so we can exit promptly when the room closes or the remote
+// source silently dies.
 func (r *Room) forwardRTP(remote *webrtc.TrackRemote, local *webrtc.TrackLocalStaticRTP, track *Track) {
+	const readTimeout = 5 * time.Second
+	const maxConsecutiveTimeouts = 6 // ~30s of silence before giving up
+
 	buf := make([]byte, 1500)
 	isAudio := track.Kind == "audio"
+	timeouts := 0
+
 	for {
+		// Check room-level shutdown signal before blocking on Read.
+		select {
+		case <-r.closeCh:
+			return
+		default:
+		}
+
+		_ = remote.SetReadDeadline(time.Now().Add(readTimeout))
 		n, _, err := remote.Read(buf)
 		if err != nil {
+			// Timeouts surface as net.Error with Timeout()==true.
+			if ne, ok := err.(net.Error); ok && ne.Timeout() {
+				timeouts++
+				if timeouts >= maxConsecutiveTimeouts {
+					log.Printf("[sfu] forwardRTP: %d consecutive timeouts on track %s (owner=%s kind=%s), exiting",
+						timeouts, track.ID, track.Owner[:8], track.Kind)
+					return
+				}
+				continue
+			}
+			// Any other error (EOF, closed pipe, etc.) — exit.
 			return
 		}
+		timeouts = 0
 
 		// Parse audio level from RTP header extension (RFC 6464)
 		if isAudio {
@@ -626,46 +669,58 @@ func (r *Room) UpdateLastN(speakers []string, dominant string) {
 	r.lastNGen++
 	r.mu.Unlock()
 
-	// Unsubscribe video tracks of participants leaving the active set
-	for pk := range leaving {
-		r.mu.RLock()
-		p, ok := r.Participants[pk]
-		if ok {
-			for trackID, t := range p.PublishedTracks {
-				if t.Kind == "video" || t.Kind == "screen" {
-					// Unsub from all other participants
-					for subPk, sub := range r.Participants {
-						if subPk != pk {
-							sub.mu.Lock()
-							sub.VideoSubs[trackID] = false
-							sub.mu.Unlock()
-						}
-					}
-					_ = trackID
-				}
-			}
-		}
-		r.mu.RUnlock()
+	// Collect (subscriber, trackID, desired value) tuples under r.mu.RLock
+	// only, release the lock, then apply to each participant with sub.mu
+	// held independently. Prevents an AB-BA with other paths that take
+	// p.mu first and then r.mu.RLock (e.g. AdjustBWE).
+	type subUpdate struct {
+		sub     *Participant
+		trackID string
+		value   bool
 	}
+	var updates []subUpdate
 
-	// Subscribe video tracks of participants entering the active set
-	for pk := range entering {
-		r.mu.RLock()
+	r.mu.RLock()
+	for pk := range leaving {
 		p, ok := r.Participants[pk]
-		if ok {
-			for trackID, t := range p.PublishedTracks {
-				if t.Kind == "video" || t.Kind == "screen" {
-					for subPk, sub := range r.Participants {
-						if subPk != pk {
-							sub.mu.Lock()
-							sub.VideoSubs[trackID] = true
-							sub.mu.Unlock()
-						}
-					}
+		if !ok {
+			continue
+		}
+		for trackID, t := range p.PublishedTracks {
+			if t.Kind != "video" && t.Kind != "screen" {
+				continue
+			}
+			for subPk, sub := range r.Participants {
+				if subPk == pk {
+					continue
 				}
+				updates = append(updates, subUpdate{sub, trackID, false})
 			}
 		}
-		r.mu.RUnlock()
+	}
+	for pk := range entering {
+		p, ok := r.Participants[pk]
+		if !ok {
+			continue
+		}
+		for trackID, t := range p.PublishedTracks {
+			if t.Kind != "video" && t.Kind != "screen" {
+				continue
+			}
+			for subPk, sub := range r.Participants {
+				if subPk == pk {
+					continue
+				}
+				updates = append(updates, subUpdate{sub, trackID, true})
+			}
+		}
+	}
+	r.mu.RUnlock()
+
+	for _, u := range updates {
+		u.sub.mu.Lock()
+		u.sub.VideoSubs[u.trackID] = u.value
+		u.sub.mu.Unlock()
 	}
 
 	// Build active set list for broadcast
@@ -685,6 +740,16 @@ func (r *Room) IsInLastN(pubkey string) bool {
 	}
 	r.mu.RLock()
 	defer r.mu.RUnlock()
+	return r.isInLastNLocked(pubkey)
+}
+
+// isInLastNLocked is the lock-free variant of IsInLastN. Caller MUST already
+// hold r.mu (read or write). Used from hot paths that already took r.mu.RLock
+// (e.g. ws-relay forwarding) to avoid re-locking.
+func (r *Room) isInLastNLocked(pubkey string) bool {
+	if r.lastNCount <= 0 {
+		return true
+	}
 	if len(r.Participants) <= r.lastNCount {
 		return true
 	}
@@ -778,8 +843,23 @@ func (r *Room) SwitchLayer(subscriberPubkey, trackID, newLayer string) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	// Remove current sender
+	// The participant lookup above is stale — between the RUnlock and
+	// taking p.mu.Lock() another goroutine may have run
+	// RemoveParticipant, which closes PC. Re-verify liveness so we
+	// don't call RemoveTrack/AddTrack on a dead PC.
+	r.mu.RLock()
+	_, stillIn := r.Participants[subscriberPubkey]
+	r.mu.RUnlock()
+	if !stillIn || p.PC == nil {
+		return fmt.Errorf("participant gone")
+	}
+
+	// Remove current sender — Stop() makes the background Read() return
+	// immediately so we don't leak a goroutine per layer switch. Before
+	// this fix, every successful SwitchLayer left the previous RTCP
+	// reader spinning until the whole PC was torn down.
 	if sender, exists := p.Subscriptions[trackID]; exists && p.PC != nil {
+		_ = sender.Stop()
 		p.PC.RemoveTrack(sender)
 	}
 
@@ -795,7 +875,8 @@ func (r *Room) SwitchLayer(subscriberPubkey, trackID, newLayer string) error {
 	p.Subscriptions[trackID] = sender
 	p.SubLayers[trackID] = newLayer
 
-	// RTCP reader for new sender
+	// RTCP reader for new sender — exits when sender.Stop() is called
+	// (on next layer switch or participant removal).
 	go func() {
 		buf := make([]byte, 1500)
 		for {

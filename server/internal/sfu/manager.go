@@ -25,8 +25,19 @@ type Manager struct {
 	api    *webrtc.API
 	tcpMux ice.TCPMux
 
+	// MaxRooms is an authoritative cap enforced inside CreateRoom under
+	// m.mu. External gates (e.g. hub.go's admission check on RoomCount)
+	// may lose a race between two concurrent creators; this cap is the
+	// TOCTOU-safe backstop. 0 means "no cap".
+	MaxRooms int
+
 	// Speaker detection
 	stopCh chan struct{}
+
+	// speakerLoopOnce is used to emit a single informational log line the
+	// first time speakerDetectionLoop actually has work to do, so we can
+	// see in production whether the loop is spinning on empty rooms.
+	speakerLoopStarted sync.Once
 }
 
 // NewManager creates a new SFU manager.
@@ -101,6 +112,14 @@ func (m *Manager) CreateRoom(creator string, maxSize int, name string, e2ee bool
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
+	// TOCTOU-safe cap: check and insert under the same lock. External
+	// callers may have already checked RoomCount(), but nothing prevents
+	// two admissions from slipping through simultaneously; this is the
+	// authoritative gate.
+	if m.MaxRooms > 0 && len(m.rooms) >= m.MaxRooms {
+		return nil, fmt.Errorf("room cap reached (%d)", m.MaxRooms)
+	}
+
 	if m.cfg.MaxRoomSize > 0 && maxSize > m.cfg.MaxRoomSize {
 		maxSize = m.cfg.MaxRoomSize
 	}
@@ -116,11 +135,18 @@ func (m *Manager) CreateRoom(creator string, maxSize int, name string, e2ee bool
 	return room, nil
 }
 
-// GetRoom returns a room by ID.
+// GetRoom returns a room by ID. Returns nil when the room no longer
+// exists OR has been marked closed — callers that might race with
+// `onRoomEmpty` (e.g. handling a mediaOffer while the last participant
+// leaves) shouldn't operate on a dead room.
 func (m *Manager) GetRoom(roomID string) *Room {
 	m.mu.RLock()
-	defer m.mu.RUnlock()
-	return m.rooms[roomID]
+	r := m.rooms[roomID]
+	m.mu.RUnlock()
+	if r == nil || r.closed.Load() {
+		return nil
+	}
+	return r
 }
 
 // RoomCount returns the number of active rooms.
@@ -132,8 +158,12 @@ func (m *Manager) RoomCount() int {
 
 func (m *Manager) onRoomEmpty(roomID string) {
 	m.mu.Lock()
+	r := m.rooms[roomID]
 	delete(m.rooms, roomID)
 	m.mu.Unlock()
+	if r != nil {
+		r.closed.Store(true)
+	}
 	log.Printf("[sfu] room %s removed (empty)", roomID)
 }
 
@@ -284,8 +314,19 @@ func (m *Manager) detectSpeakers() {
 	// So threshold -40 means: accept if level <= 40
 	thresholdDBov := int32(-m.cfg.SpeakerThreshold) // e.g., -(-40) = 40
 
+	scanned := 0
 	for _, room := range rooms {
+		// Fast path: skip rooms with no audio tracks ever published.
+		// hasAudio is a one-way flag flipped when the first audio track
+		// is added; rooms that only carry video/screen/data never enter
+		// the per-participant scan below.
+		if !room.hasAudio.Load() {
+			continue
+		}
+
 		room.mu.RLock()
+		// Speaker detection is meaningless with <2 participants: there's
+		// no one to notify, and no "dominance" comparison to make.
 		if len(room.Participants) < 2 {
 			room.mu.RUnlock()
 			continue
@@ -310,6 +351,7 @@ func (m *Manager) detectSpeakers() {
 			}
 		}
 		room.mu.RUnlock()
+		scanned++
 
 		if len(speakers) > 0 {
 			room.speakerMu.Lock()
@@ -326,6 +368,16 @@ func (m *Manager) detectSpeakers() {
 				room.UpdateLastN(speakers, dominant)
 			}
 		}
+	}
+
+	// First time we actually scanned at least one room with audio +
+	// 2+ participants, log it. This answers the question "is the 500ms
+	// loop ever doing anything, or just waking up and exiting?" without
+	// spamming the logs on every tick.
+	if scanned > 0 {
+		m.speakerLoopStarted.Do(func() {
+			log.Printf("[sfu] speaker detection loop: first scan with audio+participants (rooms=%d)", scanned)
+		})
 	}
 }
 

@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"math/big"
 	"net"
+	"os"
 	"path/filepath"
 	"time"
 
@@ -61,6 +62,48 @@ func applyNginxTLS(cfg *tls.Config) {
 	// Prefer server cipher order (like nginx `ssl_prefer_server_ciphers on`)
 	cfg.PreferServerCipherSuites = true
 	// Session tickets enabled by default in Go (like nginx)
+}
+
+// LoadOrGenerateSelfSignedTLS persists the self-signed cert+key under
+// [dataDir] so restarts don't rotate the fingerprint. Clients that
+// pinned the previous fingerprint keep trusting the server.
+// Returns the TLS config, the SHA-256 fingerprint hex, and whether a
+// fresh certificate was generated (caller can log it once).
+func LoadOrGenerateSelfSignedTLS(dataDir string) (*tls.Config, string, bool, error) {
+	if dataDir != "" {
+		certPath := filepath.Join(dataDir, "self_signed.pem")
+		keyPath := filepath.Join(dataDir, "self_signed.key")
+		cPEM, cErr := os.ReadFile(certPath)
+		kPEM, kErr := os.ReadFile(keyPath)
+		if cErr == nil && kErr == nil {
+			cert, err := tls.X509KeyPair(cPEM, kPEM)
+			if err == nil && len(cert.Certificate) > 0 {
+				fpRaw := sha256.Sum256(cert.Certificate[0])
+				cfg := &tls.Config{
+					Certificates: []tls.Certificate{cert},
+					NextProtos:   []string{"http/1.1"},
+				}
+				applyNginxTLS(cfg)
+				return cfg, hex.EncodeToString(fpRaw[:]), false, nil
+			}
+		}
+	}
+	cfg, fp, err := GenerateSelfSignedTLS()
+	if err != nil || dataDir == "" {
+		return cfg, fp, true, err
+	}
+	// Persist so the next restart reuses the same identity.
+	if len(cfg.Certificates) > 0 && len(cfg.Certificates[0].Certificate) > 0 {
+		certDER := cfg.Certificates[0].Certificate[0]
+		certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certDER})
+		if keyDER, err := x509.MarshalECPrivateKey(cfg.Certificates[0].PrivateKey.(*ecdsa.PrivateKey)); err == nil {
+			keyPEM := pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: keyDER})
+			// chmod 0600 — private key must not be world-readable.
+			_ = os.WriteFile(filepath.Join(dataDir, "self_signed.pem"), certPEM, 0644)
+			_ = os.WriteFile(filepath.Join(dataDir, "self_signed.key"), keyPEM, 0600)
+		}
+	}
+	return cfg, fp, true, nil
 }
 
 // GenerateSelfSignedTLS creates an in-memory self-signed TLS certificate

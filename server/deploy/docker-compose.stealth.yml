@@ -1,0 +1,90 @@
+# Full-stealth Docker Compose: nginx terminates real TLS on :443, pulse
+# speaks plaintext on an internal docker network. DPI sees real nginx
+# (JA3S, server header, HTTP/2 ALPN) — the Go binary never touches a
+# TLS handshake.
+#
+# Prereqs before `docker compose up -d`:
+#   1. DNS A/AAAA for DOMAIN pointing at this host
+#   2. `cp config.example.toml config.toml` and set:
+#        [server] tls_mode = "none"
+#        [server] listen   = "0.0.0.0:8080"
+#        [auth]   mode     = "open" | "invite"
+#      (federation flags as needed)
+#   3. `cp nginx/pulse.conf.template nginx/pulse.conf`
+#      and replace __DOMAIN__ with your actual domain.
+#
+# Start:      DOMAIN=pulse.example.com docker compose -f docker-compose.stealth.yml up -d
+# Logs:       docker compose -f docker-compose.stealth.yml logs -f
+# Backup:     docker compose -f docker-compose.stealth.yml exec pulse pulse-server backup
+
+services:
+  pulse:
+    build: .
+    image: pulse-server:latest
+    container_name: pulse-server
+    restart: unless-stopped
+    # No ports published — only reachable over the docker network via nginx.
+    expose:
+      - "8080"
+    volumes:
+      - pulse-data:/data
+      - ./config.toml:/etc/pulse/config.toml:ro
+    command: ["serve", "--config", "/etc/pulse/config.toml", "--data-dir", "/data"]
+    environment:
+      - PULSE_LOG_LEVEL=info
+    networks:
+      - pulse-net
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+
+  nginx:
+    image: jonasal/nginx-certbot:5-alpine
+    container_name: pulse-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      # Sets the certbot registration email (REQUIRED by Let's Encrypt).
+      # Override with `-e CERTBOT_EMAIL=...` or export in your shell.
+      - CERTBOT_EMAIL=${CERTBOT_EMAIL:-}
+      - STAGING=${STAGING:-0}
+      - USE_ECDSA=1
+    volumes:
+      - ./nginx:/etc/nginx/user_conf.d:ro
+      - nginx-letsencrypt:/etc/letsencrypt
+      - nginx-webroot:/var/www/letsencrypt
+    depends_on:
+      - pulse
+    networks:
+      - pulse-net
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  # Optional: expose the TURN UDP listener for performance-mode WebRTC.
+  # In pure "stealth" media mode the ICE-TCP traffic muxes on :443 via
+  # pulse's own listener, but nginx doesn't speak STUN, so TURN-on-443
+  # isn't available in this topology. If you want UDP TURN, uncomment:
+  #
+  # turn:
+  #   image: pulse-server:latest
+  #   restart: unless-stopped
+  #   network_mode: host  # STUN/TURN don't tolerate NAT; host network only
+  #   command: ["serve", "--config", "/etc/pulse/turn-only.toml"]
+  #   volumes:
+  #     - ./turn-only.toml:/etc/pulse/turn-only.toml:ro
+
+networks:
+  pulse-net:
+    driver: bridge
+
+volumes:
+  pulse-data:
+  nginx-letsencrypt:
+  nginx-webroot:

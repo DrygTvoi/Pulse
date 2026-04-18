@@ -3,6 +3,7 @@ package cmd
 import (
 	"database/sql"
 	"fmt"
+	"regexp"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -10,6 +11,10 @@ import (
 	"github.com/nicholasgasior/pulse-server/config"
 	"github.com/nicholasgasior/pulse-server/internal/store"
 )
+
+// ed25519PubkeyHexRe matches exactly 64 hex characters, which corresponds to
+// the 32-byte Ed25519 public key used by federation peers.
+var ed25519PubkeyHexRe = regexp.MustCompile(`^[0-9a-fA-F]{64}$`)
 
 var federationCmd = &cobra.Command{
 	Use:   "federation",
@@ -71,6 +76,10 @@ func openFedDB() (*sql.DB, func(), error) {
 func runFedAdd(cmd *cobra.Command, args []string) error {
 	address := args[0]
 	pubkey := args[1]
+
+	if !ed25519PubkeyHexRe.MatchString(pubkey) {
+		return fmt.Errorf("invalid ed25519 pubkey hex")
+	}
 
 	db, cleanup, err := openFedDB()
 	if err != nil {

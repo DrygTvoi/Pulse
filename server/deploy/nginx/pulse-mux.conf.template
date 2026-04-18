@@ -1,0 +1,89 @@
+# nginx reverse-proxy profile for the docker-compose.mux.yml variant —
+# traffic arrives from HAProxy on :8443 with PROXY protocol v2 so we can
+# log/rate-limit against the real client IP.
+
+upstream pulse_backend {
+    server pulse:8080;
+    keepalive 64;
+}
+
+server {
+    # Real external TLS terminated by nginx. HAProxy forwards TCP with the
+    # PROXY v2 header so `$proxy_protocol_addr` is the real client address.
+    listen 8443 ssl proxy_protocol;
+    listen [::]:8443 ssl proxy_protocol;
+    http2 on;
+    server_name __DOMAIN__;
+
+    set_real_ip_from 0.0.0.0/0;
+    real_ip_header proxy_protocol;
+
+    ssl_certificate     /etc/letsencrypt/live/__DOMAIN__/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/__DOMAIN__/privkey.pem;
+
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305;
+    ssl_prefer_server_ciphers on;
+    ssl_session_cache shared:SSL:10m;
+    ssl_session_timeout 1d;
+    ssl_session_tickets on;
+
+    ssl_stapling on;
+    ssl_stapling_verify on;
+    resolver 1.1.1.1 8.8.8.8 valid=300s;
+
+    location /ws {
+        proxy_pass http://pulse_backend;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $proxy_protocol_addr;
+        proxy_read_timeout 86400s;
+        proxy_send_timeout 86400s;
+    }
+
+    location /sealed {
+        proxy_pass http://pulse_backend;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_read_timeout 30s;
+    }
+
+    location /federation {
+        proxy_pass http://pulse_backend;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_read_timeout 86400s;
+    }
+
+    location /health {
+        proxy_pass http://pulse_backend;
+    }
+
+    location / {
+        proxy_pass http://pulse_backend;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $proxy_protocol_addr;
+    }
+}
+
+# ACME HTTP-01 listener on :80 — HAProxy forwards here unchanged.
+server {
+    listen 80;
+    listen [::]:80;
+    server_name __DOMAIN__;
+
+    location /.well-known/acme-challenge/ {
+        root /var/www/letsencrypt;
+    }
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}

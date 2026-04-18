@@ -1,0 +1,109 @@
+# Port-443 multiplexed topology: HAProxy sniffs the first byte on :443
+# and forwards TLS → nginx (real-nginx JA3S) while everything else
+# (STUN/TURN) goes to pulse. This gets you simultaneous:
+#   • HTTPS + WSS with vanilla-nginx JA3S (probe resistance)
+#   • TURN-over-TCP on 443 (gets through networks that block UDP :3478)
+#
+# Compared to docker-compose.stealth.yml, this trades a touch of extra
+# moving parts for the ability to carry TURN on 443 — which is exactly
+# the path clients behind GFW / strict firewalls end up using.
+#
+# Layout:
+#   Internet :443 → HAProxy → TLS       → nginx:8443 (→ pulse:8080)
+#                            → STUN/TURN → pulse:3478
+#   Internet :80  → HAProxy → nginx:80 (ACME + HTTPS redirect)
+#
+# Prereqs before first `docker compose up`:
+#   1. DNS A/AAAA for DOMAIN → this host
+#   2. `cp config.example.toml config.toml` then set:
+#        [server]  tls_mode = "none"
+#        [server]  listen   = "0.0.0.0:8080"
+#        [turn]    enabled  = true
+#        [turn]    port     = 3478
+#        [media]   mode     = "stealth"
+#        [auth]    mode     = "open" | "invite"
+#   3. `cp nginx/pulse-mux.conf.template nginx/pulse-mux.conf`
+#      sed -i "s/__DOMAIN__/pulse.example.com/g" nginx/pulse-mux.conf
+#   4. Point CERTBOT_EMAIL at a real inbox.
+
+services:
+  pulse:
+    build: .
+    image: pulse-server:latest
+    container_name: pulse-server
+    restart: unless-stopped
+    expose:
+      - "8080"   # HTTP/WS upstream for nginx
+      - "3478"   # TURN (both TCP and UDP listen inside the container)
+    volumes:
+      - pulse-data:/data
+      - ./config.toml:/etc/pulse/config.toml:ro
+    command: ["serve", "--config", "/etc/pulse/config.toml", "--data-dir", "/data"]
+    networks:
+      - pulse-net
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+
+  nginx:
+    image: jonasal/nginx-certbot:5-alpine
+    container_name: pulse-nginx
+    restart: unless-stopped
+    # nginx is NOT exposed to the host directly — HAProxy fronts it.
+    expose:
+      - "8443"
+      - "80"
+    environment:
+      - CERTBOT_EMAIL=${CERTBOT_EMAIL:-}
+      - STAGING=${STAGING:-0}
+      - USE_ECDSA=1
+    volumes:
+      - ./nginx:/etc/nginx/user_conf.d:ro
+      - nginx-letsencrypt:/etc/letsencrypt
+      - nginx-webroot:/var/www/letsencrypt
+    depends_on:
+      - pulse
+    networks:
+      - pulse-net
+
+  haproxy:
+    image: haproxy:2.9-alpine
+    container_name: pulse-haproxy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./haproxy/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+    depends_on:
+      - nginx
+      - pulse
+    networks:
+      - pulse-net
+
+  # UDP TURN on :3478 needs host network mode because STUN doesn't survive
+  # Docker NAT. Kept as a separate service so stopping it doesn't affect
+  # HAProxy / nginx / the 443 path.
+  pulse-turn-udp:
+    image: pulse-server:latest
+    container_name: pulse-turn-udp
+    restart: unless-stopped
+    network_mode: host
+    command: ["serve", "--config", "/etc/pulse/config.toml", "--data-dir", "/data"]
+    volumes:
+      - pulse-data:/data
+      - ./config.toml:/etc/pulse/config.toml:ro
+    depends_on:
+      - pulse
+    profiles:
+      - udp-turn  # opt-in: `docker compose --profile udp-turn up -d`
+
+networks:
+  pulse-net:
+    driver: bridge
+
+volumes:
+  pulse-data:
+  nginx-letsencrypt:
+  nginx-webroot:

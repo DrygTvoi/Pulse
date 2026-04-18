@@ -1,11 +1,11 @@
 package relay
 
 import (
+	crand "crypto/rand"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"log"
-	"math/rand"
 	"sync"
 	"time"
 
@@ -36,10 +36,23 @@ const (
 	pingIntervalMax = 120 * time.Second
 )
 
-// randomPingInterval returns a random duration in [pingIntervalMin, pingIntervalMax).
+// randomPingInterval returns a cryptographically-random duration in
+// [pingIntervalMin, pingIntervalMax). Using crypto/rand here (instead of
+// math/rand) means an on-path DPI observer can't predict our keep-alive
+// cadence — the distribution is indistinguishable from real browser /
+// nginx keepalive variance, so the ping frames don't become a
+// fingerprintable side-channel.
 func randomPingInterval() time.Duration {
-	spread := pingIntervalMax - pingIntervalMin
-	return pingIntervalMin + time.Duration(rand.Int63n(int64(spread)))
+	spread := int64(pingIntervalMax - pingIntervalMin)
+	var buf [8]byte
+	if _, err := crand.Read(buf[:]); err != nil {
+		// Extremely unlikely (crypto/rand panics internally on most errors).
+		// Fall back to the midpoint so we still ping rather than spin.
+		return pingIntervalMin + time.Duration(spread/2)
+	}
+	// Mask the sign bit so the value is always non-negative before modulo.
+	n := int64(binary.BigEndian.Uint64(buf[:]) & 0x7fffffffffffffff)
+	return pingIntervalMin + time.Duration(n%spread)
 }
 
 // Client represents a single WebSocket connection.
@@ -190,6 +203,10 @@ func (c *Client) sendFlat(msgType string, payload interface{}) error {
 	case <-c.done:
 		return fmt.Errorf("client is closed")
 	default:
+		// Buffer is full — the client is stuck or lying about being
+		// alive. Disconnect it so we don't leak a slot nor spin the
+		// hub re-trying. readPump's defer handles unregister+close.
+		go c.Close()
 		return fmt.Errorf("send buffer full")
 	}
 }
@@ -221,6 +238,8 @@ func (c *Client) SendDirect(data []byte) error {
 	case <-c.done:
 		return fmt.Errorf("client is closed")
 	default:
+		// Buffer full — drop this client (see SendEnvelope note).
+		go c.Close()
 		return fmt.Errorf("send buffer full")
 	}
 }
@@ -238,6 +257,12 @@ func (c *Client) SendError(code, message string) {
 // readPump reads messages from the WebSocket connection.
 func (c *Client) readPump() {
 	defer func() {
+		// Swallow panics from handler paths so a buggy message type (or
+		// third-party dependency) can't take the whole server down — the
+		// connection is closed cleanly, writePump unblocks via c.done.
+		if r := recover(); r != nil {
+			log.Printf("[client] PANIC in readPump for %s: %v", c.pubkey, r)
+		}
 		if c.state == StateAuthenticated {
 			c.hub.Unregister(c)
 		}
@@ -258,16 +283,23 @@ func (c *Client) readPump() {
 			return
 		}
 
-		// Handle binary frames (file transfer chunks, media, tunnels)
-		if msgType == websocket.BinaryMessage {
-			if c.state != StateAuthenticated {
-				continue
+		// Isolate each handler call — a panic inside one message path
+		// must NOT abort the connection nor leak the send-side goroutine.
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+					log.Printf("[client] PANIC handling frame for %s: %v", c.pubkey, r)
+				}
+			}()
+			if msgType == websocket.BinaryMessage {
+				if c.state != StateAuthenticated {
+					return
+				}
+				c.handleBinaryFrame(message)
+				return
 			}
-			c.handleBinaryFrame(message)
-			continue
-		}
-
-		c.handleTextFrame(message)
+			c.handleTextFrame(message)
+		}()
 	}
 }
 

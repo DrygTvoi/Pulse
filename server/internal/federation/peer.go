@@ -105,11 +105,10 @@ func (p *Peer) Disconnect() {
 }
 
 // Send queues a federated envelope for delivery to this peer.
-// Signs the envelope with the local server's Ed25519 key before sending.
+// The caller is responsible for signing the envelope beforehand (the router
+// does this before fan-out). Signing here would double-sign and invalidate
+// the router's signature.
 func (p *Peer) Send(env *FederatedEnvelope) error {
-	if p.auth != nil {
-		p.auth.SignEnvelope(env)
-	}
 	data, err := json.Marshal(env)
 	if err != nil {
 		return fmt.Errorf("failed to marshal envelope: %w", err)

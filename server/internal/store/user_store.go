@@ -1,6 +1,7 @@
 package store
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"time"
@@ -56,9 +57,13 @@ func (s *UserStore) GetUser(pubkey string) (*User, error) {
 }
 
 // UserExists checks whether a user with the given pubkey exists.
+// Hot path: bounded to 250ms so a stuck DB can't stall request handlers
+// (notably the federation routing decision in the relay hub).
 func (s *UserStore) UserExists(pubkey string) (bool, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 250*time.Millisecond)
+	defer cancel()
 	var count int
-	err := s.db.QueryRow("SELECT COUNT(*) FROM users WHERE pubkey = ?", pubkey).Scan(&count)
+	err := s.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM users WHERE pubkey = ?", pubkey).Scan(&count)
 	if err != nil {
 		return false, fmt.Errorf("failed to check user existence: %w", err)
 	}

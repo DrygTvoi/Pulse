@@ -71,6 +71,42 @@ func runServe(cmd *cobra.Command, args []string) error {
 	keys := store.NewKeyStore(db)
 	backups := store.NewBackupStore(db)
 
+	// Load (or create) the wrapping key used to encrypt server secrets
+	// (federation privkey, sealed-sender secret, TURN secret) before
+	// they land in the SQLite bundle. The raw wrapping key lives in a
+	// 0600 file next to the DB, so a stolen DB dump alone yields no
+	// usable secret material.
+	secretWrap, swErr := store.NewServerSecretWrapper(cfg.Server.DataDir)
+	if swErr != nil {
+		log.Printf("[serve] WARNING: server secret wrapping disabled: %v", swErr)
+	}
+	getServerSecret := func(tag string) ([]byte, bool) {
+		kb, err := keys.GetBundle(tag)
+		if err != nil || kb == nil {
+			return nil, false
+		}
+		if secretWrap == nil {
+			return kb.Bundle, true
+		}
+		plain, uErr := secretWrap.Unwrap(kb.Bundle)
+		if uErr != nil {
+			log.Printf("[serve] WARNING: failed to unwrap %s: %v", tag, uErr)
+			return nil, false
+		}
+		return plain, true
+	}
+	putServerSecret := func(tag string, plain []byte) error {
+		blob := plain
+		if secretWrap != nil {
+			wrapped, err := secretWrap.Wrap(plain)
+			if err != nil {
+				return err
+			}
+			blob = wrapped
+		}
+		return keys.PutBundle(tag, blob)
+	}
+
 	// Initialize file store
 	fileStore := store.NewFileStore(db, cfg.Server.DataDir)
 	if err := fileStore.EnsureDirs(); err != nil {
@@ -90,9 +126,8 @@ func runServe(cmd *cobra.Command, args []string) error {
 	var turnSecretIsNew bool
 	if cfg.Turn.Enabled {
 		turnSrv = turn.NewServer()
-		kb, kErr := keys.GetBundle("_server_turn_secret")
-		if kErr == nil && kb != nil {
-			turnSecret = kb.Bundle
+		if sec, ok := getServerSecret("_server_turn_secret"); ok {
+			turnSecret = sec
 		} else {
 			turnSecretIsNew = true
 		}
@@ -103,9 +138,8 @@ func runServe(cmd *cobra.Command, args []string) error {
 	if cfg.Federation.Enabled {
 		// Load or generate federation keypair
 		var fedAuth *federation.FederationAuth
-		kb, kbErr := keys.GetBundle("_server_federation_key")
-		if kbErr == nil && kb != nil {
-			privKey := ed25519.PrivateKey(kb.Bundle)
+		if sec, ok := getServerSecret("_server_federation_key"); ok {
+			privKey := ed25519.PrivateKey(sec)
 			fa, faErr := federation.NewFederationAuth(privKey)
 			if faErr != nil {
 				log.Printf("[serve] WARNING: failed to load federation key: %v", faErr)
@@ -119,7 +153,7 @@ func runServe(cmd *cobra.Command, args []string) error {
 				log.Printf("[serve] WARNING: failed to generate federation key: %v", faErr)
 			} else {
 				fedAuth = fa
-				if putErr := keys.PutBundle("_server_federation_key", []byte(fedAuth.PrivateKey)); putErr != nil {
+				if putErr := putServerSecret("_server_federation_key", []byte(fedAuth.PrivateKey)); putErr != nil {
 					log.Printf("[serve] WARNING: failed to persist federation key: %v", putErr)
 				}
 			}
@@ -136,6 +170,10 @@ func runServe(cmd *cobra.Command, args []string) error {
 				}
 			})
 			router = federation.NewFederationRouter(users, peerManager, hub, db, &cfg.Federation, fedAuth)
+			// Wire the router into the hub so outgoing sends for remote
+			// users are forwarded to peers instead of dropped to offline
+			// storage on this server.
+			hub.SetFederationRouter(router)
 
 			// Load saved peers from DB and connect
 			rows, qErr := db.Query("SELECT pubkey, address FROM federation_peers WHERE enabled = 1")
@@ -198,11 +236,10 @@ func runServe(cmd *cobra.Command, args []string) error {
 		sealedSvc := privacy.NewSealedSenderService(certCount, certTTL)
 
 		// Persist or restore the HMAC secret
-		sealedKB, sealedErr := keys.GetBundle("_server_sealed_secret")
-		if sealedErr == nil && sealedKB != nil {
-			sealedSvc.SetSecret(sealedKB.Bundle)
+		if sec, ok := getServerSecret("_server_sealed_secret"); ok {
+			sealedSvc.SetSecret(sec)
 		} else {
-			if putErr := keys.PutBundle("_server_sealed_secret", sealedSvc.Secret()); putErr != nil {
+			if putErr := putServerSecret("_server_sealed_secret", sealedSvc.Secret()); putErr != nil {
 				log.Printf("[serve] WARNING: failed to persist sealed sender secret: %v", putErr)
 			}
 		}
@@ -282,7 +319,7 @@ func runServe(cmd *cobra.Command, args []string) error {
 				}
 			}
 			if turnSecretIsNew {
-				if pErr := keys.PutBundle("_server_turn_secret", turnSrv.Secret()); pErr != nil {
+				if pErr := putServerSecret("_server_turn_secret", turnSrv.Secret()); pErr != nil {
 					log.Printf("[serve] WARNING: failed to persist TURN secret: %v", pErr)
 				}
 			}

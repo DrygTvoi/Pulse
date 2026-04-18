@@ -2,17 +2,32 @@
 # Edit this file at /opt/pulse/config.toml
 
 [server]
+# Listening socket. Use 127.0.0.1:8080 when nginx (nginx-stealth.conf)
+# terminates TLS in front; use 0.0.0.0:443 when Pulse handles TLS itself.
 listen = "__LISTEN__"
 data_dir = "/opt/pulse/data"
+
+# TLS mode: "self-signed" | "manual" | "auto" | "none"
+#   self-signed — dev: cert persisted under data_dir/self_signed.{pem,key}
+#   manual      — load tls_cert / tls_key
+#   auto        — Let's Encrypt via ACME (needs port 80 for HTTP-01)
+#   none        — plaintext; use ONLY behind nginx-stealth.conf
 tls_mode = "__TLS_MODE__"
 auto_tls_domain = "__DOMAIN__"
+# tls_cert = "/etc/pulse/fullchain.pem"
+# tls_key  = "/etc/pulse/privkey.pem"
 
 [auth]
+# "open"   — anyone self-registers via Ed25519 challenge
+# "invite" — new users need a code from `pulse-server invite create`
+# "closed" — only pubkeys already in the users table
 mode = "__AUTH_MODE__"
 
 [storage]
 message_ttl_hours = 168
-max_message_bytes = 536870912
+# E2EE payloads are tiny; large files go through the chunked transfer path.
+# Keeping this low blocks the previous default-512MB amplification DoS.
+max_message_bytes = 10485760
 max_backup_bytes = 52428800
 max_file_bytes = 104857600
 max_storage_per_user = 1073741824
@@ -22,9 +37,14 @@ file_ttl = "168h"
 enabled = true
 port = 3478
 realm = "__DOMAIN__"
+# public_host = "203.0.113.1"  # required if `realm` is not a resolvable DNS name
 
 [media]
 enabled = true
+# "stealth"     — ICE-TCP muxed on :443 (best behind GFW)
+# "performance" — UDP on 3478
+# "ws-relay"    — fallback via WebSocket
+# "all"         — all three listeners active
 mode = "stealth"
 max_room_size = 25
 last_n_video = 6
@@ -33,6 +53,7 @@ speaker_detect = true
 speaker_threshold = -40
 
 [privacy]
+# standard | private | paranoid | custom
 preset = "paranoid"
 access_log = false
 delete_on_ack = true
@@ -44,9 +65,14 @@ messages_per_minute = 60
 signals_per_minute = 120
 max_connections = 1000
 max_rooms = 100
+# 0 = PoW disabled; 16 ≈ 100ms to solve (recommended for open mode).
 pow_difficulty = 16
+# metrics_secret = ""   # set a long random string to enable /metrics and /health
 
 [federation]
+# Flip to true and add peers via `pulse-server federation add <address> <pubkey>`.
+enabled = false
+# "disabled" | "private" (whitelist) | "open"
 mode = "disabled"
 max_hops = 2
 

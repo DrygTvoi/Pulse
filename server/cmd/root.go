@@ -21,6 +21,8 @@ var rootCmd = &cobra.Command{
 func init() {
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "config.toml", "path to config file")
 	rootCmd.PersistentFlags().StringVar(&dataDir, "data-dir", "/data", "path to data directory")
+
+	rootCmd.AddCommand(backupCmd)
 }
 
 func Execute() error {

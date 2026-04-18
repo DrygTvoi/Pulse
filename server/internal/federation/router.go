@@ -17,6 +17,15 @@ type LocalDeliverer interface {
 	DeliverToLocal(to string, msgType string, payload json.RawMessage) bool
 }
 
+// shortID returns the first 8 characters of s for log output, or the entire
+// string if it is shorter. Avoids panics on unexpectedly short pubkeys.
+func shortID(s string) string {
+	if len(s) <= 8 {
+		return s
+	}
+	return s[:8]
+}
+
 // FederationRouter handles routing of messages between local users and federated peers.
 type FederationRouter struct {
 	users       *store.UserStore
@@ -25,6 +34,7 @@ type FederationRouter struct {
 	db          *sql.DB
 	cfg         *config.FederationConfig
 	auth        *FederationAuth
+	outbox      *store.FederationOutbox
 }
 
 // NewFederationRouter creates a new FederationRouter.
@@ -36,10 +46,14 @@ func NewFederationRouter(users *store.UserStore, pm *PeerManager, deliverer Loca
 		db:          db,
 		cfg:         cfg,
 		auth:        auth,
+		outbox:      store.NewFederationOutbox(db),
 	}
 
 	// Start hint cleanup ticker
 	go r.hintCleanupLoop()
+	// Periodically retry queued outbox entries so a peer that was offline
+	// when the sender asked us to forward eventually receives the message.
+	go r.outboxRetryLoop()
 
 	return r
 }
@@ -68,7 +82,7 @@ func (r *FederationRouter) Route(env *FederatedEnvelope) {
 		maxHops = 2
 	}
 	if env.Hops >= maxHops {
-		log.Printf("[federation] dropping envelope for %s: max hops (%d) exceeded", env.To[:8], maxHops)
+		log.Printf("[federation] dropping envelope for %s: max hops (%d) exceeded", shortID(env.To), maxHops)
 		return
 	}
 
@@ -81,7 +95,7 @@ func (r *FederationRouter) Route(env *FederatedEnvelope) {
 			"ts":   env.Ts,
 		})
 		if !r.deliverer.DeliverToLocal(env.To, "message", payload) {
-			log.Printf("[federation] local delivery failed for %s", env.To[:8])
+			log.Printf("[federation] local delivery failed for %s", shortID(env.To))
 		}
 		return
 	}
@@ -124,6 +138,85 @@ func (r *FederationRouter) forwardToRemote(env *FederatedEnvelope) {
 			return
 		}
 	}
+	// No peer accepted the envelope — queue it so we can retry when a
+	// peer reconnects. Drops silently if the store errors (better to
+	// lose one message than to panic the router).
+	if r.outbox != nil {
+		if err := r.outbox.Enqueue(env.ID, env.To, data); err != nil {
+			log.Printf("[federation] outbox enqueue failed for %s: %v", env.To, err)
+		}
+	}
+}
+
+// outboxRetryLoop walks the outbox every 30s. For each pending entry it
+// looks up a peer (via hint, else any connected peer) and sends. Success
+// removes the row; failure increments the attempt counter. After
+// `maxAttempts` tries, entries sit dormant until the janitor purges.
+func (r *FederationRouter) outboxRetryLoop() {
+	const retryInterval = 30 * time.Second
+	const maxAttempts = 12       // ~6 hours at 30s cadence
+	const maxAgeSeconds = 7 * 24 * 60 * 60
+
+	ticker := time.NewTicker(retryInterval)
+	defer ticker.Stop()
+	purgeTicker := time.NewTicker(6 * time.Hour)
+	defer purgeTicker.Stop()
+
+	for {
+		select {
+		case <-purgeTicker.C:
+			if r.outbox != nil {
+				_, _ = r.outbox.Purge(maxAgeSeconds)
+			}
+		case <-ticker.C:
+			r.drainOutbox(maxAttempts)
+		}
+	}
+}
+
+func (r *FederationRouter) drainOutbox(maxAttempts int) {
+	if r.outbox == nil {
+		return
+	}
+	rows, err := r.outbox.Pending(128, maxAttempts)
+	if err != nil {
+		log.Printf("[federation] outbox scan error: %v", err)
+		return
+	}
+	if len(rows) == 0 {
+		return
+	}
+	peers := r.peerManager.ListPeers()
+	for _, row := range rows {
+		delivered := false
+		// Prefer a hint for the recipient if we have one fresh.
+		if hint := r.getHint(row.ToPubkey); hint != "" {
+			for _, p := range peers {
+				if p.Pubkey == hint && p.IsConnected() {
+					if err := p.SendRaw(row.Envelope); err == nil {
+						delivered = true
+					}
+					break
+				}
+			}
+		}
+		if !delivered {
+			for _, p := range peers {
+				if !p.IsConnected() {
+					continue
+				}
+				if err := p.SendRaw(row.Envelope); err == nil {
+					delivered = true
+					break
+				}
+			}
+		}
+		if delivered {
+			_ = r.outbox.Delete(row.ID)
+		} else {
+			_ = r.outbox.MarkAttempt(row.ID)
+		}
+	}
 }
 
 // HandleIncoming processes a federated envelope received from a peer.
@@ -161,7 +254,7 @@ func (r *FederationRouter) recordHint(userPubkey, peerPubkey string) {
 		userPubkey, peerPubkey, time.Now().Unix(),
 	)
 	if err != nil {
-		log.Printf("[federation] failed to record hint for %s: %v", userPubkey[:8], err)
+		log.Printf("[federation] failed to record hint for %s: %v", shortID(userPubkey), err)
 	}
 }
 
@@ -195,8 +288,8 @@ func (r *FederationRouter) hintCleanupLoop() {
 		if r.db == nil {
 			continue
 		}
-		// Expire hints older than 7 days
-		cutoff := time.Now().Add(-7 * 24 * time.Hour).Unix()
+		// Expire hints older than 24 hours
+		cutoff := time.Now().Add(-24 * time.Hour).Unix()
 		r.db.Exec(`DELETE FROM fed_user_hints WHERE last_seen < ?`, cutoff)
 	}
 }

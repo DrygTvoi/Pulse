@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/BurntSushi/toml"
@@ -121,7 +122,7 @@ func DefaultConfig() *Config {
 		},
 		Storage: StorageConfig{
 			MessageTTLHours:   168,
-			MaxMessageBytes:   536870912, // 512 MB
+			MaxMessageBytes:   10 * 1024 * 1024, // 10 MB — E2EE text/ACK payloads are tiny; files go through the chunked transfer path
 			MaxBackupBytes:    52428800,
 			MaxFileBytes:      104857600,  // 100 MB
 			MaxStoragePerUser: 1073741824, // 1 GB
@@ -195,5 +196,49 @@ func Load(path string) (*Config, error) {
 		return nil, err
 	}
 
+	if err := cfg.Validate(); err != nil {
+		return nil, err
+	}
+
 	return cfg, nil
+}
+
+// Validate checks the loaded configuration for obvious mistakes that
+// would otherwise surface as cryptic runtime errors (or worse, silent
+// misbehaviour). Returns the first problem encountered.
+func (c *Config) Validate() error {
+	switch c.Server.TLSMode {
+	case "self-signed", "manual", "auto", "none":
+	default:
+		return fmt.Errorf("invalid server.tls_mode %q (expected self-signed|manual|auto|none)", c.Server.TLSMode)
+	}
+	if c.Server.TLSMode == "manual" && (c.Server.TLSCert == "" || c.Server.TLSKey == "") {
+		return fmt.Errorf("server.tls_mode = manual requires server.tls_cert and server.tls_key paths")
+	}
+	if c.Server.TLSMode == "auto" && c.Server.AutoTLSDomain == "" {
+		return fmt.Errorf("server.tls_mode = auto requires server.auto_tls_domain")
+	}
+	switch c.Auth.Mode {
+	case "open", "invite", "closed":
+	default:
+		return fmt.Errorf("invalid auth.mode %q (expected open|invite|closed)", c.Auth.Mode)
+	}
+	if c.Storage.MaxMessageBytes < 1024 || c.Storage.MaxMessageBytes > 1<<30 {
+		return fmt.Errorf("storage.max_message_bytes = %d out of sane range (1 KiB..1 GiB)", c.Storage.MaxMessageBytes)
+	}
+	if c.Storage.MaxFileBytes < 0 || c.Storage.MaxFileBytes > 1<<32 {
+		return fmt.Errorf("storage.max_file_bytes = %d out of sane range", c.Storage.MaxFileBytes)
+	}
+	if c.Limits.MaxConnections < 10 {
+		return fmt.Errorf("limits.max_connections = %d too low (>=10)", c.Limits.MaxConnections)
+	}
+	if c.Limits.PoWDifficulty < 0 || c.Limits.PoWDifficulty > 24 {
+		return fmt.Errorf("limits.pow_difficulty = %d out of range (0..24)", c.Limits.PoWDifficulty)
+	}
+	switch c.Privacy.Preset {
+	case "", "standard", "private", "paranoid", "custom":
+	default:
+		return fmt.Errorf("invalid privacy.preset %q", c.Privacy.Preset)
+	}
+	return nil
 }

@@ -73,18 +73,35 @@ func (m *Manager) HandleWSRelayFrame(senderPubkey string, data []byte) {
 		return
 	}
 
-	// For video frames (0x11-0x14), check Last-N filtering
+	// For video frames (0x11-0x14), check Last-N filtering per-subscriber
 	isVideo := frame.Type >= 0x11 && frame.Type <= 0x14
-	if isVideo && !room.IsInLastN(senderPubkey) {
-		return // sender not in Last-N active set — skip video forwarding
+	senderInLastN := true
+	if isVideo {
+		senderInLastN = room.isInLastNLocked(senderPubkey)
 	}
 
 	// Forward to all other participants
-	for pk, p := range room.Participants {
-		if pk != senderPubkey {
-			if p.SendBinary != nil {
-				p.SendBinary(data)
+	trackID := fmt.Sprintf("%s_%d", senderPubkey, frame.TrackIndex)
+	for pk, sub := range room.Participants {
+		if pk == senderPubkey {
+			continue
+		}
+		if sub.SendBinary == nil {
+			continue
+		}
+		if isVideo {
+			// Skip if sender is not in Last-N active set
+			if !senderInLastN {
+				continue
+			}
+			// Skip if subscriber is not subscribed to this video track
+			sub.mu.Lock()
+			subscribed, hasEntry := sub.VideoSubs[trackID]
+			sub.mu.Unlock()
+			if hasEntry && !subscribed {
+				continue
 			}
 		}
+		sub.SendBinary(data)
 	}
 }

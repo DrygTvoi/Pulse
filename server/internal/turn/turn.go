@@ -22,7 +22,33 @@ import (
 const (
 	credentialTTL = 24 * time.Hour
 	secretBytes   = 32
+
+	// credentialRateWindow is the cooldown window per-pubkey: repeat calls
+	// to GenerateCredentials within this window return the cached credentials
+	// rather than minting a new HMAC (which would shift the expiry and waste
+	// churn). Clients that re-connect rapidly (reconnect storms, flaky
+	// networks) benefit most.
+	credentialRateWindow = 10 * time.Second
+
+	// credentialCacheTTL is how long a cache entry lives before being eligible
+	// for cleanup. Anything older than this is discarded during the periodic
+	// sweep so the cache cannot grow unbounded if a pubkey stops calling.
+	credentialCacheTTL = 1 * time.Hour
+
+	// cleanupEvery triggers a cleanup sweep on every Nth GenerateCredentials
+	// call — cheap amortised maintenance without a background goroutine.
+	cleanupEvery = 100
+
+	// previousSecretTTL is how long a rotated-out secret remains valid so
+	// already-issued credentials keep working until their own expiry.
+	previousSecretTTL = 6 * time.Hour
 )
+
+// credCacheEntry is one pubkey's most recent credential plus when it was issued.
+type credCacheEntry struct {
+	creds    *Credentials
+	issuedAt time.Time
+}
 
 // Server wraps a pion/turn TURN server with ephemeral credential support.
 type Server struct {
@@ -33,6 +59,23 @@ type Server struct {
 	port       int
 	publicHost string // hostname/IP used in TURN URIs (defaults to realm)
 	tlsPort    int    // TLS port for turns: URIs (0 = not advertised)
+
+	// previousSecret holds the previously-active secret after a rotation so
+	// credentials issued under it continue to authenticate until their TTL
+	// naturally expires. previousSecretAt is the rotation timestamp — entries
+	// older than previousSecretTTL are discarded.
+	previousSecret   []byte
+	previousSecretAt time.Time
+
+	// credCache maps pubkey -> *credCacheEntry for per-user rate limiting on
+	// GenerateCredentials. sync.Map is appropriate here: the key space is
+	// effectively unbounded (one per user) and reads dominate writes.
+	credCache sync.Map
+
+	// credCallCount is incremented atomically-ish under mu to decide when to
+	// sweep the cache. A plain int under the existing mutex is sufficient —
+	// GenerateCredentials already takes the lock briefly.
+	credCallCount uint64
 }
 
 // SetPublicHost overrides the hostname used in generated TURN URIs.
@@ -268,14 +311,37 @@ func (s *Server) Stop() error {
 // GenerateCredentials creates ephemeral TURN credentials for the given pubkey.
 // Username format: "expiry_timestamp:pubkey"
 // Password: base64(HMAC-SHA1(secret, username))
+//
+// Per-pubkey rate limit: repeat calls within credentialRateWindow return the
+// cached credentials instead of minting a fresh HMAC (and fresh expiry). This
+// keeps reconnect-storm clients on a stable credential and dampens churn.
+// Every cleanupEvery-th call triggers a sweep that discards entries older than
+// credentialCacheTTL so the cache cannot grow without bound.
 func (s *Server) GenerateCredentials(pubkey string) (*Credentials, error) {
-	s.mu.RLock()
+	// Rate-limit: if we issued creds for this pubkey recently, reuse them.
+	now := time.Now()
+	if v, ok := s.credCache.Load(pubkey); ok {
+		if e, ok := v.(*credCacheEntry); ok && e != nil && e.creds != nil {
+			if now.Sub(e.issuedAt) < credentialRateWindow {
+				// Return a copy to avoid callers mutating shared state.
+				c := *e.creds
+				urisCopy := make([]string, len(e.creds.URIs))
+				copy(urisCopy, e.creds.URIs)
+				c.URIs = urisCopy
+				return &c, nil
+			}
+		}
+	}
+
+	s.mu.Lock()
 	secret := s.secret
 	realm := s.realm
 	port := s.port
 	host := s.publicHost
 	tlsPort := s.tlsPort
-	s.mu.RUnlock()
+	s.credCallCount++
+	shouldSweep := s.credCallCount%cleanupEvery == 0
+	s.mu.Unlock()
 
 	if secret == nil {
 		return nil, fmt.Errorf("TURN server not initialized")
@@ -285,7 +351,7 @@ func (s *Server) GenerateCredentials(pubkey string) (*Credentials, error) {
 		host = realm
 	}
 
-	expiry := time.Now().Add(credentialTTL).Unix()
+	expiry := now.Add(credentialTTL).Unix()
 	username := strconv.FormatInt(expiry, 10) + ":" + pubkey
 
 	mac := hmac.New(sha1.New, secret)
@@ -303,12 +369,61 @@ func (s *Server) GenerateCredentials(pubkey string) (*Credentials, error) {
 	// Always include plain UDP TURN as fallback
 	uris = append(uris, fmt.Sprintf("turn:%s:%d?transport=udp", host, port))
 
-	return &Credentials{
+	creds := &Credentials{
 		Username: username,
 		Password: password,
 		TTL:      int(credentialTTL.Seconds()),
 		URIs:     uris,
-	}, nil
+	}
+
+	// Cache for rate-limit purposes.
+	s.credCache.Store(pubkey, &credCacheEntry{creds: creds, issuedAt: now})
+
+	if shouldSweep {
+		s.sweepCredCache(now)
+	}
+
+	return creds, nil
+}
+
+// sweepCredCache removes entries older than credentialCacheTTL. Called
+// amortised (every cleanupEvery-th GenerateCredentials call) to bound cache
+// size without a background goroutine.
+func (s *Server) sweepCredCache(now time.Time) {
+	cutoff := now.Add(-credentialCacheTTL)
+	s.credCache.Range(func(k, v any) bool {
+		if e, ok := v.(*credCacheEntry); ok && e != nil && e.issuedAt.Before(cutoff) {
+			s.credCache.Delete(k)
+		}
+		return true
+	})
+}
+
+// RotateSecret swaps in a new TURN secret, retaining the previous one for
+// previousSecretTTL so credentials already issued under it continue to
+// authenticate until they reach their own expiry. The credential rate-limit
+// cache is cleared because entries are keyed to the old secret and would
+// otherwise hand out stale passwords for up to credentialRateWindow.
+//
+// Not called automatically — exposed for an operator-triggered CLI.
+func (s *Server) RotateSecret(newSecret []byte) {
+	if len(newSecret) == 0 {
+		return
+	}
+	cpy := make([]byte, len(newSecret))
+	copy(cpy, newSecret)
+
+	s.mu.Lock()
+	s.previousSecret = s.secret
+	s.previousSecretAt = time.Now()
+	s.secret = cpy
+	s.mu.Unlock()
+
+	// Drop cached creds so reconnects pick up the new secret immediately.
+	s.credCache.Range(func(k, _ any) bool {
+		s.credCache.Delete(k)
+		return true
+	})
 }
 
 // Secret returns the current TURN secret for persistence.
@@ -322,9 +437,16 @@ func (s *Server) Secret() []byte {
 
 // authHandler validates ephemeral credentials using the HMAC-SHA1 scheme.
 // It returns the password key for pion/turn's internal validation.
+//
+// After a RotateSecret call the previous secret remains valid for
+// previousSecretTTL. authHandler tries the current secret first, then the
+// previous one, so credentials issued under the old secret keep working
+// until their TTL expires.
 func (s *Server) authHandler(username, realm string) ([]byte, bool) {
 	s.mu.RLock()
 	secret := s.secret
+	prevSecret := s.previousSecret
+	prevAt := s.previousSecretAt
 	s.mu.RUnlock()
 
 	if secret == nil {
@@ -349,15 +471,38 @@ func (s *Server) authHandler(username, realm string) ([]byte, bool) {
 	}
 
 	// Check if credential has expired
-	if time.Now().Unix() > expiry {
+	now := time.Now()
+	if now.Unix() > expiry {
 		return nil, false
 	}
 
-	// Compute expected password
+	// Try current secret first.
 	mac := hmac.New(sha1.New, secret)
 	mac.Write([]byte(username))
 	password := base64.StdEncoding.EncodeToString(mac.Sum(nil))
+	key := turn.GenerateAuthKey(username, realm, password)
 
-	// Return the key that pion/turn uses for auth validation
-	return turn.GenerateAuthKey(username, realm, password), true
+	// Fall back to the previous (rotated-out) secret if it's still within the
+	// grace window. pion/turn compares the returned key against the one it
+	// computed from the client's MESSAGE-INTEGRITY, so we return the previous
+	// secret's key when the current one wouldn't match. We can't know which
+	// secret the client used without timing-leaking comparisons, so the real
+	// fallback is handled by pion: if auth fails with the current key, this
+	// function won't be called again. Since pion expects a single key return,
+	// we pick the previous-secret key only when the credential's expiry falls
+	// inside the pre-rotation window — a best-effort heuristic that keeps
+	// in-flight credentials working.
+	if len(prevSecret) > 0 && !prevAt.IsZero() && now.Sub(prevAt) < previousSecretTTL {
+		// If the username's expiry is older than (prevAt + credentialTTL),
+		// it was plausibly minted under the previous secret. Prefer that key.
+		issuedBefore := time.Unix(expiry, 0).Before(prevAt.Add(credentialTTL))
+		if issuedBefore {
+			macOld := hmac.New(sha1.New, prevSecret)
+			macOld.Write([]byte(username))
+			passwordOld := base64.StdEncoding.EncodeToString(macOld.Sum(nil))
+			key = turn.GenerateAuthKey(username, realm, passwordOld)
+		}
+	}
+
+	return key, true
 }

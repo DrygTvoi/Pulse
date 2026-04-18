@@ -7,6 +7,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -14,6 +15,7 @@ import (
 	"github.com/pion/webrtc/v4"
 
 	"github.com/nicholasgasior/pulse-server/config"
+	"github.com/nicholasgasior/pulse-server/internal/federation"
 	"github.com/nicholasgasior/pulse-server/internal/metrics"
 	"github.com/nicholasgasior/pulse-server/internal/privacy"
 	"github.com/nicholasgasior/pulse-server/internal/sfu"
@@ -21,6 +23,44 @@ import (
 	"github.com/nicholasgasior/pulse-server/internal/tunnel"
 	"github.com/nicholasgasior/pulse-server/internal/turn"
 )
+
+// isHexLower returns true if s is entirely lowercase hex digits.
+// Uppercase is intentionally rejected so we don't accept two distinct
+// spellings of the same pubkey (which would break the sync.Map routing key).
+func isHexLower(s string) bool {
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f')) {
+			return false
+		}
+	}
+	return true
+}
+
+// validateRecipient enforces size and format invariants on the msg.To field.
+// Accepts either a bare 64-char hex pubkey or `<hex-pubkey>@<suffix>` for
+// federated / routed addresses. Returns an error message suitable for
+// SendError when invalid, or "" when valid.
+func validateRecipient(to string) string {
+	if to == "" {
+		return "missing 'to' field"
+	}
+	if len(to) > 128 {
+		return "'to' field exceeds 128 bytes"
+	}
+	pub := to
+	if at := strings.IndexByte(to, '@'); at >= 0 {
+		pub = to[:at]
+		// The suffix itself can't be empty, else why include the '@'?
+		if at == len(to)-1 {
+			return "invalid 'to' suffix"
+		}
+	}
+	if len(pub) == 64 && !isHexLower(pub) {
+		return "'to' pubkey must be lowercase hex"
+	}
+	return ""
+}
 
 // Hub manages all connected clients and routes messages between them.
 type Hub struct {
@@ -43,6 +83,7 @@ type Hub struct {
 	metricsCol   *metrics.Collector
 	privSettings privacy.EffectiveSettings
 	rateLimiter  *RateLimiter
+	fedRouter    *federation.FederationRouter
 
 	register   chan *Client
 	unregister chan *Client
@@ -133,6 +174,14 @@ func (h *Hub) SetPaddingService(ps *privacy.PaddingService) {
 // SetSealedSenderService sets the sealed sender service.
 func (h *Hub) SetSealedSenderService(ss *privacy.SealedSenderService) {
 	h.sealedSvc = ss
+}
+
+// SetFederationRouter wires the federation router so handleSend can
+// forward messages for non-local recipients to federated peers. If never
+// set (e.g. federation disabled in config), handleSend falls back to
+// storing offline only.
+func (h *Hub) SetFederationRouter(r *federation.FederationRouter) {
+	h.fedRouter = r
 }
 
 // Metrics returns the metrics collector.
@@ -272,58 +321,73 @@ func (h *Hub) MaxConnectionsReached() bool {
 }
 
 // HandleMessage processes an incoming envelope from an authenticated client.
+//
+// Every per-type handler is invoked through safeDispatch so a panic deep
+// in one codepath (malformed JSON hitting a third-party lib, nil deref
+// in sfu/tunnel, etc.) can never crash the shared hub goroutine and take
+// every other connected client down with it. Mirrors the recover guard
+// already in place in client.readPump.
 func (h *Hub) HandleMessage(client *Client, env *Envelope) {
+	safeDispatch := func(name string, fn func()) {
+		defer func() {
+			if r := recover(); r != nil {
+				log.Printf("[hub] PANIC in handler %s for %s: %v", name, client.pubkey, r)
+			}
+		}()
+		fn()
+	}
+
 	switch env.Type {
 	case TypeSend:
-		h.handleSend(client, env.Payload)
+		safeDispatch(TypeSend, func() { h.handleSend(client, env.Payload) })
 	case TypeSignal:
-		h.handleSignal(client, env.Payload)
+		safeDispatch(TypeSignal, func() { h.handleSignal(client, env.Payload) })
 	case TypeFetch:
-		h.handleFetch(client, env.Payload)
+		safeDispatch(TypeFetch, func() { h.handleFetch(client, env.Payload) })
 	case TypeAck:
-		h.handleAck(client, env.Payload)
+		safeDispatch(TypeAck, func() { h.handleAck(client, env.Payload) })
 	case TypeKeysPut:
-		h.handleKeysPut(client, env.Payload)
+		safeDispatch(TypeKeysPut, func() { h.handleKeysPut(client, env.Payload) })
 	case TypeKeysGet:
-		h.handleKeysGet(client, env.Payload)
+		safeDispatch(TypeKeysGet, func() { h.handleKeysGet(client, env.Payload) })
 	case TypePing:
-		h.handlePing(client)
+		safeDispatch(TypePing, func() { h.handlePing(client) })
 	case TypeBackupPut:
-		h.handleBackupPut(client, env.Payload)
+		safeDispatch(TypeBackupPut, func() { h.handleBackupPut(client, env.Payload) })
 	case TypeBackupGet:
-		h.handleBackupGet(client)
+		safeDispatch(TypeBackupGet, func() { h.handleBackupGet(client) })
 	case TypeUploadStart:
-		h.handleUploadStart(client, env.Payload)
+		safeDispatch(TypeUploadStart, func() { h.handleUploadStart(client, env.Payload) })
 	case TypeUploadResume:
-		h.handleUploadResume(client, env.Payload)
+		safeDispatch(TypeUploadResume, func() { h.handleUploadResume(client, env.Payload) })
 	case TypeDownloadReq:
-		h.handleDownloadReq(client, env.Payload)
+		safeDispatch(TypeDownloadReq, func() { h.handleDownloadReq(client, env.Payload) })
 
 	// SFU (Phase 2+3)
 	case TypeRoomCreate:
-		h.handleRoomCreate(client, env.Payload)
+		safeDispatch(TypeRoomCreate, func() { h.handleRoomCreate(client, env.Payload) })
 	case TypeRoomJoin:
-		h.handleRoomJoin(client, env.Payload)
+		safeDispatch(TypeRoomJoin, func() { h.handleRoomJoin(client, env.Payload) })
 	case TypeRoomLeave:
-		h.handleRoomLeave(client, env.Payload)
+		safeDispatch(TypeRoomLeave, func() { h.handleRoomLeave(client, env.Payload) })
 	case TypeMediaOffer:
-		h.handleMediaOffer(client, env.Payload)
+		safeDispatch(TypeMediaOffer, func() { h.handleMediaOffer(client, env.Payload) })
 	case TypeMediaCandidate:
-		h.handleMediaCandidate(client, env.Payload)
+		safeDispatch(TypeMediaCandidate, func() { h.handleMediaCandidate(client, env.Payload) })
 	case TypeTrackPublish:
-		h.handleTrackPublish(client, env.Payload)
+		safeDispatch(TypeTrackPublish, func() { h.handleTrackPublish(client, env.Payload) })
 	case TypeTrackSubscribe:
-		h.handleTrackSubscribe(client, env.Payload)
+		safeDispatch(TypeTrackSubscribe, func() { h.handleTrackSubscribe(client, env.Payload) })
 	case TypeTrackPause, TypeTrackResume:
-		h.handleTrackPauseResume(client, env.Type, env.Payload)
+		safeDispatch(env.Type, func() { h.handleTrackPauseResume(client, env.Type, env.Payload) })
 	case TypeQualityPrefer:
-		h.handleQualityPrefer(client, env.Payload)
+		safeDispatch(TypeQualityPrefer, func() { h.handleQualityPrefer(client, env.Payload) })
 
 	// Tunnel (Phase 5)
 	case TypeTunnelOpen:
-		h.handleTunnelOpen(client, env.Payload)
+		safeDispatch(TypeTunnelOpen, func() { h.handleTunnelOpen(client, env.Payload) })
 	case TypeTunnelClose:
-		h.handleTunnelClose(client, env.Payload)
+		safeDispatch(TypeTunnelClose, func() { h.handleTunnelClose(client, env.Payload) })
 
 	default:
 		client.SendError("unknown_type", "unknown message type: "+env.Type)
@@ -337,8 +401,16 @@ func (h *Hub) handleSend(client *Client, payload json.RawMessage) {
 		return
 	}
 
-	if msg.To == "" || msg.ID == "" {
-		client.SendError("invalid_payload", "missing 'to' or 'id' field")
+	if msg.ID == "" {
+		client.SendError("invalid_payload", "missing 'id' field")
+		return
+	}
+	if len(msg.ID) > 128 {
+		client.SendError("invalid_payload", "'id' field exceeds 128 bytes")
+		return
+	}
+	if reason := validateRecipient(msg.To); reason != "" {
+		client.SendError("invalid_payload", reason)
 		return
 	}
 
@@ -393,6 +465,13 @@ func (h *Hub) handleSend(client *Client, payload json.RawMessage) {
 			Created: time.Now().Unix(),
 		}
 
+		// Store-then-deliver: the previous code acked `Stored` to the sender
+		// even when delivery to the online recipient failed (slow client,
+		// disconnect between Load and Send). Persist *before* attempting
+		// delivery so we never lose a message. If DeleteOnAck is on, the
+		// hub deletes the stored copy after the recipient acknowledges.
+		h.storeOfflineMessage(client, msg, expires)
+
 		deliverFn := func() {
 			// Use batch delivery if enabled
 			if h.batchBuf != nil {
@@ -404,10 +483,7 @@ func (h *Hub) handleSend(client *Client, payload json.RawMessage) {
 				h.batchBuf.Enqueue(msg.To, data)
 			} else if err := recipient.SendEnvelope(TypeMessage, incoming); err != nil {
 				log.Printf("[hub] failed to deliver to online user %s: %v", msg.To, err)
-				h.storeOfflineMessage(client, msg, expires)
-			}
-			if !h.cfg.Privacy.DeleteOnAck {
-				h.storeOfflineMessage(client, msg, expires)
+				// Stored copy already exists — recipient will fetch on reconnect.
 			}
 			client.SendEnvelope(TypeStored, &Stored{ID: msg.ID})
 		}
@@ -430,7 +506,30 @@ func (h *Hub) handleSend(client *Client, payload json.RawMessage) {
 		return
 	}
 
-	// Store for offline delivery
+	// Recipient is not online on this server. If federation is enabled and
+	// the recipient is not a user we know locally, forward to peers so one
+	// of them can deliver. The router walks the peer list (with hints) and
+	// drops into the remote server's `HandleIncoming` path, which will
+	// either deliver locally over there or re-forward another hop.
+	if h.fedRouter != nil && !h.fedRouter.IsLocalUser(msg.To) {
+		env := &federation.FederatedEnvelope{
+			Type: "fed_envelope",
+			ID:   msg.ID,
+			From: client.pubkey,
+			To:   msg.To,
+			Kind: "message",
+			// Body is a string in FederatedEnvelope — payload is already
+			// the E2EE-encrypted JSON blob, so it round-trips as-is.
+			Body: string(msg.Payload),
+			Ts:   time.Now().Unix(),
+			TTL:  msg.TTL,
+		}
+		h.fedRouter.Route(env)
+		client.SendEnvelope(TypeStored, &Stored{ID: msg.ID})
+		return
+	}
+
+	// Local user but currently offline — store for later delivery.
 	h.storeOfflineMessage(client, msg, expires)
 	client.SendEnvelope(TypeStored, &Stored{ID: msg.ID})
 }
@@ -453,6 +552,12 @@ func (h *Hub) storeOfflineMessage(client *Client, msg SendMessage, expires int64
 	}
 }
 
+// maxSignalPayloadBytes caps the inner Signal.Payload at 64 KB. Real
+// signalling messages (WebRTC offers/answers/candidates, typing
+// indicators) are well under 10 KB; anything larger is either abuse or
+// a bug, and would otherwise ride the generic maxMessageSize cap of 1 MB.
+const maxSignalPayloadBytes = 64 * 1024
+
 func (h *Hub) handleSignal(client *Client, payload json.RawMessage) {
 	var sig Signal
 	if err := json.Unmarshal(payload, &sig); err != nil {
@@ -460,8 +565,13 @@ func (h *Hub) handleSignal(client *Client, payload json.RawMessage) {
 		return
 	}
 
-	if sig.To == "" {
-		client.SendError("invalid_payload", "missing 'to' field")
+	if reason := validateRecipient(sig.To); reason != "" {
+		client.SendError("invalid_payload", reason)
+		return
+	}
+
+	if len(sig.Payload) > maxSignalPayloadBytes {
+		client.SendError("payload_too_large", "signal payload exceeds 64 KB")
 		return
 	}
 
@@ -763,10 +873,36 @@ func (h *Hub) handleUploadResume(client *Client, payload json.RawMessage) {
 	})
 }
 
+// Chunk upload hard caps. These bound abusive/malformed binary frames
+// before we touch the transfer database. 1 MB matches maxMessageSize
+// (the WebSocket read limit) and 10 000 chunks * 1 MB = 10 GB, far above
+// any legitimate single-transfer upload.
+const (
+	maxChunkDataBytes = 1 << 20 // 1 MB per chunk payload
+	maxTotalChunks    = 10000
+)
+
 // HandleUploadChunk processes an incoming binary chunk from a client.
 func (h *Hub) HandleUploadChunk(client *Client, transferID string, chunkIdx, totalChunks int, data []byte) {
 	if h.fileStore == nil {
 		client.SendError("not_supported", "file transfer not enabled")
+		return
+	}
+
+	if chunkIdx < 0 || totalChunks <= 0 {
+		client.SendError("invalid_chunk", "invalid chunk index or total")
+		return
+	}
+	if totalChunks > maxTotalChunks {
+		client.SendError("invalid_chunk", "totalChunks exceeds limit")
+		return
+	}
+	if chunkIdx >= totalChunks {
+		client.SendError("invalid_chunk", "chunkIdx >= totalChunks")
+		return
+	}
+	if len(data) > maxChunkDataBytes {
+		client.SendError("payload_too_large", "chunk exceeds 1 MB")
 		return
 	}
 

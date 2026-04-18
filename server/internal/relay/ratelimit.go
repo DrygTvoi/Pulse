@@ -1,7 +1,10 @@
 package relay
 
 import (
+	"log"
+	"net"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -40,10 +43,39 @@ func (rl *RateLimiter) Allow(pubkey string) bool {
 	return rl.allowKey(pubkey, rl.rate)
 }
 
-// AllowHello rate-limits pre-auth "hello" messages per IP address.
-// Much lower limit than authenticated messages to prevent hello floods.
+// AllowHello rate-limits pre-auth "hello" messages per IP prefix.
+// We key on /24 (IPv4) or /48 (IPv6) so an attacker who rotates their
+// source port or picks random /32s from a single network block can't
+// trivially exhaust the per-IP bucket count and deny service to legit
+// users. Real-world residential shares use the same prefix, which is
+// acceptable for a pre-auth "hello" rate at 5/min.
 func (rl *RateLimiter) AllowHello(ip string) bool {
-	return rl.allowKey("hello:"+ip, helloRate)
+	return rl.allowKey("hello:"+helloIPKey(ip), helloRate)
+}
+
+func helloIPKey(ip string) string {
+	parsed := net.ParseIP(ip)
+	if parsed == nil {
+		return ip
+	}
+	if v4 := parsed.To4(); v4 != nil {
+		v4[3] = 0 // collapse to /24
+		return v4.String()
+	}
+	// IPv6: keep the first 48 bits (6 bytes).
+	masked := parsed.Mask(net.CIDRMask(48, 128))
+	return masked.String()
+}
+
+// helloCapHits counts how many Allow() calls were rejected because the
+// bucket cap was already full. Exposed for metrics; increments under
+// attack let operators see the self-DoS risk before real users notice.
+var helloCapHits atomic.Int64
+
+// HelloCapHits returns (and clears) the count of bucket-cap rejections
+// since the last call. Intended for periodic metrics scraping.
+func (rl *RateLimiter) HelloCapHits() int64 {
+	return helloCapHits.Swap(0)
 }
 
 func (rl *RateLimiter) allowKey(key string, rate int) bool {
@@ -55,6 +87,9 @@ func (rl *RateLimiter) allowKey(key string, rate int) bool {
 	b, ok := rl.buckets[key]
 	if !ok {
 		if len(rl.buckets) >= maxBuckets {
+			if hits := helloCapHits.Add(1); hits == 1 || hits%100 == 0 {
+				log.Printf("[ratelimit] bucket cap reached (%d) — rejecting new keys; possible spoofed flood", maxBuckets)
+			}
 			return false // cap reached — reject to prevent OOM
 		}
 		rl.buckets[key] = &bucket{
