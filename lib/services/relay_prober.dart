@@ -20,6 +20,12 @@ import 'nostr_event_builder.dart' as eb;
 /// such a relay as primary silently breaks key publish → contacts can't
 /// fetch our Signal identity and E2EE fails.
 ///
+/// Why the fanout check: some relays ACK writes with OK=true but never
+/// fan them out to active subscriptions (observed with
+/// relay.layer.systems) — from the user's view messages "leave but never
+/// arrive". The probe also SUBs before publishing and requires the
+/// gift-wrap event to come back over the subscription.
+///
 /// Designed to run in the background while the user fills in setup fields.
 /// Typical resolution: ~1.5 s on a healthy network.
 Future<String> probeBootstrapRelays({
@@ -51,8 +57,9 @@ Future<String> probeBootstrapRelays({
       tags: const [],
     ),
   ]);
+  final dmEventId = probeEvents[0]['id'] as String;
   final expectedIdKinds = {
-    probeEvents[0]['id'] as String: 1059,
+    dmEventId: 1059,
     probeEvents[1]['id'] as String: 10009,
   };
   final wireFrames = [
@@ -65,20 +72,39 @@ Future<String> probeBootstrapRelays({
         .timeout(timeout)
         .then((ws) {
       sockets.add(ws);
-      // Send both events; relay must ACK both with OK=true.
+      // Send both events; relay must (a) ACK both with OK=true AND
+      // (b) fan out the gift-wrap back to our subscription.
       final results = <int, bool>{};
+      var delivered = false;
       final accepted = Completer<bool>();
+      final subId = 'boot_${DateTime.now().microsecondsSinceEpoch}';
+      void check() {
+        if (accepted.isCompleted) return;
+        if (results.length == expectedIdKinds.length &&
+            results.values.every((v) => v) &&
+            delivered) {
+          accepted.complete(true);
+        }
+      }
       final sub = ws.listen((data) {
         try {
           final msg = jsonDecode(data as String);
-          if (msg is List && msg.length >= 3 && msg[0] == 'OK') {
+          if (msg is! List || msg.isEmpty) return;
+          if (msg[0] == 'OK' && msg.length >= 3) {
             final kind = expectedIdKinds[msg[1]];
             if (kind != null) {
               results[kind] = msg[2] == true;
-              if (results.length == expectedIdKinds.length &&
-                  !accepted.isCompleted) {
-                accepted.complete(results.values.every((v) => v));
+              if (msg[2] != true && !accepted.isCompleted) {
+                accepted.complete(false);
+                return;
               }
+              check();
+            }
+          } else if (msg[0] == 'EVENT' && msg.length >= 3 && msg[1] == subId) {
+            final ev = msg[2];
+            if (ev is Map && ev['id'] == dmEventId) {
+              delivered = true;
+              check();
             }
           }
         } catch (_) {}
@@ -88,13 +114,20 @@ Future<String> probeBootstrapRelays({
         if (!accepted.isCompleted) accepted.complete(false);
       });
       try {
+        // SUB before EVENT so the relay has a live subscription when
+        // our own publish is processed.
+        ws.add(jsonEncode(['REQ', subId, {
+          '#p': [pub],
+          'kinds': [1059],
+          'limit': 5,
+        }]));
         ws.add(wireFrames[0]);
         ws.add(wireFrames[1]);
       } catch (_) {
         if (!accepted.isCompleted) accepted.complete(false);
       }
       accepted.future
-          .timeout(const Duration(seconds: 5), onTimeout: () => false)
+          .timeout(const Duration(seconds: 6), onTimeout: () => false)
           .then((ok) {
         sub.cancel().catchError((_) {});
         if (ok) {

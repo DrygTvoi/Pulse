@@ -83,6 +83,13 @@ class ChatController extends ChangeNotifier {
   final List<StreamSubscription> _healthSubs = [];
   final List<StreamSubscription> _dispatcherSubs = [];
   final Map<String, bool> _adapterHealth = {}; // addr → isHealthy
+  /// addr → time when primary first turned unhealthy this cycle. Used to
+  /// gate auto-migration so a brief flap doesn't trigger identity swap.
+  final Map<String, DateTime> _primaryUnhealthySince = {};
+  /// Minimum sustained unhealthy duration before migrating Nostr primary.
+  static const _kPrimaryMigrationGrace = Duration(seconds: 45);
+  /// Guard against concurrent migrations on repeated health events.
+  bool _migrating = false;
   /// contactId → transport name of the most recent successful delivery.
   /// Read by the chat header to show which transport is active.
   final Map<String, String> _lastDeliveryTransport = {};
@@ -444,7 +451,7 @@ class ChatController extends ChangeNotifier {
     if (nostrPub == null) return allAddresses;
 
     // Build Nostr addresses for all known live relays.
-    final relays = _gatherOwnNostrRelays(limit: 3);
+    final relays = _gatherOwnNostrRelays(limit: 5);
     final result = <String>[];
     for (final relay in relays) {
       result.add('$nostrPub@$relay');
@@ -843,6 +850,37 @@ class ChatController extends ChangeNotifier {
       // Always subscribe to the hardcoded default relay so that fallback
       // publishes (when primary relay rate-limits/rejects) are received.
       mainReader.addSecondaryRelay(_kDefaultNostrRelay);
+
+      // For Nostr-primary users: also REGISTER additional DM-capable probed
+      // relays as our own advertised addresses (up to 4), not just reader
+      // subscriptions. Without this, _allAddresses had exactly one Nostr
+      // entry and contacts saw only a single relay per contact.
+      final atIdxOwn = myAddress.indexOf('@');
+      if (atIdxOwn > 0) {
+        final ownPub = myAddress.substring(0, atIdxOwn);
+        final ownPrimaryRelay = myAddress.substring(atIdxOwn + 1);
+        final probeRelays = ConnectivityProbeService.instance.lastResult.nostrRelays;
+        final advertised = <String>[];
+        for (final r in probeRelays) {
+          if (advertised.length >= 4) break;
+          final relay = r.startsWith('ws') ? r : 'wss://$r';
+          if (relay == ownPrimaryRelay) continue;
+          mainReader.addSecondaryRelay(relay);
+          final addr = '$ownPub@$relay';
+          if (!newAddresses.contains(addr)) {
+            newAddresses.add(addr);
+            _adapterHealth[addr] = true;
+            advertised.add(relay);
+          }
+        }
+        if (advertised.isNotEmpty) {
+          Future.delayed(const Duration(seconds: 8), () {
+            _pruneDisconnectedSecondaries(ownPub, mainReader, advertised);
+          });
+          debugPrint('[Chat] Nostr-primary: registered '
+              '${advertised.length} secondary relay address(es)');
+        }
+      }
     }
 
     // Subscribe to tamper warnings from the Nostr layer.
@@ -956,13 +994,14 @@ class ChatController extends ChangeNotifier {
             _messageSubs.add(nostrReader.listenForMessages().listen(_handleIncomingMessages));
             _signalSubs.add(nostrReader.listenForSignals().listen(
                 (sigs) => _signalDispatcher!.dispatch(sigs, sourceTransport: 'Nostr')));
-            // Subscribe to additional probed relays as secondary (up to 2 more)
-            // so we have multiple Nostr addresses for redundancy.
+            // Subscribe to additional probed relays as secondary (up to 4 more)
+            // so we have redundancy even if two relays fail simultaneously
+            // and contacts see multiple usable addresses in our profile.
             final secondaryRelays = <String>[];
             if (nostrReader is NostrInboxReader) {
               final probeRelays = ConnectivityProbeService.instance.lastResult.nostrRelays;
               for (final r in probeRelays) {
-                if (secondaryRelays.length >= 2) break;
+                if (secondaryRelays.length >= 4) break;
                 final relay = r.startsWith('ws') ? r : 'wss://$r';
                 if (relay == primaryRelay) continue;
                 nostrReader.addSecondaryRelay(relay);
@@ -2794,6 +2833,12 @@ class ChatController extends ChangeNotifier {
       debugPrint('[Chat] Pruned $removed unreachable secondary Nostr relays');
       _refreshContactNostrFallback();
     }
+    // Always re-broadcast addr_update after prune finishes so contacts
+    // learn the final, accurate relay set — this is the first moment we
+    // know which secondaries are actually live. The initial broadcast at
+    // T+2s fires before WS handshakes complete and may advertise relays
+    // that later get pruned; contacts merge the fresher set on top.
+    unawaited(broadcastAddressUpdate());
   }
 
   /// Refresh Nostr fallback addresses for all contacts using current relay set.
@@ -2808,7 +2853,7 @@ class ChatController extends ChangeNotifier {
 
   /// Gather our own Nostr relay URLs from addresses we're actually subscribed to.
   /// Used for auto-registration, shareable addresses, and contact fallback.
-  List<String> _gatherOwnNostrRelays({int limit = 3}) {
+  List<String> _gatherOwnNostrRelays({int limit = 5}) {
     final seen = <String>{};
     final result = <String>[];
     void _add(String relay) {
@@ -4228,27 +4273,90 @@ class ChatController extends ChangeNotifier {
     _adapterHealth[addr] = healthy;
     sentryBreadcrumb('Adapter health: ${healthy ? "healthy" : "unhealthy"}', category: 'adapter');
     debugPrint('[Failover] $addr → ${healthy ? "healthy" : "UNHEALTHY"}');
-    if (!healthy && addr == _selfId) {
+    if (healthy) {
+      _primaryUnhealthySince.remove(addr);
+      return;
+    }
+    if (addr != _selfId) return;
+    // Primary went unhealthy: start grace timer and re-check after the
+    // grace period. A single transient failure shouldn't trigger a costly
+    // identity migration (re-publish keys, broadcast addr_update, update
+    // prefs). Only sustained failure does.
+    _primaryUnhealthySince.putIfAbsent(addr, () => DateTime.now());
+    Future.delayed(_kPrimaryMigrationGrace, () {
+      final since = _primaryUnhealthySince[addr];
+      if (since == null) return; // recovered
+      if (_adapterHealth[addr] ?? false) return; // healthy now
+      if (addr != _selfId) return; // already migrated by another path
+      if (_migrating) return;
       final newPrimary = _allAddresses.firstWhere(
-        (a) => a != addr && (_adapterHealth[a] ?? true),
+        (a) => a != addr && (_adapterHealth[a] ?? false),
         orElse: () => '',
       );
-      if (newPrimary.isNotEmpty) {
-        _promoteAddress(addr, newPrimary);
-      } else {
-        debugPrint('[Failover] No healthy alternate found — staying on $addr');
+      if (newPrimary.isEmpty) {
+        debugPrint('[Failover] No healthy alternate after '
+            '${_kPrimaryMigrationGrace.inSeconds}s — staying on $addr');
+        return;
       }
-    }
+      unawaited(_migratePrimary(oldAddr: addr, newAddr: newPrimary));
+    });
   }
 
-  void _promoteAddress(String oldAddr, String newPrimary) {
-    debugPrint('[Failover] Promoting "$newPrimary" (was "$oldAddr")');
-    _selfId = newPrimary;
-    if (!_failoverCtrl.isClosed) {
-      _failoverCtrl.add((from: oldAddr, to: newPrimary));
+  /// Persistently migrate the Nostr identity primary to [newAddr].
+  /// Updates [_selfId], [_identity.adapterConfig], prefs.nostr_relay, and
+  /// re-publishes Signal keys so contacts fetching from the new relay
+  /// can still reach us. Old primary stays in [_allAddresses] as a
+  /// secondary (so we keep receiving on it if it recovers).
+  Future<void> _migratePrimary({
+    required String oldAddr,
+    required String newAddr,
+  }) async {
+    if (_migrating || _identity == null) return;
+    _migrating = true;
+    try {
+      final atIdx = newAddr.indexOf('@');
+      if (atIdx <= 0) return;
+      final newRelay = newAddr.substring(atIdx + 1);
+      debugPrint('[Failover] Migrating primary: $oldAddr → $newAddr');
+
+      // Update in-memory state.
+      _selfId = newAddr;
+      _identity = Identity(
+        id: _identity!.id,
+        publicKey: _identity!.publicKey,
+        privateKey: _identity!.privateKey,
+        preferredAdapter: _identity!.preferredAdapter,
+        adapterConfig: {
+          ..._identity!.adapterConfig,
+          'relay': newRelay,
+          'dbId': newAddr,
+        },
+      );
+      _primaryUnhealthySince.remove(oldAddr);
+
+      // Persist to prefs so cold-start reads the new primary.
+      final prefs = await _getPrefs();
+      await prefs.setString('nostr_relay', newRelay);
+      await prefs.setString('user_identity', jsonEncode(_identity!.toJson()));
+
+      // Re-publish Signal keys on the new primary so contacts fetching
+      // via NIP-65 / addr_update find our identity at the new address.
+      final nostrPriv = await _secureStorage.read(key: 'nostr_privkey') ?? '';
+      if (nostrPriv.isNotEmpty) {
+        final apiKey = jsonEncode({'privkey': nostrPriv, 'relay': newRelay});
+        unawaited(_keys.publishKeysToAdapter('Nostr', apiKey, newAddr));
+      }
+
+      if (!_failoverCtrl.isClosed) {
+        _failoverCtrl.add((from: oldAddr, to: newAddr));
+      }
+      unawaited(broadcastAddressUpdate());
+      _scheduleNotify();
+    } catch (e) {
+      debugPrint('[Failover] Migration failed: $e');
+    } finally {
+      _migrating = false;
     }
-    unawaited(broadcastAddressUpdate());
-    _scheduleNotify();
   }
 
   // (SmartRouter per-contact promotion removed — transport-priority routing replaces it)

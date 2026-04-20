@@ -886,20 +886,26 @@ class ConnectivityProbeService {
   ///
   /// Pure TCP connect passes even when GFW blocks TLS (RST after ClientHello).
   /// This does a real TLS handshake so we know the relay is actually reachable.
-  /// Test that a Nostr relay accepts BOTH kind:1059 (NIP-59 gift-wrap DMs)
-  /// AND kind:10009 (Signal key publish) writes. Both are critical paths:
-  ///   - kind:1059  → all incoming/outgoing messages
-  ///   - kind:10009 → E2EE identity key publication (Signal protocol)
+  /// Test that a Nostr relay is actually usable for messaging. Three checks:
+  ///   1. Accepts kind:1059 (NIP-59 gift-wrap DMs) write — returns OK=true.
+  ///   2. Accepts kind:10009 (Signal key publish) write — returns OK=true.
+  ///   3. **Fans the kind:1059 event out to a live subscription** — proves
+  ///      the relay isn't a "lying" relay that ACKs writes but silently
+  ///      drops them instead of delivering to subscribers.
   ///
-  /// Relays that accept one but reject the other silently break messaging.
-  /// Observed in the wild: relay.nos.social accepts kind:1059 but rejects
-  /// kind:10009 with "blocked: kind not allowed" — picking it as primary
-  /// would leave contacts unable to fetch our keys.
+  /// Relays that fail check 3 (observed: relay.layer.systems) are the worst
+  /// kind: writes succeed, contacts' clients subscribe, but no event ever
+  /// arrives. From the user's view, messages "leave but never arrive".
   ///
-  /// Sends both events over a single WebSocket; returns true only if the
-  /// relay explicitly ACKs both with OK=true.
+  /// Protocol:
+  ///   1. Open one REQ with filter {#p: [pub], kinds: [1059]}.
+  ///   2. EVENT kind:1059 p-tagged to pub.
+  ///   3. EVENT kind:10009.
+  ///   4. Wait for OK on both events AND an EVENT message back for the
+  ///      kind:1059 we sent (matched by id).
+  ///   5. Accept only if all three arrive within timeout.
   Future<bool> _probeNostrAcceptsDM(String host, int port,
-      {int timeoutSec = 5}) async {
+      {int timeoutSec = 6}) async {
     WebSocket? ws;
     try {
       final url = 'wss://$host${port == 443 ? '' : ':$port'}';
@@ -922,23 +928,41 @@ class ConnectivityProbeService {
           tags: const [],
         ),
       ]);
+      final dmEventId = events[0]['id'] as String;
       final expected = {
-        events[0]['id'] as String: 1059,
+        dmEventId: 1059,
         events[1]['id'] as String: 10009,
       };
-      final results = <int, bool>{};
+      final okResults = <int, bool>{};
+      var deliveryVerified = false;
       final done = Completer<bool>();
+      void checkAllGreen() {
+        if (done.isCompleted) return;
+        if (okResults.length == expected.length &&
+            okResults.values.every((v) => v) &&
+            deliveryVerified) {
+          done.complete(true);
+        }
+      }
+      final subId = 'dmprobe_${DateTime.now().microsecondsSinceEpoch}';
       final sub = ws.listen((data) {
         try {
           final msg = jsonDecode(data as String);
-          if (msg is List && msg.length >= 3 && msg[0] == 'OK') {
+          if (msg is! List || msg.isEmpty) return;
+          if (msg[0] == 'OK' && msg.length >= 3) {
             final id = msg[1];
             final kind = expected[id];
             if (kind != null) {
-              results[kind] = msg[2] == true;
-              if (results.length == expected.length && !done.isCompleted) {
-                done.complete(results.values.every((v) => v));
-              }
+              okResults[kind] = msg[2] == true;
+              // If write rejected, the relay is already disqualified.
+              if (msg[2] != true && !done.isCompleted) done.complete(false);
+              checkAllGreen();
+            }
+          } else if (msg[0] == 'EVENT' && msg.length >= 3 && msg[1] == subId) {
+            final ev = msg[2];
+            if (ev is Map && ev['id'] == dmEventId) {
+              deliveryVerified = true;
+              checkAllGreen();
             }
           }
         } catch (_) {}
@@ -947,6 +971,13 @@ class ConnectivityProbeService {
       }, onDone: () {
         if (!done.isCompleted) done.complete(false);
       });
+      // Subscribe FIRST so the relay has a chance to fanout our own event
+      // back to us when we publish it below.
+      ws.add(jsonEncode(['REQ', subId, {
+        '#p': [pub],
+        'kinds': [1059],
+        'limit': 5,
+      }]));
       ws.add(jsonEncode(['EVENT', events[0]]));
       ws.add(jsonEncode(['EVENT', events[1]]));
       final accepted = await done.future
