@@ -343,6 +343,9 @@ class ChatController extends ChangeNotifier {
   Identity? get identity => _identity;
   /// The transport-level address used as senderId (e.g. pubkey@server).
   String get selfId => _selfId;
+  /// Own display name (from the user profile). Empty string if the
+  /// profile has not been loaded yet.
+  String get displayName => _selfName;
   List<String> get allAddresses => List.unmodifiable(_allAddresses);
 
   /// Transport name that was used for the most recent successful delivery to
@@ -1813,10 +1816,19 @@ class ChatController extends ChangeNotifier {
       }
 
       final memberRemoved = group.members.toSet().difference(e.members.toSet()).isNotEmpty;
+      // Merge incoming memberPubkeys with what we already know: the
+      // creator may re-issue an update with the same mapping, or extend
+      // it for newly-added members. Keep any entry we already have for
+      // members still present; replace/add entries from the payload.
+      final mergedPubkeys =
+          Map<String, String>.from(group.memberPubkeys)
+            ..addAll(e.memberPubkeys)
+            ..removeWhere((k, _) => !e.members.contains(k));
       final updated = group.copyWith(
         name: e.groupName.isNotEmpty ? e.groupName : group.name,
         members: e.members,
         creatorId: group.creatorId ?? e.creatorId,
+        memberPubkeys: mergedPubkeys,
       );
       await _contacts.updateContact(updated);
       _invalidateContactIndex();
@@ -4281,7 +4293,8 @@ class ChatController extends ChangeNotifier {
     // pubkey-based creatorId) will come in a follow-up step.
     debugPrint('[Group] Accepting invite for "${invite.groupName}" '
         'from ${invite.fromContact.name} '
-        '(creatorId=${invite.creatorId}, members=${invite.members.length})');
+        '(creatorId=${invite.creatorId}, members=${invite.members.length}, '
+        'memberPubkeys=${invite.memberPubkeys.length})');
     final newGroup = Contact(
       id: invite.groupId,
       name: invite.groupName,
@@ -4291,6 +4304,7 @@ class ChatController extends ChangeNotifier {
       isGroup: true,
       members: invite.members,
       creatorId: invite.creatorId,
+      memberPubkeys: invite.memberPubkeys,
     );
     await _contacts.addContact(newGroup);
     _invalidateContactIndex();
@@ -4300,6 +4314,37 @@ class ChatController extends ChangeNotifier {
 
   Future<void> broadcastGroupUpdate(Contact group) =>
       _broadcaster.broadcastGroupUpdate(group, _contacts.contacts);
+
+  /// Build (or refresh) the `memberPubkeys` map on a group Contact by
+  /// looking up each member's Nostr pubkey from our local contact list.
+  /// Creator-side: after the group is created/added to the repo, call
+  /// this and persist the result before broadcasting invites so each
+  /// receiver can resolve member UUIDs back to Nostr identities.
+  Future<Contact> enrichGroupMemberPubkeys(Contact group) async {
+    if (!group.isGroup) return group;
+    final myUuid = _identity?.id ?? '';
+    final map = <String, String>{}..addAll(group.memberPubkeys);
+    // Own pubkey for the creator entry in members.
+    if (myUuid.isNotEmpty && !map.containsKey(myUuid)) {
+      final atIdx = _selfId.indexOf('@');
+      final ownPub = atIdx > 0 ? _selfId.substring(0, atIdx) : _selfId;
+      if (_hex64.hasMatch(ownPub)) map[myUuid] = ownPub;
+    }
+    for (final memberId in group.members) {
+      if (map.containsKey(memberId)) continue;
+      final mc = _contacts.findById(memberId);
+      if (mc == null) continue;
+      // Prefer the Nostr address list — first element's pubkey is what
+      // we'll also use for sending to them.
+      final nostrAddrs = mc.transportAddresses['Nostr'] ?? const [];
+      if (nostrAddrs.isEmpty) continue;
+      final atIdx = nostrAddrs.first.indexOf('@');
+      if (atIdx <= 0) continue;
+      final pub = nostrAddrs.first.substring(0, atIdx);
+      if (_hex64.hasMatch(pub)) map[memberId] = pub;
+    }
+    return group.copyWith(memberPubkeys: map);
+  }
 
   /// Creator-only: broadcast an empty-roster tombstone then remove the
   /// group locally. Peers' group_update listeners detect "members empty"

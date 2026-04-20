@@ -419,6 +419,8 @@ class SignalBroadcaster {
       'name': group.name,
       'members': group.members,
       if (group.creatorId != null) 'creatorId': group.creatorId,
+      if (group.memberPubkeys.isNotEmpty)
+        'memberPubkeys': Map<String, String>.from(group.memberPubkeys),
     });
     debugPrint('[Broadcaster] Sent group invite to ${target.name} for "${group.name}"');
   }
@@ -439,6 +441,8 @@ class SignalBroadcaster {
       'name': group.name,
       'members': group.members,
       if (group.creatorId != null) 'creatorId': group.creatorId,
+      if (group.memberPubkeys.isNotEmpty)
+        'memberPubkeys': Map<String, String>.from(group.memberPubkeys),
     };
     final recipientSet =
         (recipientMemberIds ?? group.members).toSet();

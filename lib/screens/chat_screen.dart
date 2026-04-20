@@ -273,7 +273,10 @@ class _ChatScreenState extends State<ChatScreen> {
         if (!mounted) return;
         if (e.groupId != _contact.id) return;
         final repo = context.read<IContactRepository>();
-        if (repo.findById(_contact.id) == null) {
+        if (repo.findById(_contact.id) != null) return;
+        if (widget.embedded) {
+          widget.onCloseEmbedded?.call();
+        } else {
           Navigator.of(context).maybePop();
         }
       }, onError: (err) =>

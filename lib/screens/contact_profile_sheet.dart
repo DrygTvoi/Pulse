@@ -969,7 +969,21 @@ class _ContactProfileBodyState extends State<ContactProfileBody> {
   }
 
   Widget _buildMembersSection() {
-    final members = _contact.members;
+    // Always render the creator first — members[] typically excludes the
+    // creator's own UUID (only people they invited end up there), so
+    // without this step the admin wouldn't show up in the roster view
+    // at all on peer devices.
+    final creatorId = _contact.creatorId;
+    final listedMembers = _contact.members;
+    final seen = <String>{};
+    final members = <String>[];
+    if (creatorId != null && creatorId.isNotEmpty) {
+      members.add(creatorId);
+      seen.add(creatorId);
+    }
+    for (final m in listedMembers) {
+      if (seen.add(m)) members.add(m);
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1010,9 +1024,37 @@ class _ContactProfileBodyState extends State<ContactProfileBody> {
   }
 
   Widget _buildMemberTile(String memberId) {
-    final contact = context.read<IContactRepository>().contacts.cast<Contact?>()
-        .firstWhere((c) => c?.id == memberId, orElse: () => null);
-    final name = contact?.name ?? memberId.substring(0, memberId.length.clamp(0, 12));
+    final repo = context.read<IContactRepository>();
+    final ctrl = context.read<ChatController>();
+    // Fast path: the member's UUID matches one of our local contacts —
+    // works only for the creator (whose UUIDs ARE the source of truth).
+    Contact? contact = repo.findById(memberId);
+    String? fallbackLabel;
+    if (contact == null) {
+      // Cross-device fallback: members[] holds the creator's local
+      // UUIDs which never match our own. Translate UUID → Nostr pubkey
+      // via the memberPubkeys map propagated in the invite/update.
+      final pubkey = _contact.memberPubkeys[memberId];
+      if (pubkey != null && pubkey.isNotEmpty) {
+        final selfId = ctrl.selfId;
+        final atIdx = selfId.indexOf('@');
+        final ownPub = atIdx > 0 ? selfId.substring(0, atIdx) : selfId;
+        if (ownPub == pubkey) {
+          // Member is us — own identity isn't in the contacts repo.
+          fallbackLabel =
+              ctrl.displayName.isNotEmpty ? ctrl.displayName : 'You';
+        } else {
+          contact = repo.findByAddress(pubkey);
+          // Unknown contact — short-pubkey placeholder. Replacing this
+          // with a real display name via Nostr kind:0 profile fetch is
+          // a follow-up step.
+          fallbackLabel ??= '0x${pubkey.substring(0, 8).toUpperCase()}';
+        }
+      }
+    }
+    final name = contact?.name ??
+        fallbackLabel ??
+        memberId.substring(0, memberId.length.clamp(0, 12));
     final initial = name.isNotEmpty ? name[0].toUpperCase() : '?';
     final hue = (name.isNotEmpty ? name.codeUnitAt(0) * 17 + name.length * 31 : 0) % 360;
     final avatarColor = HSLColor.fromAHSL(1, hue.toDouble(), 0.5, 0.35).toColor();

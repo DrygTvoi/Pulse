@@ -208,7 +208,13 @@ class SignalGroupInviteEvent {
   final String groupName;
   final List<String> members;
   final String? creatorId;
-  SignalGroupInviteEvent(this.fromContact, this.groupId, this.groupName, this.members, {this.creatorId});
+  /// Map of each member UUID (as assigned on the creator's device) → the
+  /// member's Nostr secp256k1 pubkey. Used by the receiver to resolve
+  /// members back to their own local contacts / fetch profile info —
+  /// without this there is no cross-device mapping from UUID to identity.
+  final Map<String, String> memberPubkeys;
+  SignalGroupInviteEvent(this.fromContact, this.groupId, this.groupName, this.members,
+      {this.creatorId, this.memberPubkeys = const {}});
 }
 
 /// Group membership change broadcast by group admin.
@@ -218,8 +224,11 @@ class SignalGroupUpdateEvent {
   final List<String> members;
   final String? creatorId;
   final String senderId;
+  final Map<String, String> memberPubkeys;
   SignalGroupUpdateEvent(this.groupId, this.groupName, this.members,
-      {this.creatorId, this.senderId = ''});
+      {this.creatorId,
+      this.senderId = '',
+      this.memberPubkeys = const {}});
 }
 
 // ── Callbacks for operations the dispatcher cannot do on its own ────────────
@@ -235,6 +244,21 @@ typedef ContactIndexBuilder = Map<String, Contact> Function();
 typedef GroupContactResolver = Contact? Function(String groupId);
 
 // ── SignalDispatcher ────────────────────────────────────────────────────────
+
+/// Coerce the `memberPubkeys` field of a group signal payload into a
+/// strict `Map<String, String>`, silently dropping bad entries. Accepts
+/// either a Map<String, dynamic> (common when payload was re-decoded
+/// from JSON) or an already-typed Map<String, String>.
+Map<String, String> _extractMemberPubkeys(dynamic raw) {
+  if (raw is! Map) return const {};
+  final out = <String, String>{};
+  raw.forEach((k, v) {
+    if (k is String && v is String && k.isNotEmpty && v.isNotEmpty) {
+      out[k] = v;
+    }
+  });
+  return out;
+}
 
 /// Extracts the signal-dispatching logic from ChatController into a
 /// standalone, testable class. Emits typed events via streams so that
@@ -925,10 +949,12 @@ class SignalDispatcher {
             final groupName = payload['name'] as String? ?? '';
             final rawMembers = payload['members'];
             final creatorId = payload['creatorId'] as String?;
+            final memberPubkeys = _extractMemberPubkeys(payload['memberPubkeys']);
             if (groupId != null && rawMembers is List && rawMembers.length <= 200 && !_groupUpdateCtrl.isClosed) {
               _groupUpdateCtrl.add(SignalGroupUpdateEvent(
                   groupId, groupName, rawMembers.whereType<String>().toList(),
-                  creatorId: creatorId, senderId: sigSender));
+                  creatorId: creatorId, senderId: sigSender,
+                  memberPubkeys: memberPubkeys));
             }
           }
         } else if (sigType == 'group_invite') {
@@ -938,13 +964,14 @@ class SignalDispatcher {
             final groupName = payload['name'] as String? ?? '';
             final rawMembers = payload['members'];
             final creatorId = payload['creatorId'] as String?;
+            final memberPubkeys = _extractMemberPubkeys(payload['memberPubkeys']);
             final senderId = sig['senderId'] as String? ?? '';
             final inviter = _resolveContact(senderId, contactByDbId);
             if (groupId != null && rawMembers is List && rawMembers.length <= 200 && inviter != null &&
                 !_groupInviteCtrl.isClosed) {
               _groupInviteCtrl.add(SignalGroupInviteEvent(
                   inviter, groupId, groupName, rawMembers.whereType<String>().toList(),
-                  creatorId: creatorId));
+                  creatorId: creatorId, memberPubkeys: memberPubkeys));
             }
           }
         } else if (sigType == 'group_invite_decline') {

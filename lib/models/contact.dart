@@ -27,6 +27,15 @@ class Contact {
   /// True for contacts auto-created from incoming messages by unknown senders.
   /// Pending contacts have restricted capabilities until accepted.
   final bool isPending;
+  /// For groups only: map of member UUID → Nostr secp256k1 pubkey hex.
+  /// Filled by the creator when broadcasting group_invite / group_update
+  /// and carried to receivers so they can resolve member UUIDs back to
+  /// pubkeys they already have as local contacts — without this the
+  /// receiver has no way to know which of its contacts corresponds to
+  /// a given member-UUID (UUIDs are generated independently on each
+  /// device). Empty for non-group contacts and for legacy groups
+  /// created before this field existed.
+  final Map<String, String> memberPubkeys;
 
   // Private generative constructor
   Contact._raw({
@@ -41,6 +50,7 @@ class Contact {
     this.creatorId,
     this.bio = '',
     this.isPending = false,
+    this.memberPubkeys = const {},
   });
 
   /// Create a Contact, accepting either new-style transportAddresses or
@@ -60,6 +70,7 @@ class Contact {
     List<String>? alternateAddresses,
     String bio = '',
     bool isPending = false,
+    Map<String, String> memberPubkeys = const {},
   }) {
     Map<String, List<String>> ta;
     List<String> tp;
@@ -94,6 +105,7 @@ class Contact {
       creatorId: creatorId,
       bio: bio,
       isPending: isPending,
+      memberPubkeys: memberPubkeys,
     );
   }
 
@@ -158,6 +170,8 @@ class Contact {
       'alternateAddresses': alternateAddresses,
       if (bio.isNotEmpty) 'bio': bio,
       if (isPending) 'isPending': true,
+      if (memberPubkeys.isNotEmpty)
+        'memberPubkeys': Map<String, String>.from(memberPubkeys),
     };
   }
 
@@ -171,6 +185,7 @@ class Contact {
     String? creatorId,
     String? bio,
     bool? isPending,
+    Map<String, String>? memberPubkeys,
     // Legacy params — translated to transport fields
     String? provider,
     String? databaseId,
@@ -190,6 +205,7 @@ class Contact {
         creatorId: creatorId ?? this.creatorId,
         bio: bio ?? this.bio,
         isPending: isPending ?? this.isPending,
+        memberPubkeys: memberPubkeys ?? this.memberPubkeys,
       );
     }
     // If caller uses legacy params, rebuild transport map
@@ -216,6 +232,7 @@ class Contact {
         creatorId: creatorId ?? this.creatorId,
         bio: bio ?? this.bio,
         isPending: isPending ?? this.isPending,
+        memberPubkeys: memberPubkeys ?? this.memberPubkeys,
       );
     }
     // No transport changes — keep existing
@@ -231,6 +248,7 @@ class Contact {
       creatorId: creatorId ?? this.creatorId,
       bio: bio ?? this.bio,
       isPending: isPending ?? this.isPending,
+      memberPubkeys: memberPubkeys ?? this.memberPubkeys,
     );
   }
 
@@ -273,6 +291,9 @@ class Contact {
       creatorId: map['creatorId'] as String?,
       bio: (map['bio'] as String?) ?? '',
       isPending: map['isPending'] as bool? ?? false,
+      memberPubkeys: (map['memberPubkeys'] as Map?)
+              ?.map((k, v) => MapEntry(k as String, v as String)) ??
+          const {},
     );
   }
 

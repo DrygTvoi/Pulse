@@ -963,21 +963,21 @@ class _HomeScreenState extends State<HomeScreen> {
                 onCreate: (group) async {
                   final repo = context.read<IContactRepository>();
                   final ctrl = context.read<ChatController>();
-                  await repo.addContact(group);
-                  // Broadcast a group_invite to every member so they see the
-                  // group appear in their own list. Each send uses the
-                  // contact's transport-priority routing with existing
-                  // retry/failover — no need to block group creation on a
-                  // single unreachable peer.
-                  for (final memberId in group.members) {
+                  // Fill `memberPubkeys` from our own contact list so
+                  // invitees can map member UUIDs back to real Nostr
+                  // identities without guessing. Then persist and invite.
+                  final enriched =
+                      await ctrl.enrichGroupMemberPubkeys(group);
+                  await repo.addContact(enriched);
+                  for (final memberId in enriched.members) {
                     final memberContact = repo.findById(memberId);
                     if (memberContact == null) continue;
-                    unawaited(ctrl.sendGroupInvite(memberContact, group));
+                    unawaited(ctrl.sendGroupInvite(memberContact, enriched));
                   }
                   _loadAll();
                   if (!context.mounted) return;
                   Navigator.push(context, MaterialPageRoute(
-                    builder: (_) => ChatScreen(contact: group),
+                    builder: (_) => ChatScreen(contact: enriched),
                   ));
                 },
               ),
