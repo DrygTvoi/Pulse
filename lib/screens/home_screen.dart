@@ -1296,30 +1296,9 @@ class _HomeScreenState extends State<HomeScreen> {
       constraints: const BoxConstraints(minWidth: 200),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.radiusLarge)),
       popUpAnimationStyle: AnimationStyle(duration: const Duration(milliseconds: 120)),
-      items: [
-        PopupMenuItem(value: 'mute', height: 44, child: Row(children: [
-          Icon(_mutedContactIds.contains(c.id) ? Icons.notifications_rounded : Icons.notifications_off_rounded,
-              color: AppTheme.textSecondary, size: DesignTokens.iconMd),
-          const SizedBox(width: DesignTokens.spacing12),
-          Text(_mutedContactIds.contains(c.id) ? context.l10n.appBarUnmute : context.l10n.appBarMute,
-              style: GoogleFonts.inter(color: AppTheme.textPrimary)),
-        ])),
-        PopupMenuItem(value: 'clear', height: 44, child: Row(children: [
-          Icon(Icons.delete_sweep_rounded, color: AppTheme.textSecondary, size: DesignTokens.iconMd),
-          const SizedBox(width: DesignTokens.spacing12),
-          Text(context.l10n.profileClearChatHistory, style: GoogleFonts.inter(color: AppTheme.textPrimary)),
-        ])),
-        PopupMenuItem(value: 'delete', height: 44, child: Row(children: [
-          Icon(Icons.person_remove_rounded, color: Colors.redAccent, size: DesignTokens.iconMd),
-          const SizedBox(width: DesignTokens.spacing12),
-          Text(context.l10n.profileDeleteContact, style: GoogleFonts.inter(color: Colors.redAccent)),
-        ])),
-        PopupMenuItem(value: 'block', height: 44, child: Row(children: [
-          Icon(Icons.block_rounded, color: Colors.redAccent, size: DesignTokens.iconMd),
-          const SizedBox(width: DesignTokens.spacing12),
-          Text(context.l10n.blockContact, style: GoogleFonts.inter(color: Colors.redAccent)),
-        ])),
-      ],
+      items: c.isGroup
+          ? _groupContextMenuItems(c, chatCtrl)
+          : _contactContextMenuItems(c),
     ).then((value) async {
       if (!mounted || value == null) return;
       if (value == 'mute') {
@@ -1328,7 +1307,10 @@ class _HomeScreenState extends State<HomeScreen> {
         _loadMutedChats();
       } else if (value == 'clear') {
         chatCtrl.clearRoomHistory(c);
-      } else if (value == 'delete') {
+      } else if (value == 'delete' || value == 'leave' || value == 'delete_group') {
+        // Step 1: all three actions just remove the contact locally.
+        // Future steps will add: signed group_leave for "leave",
+        // signed empty-roster tombstone for "delete_group".
         await context.read<IContactRepository>().removeContact(c.id);
         _loadAll();
       } else if (value == 'block') {
@@ -1336,6 +1318,70 @@ class _HomeScreenState extends State<HomeScreen> {
         _loadAll();
       }
     });
+  }
+
+  /// Long-press menu items for a 1:1 contact.
+  List<PopupMenuEntry<String>> _contactContextMenuItems(Contact c) {
+    return [
+      PopupMenuItem(value: 'mute', height: 44, child: Row(children: [
+        Icon(_mutedContactIds.contains(c.id) ? Icons.notifications_rounded : Icons.notifications_off_rounded,
+            color: AppTheme.textSecondary, size: DesignTokens.iconMd),
+        const SizedBox(width: DesignTokens.spacing12),
+        Text(_mutedContactIds.contains(c.id) ? context.l10n.appBarUnmute : context.l10n.appBarMute,
+            style: GoogleFonts.inter(color: AppTheme.textPrimary)),
+      ])),
+      PopupMenuItem(value: 'clear', height: 44, child: Row(children: [
+        Icon(Icons.delete_sweep_rounded, color: AppTheme.textSecondary, size: DesignTokens.iconMd),
+        const SizedBox(width: DesignTokens.spacing12),
+        Text(context.l10n.profileClearChatHistory, style: GoogleFonts.inter(color: AppTheme.textPrimary)),
+      ])),
+      PopupMenuItem(value: 'delete', height: 44, child: Row(children: [
+        Icon(Icons.person_remove_rounded, color: Colors.redAccent, size: DesignTokens.iconMd),
+        const SizedBox(width: DesignTokens.spacing12),
+        Text(context.l10n.profileDeleteContact, style: GoogleFonts.inter(color: Colors.redAccent)),
+      ])),
+      PopupMenuItem(value: 'block', height: 44, child: Row(children: [
+        Icon(Icons.block_rounded, color: Colors.redAccent, size: DesignTokens.iconMd),
+        const SizedBox(width: DesignTokens.spacing12),
+        Text(context.l10n.blockContact, style: GoogleFonts.inter(color: Colors.redAccent)),
+      ])),
+    ];
+  }
+
+  /// Long-press menu items for a group. Mute + clear history are common;
+  /// the destructive action is "Leave group" for members and "Delete group"
+  /// for the creator. Never "Delete contact" — groups have no contact-style
+  /// identity to remove. (Step 1: actions only remove locally; full
+  /// group_leave / tombstone propagation comes in a later step.)
+  List<PopupMenuEntry<String>> _groupContextMenuItems(Contact group, ChatController ctrl) {
+    final myId = ctrl.identity?.id ?? '';
+    final isCreator = group.creatorId != null && group.creatorId == myId;
+    return [
+      PopupMenuItem(value: 'mute', height: 44, child: Row(children: [
+        Icon(_mutedContactIds.contains(group.id) ? Icons.notifications_rounded : Icons.notifications_off_rounded,
+            color: AppTheme.textSecondary, size: DesignTokens.iconMd),
+        const SizedBox(width: DesignTokens.spacing12),
+        Text(_mutedContactIds.contains(group.id) ? context.l10n.appBarUnmute : context.l10n.appBarMute,
+            style: GoogleFonts.inter(color: AppTheme.textPrimary)),
+      ])),
+      PopupMenuItem(value: 'clear', height: 44, child: Row(children: [
+        Icon(Icons.delete_sweep_rounded, color: AppTheme.textSecondary, size: DesignTokens.iconMd),
+        const SizedBox(width: DesignTokens.spacing12),
+        Text(context.l10n.profileClearChatHistory, style: GoogleFonts.inter(color: AppTheme.textPrimary)),
+      ])),
+      if (isCreator)
+        PopupMenuItem(value: 'delete_group', height: 44, child: Row(children: [
+          Icon(Icons.delete_forever_rounded, color: Colors.redAccent, size: DesignTokens.iconMd),
+          const SizedBox(width: DesignTokens.spacing12),
+          Text(context.l10n.profileDeleteGroup, style: GoogleFonts.inter(color: Colors.redAccent)),
+        ]))
+      else
+        PopupMenuItem(value: 'leave', height: 44, child: Row(children: [
+          Icon(Icons.exit_to_app_rounded, color: Colors.redAccent, size: DesignTokens.iconMd),
+          const SizedBox(width: DesignTokens.spacing12),
+          Text(context.l10n.profileLeaveGroup, style: GoogleFonts.inter(color: Colors.redAccent)),
+        ])),
+    ];
   }
 
   Widget _buildCompactTile(Contact c, int unread, bool isWide, ChatController chatCtrl) {

@@ -1318,7 +1318,21 @@ class ChatController extends ChangeNotifier {
       return null;
     }
     await reader.initializeReader(apiKey, dbId);
-    return await reader.fetchPublicKeys();
+    try {
+      return await reader.fetchPublicKeys();
+    } finally {
+      // Close the adhoc reader once the key fetch is done.
+      // Without this, the reader stays subscribed to our `#p` filter and
+      // intercepts incoming gift wraps on its orphan _msgCtrl (no listener)
+      // — they get marked as "seen" via inner-id dedup before the main
+      // reader can dispatch them, silently dropping every message that
+      // arrives during an active key fetch.
+      try {
+        if (reader is NostrInboxReader) reader.close();
+        else if (reader is PulseInboxReader) reader.close();
+        else if (reader is SessionInboxReader) reader.close();
+      } catch (_) {}
+    }
   }
 
   // ── Key republishing (delegates to KeyManager) ────────────────────────────
@@ -2601,8 +2615,8 @@ class ChatController extends ChangeNotifier {
         final nostrAddrs = contact.transportAddresses['Nostr'] ?? [];
         for (final addr in nostrAddrs) {
           if (bundle != null) break;
+          final reader = NostrInboxReader();
           try {
-            final reader = NostrInboxReader();
             await reader.initializeReader('', addr);
             debugPrint('[E2EE] Trying Nostr: $addr');
             bundle = await reader.fetchPublicKeys();
@@ -2611,14 +2625,26 @@ class ChatController extends ChangeNotifier {
             }
           } catch (e) {
             debugPrint('[E2EE] Nostr key fetch failed ($addr): $e');
+          } finally {
+            // Close so this temp reader stops intercepting our gift wraps
+            // on its orphan _msgCtrl (no listener → silent message drop).
+            try { reader.close(); } catch (_) {}
           }
         }
 
         // Priority 2: contact's primary transport (if not Nostr).
         if (bundle == null && contact.provider != 'Nostr') {
-          await contactReader.initializeReader(initApiKey, initDbId);
-          debugPrint('[E2EE] Trying ${contact.provider} primary...');
-          bundle = await contactReader.fetchPublicKeys();
+          try {
+            await contactReader.initializeReader(initApiKey, initDbId);
+            debugPrint('[E2EE] Trying ${contact.provider} primary...');
+            bundle = await contactReader.fetchPublicKeys();
+          } finally {
+            try {
+              if (contactReader is NostrInboxReader) contactReader.close();
+              else if (contactReader is PulseInboxReader) contactReader.close();
+              else if (contactReader is SessionInboxReader) contactReader.close();
+            } catch (_) {}
+          }
         }
 
         // Priority 3: well-known Nostr relays (key may exist on a relay we don't know about).
@@ -2638,8 +2664,8 @@ class ChatController extends ChangeNotifier {
               knownRelays.isNotEmpty ? knownRelays.first : '', limit: 5);
             for (final relay in fallbackRelays) {
               if (knownRelays.contains(relay)) continue;
+              final altReader = NostrInboxReader();
               try {
-                final altReader = NostrInboxReader();
                 await altReader.initializeReader('', '$contactPubkey@$relay');
                 debugPrint('[E2EE] Trying fallback Nostr relay: $relay');
                 final altBundle = await altReader.fetchPublicKeys();
@@ -2650,6 +2676,8 @@ class ChatController extends ChangeNotifier {
                 }
               } catch (e) {
                 debugPrint('[E2EE] Fallback key fetch from $relay failed: $e');
+              } finally {
+                try { altReader.close(); } catch (_) {}
               }
             }
           }
@@ -3021,18 +3049,28 @@ class ChatController extends ChangeNotifier {
         Map<String, dynamic>? bundle;
         final sessionAddrs = contact.transportAddresses['Session'] ?? [];
         if (sessionAddrs.isNotEmpty) {
+          final sr = SessionInboxReader();
           try {
-            final sr = SessionInboxReader();
             final prefs = await _getPrefs();
             final nodeUrl = prefs.getString('session_node_url') ?? prefs.getString('oxen_node_url') ?? '';
             await sr.initializeReader(nodeUrl, sessionAddrs.first);
             bundle = await sr.fetchPublicKeys();
             if (bundle != null) debugPrint('[E2EE] Group key fetch OK via Session');
-          } catch (_) {}
+          } catch (_) {} finally {
+            try { sr.close(); } catch (_) {}
+          }
         }
         if (bundle == null) {
-          await contactReader.initializeReader(initApiKey, initDbId);
-          bundle = await contactReader.fetchPublicKeys();
+          try {
+            await contactReader.initializeReader(initApiKey, initDbId);
+            bundle = await contactReader.fetchPublicKeys();
+          } finally {
+            try {
+              if (contactReader is NostrInboxReader) contactReader.close();
+              else if (contactReader is PulseInboxReader) contactReader.close();
+              else if (contactReader is SessionInboxReader) contactReader.close();
+            } catch (_) {}
+          }
         }
         // Nostr relay fallback for group members
         if (bundle == null && contact.provider == 'Nostr') {
@@ -3042,12 +3080,14 @@ class ChatController extends ChangeNotifier {
           if (pk.isNotEmpty) {
             for (final relay in await gatherKnownRelays(pr, limit: 3)) {
               if (relay == pr) continue;
+              final ar = NostrInboxReader();
               try {
-                final ar = NostrInboxReader();
                 await ar.initializeReader('', '$pk@$relay');
                 final ab = await ar.fetchPublicKeys();
                 if (ab != null) { bundle = ab; break; }
-              } catch (_) {}
+              } catch (_) {} finally {
+                try { ar.close(); } catch (_) {}
+              }
             }
           }
         }

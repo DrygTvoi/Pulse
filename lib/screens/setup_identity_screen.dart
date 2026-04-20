@@ -276,6 +276,8 @@ class _SetupIdentityScreenState extends State<SetupIdentityScreen> {
     final pubkeyHex = deriveNostrPubkeyHex(privkeyHex);
     final sessionId = SessionKeyService.instance.sessionId;
 
+    // SharedPreferences writes can run in parallel — each key is independent
+    // and writes are batched.
     await Future.wait([
       prefs.setString('nostr_relay', relay),
       prefs.setString('user_identity', jsonEncode(Identity(
@@ -296,11 +298,17 @@ class _SetupIdentityScreenState extends State<SetupIdentityScreen> {
         'databaseId': sessionId,
         'selfId': sessionId,
       }])),
-      ss.write(key: 'app_password_hash', value: pwHash),
-      ss.write(key: 'app_password_salt', value: pwSalt),
-      ss.write(key: 'app_password_enabled', value: 'true'),
-      ss.write(key: 'recovery_key', value: _generatedKey),
     ]);
+    // flutter_secure_storage_windows 3.x rewrites the WHOLE encrypted file
+    // on each write — concurrent writes via Future.wait race and clobber
+    // each other (only the last one survives, observed: app_password_hash
+    // and app_password_salt + recovery_key were silently lost on Windows).
+    // Serialize secure-storage writes to keep each value committed before
+    // the next read-modify-rewrite cycle starts.
+    await ss.write(key: 'app_password_hash', value: pwHash);
+    await ss.write(key: 'app_password_salt', value: pwSalt);
+    await ss.write(key: 'app_password_enabled', value: 'true');
+    await ss.write(key: 'recovery_key', value: _generatedKey);
 
     await prefs.setBool('onboarding_done', true);
     unawaited(ChatController().initialize());
