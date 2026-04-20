@@ -2433,11 +2433,18 @@ class ChatController extends ChangeNotifier {
 
   // ── Message sending ───────────────────────────────────────────────────────
 
-  Future<void> sendMessage(Contact contact, String text, {
+  Future<void> sendMessage(Contact rawContact, String text, {
     bool noAutoRetry = false,
     Message? replyTo,
   }) async {
     if (_identity == null) return;
+    // Always route with the freshest Contact record from the repo. The
+    // UI layer (ChatScreen) caches the Contact it was opened with and
+    // keeps using it for sends; addr_update signals that rewrite
+    // transportAddresses / primary relay therefore never reach the send
+    // path, and messages keep going to the stale relay the contact
+    // migrated away from.
+    final contact = _contacts.findById(rawContact.id) ?? rawContact;
 
     if (contact.isGroup) {
       final groupRoom = _repo.getOrCreateRoom(contact);
@@ -2928,22 +2935,31 @@ class ChatController extends ChangeNotifier {
     if (contact.publicKey.isEmpty || !_hex64.hasMatch(contact.publicKey)) {
       return contact;
     }
+    final existing = contact.transportAddresses['Nostr'] ?? const <String>[];
+    // If the contact already has at least one Nostr address, keep their
+    // addresses AS THEY SENT THEM. The whole point of addr_update is that
+    // the contact tells us their current primary relay in the first slot —
+    // we must not reorder or overwrite that with our own relays, or we
+    // end up routing DMs to relays the contact isn't subscribed to (the
+    // relay still ACKs `accepted=true`, so sendMessage silently "succeeds"
+    // while the message never arrives).
+    if (existing.isNotEmpty) return contact;
+
+    // No Nostr addresses at all (rare — e.g. a pure-Session contact we
+    // want to reach via Nostr because we have their Nostr pubkey). Seed
+    // with our own relay list as a best-effort fallback; addr_update from
+    // them will replace this later.
     final relays = _gatherOwnNostrRelays(limit: 3);
-    final desired = relays.map((r) => '${contact.publicKey}@$r').toList();
-    final existing = contact.transportAddresses['Nostr'] ?? [];
-    // Check if already up to date (same set)
-    final desiredSet = desired.toSet();
-    if (existing.length == desired.length &&
-        existing.toSet().containsAll(desiredSet)) return contact;
-    // Replace with our known-good relay addresses.
-    // Contact-sent addresses arrive via addr_update and will be merged there.
+    if (relays.isEmpty) return contact;
+    final seeded = relays.map((r) => '${contact.publicKey}@$r').toList();
     final ta = Map<String, List<String>>.from(
       contact.transportAddresses.map((k, v) => MapEntry(k, List<String>.from(v))),
     );
-    ta['Nostr'] = desired;
+    ta['Nostr'] = seeded;
     final tp = List<String>.from(contact.transportPriority);
     if (!tp.contains('Nostr')) tp.add('Nostr');
-    debugPrint('[Chat] Nostr fallback for ${contact.name}: ${desired.length} relays');
+    debugPrint('[Chat] Seeded Nostr fallback for ${contact.name}: ${seeded.length} relays '
+        '(contact had none)');
     return contact.copyWith(transportAddresses: ta, transportPriority: tp);
   }
 
@@ -3003,8 +3019,10 @@ class ChatController extends ChangeNotifier {
     return InboxManager().routeMessage(provider, address, address, sendMsg);
   }
 
-  Future<bool> _sendToContact(Contact contact, String plaintext, {bool noAutoRetry = false}) async {
+  Future<bool> _sendToContact(Contact rawContact, String plaintext, {bool noAutoRetry = false}) async {
     if (_identity == null) return false;
+    // Route with the freshest Contact — caller may hold a stale copy.
+    final contact = _contacts.findById(rawContact.id) ?? rawContact;
     final envelope = MessageEnvelope.wrap(_selfId.isNotEmpty ? _selfId : _identity!.id, plaintext, senderName: _selfName, senderAvatar: _selfAvatar, senderAddresses: _buildOwnTransportMap());
     String encryptedText;
     try {
