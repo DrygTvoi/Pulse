@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:crypto/crypto.dart' as crypto;
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'nostr_event_builder.dart' as eb;
 import 'tor_service.dart';
 import 'psiphon_service.dart';
 import 'psiphon_turn_proxy.dart';
@@ -86,6 +87,11 @@ class ProbeResult {
 /// Nostr relay hostnames + port.
 /// Sorted roughly by: Asian/HK first (more likely direct from CN),
 /// European/US second.
+// Excluded from this list:
+//   purplepag.es      — profile-only relay, blocks kind:1059 (gift wraps)
+//   relay.nostr.band  — aggregator, rejects writes
+//   strfry.iris.to    — may reject DM kinds from non-Iris clients
+// Only relays known to accept kind:1059 DMs are included.
 const _kNostrCandidates = [
   // Japan (often accessible from CN without VPN)
   ('relay.nostr.wirednet.jp', 443),
@@ -94,19 +100,16 @@ const _kNostrCandidates = [
   // Hong Kong / Asia-Pacific CDN
   ('nostr.mom',    443),
   ('offchain.pub', 443),
-  // Global / popular
+  // Global / popular (all confirmed accept kind:1059)
   ('relay.damus.io',         443),
   ('nos.lol',                443),
-  ('relay.nostr.band',       443),
   ('nostr.wine',             443),
   ('relay.snort.social',     443),
-  ('purplepag.es',           443),
   ('nostr.oxtr.dev',         443),
   ('relay.nos.social',       443),
   ('nostr.bitcoiner.social', 443),
   ('relay.current.fyi',      443),
-  ('strfry.iris.to',         443), // high-traffic global
-  ('nostr.fmt.wired.mn',     443), // global
+  ('nostr.fmt.wired.mn',     443),
 ];
 
 /// Session Network seed nodes (public, from Session open source).
@@ -366,13 +369,70 @@ class ConnectivityProbeService {
     _running = true;
 
     try {
-      // ── Phase 1: static TCP probes ────────────────────────────────────────
+      // ── Phase 1: static TCP probes + community directory fetch ────────────
       _emit(ProbePhase.directProbe);
-      debugPrint('[Probe] Phase 1: static relay probes');
+      debugPrint('[Probe] Phase 1: static probes + directory fetch (parallel)');
 
-      final directNostrHosts = await _probeAll(_kNostrCandidates,
-          label: 'nostr', timeoutSec: 3);
-      // IMPORTANT: convert to full wss:// URLs — _probeAll returns bare hostnames
+      // Kick off community relay directory fetch in parallel with static
+      // probe. nostr.watch/nostr.band expose 1000+ live relays; treating
+      // them as a first-class source (not a background fallback) lets new
+      // accounts land on a randomised relay from the broader network
+      // instead of concentrating on the ~14 hardcoded entries.
+      // Cached response returns instantly; fresh HTTP fetch takes 1-3s.
+      final directoryFuture = RelayDirectoryService.instance
+          .getCandidates()
+          .catchError((_) => <(String, int)>[]);
+
+      final shuffledNostrCandidates = List<(String, int)>.from(_kNostrCandidates)
+        ..shuffle();
+      final staticTcpFuture = _probeAll(shuffledNostrCandidates,
+          label: 'nostr-tcp', timeoutSec: 3);
+
+      // Wait for directory with a hard cap so we never block on slow HTTP.
+      final directoryCandidates = await directoryFuture
+          .timeout(const Duration(seconds: 4),
+              onTimeout: () => <(String, int)>[]);
+
+      // Sample the directory at random and TCP-probe just a subset, so we
+      // don't fan out thousands of sockets on first run. Different launches
+      // probe different subsets — that's the decentralization goal.
+      final knownStaticHosts = _kNostrCandidates.map((c) => c.$1).toSet();
+      final freshDirectoryCandidates = directoryCandidates
+          .where((c) {
+            final h = c.$1;
+            if (knownStaticHosts.contains(h)) return false;
+            if (h.endsWith('.onion')) return false;
+            if (h == 'localhost' || h == '127.0.0.1' || h == '::1') return false;
+            if (h.startsWith('192.168.') || h.startsWith('10.') ||
+                h.startsWith('172.16.') || h.startsWith('169.254.')) {
+              return false;
+            }
+            return true;
+          })
+          .toList()
+        ..shuffle();
+      const directorySampleSize = 40;
+      final directorySample = freshDirectoryCandidates
+          .take(directorySampleSize).toList();
+
+      final directoryTcpFuture = directorySample.isEmpty
+          ? Future.value(<String>[])
+          : _probeAll(directorySample, label: 'nostr-dir', timeoutSec: 3);
+
+      final staticTcp = await staticTcpFuture;
+      final directoryTcp = await directoryTcpFuture;
+      debugPrint('[Probe] TCP-reachable: ${staticTcp.length} static + '
+          '${directoryTcp.length}/${directorySample.length} directory '
+          '(of ${freshDirectoryCandidates.length} fresh)');
+
+      // Union + shuffle so primary selection is not biased toward either
+      // source. Then filter to relays that actually accept kind:1059 DM
+      // writes — TCP-reachable but write-rejecting relays (profile-only,
+      // aggregators) silently break messaging if picked as primary.
+      final tcpReachable = <String>{...staticTcp, ...directoryTcp}.toList()
+        ..shuffle();
+      final directNostrHosts = await _filterDmCapableRelays(tcpReachable);
+      // IMPORTANT: convert to full wss:// URLs — _filterDmCapableRelays returns bare hostnames
       final directNostr = directNostrHosts.map((h) => 'wss://$h').toList();
       final directSession = await _probeAll(_kSessionCandidates,
           label: 'session', timeoutSec: 3);
@@ -420,18 +480,15 @@ class ConnectivityProbeService {
       // If phase 1 already found enough relays, emit early done so the UI
       // stops showing the spinner.  Phase 1.5 continues silently in the
       // background to discover additional relays for future reconnects.
+      // Emit UI progress signal so the setup spinner stops, but DO NOT
+      // complete _firstRunCompleter yet — we delay it until regen-lite below
+      // has had a chance to fold NIP-65 / peer-discovered relays into
+      // directNostr. This ensures identity creation (which awaits
+      // firstRunDone) picks a primary from the broader dynamic pool rather
+      // than only the hardcoded bootstrap list.
       final earlyDone = directNostr.length >= _enoughDirect;
       if (earlyDone) {
         _emit(ProbePhase.done, found: directNostr.length);
-        if (!_firstRunCompleter.isCompleted) {
-          _firstRunCompleter.complete(ProbeResult(
-            nostrRelays: List.of(directNostr),
-            sessionNodes: directSession,
-            turnServers: directTurnHosts,
-            torNostrRelays: [],
-            timestamp: DateTime.now(),
-          ));
-        }
       } else {
         _emit(ProbePhase.dohProbe, found: directNostr.length);
       }
@@ -472,13 +529,73 @@ class ConnectivityProbeService {
         }
       }
 
+      // Split regen into two passes:
+      //   regen-lite  → random sample of `_kRegenLiteSample` candidates,
+      //                 probed + DM-filtered BEFORE firstRunDone so identity
+      //                 creation picks from the broader dynamic pool.
+      //   regen-full  → remaining candidates probed AFTER firstRunDone, async
+      //                 in background, results folded into directNostr for
+      //                 future reconnects + AdaptiveRelayService seeding.
+      const regenLiteSample = 40;
+      List<(String, int)> regenLite = const [];
+      List<(String, int)> regenRest = const [];
       if (regenCandidates.isNotEmpty) {
-        debugPrint('[Probe] Probing ${regenCandidates.length} autonomously discovered relay(s)');
-        final extraHosts = await _probeAll(regenCandidates, label: 'regen', timeoutSec: 3);
-        directNostr.addAll(extraHosts.map((h) => 'wss://$h'));
-        debugPrint('[Probe] Regen: +${extraHosts.length} reachable (total ${directNostr.length})');
+        regenCandidates.shuffle();
+        regenLite = regenCandidates.take(regenLiteSample).toList();
+        regenRest = regenCandidates.skip(regenLiteSample).toList();
+        debugPrint('[Probe] Regen: ${regenCandidates.length} candidates '
+            '(${regenLite.length} lite + ${regenRest.length} background)');
+        final liteTcp = await _probeAll(regenLite, label: 'regen-lite', timeoutSec: 3);
+        // Same dual-kind DM-capable filter (1059 + 10009) applied as to
+        // static candidates — NIP-65 / peer-discovered relays still need
+        // the write probe, or we risk advertising a read-only relay to
+        // contacts (silent DM drop) or a kind-filtered relay (silent key
+        // publish drop, observed with relay.nos.social).
+        final liteDmCapable = await _filterDmCapableRelays(liteTcp);
+        final rejected = liteTcp.length - liteDmCapable.length;
+        directNostr.addAll(liteDmCapable.map((h) => 'wss://$h'));
+        debugPrint('[Probe] Regen-lite: +${liteDmCapable.length} DM-capable '
+            '(${rejected > 0 ? "$rejected rejected DM" : "all accepted"}) '
+            '(total ${directNostr.length})');
       } else {
         debugPrint('[Probe] Regen: no new candidates found');
+      }
+
+      // Complete firstRunDone NOW — directNostr is enriched with regen-lite
+      // DM-capable relays from nostr.watch + NIP-65 + peer discovery.
+      // Anything that awaits firstRunDone (setup screen, main.dart reconnect)
+      // now sees the broader dynamic pool, not just the hardcoded bootstrap.
+      if (!_firstRunCompleter.isCompleted) {
+        _firstRunCompleter.complete(ProbeResult(
+          nostrRelays: List.of(directNostr),
+          sessionNodes: directSession,
+          turnServers: directTurnHosts,
+          torNostrRelays: [],
+          timestamp: DateTime.now(),
+        ));
+      }
+
+      // Regen-full runs async after firstRunDone — probes the remaining
+      // candidates (~600+) without blocking identity creation. Results are
+      // folded into directNostr so AdaptiveRelayService's seed pool grows
+      // over the session.
+      if (regenRest.isNotEmpty) {
+        unawaited(() async {
+          final restTcp = await _probeAll(regenRest,
+              label: 'regen-bg', timeoutSec: 3);
+          final restDm = await _filterDmCapableRelays(restTcp);
+          directNostr.addAll(restDm.map((h) => 'wss://$h'));
+          debugPrint('[Probe] Regen-bg: +${restDm.length} DM-capable '
+              '(total ${directNostr.length})');
+          // Re-seed AdaptiveRelayService with the enriched pool.
+          const maxAdaptiveCandidates = 500;
+          final allKnownUrls = <String>{
+            ...directNostr,
+            ..._kNostrCandidates.map((c) => 'wss://${c.$1}'),
+            ...regenCandidates.map((c) => 'wss://${c.$1}'),
+          }.take(maxAdaptiveCandidates).toList();
+          AdaptiveRelayService.instance.seedCandidates(allKnownUrls);
+        }());
       }
 
       // Seed AdaptiveRelayService with all known reachable relay URLs so the
@@ -769,6 +886,97 @@ class ConnectivityProbeService {
   ///
   /// Pure TCP connect passes even when GFW blocks TLS (RST after ClientHello).
   /// This does a real TLS handshake so we know the relay is actually reachable.
+  /// Test that a Nostr relay accepts BOTH kind:1059 (NIP-59 gift-wrap DMs)
+  /// AND kind:10009 (Signal key publish) writes. Both are critical paths:
+  ///   - kind:1059  → all incoming/outgoing messages
+  ///   - kind:10009 → E2EE identity key publication (Signal protocol)
+  ///
+  /// Relays that accept one but reject the other silently break messaging.
+  /// Observed in the wild: relay.nos.social accepts kind:1059 but rejects
+  /// kind:10009 with "blocked: kind not allowed" — picking it as primary
+  /// would leave contacts unable to fetch our keys.
+  ///
+  /// Sends both events over a single WebSocket; returns true only if the
+  /// relay explicitly ACKs both with OK=true.
+  Future<bool> _probeNostrAcceptsDM(String host, int port,
+      {int timeoutSec = 5}) async {
+    WebSocket? ws;
+    try {
+      final url = 'wss://$host${port == 443 ? '' : ':$port'}';
+      ws = await WebSocket.connect(url, headers: {'Origin': 'https://pulse.im'})
+          .timeout(Duration(seconds: timeoutSec));
+
+      final priv = eb.generateRandomPrivkey();
+      final pub = eb.derivePubkeyHex(priv);
+      final events = await Future.wait([
+        eb.buildEvent(
+          privkeyHex: priv,
+          kind: 1059,
+          content: 'AQ==',
+          tags: [['p', pub]],
+        ),
+        eb.buildEvent(
+          privkeyHex: priv,
+          kind: 10009,
+          content: '',
+          tags: const [],
+        ),
+      ]);
+      final expected = {
+        events[0]['id'] as String: 1059,
+        events[1]['id'] as String: 10009,
+      };
+      final results = <int, bool>{};
+      final done = Completer<bool>();
+      final sub = ws.listen((data) {
+        try {
+          final msg = jsonDecode(data as String);
+          if (msg is List && msg.length >= 3 && msg[0] == 'OK') {
+            final id = msg[1];
+            final kind = expected[id];
+            if (kind != null) {
+              results[kind] = msg[2] == true;
+              if (results.length == expected.length && !done.isCompleted) {
+                done.complete(results.values.every((v) => v));
+              }
+            }
+          }
+        } catch (_) {}
+      }, onError: (_) {
+        if (!done.isCompleted) done.complete(false);
+      }, onDone: () {
+        if (!done.isCompleted) done.complete(false);
+      });
+      ws.add(jsonEncode(['EVENT', events[0]]));
+      ws.add(jsonEncode(['EVENT', events[1]]));
+      final accepted = await done.future
+          .timeout(Duration(seconds: timeoutSec), onTimeout: () => false);
+      await sub.cancel();
+      return accepted;
+    } catch (_) {
+      return false;
+    } finally {
+      try { await ws?.close(); } catch (_) {}
+    }
+  }
+
+  /// Filter TCP-reachable Nostr hosts down to those that accept kind:1059 writes.
+  Future<List<String>> _filterDmCapableRelays(List<String> hosts,
+      {int maxConcurrent = 8, int timeoutSec = 4}) async {
+    final ok = <String>[];
+    for (int i = 0; i < hosts.length; i += maxConcurrent) {
+      final chunk = hosts.sublist(
+          i, (i + maxConcurrent).clamp(0, hosts.length));
+      await Future.wait(chunk.map((host) async {
+        final accepted = await _probeNostrAcceptsDM(host, 443,
+            timeoutSec: timeoutSec);
+        if (accepted) ok.add(host);
+      }));
+    }
+    debugPrint('[Probe] DM-capable: ${ok.length}/${hosts.length} relays');
+    return ok;
+  }
+
   Future<bool> _probeOne(String host, int port, {int timeoutSec = 3}) async {
     try {
       if (port == 443 || port == 8443) {

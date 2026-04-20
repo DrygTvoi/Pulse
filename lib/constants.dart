@@ -9,20 +9,20 @@ const kDefaultNostrRelay = 'wss://relay.nostr.wirednet.jp';
 /// sorted roughly by censorship-resistance and uptime.  The setup screen
 /// races these in parallel and picks the first to respond — no single relay
 /// dependency.
+// Only relays known to accept kind:1059 (gift-wrap DMs). Profile-only relays
+// like purplepag.es and aggregators like relay.nostr.band reject writes and
+// would cause undelivered messages if picked as primary.
 const kBootstrapRelays = [
   'wss://relay.nostr.wirednet.jp',
   'wss://nostr-relay.nokotaro.com',
   'wss://nostr.mom',
   'wss://offchain.pub',
   'wss://nos.lol',
-  'wss://relay.nostr.band',
   'wss://nostr.wine',
   'wss://relay.snort.social',
-  'wss://purplepag.es',
   'wss://nostr.oxtr.dev',
   'wss://relay.nos.social',
   'wss://relay.current.fyi',
-  'wss://strfry.iris.to',
   'wss://nostr.fmt.wired.mn',
   'wss://relay.damus.io',
 ];

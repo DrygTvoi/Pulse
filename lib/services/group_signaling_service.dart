@@ -307,7 +307,9 @@ class GroupSignalingService {
       await InboxManager().addSenderPlugin('Firebase', FirebaseInboxSender(), ourApiKey);
     } else if (target.provider == 'Nostr') {
       final privkey = await _secureStorage.read(key: 'nostr_privkey') ?? '';
-      const relay = kDefaultNostrRelay;
+      // Use the user's configured relay (not the hardcoded default) so
+      // every account doesn't concentrate on the same bootstrap relay.
+      final relay = prefs.getString('nostr_relay') ?? kDefaultNostrRelay;
       await InboxManager().addSenderPlugin('Nostr', NostrMessageSender(),
           jsonEncode({'privkey': privkey, 'relay': relay}));
     } else if (target.provider == 'Pulse') {

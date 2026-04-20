@@ -46,14 +46,20 @@ const _kWellKnownRelays = [
 
 Future<List<String>> gatherKnownRelays(String primary, {int limit = 5}) async {
   final prefs = await SharedPreferences.getInstance();
-  final candidates = <String>[
+  // Preferred relays (user-configured, probed, adaptive) come first in a fixed order.
+  final preferred = <String>[
     primary,
     prefs.getString('nostr_relay') ?? '',
     prefs.getString('probe_nostr_relay') ?? '',
     prefs.getString('adaptive_cf_relay') ?? '',
+  ];
+  // Fallback well-known relays are shuffled per call to avoid always
+  // concentrating new accounts on the same two relays.
+  final fallbacks = <String>[
     kDefaultNostrRelay,
     ..._kWellKnownRelays,
-  ];
+  ]..shuffle();
+  final candidates = [...preferred, ...fallbacks];
   final seen = <String>{};
   final result = <String>[];
   for (var url in candidates) {

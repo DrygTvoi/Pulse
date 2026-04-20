@@ -943,16 +943,21 @@ class ChatController extends ChangeNotifier {
         if (nostrPriv.isNotEmpty &&
             !newAddresses.any((a) => a.contains('@wss://') || a.contains('@ws://'))) {
           final nostrPub = deriveNostrPubkeyHex(nostrPriv);
-          const primaryRelay = _kDefaultNostrRelay;
+          // Primary Nostr relay: user-configured first, probe result second,
+          // hardcoded default only as last resort. This keeps new accounts
+          // from concentrating on the same bootstrap relay.
+          final prefsForNostr = await _getPrefs();
+          final primaryRelay = prefsForNostr.getString('nostr_relay')
+              ?? prefsForNostr.getString('probe_nostr_relay')
+              ?? _kDefaultNostrRelay;
           final apiKey = jsonEncode({'privkey': nostrPriv, 'relay': primaryRelay});
           final nostrReader = await InboxManager().createAdhocReader('Nostr', apiKey, primaryRelay);
           if (nostrReader != null) {
             _messageSubs.add(nostrReader.listenForMessages().listen(_handleIncomingMessages));
             _signalSubs.add(nostrReader.listenForSignals().listen(
                 (sigs) => _signalDispatcher!.dispatch(sigs, sourceTransport: 'Nostr')));
-            // Subscribe to additional probed relays as secondary (up to 2 more).
-            // These are subscribed for receiving but NOT added to _allAddresses
-            // until we confirm they actually connect (dead relays get filtered out).
+            // Subscribe to additional probed relays as secondary (up to 2 more)
+            // so we have multiple Nostr addresses for redundancy.
             final secondaryRelays = <String>[];
             if (nostrReader is NostrInboxReader) {
               final probeRelays = ConnectivityProbeService.instance.lastResult.nostrRelays;
@@ -964,21 +969,26 @@ class ChatController extends ChangeNotifier {
                 secondaryRelays.add(relay);
               }
             }
-            // Only register primary address now. Secondary addresses are added
-            // after we confirm they connect (via _updateNostrSecondaryAddresses).
-            newAddresses.add('$nostrPub@$primaryRelay');
-            _adapterHealth['$nostrPub@$primaryRelay'] = true;
+            // Register primary AND secondary addresses immediately so contacts
+            // learn multiple fallback relays from the first addr_update. After
+            // a short delay we prune any secondary that didn't actually connect.
+            final primaryAddr = '$nostrPub@$primaryRelay';
+            newAddresses.add(primaryAddr);
+            _adapterHealth[primaryAddr] = true;
             _healthSubs.add(nostrReader.healthChanges.listen((h) =>
-                _onAdapterHealthChange('$nostrPub@$primaryRelay', h)));
-            unawaited(_keys.publishKeysToAdapter('Nostr', apiKey, '$nostrPub@$primaryRelay'));
-            // After a short delay, check which secondaries actually connected
-            // and add their addresses.
+                _onAdapterHealthChange(primaryAddr, h)));
+            for (final relay in secondaryRelays) {
+              final addr = '$nostrPub@$relay';
+              newAddresses.add(addr);
+              _adapterHealth[addr] = true;
+            }
+            unawaited(_keys.publishKeysToAdapter('Nostr', apiKey, primaryAddr));
             if (secondaryRelays.isNotEmpty) {
               Future.delayed(const Duration(seconds: 8), () {
-                _addConnectedSecondaryRelays(nostrPub, nostrReader, secondaryRelays);
+                _pruneDisconnectedSecondaries(nostrPub, nostrReader, secondaryRelays);
               });
             }
-            debugPrint('[Chat] Auto-registered Nostr inbox: $primaryRelay + ${secondaryRelays.length} secondary pending');
+            debugPrint('[Chat] Auto-registered Nostr inbox: $primaryRelay + ${secondaryRelays.length} secondary');
           }
         }
       } catch (e) {
@@ -2765,23 +2775,23 @@ class ChatController extends ChangeNotifier {
   }
 
   /// After a delay, add secondary relay addresses that successfully connected.
-  void _addConnectedSecondaryRelays(
+  /// After secondary relays had 8s to establish a connection, remove addresses
+  /// for any that never connected so we don't advertise broken relays to contacts.
+  void _pruneDisconnectedSecondaries(
       String nostrPub, InboxReader reader, List<String> candidates) {
     if (reader is! NostrInboxReader) return;
     final connected = reader.connectedSecondaryRelays;
-    var added = 0;
+    var removed = 0;
     for (final relay in candidates) {
-      if (connected.contains(relay)) {
-        final addr = '$nostrPub@$relay';
-        if (!_allAddresses.contains(addr)) {
-          _allAddresses.add(addr);
-          added++;
-        }
+      if (connected.contains(relay)) continue;
+      final addr = '$nostrPub@$relay';
+      if (_allAddresses.remove(addr)) {
+        _adapterHealth.remove(addr);
+        removed++;
       }
     }
-    if (added > 0) {
-      debugPrint('[Chat] Added $added connected secondary Nostr relays to addresses');
-      // Re-run contact fallback with the new relay set
+    if (removed > 0) {
+      debugPrint('[Chat] Pruned $removed unreachable secondary Nostr relays');
       _refreshContactNostrFallback();
     }
   }
@@ -2808,11 +2818,9 @@ class ChatController extends ChangeNotifier {
       }
       if (seen.add(relay)) result.add(relay);
     }
-    // 1) Hardcoded default — always reachable, always first
-    _add(_kDefaultNostrRelay);
-    // 2) Identity config relay (if Nostr-primary user configured one)
+    // 1) Identity config relay (user's configured primary relay) — always first
     _add(_identity?.adapterConfig['relay'] ?? '');
-    // 3) Relays we're actually connected to (from our own addresses)
+    // 2) Relays we're actually connected to (from our own addresses)
     for (final addr in _allAddresses) {
       if (result.length >= limit) break;
       final wssIdx = addr.indexOf('@wss://');
@@ -2820,8 +2828,9 @@ class ChatController extends ChangeNotifier {
       final atIdx = wssIdx != -1 ? wssIdx : wsIdx;
       if (atIdx > 0) _add(addr.substring(atIdx + 1));
     }
-    // 4) Ensure at least default is present
-    if (result.isEmpty) result.add(_kDefaultNostrRelay);
+    // 3) Hardcoded default — only as last-resort fallback so we don't
+    //    concentrate every new account on the same bootstrap relay.
+    if (result.isEmpty) _add(_kDefaultNostrRelay);
     return result.take(limit).toList();
   }
 

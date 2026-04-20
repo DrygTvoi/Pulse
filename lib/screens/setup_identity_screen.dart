@@ -20,6 +20,7 @@ import 'package:convert/convert.dart';
 import '../adapters/nostr_adapter.dart' show deriveNostrPubkeyHex;
 import '../controllers/chat_controller.dart';
 import '../services/relay_prober.dart';
+import '../services/connectivity_probe_service.dart';
 import 'home_screen.dart';
 import 'restore_account_screen.dart';
 import '../l10n/l10n_ext.dart';
@@ -63,7 +64,7 @@ class _SetupIdentityScreenState extends State<SetupIdentityScreen> {
   @override
   void initState() {
     super.initState();
-    _relayProbe = probeBootstrapRelays();
+    _relayProbe = _pickIdentityRelay();
     _generatedKey = RecoveryKeyService.generate();
   }
 
@@ -75,6 +76,35 @@ class _SetupIdentityScreenState extends State<SetupIdentityScreen> {
     _passController2.dispose();
     _confirmPassController.dispose();
     super.dispose();
+  }
+
+  /// Pick the primary Nostr relay for the new identity.
+  ///
+  /// Preferred source: [ConnectivityProbeService.firstRunDone]. By the time
+  /// it resolves, directNostr is enriched with BOTH the hardcoded bootstrap
+  /// list AND dynamically discovered relays (nostr.watch + NIP-65 +
+  /// peer-shared), all filtered to those that actually accept kind:1059 AND
+  /// kind:10009 writes. Picking randomly from this broader pool avoids
+  /// concentrating every new account on the same ~2 hardcoded relays.
+  ///
+  /// Fallback: [probeBootstrapRelays] hits only the bootstrap list. Used
+  /// when the probe service can't finish in time (uncommon — setup screens
+  /// take the user 10-30 s to fill in, probe completes well before submit).
+  Future<String> _pickIdentityRelay() async {
+    try {
+      final result = await ConnectivityProbeService.instance.firstRunDone
+          .timeout(const Duration(seconds: 15));
+      if (result.nostrRelays.isNotEmpty) {
+        final pick = result.nostrRelays[
+            Random.secure().nextInt(result.nostrRelays.length)];
+        debugPrint('[Setup] Identity relay: $pick '
+            '(random from ${result.nostrRelays.length} DM-capable)');
+        return pick;
+      }
+    } catch (_) {/* fall through to bootstrap fallback */}
+    final fallback = await probeBootstrapRelays();
+    debugPrint('[Setup] Identity relay (bootstrap fallback): $fallback');
+    return fallback;
   }
 
   void _goToPage(int page) {

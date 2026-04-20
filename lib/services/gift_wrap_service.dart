@@ -83,13 +83,20 @@ Future<Map<String, dynamic>> wrapEvent({
   return wrapEvent;
 }
 
-/// Maximum age of a gift-wrap outer event.
-/// NIP-44 nonce cache TTL is 7 days; 14 days gives a safety margin while
-/// blocking old archived events that a relay could replay after nonce expiry.
-const _kMaxWrapAgeSeconds = 14 * 24 * 3600;
-
-/// Maximum future drift allowed (2 × the ±1 h jitter added at wrap time).
-const _kMaxWrapFutureSeconds = 7200;
+// Outer wrap timestamps are NOT checked against the local clock on
+// purpose. The outer created_at is signed only by the ephemeral wrapper
+// pubkey (which the sender discards after one use), so it never proves
+// anything about the real sender. Replay/spam defense is enforced by the
+// strong, clock-independent layers instead:
+//   1. Inner event's Schnorr signature — binds created_at to the real
+//      sender; any modification invalidates the sig.
+//   2. Inner age check (7 days, on signed created_at) — bounds how old
+//      a recovered message can be.
+//   3. NIP-44 nonce cache (7-day persistent) — blocks ciphertext replay.
+//   4. _seenIds event-id dedup (30 min RAM + persistent).
+// This means users with wrong system clocks, wrong timezones, or VM
+// clock drift still work, and we avoid depending on any external time
+// authority (would reintroduce a centralized dependency).
 
 /// Unwrap a Gift Wrap event (kind:1059).
 ///
@@ -104,23 +111,10 @@ Future<Map<String, dynamic>?> unwrapEvent({
     final wrapKind = wrapEvent['kind'] as int?;
     if (wrapKind != 1059) return null;
 
-    // Reject events with implausible timestamps.
-    // Without this check, a relay can archive kind:1059 events and replay
-    // them to a freshly-connected client after the NIP-44 nonce cache (7d)
-    // expires, bypassing replay detection entirely.
-    final wrapTs = wrapEvent['created_at'] as int?;
-    if (wrapTs != null) {
-      final nowSec = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-      if (nowSec - wrapTs > _kMaxWrapAgeSeconds) {
-        debugPrint('[GiftWrap] Rejected stale event (age=${nowSec - wrapTs}s)');
-        return null;
-      }
-      if (wrapTs - nowSec > _kMaxWrapFutureSeconds) {
-        debugPrint('[GiftWrap] Rejected future-dated event (drift=${wrapTs - nowSec}s)');
-        return null;
-      }
-    }
-
+    // Intentionally NOT validating outer wrap created_at against the
+    // local clock — see constants block above for why. Replay is caught
+    // by the inner event's Schnorr-signed timestamp (7-day cap) and the
+    // NIP-44 nonce cache.
     final ephemeralPubkey = wrapEvent['pubkey'] as String? ?? '';
     final wrapContent = wrapEvent['content'] as String? ?? '';
     if (ephemeralPubkey.isEmpty || wrapContent.isEmpty) return null;
