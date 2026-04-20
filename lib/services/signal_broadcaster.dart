@@ -423,8 +423,14 @@ class SignalBroadcaster {
     debugPrint('[Broadcaster] Sent group invite to ${target.name} for "${group.name}"');
   }
 
+  /// Broadcast a group_update to [recipientMemberIds] if given, else to
+  /// everyone currently in `group.members`. The override is needed for
+  /// tombstone ("delete group") sends where the NEW payload has
+  /// `members: []` but we still need to reach the *old* members to tell
+  /// them the group is gone.
   Future<void> broadcastGroupUpdate(
-      Contact group, List<Contact> allContacts) async {
+      Contact group, List<Contact> allContacts,
+      {Iterable<String>? recipientMemberIds}) async {
     final identity = _getIdentity();
     final selfId = _getSelfId();
     if (identity == null || selfId.isEmpty) return;
@@ -434,13 +440,16 @@ class SignalBroadcaster {
       'members': group.members,
       if (group.creatorId != null) 'creatorId': group.creatorId,
     };
+    final recipientSet =
+        (recipientMemberIds ?? group.members).toSet();
     final memberContacts = allContacts
-        .where((c) => !c.isGroup && group.members.contains(c.id))
+        .where((c) => !c.isGroup && recipientSet.contains(c.id))
         .toList();
     await Future.wait(
         memberContacts.map((c) => _sendSignalTo(c, 'group_update', payload)));
     debugPrint(
-        '[Broadcaster] Broadcast membership update for ${group.name} to ${memberContacts.length} members');
+        '[Broadcaster] Broadcast membership update for ${group.name} to ${memberContacts.length} members '
+        '(payload members=${group.members.length})');
   }
 
   Future<void> sendGroupHistory(

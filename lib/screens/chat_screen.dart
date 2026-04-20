@@ -56,6 +56,7 @@ class _ChatScreenState extends State<ChatScreen> {
   StreamSubscription? _keyChangeSub;
   StreamSubscription? _tamperWarnSub;
   StreamSubscription? _e2eeFailSub;
+  StreamSubscription? _groupRemovedSub;
   late Contact _contact;
 
   // Voice recording state (ValueNotifiers to avoid full-tree rebuilds every second)
@@ -262,6 +263,22 @@ class _ChatScreenState extends State<ChatScreen> {
         duration: const Duration(seconds: 10),
       ));
     }, onError: (e) => debugPrint('[ChatScreen] tamper stream error: $e'));
+
+    // If THIS group gets removed (we were kicked, creator deleted, or we
+    // left) close the chat screen automatically. Re-checks membership in
+    // the repo on every group_update event — when findById returns null
+    // the group no longer exists locally.
+    if (_contact.isGroup) {
+      _groupRemovedSub = ChatController().groupUpdates.listen((e) {
+        if (!mounted) return;
+        if (e.groupId != _contact.id) return;
+        final repo = context.read<IContactRepository>();
+        if (repo.findById(_contact.id) == null) {
+          Navigator.of(context).maybePop();
+        }
+      }, onError: (err) =>
+          debugPrint('[ChatScreen] groupUpdates stream error: $err'));
+    }
   }
 
   @override
@@ -287,6 +304,7 @@ class _ChatScreenState extends State<ChatScreen> {
     _keyChangeSub?.cancel();
     _tamperWarnSub?.cancel();
     _e2eeFailSub?.cancel();
+    _groupRemovedSub?.cancel();
     _recordingTimer?.cancel();
     _isRecording.dispose();
     _recordingSeconds.dispose();
@@ -714,7 +732,13 @@ class _ChatScreenState extends State<ChatScreen> {
         context.read<ChatController>().clearRoomHistory(_contact);
       },
       onDeleteContact: () async {
-        await context.read<IContactRepository>().removeContact(_contact.id);
+        if (_contact.isGroup) {
+          // Group: broadcast empty-roster tombstone + local remove. This
+          // tells every current member to drop the group from their list.
+          await context.read<ChatController>().deleteGroup(_contact);
+        } else {
+          await context.read<IContactRepository>().removeContact(_contact.id);
+        }
         if (mounted) {
           if (widget.embedded) {
             widget.onCloseEmbedded?.call();
@@ -1352,7 +1376,11 @@ class _ChatScreenState extends State<ChatScreen> {
               },
               onDeleteContact: () async {
                 setState(() => _infoPanelOpen = false);
-                await context.read<IContactRepository>().removeContact(_contact.id);
+                if (_contact.isGroup) {
+                  await context.read<ChatController>().deleteGroup(_contact);
+                } else {
+                  await context.read<IContactRepository>().removeContact(_contact.id);
+                }
                 if (mounted) widget.onCloseEmbedded?.call();
               },
             ),

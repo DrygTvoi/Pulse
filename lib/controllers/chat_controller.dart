@@ -1783,25 +1783,35 @@ class ChatController extends ChangeNotifier {
       final g = _contacts.findById(e.groupId);
       if (g == null || !g.isGroup) return;
       final group = g;
-      // Only the group creator may update membership.
-      // F1 fix: reject updates for groups without a creatorId — a null/empty
-      // creatorId means the check was previously skipped, letting anyone update.
-      // creatorId is a UUID but e.senderId is a transport
-      // address — they were never equal. Resolve sender to a contact UUID first.
-      if (group.creatorId == null || group.creatorId!.isEmpty) {
-        debugPrint('[Group] Rejected group_update: group has no creatorId');
+      // NOTE: the old "senderUuid == group.creatorId" guard compared a
+      // locally-generated contact UUID against the creator's own-identity
+      // UUID on their device — cross-device UUIDs never match, so every
+      // legitimate roster update was rejected. Signal-layer auth (Schnorr
+      // on Nostr, HMAC on other transports) already proves the payload
+      // was sent by the holder of e.senderId's private key; trusting it
+      // is sufficient for the force-accept baseline. Pubkey-based
+      // identity checks will replace this in a later step.
+      debugPrint('[Group] group_update from ${e.senderId} for ${group.name}: '
+          '${e.members.length} members');
+
+      // Tombstone / self-kick: if we are no longer in the roster (or
+      // the roster is empty, which is how the creator signals "group
+      // deleted"), drop the group locally. Emits on _groupUpdatePublicCtrl
+      // so any open chat screen + the home list both refresh.
+      final myUuid = _identity?.id ?? '';
+      final weWereMember = myUuid.isNotEmpty && group.members.contains(myUuid);
+      final weStillMember = myUuid.isNotEmpty && e.members.contains(myUuid);
+      if (e.members.isEmpty || (weWereMember && !weStillMember)) {
+        await _contacts.removeContact(group.id);
+        _invalidateContactIndex();
+        debugPrint('[Group] ${group.name} '
+            '${e.members.isEmpty ? "deleted by creator" : "kicked us"} '
+            '— removed locally');
+        if (!_groupUpdatePublicCtrl.isClosed) _groupUpdatePublicCtrl.add(e);
+        _scheduleNotify();
         return;
       }
-      {
-        final senderContact = _contacts.findByAddress(e.senderId);
-        final senderUuid = senderContact?.id ?? '';
-        if (senderUuid != group.creatorId) {
-          debugPrint('[Group] Rejected group_update from non-creator '
-              '${e.senderId} (creator: ${group.creatorId})');
-          return;
-        }
-      }
-      // Length comparison missed membership swap (same count, different set).
+
       final memberRemoved = group.members.toSet().difference(e.members.toSet()).isNotEmpty;
       final updated = group.copyWith(
         name: e.groupName.isNotEmpty ? e.groupName : group.name,
@@ -1811,7 +1821,6 @@ class ChatController extends ChangeNotifier {
       await _contacts.updateContact(updated);
       _invalidateContactIndex();
       debugPrint('[Group] Membership updated for ${updated.name}: ${e.members.length} members');
-      // Rotate sender key when a member was removed (forward secrecy).
       if (memberRemoved && _selfId.isNotEmpty) {
         unawaited(rotateGroupSenderKey(updated));
       }
@@ -4254,26 +4263,25 @@ class ChatController extends ChangeNotifier {
       debugPrint('[Group] Rejected invite with no creatorId');
       return;
     }
-    // F4-2: Compare using contact UUID (invite.fromContact.id), not databaseId.
-    // databaseId is a transport address (e.g. "pubkey@wss://relay") while
-    // creatorId is a UUID — they were never equal, causing every invite to fail
-    // or (if attacker sets creatorId=databaseId) to be trivially bypassed.
-    final senderUuid = invite.fromContact.id;
-    if (senderUuid != invite.creatorId) {
-      debugPrint('[Group] Rejected invite from non-creator '
-          '$senderUuid (declared creator: ${invite.creatorId})');
-      return;
-    }
-    // Reject invite where our own UUID is absent from the member list.
-    // Prevents joining a group in an inconsistent state where we're not
-    // listed as a member (e.g., relay replaying an old invite to someone else).
-    // F6 fix: use _identity?.id (UUID) not _selfId (transport address).
-    // group.members contains UUIDs; _selfId is "pubkey@relay" — never a match.
-    final myUuid = _identity?.id ?? '';
-    if (myUuid.isNotEmpty && !invite.members.contains(myUuid)) {
-      debugPrint('[Group] Rejected invite: self not listed in members');
-      return;
-    }
+    // NOTE: the previous guard compared `invite.fromContact.id` (our local
+    // UUID for the sender) against `invite.creatorId` (the creator's
+    // own-identity UUID on their device). These are generated
+    // independently on each device and can never equal each other for
+    // cross-device contacts — every remote invite was rejected. The same
+    // applies to checking our own UUID against `invite.members`: the
+    // creator puts OUR-contact-UUID-on-their-device in members, which
+    // doesn't match our local `_identity.id`.
+    //
+    // Signal-layer auth already proves the invite came from someone who
+    // owns the private key for `invite.fromContact`'s Nostr pubkey
+    // (Schnorr sig on Nostr, HMAC on other transports — both enforced in
+    // SignalDispatcher before we get here). Trusting that someone already
+    // in our contact list is invite-worthy is sufficient for the
+    // force-accept baseline; cross-device identity hardening (switch to
+    // pubkey-based creatorId) will come in a follow-up step.
+    debugPrint('[Group] Accepting invite for "${invite.groupName}" '
+        'from ${invite.fromContact.name} '
+        '(creatorId=${invite.creatorId}, members=${invite.members.length})');
     final newGroup = Contact(
       id: invite.groupId,
       name: invite.groupName,
@@ -4292,6 +4300,31 @@ class ChatController extends ChangeNotifier {
 
   Future<void> broadcastGroupUpdate(Contact group) =>
       _broadcaster.broadcastGroupUpdate(group, _contacts.contacts);
+
+  /// Creator-only: broadcast an empty-roster tombstone then remove the
+  /// group locally. Peers' group_update listeners detect "members empty"
+  /// and self-remove (see the d.groupUpdates.listen handler). We send
+  /// the tombstone to the OLD member list — the new payload is empty,
+  /// so without an explicit recipient override no one would be notified.
+  Future<void> deleteGroup(Contact group) async {
+    if (!group.isGroup) return;
+    final recipients = List<String>.from(group.members);
+    final tombstone = group.copyWith(members: const <String>[]);
+    await _broadcaster.broadcastGroupUpdate(
+        tombstone, _contacts.contacts,
+        recipientMemberIds: recipients);
+    await _contacts.removeContact(group.id);
+    _invalidateContactIndex();
+    _scheduleNotify();
+    // Notify any open chat screen for this group so it can pop itself.
+    if (!_groupUpdatePublicCtrl.isClosed) {
+      _groupUpdatePublicCtrl.add(SignalGroupUpdateEvent(
+          group.id, group.name, const [],
+          creatorId: group.creatorId, senderId: _selfId));
+    }
+    debugPrint('[Group] Deleted ${group.name} — tombstone sent to '
+        '${recipients.length} recipient(s)');
+  }
 
   /// Rotate the sender key for a group after a member is removed, then
   /// redistribute to all remaining members. Call this AFTER updating the

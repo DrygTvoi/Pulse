@@ -69,6 +69,7 @@ class _HomeScreenState extends State<HomeScreen> {
   StreamSubscription? _groupCallSubscription;
   StreamSubscription? _groupInviteSubscription;
   StreamSubscription? _groupInviteDeclineSubscription;
+  StreamSubscription? _groupUpdateSubscription;
   StreamSubscription? _newMsgSubscription;
   StreamSubscription? _probeSubscription;
   StreamSubscription? _statusUpdatesSubscription;
@@ -127,6 +128,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _listenForIncomingGroupCalls();
     _listenForGroupInvites();
     _listenForGroupInviteDeclines();
+    _listenForGroupUpdates();
     _searchController.addListener(_onSearchChanged);
     _probeSubscription = ConnectivityProbeService.instance.status.listen((s) {
       if (!mounted) return;
@@ -266,6 +268,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _groupCallSubscription?.cancel();
     _groupInviteSubscription?.cancel();
     _groupInviteDeclineSubscription?.cancel();
+    _groupUpdateSubscription?.cancel();
     _newMsgSubscription?.cancel();
     _unreadSubscription?.cancel();
     _probeSubscription?.cancel();
@@ -642,10 +645,25 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _listenForGroupInvites() {
-    _groupInviteSubscription = ChatController().groupInvites.listen((invite) {
+    _groupInviteSubscription = ChatController().groupInvites.listen((invite) async {
       if (!mounted) return;
-      _showGroupInviteDialog(invite);
+      // Testing baseline: auto-accept every incoming invite so invitees
+      // see the group in their list immediately. Accept/Decline UI will
+      // come back in a follow-up step once the rest of the group flow
+      // (kick / delete propagation, messaging) is verified end-to-end.
+      await ChatController().acceptGroupInvite(invite);
+      if (mounted) _loadAll();
     }, onError: (e) => debugPrint('[HomeScreen] groupInvites stream error: $e'));
+  }
+
+  /// Refresh the chat list on any roster change — the group_update handler
+  /// in ChatController may have removed the group locally (tombstone /
+  /// self-kick) or updated its member list. Without this the chat-tile
+  /// stays visible until the user manually reloads.
+  void _listenForGroupUpdates() {
+    _groupUpdateSubscription = ChatController().groupUpdates.listen((_) {
+      if (mounted) _loadAll();
+    }, onError: (e) => debugPrint('[HomeScreen] groupUpdates stream error: $e'));
   }
 
   void _listenForGroupInviteDeclines() {
@@ -943,7 +961,19 @@ class _HomeScreenState extends State<HomeScreen> {
               context: context,
               builder: (ctx) => CreateGroupDialog(
                 onCreate: (group) async {
-                  await context.read<IContactRepository>().addContact(group);
+                  final repo = context.read<IContactRepository>();
+                  final ctrl = context.read<ChatController>();
+                  await repo.addContact(group);
+                  // Broadcast a group_invite to every member so they see the
+                  // group appear in their own list. Each send uses the
+                  // contact's transport-priority routing with existing
+                  // retry/failover — no need to block group creation on a
+                  // single unreachable peer.
+                  for (final memberId in group.members) {
+                    final memberContact = repo.findById(memberId);
+                    if (memberContact == null) continue;
+                    unawaited(ctrl.sendGroupInvite(memberContact, group));
+                  }
                   _loadAll();
                   if (!context.mounted) return;
                   Navigator.push(context, MaterialPageRoute(
@@ -1307,11 +1337,20 @@ class _HomeScreenState extends State<HomeScreen> {
         _loadMutedChats();
       } else if (value == 'clear') {
         chatCtrl.clearRoomHistory(c);
-      } else if (value == 'delete' || value == 'leave' || value == 'delete_group') {
-        // Step 1: all three actions just remove the contact locally.
-        // Future steps will add: signed group_leave for "leave",
-        // signed empty-roster tombstone for "delete_group".
+      } else if (value == 'delete') {
+        // 1:1 contact: just local remove, nothing to broadcast.
         await context.read<IContactRepository>().removeContact(c.id);
+        _loadAll();
+      } else if (value == 'leave') {
+        // Member leaves a group: remove locally. Creator-side roster
+        // update (our UUID disappears) is deferred to a follow-up step;
+        // today it's fire-and-forget so peers still see us in their
+        // roster until the creator's next broadcast.
+        await context.read<IContactRepository>().removeContact(c.id);
+        _loadAll();
+      } else if (value == 'delete_group') {
+        // Creator deletes: tombstone sent to current members + local remove.
+        await chatCtrl.deleteGroup(c);
         _loadAll();
       } else if (value == 'block') {
         await ContactManager().blockContact(c.id);
