@@ -43,23 +43,50 @@ class ChannelService extends ChangeNotifier {
     return (posts != null && posts.isNotEmpty) ? posts.first : null;
   }
 
+  /// Per-channel flag — true once we've loaded the full 50-post backlog
+  /// from SQLite. Until then we hold only the latest post (for the home-
+  /// screen preview tile); opening the channel triggers a full load via
+  /// [_ensurePostsLoaded] inside [connectFeed].
+  final Set<String> _postsFullyLoaded = {};
+
   Future<void> init() async {
     _channels = await _storage.loadChannels();
-    // Load cached posts from SQLite
-    for (final ch in _channels) {
-      _posts[ch.id] = await _storage.loadChannelPosts(ch.id);
-    }
-    // Load cached tokens
+    // Load only the LATEST post per channel at startup — enough for the
+    // home-screen preview tile. Previously we pulled 50 posts/channel
+    // into RAM on cold start; with N channels that is a MB of JSON
+    // decode on the main thread. Parallel `Future.wait` means N
+    // channels = one round-trip wall time instead of N sequential.
     final prefs = await SharedPreferences.getInstance();
-    for (final ch in _channels) {
+    await Future.wait(_channels.map((ch) async {
+      final latest = await _storage.loadChannelPosts(ch.id, limit: 1);
+      _posts[ch.id] = latest;
       final token = prefs.getString('channel_token_${ch.url}');
       if (token != null) _tokens[ch.url] = token;
-    }
+    }));
     notifyListeners();
     // Background refresh
     for (final ch in _channels) {
       unawaited(_refreshChannel(ch));
     }
+  }
+
+  /// Load the full 50-post backlog for a channel from SQLite on demand.
+  /// Called by [connectFeed] (i.e. when the user opens the channel); no-op
+  /// if we already did it this session.
+  Future<void> _ensurePostsLoaded(String channelId) async {
+    if (_postsFullyLoaded.contains(channelId)) return;
+    _postsFullyLoaded.add(channelId);
+    final full = await _storage.loadChannelPosts(channelId);
+    if (full.isEmpty) return;
+    // Preserve any live-feed posts that arrived since init via WS.
+    final existing = _posts[channelId] ?? const <ChannelPost>[];
+    final seenIds = {for (final p in full) p.id};
+    final merged = [
+      ...existing.where((p) => !seenIds.contains(p.id)),
+      ...full,
+    ];
+    _posts[channelId] = merged;
+    notifyListeners();
   }
 
   Future<void> _refreshChannel(Channel ch) async {
@@ -150,6 +177,10 @@ class ChannelService extends ChangeNotifier {
   }
 
   void connectFeed(String channelId) {
+    // Lazily pull the full SQLite backlog for this channel. init() only
+    // loaded the latest post; now that the user is actually looking at
+    // the channel we materialise the rest.
+    unawaited(_ensurePostsLoaded(channelId));
     if (_wsConns[channelId] != null) return;
     final ch = _findChannel(channelId);
     if (ch == null) return;
