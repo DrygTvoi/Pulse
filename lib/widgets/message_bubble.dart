@@ -128,6 +128,17 @@ class MessageBubble extends StatelessWidget {
 
   static const _unencryptedPrefix = '\u26A0\uFE0F UNENCRYPTED: ';
 
+  /// Pre-populate the parse cache for a message payload. The parse is a
+  /// synchronous base64-decode + gzip-inflate + JSON-validate chain that
+  /// runs on the main isolate inside `build()` when the bubble first
+  /// renders; pre-warming at message-load time (while the chat-list
+  /// skeleton is still on screen) moves that CPU cost off the first
+  /// scroll, turning a 100-image chat-open from "freeze on first frame"
+  /// into "smooth scroll from the start". Safe to call for any text —
+  /// non-media payloads early-return cheaply inside `MediaService.parse`.
+  static void preWarmParse(String encryptedPayload) =>
+      _ParseCache.get(encryptedPayload);
+
   // ── Cached colors (avoid repeated .withValues allocations) ──
   static final _white70 = Colors.white.withValues(alpha: 0.70);
   static final _white65 = Colors.white.withValues(alpha: 0.65);

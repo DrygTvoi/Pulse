@@ -6,6 +6,7 @@ import '../models/contact.dart';
 import '../models/message.dart';
 import '../models/chat_room.dart';
 import 'local_storage_service.dart';
+import '../widgets/message_bubble.dart' show MessageBubble;
 
 /// Holds all in-memory chat state: rooms, pagination cursors, reactions,
 /// per-chat TTL settings, and TTL deletion timers.
@@ -210,6 +211,11 @@ class MessageRepository {
       if (!roomHasMessage(contact.id, msg.id)) {
         room.messages.add(msg);
         trackMessageId(contact.id, msg.id);
+        // Pre-warm the bubble's parse cache — base64/gzip/JSON decode of
+        // media payloads is sync + expensive; paying that cost here (while
+        // the chat skeleton is still rendering) avoids the "freeze on
+        // first scroll" when N media messages hit build() in one frame.
+        MessageBubble.preWarmParse(msg.encryptedPayload);
       }
     }
     room.messages.sort((a, b) => a.timestamp.compareTo(b.timestamp));
@@ -278,6 +284,7 @@ class MessageRepository {
             .toList();
         for (final m in toInsert) {
           trackMessageId(contact.id, m.id);
+          MessageBubble.preWarmParse(m.encryptedPayload);
         }
         room.messages.insertAll(0, toInsert);
         rebuildPositionIndex(contact.id);
