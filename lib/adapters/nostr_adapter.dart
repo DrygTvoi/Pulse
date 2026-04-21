@@ -1486,14 +1486,32 @@ class NostrInboxReader implements InboxReader {
           _consecutiveFailures = 0;
           debugPrint('[Nostr] Force-reconnecting immediately…');
         } else {
-          // If connection was very short-lived, relay might be down — use backoff.
+          // Tiered reconnect cadence based on how long the last connection
+          // lasted — protects against flaky-cellular / captive-portal
+          // churn where every connect succeeds for 30-120 s then drops.
+          // Previously the else-branch fired a flat 2 s reconnect as soon
+          // as `connectionDuration >= 30 s`, producing ~100 reconnects/hr.
           final connectionDuration = DateTime.now().difference(connectTime);
           if (connectionDuration < const Duration(seconds: 30)) {
+            // Tier 1: very short — relay is probably down. Exponential.
             _consecutiveFailures++;
-            final delay = _consecutiveFailures < 3 ? 5 : (_consecutiveFailures < 10 ? 30 : 300);
-            debugPrint('[Nostr] Short-lived connection (${connectionDuration.inSeconds}s) — reconnecting in ${delay}s');
+            final delay = _consecutiveFailures < 3
+                ? 5
+                : (_consecutiveFailures < 10 ? 30 : 300);
+            debugPrint('[Nostr] Short-lived connection '
+                '(${connectionDuration.inSeconds}s) — reconnecting in ${delay}s');
             await Future.delayed(Duration(seconds: delay));
+          } else if (connectionDuration < const Duration(minutes: 5)) {
+            // Tier 2: medium — likely NAT timeout or captive-portal churn.
+            // Keep reconnecting but not in 2 s. Reset exponential backoff
+            // since connection was stable for more than 30 s.
+            _consecutiveFailures = 0;
+            debugPrint('[Nostr] Medium connection '
+                '(${connectionDuration.inSeconds}s) — reconnecting in 10s');
+            await Future.delayed(const Duration(seconds: 10));
           } else {
+            // Tier 3: long-stable connection closed cleanly — fast
+            // recovery since the relay proved healthy.
             _consecutiveFailures = 0;
             debugPrint('[Nostr] Reconnecting in 2s…');
             await Future.delayed(const Duration(seconds: 2));
