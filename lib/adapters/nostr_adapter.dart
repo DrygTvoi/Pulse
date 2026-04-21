@@ -988,6 +988,19 @@ class NostrInboxReader implements InboxReader {
     try { _activeChannel?.sink.close(); } catch (_) {}
     _activeChannel = null;
     _closeSecondaryRelays();
+    // Close the stream controllers too. Without this, any in-flight
+    // gift-wrap that was mid-unwrap when close() fired will still call
+    // _msgCtrl.add() on return — but no one is listening (ChatController
+    // cancelled its subscription during reconnectInbox), and — worse —
+    // _seenIds was already advanced for the inner event id. The MAIN
+    // reader that also receives the event then sees it as a duplicate
+    // and silently drops it. Closing the controllers makes the orphan
+    // dispatch a no-op (the `if (_msgCtrl.isClosed) return;` guard in
+    // _dispatchMessage / _dispatchSignal short-circuits) so the inner
+    // id is not marked "seen" from the dead reader.
+    try { _msgCtrl.close(); } catch (_) {}
+    try { _sigCtrl.close(); } catch (_) {}
+    try { _healthCtrl.close(); } catch (_) {}
   }
 
   // ── Secondary relay subscriptions ────────────────────────────────────────
@@ -1515,6 +1528,16 @@ class NostrInboxReader implements InboxReader {
       final nowSec = DateTime.now().millisecondsSinceEpoch ~/ 1000;
       if (innerTs < nowSec - 7 * 86400) {
         debugPrint('[Nostr] Gift Wrap: inner event too old ($innerTs), dropping');
+        return;
+      }
+      // Skip entirely on a closed reader. A reader that reconnectInbox
+      // already cancelled still has its loop finish in-flight events;
+      // without this guard it would dedup the inner id in its own
+      // _seenIds (and persist it), then the NEW reader sees the same
+      // event from a secondary relay, hits the dedup, and silently
+      // drops the message.
+      if (_msgCtrl.isClosed) {
+        debugPrint('[Nostr] Gift Wrap: reader closed, skipping dispatch for $wrapId');
         return;
       }
       // F2-3: Dedup inner event by inner event ID — outer ID (ephemeral) changes

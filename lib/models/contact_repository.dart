@@ -33,4 +33,27 @@ abstract class IContactRepository {
     }
     return null;
   }
+
+  /// Find a contact by their Nostr secp256k1 pubkey (64 hex chars).
+  /// This is the cross-device stable identifier group code paths should
+  /// use — UUIDs (from [findById]) are generated independently on each
+  /// device and never match between peers for the same person.
+  ///
+  /// Matches against every Nostr transport address the contact has,
+  /// stripping the `@relay` suffix and comparing case-insensitively.
+  /// Default implementation scans linearly; concrete repositories
+  /// (e.g. [ContactManager]) may override with an indexed variant.
+  Contact? findByPubkey(String hexPubkey) {
+    if (hexPubkey.isEmpty) return null;
+    final needle = hexPubkey.toLowerCase();
+    for (final c in contacts) {
+      final addrs = c.transportAddresses['Nostr'] ?? const <String>[];
+      for (final a in addrs) {
+        final atIdx = a.indexOf('@');
+        final pub = (atIdx > 0 ? a.substring(0, atIdx) : a).toLowerCase();
+        if (pub == needle) return c;
+      }
+    }
+    return null;
+  }
 }

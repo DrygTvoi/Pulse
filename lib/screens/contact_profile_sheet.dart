@@ -17,6 +17,7 @@ import '../models/contact_repository.dart';
 import '../utils/adaptive_sheet.dart';
 import '../utils/platform_utils.dart';
 import 'verify_identity_screen.dart';
+import '../services/nostr_profile_cache.dart';
 
 /// Bottom sheet showing contact or group profile.
 /// For groups: shows member list with optional kick button.
@@ -984,6 +985,16 @@ class _ContactProfileBodyState extends State<ContactProfileBody> {
     for (final m in listedMembers) {
       if (seen.add(m)) members.add(m);
     }
+    // Rebuild this section when a Nostr kind:0 profile lands so the
+    // member tiles for previously-unknown peers can swap their
+    // short-pubkey placeholder for the real display name.
+    return AnimatedBuilder(
+      animation: NostrProfileCache.instance,
+      builder: (context, _) => _buildMembersInner(members),
+    );
+  }
+
+  Widget _buildMembersInner(List<String> members) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1030,6 +1041,7 @@ class _ContactProfileBodyState extends State<ContactProfileBody> {
     // works only for the creator (whose UUIDs ARE the source of truth).
     Contact? contact = repo.findById(memberId);
     String? fallbackLabel;
+    String? unknownPubkey;
     if (contact == null) {
       // Cross-device fallback: members[] holds the creator's local
       // UUIDs which never match our own. Translate UUID → Nostr pubkey
@@ -1045,12 +1057,38 @@ class _ContactProfileBodyState extends State<ContactProfileBody> {
               ctrl.displayName.isNotEmpty ? ctrl.displayName : 'You';
         } else {
           contact = repo.findByAddress(pubkey);
-          // Unknown contact — short-pubkey placeholder. Replacing this
-          // with a real display name via Nostr kind:0 profile fetch is
-          // a follow-up step.
-          fallbackLabel ??= '0x${pubkey.substring(0, 8).toUpperCase()}';
+          if (contact == null) {
+            // Unknown peer — try cached Nostr kind:0 profile, kick off
+            // a fetch on miss. The tile rebuilds via AnimatedBuilder
+            // listening to NostrProfileCache when the fetch lands.
+            final cached = NostrProfileCache.instance.get(pubkey);
+            if (cached?.name != null && cached!.name!.isNotEmpty) {
+              fallbackLabel = cached.name;
+            } else {
+              fallbackLabel = '0x${pubkey.substring(0, 8).toUpperCase()}';
+              unknownPubkey = pubkey;
+            }
+          }
         }
       }
+    }
+    if (unknownPubkey != null) {
+      // Schedule fetch using our own subscribed Nostr relays as hints.
+      // Wrapped in microtask so we don't trigger a setState during build.
+      final hints = ctrl.allAddresses
+          .where((a) => a.contains('@wss://') || a.contains('@ws://'))
+          .map((a) {
+            final at = a.indexOf('@');
+            return at > 0 ? a.substring(at + 1) : '';
+          })
+          .where((r) => r.isNotEmpty)
+          .toSet()
+          .toList();
+      debugPrint('[Group] member ${memberId.substring(0, 8)}… → '
+          'unknown pubkey ${unknownPubkey.substring(0, 8)}…, '
+          'scheduling profile fetch with ${hints.length} relay hints');
+      Future.microtask(() => NostrProfileCache.instance
+          .requestFetch(unknownPubkey!, hints));
     }
     final name = contact?.name ??
         fallbackLabel ??

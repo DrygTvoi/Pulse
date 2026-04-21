@@ -578,4 +578,14 @@ class ContactManager implements IContactRepository {
 
   @override
   Contact? findByAddress(String address) => _addressIndex[address];
+
+  /// Indexed pubkey lookup. `_addressIndex` already stores entries keyed
+  /// by the bare pubkey part of each Nostr address (see [_indexContact]),
+  /// so we just lowercase the input and hit the same map — O(1) instead
+  /// of the linear fallback in the base class.
+  @override
+  Contact? findByPubkey(String hexPubkey) {
+    if (hexPubkey.isEmpty) return null;
+    return _addressIndex[hexPubkey.toLowerCase()];
+  }
 }

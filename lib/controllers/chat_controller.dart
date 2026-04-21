@@ -1414,6 +1414,27 @@ class ChatController extends ChangeNotifier {
     _contactIndex = null;
   }
 
+  /// Returns true if [sender] is a member of [group] cross-device. A
+  /// plain `group.members.contains(sender.id)` only works on the device
+  /// that added [sender] as a contact — peers' local UUIDs never match.
+  /// Fall back to checking the sender's Nostr pubkey against the
+  /// `memberPubkeys` map propagated in group_invite / group_update.
+  bool _isSenderInGroup(Contact group, Contact sender) {
+    if (group.members.contains(sender.id)) return true;
+    if (group.memberPubkeys.isEmpty) return false;
+    final nostrAddrs = sender.transportAddresses['Nostr'] ?? const <String>[];
+    for (final addr in nostrAddrs) {
+      final atIdx = addr.indexOf('@');
+      final pub =
+          (atIdx > 0 ? addr.substring(0, atIdx) : addr).toLowerCase();
+      if (pub.isEmpty) continue;
+      for (final mp in group.memberPubkeys.values) {
+        if (mp.toLowerCase() == pub) return true;
+      }
+    }
+    return false;
+  }
+
   /// Returns the cached contact index, rebuilding only when dirty.
   Map<String, Contact> _getContactIndex() {
     // Auto-invalidate when contact list size changed (e.g. contact added via UI).
@@ -1850,7 +1871,7 @@ class ChatController extends ChangeNotifier {
         // distributions for unknown group IDs (skdmGroup == null → guard skipped).
         // An attacker could inject key material for arbitrary groupIds.
         if (skdmGroup == null ||
-            !skdmGroup.members.contains(e.fromContact.id)) {
+            !_isSenderInGroup(skdmGroup, e.fromContact)) {
           debugPrint('[SenderKey] Rejected SKDM from non-member '
               '${e.fromContact.name} for group ${e.groupId}');
           return;
@@ -1899,7 +1920,7 @@ class ChatController extends ChangeNotifier {
     // by sending a UUID that happens to match a group member's ID.
     if (reader == null) return;
     final readerId = reader.id;
-    if (!groupContact.members.contains(readerId)) return;
+    if (!_isSenderInGroup(groupContact, reader)) return;
     final room = _repo.getRoomForContact(groupContact.id);
     if (room == null) return;
     final idx = _repo.messageIndexById(groupContact.id, msgId);
@@ -2235,7 +2256,7 @@ class ChatController extends ChangeNotifier {
                     final skg = _contacts.findById(skGroupId);
                     final skGroup = (skg != null && skg.isGroup) ? skg : null;
                     if (skGroup == null ||
-                        !skGroup.members.contains(senderContact.id)) {
+                        !_isSenderInGroup(skGroup, senderContact)) {
                       debugPrint('[SenderKey] Rejected SK message from non-member '
                           '${senderContact.name} for group $skGroupId');
                     } else {
@@ -2257,7 +2278,10 @@ class ChatController extends ChangeNotifier {
                 if (groupId != null) {
                   final gcl = _contacts.findById(groupId);
                   final groupContact = (gcl != null && gcl.isGroup) ? gcl : null;
-                  final isMember = groupContact?.members.contains(senderContact.id) ?? false;
+                  final isMember = groupContact != null &&
+                      _isSenderInGroup(groupContact, senderContact);
+                  debugPrint('[Group] recv groupId=$groupId sender=${senderContact.name} '
+                      'found=${groupContact != null} isMember=$isMember');
                   if (groupContact != null && isMember) {
                     targetContact = groupContact;
                     // Clear group-specific typing for this member.
@@ -2491,54 +2515,102 @@ class ChatController extends ChangeNotifier {
       }
       final groupPayload = jsonEncode(groupMap);
 
-      // ── Sender Key: distribute if needed, then try encrypt-once ──
-      int sent = 0;
-      bool usedSenderKey = false;
-      try {
-        final sk = SenderKeyService.instance;
-        // Ensure all members have our sender key distribution.
-        if (!await sk.allMembersHaveKey(contact.id, contact.members)) {
-          final skdmBytes = await sk.createDistribution(contact.id, _selfId);
-          final skdmB64 = base64Encode(skdmBytes);
-          for (final memberId in contact.members) {
-            final memberContact = _contacts.findById(memberId);
-            if (memberContact == null) continue;
-            final distOk = await _sendSignalTo(memberContact, 'sender_key_dist', {
-              'groupId': contact.id,
-              'skdm': skdmB64,
-            });
-            if (distOk) await sk.markDistributed(contact.id, memberId);
+      // Resolve every group member UUID to a Contact we can actually send
+      // to. Members are identified cross-device by their Nostr pubkey
+      // (stored in `contact.memberPubkeys[uuid]`) — local UUIDs differ per
+      // device so `findById` alone misses every non-self-added peer.
+      // Skip our own UUID (no self-send) and any member we can't resolve.
+      //
+      // `members[]` on the invitee's device does NOT include the creator
+      // (creators only list the people they invited), so we pull the
+      // creator in separately via `creatorId`.
+      final myUuid = _identity?.id ?? '';
+      final selfId = _selfId;
+      final ownPubAt = selfId.indexOf('@');
+      final ownPub =
+          (ownPubAt > 0 ? selfId.substring(0, ownPubAt) : selfId).toLowerCase();
+      final recipients = <Contact>[];
+      final seenIds = <String>{};
+      var dropped = 0;
+      final memberIds = <String>[
+        if (contact.creatorId != null && contact.creatorId!.isNotEmpty)
+          contact.creatorId!,
+        ...contact.members,
+      ];
+      for (final memberId in memberIds) {
+        if (memberId == myUuid) continue;
+        Contact? mc = _contacts.findById(memberId);
+        if (mc == null) {
+          final pub = contact.memberPubkeys[memberId];
+          if (pub != null && pub.isNotEmpty) {
+            if (pub.toLowerCase() == ownPub) continue; // pubkey is ours
+            mc = _contacts.findByPubkey(pub);
           }
         }
-        // Encrypt once with GroupCipher.
-        final plainBytes = Uint8List.fromList(utf8.encode(groupPayload));
-        final cipherBytes = await sk.encrypt(contact.id, _selfId, plainBytes);
-        final skEnvelope = jsonEncode({
-          '_sk': true,
-          '_group': contact.id,
-          'ct': base64Encode(cipherBytes),
-        });
-        // Send same ciphertext to all members via per-member Signal session.
-        for (final memberId in contact.members) {
-          final memberContact = _contacts.findById(memberId);
-          if (memberContact == null) continue;
-          await _sendToContact(memberContact, skEnvelope, noAutoRetry: noAutoRetry);
-          sent++;
+        if (mc == null) {
+          dropped++;
+          debugPrint('[Group] unresolvable member uuid=$memberId '
+              'pubkey=${contact.memberPubkeys[memberId] ?? "(missing)"}');
+          continue;
         }
-        usedSenderKey = true;
-      } catch (e) {
-        debugPrint('[SenderKey] Encrypt failed, falling back to per-member: $e');
+        if (!seenIds.add(mc.id)) continue; // dedup (creator also in members)
+        recipients.add(mc);
       }
-      // Fallback: per-member encryption (original path).
+
+      // ── Sender Key path: only when every member UUID resolves via
+      //    findById on THIS device. Otherwise the SenderKeyService's
+      //    UUID-keyed distribution tracking (`markDistributed`,
+      //    `allMembersHaveKey`) breaks silently and we'd issue redundant
+      //    SKDMs / encrypt with a mismatched identifier domain. The
+      //    pairwise fallback below handles mixed-roster groups; a
+      //    proper pubkey-keyed SK refactor is a separate task.
+      int sent = 0;
+      bool usedSenderKey = false;
+      final localOnly = contact.members
+          .every((id) => id == myUuid || _contacts.findById(id) != null);
+      if (localOnly) {
+        try {
+          final sk = SenderKeyService.instance;
+          if (!await sk.allMembersHaveKey(contact.id, contact.members)) {
+            final skdmBytes = await sk.createDistribution(contact.id, _selfId);
+            final skdmB64 = base64Encode(skdmBytes);
+            for (final memberContact in recipients) {
+              final distOk = await _sendSignalTo(memberContact, 'sender_key_dist', {
+                'groupId': contact.id,
+                'skdm': skdmB64,
+              });
+              if (distOk) await sk.markDistributed(contact.id, memberContact.id);
+            }
+          }
+          final plainBytes = Uint8List.fromList(utf8.encode(groupPayload));
+          final cipherBytes = await sk.encrypt(contact.id, _selfId, plainBytes);
+          final skEnvelope = jsonEncode({
+            '_sk': true,
+            '_group': contact.id,
+            'ct': base64Encode(cipherBytes),
+          });
+          for (final memberContact in recipients) {
+            await _sendToContact(memberContact, skEnvelope, noAutoRetry: noAutoRetry);
+            sent++;
+          }
+          usedSenderKey = true;
+        } catch (e) {
+          debugPrint('[SenderKey] Encrypt failed, falling back to per-member: $e');
+        }
+      } else {
+        debugPrint('[Group] mixed-roster group — using pairwise pathway '
+            '(${recipients.length} recipients, $dropped dropped)');
+      }
       if (!usedSenderKey) {
         sent = 0;
-        for (final memberId in contact.members) {
-          final memberContact = _contacts.findById(memberId);
-          if (memberContact == null) continue;
+        for (final memberContact in recipients) {
           await _sendToContact(memberContact, groupPayload, noAutoRetry: noAutoRetry);
           sent++;
         }
       }
+      debugPrint('[Group] send id=${localMsg.id} group=${contact.id} '
+          'recipients=${recipients.length} sent=$sent dropped=$dropped '
+          'sk=$usedSenderKey');
 
       final finalStatus = sent > 0 ? 'sent' : 'failed';
       final idx = _repo.messageIndexById(contact.id, localMsg.id);
@@ -3719,10 +3791,29 @@ class ChatController extends ChangeNotifier {
 
   Future<bool> _sendGroupChunk(Contact group, String chunkPayload) async {
     final groupPayload = jsonEncode({'_group': group.id, 'text': chunkPayload});
+    final myUuid = _identity?.id ?? '';
+    final selfId = _selfId;
+    final ownPubAt = selfId.indexOf('@');
+    final ownPub =
+        (ownPubAt > 0 ? selfId.substring(0, ownPubAt) : selfId).toLowerCase();
     int sent = 0;
-    for (final memberId in group.members) {
-      final memberContact = _contacts.findById(memberId);
+    final seen = <String>{};
+    final memberIds = <String>[
+      if (group.creatorId != null && group.creatorId!.isNotEmpty) group.creatorId!,
+      ...group.members,
+    ];
+    for (final memberId in memberIds) {
+      if (memberId == myUuid) continue;
+      Contact? memberContact = _contacts.findById(memberId);
+      if (memberContact == null) {
+        final pub = group.memberPubkeys[memberId];
+        if (pub != null && pub.isNotEmpty) {
+          if (pub.toLowerCase() == ownPub) continue;
+          memberContact = _contacts.findByPubkey(pub);
+        }
+      }
       if (memberContact == null) continue;
+      if (!seen.add(memberContact.id)) continue;
       final ok = await _sendToContact(memberContact, groupPayload);
       if (ok) sent++;
     }
