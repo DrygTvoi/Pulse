@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'app_lifecycle_service.dart';
 
 /// Lightweight internet connectivity probe with network-change detection.
 ///
@@ -16,6 +17,9 @@ class NetworkMonitor {
 
   Timer? _timer;
   Set<String> _lastIps = {};
+  Duration _interval = const Duration(seconds: 30);
+  void Function(bool)? _onChanged;
+  void Function()? _onNetworkChanged;
 
   // ── Public API ────────────────────────────────────────────────────────────
 
@@ -23,15 +27,29 @@ class NetworkMonitor {
   /// [onChanged] is called whenever the connectivity status flips.
   /// [onNetworkChanged] is called when network interfaces change (IP swap),
   ///   even if connectivity status stays the same (e.g. WiFi→cellular).
+  ///
+  /// Pauses while the app is backgrounded — the OS will tell us about
+  /// connectivity changes via the lifecycle resume callback (we re-snapshot
+  /// + re-check on resume), so polling 24/7 wastes battery for no benefit.
   void startMonitoring({
     Duration interval = const Duration(seconds: 30),
     required void Function(bool isAvailable) onChanged,
     void Function()? onNetworkChanged,
   }) {
+    _interval = interval;
+    _onChanged = onChanged;
+    _onNetworkChanged = onNetworkChanged;
+    AppLifecycleService.instance.removeListener(_onLifecycleChange);
+    AppLifecycleService.instance.addListener(_onLifecycleChange);
+    _startTimerIfForeground();
+  }
+
+  void _startTimerIfForeground() {
     _timer?.cancel();
+    if (AppLifecycleService.instance.isPaused) return;
     // Snapshot current IPs
     _snapshotIps().then((ips) { _lastIps = ips; });
-    _timer = Timer.periodic(interval, (_) async {
+    _timer = Timer.periodic(_interval, (_) async {
       final was = _available;
       _available = await checkOnce();
 
@@ -43,24 +61,53 @@ class NetworkMonitor {
         debugPrint('[NetworkMonitor] Interface IPs changed: $currentIps');
         // Only fire here when connectivity status didn't also
         // change — avoids double-fire when both conditions occur simultaneously.
-        if (was == _available) onNetworkChanged?.call();
+        if (was == _available) _onNetworkChanged?.call();
       }
 
       if (was != _available) {
         debugPrint('[NetworkMonitor] Internet ${_available ? "restored" : "lost"}');
-        onChanged(_available);
+        _onChanged?.call(_available);
         // Connectivity restored → also treat as network change (single fire
         // covers both IP change and connectivity restoration).
         if (_available && !was) {
-          onNetworkChanged?.call();
+          _onNetworkChanged?.call();
         }
       }
     });
   }
 
+  void _onLifecycleChange() {
+    if (AppLifecycleService.instance.isPaused) {
+      _timer?.cancel();
+      _timer = null;
+    } else if (_timer == null && _onChanged != null) {
+      _startTimerIfForeground();
+      // Force one immediate check on resume — interfaces may have flipped
+      // (WiFi↔cellular) while we were paused.
+      unawaited(_resumeProbe());
+    }
+  }
+
+  Future<void> _resumeProbe() async {
+    final was = _available;
+    _available = await checkOnce();
+    final currentIps = await _snapshotIps();
+    final ipsChanged = !_setsEqual(_lastIps, currentIps);
+    if (ipsChanged) {
+      _lastIps = currentIps;
+      _onNetworkChanged?.call();
+    } else if (was != _available) {
+      _onChanged?.call(_available);
+      if (_available && !was) _onNetworkChanged?.call();
+    }
+  }
+
   void stopMonitoring() {
+    AppLifecycleService.instance.removeListener(_onLifecycleChange);
     _timer?.cancel();
     _timer = null;
+    _onChanged = null;
+    _onNetworkChanged = null;
   }
 
   /// Single-shot check: returns true if internet is reachable.

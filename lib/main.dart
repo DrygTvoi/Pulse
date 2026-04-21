@@ -24,6 +24,7 @@ import 'services/tor_service.dart';
 import 'services/psiphon_service.dart';
 import 'services/psiphon_turn_proxy.dart';
 import 'services/background_service.dart';
+import 'services/app_lifecycle_service.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'l10n/app_localizations.dart';
 import 'services/locale_notifier.dart';
@@ -230,9 +231,11 @@ class _PulseAppState extends State<PulseApp> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.paused) {
       _backgroundedAt = DateTime.now();
+      AppLifecycleService.instance.setPaused(true);
     } else if (state == AppLifecycleState.resumed) {
       final bg = _backgroundedAt;
       _backgroundedAt = null;
+      AppLifecycleService.instance.setPaused(false);
       if (bg != null && DateTime.now().difference(bg) >= _kLockDelay) {
         _checkAndLock();
       }

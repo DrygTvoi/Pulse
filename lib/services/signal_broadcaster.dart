@@ -17,6 +17,7 @@ import '../constants.dart';
 import 'key_manager.dart';
 import 'connectivity_probe_service.dart';
 import 'ice_server_config.dart';
+import 'app_lifecycle_service.dart';
 
 /// Handles all *outgoing* signals: typing indicators, heartbeats, status/profile
 /// broadcasts, group signals, delivery ACKs, reactions, edits, and more.
@@ -153,7 +154,14 @@ class SignalBroadcaster {
   // ── Heartbeats ───────────────────────────────────────────────────────────
 
   void startHeartbeats(List<Contact> Function() contactsGetter) {
+    _heartbeatContactsGetter = contactsGetter;
+    AppLifecycleService.instance.removeListener(_onLifecycleChange);
+    AppLifecycleService.instance.addListener(_onLifecycleChange);
     _heartbeatTimer?.cancel();
+    if (AppLifecycleService.instance.isPaused) {
+      // Already backgrounded — wait for resume to start ticking.
+      return;
+    }
     // Fire immediately so contacts see us online right away.
     unawaited(_sendHeartbeats(contactsGetter()));
     _heartbeatTimer = Timer.periodic(const Duration(minutes: 2), (_) {
@@ -162,8 +170,30 @@ class SignalBroadcaster {
   }
 
   void stopHeartbeats() {
+    AppLifecycleService.instance.removeListener(_onLifecycleChange);
     _heartbeatTimer?.cancel();
     _heartbeatTimer = null;
+    _heartbeatContactsGetter = null;
+  }
+
+  List<Contact> Function()? _heartbeatContactsGetter;
+
+  /// Pause heartbeats while backgrounded — peer "is online" status is best-
+  /// effort; missing 5-30 minutes of beats during background isn't worth
+  /// the radio wakeups + battery cost. Resumes immediately on foreground
+  /// with one fresh beat so contacts see us back online.
+  void _onLifecycleChange() {
+    final getter = _heartbeatContactsGetter;
+    if (getter == null) return;
+    if (AppLifecycleService.instance.isPaused) {
+      _heartbeatTimer?.cancel();
+      _heartbeatTimer = null;
+    } else if (_heartbeatTimer == null) {
+      unawaited(_sendHeartbeats(getter()));
+      _heartbeatTimer = Timer.periodic(const Duration(minutes: 2), (_) {
+        unawaited(_sendHeartbeats(getter()));
+      });
+    }
   }
 
   Future<void> _sendHeartbeats(List<Contact> contacts) async {

@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'nostr_event_builder.dart' as eb;
 import 'tor_service.dart';
 import 'psiphon_service.dart';
+import 'app_lifecycle_service.dart';
 import 'psiphon_turn_proxy.dart';
 import 'ice_server_config.dart';
 import 'relay_directory_service.dart';
@@ -290,8 +291,22 @@ class ConnectivityProbeService {
 
   /// Starts a periodic background refresh every [_cacheTtlH] hours.
   /// Also runs a quick health check of cached relays halfway through.
+  /// Pauses while the app is backgrounded — relay quality probing isn't
+  /// urgent and the cache is good for hours; running 14× TCP-connect
+  /// probes when the user can't see the result is pure battery waste.
   void startPeriodicRefresh() {
+    AppLifecycleService.instance.removeListener(_onLifecycleChange);
+    AppLifecycleService.instance.addListener(_onLifecycleChange);
+    _periodicRefreshActive = true;
+    _startTimerIfForeground();
+  }
+
+  bool _periodicRefreshActive = false;
+
+  void _startTimerIfForeground() {
     _refreshTimer?.cancel();
+    if (!_periodicRefreshActive ||
+        AppLifecycleService.instance.isPaused) return;
     _refreshTimer = Timer.periodic(Duration(hours: _cacheTtlH), (_) {
       debugPrint('[Probe] Periodic refresh triggered');
       unawaited(_runProbe());
@@ -302,8 +317,19 @@ class ConnectivityProbeService {
     });
   }
 
+  void _onLifecycleChange() {
+    if (AppLifecycleService.instance.isPaused) {
+      _refreshTimer?.cancel();
+      _refreshTimer = null;
+    } else if (_periodicRefreshActive && _refreshTimer == null) {
+      _startTimerIfForeground();
+    }
+  }
+
   /// Stops the periodic refresh.
   void stopPeriodicRefresh() {
+    AppLifecycleService.instance.removeListener(_onLifecycleChange);
+    _periodicRefreshActive = false;
     _refreshTimer?.cancel();
     _refreshTimer = null;
   }
