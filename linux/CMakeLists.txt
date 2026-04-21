@@ -128,6 +128,18 @@ install(FILES "${CMAKE_SOURCE_DIR}/libs/libsqlcipher.so"
   DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
   COMPONENT Runtime)
 
+# Bundle Linux native binaries (tor, snowflake, psiphon, utls-proxy, obfs4).
+# These used to ship via pubspec.yaml assets, but Flutter's asset pipeline
+# has no per-platform filter — they were being packaged into every Android
+# APK, adding 77 MB of dead weight that couldn't execute on ARM.
+# BundledBinaryService resolves Linux binaries from this directory at
+# runtime (next to the executable, not via rootBundle).
+install(DIRECTORY "${CMAKE_SOURCE_DIR}/../assets/bins/linux_x64/"
+  DESTINATION "${INSTALL_BUNDLE_DATA_DIR}/bins/linux_x64"
+  COMPONENT Runtime
+  USE_SOURCE_PERMISSIONS
+  PATTERN ".keep" EXCLUDE)
+
 # Install the AOT library on non-Debug builds only.
 if(NOT CMAKE_BUILD_TYPE MATCHES "Debug")
   install(FILES "${AOT_LIBRARY}" DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"

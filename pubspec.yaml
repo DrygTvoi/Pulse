@@ -82,11 +82,12 @@ flutter:
   assets:
     - assets/icons/
     - google_fonts/
-    - assets/bins/linux_x64/
-    - assets/bins/linux_arm64/
+    # Android APK only ships android_arm64 binaries (~59 MB). linux_* binaries
+    # are bundled via linux/CMakeLists.txt into bundle/data/bins/ instead —
+    # keeping them out of Flutter's asset pipeline prevents Linux binaries
+    # (77 MB) from ending up inside every Android APK, where they can never
+    # execute. android_x64 / windows_x64 are empty placeholders, not needed.
     - assets/bins/android_arm64/
-    - assets/bins/android_x64/
-    - assets/bins/windows_x64/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
