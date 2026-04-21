@@ -556,7 +556,7 @@ class SignalDispatcher {
           final wrapped = rawPayloadPqc['_pqc_wrapped'] as String?;
           if (wrapped != null && wrapped.startsWith('PQC2||')) {
             try {
-              final unwrapped = CryptoLayer.unwrap(wrapped);
+              final unwrapped = await CryptoLayer.unwrap(wrapped);
               sig = Map<String, dynamic>.from(sig);
               sig['payload'] = jsonDecode(unwrapped) as Map<String, dynamic>;
               debugPrint('[SignalDispatcher] PQC unwrapped signal ($sigType) from $sigSender');

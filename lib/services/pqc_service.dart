@@ -1,7 +1,43 @@
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:pqcrypto/pqcrypto.dart';
+
+// ── Compute-isolate workers for ML-KEM-1024 ──────────────────────────────────
+// Pure-Dart Kyber-1024 encap/decap take 20-100 ms each. Per-message cost on
+// the main isolate stalls the UI under burst inbound. Move to compute().
+// `KyberKem` is stateless (just holds curve params), so we instantiate fresh
+// inside the worker — no shared state across isolates needed.
+
+class _KyberEncapArgs {
+  final Uint8List remotePk;
+  const _KyberEncapArgs(this.remotePk);
+}
+
+(Uint8List, Uint8List) _kyberEncapsulateIsolate(_KyberEncapArgs args) {
+  final kem = PqcKem.kyber1024;
+  final (ct, ss) = kem.encapsulate(args.remotePk);
+  return (Uint8List.fromList(ct), Uint8List.fromList(ss));
+}
+
+class _KyberDecapArgs {
+  final Uint8List sk;
+  final Uint8List ct;
+  const _KyberDecapArgs(this.sk, this.ct);
+}
+
+Uint8List _kyberDecapsulateIsolate(_KyberDecapArgs args) {
+  final kem = PqcKem.kyber1024;
+  final ss = kem.decapsulate(args.sk, args.ct);
+  return Uint8List.fromList(ss);
+}
+
+(Uint8List, Uint8List) _kyberGenerateKeypairIsolate(void _) {
+  final kem = PqcKem.kyber1024;
+  final (pk, sk) = kem.generateKeyPair();
+  return (Uint8List.fromList(pk), Uint8List.fromList(sk));
+}
 
 /// Manages the local Kyber-1024 keypair used for the PQC hybrid encryption layer.
 ///
@@ -87,28 +123,30 @@ class PqcService {
   }
 
   /// Encapsulate to a remote public key.
-  /// Returns (ciphertext, sharedSecret) — both 32–1568 bytes per ML-KEM-1024 spec.
-  (Uint8List, Uint8List) encapsulate(Uint8List remotePk) {
+  /// Runs the heavy ML-KEM-1024 work in a compute() isolate — pure-Dart
+  /// Kyber takes 20-100 ms per call, blocking the UI if invoked here.
+  /// Returns (ciphertext, sharedSecret) — both 32–1568 bytes per spec.
+  Future<(Uint8List, Uint8List)> encapsulate(Uint8List remotePk) async {
     if (!_initialized) throw StateError('PqcService not initialized');
     if (remotePk.length != 1568) {
       throw ArgumentError('Invalid ML-KEM-1024 public key: expected 1568 bytes, got ${remotePk.length}');
     }
-    final (ct, ss) = _kem.encapsulate(remotePk);
-    return (Uint8List.fromList(ct), Uint8List.fromList(ss));
+    return compute(_kyberEncapsulateIsolate, _KyberEncapArgs(remotePk));
   }
 
   /// Decapsulate an incoming Kyber ciphertext → 32-byte shared secret.
   /// Tries the current sk first; falls back to the previous sk (grace period).
-  Uint8List decapsulate(Uint8List ciphertext) {
+  /// Runs in compute() isolate — see [encapsulate].
+  Future<Uint8List> decapsulate(Uint8List ciphertext) async {
     if (!_initialized) throw StateError('PqcService not initialized');
     try {
-      final ss = _kem.decapsulate(_sk!, ciphertext);
-      return Uint8List.fromList(ss);
+      return await compute(_kyberDecapsulateIsolate,
+          _KyberDecapArgs(_sk!, ciphertext));
     } catch (e) {
       debugPrint('[PQC] Current key decapsulation failed (key rotation in progress?): $e');
       if (_skPrev != null) {
-        final ss = _kem.decapsulate(_skPrev!, ciphertext);
-        return Uint8List.fromList(ss);
+        return await compute(_kyberDecapsulateIsolate,
+            _KyberDecapArgs(_skPrev!, ciphertext));
       }
       rethrow;
     }
@@ -146,9 +184,9 @@ class PqcService {
         await _storage.write(key: _kPkPrev, value: base64Encode(_pk!));
       }
     }
-    final (pk, sk) = _kem.generateKeyPair();
-    _pk = Uint8List.fromList(pk);
-    _sk = Uint8List.fromList(sk);
+    final (pk, sk) = await compute(_kyberGenerateKeypairIsolate, null);
+    _pk = pk;
+    _sk = sk;
     await _storage.write(key: _kPk, value: base64Encode(_pk!));
     await _storage.write(key: _kSk, value: base64Encode(_sk!));
     await _storage.write(

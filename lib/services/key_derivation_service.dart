@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
 import 'package:cryptography/cryptography.dart';
 import 'package:cryptography/dart.dart';
 
@@ -10,13 +11,29 @@ import 'package:cryptography/dart.dart';
 // ~1000× more expensive than PBKDF2 and impractical even with Grover's
 // quantum speedup (Grover only helps on hash iterations, not memory bandwidth).
 //
-// DartArgon2id spawns its own worker isolate — UI stays responsive.
-final _argon2 = DartArgon2id(
-  parallelism: 1,
-  memory:      65536, // 64 MiB
-  iterations:  3,
-  hashLength:  32,
-);
+// DartArgon2id is the pure-Dart fallback; it claims worker-isolate but in
+// practice runs on the calling isolate. We wrap each derive call in
+// `compute()` to keep the UI responsive (5-15 s of pure CPU otherwise).
+
+class _Argon2Args {
+  final List<int> password;
+  final List<int> salt;
+  const _Argon2Args(this.password, this.salt);
+}
+
+Future<Uint8List> _argon2DeriveIsolate(_Argon2Args args) async {
+  final argon = DartArgon2id(
+    parallelism: 1,
+    memory: 65536, // 64 MiB
+    iterations: 3,
+    hashLength: 32,
+  );
+  final sk = await argon.deriveKey(
+    secretKey: SecretKey(args.password),
+    nonce: args.salt,
+  );
+  return Uint8List.fromList(await sk.extractBytes());
+}
 
 // Fixed domain salts — same on every device so the same recovery password
 // always produces the same keys (brain-wallet pattern).
@@ -38,16 +55,8 @@ class KeyDerivationService {
     if (password.length < 16) {
       throw ArgumentError('Password must be at least 16 characters for secure key derivation');
     }
-    final passwordBytes = Uint8List.fromList(utf8.encode(password));
-    try {
-      final sk = await _argon2.deriveKey(
-        secretKey: SecretKey(passwordBytes),
-        nonce: _kNostrSalt,
-      );
-      return Uint8List.fromList(await sk.extractBytes());
-    } finally {
-      passwordBytes.fillRange(0, passwordBytes.length, 0);
-    }
+    return compute(
+        _argon2DeriveIsolate, _Argon2Args(utf8.encode(password), _kNostrSalt));
   }
 
   /// 32-byte Session Network seed derived from [password].
@@ -55,16 +64,8 @@ class KeyDerivationService {
     if (password.length < 16) {
       throw ArgumentError('Password must be at least 16 characters for secure key derivation');
     }
-    final passwordBytes = Uint8List.fromList(utf8.encode(password));
-    try {
-      final sk = await _argon2.deriveKey(
-        secretKey: SecretKey(passwordBytes),
-        nonce: _kSessionSalt,
-      );
-      return Uint8List.fromList(await sk.extractBytes());
-    } finally {
-      passwordBytes.fillRange(0, passwordBytes.length, 0);
-    }
+    return compute(_argon2DeriveIsolate,
+        _Argon2Args(utf8.encode(password), _kSessionSalt));
   }
 
   /// 32-byte Ed25519 seed derived from [password] for Pulse server auth.
@@ -72,15 +73,7 @@ class KeyDerivationService {
     if (password.length < 16) {
       throw ArgumentError('Password must be at least 16 characters');
     }
-    final passwordBytes = Uint8List.fromList(utf8.encode(password));
-    try {
-      final sk = await _argon2.deriveKey(
-        secretKey: SecretKey(passwordBytes),
-        nonce: _kPulseSalt,
-      );
-      return Uint8List.fromList(await sk.extractBytes());
-    } finally {
-      passwordBytes.fillRange(0, passwordBytes.length, 0);
-    }
+    return compute(_argon2DeriveIsolate,
+        _Argon2Args(utf8.encode(password), _kPulseSalt));
   }
 }

@@ -106,7 +106,7 @@ class KeyManager {
   /// No-op if no Kyber key is available.
   Future<String> pqcWrap(String signalCt, String contactId) async {
     final pk = await loadContactKyberPk(contactId);
-    return CryptoLayer.wrap(signalCt, pk);
+    return await CryptoLayer.wrap(signalCt, pk);
   }
 
   // ── Key publishing ───────────────────────────────────────────────────────

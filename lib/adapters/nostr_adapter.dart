@@ -1089,7 +1089,7 @@ class NostrInboxReader implements InboxReader {
                   if (cmd == 'EVENT' && data.length >= 3) {
                     try {
                       final fetchEvent = data[2] as Map<String, dynamic>;
-                      if (!eb.verifyEventSignature(fetchEvent)) {
+                      if (!await eb.verifyEventSignatureAsync(fetchEvent)) {
                         debugPrint('[Nostr] fetchPublicKeys secondary: invalid sig — dropped');
                       } else {
                         final bundle = jsonDecode(fetchEvent['content'] as String) as Map<String, dynamic>;
@@ -1115,7 +1115,7 @@ class NostrInboxReader implements InboxReader {
             _trackSeenId(id);
             // Re-dispatch through the same event processing as primary loop.
             // We call the shared _dispatchEvent.
-            _dispatchEventFromSecondary(event);
+            unawaited(_dispatchEventFromSecondary(event));
           } catch (_) {}
         }
       } catch (e) {
@@ -1145,11 +1145,11 @@ class NostrInboxReader implements InboxReader {
   }
 
   /// Dispatch an event from a secondary relay through the normal pipeline.
-  void _dispatchEventFromSecondary(Map<String, dynamic> event) {
+  Future<void> _dispatchEventFromSecondary(Map<String, dynamic> event) async {
     final kind = (event['kind'] as int?) ?? -1;
     final id = event['id'] as String? ?? '';
     debugPrint('[Nostr] Secondary EVENT kind=$kind id=${id.length >= 8 ? id.substring(0, 8) : id}…');
-    if (!eb.verifyEventSignature(event)) {
+    if (!await eb.verifyEventSignatureAsync(event)) {
       debugPrint('[Nostr] Secondary: dropped event with invalid signature');
       return;
     }
@@ -1339,7 +1339,7 @@ class NostrInboxReader implements InboxReader {
                         // Verify Schnorr signature before trusting
                         // Signal bundle content — a malicious relay could inject
                         // fabricated prekeys enabling MITM on all future messages.
-                        if (!eb.verifyEventSignature(fetchEvent)) {
+                        if (!await eb.verifyEventSignatureAsync(fetchEvent)) {
                           debugPrint('[Nostr] fetchPublicKeys inline: invalid sig — dropped');
                         } else {
                           final bundle = jsonDecode(fetchEvent['content'] as String) as Map<String, dynamic>;
@@ -1414,7 +1414,7 @@ class NostrInboxReader implements InboxReader {
               // Track AFTER signature verification — a relay sending an invalid-sig
               // event with a real ID would poison the dedup cache and suppress the
               // legitimate event for up to 30 minutes.
-              if (!eb.verifyEventSignature(event)) {
+              if (!await eb.verifyEventSignatureAsync(event)) {
                 debugPrint('[Nostr] Dropped event with invalid signature: $id');
                 continue;
               }
@@ -1755,13 +1755,13 @@ class NostrInboxReader implements InboxReader {
       Timer(const Duration(seconds: 10), () {
         if (!completer.isCompleted) completer.complete(null);
       });
-      sub = channel.stream.listen((raw) {
+      sub = channel.stream.listen((raw) async {
         try {
           final data = jsonDecode(raw as String) as List;
           if (data[0] == 'EVENT' && data[1] == subId) {
             final event = data[2] as Map<String, dynamic>;
             // Verify Schnorr signature on one-shot key fetch
-            if (!eb.verifyEventSignature(event)) {
+            if (!await eb.verifyEventSignatureAsync(event)) {
               debugPrint('[Nostr] fetchPublicKeys one-shot: invalid sig — dropped');
             } else {
               final bundle = jsonDecode(event['content'] as String) as Map<String, dynamic>;

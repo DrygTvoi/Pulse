@@ -40,13 +40,14 @@ class CryptoLayer {
   ///
   /// [remotePk] is the recipient's Kyber public key from their bundle.
   /// Returns [signalCt] unchanged when [remotePk] is null (no PQC available).
-  static String wrap(String signalCt, Uint8List? remotePk) {
+  static Future<String> wrap(String signalCt, Uint8List? remotePk) async {
     if (remotePk == null) return signalCt;
     // ML-KEM-1024 public key must be exactly 1568 bytes.
     if (remotePk.length != 1568) return signalCt; // silently skip — don't crash sender
 
     // Fresh per-message encapsulation → perfect forward secrecy at PQC layer.
-    final (ct, ss) = PqcService().encapsulate(remotePk);
+    // Kyber encap is now compute-isolate-backed (PqcService.encapsulate).
+    final (ct, ss) = await PqcService().encapsulate(remotePk);
     final key = _hkdf(ss);
     final nonce = _randomBytes(12);
     final ciphertext = _aesGcmEncrypt(key, nonce, utf8.encode(signalCt));
@@ -58,7 +59,7 @@ class CryptoLayer {
   ///
   /// Returns [wrapped] unchanged if it does not start with `PQC2||`.
   /// Throws [FormatException] or [Exception] on tampered / malformed input.
-  static String unwrap(String wrapped) {
+  static Future<String> unwrap(String wrapped) async {
     if (!wrapped.startsWith(_prefix)) return wrapped;
 
     final body = wrapped.substring(_prefix.length);
@@ -92,7 +93,7 @@ class CryptoLayer {
     if (ciphertext.length > maxCiphertextBytes) {
       throw FormatException('PQC ciphertext too large: ${ciphertext.length} bytes (max $maxCiphertextBytes)');
     }
-    final ss = PqcService().decapsulate(ct);
+    final ss = await PqcService().decapsulate(ct);
     final key = _hkdf(ss);
 
     final Uint8List plaintext;

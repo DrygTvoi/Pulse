@@ -2019,7 +2019,7 @@ class ChatController extends ChangeNotifier {
         String rawPayload = msg.encryptedPayload;
         if (rawPayload.startsWith('PQC2||')) {
           try {
-            rawPayload = CryptoLayer.unwrap(rawPayload);
+            rawPayload = await CryptoLayer.unwrap(rawPayload);
             // PQC succeeded — mark sender as confirmed so we PQC-wrap replies.
             _pqcConfirmed.add(msg.senderId);
             final senderPub = msg.senderId.split('@').first;

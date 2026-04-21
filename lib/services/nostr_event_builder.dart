@@ -214,3 +214,87 @@ String generateRandomPrivkey() {
   final rng = Random.secure();
   return hex.encode(Uint8List.fromList(List.generate(32, (_) => rng.nextInt(256))));
 }
+
+/// Background-isolate variant of [verifyEventSignature]. Same algorithm,
+/// runs in a `compute()` worker so the main isolate doesn't stall on
+/// pure-Dart secp256k1 scalar mults (~30-100 ms per event in pointycastle).
+/// Pre-validates the inputs and recomputes the event id on the caller
+/// (cheap SHA256) so the isolate only does the heavy curve work.
+Future<bool> verifyEventSignatureAsync(Map<String, dynamic> event) {
+  final String id, sig, pubkey;
+  try {
+    id = event['id'] as String;
+    sig = event['sig'] as String;
+    pubkey = event['pubkey'] as String;
+    final computedId = buildEventId(event);
+    if (computedId != id) return Future.value(false);
+  } catch (_) {
+    return Future.value(false);
+  }
+  return compute(_verifyEventSignatureIsolate, <String, String>{
+    'id': id,
+    'sig': sig,
+    'pubkey': pubkey,
+  });
+}
+
+bool _verifyEventSignatureIsolate(Map<String, String> params) {
+  try {
+    final id = params['id']!;
+    final sig = params['sig']!;
+    final pubkeyHex = params['pubkey']!;
+
+    final secp = ECCurve_secp256k1();
+
+    final sigBytes = hex.decode(sig);
+    if (sigBytes.length != 64) return false;
+
+    final rx = BigInt.parse(hex.encode(sigBytes.sublist(0, 32)), radix: 16);
+    final s = BigInt.parse(hex.encode(sigBytes.sublist(32, 64)), radix: 16);
+
+    final n = secp.n;
+    if (s >= n) return false;
+    final G = secp.G;
+    const pHex =
+        'FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F';
+    final p = BigInt.parse(pHex, radix: 16);
+    if (rx == BigInt.zero || rx >= p) return false;
+
+    final px = BigInt.parse(pubkeyHex, radix: 16);
+    if (px == BigInt.zero || px >= p) return false;
+    final py2 = (px.modPow(BigInt.from(3), p) + BigInt.from(7)) % p;
+    final py = py2.modPow((p + BigInt.one) ~/ BigInt.from(4), p);
+    if ((py * py) % p != py2) return false;
+    final useY = py.isEven ? py : p - py;
+    final P = secp.curve.createPoint(px, useY);
+
+    if (P.isInfinity) return false;
+    final nP = P * n;
+    if (nP == null || !nP.isInfinity) return false;
+
+    final msgBytes = hex.decode(id);
+    final pubBytes = hex.decode(pubkeyHex);
+    final rxBytes = sigBytes.sublist(0, 32);
+
+    Uint8List sha256Hash(List<int> data) =>
+        Uint8List.fromList(crypto.sha256.convert(data).bytes);
+    Uint8List taggedHash(String tag, List<int> data) {
+      final tagHash = sha256Hash(utf8.encode(tag));
+      return sha256Hash([...tagHash, ...tagHash, ...data]);
+    }
+
+    final eBytes = taggedHash(
+        'BIP0340/challenge', [...rxBytes, ...pubBytes, ...msgBytes]);
+    final e = BigInt.parse(hex.encode(eBytes), radix: 16) % n;
+
+    final sG = G * s;
+    final negE = n - e;
+    final eP = P * negE;
+    final R = sG! + eP!;
+    if (R == null || R.isInfinity) return false;
+    if (R.y!.toBigInteger()!.isOdd) return false;
+    return R.x!.toBigInteger() == rx;
+  } catch (_) {
+    return false;
+  }
+}

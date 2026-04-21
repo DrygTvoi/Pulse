@@ -136,7 +136,7 @@ Future<Map<String, dynamic>?> unwrapEvent({
     final sealEvent = jsonDecode(sealJson) as Map<String, dynamic>;
 
     // Verify seal event signature before trusting its contents
-    if (!eb.verifyEventSignature(sealEvent)) {
+    if (!await eb.verifyEventSignatureAsync(sealEvent)) {
       debugPrint('[GiftWrap] Seal signature invalid — dropping');
       return null;
     }
@@ -154,7 +154,7 @@ Future<Map<String, dynamic>?> unwrapEvent({
     final innerEvent = jsonDecode(innerJson) as Map<String, dynamic>;
 
     // 3. Verify inner event Schnorr signature
-    if (!eb.verifyEventSignature(innerEvent)) {
+    if (!await eb.verifyEventSignatureAsync(innerEvent)) {
       return null;
     }
 
