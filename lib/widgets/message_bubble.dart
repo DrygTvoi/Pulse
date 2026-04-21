@@ -71,6 +71,15 @@ class MessageBubble extends StatelessWidget {
   final bool isMe;
   final String status;     // 'sending', 'sent', 'failed', '' (received)
   final bool showTail;     // true = last message in a consecutive group
+  /// Previous message in the timeline is from the SAME sender within the
+  /// grouping window. FluffyChat-style asymmetric corners use this to
+  /// "glue" stacked messages together: the corner on the sender's side at
+  /// the TOP of THIS bubble collapses to a 4px hard corner.
+  final bool previousSameSender;
+  /// Next message is from the same sender. The BOTTOM corner on the
+  /// sender's side collapses to a 4px hard corner so consecutive bubbles
+  /// merge visually without a divider.
+  final bool nextSameSender;
   final String? senderName; // shown above bubble in group chats (non-me only)
   final bool isEdited;
   final Map<String, List<String>>? reactions; // {emoji: [senderIds]}
@@ -99,6 +108,8 @@ class MessageBubble extends StatelessWidget {
     required this.isMe,
     this.status = '',
     this.showTail = true,
+    this.previousSameSender = false,
+    this.nextSameSender = false,
     this.senderName,
     this.isEdited = false,
     this.reactions,
@@ -156,18 +167,23 @@ class MessageBubble extends StatelessWidget {
     final media = parsed.media;
     final blossomPayload = parsed.blossomPayload;
 
+    final theme = Theme.of(context);
     final Color bgColor = isUnencrypted
         ? const Color(0xFF8B1A1A)
-        : (isMe ? AppTheme.outgoingBubble : AppTheme.incomingBubble);
+        : (isMe ? theme.bubbleColor : theme.colorScheme.surfaceContainerHigh);
 
-    final radius = showTail
-        ? BorderRadius.only(
-            topLeft: Radius.circular(DesignTokens.chatBubbleRadius),
-            topRight: Radius.circular(DesignTokens.chatBubbleRadius),
-            bottomLeft: Radius.circular(isMe ? DesignTokens.chatBubbleRadius : DesignTokens.bubbleTailRadius),
-            bottomRight: Radius.circular(isMe ? DesignTokens.bubbleTailRadius : DesignTokens.chatBubbleRadius),
-          )
-        : BorderRadius.circular(DesignTokens.chatBubbleRadius);
+    // FluffyChat-style continuity-aware corners: the side of the bubble
+    // facing the sender's column collapses to a 4 px "hard corner" when
+    // the previous/next message is from the same sender, visually gluing
+    // consecutive bubbles together. The opposite side stays rounded.
+    const hardCorner = Radius.circular(DesignTokens.bubbleTailRadius);
+    final roundedCorner = Radius.circular(DesignTokens.chatBubbleRadius);
+    final radius = BorderRadius.only(
+      topLeft: !isMe && previousSameSender ? hardCorner : roundedCorner,
+      topRight: isMe && previousSameSender ? hardCorner : roundedCorner,
+      bottomLeft: !isMe && nextSameSender ? hardCorner : roundedCorner,
+      bottomRight: isMe && nextSameSender ? hardCorner : roundedCorner,
+    );
 
     final hasReactions = reactions != null && reactions!.isNotEmpty;
 

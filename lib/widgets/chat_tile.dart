@@ -124,33 +124,28 @@ class ChatTile extends StatelessWidget {
       }
     }
 
-    return GestureDetector(
+    final scheme = Theme.of(context).colorScheme;
+    // FluffyChat-style: each tile is a 16-radius rounded surface with a small
+    // outer padding (so adjacent tiles don't touch) and no separator/divider.
+    // Active tiles get `secondaryContainer` background — a soft tint of the
+    // seed colour rather than the loud `primary.withAlpha(0.10)` we had.
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: DesignTokens.spacing8, vertical: 1),
+      child: GestureDetector(
       onSecondaryTapUp: onSecondaryTapUp,
       child: Material(
-      color: selected ? AppTheme.primary.withValues(alpha: 0.10) : Colors.transparent,
-      borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
+      color: selected ? scheme.secondaryContainer : Colors.transparent,
+      borderRadius: BorderRadius.circular(DesignTokens.radiusXl - 4), // 16
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
         mouseCursor: SystemMouseCursors.click,
-        borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
-        hoverColor: AppTheme.primary.withValues(alpha: 0.04),
-        splashColor: AppTheme.primary.withValues(alpha: 0.07),
-        highlightColor: AppTheme.primary.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(DesignTokens.radiusXl - 4),
+        hoverColor: scheme.onSurface.withValues(alpha: 0.04),
+        splashColor: scheme.primary.withValues(alpha: 0.07),
+        highlightColor: scheme.onSurface.withValues(alpha: 0.04),
         child: Row(
         children: [
-          AnimatedContainer(
-            duration: DesignTokens.durationFast,
-            width: selected ? 3 : 0,
-            height: 48,
-            decoration: BoxDecoration(
-              color: AppTheme.primary,
-              borderRadius: const BorderRadius.only(
-                topRight: Radius.circular(3),
-                bottomRight: Radius.circular(3),
-              ),
-            ),
-          ),
           Expanded(child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -242,17 +237,30 @@ class ChatTile extends StatelessWidget {
                               fontWeight: unreadCount > 0 ? FontWeight.w500 : FontWeight.normal,
                             ).copyWith(fontFamilyFallback: const ['Noto Color Emoji'])),
                       ),
-                      // Unread badge
+                      // Unread badge — FluffyChat-style pill: muted
+                      // (primaryContainer) when there's an unread count
+                      // without an explicit notification, more saturated
+                      // primary when the count is 10+ to read as "active".
                       if (unreadCount > 0) ...[
                         const SizedBox(width: DesignTokens.spacing6),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: DesignTokens.spacing2),
+                          constraints: const BoxConstraints(minWidth: 22, minHeight: 22),
+                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                          alignment: Alignment.center,
                           decoration: BoxDecoration(
-                            color: AppTheme.primary,
-                            borderRadius: BorderRadius.circular(DesignTokens.spacing10),
+                            color: unreadCount >= 10
+                                ? scheme.primary
+                                : scheme.primaryContainer,
+                            borderRadius: BorderRadius.circular(999),
                           ),
                           child: Text('$unreadCount',
-                              style: GoogleFonts.inter(color: AppTheme.onPrimary, fontSize: DesignTokens.fontSm, fontWeight: FontWeight.w700)),
+                              style: GoogleFonts.inter(
+                                color: unreadCount >= 10
+                                    ? scheme.onPrimary
+                                    : scheme.onPrimaryContainer,
+                                fontSize: DesignTokens.fontSm,
+                                fontWeight: FontWeight.w600,
+                              )),
                         ),
                       ],
                       // SmartRouter badge: show route count if contact has alternates
@@ -277,20 +285,12 @@ class ChatTile extends StatelessWidget {
             ],
           ),
         ),
-            // Subtle indented divider (past avatar)
-            Padding(
-              padding: EdgeInsets.only(left: (PlatformUtils.isDesktop ? DesignTokens.avatarMdDesktop : DesignTokens.avatarMd) + DesignTokens.spacing12 + DesignTokens.spacing14),
-              child: Divider(
-                height: 1,
-                thickness: 0.5,
-                color: AppTheme.surfaceVariant.withValues(alpha: 0.5),
-              ),
-            ),
           ],
         )),
         ],
       ),
       ),
+    ),
     ),
     );
   }

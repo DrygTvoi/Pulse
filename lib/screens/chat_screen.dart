@@ -1137,6 +1137,8 @@ class _ChatScreenState extends State<ChatScreen> {
                                 isMe: isMe,
                                 status: msg.status,
                                 showTail: entry.isLast,
+                                previousSameSender: entry.isGrouped,
+                                nextSameSender: !entry.isLast,
                                 senderName: senderName,
                                 isEdited: msg.isEdited,
                                 contactIndex: _contactIndex,
