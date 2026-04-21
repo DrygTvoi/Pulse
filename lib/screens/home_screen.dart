@@ -312,6 +312,10 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   /// Lazily load a single contact's avatar when a tile becomes visible.
+  /// Uses the shared `_scheduleUiRefresh` coalescer (100 ms) instead of
+  /// `setState` per resolve — cold-scroll through N contacts triggers
+  /// N avatar decodes that previously rebuilt the full ListView N times;
+  /// coalesced, it's ~1 rebuild per 100 ms frame regardless of N.
   void _ensureAvatarLoaded(String contactId) {
     if (_avatarCache.containsKey(contactId)) return;
     if (_avatarLoadRequested.contains(contactId)) return;
@@ -321,7 +325,8 @@ class _HomeScreenState extends State<HomeScreen> {
         try {
           final bytes = base64Decode(b64);
           if (mounted) {
-            setState(() => _cacheAvatar(contactId, bytes));
+            _cacheAvatar(contactId, bytes);
+            _scheduleUiRefresh();
           }
         } catch (e) {
           debugPrint('[Home] Failed to decode avatar for $contactId: $e');

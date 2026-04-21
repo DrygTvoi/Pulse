@@ -12,6 +12,16 @@ import '../utils/platform_utils.dart';
 /// A single chat list tile showing avatar, name, last message preview,
 /// unread count, mute icon, and SmartRouter badge.
 class ChatTile extends StatelessWidget {
+  /// Inter base — computed once, cloned via [copyWith] per use site. Raw
+  /// `GoogleFonts.inter(color: ..., fontSize: ...)` calls do a hashmap
+  /// lookup + TextStyle construction per build; with 4 styles × 200 tiles
+  /// that's 800 lookups on every scroll rebuild. Static base + copyWith
+  /// avoids the lookup.
+  static final _interBase = GoogleFonts.inter();
+  // Pre-compose the emoji-fallback variant used by the subtitle row so the
+  // Noto Color Emoji fallback doesn't get re-attached per build.
+  static final _interBaseEmoji = _interBase.copyWith(
+      fontFamilyFallback: const ['Noto Color Emoji']);
   final Contact contact;
   final Message? lastMsg;
   final int unreadCount;
@@ -207,7 +217,7 @@ class ChatTile extends StatelessWidget {
                         child: Text(contact.name,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.inter(
+                            style: _interBase.copyWith(
                               color: AppTheme.textPrimary,
                               fontSize: DesignTokens.fontXl,
                               fontWeight: unreadCount > 0 ? FontWeight.w700 : FontWeight.w600,
@@ -219,7 +229,7 @@ class ChatTile extends StatelessWidget {
                       ],
                       if (timeStr != null)
                         Text(timeStr,
-                            style: GoogleFonts.inter(
+                            style: _interBase.copyWith(
                               color: unreadCount > 0 ? AppTheme.primary : AppTheme.textSecondary,
                               fontSize: DesignTokens.fontBody,
                               fontWeight: unreadCount > 0 ? FontWeight.w600 : FontWeight.normal,
@@ -231,11 +241,11 @@ class ChatTile extends StatelessWidget {
                         child: Text(subtitle,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.inter(
+                            style: _interBaseEmoji.copyWith(
                               color: unreadCount > 0 ? AppTheme.textPrimary : AppTheme.textSecondary,
                               fontSize: DesignTokens.fontMd,
                               fontWeight: unreadCount > 0 ? FontWeight.w500 : FontWeight.normal,
-                            ).copyWith(fontFamilyFallback: const ['Noto Color Emoji'])),
+                            )),
                       ),
                       // Unread badge — FluffyChat-style pill: muted
                       // (primaryContainer) when there's an unread count
@@ -254,7 +264,7 @@ class ChatTile extends StatelessWidget {
                             borderRadius: BorderRadius.circular(999),
                           ),
                           child: Text('$unreadCount',
-                              style: GoogleFonts.inter(
+                              style: _interBase.copyWith(
                                 color: unreadCount >= 10
                                     ? scheme.onPrimary
                                     : scheme.onPrimaryContainer,

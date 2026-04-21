@@ -149,6 +149,15 @@ class MessageBubble extends StatelessWidget {
       color: Colors.white, fontWeight: FontWeight.w600, fontSize: DesignTokens.fontMd);
   static final _fileSizeStyle = GoogleFonts.inter(color: _white65, fontSize: DesignTokens.fontSm);
   static final _snackBarStyle = GoogleFonts.inter(fontSize: DesignTokens.fontMd);
+  // Inter base — per-build `GoogleFonts.inter(color: ...)` costs a hashmap
+  // lookup. Cache the empty call and `copyWith` per use. Used for
+  // sender-name (line 201), delivery-status (line 333), and linked-text
+  // body (line 381).
+  static final _interBase = GoogleFonts.inter();
+  static final _interBaseEmoji = _interBase.copyWith(
+      fontFamilyFallback: const ['Noto Color Emoji']);
+  static final _deliveryStatusStyle = _interBase.copyWith(
+      fontSize: DesignTokens.fontXs, fontWeight: FontWeight.w500);
 
   @override
   Widget build(BuildContext context) {
@@ -198,7 +207,7 @@ class MessageBubble extends StatelessWidget {
               padding: const EdgeInsets.only(left: DesignTokens.spacing4, bottom: DesignTokens.spacing2),
               child: Text(
                 senderName!,
-                style: GoogleFonts.inter(
+                style: _interBase.copyWith(
                   fontSize: DesignTokens.fontSm,
                   fontWeight: FontWeight.w700,
                   color: _nameColor(senderName!),
@@ -330,10 +339,7 @@ class MessageBubble extends StatelessWidget {
           Icon(Icons.done_all_rounded, size: DesignTokens.fontSm, color: iconColor),
           const SizedBox(width: 3),
           Text(label,
-              style: GoogleFonts.inter(
-                  color: AppTheme.textSecondary,
-                  fontSize: DesignTokens.fontXs,
-                  fontWeight: FontWeight.w500)),
+              style: _deliveryStatusStyle.copyWith(color: AppTheme.textSecondary)),
           if (onGroupStatusTap != null) ...[
             const SizedBox(width: DesignTokens.spacing4),
             Icon(Icons.info_outline_rounded,
@@ -378,8 +384,10 @@ class MessageBubble extends StatelessWidget {
     final bubbleTextColor = isMe
         ? (ThemeNotifier.instance.isDark ? Colors.white : const Color(0xFF111B21))
         : (ThemeNotifier.instance.isDark ? Colors.white : const Color(0xFF111B21));
-    final baseStyle = GoogleFonts.inter(color: bubbleTextColor, fontSize: DesignTokens.fontInput, height: 1.35)
-        .copyWith(fontFamilyFallback: const ['Noto Color Emoji']);
+    final baseStyle = _interBaseEmoji.copyWith(
+        color: bubbleTextColor,
+        fontSize: DesignTokens.fontInput,
+        height: 1.35);
     final matches = _urlRegex.allMatches(text).toList();
     if (matches.isEmpty) {
       if (PlatformUtils.isDesktop) {
