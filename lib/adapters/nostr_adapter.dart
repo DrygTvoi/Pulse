@@ -904,6 +904,11 @@ class NostrInboxReader implements InboxReader {
 
 
   void _trackSeenId(String id) {
+    // Defense-in-depth: if the reader is closed, do not track. Tracking after
+    // close persists ids of events we cannot deliver (listener was cancelled),
+    // which causes the next reader to dedup-drop the same message when it
+    // loads persistent _seenIds from disk on startup.
+    if (_closed) return;
     // Time-based eviction: remove entries older than 30 minutes first.
     if (_seenIds.length >= 2000) {
       final cutoff = DateTime.now().subtract(const Duration(minutes: 30));
@@ -965,6 +970,11 @@ class NostrInboxReader implements InboxReader {
 
   bool _loopStarted = false;
   bool _running = false;
+  // Monotonic flag set at the very start of close(). Guards post-await
+  // continuations (e.g. _dispatchGiftWrap after unwrapEvent) from poisoning
+  // persistent _seenIds with ids that were never delivered to a live listener.
+  // Once true, _trackSeenId and the three dispatchers are no-ops.
+  bool _closed = false;
   WebSocketChannel? _activeChannel;
 
   // Issue 6: pending fetchPublicKeys requests dispatched by the shared loop.
@@ -976,6 +986,12 @@ class NostrInboxReader implements InboxReader {
 
   /// Stop the event loop and close the active WebSocket.
   void close() {
+    // MUST be set FIRST, before any other work and before any unawaited futures
+    // complete. In-flight _dispatchGiftWrap continuations (post unwrapEvent
+    // await) check this flag and bail before persisting the inner id to disk —
+    // otherwise the new reader loads the poisoned id and silently drops the
+    // message when it re-receives the same event.
+    _closed = true;
     _running = false;
     _loopStarted = false;
     // Flush pending seen IDs to disk before closing
@@ -988,19 +1004,6 @@ class NostrInboxReader implements InboxReader {
     try { _activeChannel?.sink.close(); } catch (_) {}
     _activeChannel = null;
     _closeSecondaryRelays();
-    // Close the stream controllers too. Without this, any in-flight
-    // gift-wrap that was mid-unwrap when close() fired will still call
-    // _msgCtrl.add() on return — but no one is listening (ChatController
-    // cancelled its subscription during reconnectInbox), and — worse —
-    // _seenIds was already advanced for the inner event id. The MAIN
-    // reader that also receives the event then sees it as a duplicate
-    // and silently drops it. Closing the controllers makes the orphan
-    // dispatch a no-op (the `if (_msgCtrl.isClosed) return;` guard in
-    // _dispatchMessage / _dispatchSignal short-circuits) so the inner
-    // id is not marked "seen" from the dead reader.
-    try { _msgCtrl.close(); } catch (_) {}
-    try { _sigCtrl.close(); } catch (_) {}
-    try { _healthCtrl.close(); } catch (_) {}
   }
 
   // ── Secondary relay subscriptions ────────────────────────────────────────
@@ -1530,32 +1533,45 @@ class NostrInboxReader implements InboxReader {
         debugPrint('[Nostr] Gift Wrap: inner event too old ($innerTs), dropping');
         return;
       }
-      // Skip entirely on a closed reader. A reader that reconnectInbox
-      // already cancelled still has its loop finish in-flight events;
-      // without this guard it would dedup the inner id in its own
-      // _seenIds (and persist it), then the NEW reader sees the same
-      // event from a secondary relay, hits the dedup, and silently
-      // drops the message.
-      if (_msgCtrl.isClosed) {
-        debugPrint('[Nostr] Gift Wrap: reader closed, skipping dispatch for $wrapId');
-        return;
-      }
       // F2-3: Dedup inner event by inner event ID — outer ID (ephemeral) changes
       // on every re-broadcast, so we must check the semantic inner ID.
       final innerId = inner['id'] as String? ?? '';
-      if (innerId.isNotEmpty) {
-        if (_seenIds.containsKey(innerId)) {
-          debugPrint('[Nostr] Gift Wrap: inner dedup $wrapId (innerId=${innerId.substring(0, 8)})');
-          return;
-        }
-        _trackSeenId(innerId);
+      if (innerId.isNotEmpty && _seenIds.containsKey(innerId)) {
+        debugPrint('[Nostr] Gift Wrap: inner dedup $wrapId (innerId=${innerId.substring(0, 8)})');
+        return;
       }
+      // Dispatch UNCONDITIONALLY: even if this reader is closed, another
+      // reader (the new main reader after reconnectInbox) may be listening
+      // on the same StreamController set via InboxManager's swap — wait, no,
+      // each NostrInboxReader has its own _msgCtrl. So "closed reader"
+      // means "listener cancelled its subscription". Broadcast controllers
+      // silently drop add()s with no listeners, so the dispatch here is a
+      // safe no-op in that case. The important invariant we enforce below
+      // is: only persist innerId in _seenIds IF a listener actually saw
+      // the event — otherwise we'd poison the persistent dedup cache and
+      // the new reader (which shares disk state) would drop the re-received
+      // event thinking it's a dup. We check hasListener AFTER add() which
+      // is exactly the race we need: if the subscription was still active
+      // at dispatch time, the listener got the event before we track.
+      final bool delivered;
       if (innerKind == 4) {
+        delivered = _msgCtrl.hasListener;
         _dispatchMessage(inner);
       } else if (innerKind == 20000) {
+        delivered = _sigCtrl.hasListener;
         _dispatchSignal(inner);
       } else {
         debugPrint('[Nostr] Gift Wrap: unknown inner kind $innerKind');
+        delivered = false;
+      }
+      // Track seenId only when the event reached a live listener. If no
+      // listener (reader closed or subscription cancelled), let the next
+      // reader re-receive and deliver it; the outer-id dedup on that
+      // reader's _seenIds (populated freshly at init) will not fire, and
+      // the inner event is replayed to the active subscription.
+      if (delivered && innerId.isNotEmpty) _trackSeenId(innerId);
+      if (!delivered && _closed) {
+        debugPrint('[Nostr] Gift Wrap: reader closed, dispatch dropped for $wrapId — new reader will redeliver');
       }
     } catch (e) {
       debugPrint('[Nostr] Gift Wrap dispatch error for $wrapId: $e');
@@ -1569,8 +1585,8 @@ class NostrInboxReader implements InboxReader {
       final content = event['content'] as String? ?? '';
       final createdAt = event['created_at'] as int?;
       if (id.isEmpty || pubkey.isEmpty || content.isEmpty) return;
-      debugPrint('[Nostr] _dispatchMessage: id=${id.substring(0, 8)} pk=${pubkey.substring(0, 8)} hasListener=${_msgCtrl.hasListener} closed=${_msgCtrl.isClosed}');
-      if (_msgCtrl.isClosed) return;
+      debugPrint('[Nostr] _dispatchMessage: id=${id.substring(0, 8)} pk=${pubkey.substring(0, 8)} hasListener=${_msgCtrl.hasListener} closed=$_closed');
+      if (_closed) return;
       _msgCtrl.add([Message(
         id: id,
         senderId: pubkey,
@@ -1616,7 +1632,11 @@ class NostrInboxReader implements InboxReader {
       final data = jsonDecode(plain) as Map<String, dynamic>;
       final sigType = data['type'] as String? ?? '';
       debugPrint('[Nostr] _dispatchSignal: type=$sigType from=${senderPubkey.length >= 8 ? senderPubkey.substring(0, 8) : senderPubkey}');
-      if (!_sigCtrl.isClosed) {
+      // Skip on a closed reader — see _dispatchGiftWrap for the race explanation.
+      // _dispatchSignal is async (awaits NIP-44 decryption above), so a close()
+      // can interleave between the decrypt and the add. Checking _closed rather
+      // than _sigCtrl.isClosed because controllers are never closed.
+      if (!_closed) {
         _sigCtrl.add([{
           'type': data['type'],
           'senderId': senderPubkey,
