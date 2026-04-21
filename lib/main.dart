@@ -94,8 +94,13 @@ Future<void> main() async {
       // When a password lock is enabled, defer this broadcast until AFTER the user
       // authenticates — otherwise contacts receive a presence update before the user
       // has unlocked, leaking the device-active timestamp.
+      //
+      // Gated on adaptersReady: ChatController.initialize() now kicks the
+      // adapter handshakes in the background; broadcasting before any
+      // transport is connected would silently no-op.
       if (!lockEnabled) {
-        unawaited(chatController.broadcastAddressUpdate());
+        unawaited(chatController.adaptersReady
+            .then((_) => chatController.broadcastAddressUpdate()));
       }
 
       // Background Blossom server discovery — probes seed servers and queries
@@ -104,8 +109,16 @@ Future<void> main() async {
         nostrRelays: [prefs.getString('nostr_relay') ?? kDefaultNostrRelay],
       ));
 
-      // After probe finishes, reconnect only if a DIFFERENT relay was discovered.
-      unawaited(ConnectivityProbeService.instance.firstRunDone.then((result) {
+      // After probe finishes AND the initial adapter handshakes have
+      // settled, reconnect only if a DIFFERENT relay was discovered.
+      // Gating on adaptersReady prevents a race where reconnectInbox
+      // is called while _initInbox is still running (which would either
+      // early-return via _reconnecting guard or double-subscribe).
+      unawaited(Future.wait([
+        ConnectivityProbeService.instance.firstRunDone,
+        chatController.adaptersReady,
+      ]).then((results) {
+        final result = results[0] as ProbeResult;
         if (result.bestNostrRelay != null &&
             result.bestNostrRelay != relayBeforeProbe) {
           debugPrint('[Main] Probe found better relay: ${result.bestNostrRelay} '

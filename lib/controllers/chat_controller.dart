@@ -171,6 +171,13 @@ class ChatController extends ChangeNotifier {
   ConnectionStatus _connectionStatus = ConnectionStatus.disconnected;
   ConnectionStatus get connectionStatus => _connectionStatus;
 
+  /// Completes once the adapter handshakes triggered by [initialize] finish
+  /// (or fail). UI can render against cached state before this resolves;
+  /// callers that need the WS/JSON-RPC channels up (broadcastAddressUpdate,
+  /// reconnectInbox after probe) await it.
+  final Completer<void> _adaptersReady = Completer<void>();
+  Future<void> get adaptersReady => _adaptersReady.future;
+
   // Emits every incoming message so UI can show in-app banners
   final StreamController<({String contactId, Message message})> _newMsgController =
       StreamController.broadcast();
@@ -544,7 +551,7 @@ class ChatController extends ChangeNotifier {
       if (room != null) {
         for (final m in room.messages) {
           _repo.scheduleTtlDelete(contact, m, ttl,
-              onDeleted: () { if (!_disposed) notifyListeners(); });
+              onDeleted: () { if (!_disposed) _scheduleNotify(); });
         }
       }
     }
@@ -560,10 +567,9 @@ class ChatController extends ChangeNotifier {
 
   Future<void> initialize() async {
     sentryBreadcrumb('ChatController.initialize() started', category: 'lifecycle');
-    _reconnecting = true; // block reconnectInbox() until initial setup completes
     try {
       await LocalStorageService().init();
-      unawaited(_repo.restoreScheduledTtls(onDeleted: () { if (!_disposed) notifyListeners(); }));
+      unawaited(_repo.restoreScheduledTtls(onDeleted: () { if (!_disposed) _scheduleNotify(); }));
       _connectionStatus = ConnectionStatus.connecting;
       final prefs = await _getPrefs();
       final identityJson = prefs.getString('user_identity');
@@ -618,12 +624,37 @@ class ChatController extends ChangeNotifier {
         _invalidateContactIndex();
         debugPrint('[Chat] Loaded ${_contacts.contacts.length} contacts before inbox start');
 
-        await _initInbox();
+        // Kick off adapter handshakes (Nostr/Pulse/Session/LAN) in the
+        // background so the UI can render against cached contacts while
+        // the WS/HTTP channels come up. Callers that need the network
+        // layer ready — broadcastAddressUpdate, reconnectInbox — await
+        // [adaptersReady] instead of blocking initialize().
+        unawaited(_initializeAdapters());
       } else {
         _connectionStatus = ConnectionStatus.disconnected;
+        if (!_adaptersReady.isCompleted) _adaptersReady.complete();
       }
+    } catch (_) {
+      // Don't leave adaptersReady pending forever on init failure.
+      if (!_adaptersReady.isCompleted) _adaptersReady.complete();
+      rethrow;
+    }
+  }
+
+  /// Adapter-init phase — WS/HTTP handshakes, key republish, secondary
+  /// reader registration. Runs unawaited off [initialize] so cold start
+  /// doesn't block `runApp` on multiple serialised network handshakes.
+  Future<void> _initializeAdapters() async {
+    _reconnecting = true; // block reconnectInbox() until setup completes
+    try {
+      await _initInbox();
+    } catch (e, st) {
+      debugPrint('[ChatController] adapter init failed: $e\n$st');
+      _connectionStatus = ConnectionStatus.disconnected;
+      notifyListeners();
     } finally {
       _reconnecting = false;
+      if (!_adaptersReady.isCompleted) _adaptersReady.complete();
     }
   }
 
@@ -2429,7 +2460,7 @@ class ChatController extends ChangeNotifier {
                   final ttl = _repo.getChatTtlCached(targetContact.id);
                   if (ttl > 0) {
                     _repo.scheduleTtlDelete(targetContact, decryptedMsg, ttl,
-                        onDeleted: () { if (!_disposed) notifyListeners(); });
+                        onDeleted: () { if (!_disposed) _scheduleNotify(); });
                   }
                 }
                 // Save sender avatar from envelope if we don't have one yet.
@@ -2546,7 +2577,7 @@ class ChatController extends ChangeNotifier {
       );
       groupRoom.messages.add(localMsg);
       _repo.trackMessageId(contact.id, localMsg.id);
-      notifyListeners();
+      _scheduleNotify();
 
       final groupMap = <String, dynamic>{'_group': contact.id, 'text': text};
       if (replyTo != null) {
@@ -2661,8 +2692,8 @@ class ChatController extends ChangeNotifier {
       if (idx != -1) groupRoom.messages[idx] = finalMsg;
       await LocalStorageService().saveMessage(contact.id, finalMsg.toJson());
       final ttl = _repo.getChatTtlCached(contact.id);
-      if (ttl > 0) _repo.scheduleTtlDelete(contact, finalMsg, ttl, onDeleted: () { if (!_disposed) notifyListeners(); });
-      notifyListeners();
+      if (ttl > 0) _repo.scheduleTtlDelete(contact, finalMsg, ttl, onDeleted: () { if (!_disposed) _scheduleNotify(); });
+      _scheduleNotify();
       return;
     }
 
@@ -2691,8 +2722,8 @@ class ChatController extends ChangeNotifier {
     room.messages.add(localMsg);
     _repo.trackMessageId(contact.id, localMsg.id);
     final localTtl = _repo.getChatTtlCached(contact.id);
-    if (localTtl > 0) _repo.scheduleTtlDelete(contact, localMsg, localTtl, onDeleted: () { if (!_disposed) notifyListeners(); });
-    notifyListeners();
+    if (localTtl > 0) _repo.scheduleTtlDelete(contact, localMsg, localTtl, onDeleted: () { if (!_disposed) _scheduleNotify(); });
+    _scheduleNotify();
 
     final envelope = MessageEnvelope.wrap(
       _selfId.isNotEmpty ? _selfId : _identity!.id, text,
@@ -2866,7 +2897,7 @@ class ChatController extends ChangeNotifier {
           final idx = _repo.messageIndexById(contact.id, msgId);
           if (idx != -1) room.messages[idx] = localMsg.copyWith(status: 'failed');
           await LocalStorageService().saveMessage(contact.id, localMsg.copyWith(status: 'failed').toJson());
-          notifyListeners();
+          _scheduleNotify();
           return;
         }
       } catch (e2) {
@@ -2876,7 +2907,7 @@ class ChatController extends ChangeNotifier {
         final idx = _repo.messageIndexById(contact.id, msgId);
         if (idx != -1) room.messages[idx] = localMsg.copyWith(status: 'failed');
         await LocalStorageService().saveMessage(contact.id, localMsg.copyWith(status: 'failed').toJson());
-        notifyListeners();
+        _scheduleNotify();
         return;
       }
     }
@@ -2937,7 +2968,7 @@ class ChatController extends ChangeNotifier {
     final finalMsg = localMsg.copyWith(status: sent ? 'sent' : 'failed');
     if (idx != -1) room.messages[idx] = finalMsg;
     await LocalStorageService().saveMessage(contact.storageKey, finalMsg.toJson());
-    notifyListeners();
+    _scheduleNotify();
     if (!sent && !noAutoRetry) _scheduleAutoRetry(contact, finalMsg);
   }
 
@@ -3442,8 +3473,8 @@ class ChatController extends ChangeNotifier {
     _repo.trackMessageId(contact.id, localMsg.id);
     final localTtl = _repo.getChatTtlCached(contact.id);
     if (localTtl > 0) _repo.scheduleTtlDelete(contact, localMsg, localTtl,
-        onDeleted: () { if (!_disposed) notifyListeners(); });
-    notifyListeners();
+        onDeleted: () { if (!_disposed) _scheduleNotify(); });
+    _scheduleNotify();
 
     final voiceName = 'voice_${durationSeconds}s.$fileExt';
 
@@ -3487,7 +3518,7 @@ class ChatController extends ChangeNotifier {
     final finalMsg = localMsg.copyWith(status: allSent ? 'sent' : 'failed');
     if (idx >= 0) room.messages[idx] = finalMsg;
     unawaited(LocalStorageService().saveMessage(contact.id, finalMsg.toJson()));
-    notifyListeners();
+    _scheduleNotify();
     return allSent;
   }
 
@@ -3530,8 +3561,8 @@ class ChatController extends ChangeNotifier {
     _repo.trackMessageId(contact.id, localMsg.id);
     final localTtl = _repo.getChatTtlCached(contact.id);
     if (localTtl > 0) _repo.scheduleTtlDelete(contact, localMsg, localTtl,
-        onDeleted: () { if (!_disposed) notifyListeners(); });
-    notifyListeners();
+        onDeleted: () { if (!_disposed) _scheduleNotify(); });
+    _scheduleNotify();
 
     // Route through sendFile's 3-tier pipeline (P2P → Blossom → relay chunks)
     // We mark the local message first, then delegate the actual send.
@@ -3585,7 +3616,7 @@ class ChatController extends ChangeNotifier {
     if (idx >= 0) room.messages[idx] = finalMsg;
     final storageKey = isGroup ? contact.id : contact.storageKey;
     unawaited(LocalStorageService().saveMessage(storageKey, finalMsg.toJson()));
-    notifyListeners();
+    _scheduleNotify();
   }
 
   /// Tier 2: Encrypt, upload to Blossom, send metadata message.
@@ -3625,7 +3656,7 @@ class ChatController extends ChangeNotifier {
     room.messages.add(localMsg);
     _repo.trackMessageId(contact.id, localMsg.id);
     _repo.setUploadProgress(msgId, 0.1);
-    notifyListeners();
+    _scheduleNotify();
 
     try {
       // Encrypt
@@ -3683,8 +3714,8 @@ class ChatController extends ChangeNotifier {
       await LocalStorageService().saveMessage(storageKey, finalMsg.toJson());
       _repo.clearUploadProgress(msgId);
       final localTtl = _repo.getChatTtlCached(contact.id);
-      if (localTtl > 0) _repo.scheduleTtlDelete(contact, finalMsg, localTtl, onDeleted: () { if (!_disposed) notifyListeners(); });
-      notifyListeners();
+      if (localTtl > 0) _repo.scheduleTtlDelete(contact, finalMsg, localTtl, onDeleted: () { if (!_disposed) _scheduleNotify(); });
+      _scheduleNotify();
       return sent;
     } catch (e) {
       debugPrint('[Blossom] _sendViaBlossom error: $e');
@@ -3731,7 +3762,7 @@ class ChatController extends ChangeNotifier {
     room.messages.add(localMsg);
     _repo.trackMessageId(contact.id, localMsg.id);
     _repo.setUploadProgress(msgId, 0.0);
-    notifyListeners();
+    _scheduleNotify();
 
     bool allSent = true;
     try {
@@ -3757,8 +3788,8 @@ class ChatController extends ChangeNotifier {
     if (idx != -1) room.messages[idx] = finalMsg;
     await LocalStorageService().saveMessage(contact.storageKey, finalMsg.toJson());
     final localTtl = _repo.getChatTtlCached(contact.id);
-    if (localTtl > 0) _repo.scheduleTtlDelete(contact, finalMsg, localTtl, onDeleted: () { if (!_disposed) notifyListeners(); });
-    notifyListeners();
+    if (localTtl > 0) _repo.scheduleTtlDelete(contact, finalMsg, localTtl, onDeleted: () { if (!_disposed) _scheduleNotify(); });
+    _scheduleNotify();
     return allSent;
   }
 
@@ -3784,8 +3815,8 @@ class ChatController extends ChangeNotifier {
     room.messages.add(localMsg);
     _repo.trackMessageId(contact.id, localMsg.id);
     final localTtl = _repo.getChatTtlCached(contact.id);
-    if (localTtl > 0) _repo.scheduleTtlDelete(contact, localMsg, localTtl, onDeleted: () { if (!_disposed) notifyListeners(); });
-    notifyListeners();
+    if (localTtl > 0) _repo.scheduleTtlDelete(contact, localMsg, localTtl, onDeleted: () { if (!_disposed) _scheduleNotify(); });
+    _scheduleNotify();
 
     bool allSent = true;
     _repo.setUploadProgress(msgId, 0.0);
@@ -3824,7 +3855,7 @@ class ChatController extends ChangeNotifier {
     if (idx != -1) room.messages[idx] = finalMsg;
     final storageKey = isGroup ? contact.id : contact.storageKey;
     await LocalStorageService().saveMessage(storageKey, finalMsg.toJson());
-    notifyListeners();
+    _scheduleNotify();
   }
 
   Future<bool> _sendGroupChunk(Contact group, String chunkPayload) async {
