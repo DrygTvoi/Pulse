@@ -1105,6 +1105,7 @@ class SignalDispatcher {
     _senderKeyDistCtrl.close();
     _msgDeleteCtrl.close();
     _sessionResetCtrl.close();
+    _pqcConfirmedCtrl.close();
     _sigRateLimiter.clear();
   }
 }

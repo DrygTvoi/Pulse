@@ -28,10 +28,22 @@ Uint8List _taggedHash(String tag, List<int> data) {
 }
 
 /// Derive Nostr public key (x-coordinate hex) from hex private key.
+/// Cached — the derivation is a full secp256k1 G*d scalar mult
+/// (~10-50 ms in pure Dart). The recipient privkey rarely changes,
+/// so one cache entry suffices at runtime (we keep 4 to cover
+/// identity rotation / multiple accounts without lookups).
+final _pubkeyCache = <String, String>{};
 String derivePubkeyHex(String privkeyHex) {
+  final cached = _pubkeyCache[privkeyHex];
+  if (cached != null) return cached;
   final d = BigInt.parse(privkeyHex, radix: 16);
   final Q = _secp256k1.G * d;
-  return hex.encode(_bigIntToBytes(Q!.x!.toBigInteger()!, 32));
+  final result = hex.encode(_bigIntToBytes(Q!.x!.toBigInteger()!, 32));
+  if (_pubkeyCache.length >= 4) {
+    _pubkeyCache.remove(_pubkeyCache.keys.first);
+  }
+  _pubkeyCache[privkeyHex] = result;
+  return result;
 }
 
 /// Top-level function for compute(): performs BIP-340 Schnorr signing
