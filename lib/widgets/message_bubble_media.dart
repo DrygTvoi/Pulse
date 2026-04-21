@@ -13,6 +13,7 @@ import '../theme/design_tokens.dart';
 import '../services/media_service.dart';
 import '../services/media_crypto_service.dart';
 import '../services/blossom_service.dart';
+import '../services/blossom_image_cache.dart';
 import '../services/video_service.dart';
 import '../services/voice_service.dart';
 import '../screens/image_viewer_screen.dart';
@@ -521,16 +522,23 @@ class _BlossomMediaWidgetState extends State<BlossomMediaWidget> {
   }
 
   Future<void> _checkCache() async {
+    // In-RAM LRU first — avoids re-reading the temp file and, more
+    // importantly, repeated redundant decrypts on scroll-back.
+    final cached = BlossomImageCache.instance.get(widget.payload.hash);
+    if (cached != null) {
+      if (mounted) setState(() => _decryptedBytes = cached);
+      return;
+    }
     try {
       final dir = await getTemporaryDirectory();
       final ext = _extensionFromName(widget.payload.name);
       final file = File('${dir.path}/blossom_${widget.payload.hash}$ext');
       if (await file.exists()) {
         final bytes = await file.readAsBytes();
+        BlossomImageCache.instance.put(widget.payload.hash, bytes);
         if (mounted) {
           setState(() {
             _decryptedBytes = bytes;
-            // cached on disk
           });
         }
       } else if (widget.payload.mediaType == 'img' || widget.payload.mediaType == 'gif') {
@@ -564,11 +572,13 @@ class _BlossomMediaWidgetState extends State<BlossomMediaWidget> {
       final decrypted = MediaCryptoService.decrypt(encrypted, Uint8List.fromList(key), Uint8List.fromList(iv));
       if (mounted) setState(() => _progress = 0.9);
 
-      // Cache to disk
+      // Cache to disk + RAM LRU — scroll-back through the same image
+      // won't re-read the file or re-decrypt.
       final dir = await getTemporaryDirectory();
       final ext = _extensionFromName(widget.payload.name);
       final file = File('${dir.path}/blossom_${widget.payload.hash}$ext');
       await file.writeAsBytes(decrypted);
+      BlossomImageCache.instance.put(widget.payload.hash, decrypted);
 
       if (mounted) {
         setState(() {
