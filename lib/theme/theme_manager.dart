@@ -31,27 +31,157 @@ class ThemeNotifier extends ChangeNotifier {
   static const double _defaultRadius = 16.0;
   double _borderRadius = _defaultRadius;
 
+  // ── Tunable surface/accent knobs ────────────────────────────────────────
+  // Three fine-tune sliders that let the user shape the dark theme without
+  // picking a different seed. Defaults match the proven "Ocean" feel.
+  /// Saturation of dark surfaces, 0.0 (pure grey) → 0.45 (heavily tinted).
+  static const double _defaultSurfaceTint = 0.28;
+  double _surfaceTint = _defaultSurfaceTint;
+  /// Lightness offset for the entire dark surface ramp, -0.05 (deeper)
+  /// to +0.05 (lighter). Default 0 = the original Telegram-Ocean ramp.
+  static const double _defaultSurfaceDepth = 0.0;
+  double _surfaceDepth = _defaultSurfaceDepth;
+  /// Lightness of `primaryContainer` (own chat bubble in dark). 0.15
+  /// (deep) → 0.40 (loud). Default 0.22 keeps bubbles calm.
+  static const double _defaultAccentDepth = 0.22;
+  double _accentDepth = _defaultAccentDepth;
+
   String _fontFamily = 'Inter';
   TargetPlatform? _customPlatform;
 
   double get borderRadius => _borderRadius;
+  double get surfaceTint => _surfaceTint;
+  double get surfaceDepth => _surfaceDepth;
+  double get accentDepth => _accentDepth;
   String get fontFamily => _fontFamily;
   TargetPlatform? get customPlatform => _customPlatform;
   bool get isDark => _mode == ThemeMode.dark;
 
-  /// Cached ColorScheme — recomputed only when seed/mode changes.
+  // ── Seed-tinted dark surface ramp — derived from seed hue ─────────────
+  // Saturation comes from `_surfaceTint` (slider), lightness from a
+  // base ramp + `_surfaceDepth` offset (slider). Makes the "Telegram
+  // tinted dark" recipe fully tunable without hex-editing constants.
+  Color _darkBgFor(double hue) => HSLColor.fromAHSL(
+        1.0, hue, _surfaceTint, (0.13 + _surfaceDepth).clamp(0.04, 0.30),
+      ).toColor();
+  Color _darkSurfLowFor(double hue) => HSLColor.fromAHSL(
+        1.0, hue, _surfaceTint, (0.16 + _surfaceDepth).clamp(0.05, 0.32),
+      ).toColor();
+  Color _darkSurfFor(double hue) => HSLColor.fromAHSL(
+        1.0, hue, _surfaceTint, (0.19 + _surfaceDepth).clamp(0.06, 0.35),
+      ).toColor();
+  Color _darkSurfHighFor(double hue) => HSLColor.fromAHSL(
+        1.0, hue, _surfaceTint, (0.24 + _surfaceDepth).clamp(0.08, 0.40),
+      ).toColor();
+  Color _darkSurfHighestFor(double hue) => HSLColor.fromAHSL(
+        1.0, hue, _surfaceTint, (0.30 + _surfaceDepth).clamp(0.10, 0.46),
+      ).toColor();
+  static const _darkOnSurface            = Color(0xFFEEF0F1);
+  static const _darkOnSurfaceVariant     = Color(0xFF8FA0AE);
+  Color _darkOutlineFor(double hue) =>
+      HSLColor.fromAHSL(1.0, hue, _surfaceTint * 0.7, 0.32).toColor();
+  Color _darkOutlineVariantFor(double hue) =>
+      HSLColor.fromAHSL(1.0, hue, _surfaceTint * 0.9, 0.20).toColor();
+
+  // Light ramp — clean warm-neutral whites for symmetry with dark.
+  static const _lightSurface              = Color(0xFFFCFCFD);
+  static const _lightSurfaceContainerLow  = Color(0xFFF5F6F8);
+  static const _lightSurfaceContainer     = Color(0xFFEEEFF2);
+  static const _lightSurfaceContainerHigh = Color(0xFFE6E8EC);
+  static const _lightSurfaceContainerHighest = Color(0xFFDDE0E5);
+  static const _lightOnSurface            = Color(0xFF181A1F);
+  static const _lightOnSurfaceVariant     = Color(0xFF5C6168);
+  static const _lightOutline              = Color(0xFFC8CCD2);
+  static const _lightOutlineVariant       = Color(0xFFE0E2E6);
+
+  /// Cached ColorScheme — recomputed only when seed/mode changes. Built by
+  /// taking M3's seed-derived palette but ONLY keeping its accent tokens
+  /// (primary, secondary, tertiary, error and their containers); surfaces
+  /// come from the hand-tuned ramps above.
   ColorScheme? _cachedScheme;
-  ColorScheme get _scheme {
-    return _cachedScheme ??= ColorScheme.fromSeed(
+  ColorScheme get _scheme => _cachedScheme ??= _buildScheme(
+        isDark ? Brightness.dark : Brightness.light,
+      );
+
+  ColorScheme _buildScheme(Brightness brightness) {
+    final isD = brightness == Brightness.dark;
+    final fromSeed = ColorScheme.fromSeed(
       seedColor: _seed,
-      brightness: isDark ? Brightness.dark : Brightness.light,
-      // `vibrant` keeps neutral surfaces but pushes primary / container /
-      // accent towards strong saturation — much more "the seed color shows
-      // up" in dark mode than the default `tonalSpot` (which desaturates
-      // primary almost to grey on dark backgrounds, making preset switches
-      // look like the same theme with a tint).
+      brightness: brightness,
+      // Vibrant keeps accent tokens punchy — important since we're throwing
+      // away M3's surface palette and only using the accent triple. Without
+      // vibrant, primary/secondary read as muted on our pure-grey base.
       dynamicSchemeVariant: DynamicSchemeVariant.vibrant,
     );
+    // Cap accent brightness — M3 dark mode generates `primary` as a very
+    // light tonal step of the seed (Ocean #5288C1 → ~#B4C7FF pastel sky),
+    // which makes buttons / FAB / focus rings glare. We override primary
+    // to the user-picked seed itself: a deeper colour that reads as a
+    // calm accent. `primaryContainer` (used for own bubbles in dark
+    // mode) gets darkened to ~22% lightness via HSL so chat doesn't get
+    // a glowing blue stripe down the right side.
+    //
+    // Same treatment for secondary tokens: vibrant variant shifts the
+    // secondary hue ~60° from the seed (blue → magenta zone), which made
+    // the active-chat-tile background read as purple even on an Ocean-blue
+    // theme. Pin secondary tokens to the SEED hue too, just at lower
+    // saturation, so taps stay in the seed's colour family.
+    final primaryDimmed = isD ? _seed : fromSeed.primary;
+    final onPrimaryDimmed = isD
+        ? (_lightnessOf(_seed) < 0.55 ? Colors.white : Colors.black)
+        : fromSeed.onPrimary;
+    final primaryContainerDimmed = isD
+        ? _withLightness(_seed, _accentDepth)
+        : fromSeed.primaryContainer;
+    final onPrimaryContainerDimmed = isD
+        ? _withLightness(_seed, 0.88)
+        : fromSeed.onPrimaryContainer;
+    final secondaryDimmed = isD
+        ? _withSatLight(_seed, 0.30, 0.65)
+        : fromSeed.secondary;
+    final secondaryContainerDimmed = isD
+        ? _withSatLight(_seed, 0.30, 0.20)
+        : fromSeed.secondaryContainer;
+    final onSecondaryContainerDimmed = isD
+        ? _withLightness(_seed, 0.85)
+        : fromSeed.onSecondaryContainer;
+    final seedHue = HSLColor.fromColor(_seed).hue;
+    return fromSeed.copyWith(
+      primary:                  primaryDimmed,
+      onPrimary:                onPrimaryDimmed,
+      primaryContainer:         primaryContainerDimmed,
+      onPrimaryContainer:       onPrimaryContainerDimmed,
+      secondary:                secondaryDimmed,
+      onSecondary:              isD ? Colors.white : fromSeed.onSecondary,
+      secondaryContainer:       secondaryContainerDimmed,
+      onSecondaryContainer:     onSecondaryContainerDimmed,
+      surface:                  isD ? _darkBgFor(seedHue) : _lightSurface,
+      surfaceContainerLowest:   isD
+          ? HSLColor.fromAHSL(1.0, seedHue, _surfaceTint,
+                  (0.10 + _surfaceDepth).clamp(0.02, 0.28))
+              .toColor()
+          : const Color(0xFFFFFFFF),
+      surfaceContainerLow:      isD ? _darkSurfLowFor(seedHue) : _lightSurfaceContainerLow,
+      surfaceContainer:         isD ? _darkSurfFor(seedHue) : _lightSurfaceContainer,
+      surfaceContainerHigh:     isD ? _darkSurfHighFor(seedHue) : _lightSurfaceContainerHigh,
+      surfaceContainerHighest:  isD ? _darkSurfHighestFor(seedHue) : _lightSurfaceContainerHighest,
+      onSurface:                isD ? _darkOnSurface : _lightOnSurface,
+      onSurfaceVariant:         isD ? _darkOnSurfaceVariant : _lightOnSurfaceVariant,
+      outline:                  isD ? _darkOutlineFor(seedHue) : _lightOutline,
+      outlineVariant:           isD ? _darkOutlineVariantFor(seedHue) : _lightOutlineVariant,
+      surfaceTint:              Colors.transparent,
+    );
+  }
+
+  static double _lightnessOf(Color c) => HSLColor.fromColor(c).lightness;
+  static Color _withLightness(Color c, double l) =>
+      HSLColor.fromColor(c).withLightness(l.clamp(0.0, 1.0)).toColor();
+  static Color _withSatLight(Color c, double s, double l) {
+    final hsl = HSLColor.fromColor(c);
+    return hsl
+        .withSaturation(s.clamp(0.0, 1.0))
+        .withLightness(l.clamp(0.0, 1.0))
+        .toColor();
   }
 
   // ── Legacy palette getters (mapped to ColorScheme tokens) ────────────────
@@ -86,6 +216,12 @@ class ThemeNotifier extends ChangeNotifier {
     }
     _borderRadius =
         prefs.getDouble('theme_radius') ?? _defaultRadius;
+    _surfaceTint =
+        prefs.getDouble('theme_surface_tint') ?? _defaultSurfaceTint;
+    _surfaceDepth =
+        prefs.getDouble('theme_surface_depth') ?? _defaultSurfaceDepth;
+    _accentDepth =
+        prefs.getDouble('theme_accent_depth') ?? _defaultAccentDepth;
     _fontFamily = prefs.getString('theme_font') ?? 'Inter';
     _customPlatform = _platformFromString(prefs.getString('theme_platform'));
     _cachedScheme = null;
@@ -97,6 +233,9 @@ class ThemeNotifier extends ChangeNotifier {
     await prefs.setString('theme_mode', _modeToString(_mode));
     await prefs.setInt('theme_seed', _seed.toARGB32());
     await prefs.setDouble('theme_radius', _borderRadius);
+    await prefs.setDouble('theme_surface_tint', _surfaceTint);
+    await prefs.setDouble('theme_surface_depth', _surfaceDepth);
+    await prefs.setDouble('theme_accent_depth', _accentDepth);
     await prefs.setString('theme_font', _fontFamily);
     if (_customPlatform != null) {
       await prefs.setString('theme_platform', _platformToString(_customPlatform!));
@@ -164,6 +303,30 @@ class ThemeNotifier extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Tunes how saturated dark surfaces are (0 = pure grey, 0.45 = strong tint).
+  void setSurfaceTint(double v) {
+    _surfaceTint = v.clamp(0.0, 0.45);
+    _cachedScheme = null;
+    _save();
+    notifyListeners();
+  }
+
+  /// Shifts the entire dark surface ramp lighter/darker (-0.05 to +0.05).
+  void setSurfaceDepth(double v) {
+    _surfaceDepth = v.clamp(-0.05, 0.05);
+    _cachedScheme = null;
+    _save();
+    notifyListeners();
+  }
+
+  /// Lightness of own-bubble / `primaryContainer` (0.10 deep → 0.40 loud).
+  void setAccentDepth(double v) {
+    _accentDepth = v.clamp(0.10, 0.40);
+    _cachedScheme = null;
+    _save();
+    notifyListeners();
+  }
+
   // ── Legacy no-ops kept for the dynamic-theme picker UI ───────────────────
   // FluffyChat-style architecture has only one knob (the seed), so the
   // separate background/surface/bubble pickers no longer make sense — the
@@ -191,6 +354,9 @@ class ThemeNotifier extends ChangeNotifier {
     _seed = _defaultSeed;
     _customPlatform = null;
     _borderRadius = _defaultRadius;
+    _surfaceTint = _defaultSurfaceTint;
+    _surfaceDepth = _defaultSurfaceDepth;
+    _accentDepth = _defaultAccentDepth;
     _fontFamily = 'Inter';
     _mode = ThemeMode.dark;
     _cachedScheme = null;
@@ -210,11 +376,7 @@ class ThemeNotifier extends ChangeNotifier {
   ThemeData _buildThemeData({required Brightness brightness}) {
     final colorScheme = brightness == (isDark ? Brightness.dark : Brightness.light)
         ? _scheme
-        : ColorScheme.fromSeed(
-            seedColor: _seed,
-            brightness: brightness,
-            dynamicSchemeVariant: DynamicSchemeVariant.vibrant,
-          );
+        : _buildScheme(brightness);
 
     final base = brightness == Brightness.dark
         ? ThemeData.dark(useMaterial3: true)

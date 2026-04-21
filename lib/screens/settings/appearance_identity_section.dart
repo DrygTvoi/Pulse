@@ -13,21 +13,23 @@ import 'settings_widgets.dart';
 class AppearanceIdentitySection extends StatelessWidget {
   const AppearanceIdentitySection({super.key});
 
-  /// Detect active preset name by matching current theme colors.
+  /// Detect active preset name by matching current SEED to known presets.
+  /// Surfaces are now seed-derived via HSL so we only need the seed match.
+  /// Same hex list as `_seedPresets` in `dynamic_theme_screen.dart` —
+  /// keep them in sync.
   static String _activePresetLabel() {
-    final tn = ThemeNotifier.instance;
-    final pri = tn.primary;
-    final bg = tn.background;
-    // Map of preset primary+bg to name
-    const presets = <(int, int), String>{
-      (0xFF5288C1, 0xFF17212B): 'Ocean',
-      (0xFF00A884, 0xFF111B21): 'Jade',
-      (0xFF3A76F0, 0xFF1B1B1B): 'Cobalt',
-      (0xFFBB86FC, 0xFF000000): 'Midnight',
-      (0xFF00A884, 0xFFF0F2F5): 'Light',
+    final seed = ThemeNotifier.instance.primary.toARGB32() & 0xFFFFFFFF;
+    const presets = <int, String>{
+      0xFF5288C1: 'Ocean',
+      0xFF5A8C6B: 'Forest',
+      0xFF9079B5: 'Lavender',
+      0xFFC97B95: 'Rose',
+      0xFFC8995C: 'Amber',
+      0xFFB85B5B: 'Crimson',
+      0xFF6F829A: 'Slate',
+      0xFF7FA68D: 'Sage',
     };
-    final key = (pri.toARGB32() & 0xFFFFFFFF, bg.toARGB32() & 0xFFFFFFFF);
-    return presets[key] ?? 'Custom';
+    return presets[seed] ?? 'Custom';
   }
 
   @override

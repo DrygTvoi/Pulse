@@ -5,10 +5,10 @@ import 'package:provider/provider.dart';
 import '../theme/theme_manager.dart';
 import '../l10n/l10n_ext.dart';
 
-/// FluffyChat-style theme picker — one seed colour drives the entire palette.
-/// The user can pick from a named preset grid, drag an HSL picker to fine-tune
-/// a custom seed, switch dark/light/system mode and adjust the global radius.
-/// Per-surface and per-bubble pickers are gone — they're derived tonally.
+/// Compact theme picker — small preset chips on top, then a stack of
+/// fine-tune sliders (surface tint, surface depth, accent depth, border
+/// radius). The mode toggle lives as an icon action in the AppBar.
+/// Custom seed picker (HSL) sits below the chips and unfolds on tap.
 class DynamicThemeScreen extends StatefulWidget {
   const DynamicThemeScreen({super.key});
 
@@ -17,143 +17,114 @@ class DynamicThemeScreen extends StatefulWidget {
 }
 
 class _DynamicThemeScreenState extends State<DynamicThemeScreen> {
-  Timer? _radiusDebounce;
+  Timer? _debounce;
   late double _localRadius;
-  bool _radiusDragging = false;
+  late double _localSurfaceTint;
+  late double _localSurfaceDepth;
+  late double _localAccentDepth;
+  bool _dragging = false;
   bool _showCustomPicker = false;
 
-  // Curated seed presets — neutral colour names only (no third-party brand
-  // references). The seed alone determines the entire ColorScheme via
-  // Material You tonal generation.
   static const _seedPresets = <_SeedPreset>[
     _SeedPreset('Ocean',    Color(0xFF5288C1)),
-    _SeedPreset('Indigo',   Color(0xFF5865F2)),
-    _SeedPreset('Sky',      Color(0xFF0EA5E9)),
-    _SeedPreset('Cobalt',   Color(0xFF007ACC)),
-    _SeedPreset('Sapphire', Color(0xFF0A84FF)),
-    _SeedPreset('Aqua',     Color(0xFF229ED9)),
-    _SeedPreset('Plum',     Color(0xFF611F69)),
-    _SeedPreset('Teal',     Color(0xFF26A69A)),
-    _SeedPreset('Mint',     Color(0xFF25D366)),
-    _SeedPreset('Sunset',   Color(0xFFFB7185)),
-    _SeedPreset('Amber',    Color(0xFFF59E0B)),
-    _SeedPreset('Crimson',  Color(0xFFDC2626)),
-    _SeedPreset('Graphite', Color(0xFF6B7280)),
+    _SeedPreset('Forest',   Color(0xFF5A8C6B)),
+    _SeedPreset('Lavender', Color(0xFF9079B5)),
+    _SeedPreset('Rose',     Color(0xFFC97B95)),
+    _SeedPreset('Amber',    Color(0xFFC8995C)),
+    _SeedPreset('Crimson',  Color(0xFFB85B5B)),
+    _SeedPreset('Slate',    Color(0xFF6F829A)),
+    _SeedPreset('Sage',     Color(0xFF7FA68D)),
   ];
 
   @override
   void initState() {
     super.initState();
-    _localRadius = ThemeNotifier.instance.borderRadius;
+    final tn = ThemeNotifier.instance;
+    _localRadius = tn.borderRadius;
+    _localSurfaceTint = tn.surfaceTint;
+    _localSurfaceDepth = tn.surfaceDepth;
+    _localAccentDepth = tn.accentDepth;
   }
 
   @override
   void dispose() {
-    _radiusDebounce?.cancel();
+    _debounce?.cancel();
     super.dispose();
   }
 
-  void _applySeed(Color seed) {
-    ThemeNotifier.instance.setSeed(seed);
-  }
+  void _applySeed(Color seed) => ThemeNotifier.instance.setSeed(seed);
 
-  bool _isCurrentSeed(Color a, Color b) =>
-      a.toARGB32() == b.toARGB32();
+  bool _eq(Color a, Color b) => a.toARGB32() == b.toARGB32();
+
+  IconData _modeIcon(ThemeMode m) => m == ThemeMode.light
+      ? Icons.light_mode_rounded
+      : (m == ThemeMode.system
+          ? Icons.brightness_auto_rounded
+          : Icons.dark_mode_rounded);
+
+  ThemeMode _nextMode(ThemeMode m) => m == ThemeMode.dark
+      ? ThemeMode.light
+      : (m == ThemeMode.light ? ThemeMode.system : ThemeMode.dark);
 
   @override
   Widget build(BuildContext context) {
     final theme = context.watch<ThemeNotifier>();
     final scheme = Theme.of(context).colorScheme;
-    if (!_radiusDragging) _localRadius = theme.borderRadius;
+    if (!_dragging) {
+      _localRadius = theme.borderRadius;
+      _localSurfaceTint = theme.surfaceTint;
+      _localSurfaceDepth = theme.surfaceDepth;
+      _localAccentDepth = theme.accentDepth;
+    }
 
     return Scaffold(
-      appBar: AppBar(title: Text(context.l10n.themeEngineTitle)),
+      appBar: AppBar(
+        title: Text(context.l10n.themeEngineTitle),
+        actions: [
+          IconButton(
+            tooltip: context.l10n.themeDynamicAppearance,
+            icon: Icon(_modeIcon(theme.themeMode)),
+            onPressed: () => ThemeNotifier.instance
+                .setThemeMode(_nextMode(theme.themeMode)),
+          ),
+          const SizedBox(width: 4),
+        ],
+      ),
       body: ListView(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
         children: [
-          // ── Live preview chip ─────────────────────────────────────────
-          _LivePreviewCard(seed: theme.primary),
-          const SizedBox(height: 28),
-
-          // ── Mode ──────────────────────────────────────────────────────
-          _sectionLabel(context.l10n.themeDynamicAppearance, scheme),
-          const SizedBox(height: 10),
-          _ModeToggle(
-            mode: theme.themeMode,
-            onChanged: (m) => ThemeNotifier.instance.setThemeMode(m),
-          ),
-
-          const SizedBox(height: 28),
-
-          // ── Seed presets ──────────────────────────────────────────────
-          _sectionLabel(context.l10n.themeDynamicPresets, scheme),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: _seedPresets.map((p) {
-              final active = _isCurrentSeed(p.seed, theme.primary);
-              return _SeedChip(
-                preset: p,
-                active: active,
-                onTap: () => _applySeed(p.seed),
-              );
-            }).toList(),
-          ),
-
-          const SizedBox(height: 28),
-
-          // ── Custom seed (collapsible HSL picker) ──────────────────────
-          _sectionLabel(context.l10n.themeColors, scheme),
-          const SizedBox(height: 6),
-          InkWell(
-            onTap: () => setState(() => _showCustomPicker = !_showCustomPicker),
-            borderRadius: BorderRadius.circular(12),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
-              child: Row(
-                children: [
-                  Container(
-                    width: 28,
-                    height: 28,
-                    decoration: BoxDecoration(
-                      color: theme.primary,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                          color: scheme.onSurface.withValues(alpha: 0.15)),
-                    ),
+          // ── Preset row — small color chips ────────────────────────────
+          _GroupCard(
+            title: context.l10n.themeDynamicPresets,
+            scheme: scheme,
+            child: Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                for (final p in _seedPresets)
+                  _PresetChip(
+                    preset: p,
+                    active: _eq(p.seed, theme.primary),
+                    onTap: () => _applySeed(p.seed),
                   ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Text(context.l10n.themePrimaryAccent,
-                        style: GoogleFonts.inter(
-                            color: scheme.onSurface,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500)),
-                  ),
-                  Text(
-                    '#${(theme.primary.toARGB32() & 0xFFFFFF).toRadixString(16).padLeft(6, '0').toUpperCase()}',
-                    style: GoogleFonts.jetBrainsMono(
-                        color: scheme.onSurfaceVariant, fontSize: 11),
-                  ),
-                  const SizedBox(width: 8),
-                  AnimatedRotation(
-                    turns: _showCustomPicker ? 0.5 : 0,
-                    duration: const Duration(milliseconds: 200),
-                    child: Icon(Icons.expand_more_rounded,
-                        size: 20, color: scheme.onSurfaceVariant),
-                  ),
-                ],
-              ),
+                _CustomChip(
+                  active: !_seedPresets.any((p) => _eq(p.seed, theme.primary)),
+                  expanded: _showCustomPicker,
+                  onTap: () =>
+                      setState(() => _showCustomPicker = !_showCustomPicker),
+                ),
+              ],
             ),
           ),
+
+          // ── Custom HSL picker (collapsible) ───────────────────────────
           AnimatedSize(
-            duration: const Duration(milliseconds: 250),
+            duration: const Duration(milliseconds: 200),
             curve: Curves.easeInOut,
             alignment: Alignment.topCenter,
             child: _showCustomPicker
                 ? Padding(
-                    padding: const EdgeInsets.only(top: 8, bottom: 12),
+                    padding: const EdgeInsets.only(top: 12),
                     child: _HslColorPicker(
                       color: theme.primary,
                       onChanged: _applySeed,
@@ -162,31 +133,120 @@ class _DynamicThemeScreenState extends State<DynamicThemeScreen> {
                 : const SizedBox.shrink(),
           ),
 
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
 
-          // ── Shape (border radius) ─────────────────────────────────────
-          _sectionLabel(context.l10n.themeShape, scheme),
-          _RadiusSlider(
-            value: _localRadius,
-            onChanged: (v) {
-              setState(() {
-                _radiusDragging = true;
-                _localRadius = v;
-              });
-              _radiusDebounce?.cancel();
-              _radiusDebounce = Timer(const Duration(milliseconds: 80), () {
-                ThemeNotifier.instance.updateRadius(v);
-                _radiusDragging = false;
-              });
-            },
-            onChangeEnd: (v) {
-              _radiusDebounce?.cancel();
-              ThemeNotifier.instance.updateRadius(v);
-              _radiusDragging = false;
-            },
+          // ── Surface customization ─────────────────────────────────────
+          _GroupCard(
+            title: context.l10n.themeBackground,
+            scheme: scheme,
+            child: Column(
+              children: [
+                _NamedSlider(
+                  label: 'Tint strength',
+                  hint: 'Grey ↔ Tinted',
+                  value: _localSurfaceTint,
+                  min: 0.0,
+                  max: 0.45,
+                  divisions: 45,
+                  format: (v) => v.toStringAsFixed(2),
+                  onChanged: (v) {
+                    setState(() {
+                      _dragging = true;
+                      _localSurfaceTint = v;
+                    });
+                    _debouncedApply(() => ThemeNotifier.instance.setSurfaceTint(v));
+                  },
+                  onChangeEnd: (v) {
+                    _debounce?.cancel();
+                    ThemeNotifier.instance.setSurfaceTint(v);
+                    _dragging = false;
+                  },
+                ),
+                _NamedSlider(
+                  label: 'Depth',
+                  hint: 'Lighter ↔ Deeper',
+                  value: _localSurfaceDepth,
+                  min: -0.05,
+                  max: 0.05,
+                  divisions: 20,
+                  format: (v) =>
+                      (v >= 0 ? '+' : '') + v.toStringAsFixed(2),
+                  onChanged: (v) {
+                    setState(() {
+                      _dragging = true;
+                      _localSurfaceDepth = v;
+                    });
+                    _debouncedApply(() => ThemeNotifier.instance.setSurfaceDepth(v));
+                  },
+                  onChangeEnd: (v) {
+                    _debounce?.cancel();
+                    ThemeNotifier.instance.setSurfaceDepth(v);
+                    _dragging = false;
+                  },
+                ),
+              ],
+            ),
           ),
 
-          const SizedBox(height: 32),
+          const SizedBox(height: 14),
+
+          // ── Accent customization ──────────────────────────────────────
+          _GroupCard(
+            title: context.l10n.themePrimaryAccent,
+            scheme: scheme,
+            child: _NamedSlider(
+              label: 'Bubble depth',
+              hint: 'Deep ↔ Loud',
+              value: _localAccentDepth,
+              min: 0.10,
+              max: 0.40,
+              divisions: 30,
+              format: (v) => v.toStringAsFixed(2),
+              onChanged: (v) {
+                setState(() {
+                  _dragging = true;
+                  _localAccentDepth = v;
+                });
+                _debouncedApply(() => ThemeNotifier.instance.setAccentDepth(v));
+              },
+              onChangeEnd: (v) {
+                _debounce?.cancel();
+                ThemeNotifier.instance.setAccentDepth(v);
+                _dragging = false;
+              },
+            ),
+          ),
+
+          const SizedBox(height: 14),
+
+          // ── Shape (border radius) ─────────────────────────────────────
+          _GroupCard(
+            title: context.l10n.themeShape,
+            scheme: scheme,
+            child: _NamedSlider(
+              label: 'Corner radius',
+              hint: 'Sharp ↔ Round',
+              value: _localRadius,
+              min: 4,
+              max: 28,
+              divisions: 24,
+              format: (v) => '${v.round()} px',
+              onChanged: (v) {
+                setState(() {
+                  _dragging = true;
+                  _localRadius = v;
+                });
+                _debouncedApply(() => ThemeNotifier.instance.updateRadius(v));
+              },
+              onChangeEnd: (v) {
+                _debounce?.cancel();
+                ThemeNotifier.instance.updateRadius(v);
+                _dragging = false;
+              },
+            ),
+          ),
+
+          const SizedBox(height: 18),
 
           // ── Reset ─────────────────────────────────────────────────────
           Center(
@@ -194,7 +254,11 @@ class _DynamicThemeScreenState extends State<DynamicThemeScreen> {
               onPressed: () {
                 ThemeNotifier.instance.resetCustom();
                 setState(() {
-                  _localRadius = ThemeNotifier.instance.borderRadius;
+                  final tn = ThemeNotifier.instance;
+                  _localRadius = tn.borderRadius;
+                  _localSurfaceTint = tn.surfaceTint;
+                  _localSurfaceDepth = tn.surfaceDepth;
+                  _localAccentDepth = tn.accentDepth;
                   _showCustomPicker = false;
                 });
               },
@@ -207,24 +271,52 @@ class _DynamicThemeScreenState extends State<DynamicThemeScreen> {
                       fontWeight: FontWeight.w500)),
             ),
           ),
-          const SizedBox(height: 16),
         ],
       ),
     );
   }
 
-  Widget _sectionLabel(String text, ColorScheme scheme) => Padding(
-        padding: const EdgeInsets.only(left: 4, top: 4, bottom: 4),
-        child: Text(
-          text.toUpperCase(),
-          style: GoogleFonts.inter(
-            color: scheme.onSurfaceVariant,
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
-            letterSpacing: 0.8,
-          ),
-        ),
-      );
+  void _debouncedApply(VoidCallback fn) {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 60), () {
+      fn();
+      _dragging = false;
+    });
+  }
+}
+
+// ── Section card with title ────────────────────────────────────────────────
+class _GroupCard extends StatelessWidget {
+  final String title;
+  final Widget child;
+  final ColorScheme scheme;
+  const _GroupCard(
+      {required this.title, required this.child, required this.scheme});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainer,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title,
+              style: GoogleFonts.inter(
+                color: scheme.onSurfaceVariant,
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.6,
+              )),
+          const SizedBox(height: 10),
+          child,
+        ],
+      ),
+    );
+  }
 }
 
 // ── Preset model ───────────────────────────────────────────────────────────
@@ -234,13 +326,12 @@ class _SeedPreset {
   const _SeedPreset(this.name, this.seed);
 }
 
-// ── Seed chip — large color square + name, tinted if active ────────────────
-class _SeedChip extends StatelessWidget {
+// ── Small preset chip — coloured circle + name ─────────────────────────────
+class _PresetChip extends StatelessWidget {
   final _SeedPreset preset;
   final bool active;
   final VoidCallback onTap;
-
-  const _SeedChip(
+  const _PresetChip(
       {required this.preset, required this.active, required this.onTap});
 
   @override
@@ -250,39 +341,36 @@ class _SeedChip extends StatelessWidget {
       color: active
           ? preset.seed.withValues(alpha: 0.18)
           : scheme.surfaceContainerHigh,
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: BorderRadius.circular(12),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
         child: Container(
-          padding:
-              const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
             border: Border.all(
               color: active ? preset.seed : Colors.transparent,
               width: 1.5,
             ),
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(12),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
-                width: 18,
-                height: 18,
+                width: 14,
+                height: 14,
                 decoration: BoxDecoration(
-                  color: preset.seed,
-                  shape: BoxShape.circle,
-                ),
+                    color: preset.seed, shape: BoxShape.circle),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 8),
               Text(
                 preset.name,
                 style: GoogleFonts.inter(
                   color: scheme.onSurface,
-                  fontSize: 13,
+                  fontSize: 12,
                   fontWeight:
-                      active ? FontWeight.w600 : FontWeight.w500,
+                      active ? FontWeight.w700 : FontWeight.w500,
                 ),
               ),
             ],
@@ -293,137 +381,101 @@ class _SeedChip extends StatelessWidget {
   }
 }
 
-// ── Mode toggle ────────────────────────────────────────────────────────────
-class _ModeToggle extends StatelessWidget {
-  final ThemeMode mode;
-  final ValueChanged<ThemeMode> onChanged;
-
-  const _ModeToggle({required this.mode, required this.onChanged});
+// ── Custom chip — opens HSL picker ─────────────────────────────────────────
+class _CustomChip extends StatelessWidget {
+  final bool active;
+  final bool expanded;
+  final VoidCallback onTap;
+  const _CustomChip(
+      {required this.active,
+      required this.expanded,
+      required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    Widget seg(ThemeMode m, IconData icon, String label) {
-      final selected = m == mode;
-      return Expanded(
-        child: Material(
-          color: selected ? scheme.secondaryContainer : Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
-          child: InkWell(
-            onTap: () => onChanged(m),
-            borderRadius: BorderRadius.circular(12),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 10),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(icon,
-                      size: 20,
-                      color: selected
-                          ? scheme.onSecondaryContainer
-                          : scheme.onSurfaceVariant),
-                  const SizedBox(height: 4),
-                  Text(label,
-                      style: GoogleFonts.inter(
-                        color: selected
-                            ? scheme.onSecondaryContainer
-                            : scheme.onSurfaceVariant,
-                        fontSize: 12,
-                        fontWeight:
-                            selected ? FontWeight.w600 : FontWeight.w500,
-                      )),
-                ],
-              ),
+    return Material(
+      color: active
+          ? scheme.primary.withValues(alpha: 0.15)
+          : scheme.surfaceContainerHigh,
+      borderRadius: BorderRadius.circular(12),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            border: Border.all(
+              color: active ? scheme.primary : Colors.transparent,
+              width: 1.5,
             ),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 14,
+                height: 14,
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: SweepGradient(colors: [
+                    Color(0xFFFF0000),
+                    Color(0xFFFFFF00),
+                    Color(0xFF00FF00),
+                    Color(0xFF00FFFF),
+                    Color(0xFF0000FF),
+                    Color(0xFFFF00FF),
+                    Color(0xFFFF0000),
+                  ]),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Custom',
+                style: GoogleFonts.inter(
+                  color: scheme.onSurface,
+                  fontSize: 12,
+                  fontWeight:
+                      active ? FontWeight.w700 : FontWeight.w500,
+                ),
+              ),
+              const SizedBox(width: 4),
+              Icon(
+                expanded
+                    ? Icons.expand_less_rounded
+                    : Icons.tune_rounded,
+                size: 14,
+                color: scheme.onSurfaceVariant,
+              ),
+            ],
           ),
         ),
-      );
-    }
-
-    return Container(
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(14),
-      ),
-      padding: const EdgeInsets.all(4),
-      child: Row(
-        children: [
-          seg(ThemeMode.dark, Icons.dark_mode_rounded,
-              context.l10n.themeModeDark),
-          seg(ThemeMode.light, Icons.light_mode_rounded,
-              context.l10n.themeModeLight),
-          seg(ThemeMode.system, Icons.brightness_auto_rounded,
-              context.l10n.themeModeSystem),
-        ],
       ),
     );
   }
 }
 
-// ── Live preview card — shows the seed applied to a faux chat row ──────────
-class _LivePreviewCard extends StatelessWidget {
-  final Color seed;
-  const _LivePreviewCard({required this.seed});
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainer,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Incoming
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Container(
-              constraints: const BoxConstraints(maxWidth: 240),
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              decoration: BoxDecoration(
-                color: scheme.surfaceContainerHigh,
-                borderRadius: BorderRadius.circular(18),
-              ),
-              child: Text('Hey, how does this look?',
-                  style: GoogleFonts.inter(
-                      color: scheme.onSurface, fontSize: 14)),
-            ),
-          ),
-          const SizedBox(height: 6),
-          // Outgoing
-          Align(
-            alignment: Alignment.centerRight,
-            child: Container(
-              constraints: const BoxConstraints(maxWidth: 240),
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              decoration: BoxDecoration(
-                color: scheme.primaryContainer,
-                borderRadius: BorderRadius.circular(18),
-              ),
-              child: Text('Looking sharp ✨',
-                  style: GoogleFonts.inter(
-                      color: scheme.onPrimaryContainer, fontSize: 14)),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ── Radius slider ──────────────────────────────────────────────────────────
-class _RadiusSlider extends StatelessWidget {
+// ── Labelled slider with hint and live value ───────────────────────────────
+class _NamedSlider extends StatelessWidget {
+  final String label;
+  final String hint;
   final double value;
+  final double min;
+  final double max;
+  final int divisions;
+  final String Function(double) format;
   final ValueChanged<double> onChanged;
   final ValueChanged<double> onChangeEnd;
 
-  const _RadiusSlider({
+  const _NamedSlider({
+    required this.label,
+    required this.hint,
     required this.value,
+    required this.min,
+    required this.max,
+    required this.divisions,
+    required this.format,
     required this.onChanged,
     required this.onChangeEnd,
   });
@@ -431,34 +483,48 @@ class _RadiusSlider extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4),
-      child: Row(
-        children: [
-          Icon(Icons.crop_square_rounded,
-              size: 18, color: scheme.onSurfaceVariant),
-          Expanded(
-            child: Slider(
-              value: value,
-              min: 4,
-              max: 28,
-              divisions: 24,
-              activeColor: scheme.primary,
-              onChanged: onChanged,
-              onChangeEnd: onChangeEnd,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(label,
+                  style: GoogleFonts.inter(
+                    color: scheme.onSurface,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  )),
             ),
-          ),
-          Icon(Icons.circle, size: 18, color: scheme.onSurfaceVariant),
-          const SizedBox(width: 8),
-          Container(
-            width: 36,
-            alignment: Alignment.centerRight,
-            child: Text('${value.round()}',
+            Text(format(value),
                 style: GoogleFonts.jetBrainsMono(
-                    color: scheme.onSurfaceVariant, fontSize: 12)),
+                    color: scheme.onSurfaceVariant, fontSize: 11)),
+          ],
+        ),
+        SliderTheme(
+          data: SliderTheme.of(context).copyWith(
+            trackHeight: 3,
+            overlayShape: SliderComponentShape.noOverlay,
           ),
-        ],
-      ),
+          child: Slider(
+            value: value.clamp(min, max),
+            min: min,
+            max: max,
+            divisions: divisions,
+            activeColor: scheme.primary,
+            inactiveColor: scheme.surfaceContainerHighest,
+            onChanged: onChanged,
+            onChangeEnd: onChangeEnd,
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.only(top: 2, bottom: 2),
+          child: Text(hint,
+              style: GoogleFonts.inter(
+                  color: scheme.onSurfaceVariant.withValues(alpha: 0.7),
+                  fontSize: 10)),
+        ),
+      ],
     );
   }
 }
@@ -490,9 +556,7 @@ class _HslColorPickerState extends State<_HslColorPicker> {
   @override
   void didUpdateWidget(_HslColorPicker old) {
     super.didUpdateWidget(old);
-    if (!_dragging && old.color != widget.color) {
-      _syncFromColor(widget.color);
-    }
+    if (!_dragging && old.color != widget.color) _syncFromColor(widget.color);
   }
 
   @override
@@ -528,74 +592,44 @@ class _HslColorPickerState extends State<_HslColorPicker> {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: scheme.surfaceContainerHigh,
+        color: scheme.surfaceContainer,
         borderRadius: BorderRadius.circular(14),
       ),
       child: Column(
         children: [
-          _sliderRow(
-            label: 'H',
-            value: _hue,
-            min: 0,
-            max: 359,
-            gradient: _hueGradient(),
-            onChanged: (v) {
-              setState(() => _hue = v);
-              _emitDebounced();
-            },
-            onDragStart: () => _dragging = true,
-            onDragEnd: () {
-              _dragging = false;
-              _emitFinal();
-            },
-          ),
-          const SizedBox(height: 10),
-          _sliderRow(
-            label: 'S',
-            value: _saturation,
-            min: 0,
-            max: 1,
-            gradient: LinearGradient(colors: [
+          _row('H', _hue, 0, 359, _hueGrad(),
+              (v) => setState(() => _hue = v)),
+          const SizedBox(height: 8),
+          _row(
+            'S',
+            _saturation,
+            0,
+            1,
+            LinearGradient(colors: [
               HSLColor.fromAHSL(1, _hue, 0, _lightness).toColor(),
               HSLColor.fromAHSL(1, _hue, 1, _lightness).toColor(),
             ]),
-            onChanged: (v) {
-              setState(() => _saturation = v);
-              _emitDebounced();
-            },
-            onDragStart: () => _dragging = true,
-            onDragEnd: () {
-              _dragging = false;
-              _emitFinal();
-            },
+            (v) => setState(() => _saturation = v),
           ),
-          const SizedBox(height: 10),
-          _sliderRow(
-            label: 'L',
-            value: _lightness,
-            min: 0,
-            max: 1,
-            gradient: LinearGradient(colors: [
+          const SizedBox(height: 8),
+          _row(
+            'L',
+            _lightness,
+            0,
+            1,
+            LinearGradient(colors: [
               HSLColor.fromAHSL(1, _hue, _saturation, 0).toColor(),
               HSLColor.fromAHSL(1, _hue, _saturation, 0.5).toColor(),
               HSLColor.fromAHSL(1, _hue, _saturation, 1).toColor(),
             ]),
-            onChanged: (v) {
-              setState(() => _lightness = v);
-              _emitDebounced();
-            },
-            onDragStart: () => _dragging = true,
-            onDragEnd: () {
-              _dragging = false;
-              _emitFinal();
-            },
+            (v) => setState(() => _lightness = v),
           ),
         ],
       ),
     );
   }
 
-  static LinearGradient _hueGradient() => const LinearGradient(colors: [
+  static LinearGradient _hueGrad() => const LinearGradient(colors: [
         Color(0xFFFF0000),
         Color(0xFFFFFF00),
         Color(0xFF00FF00),
@@ -605,16 +639,8 @@ class _HslColorPickerState extends State<_HslColorPicker> {
         Color(0xFFFF0000),
       ]);
 
-  Widget _sliderRow({
-    required String label,
-    required double value,
-    required double min,
-    required double max,
-    required Gradient gradient,
-    required ValueChanged<double> onChanged,
-    required VoidCallback onDragStart,
-    required VoidCallback onDragEnd,
-  }) {
+  Widget _row(String label, double v, double min, double max, Gradient g,
+      ValueChanged<double> apply) {
     final scheme = Theme.of(context).colorScheme;
     return Row(
       children: [
@@ -634,7 +660,7 @@ class _HslColorPickerState extends State<_HslColorPicker> {
                   height: 8,
                   margin: const EdgeInsets.symmetric(horizontal: 2),
                   decoration: BoxDecoration(
-                    gradient: gradient,
+                    gradient: g,
                     borderRadius: BorderRadius.circular(4),
                   ),
                 ),
@@ -650,12 +676,18 @@ class _HslColorPickerState extends State<_HslColorPicker> {
                       const RoundSliderThumbShape(enabledThumbRadius: 8),
                 ),
                 child: Slider(
-                  value: value.clamp(min, max),
+                  value: v.clamp(min, max),
                   min: min,
                   max: max,
-                  onChangeStart: (_) => onDragStart(),
-                  onChanged: onChanged,
-                  onChangeEnd: (_) => onDragEnd(),
+                  onChangeStart: (_) => _dragging = true,
+                  onChanged: (val) {
+                    apply(val);
+                    _emitDebounced();
+                  },
+                  onChangeEnd: (_) {
+                    _dragging = false;
+                    _emitFinal();
+                  },
                 ),
               ),
             ],
