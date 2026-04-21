@@ -22,22 +22,23 @@ class _DynamicThemeScreenState extends State<DynamicThemeScreen> {
   bool _radiusDragging = false;
   bool _showCustomPicker = false;
 
-  // Curated seed presets — pulled from popular messengers/IDEs so users have
-  // a recognisable starting point. The seed alone determines the entire
-  // ColorScheme via Material You tonal generation.
+  // Curated seed presets — neutral colour names only (no third-party brand
+  // references). The seed alone determines the entire ColorScheme via
+  // Material You tonal generation.
   static const _seedPresets = <_SeedPreset>[
-    _SeedPreset('Discord',  Color(0xFF5865F2)),
+    _SeedPreset('Ocean',    Color(0xFF5288C1)),
+    _SeedPreset('Indigo',   Color(0xFF5865F2)),
     _SeedPreset('Sky',      Color(0xFF0EA5E9)),
-    _SeedPreset('VS Code',  Color(0xFF007ACC)),
-    _SeedPreset('Telegram', Color(0xFF229ED9)),
-    _SeedPreset('iMessage', Color(0xFF0A84FF)),
-    _SeedPreset('Slack',    Color(0xFF611F69)),
-    _SeedPreset('Pulse',    Color(0xFF26A69A)),
-    _SeedPreset('WhatsApp', Color(0xFF25D366)),
+    _SeedPreset('Cobalt',   Color(0xFF007ACC)),
+    _SeedPreset('Sapphire', Color(0xFF0A84FF)),
+    _SeedPreset('Aqua',     Color(0xFF229ED9)),
+    _SeedPreset('Plum',     Color(0xFF611F69)),
+    _SeedPreset('Teal',     Color(0xFF26A69A)),
+    _SeedPreset('Mint',     Color(0xFF25D366)),
     _SeedPreset('Sunset',   Color(0xFFFB7185)),
     _SeedPreset('Amber',    Color(0xFFF59E0B)),
     _SeedPreset('Crimson',  Color(0xFFDC2626)),
-    _SeedPreset('Mono',     Color(0xFF6B7280)),
+    _SeedPreset('Graphite', Color(0xFF6B7280)),
   ];
 
   @override

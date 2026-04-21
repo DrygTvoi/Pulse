@@ -19,11 +19,11 @@ class ThemeNotifier extends ChangeNotifier {
   ThemeMode get themeMode => _mode;
 
   // ── Seed-driven palette ──────────────────────────────────────────────────
-  /// Default seed — Discord-style blurple. One value drives the entire
+  /// Default seed — soft deep "Ocean" blue. One value drives the entire
   /// ColorScheme via Material 3 tonal palette generation: surface tints,
   /// container colours, and accents all derive from this hue. To "rebrand"
   /// the app: change this.
-  static const Color _defaultSeed = Color(0xFF5865F2);
+  static const Color _defaultSeed = Color(0xFF5288C1);
   Color _seed = _defaultSeed;
 
   /// FluffyChat uses 16. Input/popup/outlined-button radii are derived as
