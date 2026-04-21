@@ -1727,6 +1727,29 @@ class ChatController extends ChangeNotifier {
           debugPrint('[ChatController] addr_update: empty transportAddresses, ignoring');
           return;
         }
+        // Nostr-list UNION-MERGE (bug fix for advertise-set shrinkage):
+        // Senders occasionally ship a smaller Nostr list than the receiver
+        // already has — e.g. when their startup probe couldn't handshake all
+        // secondaries in 8s. Replacing would clobber our 5-relay view with a
+        // 1-relay view and break routing redundancy. Merge new addresses in
+        // front of the existing set (preserving fresh primary-first order)
+        // and cap at 10 to bound growth. Other transports keep replace
+        // semantics so a user switching Pulse/Session server is honoured.
+        final existingNostr = addrContact.transportAddresses['Nostr']
+            ?? const <String>[];
+        final incomingNostr = ta['Nostr'] ?? const <String>[];
+        if (incomingNostr.isNotEmpty || existingNostr.isNotEmpty) {
+          final merged = <String>[];
+          final seen = <String>{};
+          for (final a in incomingNostr) {
+            if (seen.add(a)) merged.add(a);
+          }
+          for (final a in existingNostr) {
+            if (merged.length >= 10) break;
+            if (seen.add(a)) merged.add(a);
+          }
+          if (merged.isNotEmpty) ta['Nostr'] = merged;
+        }
         updated = addrContact.copyWith(
           transportAddresses: ta,
           transportPriority: tp,
@@ -1748,6 +1771,24 @@ class ChatController extends ChangeNotifier {
         final ta = _buildTransportMap(allAddrs.toList());
         final primaryTransport = _providerFromAddress(primary);
         final tp = [primaryTransport, ...ta.keys.where((t) => t != primaryTransport)];
+        // Same Nostr-list UNION-MERGE as in the new-format branch — see the
+        // comment there. Prevents flaky-startup shrinkage from clobbering our
+        // redundant relay view of this contact.
+        final existingNostr = addrContact.transportAddresses['Nostr']
+            ?? const <String>[];
+        final incomingNostr = ta['Nostr'] ?? const <String>[];
+        if (incomingNostr.isNotEmpty || existingNostr.isNotEmpty) {
+          final merged = <String>[];
+          final seen = <String>{};
+          for (final a in incomingNostr) {
+            if (seen.add(a)) merged.add(a);
+          }
+          for (final a in existingNostr) {
+            if (merged.length >= 10) break;
+            if (seen.add(a)) merged.add(a);
+          }
+          if (merged.isNotEmpty) ta['Nostr'] = merged;
+        }
         updated = addrContact.copyWith(
           transportAddresses: ta,
           transportPriority: tp,
@@ -1853,6 +1894,8 @@ class ChatController extends ChangeNotifier {
       );
       await _contacts.updateContact(updated);
       _invalidateContactIndex();
+      await _ensurePendingContactsForMembers(
+          mergedPubkeys, e.memberAddresses);
       debugPrint('[Group] Membership updated for ${updated.name}: ${e.members.length} members');
       if (memberRemoved && _selfId.isNotEmpty) {
         unawaited(rotateGroupSenderKey(updated));
@@ -2941,42 +2984,37 @@ class ChatController extends ChangeNotifier {
     return 'Nostr';
   }
 
-  /// After a delay, add secondary relay addresses that successfully connected.
-  /// After secondary relays had 8s to establish a connection, remove addresses
-  /// for any that never connected so we don't advertise broken relays to contacts.
+  /// After a delay, reconcile secondary-relay handshake state. Previously this
+  /// REMOVED addresses whose WS didn't finish handshaking within 8s, which
+  /// caused a cascading bug: a flaky startup would shrink _allAddresses from
+  /// 5 relays to 1, broadcastAddressUpdate would ship the smaller set, and
+  /// the receiver's addr_update handler would replace its 5-relay view of us
+  /// with the 1-relay view. Full redundancy never recovered unless a later
+  /// probe+prune cycle happened to succeed.
+  ///
+  /// Probe-reachable relays are kept in _allAddresses even if our OWN WS
+  /// didn't connect in 8s: (a) the relay is still usable for contacts to
+  /// reach us (probe validated DM capability), (b) we can re-subscribe
+  /// later when the WS does open, (c) advertising an extra reachable relay
+  /// is cheap — worst case the receiver tries it once and falls through.
+  ///
+  /// We still re-broadcast here so any late-arriving secondary addresses
+  /// added between T=0 and T+8s get propagated, and we log which relays
+  /// failed to handshake so flaky relays are visible in diagnostics.
   void _pruneDisconnectedSecondaries(
       String nostrPub, InboxReader reader, List<String> candidates) {
     if (reader is! NostrInboxReader) return;
     final connected = reader.connectedSecondaryRelays;
-    var removed = 0;
+    var notConnected = 0;
     for (final relay in candidates) {
-      if (connected.contains(relay)) continue;
-      final addr = '$nostrPub@$relay';
-      if (_allAddresses.remove(addr)) {
-        _adapterHealth.remove(addr);
-        removed++;
-      }
+      if (!connected.contains(relay)) notConnected++;
     }
-    if (removed > 0) {
-      debugPrint('[Chat] Pruned $removed unreachable secondary Nostr relays');
-      _refreshContactNostrFallback();
+    if (notConnected > 0) {
+      debugPrint('[Chat] $notConnected/${candidates.length} secondary Nostr relays '
+          'did not handshake in 8s — keeping them advertised (probe-reachable)');
     }
-    // Always re-broadcast addr_update after prune finishes so contacts
-    // learn the final, accurate relay set — this is the first moment we
-    // know which secondaries are actually live. The initial broadcast at
-    // T+2s fires before WS handshakes complete and may advertise relays
-    // that later get pruned; contacts merge the fresher set on top.
+    // Re-broadcast so any addresses added between T=0 and T+8s reach contacts.
     unawaited(broadcastAddressUpdate());
-  }
-
-  /// Refresh Nostr fallback addresses for all contacts using current relay set.
-  void _refreshContactNostrFallback() {
-    unawaited(() async {
-      for (final c in List<Contact>.from(_contacts.contacts)) {
-        final fixed = await _ensureNostrFallback(c);
-        if (!identical(fixed, c)) await _contacts.updateContact(fixed);
-      }
-    }());
   }
 
   /// Gather our own Nostr relay URLs from addresses we're actually subscribed to.
@@ -4323,7 +4361,7 @@ class ChatController extends ChangeNotifier {
       _broadcaster.broadcastTurnToContact(contact);
 
   Future<void> sendGroupInvite(Contact target, Contact group) =>
-      _broadcaster.sendGroupInvite(target, group);
+      _broadcaster.sendGroupInvite(target, group, _contacts.contacts);
 
   Future<void> declineGroupInvite(SignalGroupInviteEvent invite) async {
     if (_identity == null || _selfId.isEmpty) return;
@@ -4399,8 +4437,64 @@ class ChatController extends ChangeNotifier {
     );
     await _contacts.addContact(newGroup);
     _invalidateContactIndex();
+    await _ensurePendingContactsForMembers(
+        invite.memberPubkeys, invite.memberAddresses);
     debugPrint('[Group] Joined group "${invite.groupName}" via invite');
     _scheduleNotify();
+  }
+
+  /// For every `(memberUuid → pubkey)` entry we don't already have a local
+  /// contact for (matched by pubkey), create a pending contact so
+  /// `findByPubkey` resolves on subsequent group sends. Prefer the
+  /// per-member `transportAddresses` carried in the invite/update; fall
+  /// back to fabricating `{pubkey}@{relay}` entries on our top Nostr relays
+  /// for legacy invites that omitted the addresses field. Pending contacts
+  /// learn real addresses from message envelopes later (see the message
+  /// receive path in `_handleIncomingMessages`).
+  Future<void> _ensurePendingContactsForMembers(
+      Map<String, String> memberPubkeys,
+      Map<String, Map<String, List<String>>> memberAddresses) async {
+    if (memberPubkeys.isEmpty) return;
+    final selfId = _selfId;
+    final ownPubAt = selfId.indexOf('@');
+    final ownPub =
+        (ownPubAt > 0 ? selfId.substring(0, ownPubAt) : selfId).toLowerCase();
+    // Fallback Nostr relays for Layer B (no addresses in payload).
+    final probeRelays =
+        ConnectivityProbeService.instance.lastResult.nostrRelays;
+    final fallbackRelays = <String>[];
+    for (final r in probeRelays) {
+      if (fallbackRelays.length >= 3) break;
+      final normalized = r.startsWith('ws') ? r : 'wss://$r';
+      if (!fallbackRelays.contains(normalized)) fallbackRelays.add(normalized);
+    }
+    if (fallbackRelays.isEmpty) fallbackRelays.add(_kDefaultNostrRelay);
+    var created = 0;
+    for (final entry in memberPubkeys.entries) {
+      final uuid = entry.key;
+      final pub = entry.value.toLowerCase();
+      if (pub.isEmpty || pub == ownPub) continue;
+      if (_contacts.findByPubkey(pub) != null) continue;
+      final addresses = memberAddresses[uuid];
+      final ta = (addresses != null && addresses.isNotEmpty)
+          ? addresses.map((k, v) => MapEntry(k, List<String>.from(v)))
+          : <String, List<String>>{
+              'Nostr': [for (final r in fallbackRelays) '$pub@$r'],
+            };
+      final shortUuid = uuid.length >= 8 ? uuid.substring(0, 8) : uuid;
+      final name = 'Group: $shortUuid';
+      final c = await ContactManager().createPendingContact(
+        senderId: pub,
+        senderName: name,
+        address: pub,
+        transportAddresses: ta,
+      );
+      if (c != null) created++;
+    }
+    if (created > 0) {
+      _invalidateContactIndex();
+      debugPrint('[Group] Auto-pended $created group members for pubkey routing');
+    }
   }
 
   Future<void> broadcastGroupUpdate(Contact group) =>

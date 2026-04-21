@@ -213,8 +213,15 @@ class SignalGroupInviteEvent {
   /// members back to their own local contacts / fetch profile info —
   /// without this there is no cross-device mapping from UUID to identity.
   final Map<String, String> memberPubkeys;
+  /// Per-member UUID → `Map<Transport, List<address>>`. Lets receivers
+  /// auto-create pending contacts for group members they don't already
+  /// know locally, so group sends don't silently drop that recipient.
+  /// Empty for legacy invites pre-dating this field.
+  final Map<String, Map<String, List<String>>> memberAddresses;
   SignalGroupInviteEvent(this.fromContact, this.groupId, this.groupName, this.members,
-      {this.creatorId, this.memberPubkeys = const {}});
+      {this.creatorId,
+      this.memberPubkeys = const {},
+      this.memberAddresses = const {}});
 }
 
 /// Group membership change broadcast by group admin.
@@ -225,10 +232,13 @@ class SignalGroupUpdateEvent {
   final String? creatorId;
   final String senderId;
   final Map<String, String> memberPubkeys;
+  /// See [SignalGroupInviteEvent.memberAddresses].
+  final Map<String, Map<String, List<String>>> memberAddresses;
   SignalGroupUpdateEvent(this.groupId, this.groupName, this.members,
       {this.creatorId,
       this.senderId = '',
-      this.memberPubkeys = const {}});
+      this.memberPubkeys = const {},
+      this.memberAddresses = const {}});
 }
 
 // ── Callbacks for operations the dispatcher cannot do on its own ────────────
@@ -256,6 +266,29 @@ Map<String, String> _extractMemberPubkeys(dynamic raw) {
     if (k is String && v is String && k.isNotEmpty && v.isNotEmpty) {
       out[k] = v;
     }
+  });
+  return out;
+}
+
+/// Coerce the `memberAddresses` field of a group signal payload into a
+/// strict `Map<UUID, Map<Transport, List<address>>>`, silently dropping
+/// malformed entries. JSON decode gives us `List<dynamic>` inside, so we
+/// re-type down to `List<String>`.
+Map<String, Map<String, List<String>>> _extractMemberAddresses(dynamic raw) {
+  if (raw is! Map) return const {};
+  final out = <String, Map<String, List<String>>>{};
+  raw.forEach((uuid, inner) {
+    if (uuid is! String || uuid.isEmpty || inner is! Map) return;
+    final tMap = <String, List<String>>{};
+    inner.forEach((tk, tv) {
+      if (tk is! String || tk.isEmpty) return;
+      if (tv is List) {
+        final addrs =
+            tv.whereType<String>().where((a) => a.isNotEmpty).toList();
+        if (addrs.isNotEmpty) tMap[tk] = addrs;
+      }
+    });
+    if (tMap.isNotEmpty) out[uuid] = tMap;
   });
   return out;
 }
@@ -950,11 +983,14 @@ class SignalDispatcher {
             final rawMembers = payload['members'];
             final creatorId = payload['creatorId'] as String?;
             final memberPubkeys = _extractMemberPubkeys(payload['memberPubkeys']);
+            final memberAddresses =
+                _extractMemberAddresses(payload['memberAddresses']);
             if (groupId != null && rawMembers is List && rawMembers.length <= 200 && !_groupUpdateCtrl.isClosed) {
               _groupUpdateCtrl.add(SignalGroupUpdateEvent(
                   groupId, groupName, rawMembers.whereType<String>().toList(),
                   creatorId: creatorId, senderId: sigSender,
-                  memberPubkeys: memberPubkeys));
+                  memberPubkeys: memberPubkeys,
+                  memberAddresses: memberAddresses));
             }
           }
         } else if (sigType == 'group_invite') {
@@ -965,13 +1001,17 @@ class SignalDispatcher {
             final rawMembers = payload['members'];
             final creatorId = payload['creatorId'] as String?;
             final memberPubkeys = _extractMemberPubkeys(payload['memberPubkeys']);
+            final memberAddresses =
+                _extractMemberAddresses(payload['memberAddresses']);
             final senderId = sig['senderId'] as String? ?? '';
             final inviter = _resolveContact(senderId, contactByDbId);
             if (groupId != null && rawMembers is List && rawMembers.length <= 200 && inviter != null &&
                 !_groupInviteCtrl.isClosed) {
               _groupInviteCtrl.add(SignalGroupInviteEvent(
                   inviter, groupId, groupName, rawMembers.whereType<String>().toList(),
-                  creatorId: creatorId, memberPubkeys: memberPubkeys));
+                  creatorId: creatorId,
+                  memberPubkeys: memberPubkeys,
+                  memberAddresses: memberAddresses));
             }
           }
         } else if (sigType == 'group_invite_decline') {

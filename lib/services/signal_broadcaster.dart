@@ -410,10 +410,12 @@ class SignalBroadcaster {
 
   // ── Group signals ─────────────────────────────────────────────────────────
 
-  Future<void> sendGroupInvite(Contact target, Contact group) async {
+  Future<void> sendGroupInvite(
+      Contact target, Contact group, List<Contact> allContacts) async {
     final identity = _getIdentity();
     final selfId = _getSelfId();
     if (identity == null || selfId.isEmpty) return;
+    final memberAddresses = _buildMemberAddresses(group, allContacts);
     await _sendSignalTo(target, 'group_invite', {
       'groupId': group.id,
       'name': group.name,
@@ -421,8 +423,32 @@ class SignalBroadcaster {
       if (group.creatorId != null) 'creatorId': group.creatorId,
       if (group.memberPubkeys.isNotEmpty)
         'memberPubkeys': Map<String, String>.from(group.memberPubkeys),
+      if (memberAddresses.isNotEmpty) 'memberAddresses': memberAddresses,
     });
     debugPrint('[Broadcaster] Sent group invite to ${target.name} for "${group.name}"');
+  }
+
+  /// For every member UUID in [group.members] that we have as a local
+  /// contact, copy their `transportAddresses` into a map keyed by UUID.
+  /// Lets invitees auto-create pending contacts for group members they
+  /// don't yet know, so group sends don't silently drop that recipient.
+  Map<String, Map<String, List<String>>> _buildMemberAddresses(
+      Contact group, List<Contact> allContacts) {
+    final out = <String, Map<String, List<String>>>{};
+    for (final uuid in group.members) {
+      Contact? mc;
+      for (final c in allContacts) {
+        if (c.isGroup) continue;
+        if (c.id == uuid) {
+          mc = c;
+          break;
+        }
+      }
+      if (mc == null || mc.transportAddresses.isEmpty) continue;
+      out[uuid] = mc.transportAddresses.map(
+          (k, v) => MapEntry(k, List<String>.from(v)));
+    }
+    return out;
   }
 
   /// Broadcast a group_update to [recipientMemberIds] if given, else to
@@ -436,6 +462,7 @@ class SignalBroadcaster {
     final identity = _getIdentity();
     final selfId = _getSelfId();
     if (identity == null || selfId.isEmpty) return;
+    final memberAddresses = _buildMemberAddresses(group, allContacts);
     final payload = <String, dynamic>{
       'groupId': group.id,
       'name': group.name,
@@ -443,6 +470,7 @@ class SignalBroadcaster {
       if (group.creatorId != null) 'creatorId': group.creatorId,
       if (group.memberPubkeys.isNotEmpty)
         'memberPubkeys': Map<String, String>.from(group.memberPubkeys),
+      if (memberAddresses.isNotEmpty) 'memberAddresses': memberAddresses,
     };
     final recipientSet =
         (recipientMemberIds ?? group.members).toSet();
