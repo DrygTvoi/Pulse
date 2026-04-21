@@ -1,8 +1,16 @@
 import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+/// FluffyChat-style theme: pure Material 3 with one seed color, the rest is
+/// derived tonally. Custom overrides are kept only for the seed (so users can
+/// repaint the app with a single color) and for the global border radius.
+///
+/// The legacy palette getters (`background`, `surface`, `outgoingBubble`, …)
+/// are mapped onto ColorScheme tokens so existing widgets keep working without
+/// touching every call site.
 class ThemeNotifier extends ChangeNotifier {
   static final ThemeNotifier instance = ThemeNotifier._internal();
 
@@ -10,40 +18,50 @@ class ThemeNotifier extends ChangeNotifier {
   ThemeMode _mode = ThemeMode.dark;
   ThemeMode get themeMode => _mode;
 
-  // ── Custom overrides ──────────────────────────────────────────────────────
-  Color? _customPrimary;
-  Color? _customAccent;
-  Color? _customBg;
-  Color? _customSurf;
-  Color? _customSurfVar;
-  Color? _customTextPrimary;
-  Color? _customTextSecondary;
-  Color? _customOutgoingBubble;
-  Color? _customIncomingBubble;
-  double _borderRadius = 14.0;
+  // ── Seed-driven palette ──────────────────────────────────────────────────
+  /// Default seed = Pulse brand teal. One value drives the entire ColorScheme
+  /// via Material 3 tonal palette generation — surface tints, container
+  /// colors, and accents are all derived. To "rebrand" the app: change this.
+  static const Color _defaultSeed = Color(0xFF26A69A);
+  Color _seed = _defaultSeed;
+
+  /// FluffyChat uses 16. Input/popup/outlined-button radii are derived as
+  /// `borderRadius / 2`. Dialog/sheet stay larger via separate constants.
+  static const double _defaultRadius = 16.0;
+  double _borderRadius = _defaultRadius;
+
   String _fontFamily = 'Inter';
-  TargetPlatform? _customPlatform; // null = use device platform
+  TargetPlatform? _customPlatform;
 
   double get borderRadius => _borderRadius;
   String get fontFamily => _fontFamily;
   TargetPlatform? get customPlatform => _customPlatform;
   bool get isDark => _mode == ThemeMode.dark;
 
-  // ── Effective palette getters ─────────────────────────────────────────────
-  Color get primary       => _customPrimary    ?? const Color(0xFF5288C1);
-  Color get primaryLight  => Color.lerp(primary, Colors.white, 0.3)!;
-  Color get accent        => _customAccent     ?? (isDark ? const Color(0xFF64B5F6) : const Color(0xFF027EB5));
-  Color get error         => isDark ? const Color(0xFFFF2D55) : const Color(0xFFD93025);
+  /// Cached ColorScheme — recomputed only when seed/mode changes.
+  ColorScheme? _cachedScheme;
+  ColorScheme get _scheme {
+    return _cachedScheme ??= ColorScheme.fromSeed(
+      seedColor: _seed,
+      brightness: isDark ? Brightness.dark : Brightness.light,
+    );
+  }
 
-  Color get background    => _customBg         ?? (isDark ? const Color(0xFF17212B) : const Color(0xFFF0F2F5));
-  Color get surface       => _customSurf       ?? (isDark ? const Color(0xFF232E3C) : const Color(0xFFFFFFFF));
-  Color get surfaceVariant=> _customSurfVar    ?? (isDark ? const Color(0xFF2B3C4E) : const Color(0xFFE9ECEF));
-  Color get textPrimary   => _customTextPrimary    ?? (isDark ? const Color(0xFFEEF0F1) : const Color(0xFF111B21));
-  Color get textSecondary => _customTextSecondary  ?? (isDark ? const Color(0xFF7A8E9B) : const Color(0xFF667781));
+  // ── Legacy palette getters (mapped to ColorScheme tokens) ────────────────
+  // These keep the old AppTheme.* API working without rewriting call sites.
+  Color get primary        => _scheme.primary;
+  Color get primaryLight   => _scheme.primaryContainer;
+  Color get accent         => _scheme.secondary;
+  Color get error          => _scheme.error;
+  Color get background     => _scheme.surface;
+  Color get surface        => _scheme.surfaceContainer;
+  Color get surfaceVariant => _scheme.surfaceContainerHigh;
+  Color get textPrimary    => _scheme.onSurface;
+  Color get textSecondary  => _scheme.onSurfaceVariant;
 
-  // ── Bubble colors ─────────────────────────────────────────────────────
-  Color get outgoingBubble => _customOutgoingBubble ?? (isDark ? const Color(0xFF2B5278) : const Color(0xFFD9FDD3));
-  Color get incomingBubble => _customIncomingBubble ?? (isDark ? const Color(0xFF182533) : const Color(0xFFFFFFFF));
+  /// Bubble colors — mirror FluffyChat's BubbleColorTheme extension.
+  Color get outgoingBubble => isDark ? _scheme.primaryContainer : _scheme.primary;
+  Color get incomingBubble => _scheme.surfaceContainerHigh;
 
   ThemeNotifier._internal() {
     _loadFromPrefs();
@@ -53,37 +71,24 @@ class ThemeNotifier extends ChangeNotifier {
   Future<void> _loadFromPrefs() async {
     final prefs = await SharedPreferences.getInstance();
     _mode = _modeFromString(prefs.getString('theme_mode') ?? 'dark');
-
-    if (prefs.getBool('theme_user_customized') == true) {
-      if (prefs.containsKey('theme_primary'))    _customPrimary    = Color(prefs.getInt('theme_primary')!);
-      if (prefs.containsKey('theme_accent'))     _customAccent     = Color(prefs.getInt('theme_accent')!);
-      if (prefs.containsKey('theme_bg'))         _customBg         = Color(prefs.getInt('theme_bg')!);
-      if (prefs.containsKey('theme_surf'))       _customSurf       = Color(prefs.getInt('theme_surf')!);
-      if (prefs.containsKey('theme_surfvar'))    _customSurfVar    = Color(prefs.getInt('theme_surfvar')!);
-      if (prefs.containsKey('theme_text_pri'))   _customTextPrimary    = Color(prefs.getInt('theme_text_pri')!);
-      if (prefs.containsKey('theme_text_sec'))   _customTextSecondary  = Color(prefs.getInt('theme_text_sec')!);
-      if (prefs.containsKey('theme_bubble_out')) _customOutgoingBubble = Color(prefs.getInt('theme_bubble_out')!);
-      if (prefs.containsKey('theme_bubble_in'))  _customIncomingBubble = Color(prefs.getInt('theme_bubble_in')!);
-      _borderRadius = prefs.getDouble('theme_radius') ?? 14.0;
-      _fontFamily   = prefs.getString('theme_font')   ?? 'Inter';
-      _customPlatform = _platformFromString(prefs.getString('theme_platform'));
+    if (prefs.containsKey('theme_seed')) {
+      _seed = Color(prefs.getInt('theme_seed')!);
+    } else if (prefs.containsKey('theme_primary')) {
+      // Migrate legacy "theme_primary" key — same semantic as seed.
+      _seed = Color(prefs.getInt('theme_primary')!);
     }
+    _borderRadius =
+        prefs.getDouble('theme_radius') ?? _defaultRadius;
+    _fontFamily = prefs.getString('theme_font') ?? 'Inter';
+    _customPlatform = _platformFromString(prefs.getString('theme_platform'));
+    _cachedScheme = null;
     notifyListeners();
   }
 
   Future<void> _save() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('theme_mode', _modeToString(_mode));
-    await prefs.setBool('theme_user_customized', true);
-    if (_customPrimary != null) await prefs.setInt('theme_primary', _customPrimary!.toARGB32());
-    if (_customAccent  != null) await prefs.setInt('theme_accent',  _customAccent!.toARGB32());
-    if (_customBg      != null) await prefs.setInt('theme_bg',      _customBg!.toARGB32());
-    if (_customSurf    != null) await prefs.setInt('theme_surf',    _customSurf!.toARGB32());
-    if (_customSurfVar != null) await prefs.setInt('theme_surfvar', _customSurfVar!.toARGB32());
-    if (_customTextPrimary   != null) await prefs.setInt('theme_text_pri', _customTextPrimary!.toARGB32());
-    if (_customTextSecondary != null) await prefs.setInt('theme_text_sec', _customTextSecondary!.toARGB32());
-    if (_customOutgoingBubble != null) await prefs.setInt('theme_bubble_out', _customOutgoingBubble!.toARGB32());
-    if (_customIncomingBubble != null) await prefs.setInt('theme_bubble_in', _customIncomingBubble!.toARGB32());
+    await prefs.setInt('theme_seed', _seed.toARGB32());
     await prefs.setDouble('theme_radius', _borderRadius);
     await prefs.setString('theme_font', _fontFamily);
     if (_customPlatform != null) {
@@ -123,33 +128,45 @@ class ThemeNotifier extends ChangeNotifier {
   // ── Public setters ────────────────────────────────────────────────────────
   void setThemeMode(ThemeMode mode) {
     _mode = mode;
+    _cachedScheme = null;
     notifyListeners();
     _save();
   }
 
+  /// Set the seed color — recomputes the entire palette tonally.
+  void setSeed(Color seed) {
+    _seed = seed;
+    _cachedScheme = null;
+    _save();
+    notifyListeners();
+  }
+
+  /// Legacy alias — `primary` is conceptually our seed.
   void updateColors({Color? primary, Color? accent}) {
-    if (primary != null) _customPrimary = primary;
-    if (accent  != null) _customAccent  = accent;
+    if (primary != null) {
+      _seed = primary;
+      _cachedScheme = null;
+    }
     _save();
     notifyListeners();
   }
-
-  void updateBubbleColors({Color? outgoing, Color? incoming}) {
-    if (outgoing != null) _customOutgoingBubble = outgoing;
-    if (incoming != null) _customIncomingBubble = incoming;
-    _save();
-    notifyListeners();
-  }
-
-  void updateBackground(Color c) { _customBg = c; _save(); notifyListeners(); }
-  void updateSurface(Color c) { _customSurf = c; _save(); notifyListeners(); }
-  void updateSurfaceVariant(Color c) { _customSurfVar = c; _save(); notifyListeners(); }
 
   void updateRadius(double radius) {
     _borderRadius = radius;
     _save();
     notifyListeners();
   }
+
+  // ── Legacy no-ops kept for the dynamic-theme picker UI ───────────────────
+  // FluffyChat-style architecture has only one knob (the seed), so the
+  // separate background/surface/bubble pickers no longer make sense — the
+  // values are derived tonally. These stubs keep the existing settings
+  // screen compilable; we'll redesign that screen to a single-seed picker
+  // in a follow-up.
+  void updateBackground(Color c) {}
+  void updateSurface(Color c) {}
+  void updateSurfaceVariant(Color c) {}
+  void updateBubbleColors({Color? outgoing, Color? incoming}) {}
 
   void updateFont(String font) {
     _fontFamily = font;
@@ -164,14 +181,12 @@ class ThemeNotifier extends ChangeNotifier {
   }
 
   void resetCustom() {
-    _customPrimary = _customAccent = null;
-    _customBg = _customSurf = _customSurfVar = null;
-    _customTextPrimary = _customTextSecondary = null;
-    _customOutgoingBubble = _customIncomingBubble = null;
+    _seed = _defaultSeed;
     _customPlatform = null;
-    _borderRadius = 12.0;
+    _borderRadius = _defaultRadius;
     _fontFamily = 'Inter';
     _mode = ThemeMode.dark;
+    _cachedScheme = null;
     _save();
     notifyListeners();
   }
@@ -180,203 +195,218 @@ class ThemeNotifier extends ChangeNotifier {
       GoogleFonts.inter(textStyle: baseStyle);
 
   // ── ThemeData builders ────────────────────────────────────────────────────
-  ThemeData get lightThemeData => _buildThemeData(isDark: false);
-  ThemeData get darkThemeData  => _buildThemeData(isDark: true);
-  ThemeData get themeData      => _buildThemeData(isDark: isDark);
+  ThemeData get lightThemeData => _buildThemeData(brightness: Brightness.light);
+  ThemeData get darkThemeData  => _buildThemeData(brightness: Brightness.dark);
+  ThemeData get themeData      =>
+      _buildThemeData(brightness: isDark ? Brightness.dark : Brightness.light);
 
-  ThemeData _buildThemeData({required bool isDark}) {
-    // Use custom overrides if set, otherwise use default dark/light palette.
-    final bg       = _customBg      ?? (isDark ? const Color(0xFF111B21) : const Color(0xFFF0F2F5));
-    final surf     = _customSurf    ?? (isDark ? const Color(0xFF202C33) : const Color(0xFFFFFFFF));
-    final surfVar  = _customSurfVar ?? (isDark ? const Color(0xFF2A3942) : const Color(0xFFE9ECEF));
-    final txtPri   = _customTextPrimary    ?? (isDark ? const Color(0xFFE9EDEF) : const Color(0xFF111B21));
-    final txtSec   = _customTextSecondary  ?? (isDark ? const Color(0xFF8696A0) : const Color(0xFF667781));
-    final err      = isDark ? const Color(0xFFFF2D55) : const Color(0xFFD93025);
-    final pri      = _customPrimary ?? const Color(0xFF00A884);
-    final acc      = _customAccent  ?? (isDark ? const Color(0xFF53BDEB) : const Color(0xFF027EB5));
+  ThemeData _buildThemeData({required Brightness brightness}) {
+    final colorScheme = brightness == (isDark ? Brightness.dark : Brightness.light)
+        ? _scheme
+        : ColorScheme.fromSeed(seedColor: _seed, brightness: brightness);
 
-    final base = isDark ? ThemeData.dark(useMaterial3: true) : ThemeData.light(useMaterial3: true);
+    final base = brightness == Brightness.dark
+        ? ThemeData.dark(useMaterial3: true)
+        : ThemeData.light(useMaterial3: true);
 
-    TextStyle Function({TextStyle? textStyle}) fontFn;
-    TextTheme Function(TextTheme) themeFn;
-    fontFn  = ({TextStyle? textStyle}) => GoogleFonts.inter(textStyle: textStyle);
-    themeFn = GoogleFonts.interTextTheme;
-
-    // On Linux, add Noto Color Emoji as fallback so emoji glyphs render
-    // correctly instead of showing as white tofu boxes.
+    // Inter as global font; on Linux fall back to Noto Color Emoji so emojis
+    // render in colour instead of as white tofu boxes.
     final emojiFallback = Platform.isLinux
         ? const ['Noto Color Emoji'] : const <String>[];
 
-    TextTheme applyFallback(TextTheme t) {
-      if (emojiFallback.isEmpty) return t;
-      TextStyle fb(TextStyle? s) =>
-          (s ?? const TextStyle()).copyWith(fontFamilyFallback: emojiFallback);
-      return t.copyWith(
-        displayLarge: fb(t.displayLarge),
-        displayMedium: fb(t.displayMedium),
-        displaySmall: fb(t.displaySmall),
-        headlineLarge: fb(t.headlineLarge),
-        headlineMedium: fb(t.headlineMedium),
-        headlineSmall: fb(t.headlineSmall),
-        titleLarge: fb(t.titleLarge),
-        titleMedium: fb(t.titleMedium),
-        titleSmall: fb(t.titleSmall),
-        bodyLarge: fb(t.bodyLarge),
-        bodyMedium: fb(t.bodyMedium),
-        bodySmall: fb(t.bodySmall),
-        labelLarge: fb(t.labelLarge),
-        labelMedium: fb(t.labelMedium),
-        labelSmall: fb(t.labelSmall),
-      );
-    }
+    TextStyle font(TextStyle? s) =>
+        GoogleFonts.inter(textStyle: s).copyWith(fontFamilyFallback: emojiFallback);
 
-    final textTheme = applyFallback(themeFn(base.textTheme).copyWith(
-      displayLarge:  fontFn(textStyle: TextStyle(color: txtPri, fontWeight: FontWeight.bold, fontSize: 32)),
-      displayMedium: fontFn(textStyle: TextStyle(color: txtPri, fontWeight: FontWeight.bold, fontSize: 26)),
-      titleLarge:    fontFn(textStyle: TextStyle(color: txtPri, fontWeight: FontWeight.w600, fontSize: 20)),
-      titleMedium:   fontFn(textStyle: TextStyle(color: txtPri, fontWeight: FontWeight.w500, fontSize: 17)),
-      titleSmall:    fontFn(textStyle: TextStyle(color: txtSec, fontWeight: FontWeight.w500, fontSize: 14)),
-      bodyLarge:     fontFn(textStyle: TextStyle(color: txtPri, fontSize: 16, height: 1.4)),
-      bodyMedium:    fontFn(textStyle: TextStyle(color: txtSec, fontSize: 14, height: 1.4)),
-      bodySmall:     fontFn(textStyle: TextStyle(color: txtSec, fontSize: 12)),
-      labelLarge:    fontFn(textStyle: TextStyle(color: txtPri, fontWeight: FontWeight.w600, fontSize: 16)),
-    ));
+    final textTheme = GoogleFonts.interTextTheme(base.textTheme).apply(
+      bodyColor: colorScheme.onSurface,
+      displayColor: colorScheme.onSurface,
+      fontFamilyFallback: emojiFallback,
+    );
+
+    final radius = _borderRadius;
 
     return ThemeData(
       useMaterial3: true,
+      visualDensity: VisualDensity.standard,
       platform: _customPlatform,
-      brightness: isDark ? Brightness.dark : Brightness.light,
-      scaffoldBackgroundColor: bg,
-      primaryColor: pri,
-      colorScheme: ColorScheme(
-        brightness: isDark ? Brightness.dark : Brightness.light,
-        primary: pri,
-        onPrimary: Colors.white,
-        primaryContainer: pri.withValues(alpha: 0.15),
-        onPrimaryContainer: pri,
-        secondary: acc,
-        onSecondary: Colors.white,
-        secondaryContainer: acc.withValues(alpha: 0.15),
-        onSecondaryContainer: acc,
-        surface: surf,
-        onSurface: txtPri,
-        surfaceContainerHighest: surfVar,
-        onSurfaceVariant: txtSec,
-        error: err,
-        onError: Colors.white,
-        outline: txtSec.withValues(alpha: 0.3),
-        outlineVariant: surfVar,
-        shadow: Colors.black,
-        inverseSurface: txtPri,
-        onInverseSurface: bg,
-        surfaceTint: Colors.transparent,
-      ),
+      brightness: brightness,
+      colorScheme: colorScheme,
       textTheme: textTheme,
       primaryTextTheme: textTheme,
-      appBarTheme: AppBarTheme(
-        backgroundColor: surf,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        surfaceTintColor: Colors.transparent,
-        centerTitle: false,
-        iconTheme: IconThemeData(color: txtSec),
-        titleTextStyle: fontFn(textStyle: TextStyle(color: txtPri, fontSize: 19, fontWeight: FontWeight.w600)),
+      scaffoldBackgroundColor: colorScheme.surface,
+      // FluffyChat: in column mode they use surfaceContainerHighest, but for
+      // the single-column phone layout that we ship by default they keep the
+      // softer surfaceContainer as a divider tint.
+      dividerColor: brightness == Brightness.dark
+          ? colorScheme.surfaceContainerHighest
+          : colorScheme.surfaceContainer,
+      // Selection — same alpha as FluffyChat (128/255).
+      textSelectionTheme: TextSelectionThemeData(
+        selectionColor: colorScheme.onSurface.withValues(alpha: 0.5),
+        selectionHandleColor: colorScheme.secondary,
       ),
+      appBarTheme: AppBarTheme(
+        toolbarHeight: 56,
+        backgroundColor: colorScheme.surface,
+        surfaceTintColor: Colors.transparent,
+        scrolledUnderElevation: 0,
+        elevation: 0,
+        centerTitle: false,
+        iconTheme: IconThemeData(color: colorScheme.onSurface),
+        titleTextStyle: font(TextStyle(
+          color: colorScheme.onSurface,
+          fontSize: 19,
+          fontWeight: FontWeight.w600,
+        )),
+        systemOverlayStyle: SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness: brightness == Brightness.dark
+              ? Brightness.light : Brightness.dark,
+          statusBarBrightness: brightness,
+          systemNavigationBarIconBrightness: brightness == Brightness.dark
+              ? Brightness.light : Brightness.dark,
+          systemNavigationBarColor: colorScheme.surface,
+        ),
+      ),
+      // Inputs are noticeably "softer" — smaller radius (half of bubble
+      // radius), filled with surfaceContainerHighest, no visible border at
+      // rest, accent-tinted underline on focus.
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: colorScheme.surfaceContainerHighest,
+        contentPadding: const EdgeInsets.all(12),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(radius / 2),
+          borderSide: BorderSide.none,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(radius / 2),
+          borderSide: BorderSide.none,
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(radius / 2),
+          borderSide: BorderSide(color: colorScheme.primary, width: 1.5),
+        ),
+        hintStyle: font(TextStyle(color: colorScheme.onSurfaceVariant)),
+        labelStyle: font(TextStyle(color: colorScheme.onSurfaceVariant)),
+      ),
+      chipTheme: ChipThemeData(
+        showCheckmark: false,
+        backgroundColor: colorScheme.surfaceContainer,
+        side: BorderSide.none,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(radius),
+        ),
+      ),
+      // Elevated buttons: zero elevation, secondaryContainer background — a
+      // subtle "pill" rather than a strong primary call-to-action. Strong CTAs
+      // use FilledButton (which uses primary by default).
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: pri,
-          foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_borderRadius)),
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-          textStyle: fontFn(textStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
+          backgroundColor: colorScheme.secondaryContainer,
+          foregroundColor: colorScheme.onSecondaryContainer,
           elevation: 0,
+          padding: const EdgeInsets.all(16),
+          textStyle: font(const TextStyle(fontSize: 16)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(radius),
+          ),
+        ),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          foregroundColor: colorScheme.primary,
+          side: BorderSide(width: 1, color: colorScheme.primary),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          shape: RoundedRectangleBorder(
+            side: BorderSide(color: colorScheme.primary),
+            borderRadius: BorderRadius.circular(radius / 2),
+          ),
+          textStyle: font(const TextStyle(
+              fontWeight: FontWeight.w500, fontSize: 15)),
         ),
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
-          foregroundColor: pri,
-          textStyle: fontFn(textStyle: const TextStyle(fontWeight: FontWeight.w500, fontSize: 15)),
+          foregroundColor: colorScheme.primary,
+          textStyle: font(const TextStyle(
+              fontWeight: FontWeight.w500, fontSize: 15)),
         ),
       ),
-      inputDecorationTheme: InputDecorationTheme(
-        filled: true,
-        fillColor: surfVar,
-        hintStyle:  fontFn(textStyle: TextStyle(color: txtSec, fontSize: 15)),
-        labelStyle: fontFn(textStyle: TextStyle(color: txtSec, fontSize: 15)),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(_borderRadius),
-          borderSide: BorderSide.none,
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(_borderRadius),
-          borderSide: BorderSide.none,
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(_borderRadius),
-          borderSide: BorderSide(color: pri, width: 1.5),
-        ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      ),
-      floatingActionButtonTheme: FloatingActionButtonThemeData(
-        backgroundColor: pri,
-        foregroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        elevation: 3,
-      ),
-      dividerColor: surfVar,
-      cardColor: surf,
-      cardTheme: CardThemeData(
-        color: surf,
-        surfaceTintColor: Colors.transparent,
-        elevation: 0,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      ),
-      snackBarTheme: SnackBarThemeData(
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        backgroundColor: surfVar,
-      ),
-      dialogTheme: DialogThemeData(
-        backgroundColor: surf,
-        surfaceTintColor: Colors.transparent,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      progressIndicatorTheme: ProgressIndicatorThemeData(
+        strokeCap: StrokeCap.round,
+        color: colorScheme.primary,
+        refreshBackgroundColor: colorScheme.primaryContainer,
       ),
       popupMenuTheme: PopupMenuThemeData(
-        color: surf,
+        color: colorScheme.surfaceContainerLow,
+        iconColor: colorScheme.onSurface,
+        textStyle: font(TextStyle(color: colorScheme.onSurface)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(radius / 2),
+        ),
+      ),
+      snackBarTheme: const SnackBarThemeData(
+        showCloseIcon: true,
+        behavior: SnackBarBehavior.floating,
+      ),
+      cardTheme: CardThemeData(
+        color: colorScheme.surfaceContainer,
         surfaceTintColor: Colors.transparent,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        elevation: 4,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(radius),
+        ),
+      ),
+      dialogTheme: DialogThemeData(
+        backgroundColor: colorScheme.surfaceContainerHigh,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(radius * 1.5),
+        ),
       ),
       bottomSheetTheme: BottomSheetThemeData(
-        backgroundColor: surf,
+        backgroundColor: colorScheme.surfaceContainerHigh,
         surfaceTintColor: Colors.transparent,
-        modalBackgroundColor: surf,
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        modalBackgroundColor: colorScheme.surfaceContainerHigh,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(
+            top: Radius.circular(radius * 1.5),
+          ),
         ),
       ),
       navigationBarTheme: NavigationBarThemeData(
-        backgroundColor: surf,
+        backgroundColor: colorScheme.surface,
         surfaceTintColor: Colors.transparent,
-        indicatorColor: pri.withValues(alpha: 0.15),
+        indicatorColor: colorScheme.secondaryContainer,
+      ),
+      floatingActionButtonTheme: FloatingActionButtonThemeData(
+        backgroundColor: colorScheme.primary,
+        foregroundColor: colorScheme.onPrimary,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(radius),
+        ),
+        elevation: 2,
       ),
       tooltipTheme: TooltipThemeData(
         decoration: BoxDecoration(
-          color: surfVar,
-          borderRadius: BorderRadius.circular(10),
+          color: colorScheme.surfaceContainerHigh,
+          borderRadius: BorderRadius.circular(radius / 2),
         ),
-        textStyle: fontFn(textStyle: TextStyle(color: txtPri, fontSize: 12)),
+        textStyle: font(TextStyle(color: colorScheme.onSurface, fontSize: 12)),
       ),
       scrollbarTheme: ScrollbarThemeData(
-        thumbColor: WidgetStateProperty.all(txtSec.withValues(alpha: 0.3)),
+        thumbColor: WidgetStateProperty.all(
+            colorScheme.onSurfaceVariant.withValues(alpha: 0.3)),
         thickness: WidgetStateProperty.all(6.0),
         radius: const Radius.circular(3.0),
-        thumbVisibility: WidgetStateProperty.all(Platform.isLinux || Platform.isWindows || Platform.isMacOS),
+        thumbVisibility: WidgetStateProperty.all(
+            Platform.isLinux || Platform.isWindows || Platform.isMacOS),
       ),
     );
   }
 
-  // ── Preset helper ─────────────────────────────────────────────────────────
+  // ── Preset helper (kept for backwards compat with settings UI) ───────────
   void applyPreset({
     required Color primary,
     Color? accent,
@@ -391,19 +421,35 @@ class ThemeNotifier extends ChangeNotifier {
     double? radius,
     String? font,
   }) {
-    _customPrimary = primary;
-    if (accent      != null) _customAccent      = accent;
-    if (bg          != null) _customBg          = bg;
-    if (surf        != null) _customSurf        = surf;
-    if (surfVar     != null) _customSurfVar     = surfVar;
-    if (textPrimary != null) _customTextPrimary = textPrimary;
-    if (textSecondary != null) _customTextSecondary = textSecondary;
-    _customOutgoingBubble = outgoingBubble;
-    _customIncomingBubble = incomingBubble;
-    if (mode        != null) _mode              = mode;
-    if (radius      != null) _borderRadius      = radius;
-    if (font        != null) _fontFamily        = font;
+    // In the FluffyChat-style architecture only the seed and the radius
+    // matter — the other colors are derived. We honour the seed (= primary)
+    // and the radius, and ignore the rest of the call so old settings UI
+    // doesn't crash. Modes and font are still respected.
+    _seed = primary;
+    _cachedScheme = null;
+    if (mode   != null) _mode         = mode;
+    if (radius != null) _borderRadius = radius;
+    if (font   != null) _fontFamily   = font;
     _save();
     notifyListeners();
   }
+}
+
+/// FluffyChat-style ThemeData extension — pairs a small set of "bubble"
+/// colors to the primary/secondary/tertiary tonal triple so chat widgets
+/// don't have to compute brightness branches themselves.
+extension BubbleColorTheme on ThemeData {
+  Color get bubbleColor => brightness == Brightness.light
+      ? colorScheme.primary
+      : colorScheme.primaryContainer;
+
+  Color get onBubbleColor => brightness == Brightness.light
+      ? colorScheme.onPrimary
+      : colorScheme.onPrimaryContainer;
+
+  Color get secondaryBubbleColor => HSLColor.fromColor(
+        brightness == Brightness.light
+            ? colorScheme.tertiary
+            : colorScheme.tertiaryContainer,
+      ).withSaturation(0.5).toColor();
 }
