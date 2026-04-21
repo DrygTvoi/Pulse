@@ -45,6 +45,12 @@ class ThemeNotifier extends ChangeNotifier {
     return _cachedScheme ??= ColorScheme.fromSeed(
       seedColor: _seed,
       brightness: isDark ? Brightness.dark : Brightness.light,
+      // `vibrant` keeps neutral surfaces but pushes primary / container /
+      // accent towards strong saturation — much more "the seed color shows
+      // up" in dark mode than the default `tonalSpot` (which desaturates
+      // primary almost to grey on dark backgrounds, making preset switches
+      // look like the same theme with a tint).
+      dynamicSchemeVariant: DynamicSchemeVariant.vibrant,
     );
   }
 
@@ -204,7 +210,11 @@ class ThemeNotifier extends ChangeNotifier {
   ThemeData _buildThemeData({required Brightness brightness}) {
     final colorScheme = brightness == (isDark ? Brightness.dark : Brightness.light)
         ? _scheme
-        : ColorScheme.fromSeed(seedColor: _seed, brightness: brightness);
+        : ColorScheme.fromSeed(
+            seedColor: _seed,
+            brightness: brightness,
+            dynamicSchemeVariant: DynamicSchemeVariant.vibrant,
+          );
 
     final base = brightness == Brightness.dark
         ? ThemeData.dark(useMaterial3: true)
