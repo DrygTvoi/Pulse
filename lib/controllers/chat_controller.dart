@@ -146,7 +146,16 @@ class ChatController extends ChangeNotifier {
   }
 
   /// Called by ChatScreen when it becomes the active/visible chat.
-  void setActiveRoom(String? contactId) => _activeRoomId = contactId;
+  void setActiveRoom(String? contactId) {
+    _activeRoomId = contactId;
+    // Opportunistic eviction: every time the user switches to a chat,
+    // drop rooms that haven't been touched in 15 min (keeps the 10
+    // most-recently-accessed regardless). Next open re-loads from SQLite.
+    final evicted = _repo.evictInactiveRooms(activeContactId: contactId);
+    if (evicted > 0) {
+      debugPrint('[ChatController] evicted $evicted inactive chat rooms from memory');
+    }
+  }
 
   /// True when all internet adapters are unreachable and LAN is being used.
   bool get lanModeActive => _lanModeActive;

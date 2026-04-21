@@ -23,6 +23,13 @@ class MessageRepository {
   // O(1) message position index: contactId → (msgId → list index)
   final Map<String, Map<String, int>> _msgPositionIndex = {};
 
+  // Last time each room was touched (opened, received a message, edited).
+  // Used by [evictInactiveRooms] to decide which rooms can be dropped from
+  // memory on long sessions — next access will re-load from SQLite.
+  final Map<String, DateTime> _roomAccessedAt = {};
+  void _touchRoom(String contactId) =>
+      _roomAccessedAt[contactId] = DateTime.now();
+
   /// Returns true if this message ID already exists in the room.
   bool roomHasMessage(String contactId, String msgId) =>
       _messageIds[contactId]?.contains(msgId) ?? false;
@@ -151,6 +158,7 @@ class MessageRepository {
         updatedAt: DateTime.now(),
       );
     }
+    _touchRoom(contact.id);
     return _chatRooms[contact.id]!;
   }
 
@@ -167,7 +175,48 @@ class MessageRepository {
         updatedAt: DateTime.now(),
       );
     }
+    _touchRoom(contact.id);
     return _chatRooms[contact.id]!;
+  }
+
+  /// Evict chat rooms from memory that haven't been touched in [maxAge]
+  /// AND are not the [activeContactId] (current chat screen). Keeps at
+  /// least [keepRecent] most-recently-accessed rooms regardless of age,
+  /// so fast chat-switching doesn't thrash. Evicted rooms re-load from
+  /// SQLite next time the user opens them via [loadRoomHistory].
+  ///
+  /// Returns the number of rooms evicted (for logging).
+  int evictInactiveRooms({
+    String? activeContactId,
+    int keepRecent = 10,
+    Duration maxAge = const Duration(minutes: 15),
+  }) {
+    if (_chatRooms.length <= keepRecent) return 0;
+    final now = DateTime.now();
+    // Sort contact IDs by last-access, most recent first.
+    final byAccess = _chatRooms.keys.toList()
+      ..sort((a, b) {
+        final ta = _roomAccessedAt[a] ?? DateTime.fromMillisecondsSinceEpoch(0);
+        final tb = _roomAccessedAt[b] ?? DateTime.fromMillisecondsSinceEpoch(0);
+        return tb.compareTo(ta);
+      });
+    // Keep the top `keepRecent` untouched. Evict the rest if stale.
+    int evicted = 0;
+    for (var i = keepRecent; i < byAccess.length; i++) {
+      final id = byAccess[i];
+      if (id == activeContactId) continue;
+      final accessed = _roomAccessedAt[id];
+      if (accessed != null && now.difference(accessed) < maxAge) continue;
+      _chatRooms.remove(id);
+      _messageIds.remove(id);
+      _msgPositionIndex.remove(id);
+      _historyLoaded.remove(id);
+      _historyFull.remove(id);
+      _oldestTimestamp.remove(id);
+      _roomAccessedAt.remove(id);
+      evicted++;
+    }
+    return evicted;
   }
 
   // ── History loading ──────────────────────────────────────────────────────
@@ -193,6 +242,7 @@ class MessageRepository {
       }
     }
     if (stored.isEmpty) return;
+    _touchRoom(contact.id);
 
     if (!_chatRooms.containsKey(contact.id)) {
       _chatRooms[contact.id] = ChatRoom(
