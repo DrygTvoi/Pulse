@@ -3061,4 +3061,40 @@ class AppLocalizationsKa extends AppLocalizations {
 
   @override
   String get pendingLimitReached => 'Too many pending requests';
+
+  @override
+  String get pulseUseServerTitle => 'გამოვიყენოთ Pulse სერვერი?';
+
+  @override
+  String pulseUseServerBody(String name, String host) {
+    return '$name იყენებს Pulse სერვერს $host-ს. შეუერთდი, რომ უფრო სწრაფად ისაუბრო (და სხვებთან იმავე სერვერზე)?';
+  }
+
+  @override
+  String pulseContactUsesPulse(String name) {
+    return '$name იყენებს Pulse-ს';
+  }
+
+  @override
+  String pulseJoinForFaster(String host) {
+    return 'შეუერთდი $host-ს უფრო სწრაფი ჩათისთვის';
+  }
+
+  @override
+  String get pulseNotNow => 'ახლა არა';
+
+  @override
+  String get pulseJoin => 'შეუერთდი';
+
+  @override
+  String get pulseDismiss => 'დახურვა';
+
+  @override
+  String get pulseHide7Days => 'დამალვა 7 დღით';
+
+  @override
+  String get pulseNeverAskAgain => 'აღარ მკითხო';
+
+  @override
+  String get groupSearchContactsHint => 'კონტაქტების ძებნა…';
 }

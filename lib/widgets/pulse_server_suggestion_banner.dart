@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../controllers/chat_controller.dart';
+import '../l10n/l10n_ext.dart';
 import '../models/contact.dart';
 import '../theme/app_theme.dart';
 import '../theme/design_tokens.dart';
@@ -97,24 +98,25 @@ class _PulseServerSuggestionBannerState
         backgroundColor: AppTheme.surface,
         shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(DesignTokens.spacing16)),
-        title: Text('Use Pulse server?',
+        title: Text(context.l10n.pulseUseServerTitle,
             style: GoogleFonts.inter(
                 fontWeight: FontWeight.w700, color: AppTheme.textPrimary)),
         content: Text(
-          '${widget.contact.name} uses the Pulse server ${_displayHost(server)}. '
-          'Join it to chat faster with them (and anyone else on the same server)?',
+          context.l10n.pulseUseServerBody(
+              widget.contact.name, _displayHost(server)),
           style: GoogleFonts.inter(color: AppTheme.textSecondary),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: Text('Not now',
+            child: Text(context.l10n.pulseNotNow,
                 style: GoogleFonts.inter(color: AppTheme.textSecondary)),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: FilledButton.styleFrom(backgroundColor: AppTheme.primary),
-            child: Text('Join', style: GoogleFonts.inter(color: Colors.white)),
+            child: Text(context.l10n.pulseJoin,
+                style: GoogleFonts.inter(color: Colors.white)),
           ),
         ],
       ),
@@ -175,14 +177,14 @@ class _PulseServerSuggestionBannerState
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '${widget.contact.name} uses Pulse',
+                    context.l10n.pulseContactUsesPulse(widget.contact.name),
                     style: GoogleFonts.inter(
                         fontSize: DesignTokens.fontMd,
                         fontWeight: FontWeight.w600,
                         color: AppTheme.textPrimary),
                   ),
                   Text(
-                    'Join ${_displayHost(server)} for faster chat',
+                    context.l10n.pulseJoinForFaster(_displayHost(server)),
                     style: GoogleFonts.inter(
                         fontSize: DesignTokens.fontSm,
                         color: AppTheme.textSecondary),
@@ -199,14 +201,18 @@ class _PulseServerSuggestionBannerState
               PopupMenuButton<String>(
                 icon: Icon(Icons.close_rounded,
                     size: DesignTokens.iconMd, color: AppTheme.textSecondary),
-                tooltip: 'Dismiss',
+                tooltip: context.l10n.pulseDismiss,
                 onSelected: (v) {
                   if (v == 'snooze') _snooze();
                   if (v == 'never') _snooze(permanent: true);
                 },
-                itemBuilder: (_) => [
-                  const PopupMenuItem(value: 'snooze', child: Text('Hide for 7 days')),
-                  const PopupMenuItem(value: 'never', child: Text('Never ask again')),
+                itemBuilder: (ctx) => [
+                  PopupMenuItem(
+                      value: 'snooze',
+                      child: Text(ctx.l10n.pulseHide7Days)),
+                  PopupMenuItem(
+                      value: 'never',
+                      child: Text(ctx.l10n.pulseNeverAskAgain)),
                 ],
               ),
           ]),

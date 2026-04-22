@@ -305,7 +305,7 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
             controller: _searchController,
             style: GoogleFonts.inter(color: AppTheme.textPrimary, fontSize: 13),
             decoration: InputDecoration(
-              hintText: 'Search contacts…',
+              hintText: context.l10n.groupSearchContactsHint,
               hintStyle: GoogleFonts.inter(
                   color: AppTheme.textSecondary.withValues(alpha: 0.5), fontSize: 13),
               prefixIcon: Icon(Icons.search_rounded, color: AppTheme.textSecondary, size: 18),

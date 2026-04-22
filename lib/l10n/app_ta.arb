@@ -906,5 +906,15 @@
   "acceptContact": "Accept",
   "blockContact": "Block",
   "blockedContactsEmpty": "No blocked contacts",
-  "pendingLimitReached": "Too many pending requests"
+  "pendingLimitReached": "Too many pending requests",
+  "pulseUseServerTitle": "Pulse சேவையகத்தைப் பயன்படுத்தவா?",
+  "pulseUseServerBody": "{name} Pulse சேவையகம் {host}-ஐப் பயன்படுத்துகிறார். அவருடன் (மற்றும் அதே சேவையகத்தில் உள்ள மற்றவர்களுடன்) வேகமாக அரட்டையடிக்க சேரவா?",
+  "pulseContactUsesPulse": "{name} Pulse-ஐப் பயன்படுத்துகிறார்",
+  "pulseJoinForFaster": "வேகமான அரட்டைக்கு {host}-இல் சேரவும்",
+  "pulseNotNow": "இப்போது இல்லை",
+  "pulseJoin": "சேர்",
+  "pulseDismiss": "மூடு",
+  "pulseHide7Days": "7 நாட்களுக்கு மறை",
+  "pulseNeverAskAgain": "மீண்டும் கேட்காதே",
+  "groupSearchContactsHint": "தொடர்புகளைத் தேடு…"
 }

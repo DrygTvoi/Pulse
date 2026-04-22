@@ -906,5 +906,15 @@
   "acceptContact": "Accept",
   "blockContact": "Block",
   "blockedContactsEmpty": "No blocked contacts",
-  "pendingLimitReached": "Too many pending requests"
+  "pendingLimitReached": "Too many pending requests",
+  "pulseUseServerTitle": "Pulse серверін пайдалану керек пе?",
+  "pulseUseServerBody": "{name} {host} Pulse серверін пайдаланады. Жылдамырақ сөйлесу үшін қосылу (және сол сервердегі басқалармен)?",
+  "pulseContactUsesPulse": "{name} Pulse пайдаланады",
+  "pulseJoinForFaster": "Жылдам чат үшін {host} серверіне қосыл",
+  "pulseNotNow": "Қазір емес",
+  "pulseJoin": "Қосылу",
+  "pulseDismiss": "Жабу",
+  "pulseHide7Days": "7 күнге жасыру",
+  "pulseNeverAskAgain": "Қайта сұрама",
+  "groupSearchContactsHint": "Контактілерді іздеу…"
 }

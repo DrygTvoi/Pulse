@@ -906,5 +906,15 @@
   "acceptContact": "Accept",
   "blockContact": "Block",
   "blockedContactsEmpty": "No blocked contacts",
-  "pendingLimitReached": "Too many pending requests"
+  "pendingLimitReached": "Too many pending requests",
+  "pulseUseServerTitle": "Folosești serverul Pulse?",
+  "pulseUseServerBody": "{name} folosește serverul Pulse {host}. Te alături pentru a conversa mai rapid (și cu alții pe același server)?",
+  "pulseContactUsesPulse": "{name} folosește Pulse",
+  "pulseJoinForFaster": "Alătură-te la {host} pentru chat mai rapid",
+  "pulseNotNow": "Nu acum",
+  "pulseJoin": "Alătură-te",
+  "pulseDismiss": "Închide",
+  "pulseHide7Days": "Ascunde pentru 7 zile",
+  "pulseNeverAskAgain": "Nu mai întreba",
+  "groupSearchContactsHint": "Caută contacte…"
 }

@@ -3059,4 +3059,40 @@ class AppLocalizationsSr extends AppLocalizations {
 
   @override
   String get pendingLimitReached => 'Too many pending requests';
+
+  @override
+  String get pulseUseServerTitle => 'Користити Pulse сервер?';
+
+  @override
+  String pulseUseServerBody(String name, String host) {
+    return '$name користи Pulse сервер $host. Придружити се да бисте брже ћаскали (и са осталима на истом серверу)?';
+  }
+
+  @override
+  String pulseContactUsesPulse(String name) {
+    return '$name користи Pulse';
+  }
+
+  @override
+  String pulseJoinForFaster(String host) {
+    return 'Придружите се $host за брже ћаскање';
+  }
+
+  @override
+  String get pulseNotNow => 'Не сада';
+
+  @override
+  String get pulseJoin => 'Придружи се';
+
+  @override
+  String get pulseDismiss => 'Одбаци';
+
+  @override
+  String get pulseHide7Days => 'Сакриј 7 дана';
+
+  @override
+  String get pulseNeverAskAgain => 'Не питај поново';
+
+  @override
+  String get groupSearchContactsHint => 'Претражи контакте…';
 }

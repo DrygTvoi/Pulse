@@ -906,5 +906,15 @@
   "acceptContact": "Accept",
   "blockContact": "Block",
   "blockedContactsEmpty": "No blocked contacts",
-  "pendingLimitReached": "Too many pending requests"
+  "pendingLimitReached": "Too many pending requests",
+  "pulseUseServerTitle": "Gamitin ang Pulse server?",
+  "pulseUseServerBody": "Ginagamit ni {name} ang Pulse server na {host}. Sumali para mas mabilis makipag-chat sa kanila (at sa iba pa sa parehong server)?",
+  "pulseContactUsesPulse": "Ginagamit ni {name} ang Pulse",
+  "pulseJoinForFaster": "Sumali sa {host} para sa mas mabilis na chat",
+  "pulseNotNow": "Hindi ngayon",
+  "pulseJoin": "Sumali",
+  "pulseDismiss": "Isara",
+  "pulseHide7Days": "Itago ng 7 araw",
+  "pulseNeverAskAgain": "Huwag nang magtanong muli",
+  "groupSearchContactsHint": "Maghanap ng mga contact…"
 }

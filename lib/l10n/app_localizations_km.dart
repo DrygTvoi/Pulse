@@ -3047,4 +3047,40 @@ class AppLocalizationsKm extends AppLocalizations {
 
   @override
   String get pendingLimitReached => 'Too many pending requests';
+
+  @override
+  String get pulseUseServerTitle => 'ប្រើម៉ាស៊ីនមេ Pulse?';
+
+  @override
+  String pulseUseServerBody(String name, String host) {
+    return '$name កំពុងប្រើម៉ាស៊ីនមេ Pulse $host។ ចូលរួម ដើម្បីជជែកលឿនជាងមុនជាមួយគេ (និងជាមួយអ្នកផ្សេងទៀតនៅលើម៉ាស៊ីនមេដូចគ្នា)?';
+  }
+
+  @override
+  String pulseContactUsesPulse(String name) {
+    return '$name កំពុងប្រើ Pulse';
+  }
+
+  @override
+  String pulseJoinForFaster(String host) {
+    return 'ចូលរួម $host ដើម្បីជជែកលឿនជាងមុន';
+  }
+
+  @override
+  String get pulseNotNow => 'មិនទាន់';
+
+  @override
+  String get pulseJoin => 'ចូលរួម';
+
+  @override
+  String get pulseDismiss => 'បិទ';
+
+  @override
+  String get pulseHide7Days => 'លាក់ ៧ ថ្ងៃ';
+
+  @override
+  String get pulseNeverAskAgain => 'កុំសួរទៀត';
+
+  @override
+  String get groupSearchContactsHint => 'ស្វែងរកទំនាក់ទំនង…';
 }

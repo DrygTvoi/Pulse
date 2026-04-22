@@ -906,5 +906,15 @@
   "acceptContact": "Accept",
   "blockContact": "Block",
   "blockedContactsEmpty": "No blocked contacts",
-  "pendingLimitReached": "Too many pending requests"
+  "pendingLimitReached": "Too many pending requests",
+  "pulseUseServerTitle": "Sử dụng máy chủ Pulse?",
+  "pulseUseServerBody": "{name} đang dùng máy chủ Pulse {host}. Tham gia để trò chuyện nhanh hơn (và với người khác trên cùng máy chủ)?",
+  "pulseContactUsesPulse": "{name} đang dùng Pulse",
+  "pulseJoinForFaster": "Tham gia {host} để trò chuyện nhanh hơn",
+  "pulseNotNow": "Để sau",
+  "pulseJoin": "Tham gia",
+  "pulseDismiss": "Đóng",
+  "pulseHide7Days": "Ẩn trong 7 ngày",
+  "pulseNeverAskAgain": "Đừng hỏi nữa",
+  "groupSearchContactsHint": "Tìm kiếm liên hệ…"
 }

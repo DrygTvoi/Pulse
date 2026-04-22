@@ -1901,5 +1901,43 @@
   "blockedContactsEmpty": "No blocked contacts",
   "@blockedContactsEmpty": { "description": "Empty state for blocked contacts list" },
   "pendingLimitReached": "Too many pending requests",
-  "@pendingLimitReached": { "description": "Error when pending contact limit is reached" }
+  "@pendingLimitReached": { "description": "Error when pending contact limit is reached" },
+
+  "pulseUseServerTitle": "Use Pulse server?",
+  "@pulseUseServerTitle": { "description": "Title of the dialog suggesting the user join a contact's Pulse server" },
+  "pulseUseServerBody": "{name} uses the Pulse server {host}. Join it to chat faster with them (and anyone else on the same server)?",
+  "@pulseUseServerBody": {
+    "description": "Body of the dialog suggesting the user join a contact's Pulse server",
+    "placeholders": {
+      "name": { "type": "String" },
+      "host": { "type": "String" }
+    }
+  },
+  "pulseContactUsesPulse": "{name} uses Pulse",
+  "@pulseContactUsesPulse": {
+    "description": "Banner title \u2014 contact uses the Pulse server",
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "pulseJoinForFaster": "Join {host} for faster chat",
+  "@pulseJoinForFaster": {
+    "description": "Banner subtitle \u2014 prompt to join the Pulse server",
+    "placeholders": {
+      "host": { "type": "String" }
+    }
+  },
+  "pulseNotNow": "Not now",
+  "@pulseNotNow": { "description": "Button to postpone the Pulse-server join prompt" },
+  "pulseJoin": "Join",
+  "@pulseJoin": { "description": "Button to join the suggested Pulse server" },
+  "pulseDismiss": "Dismiss",
+  "@pulseDismiss": { "description": "Tooltip on the Pulse banner close button" },
+  "pulseHide7Days": "Hide for 7 days",
+  "@pulseHide7Days": { "description": "Menu option to snooze the Pulse-server suggestion banner" },
+  "pulseNeverAskAgain": "Never ask again",
+  "@pulseNeverAskAgain": { "description": "Menu option to permanently dismiss the Pulse-server suggestion banner" },
+
+  "groupSearchContactsHint": "Search contacts\u2026",
+  "@groupSearchContactsHint": { "description": "Hint text for the contact-search field in the group-creation dialog" }
 }

@@ -3064,4 +3064,40 @@ class AppLocalizationsMy extends AppLocalizations {
 
   @override
   String get pendingLimitReached => 'Too many pending requests';
+
+  @override
+  String get pulseUseServerTitle => 'Pulse ဆာဗာကို အသုံးပြုမလား?';
+
+  @override
+  String pulseUseServerBody(String name, String host) {
+    return '$name သည် Pulse ဆာဗာ $host ကို အသုံးပြုသည်။ သူနှင့် (နှင့် တူညီသောဆာဗာပေါ်ရှိ အခြားသူများနှင့်) ပိုမိုမြန်ဆန်စွာ စကားပြောရန် ပူးပေါင်းမလား?';
+  }
+
+  @override
+  String pulseContactUsesPulse(String name) {
+    return '$name က Pulse ကို အသုံးပြုနေသည်';
+  }
+
+  @override
+  String pulseJoinForFaster(String host) {
+    return 'ပိုမိုမြန်ဆန်သော ချတ်အတွက် $host သို့ ပူးပေါင်းပါ';
+  }
+
+  @override
+  String get pulseNotNow => 'အခုမဟုတ်ဘူး';
+
+  @override
+  String get pulseJoin => 'ပူးပေါင်း';
+
+  @override
+  String get pulseDismiss => 'ပိတ်';
+
+  @override
+  String get pulseHide7Days => '၇ ရက် ဖျောက်ထား';
+
+  @override
+  String get pulseNeverAskAgain => 'ထပ်မမေးပါနှင့်';
+
+  @override
+  String get groupSearchContactsHint => 'အဆက်အသွယ်များ ရှာဖွေ…';
 }

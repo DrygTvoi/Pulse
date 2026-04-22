@@ -906,5 +906,15 @@
   "acceptContact": "Accept",
   "blockContact": "Block",
   "blockedContactsEmpty": "No blocked contacts",
-  "pendingLimitReached": "Too many pending requests"
+  "pendingLimitReached": "Too many pending requests",
+  "pulseUseServerTitle": "Naudoti Pulse serverį?",
+  "pulseUseServerBody": "{name} naudoja Pulse serverį {host}. Prisijungti, kad greičiau susirašinėtumėte (ir su kitais tame pačiame serveryje)?",
+  "pulseContactUsesPulse": "{name} naudoja Pulse",
+  "pulseJoinForFaster": "Prisijunk prie {host}, kad pokalbis būtų greitesnis",
+  "pulseNotNow": "Ne dabar",
+  "pulseJoin": "Prisijungti",
+  "pulseDismiss": "Uždaryti",
+  "pulseHide7Days": "Slėpti 7 dienas",
+  "pulseNeverAskAgain": "Daugiau neklausti",
+  "groupSearchContactsHint": "Ieškoti kontaktų…"
 }

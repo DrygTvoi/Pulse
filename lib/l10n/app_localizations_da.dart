@@ -3044,4 +3044,40 @@ class AppLocalizationsDa extends AppLocalizations {
 
   @override
   String get pendingLimitReached => 'Too many pending requests';
+
+  @override
+  String get pulseUseServerTitle => 'Brug Pulse-server?';
+
+  @override
+  String pulseUseServerBody(String name, String host) {
+    return '$name bruger Pulse-serveren $host. Deltag for at chatte hurtigere med dem (og med andre på samme server)?';
+  }
+
+  @override
+  String pulseContactUsesPulse(String name) {
+    return '$name bruger Pulse';
+  }
+
+  @override
+  String pulseJoinForFaster(String host) {
+    return 'Deltag i $host for hurtigere chat';
+  }
+
+  @override
+  String get pulseNotNow => 'Ikke nu';
+
+  @override
+  String get pulseJoin => 'Deltag';
+
+  @override
+  String get pulseDismiss => 'Luk';
+
+  @override
+  String get pulseHide7Days => 'Skjul i 7 dage';
+
+  @override
+  String get pulseNeverAskAgain => 'Spørg ikke igen';
+
+  @override
+  String get groupSearchContactsHint => 'Søg kontakter…';
 }

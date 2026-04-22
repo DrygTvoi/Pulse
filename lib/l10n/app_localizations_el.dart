@@ -3081,4 +3081,40 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String get pendingLimitReached => 'Too many pending requests';
+
+  @override
+  String get pulseUseServerTitle => 'Χρήση διακομιστή Pulse;';
+
+  @override
+  String pulseUseServerBody(String name, String host) {
+    return 'Ο/Η $name χρησιμοποιεί τον διακομιστή Pulse $host. Να συνδεθείτε για γρηγορότερη συνομιλία (και με άλλους στον ίδιο διακομιστή);';
+  }
+
+  @override
+  String pulseContactUsesPulse(String name) {
+    return 'Ο/Η $name χρησιμοποιεί το Pulse';
+  }
+
+  @override
+  String pulseJoinForFaster(String host) {
+    return 'Συνδεθείτε στο $host για γρηγορότερη συνομιλία';
+  }
+
+  @override
+  String get pulseNotNow => 'Όχι τώρα';
+
+  @override
+  String get pulseJoin => 'Σύνδεση';
+
+  @override
+  String get pulseDismiss => 'Απόρριψη';
+
+  @override
+  String get pulseHide7Days => 'Απόκρυψη για 7 ημέρες';
+
+  @override
+  String get pulseNeverAskAgain => 'Να μη ρωτηθώ ξανά';
+
+  @override
+  String get groupSearchContactsHint => 'Αναζήτηση επαφών…';
 }

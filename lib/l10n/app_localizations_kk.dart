@@ -3057,4 +3057,40 @@ class AppLocalizationsKk extends AppLocalizations {
 
   @override
   String get pendingLimitReached => 'Too many pending requests';
+
+  @override
+  String get pulseUseServerTitle => 'Pulse серверін пайдалану керек пе?';
+
+  @override
+  String pulseUseServerBody(String name, String host) {
+    return '$name $host Pulse серверін пайдаланады. Жылдамырақ сөйлесу үшін қосылу (және сол сервердегі басқалармен)?';
+  }
+
+  @override
+  String pulseContactUsesPulse(String name) {
+    return '$name Pulse пайдаланады';
+  }
+
+  @override
+  String pulseJoinForFaster(String host) {
+    return 'Жылдам чат үшін $host серверіне қосыл';
+  }
+
+  @override
+  String get pulseNotNow => 'Қазір емес';
+
+  @override
+  String get pulseJoin => 'Қосылу';
+
+  @override
+  String get pulseDismiss => 'Жабу';
+
+  @override
+  String get pulseHide7Days => '7 күнге жасыру';
+
+  @override
+  String get pulseNeverAskAgain => 'Қайта сұрама';
+
+  @override
+  String get groupSearchContactsHint => 'Контактілерді іздеу…';
 }

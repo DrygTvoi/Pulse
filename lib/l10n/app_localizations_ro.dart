@@ -3063,4 +3063,40 @@ class AppLocalizationsRo extends AppLocalizations {
 
   @override
   String get pendingLimitReached => 'Too many pending requests';
+
+  @override
+  String get pulseUseServerTitle => 'Folosești serverul Pulse?';
+
+  @override
+  String pulseUseServerBody(String name, String host) {
+    return '$name folosește serverul Pulse $host. Te alături pentru a conversa mai rapid (și cu alții pe același server)?';
+  }
+
+  @override
+  String pulseContactUsesPulse(String name) {
+    return '$name folosește Pulse';
+  }
+
+  @override
+  String pulseJoinForFaster(String host) {
+    return 'Alătură-te la $host pentru chat mai rapid';
+  }
+
+  @override
+  String get pulseNotNow => 'Nu acum';
+
+  @override
+  String get pulseJoin => 'Alătură-te';
+
+  @override
+  String get pulseDismiss => 'Închide';
+
+  @override
+  String get pulseHide7Days => 'Ascunde pentru 7 zile';
+
+  @override
+  String get pulseNeverAskAgain => 'Nu mai întreba';
+
+  @override
+  String get groupSearchContactsHint => 'Caută contacte…';
 }

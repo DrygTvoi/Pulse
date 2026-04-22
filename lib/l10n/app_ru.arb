@@ -911,5 +911,15 @@
   "acceptContact": "Accept",
   "blockContact": "Block",
   "blockedContactsEmpty": "No blocked contacts",
-  "pendingLimitReached": "Too many pending requests"
+  "pendingLimitReached": "Too many pending requests",
+  "pulseUseServerTitle": "Использовать сервер Pulse?",
+  "pulseUseServerBody": "{name} использует сервер Pulse {host}. Подключиться, чтобы быстрее обмениваться сообщениями (и с другими на этом сервере)?",
+  "pulseContactUsesPulse": "{name} использует Pulse",
+  "pulseJoinForFaster": "Подключиться к {host} для быстрого чата",
+  "pulseNotNow": "Не сейчас",
+  "pulseJoin": "Подключиться",
+  "pulseDismiss": "Скрыть",
+  "pulseHide7Days": "Скрыть на 7 дней",
+  "pulseNeverAskAgain": "Больше не спрашивать",
+  "groupSearchContactsHint": "Поиск контактов…"
 }

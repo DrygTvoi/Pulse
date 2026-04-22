@@ -906,5 +906,15 @@
   "acceptContact": "Accept",
   "blockContact": "Block",
   "blockedContactsEmpty": "No blocked contacts",
-  "pendingLimitReached": "Too many pending requests"
+  "pendingLimitReached": "Too many pending requests",
+  "pulseUseServerTitle": "Pulse ဆာဗာကို အသုံးပြုမလား?",
+  "pulseUseServerBody": "{name} သည် Pulse ဆာဗာ {host} ကို အသုံးပြုသည်။ သူနှင့် (နှင့် တူညီသောဆာဗာပေါ်ရှိ အခြားသူများနှင့်) ပိုမိုမြန်ဆန်စွာ စကားပြောရန် ပူးပေါင်းမလား?",
+  "pulseContactUsesPulse": "{name} က Pulse ကို အသုံးပြုနေသည်",
+  "pulseJoinForFaster": "ပိုမိုမြန်ဆန်သော ချတ်အတွက် {host} သို့ ပူးပေါင်းပါ",
+  "pulseNotNow": "အခုမဟုတ်ဘူး",
+  "pulseJoin": "ပူးပေါင်း",
+  "pulseDismiss": "ပိတ်",
+  "pulseHide7Days": "၇ ရက် ဖျောက်ထား",
+  "pulseNeverAskAgain": "ထပ်မမေးပါနှင့်",
+  "groupSearchContactsHint": "အဆက်အသွယ်များ ရှာဖွေ…"
 }

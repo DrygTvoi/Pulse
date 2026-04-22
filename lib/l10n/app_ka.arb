@@ -906,5 +906,15 @@
   "acceptContact": "Accept",
   "blockContact": "Block",
   "blockedContactsEmpty": "No blocked contacts",
-  "pendingLimitReached": "Too many pending requests"
+  "pendingLimitReached": "Too many pending requests",
+  "pulseUseServerTitle": "გამოვიყენოთ Pulse სერვერი?",
+  "pulseUseServerBody": "{name} იყენებს Pulse სერვერს {host}-ს. შეუერთდი, რომ უფრო სწრაფად ისაუბრო (და სხვებთან იმავე სერვერზე)?",
+  "pulseContactUsesPulse": "{name} იყენებს Pulse-ს",
+  "pulseJoinForFaster": "შეუერთდი {host}-ს უფრო სწრაფი ჩათისთვის",
+  "pulseNotNow": "ახლა არა",
+  "pulseJoin": "შეუერთდი",
+  "pulseDismiss": "დახურვა",
+  "pulseHide7Days": "დამალვა 7 დღით",
+  "pulseNeverAskAgain": "აღარ მკითხო",
+  "groupSearchContactsHint": "კონტაქტების ძებნა…"
 }

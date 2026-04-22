@@ -3072,4 +3072,40 @@ class AppLocalizationsBg extends AppLocalizations {
 
   @override
   String get pendingLimitReached => 'Too many pending requests';
+
+  @override
+  String get pulseUseServerTitle => 'Използване на сървъра Pulse?';
+
+  @override
+  String pulseUseServerBody(String name, String host) {
+    return '$name използва сървъра Pulse $host. Присъединете се, за да общувате по-бързо (и с други на същия сървър)?';
+  }
+
+  @override
+  String pulseContactUsesPulse(String name) {
+    return '$name използва Pulse';
+  }
+
+  @override
+  String pulseJoinForFaster(String host) {
+    return 'Присъединете се към $host за по-бърз чат';
+  }
+
+  @override
+  String get pulseNotNow => 'Не сега';
+
+  @override
+  String get pulseJoin => 'Присъедини се';
+
+  @override
+  String get pulseDismiss => 'Отхвърли';
+
+  @override
+  String get pulseHide7Days => 'Скрий за 7 дни';
+
+  @override
+  String get pulseNeverAskAgain => 'Не питай повече';
+
+  @override
+  String get groupSearchContactsHint => 'Търсене на контакти…';
 }

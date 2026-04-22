@@ -906,5 +906,15 @@
   "acceptContact": "Accept",
   "blockContact": "Block",
   "blockedContactsEmpty": "No blocked contacts",
-  "pendingLimitReached": "Too many pending requests"
+  "pendingLimitReached": "Too many pending requests",
+  "pulseUseServerTitle": "استخدام خادم Pulse؟",
+  "pulseUseServerBody": "يستخدم {name} خادم Pulse {host}. الانضمام للدردشة بشكل أسرع معه (ومع آخرين على نفس الخادم)؟",
+  "pulseContactUsesPulse": "{name} يستخدم Pulse",
+  "pulseJoinForFaster": "انضم إلى {host} لدردشة أسرع",
+  "pulseNotNow": "ليس الآن",
+  "pulseJoin": "انضمام",
+  "pulseDismiss": "إغلاق",
+  "pulseHide7Days": "إخفاء لمدة 7 أيام",
+  "pulseNeverAskAgain": "عدم السؤال مجددًا",
+  "groupSearchContactsHint": "البحث في جهات الاتصال…"
 }

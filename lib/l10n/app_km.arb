@@ -906,5 +906,15 @@
   "acceptContact": "Accept",
   "blockContact": "Block",
   "blockedContactsEmpty": "No blocked contacts",
-  "pendingLimitReached": "Too many pending requests"
+  "pendingLimitReached": "Too many pending requests",
+  "pulseUseServerTitle": "ប្រើម៉ាស៊ីនមេ Pulse?",
+  "pulseUseServerBody": "{name} កំពុងប្រើម៉ាស៊ីនមេ Pulse {host}។ ចូលរួម ដើម្បីជជែកលឿនជាងមុនជាមួយគេ (និងជាមួយអ្នកផ្សេងទៀតនៅលើម៉ាស៊ីនមេដូចគ្នា)?",
+  "pulseContactUsesPulse": "{name} កំពុងប្រើ Pulse",
+  "pulseJoinForFaster": "ចូលរួម {host} ដើម្បីជជែកលឿនជាងមុន",
+  "pulseNotNow": "មិនទាន់",
+  "pulseJoin": "ចូលរួម",
+  "pulseDismiss": "បិទ",
+  "pulseHide7Days": "លាក់ ៧ ថ្ងៃ",
+  "pulseNeverAskAgain": "កុំសួរទៀត",
+  "groupSearchContactsHint": "ស្វែងរកទំនាក់ទំនង…"
 }

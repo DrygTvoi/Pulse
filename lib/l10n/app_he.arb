@@ -906,5 +906,15 @@
   "acceptContact": "Accept",
   "blockContact": "Block",
   "blockedContactsEmpty": "No blocked contacts",
-  "pendingLimitReached": "Too many pending requests"
+  "pendingLimitReached": "Too many pending requests",
+  "pulseUseServerTitle": "להשתמש בשרת Pulse?",
+  "pulseUseServerBody": "{name} משתמש בשרת Pulse {host}. להצטרף כדי לשוחח מהר יותר (וגם עם אחרים באותו שרת)?",
+  "pulseContactUsesPulse": "{name} משתמש ב-Pulse",
+  "pulseJoinForFaster": "הצטרף ל-{host} לשיחה מהירה יותר",
+  "pulseNotNow": "לא עכשיו",
+  "pulseJoin": "הצטרפות",
+  "pulseDismiss": "סגור",
+  "pulseHide7Days": "הסתר ל-7 ימים",
+  "pulseNeverAskAgain": "אל תשאל שוב",
+  "groupSearchContactsHint": "חיפוש אנשי קשר…"
 }

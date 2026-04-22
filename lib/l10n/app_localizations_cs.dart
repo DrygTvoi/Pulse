@@ -3044,4 +3044,40 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String get pendingLimitReached => 'Too many pending requests';
+
+  @override
+  String get pulseUseServerTitle => 'Použít server Pulse?';
+
+  @override
+  String pulseUseServerBody(String name, String host) {
+    return '$name používá server Pulse $host. Připojit se, abyste si mohli rychleji chatovat (a s ostatními na stejném serveru)?';
+  }
+
+  @override
+  String pulseContactUsesPulse(String name) {
+    return '$name používá Pulse';
+  }
+
+  @override
+  String pulseJoinForFaster(String host) {
+    return 'Připojit se k $host pro rychlejší chat';
+  }
+
+  @override
+  String get pulseNotNow => 'Teď ne';
+
+  @override
+  String get pulseJoin => 'Připojit se';
+
+  @override
+  String get pulseDismiss => 'Zavřít';
+
+  @override
+  String get pulseHide7Days => 'Skrýt na 7 dní';
+
+  @override
+  String get pulseNeverAskAgain => 'Neptat se znovu';
+
+  @override
+  String get groupSearchContactsHint => 'Hledat kontakty…';
 }

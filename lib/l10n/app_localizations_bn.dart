@@ -3025,4 +3025,40 @@ class AppLocalizationsBn extends AppLocalizations {
 
   @override
   String get pendingLimitReached => 'Too many pending requests';
+
+  @override
+  String get pulseUseServerTitle => 'Pulse সার্ভার ব্যবহার করবেন?';
+
+  @override
+  String pulseUseServerBody(String name, String host) {
+    return '$name $host Pulse সার্ভার ব্যবহার করেন। তাঁর সাথে (এবং একই সার্ভারে অন্যদের সাথে) দ্রুত চ্যাটের জন্য যোগ দিতে চান?';
+  }
+
+  @override
+  String pulseContactUsesPulse(String name) {
+    return '$name Pulse ব্যবহার করছেন';
+  }
+
+  @override
+  String pulseJoinForFaster(String host) {
+    return 'দ্রুত চ্যাটের জন্য $host এ যোগ দিন';
+  }
+
+  @override
+  String get pulseNotNow => 'এখন নয়';
+
+  @override
+  String get pulseJoin => 'যোগ দিন';
+
+  @override
+  String get pulseDismiss => 'বন্ধ করুন';
+
+  @override
+  String get pulseHide7Days => '7 দিনের জন্য লুকান';
+
+  @override
+  String get pulseNeverAskAgain => 'আর জিজ্ঞাসা করবেন না';
+
+  @override
+  String get groupSearchContactsHint => 'পরিচিতি খুঁজুন…';
 }

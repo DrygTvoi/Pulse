@@ -3036,4 +3036,40 @@ class AppLocalizationsVi extends AppLocalizations {
 
   @override
   String get pendingLimitReached => 'Too many pending requests';
+
+  @override
+  String get pulseUseServerTitle => 'Sử dụng máy chủ Pulse?';
+
+  @override
+  String pulseUseServerBody(String name, String host) {
+    return '$name đang dùng máy chủ Pulse $host. Tham gia để trò chuyện nhanh hơn (và với người khác trên cùng máy chủ)?';
+  }
+
+  @override
+  String pulseContactUsesPulse(String name) {
+    return '$name đang dùng Pulse';
+  }
+
+  @override
+  String pulseJoinForFaster(String host) {
+    return 'Tham gia $host để trò chuyện nhanh hơn';
+  }
+
+  @override
+  String get pulseNotNow => 'Để sau';
+
+  @override
+  String get pulseJoin => 'Tham gia';
+
+  @override
+  String get pulseDismiss => 'Đóng';
+
+  @override
+  String get pulseHide7Days => 'Ẩn trong 7 ngày';
+
+  @override
+  String get pulseNeverAskAgain => 'Đừng hỏi nữa';
+
+  @override
+  String get groupSearchContactsHint => 'Tìm kiếm liên hệ…';
 }

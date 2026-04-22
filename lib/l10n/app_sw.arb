@@ -906,5 +906,15 @@
   "acceptContact": "Accept",
   "blockContact": "Block",
   "blockedContactsEmpty": "No blocked contacts",
-  "pendingLimitReached": "Too many pending requests"
+  "pendingLimitReached": "Too many pending requests",
+  "pulseUseServerTitle": "Tumia seva ya Pulse?",
+  "pulseUseServerBody": "{name} anatumia seva ya Pulse {host}. Jiunge ili kuzungumza naye haraka (na wengine kwenye seva ile ile)?",
+  "pulseContactUsesPulse": "{name} anatumia Pulse",
+  "pulseJoinForFaster": "Jiunge na {host} kwa gumzo la haraka",
+  "pulseNotNow": "Si sasa",
+  "pulseJoin": "Jiunge",
+  "pulseDismiss": "Funga",
+  "pulseHide7Days": "Ficha kwa siku 7",
+  "pulseNeverAskAgain": "Usiulize tena",
+  "groupSearchContactsHint": "Tafuta anwani…"
 }

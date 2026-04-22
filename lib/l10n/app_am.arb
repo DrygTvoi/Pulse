@@ -906,5 +906,15 @@
   "acceptContact": "Accept",
   "blockContact": "Block",
   "blockedContactsEmpty": "No blocked contacts",
-  "pendingLimitReached": "Too many pending requests"
+  "pendingLimitReached": "Too many pending requests",
+  "pulseUseServerTitle": "Pulse አገልጋይ ይጠቀሙ?",
+  "pulseUseServerBody": "{name} Pulse አገልጋይ {host} ይጠቀማል። ከእነሱ ጋር (እና በተመሳሳይ አገልጋይ ካሉ ሌሎች ጋር) በፍጥነት ለመነጋገር ይቀላቀሉ?",
+  "pulseContactUsesPulse": "{name} Pulse ይጠቀማል",
+  "pulseJoinForFaster": "ለፈጣን ውይይት {host} ይቀላቀሉ",
+  "pulseNotNow": "አሁን አይደለም",
+  "pulseJoin": "ተቀላቀል",
+  "pulseDismiss": "ዝጋ",
+  "pulseHide7Days": "ለ7 ቀናት ደብቅ",
+  "pulseNeverAskAgain": "እንደገና አትጠይቀኝ",
+  "groupSearchContactsHint": "እውቂያዎችን ፈልግ…"
 }

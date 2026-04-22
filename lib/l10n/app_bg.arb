@@ -906,5 +906,15 @@
   "acceptContact": "Accept",
   "blockContact": "Block",
   "blockedContactsEmpty": "No blocked contacts",
-  "pendingLimitReached": "Too many pending requests"
+  "pendingLimitReached": "Too many pending requests",
+  "pulseUseServerTitle": "Използване на сървъра Pulse?",
+  "pulseUseServerBody": "{name} използва сървъра Pulse {host}. Присъединете се, за да общувате по-бързо (и с други на същия сървър)?",
+  "pulseContactUsesPulse": "{name} използва Pulse",
+  "pulseJoinForFaster": "Присъединете се към {host} за по-бърз чат",
+  "pulseNotNow": "Не сега",
+  "pulseJoin": "Присъедини се",
+  "pulseDismiss": "Отхвърли",
+  "pulseHide7Days": "Скрий за 7 дни",
+  "pulseNeverAskAgain": "Не питай повече",
+  "groupSearchContactsHint": "Търсене на контакти…"
 }

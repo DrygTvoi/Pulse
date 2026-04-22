@@ -2992,4 +2992,40 @@ class AppLocalizationsAm extends AppLocalizations {
 
   @override
   String get pendingLimitReached => 'Too many pending requests';
+
+  @override
+  String get pulseUseServerTitle => 'Pulse አገልጋይ ይጠቀሙ?';
+
+  @override
+  String pulseUseServerBody(String name, String host) {
+    return '$name Pulse አገልጋይ $host ይጠቀማል። ከእነሱ ጋር (እና በተመሳሳይ አገልጋይ ካሉ ሌሎች ጋር) በፍጥነት ለመነጋገር ይቀላቀሉ?';
+  }
+
+  @override
+  String pulseContactUsesPulse(String name) {
+    return '$name Pulse ይጠቀማል';
+  }
+
+  @override
+  String pulseJoinForFaster(String host) {
+    return 'ለፈጣን ውይይት $host ይቀላቀሉ';
+  }
+
+  @override
+  String get pulseNotNow => 'አሁን አይደለም';
+
+  @override
+  String get pulseJoin => 'ተቀላቀል';
+
+  @override
+  String get pulseDismiss => 'ዝጋ';
+
+  @override
+  String get pulseHide7Days => 'ለ7 ቀናት ደብቅ';
+
+  @override
+  String get pulseNeverAskAgain => 'እንደገና አትጠይቀኝ';
+
+  @override
+  String get groupSearchContactsHint => 'እውቂያዎችን ፈልግ…';
 }

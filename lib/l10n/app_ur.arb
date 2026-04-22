@@ -906,5 +906,15 @@
   "acceptContact": "Accept",
   "blockContact": "Block",
   "blockedContactsEmpty": "No blocked contacts",
-  "pendingLimitReached": "Too many pending requests"
+  "pendingLimitReached": "Too many pending requests",
+  "pulseUseServerTitle": "کیا Pulse سرور استعمال کرنا ہے؟",
+  "pulseUseServerBody": "{name} Pulse سرور {host} استعمال کرتا ہے۔ ان سے (اور اسی سرور پر دوسروں سے) تیز تر بات چیت کے لیے شامل ہوں؟",
+  "pulseContactUsesPulse": "{name} Pulse استعمال کر رہا ہے",
+  "pulseJoinForFaster": "تیز تر چیٹ کے لیے {host} میں شامل ہوں",
+  "pulseNotNow": "ابھی نہیں",
+  "pulseJoin": "شامل ہوں",
+  "pulseDismiss": "بند کریں",
+  "pulseHide7Days": "7 دن کے لیے چھپائیں",
+  "pulseNeverAskAgain": "دوبارہ نہ پوچھیں",
+  "groupSearchContactsHint": "رابطے تلاش کریں…"
 }

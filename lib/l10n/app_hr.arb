@@ -906,5 +906,15 @@
   "acceptContact": "Accept",
   "blockContact": "Block",
   "blockedContactsEmpty": "No blocked contacts",
-  "pendingLimitReached": "Too many pending requests"
+  "pendingLimitReached": "Too many pending requests",
+  "pulseUseServerTitle": "Koristiti Pulse poslužitelj?",
+  "pulseUseServerBody": "{name} koristi Pulse poslužitelj {host}. Pridružiti se za brže čavrljanje (i s drugima na istom poslužitelju)?",
+  "pulseContactUsesPulse": "{name} koristi Pulse",
+  "pulseJoinForFaster": "Pridruži se {host} za brže čavrljanje",
+  "pulseNotNow": "Ne sada",
+  "pulseJoin": "Pridruži se",
+  "pulseDismiss": "Odbaci",
+  "pulseHide7Days": "Sakrij na 7 dana",
+  "pulseNeverAskAgain": "Ne pitaj više",
+  "groupSearchContactsHint": "Pretraži kontakte…"
 }

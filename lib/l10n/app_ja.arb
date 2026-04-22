@@ -906,5 +906,15 @@
   "acceptContact": "Accept",
   "blockContact": "Block",
   "blockedContactsEmpty": "No blocked contacts",
-  "pendingLimitReached": "Too many pending requests"
+  "pendingLimitReached": "Too many pending requests",
+  "pulseUseServerTitle": "Pulse サーバーを使用しますか？",
+  "pulseUseServerBody": "{name} は Pulse サーバー {host} を使用しています。参加して、より速くチャットしますか？（同じサーバー上の他のユーザーとも）",
+  "pulseContactUsesPulse": "{name} は Pulse を使用中",
+  "pulseJoinForFaster": "{host} に参加してより速くチャット",
+  "pulseNotNow": "後で",
+  "pulseJoin": "参加",
+  "pulseDismiss": "閉じる",
+  "pulseHide7Days": "7 日間非表示",
+  "pulseNeverAskAgain": "今後表示しない",
+  "groupSearchContactsHint": "連絡先を検索…"
 }

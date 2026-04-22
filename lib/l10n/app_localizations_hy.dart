@@ -3063,4 +3063,40 @@ class AppLocalizationsHy extends AppLocalizations {
 
   @override
   String get pendingLimitReached => 'Too many pending requests';
+
+  @override
+  String get pulseUseServerTitle => 'Օգտագործե՞լ Pulse սերվերը:';
+
+  @override
+  String pulseUseServerBody(String name, String host) {
+    return '$name-ը օգտագործում է Pulse սերվեր $host-ը: Միացե՞ք՝ արագ զրույցի համար (և նույն սերվերի ուրիշների հետ):';
+  }
+
+  @override
+  String pulseContactUsesPulse(String name) {
+    return '$name-ը օգտագործում է Pulse-ը';
+  }
+
+  @override
+  String pulseJoinForFaster(String host) {
+    return 'Միացեք $host-ին՝ ավելի արագ զրույցի համար';
+  }
+
+  @override
+  String get pulseNotNow => 'Ոչ հիմա';
+
+  @override
+  String get pulseJoin => 'Միանալ';
+
+  @override
+  String get pulseDismiss => 'Փակել';
+
+  @override
+  String get pulseHide7Days => 'Թաքցնել 7 օրով';
+
+  @override
+  String get pulseNeverAskAgain => 'Այլևս չհարցնել';
+
+  @override
+  String get groupSearchContactsHint => 'Որոնել կոնտակտներ…';
 }

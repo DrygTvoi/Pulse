@@ -906,5 +906,15 @@
   "acceptContact": "Accept",
   "blockContact": "Block",
   "blockedContactsEmpty": "No blocked contacts",
-  "pendingLimitReached": "Too many pending requests"
+  "pendingLimitReached": "Too many pending requests",
+  "pulseUseServerTitle": "Käytetäänkö Pulse-palvelinta?",
+  "pulseUseServerBody": "{name} käyttää Pulse-palvelinta {host}. Liity nopeampaan keskusteluun hänen (ja muiden samalla palvelimella olevien) kanssa?",
+  "pulseContactUsesPulse": "{name} käyttää Pulsea",
+  "pulseJoinForFaster": "Liity palvelimeen {host} nopeampaa keskustelua varten",
+  "pulseNotNow": "Ei nyt",
+  "pulseJoin": "Liity",
+  "pulseDismiss": "Sulje",
+  "pulseHide7Days": "Piilota 7 päiväksi",
+  "pulseNeverAskAgain": "Älä kysy uudelleen",
+  "groupSearchContactsHint": "Etsi yhteystietoja…"
 }

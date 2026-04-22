@@ -3068,4 +3068,40 @@ class AppLocalizationsSw extends AppLocalizations {
 
   @override
   String get pendingLimitReached => 'Too many pending requests';
+
+  @override
+  String get pulseUseServerTitle => 'Tumia seva ya Pulse?';
+
+  @override
+  String pulseUseServerBody(String name, String host) {
+    return '$name anatumia seva ya Pulse $host. Jiunge ili kuzungumza naye haraka (na wengine kwenye seva ile ile)?';
+  }
+
+  @override
+  String pulseContactUsesPulse(String name) {
+    return '$name anatumia Pulse';
+  }
+
+  @override
+  String pulseJoinForFaster(String host) {
+    return 'Jiunge na $host kwa gumzo la haraka';
+  }
+
+  @override
+  String get pulseNotNow => 'Si sasa';
+
+  @override
+  String get pulseJoin => 'Jiunge';
+
+  @override
+  String get pulseDismiss => 'Funga';
+
+  @override
+  String get pulseHide7Days => 'Ficha kwa siku 7';
+
+  @override
+  String get pulseNeverAskAgain => 'Usiulize tena';
+
+  @override
+  String get groupSearchContactsHint => 'Tafuta anwani…';
 }

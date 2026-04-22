@@ -906,5 +906,15 @@
   "acceptContact": "Accept",
   "blockContact": "Block",
   "blockedContactsEmpty": "No blocked contacts",
-  "pendingLimitReached": "Too many pending requests"
+  "pendingLimitReached": "Too many pending requests",
+  "pulseUseServerTitle": "Χρήση διακομιστή Pulse;",
+  "pulseUseServerBody": "Ο/Η {name} χρησιμοποιεί τον διακομιστή Pulse {host}. Να συνδεθείτε για γρηγορότερη συνομιλία (και με άλλους στον ίδιο διακομιστή);",
+  "pulseContactUsesPulse": "Ο/Η {name} χρησιμοποιεί το Pulse",
+  "pulseJoinForFaster": "Συνδεθείτε στο {host} για γρηγορότερη συνομιλία",
+  "pulseNotNow": "Όχι τώρα",
+  "pulseJoin": "Σύνδεση",
+  "pulseDismiss": "Απόρριψη",
+  "pulseHide7Days": "Απόκρυψη για 7 ημέρες",
+  "pulseNeverAskAgain": "Να μη ρωτηθώ ξανά",
+  "groupSearchContactsHint": "Αναζήτηση επαφών…"
 }

@@ -2943,4 +2943,40 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get pendingLimitReached => 'Too many pending requests';
+
+  @override
+  String get pulseUseServerTitle => 'Pulse 서버를 사용하시겠어요?';
+
+  @override
+  String pulseUseServerBody(String name, String host) {
+    return '$name 님은 Pulse 서버 $host 를 사용합니다. 참가해서 더 빠르게 대화하시겠어요? (같은 서버의 다른 사용자와도)';
+  }
+
+  @override
+  String pulseContactUsesPulse(String name) {
+    return '$name 님이 Pulse 사용 중';
+  }
+
+  @override
+  String pulseJoinForFaster(String host) {
+    return '$host 에 참가하여 더 빠른 채팅';
+  }
+
+  @override
+  String get pulseNotNow => '나중에';
+
+  @override
+  String get pulseJoin => '참가';
+
+  @override
+  String get pulseDismiss => '닫기';
+
+  @override
+  String get pulseHide7Days => '7일 동안 숨기기';
+
+  @override
+  String get pulseNeverAskAgain => '다시 묻지 않기';
+
+  @override
+  String get groupSearchContactsHint => '연락처 검색…';
 }

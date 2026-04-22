@@ -3038,4 +3038,40 @@ class AppLocalizationsFa extends AppLocalizations {
 
   @override
   String get pendingLimitReached => 'Too many pending requests';
+
+  @override
+  String get pulseUseServerTitle => 'استفاده از سرور Pulse؟';
+
+  @override
+  String pulseUseServerBody(String name, String host) {
+    return '$name از سرور Pulse $host استفاده می‌کند. برای چت سریع‌تر با او (و دیگران در همان سرور) بپیوندید؟';
+  }
+
+  @override
+  String pulseContactUsesPulse(String name) {
+    return '$name از Pulse استفاده می‌کند';
+  }
+
+  @override
+  String pulseJoinForFaster(String host) {
+    return 'برای چت سریع‌تر به $host بپیوندید';
+  }
+
+  @override
+  String get pulseNotNow => 'الان نه';
+
+  @override
+  String get pulseJoin => 'پیوستن';
+
+  @override
+  String get pulseDismiss => 'بستن';
+
+  @override
+  String get pulseHide7Days => 'پنهان‌سازی به مدت 7 روز';
+
+  @override
+  String get pulseNeverAskAgain => 'دیگر نپرس';
+
+  @override
+  String get groupSearchContactsHint => 'جستجوی مخاطبین…';
 }

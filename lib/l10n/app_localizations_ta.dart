@@ -3079,4 +3079,40 @@ class AppLocalizationsTa extends AppLocalizations {
 
   @override
   String get pendingLimitReached => 'Too many pending requests';
+
+  @override
+  String get pulseUseServerTitle => 'Pulse சேவையகத்தைப் பயன்படுத்தவா?';
+
+  @override
+  String pulseUseServerBody(String name, String host) {
+    return '$name Pulse சேவையகம் $host-ஐப் பயன்படுத்துகிறார். அவருடன் (மற்றும் அதே சேவையகத்தில் உள்ள மற்றவர்களுடன்) வேகமாக அரட்டையடிக்க சேரவா?';
+  }
+
+  @override
+  String pulseContactUsesPulse(String name) {
+    return '$name Pulse-ஐப் பயன்படுத்துகிறார்';
+  }
+
+  @override
+  String pulseJoinForFaster(String host) {
+    return 'வேகமான அரட்டைக்கு $host-இல் சேரவும்';
+  }
+
+  @override
+  String get pulseNotNow => 'இப்போது இல்லை';
+
+  @override
+  String get pulseJoin => 'சேர்';
+
+  @override
+  String get pulseDismiss => 'மூடு';
+
+  @override
+  String get pulseHide7Days => '7 நாட்களுக்கு மறை';
+
+  @override
+  String get pulseNeverAskAgain => 'மீண்டும் கேட்காதே';
+
+  @override
+  String get groupSearchContactsHint => 'தொடர்புகளைத் தேடு…';
 }

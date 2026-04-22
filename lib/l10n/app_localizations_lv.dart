@@ -3062,4 +3062,40 @@ class AppLocalizationsLv extends AppLocalizations {
 
   @override
   String get pendingLimitReached => 'Too many pending requests';
+
+  @override
+  String get pulseUseServerTitle => 'Izmantot Pulse serveri?';
+
+  @override
+  String pulseUseServerBody(String name, String host) {
+    return '$name izmanto Pulse serveri $host. Pievienoties, lai ātrāk sarakstītos (un ar citiem tajā pašā serverī)?';
+  }
+
+  @override
+  String pulseContactUsesPulse(String name) {
+    return '$name izmanto Pulse';
+  }
+
+  @override
+  String pulseJoinForFaster(String host) {
+    return 'Pievienojies $host ātrākai saziņai';
+  }
+
+  @override
+  String get pulseNotNow => 'Ne tagad';
+
+  @override
+  String get pulseJoin => 'Pievienoties';
+
+  @override
+  String get pulseDismiss => 'Aizvērt';
+
+  @override
+  String get pulseHide7Days => 'Paslēpt uz 7 dienām';
+
+  @override
+  String get pulseNeverAskAgain => 'Nejautāt vairs';
+
+  @override
+  String get groupSearchContactsHint => 'Meklēt kontaktus…';
 }

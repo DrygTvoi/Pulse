@@ -906,5 +906,15 @@
   "acceptContact": "Accept",
   "blockContact": "Block",
   "blockedContactsEmpty": "No blocked contacts",
-  "pendingLimitReached": "Too many pending requests"
+  "pendingLimitReached": "Too many pending requests",
+  "pulseUseServerTitle": "使用 Pulse 服务器？",
+  "pulseUseServerBody": "{name} 使用 Pulse 服务器 {host}。加入以更快地与他们（以及同一服务器上的其他人）聊天？",
+  "pulseContactUsesPulse": "{name} 在使用 Pulse",
+  "pulseJoinForFaster": "加入 {host} 以获得更快的聊天速度",
+  "pulseNotNow": "暂不",
+  "pulseJoin": "加入",
+  "pulseDismiss": "关闭",
+  "pulseHide7Days": "隐藏 7 天",
+  "pulseNeverAskAgain": "不再询问",
+  "groupSearchContactsHint": "搜索联系人…"
 }

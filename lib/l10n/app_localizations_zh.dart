@@ -2919,4 +2919,40 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get pendingLimitReached => 'Too many pending requests';
+
+  @override
+  String get pulseUseServerTitle => '使用 Pulse 服务器？';
+
+  @override
+  String pulseUseServerBody(String name, String host) {
+    return '$name 使用 Pulse 服务器 $host。加入以更快地与他们（以及同一服务器上的其他人）聊天？';
+  }
+
+  @override
+  String pulseContactUsesPulse(String name) {
+    return '$name 在使用 Pulse';
+  }
+
+  @override
+  String pulseJoinForFaster(String host) {
+    return '加入 $host 以获得更快的聊天速度';
+  }
+
+  @override
+  String get pulseNotNow => '暂不';
+
+  @override
+  String get pulseJoin => '加入';
+
+  @override
+  String get pulseDismiss => '关闭';
+
+  @override
+  String get pulseHide7Days => '隐藏 7 天';
+
+  @override
+  String get pulseNeverAskAgain => '不再询问';
+
+  @override
+  String get groupSearchContactsHint => '搜索联系人…';
 }

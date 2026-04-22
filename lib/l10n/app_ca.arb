@@ -906,5 +906,15 @@
   "acceptContact": "Accept",
   "blockContact": "Block",
   "blockedContactsEmpty": "No blocked contacts",
-  "pendingLimitReached": "Too many pending requests"
+  "pendingLimitReached": "Too many pending requests",
+  "pulseUseServerTitle": "Utilitzar el servidor Pulse?",
+  "pulseUseServerBody": "{name} utilitza el servidor Pulse {host}. Unir-te per xatejar més ràpid amb ell (i amb altres al mateix servidor)?",
+  "pulseContactUsesPulse": "{name} utilitza Pulse",
+  "pulseJoinForFaster": "Uneix-te a {host} per xatejar més ràpid",
+  "pulseNotNow": "Ara no",
+  "pulseJoin": "Uneix-te",
+  "pulseDismiss": "Descarta",
+  "pulseHide7Days": "Amaga durant 7 dies",
+  "pulseNeverAskAgain": "No tornis a preguntar",
+  "groupSearchContactsHint": "Cerca contactes…"
 }

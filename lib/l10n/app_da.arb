@@ -906,5 +906,15 @@
   "acceptContact": "Accept",
   "blockContact": "Block",
   "blockedContactsEmpty": "No blocked contacts",
-  "pendingLimitReached": "Too many pending requests"
+  "pendingLimitReached": "Too many pending requests",
+  "pulseUseServerTitle": "Brug Pulse-server?",
+  "pulseUseServerBody": "{name} bruger Pulse-serveren {host}. Deltag for at chatte hurtigere med dem (og med andre på samme server)?",
+  "pulseContactUsesPulse": "{name} bruger Pulse",
+  "pulseJoinForFaster": "Deltag i {host} for hurtigere chat",
+  "pulseNotNow": "Ikke nu",
+  "pulseJoin": "Deltag",
+  "pulseDismiss": "Luk",
+  "pulseHide7Days": "Skjul i 7 dage",
+  "pulseNeverAskAgain": "Spørg ikke igen",
+  "groupSearchContactsHint": "Søg kontakter…"
 }

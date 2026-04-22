@@ -906,5 +906,15 @@
   "acceptContact": "Accept",
   "blockContact": "Block",
   "blockedContactsEmpty": "No blocked contacts",
-  "pendingLimitReached": "Too many pending requests"
+  "pendingLimitReached": "Too many pending requests",
+  "pulseUseServerTitle": "Pulse serveridan foydalanilsinmi?",
+  "pulseUseServerBody": "{name} {host} Pulse serveridan foydalanadi. Tezroq yozishish uchun qo'shiling (va shu serverdagi boshqalar bilan)?",
+  "pulseContactUsesPulse": "{name} Pulse'dan foydalanmoqda",
+  "pulseJoinForFaster": "Tezroq chat uchun {host}'ga qo'shiling",
+  "pulseNotNow": "Hozir emas",
+  "pulseJoin": "Qo'shilish",
+  "pulseDismiss": "Yopish",
+  "pulseHide7Days": "7 kun yashirish",
+  "pulseNeverAskAgain": "Qayta so'ramang",
+  "groupSearchContactsHint": "Kontaktlarni izlash…"
 }

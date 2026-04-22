@@ -3068,4 +3068,40 @@ class AppLocalizationsLt extends AppLocalizations {
 
   @override
   String get pendingLimitReached => 'Too many pending requests';
+
+  @override
+  String get pulseUseServerTitle => 'Naudoti Pulse serverį?';
+
+  @override
+  String pulseUseServerBody(String name, String host) {
+    return '$name naudoja Pulse serverį $host. Prisijungti, kad greičiau susirašinėtumėte (ir su kitais tame pačiame serveryje)?';
+  }
+
+  @override
+  String pulseContactUsesPulse(String name) {
+    return '$name naudoja Pulse';
+  }
+
+  @override
+  String pulseJoinForFaster(String host) {
+    return 'Prisijunk prie $host, kad pokalbis būtų greitesnis';
+  }
+
+  @override
+  String get pulseNotNow => 'Ne dabar';
+
+  @override
+  String get pulseJoin => 'Prisijungti';
+
+  @override
+  String get pulseDismiss => 'Uždaryti';
+
+  @override
+  String get pulseHide7Days => 'Slėpti 7 dienas';
+
+  @override
+  String get pulseNeverAskAgain => 'Daugiau neklausti';
+
+  @override
+  String get groupSearchContactsHint => 'Ieškoti kontaktų…';
 }

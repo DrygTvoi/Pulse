@@ -3070,4 +3070,40 @@ class AppLocalizationsUz extends AppLocalizations {
 
   @override
   String get pendingLimitReached => 'Too many pending requests';
+
+  @override
+  String get pulseUseServerTitle => 'Pulse serveridan foydalanilsinmi?';
+
+  @override
+  String pulseUseServerBody(String name, String host) {
+    return '$name $host Pulse serveridan foydalanadi. Tezroq yozishish uchun qo\'shiling (va shu serverdagi boshqalar bilan)?';
+  }
+
+  @override
+  String pulseContactUsesPulse(String name) {
+    return '$name Pulse\'dan foydalanmoqda';
+  }
+
+  @override
+  String pulseJoinForFaster(String host) {
+    return 'Tezroq chat uchun $host\'ga qo\'shiling';
+  }
+
+  @override
+  String get pulseNotNow => 'Hozir emas';
+
+  @override
+  String get pulseJoin => 'Qo\'shilish';
+
+  @override
+  String get pulseDismiss => 'Yopish';
+
+  @override
+  String get pulseHide7Days => '7 kun yashirish';
+
+  @override
+  String get pulseNeverAskAgain => 'Qayta so\'ramang';
+
+  @override
+  String get groupSearchContactsHint => 'Kontaktlarni izlash…';
 }

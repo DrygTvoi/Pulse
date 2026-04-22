@@ -3064,4 +3064,40 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String get pendingLimitReached => 'Too many pending requests';
+
+  @override
+  String get pulseUseServerTitle => 'Käytetäänkö Pulse-palvelinta?';
+
+  @override
+  String pulseUseServerBody(String name, String host) {
+    return '$name käyttää Pulse-palvelinta $host. Liity nopeampaan keskusteluun hänen (ja muiden samalla palvelimella olevien) kanssa?';
+  }
+
+  @override
+  String pulseContactUsesPulse(String name) {
+    return '$name käyttää Pulsea';
+  }
+
+  @override
+  String pulseJoinForFaster(String host) {
+    return 'Liity palvelimeen $host nopeampaa keskustelua varten';
+  }
+
+  @override
+  String get pulseNotNow => 'Ei nyt';
+
+  @override
+  String get pulseJoin => 'Liity';
+
+  @override
+  String get pulseDismiss => 'Sulje';
+
+  @override
+  String get pulseHide7Days => 'Piilota 7 päiväksi';
+
+  @override
+  String get pulseNeverAskAgain => 'Älä kysy uudelleen';
+
+  @override
+  String get groupSearchContactsHint => 'Etsi yhteystietoja…';
 }

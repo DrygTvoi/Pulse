@@ -3067,4 +3067,40 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get pendingLimitReached => 'Too many pending requests';
+
+  @override
+  String get pulseUseServerTitle => 'Pulse szerver használata?';
+
+  @override
+  String pulseUseServerBody(String name, String host) {
+    return '$name a $host Pulse szervert használja. Csatlakozol, hogy gyorsabban csevegj vele (és másokkal ugyanazon a szerveren)?';
+  }
+
+  @override
+  String pulseContactUsesPulse(String name) {
+    return '$name Pulse-t használ';
+  }
+
+  @override
+  String pulseJoinForFaster(String host) {
+    return 'Csatlakozás $host szerverhez a gyorsabb chatért';
+  }
+
+  @override
+  String get pulseNotNow => 'Most nem';
+
+  @override
+  String get pulseJoin => 'Csatlakozás';
+
+  @override
+  String get pulseDismiss => 'Elvetés';
+
+  @override
+  String get pulseHide7Days => 'Elrejtés 7 napra';
+
+  @override
+  String get pulseNeverAskAgain => 'Ne kérdezd többet';
+
+  @override
+  String get groupSearchContactsHint => 'Kapcsolatok keresése…';
 }

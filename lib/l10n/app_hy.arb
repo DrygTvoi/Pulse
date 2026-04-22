@@ -906,5 +906,15 @@
   "acceptContact": "Accept",
   "blockContact": "Block",
   "blockedContactsEmpty": "No blocked contacts",
-  "pendingLimitReached": "Too many pending requests"
+  "pendingLimitReached": "Too many pending requests",
+  "pulseUseServerTitle": "Օգտագործե՞լ Pulse սերվերը:",
+  "pulseUseServerBody": "{name}-ը օգտագործում է Pulse սերվեր {host}-ը: Միացե՞ք՝ արագ զրույցի համար (և նույն սերվերի ուրիշների հետ):",
+  "pulseContactUsesPulse": "{name}-ը օգտագործում է Pulse-ը",
+  "pulseJoinForFaster": "Միացեք {host}-ին՝ ավելի արագ զրույցի համար",
+  "pulseNotNow": "Ոչ հիմա",
+  "pulseJoin": "Միանալ",
+  "pulseDismiss": "Փակել",
+  "pulseHide7Days": "Թաքցնել 7 օրով",
+  "pulseNeverAskAgain": "Այլևս չհարցնել",
+  "groupSearchContactsHint": "Որոնել կոնտակտներ…"
 }

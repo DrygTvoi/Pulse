@@ -5583,6 +5583,66 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Too many pending requests'**
   String get pendingLimitReached;
+
+  /// Title of the dialog suggesting the user join a contact's Pulse server
+  ///
+  /// In en, this message translates to:
+  /// **'Use Pulse server?'**
+  String get pulseUseServerTitle;
+
+  /// Body of the dialog suggesting the user join a contact's Pulse server
+  ///
+  /// In en, this message translates to:
+  /// **'{name} uses the Pulse server {host}. Join it to chat faster with them (and anyone else on the same server)?'**
+  String pulseUseServerBody(String name, String host);
+
+  /// Banner title — contact uses the Pulse server
+  ///
+  /// In en, this message translates to:
+  /// **'{name} uses Pulse'**
+  String pulseContactUsesPulse(String name);
+
+  /// Banner subtitle — prompt to join the Pulse server
+  ///
+  /// In en, this message translates to:
+  /// **'Join {host} for faster chat'**
+  String pulseJoinForFaster(String host);
+
+  /// Button to postpone the Pulse-server join prompt
+  ///
+  /// In en, this message translates to:
+  /// **'Not now'**
+  String get pulseNotNow;
+
+  /// Button to join the suggested Pulse server
+  ///
+  /// In en, this message translates to:
+  /// **'Join'**
+  String get pulseJoin;
+
+  /// Tooltip on the Pulse banner close button
+  ///
+  /// In en, this message translates to:
+  /// **'Dismiss'**
+  String get pulseDismiss;
+
+  /// Menu option to snooze the Pulse-server suggestion banner
+  ///
+  /// In en, this message translates to:
+  /// **'Hide for 7 days'**
+  String get pulseHide7Days;
+
+  /// Menu option to permanently dismiss the Pulse-server suggestion banner
+  ///
+  /// In en, this message translates to:
+  /// **'Never ask again'**
+  String get pulseNeverAskAgain;
+
+  /// Hint text for the contact-search field in the group-creation dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Search contacts…'**
+  String get groupSearchContactsHint;
 }
 
 class _AppLocalizationsDelegate

@@ -906,5 +906,15 @@
   "acceptContact": "Accept",
   "blockContact": "Block",
   "blockedContactsEmpty": "No blocked contacts",
-  "pendingLimitReached": "Too many pending requests"
+  "pendingLimitReached": "Too many pending requests",
+  "pulseUseServerTitle": "ใช้เซิร์ฟเวอร์ Pulse หรือไม่?",
+  "pulseUseServerBody": "{name} ใช้เซิร์ฟเวอร์ Pulse {host} เข้าร่วมเพื่อแชทได้เร็วขึ้น (และกับผู้อื่นบนเซิร์ฟเวอร์เดียวกัน)?",
+  "pulseContactUsesPulse": "{name} ใช้ Pulse",
+  "pulseJoinForFaster": "เข้าร่วม {host} เพื่อแชทได้เร็วขึ้น",
+  "pulseNotNow": "ไม่ใช่ตอนนี้",
+  "pulseJoin": "เข้าร่วม",
+  "pulseDismiss": "ปิด",
+  "pulseHide7Days": "ซ่อน 7 วัน",
+  "pulseNeverAskAgain": "อย่าถามอีก",
+  "groupSearchContactsHint": "ค้นหาผู้ติดต่อ…"
 }

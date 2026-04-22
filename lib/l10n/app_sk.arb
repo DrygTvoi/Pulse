@@ -906,5 +906,15 @@
   "acceptContact": "Accept",
   "blockContact": "Block",
   "blockedContactsEmpty": "No blocked contacts",
-  "pendingLimitReached": "Too many pending requests"
+  "pendingLimitReached": "Too many pending requests",
+  "pulseUseServerTitle": "Použiť server Pulse?",
+  "pulseUseServerBody": "{name} používa server Pulse {host}. Pripojiť sa, aby ste si mohli rýchlejšie chatovať (a s ostatnými na rovnakom serveri)?",
+  "pulseContactUsesPulse": "{name} používa Pulse",
+  "pulseJoinForFaster": "Pripojiť sa k {host} pre rýchlejší chat",
+  "pulseNotNow": "Teraz nie",
+  "pulseJoin": "Pripojiť sa",
+  "pulseDismiss": "Zavrieť",
+  "pulseHide7Days": "Skryť na 7 dní",
+  "pulseNeverAskAgain": "Nepýtať sa znova",
+  "groupSearchContactsHint": "Hľadať kontakty…"
 }

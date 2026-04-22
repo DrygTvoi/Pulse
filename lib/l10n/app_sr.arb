@@ -906,5 +906,15 @@
   "acceptContact": "Accept",
   "blockContact": "Block",
   "blockedContactsEmpty": "No blocked contacts",
-  "pendingLimitReached": "Too many pending requests"
+  "pendingLimitReached": "Too many pending requests",
+  "pulseUseServerTitle": "Користити Pulse сервер?",
+  "pulseUseServerBody": "{name} користи Pulse сервер {host}. Придружити се да бисте брже ћаскали (и са осталима на истом серверу)?",
+  "pulseContactUsesPulse": "{name} користи Pulse",
+  "pulseJoinForFaster": "Придружите се {host} за брже ћаскање",
+  "pulseNotNow": "Не сада",
+  "pulseJoin": "Придружи се",
+  "pulseDismiss": "Одбаци",
+  "pulseHide7Days": "Сакриј 7 дана",
+  "pulseNeverAskAgain": "Не питај поново",
+  "groupSearchContactsHint": "Претражи контакте…"
 }

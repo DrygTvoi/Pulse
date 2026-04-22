@@ -906,5 +906,15 @@
   "acceptContact": "Accept",
   "blockContact": "Block",
   "blockedContactsEmpty": "No blocked contacts",
-  "pendingLimitReached": "Too many pending requests"
+  "pendingLimitReached": "Too many pending requests",
+  "pulseUseServerTitle": "Pulse szerver használata?",
+  "pulseUseServerBody": "{name} a {host} Pulse szervert használja. Csatlakozol, hogy gyorsabban csevegj vele (és másokkal ugyanazon a szerveren)?",
+  "pulseContactUsesPulse": "{name} Pulse-t használ",
+  "pulseJoinForFaster": "Csatlakozás {host} szerverhez a gyorsabb chatért",
+  "pulseNotNow": "Most nem",
+  "pulseJoin": "Csatlakozás",
+  "pulseDismiss": "Elvetés",
+  "pulseHide7Days": "Elrejtés 7 napra",
+  "pulseNeverAskAgain": "Ne kérdezd többet",
+  "groupSearchContactsHint": "Kapcsolatok keresése…"
 }

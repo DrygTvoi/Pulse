@@ -906,5 +906,15 @@
   "acceptContact": "Accept",
   "blockContact": "Block",
   "blockedContactsEmpty": "No blocked contacts",
-  "pendingLimitReached": "Too many pending requests"
+  "pendingLimitReached": "Too many pending requests",
+  "pulseUseServerTitle": "¿Usar servidor Pulse?",
+  "pulseUseServerBody": "{name} usa el servidor Pulse {host}. ¿Unirte para chatear más rápido con esta persona (y con otras en el mismo servidor)?",
+  "pulseContactUsesPulse": "{name} usa Pulse",
+  "pulseJoinForFaster": "Únete a {host} para un chat más rápido",
+  "pulseNotNow": "Ahora no",
+  "pulseJoin": "Unirse",
+  "pulseDismiss": "Descartar",
+  "pulseHide7Days": "Ocultar por 7 días",
+  "pulseNeverAskAgain": "No preguntar de nuevo",
+  "groupSearchContactsHint": "Buscar contactos…"
 }

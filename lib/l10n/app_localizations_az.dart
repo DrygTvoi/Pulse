@@ -3061,4 +3061,40 @@ class AppLocalizationsAz extends AppLocalizations {
 
   @override
   String get pendingLimitReached => 'Too many pending requests';
+
+  @override
+  String get pulseUseServerTitle => 'Pulse serveri istifadə edilsin?';
+
+  @override
+  String pulseUseServerBody(String name, String host) {
+    return '$name $host Pulse serverindən istifadə edir. Daha sürətli söhbət üçün qoşulun (və eyni serverdəki digərləri ilə)?';
+  }
+
+  @override
+  String pulseContactUsesPulse(String name) {
+    return '$name Pulse istifadə edir';
+  }
+
+  @override
+  String pulseJoinForFaster(String host) {
+    return 'Daha sürətli söhbət üçün $host serverinə qoşulun';
+  }
+
+  @override
+  String get pulseNotNow => 'İndi yox';
+
+  @override
+  String get pulseJoin => 'Qoşul';
+
+  @override
+  String get pulseDismiss => 'Bağla';
+
+  @override
+  String get pulseHide7Days => '7 gün gizlət';
+
+  @override
+  String get pulseNeverAskAgain => 'Daha soruşma';
+
+  @override
+  String get groupSearchContactsHint => 'Kontaktları axtar…';
 }

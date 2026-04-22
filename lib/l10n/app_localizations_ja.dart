@@ -2945,4 +2945,40 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get pendingLimitReached => 'Too many pending requests';
+
+  @override
+  String get pulseUseServerTitle => 'Pulse サーバーを使用しますか？';
+
+  @override
+  String pulseUseServerBody(String name, String host) {
+    return '$name は Pulse サーバー $host を使用しています。参加して、より速くチャットしますか？（同じサーバー上の他のユーザーとも）';
+  }
+
+  @override
+  String pulseContactUsesPulse(String name) {
+    return '$name は Pulse を使用中';
+  }
+
+  @override
+  String pulseJoinForFaster(String host) {
+    return '$host に参加してより速くチャット';
+  }
+
+  @override
+  String get pulseNotNow => '後で';
+
+  @override
+  String get pulseJoin => '参加';
+
+  @override
+  String get pulseDismiss => '閉じる';
+
+  @override
+  String get pulseHide7Days => '7 日間非表示';
+
+  @override
+  String get pulseNeverAskAgain => '今後表示しない';
+
+  @override
+  String get groupSearchContactsHint => '連絡先を検索…';
 }

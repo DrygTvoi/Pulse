@@ -3044,4 +3044,40 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get pendingLimitReached => 'Too many pending requests';
+
+  @override
+  String get pulseUseServerTitle => 'استخدام خادم Pulse؟';
+
+  @override
+  String pulseUseServerBody(String name, String host) {
+    return 'يستخدم $name خادم Pulse $host. الانضمام للدردشة بشكل أسرع معه (ومع آخرين على نفس الخادم)؟';
+  }
+
+  @override
+  String pulseContactUsesPulse(String name) {
+    return '$name يستخدم Pulse';
+  }
+
+  @override
+  String pulseJoinForFaster(String host) {
+    return 'انضم إلى $host لدردشة أسرع';
+  }
+
+  @override
+  String get pulseNotNow => 'ليس الآن';
+
+  @override
+  String get pulseJoin => 'انضمام';
+
+  @override
+  String get pulseDismiss => 'إغلاق';
+
+  @override
+  String get pulseHide7Days => 'إخفاء لمدة 7 أيام';
+
+  @override
+  String get pulseNeverAskAgain => 'عدم السؤال مجددًا';
+
+  @override
+  String get groupSearchContactsHint => 'البحث في جهات الاتصال…';
 }
