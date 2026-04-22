@@ -447,11 +447,13 @@ func (c *Client) handleAuth(msgType string, raw []byte) {
 	}
 	c.hub.Register(c)
 
-	// Build auth_ok with server info
+	// Build auth_ok with server info. cert_fp used to be here; removed so a
+	// blind probe can't link a TLS cert fingerprint (obtained from any handshake
+	// at this IP) to the relay endpoint in one round-trip. Clients that need
+	// pinning carry the fingerprint out-of-band in the invite URL fragment.
 	ok := &AuthOK{
 		Type:   TypeAuthOK,
 		Pubkey: c.pubkey,
-		CertFP: c.certFP,
 	}
 
 	// Include TURN credentials if available
@@ -494,8 +496,35 @@ func (c *Client) handleAuth(msgType string, raw []byte) {
 		}
 	}
 
+	// Pad the response so the marshaled length does not leak pending-message
+	// count, TURN credential presence, or other feature bits. Target ~2 KiB;
+	// the Pad field carries random base64 filler up to that size. Length is
+	// constant across users and sessions.
 	data, _ := json.Marshal(ok)
+	const targetLen = 2048
+	if len(data) < targetLen {
+		padLen := targetLen - len(data) - 11 // account for `,"_pad":""` overhead
+		if padLen > 0 {
+			raw := make([]byte, padLen)
+			if _, err := crand.Read(raw); err == nil {
+				ok.Pad = base64StdNoPad(raw)[:padLen]
+				data, _ = json.Marshal(ok)
+			}
+		}
+	}
 	c.SendDirect(data)
+}
+
+// base64StdNoPad is a local helper to avoid importing encoding/base64 where
+// only an alphabet is needed. We only care that the padding is printable
+// ASCII — it never leaves the server→client response.
+func base64StdNoPad(b []byte) string {
+	const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+	out := make([]byte, len(b))
+	for i, v := range b {
+		out[i] = alphabet[v&0x3f]
+	}
+	return string(out)
 }
 
 // SendBinaryDirect sends raw binary data to the client.

@@ -8,6 +8,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -238,8 +239,14 @@ func (s *Server) ListenAndServe() error {
 		}
 		s.certFP = CertFingerprint(tlsCfg)
 		if s.certFP != "" {
-			fmt.Printf("CERT_FP %s\n", s.certFP)
-			log.Printf("[transport] cert fingerprint: %s", s.certFP)
+			// Only print to stdout if it's a terminal (manual CLI run), not
+			// when systemd captures stdout → journald. The cert fingerprint
+			// is not secret (any TLS handshake reveals it), but pairing it
+			// with "this is Pulse" in the journal lets anyone with
+			// sudo-journalctl verify relay identity.
+			if fi, err := os.Stdout.Stat(); err == nil && (fi.Mode()&os.ModeCharDevice) != 0 {
+				fmt.Printf("CERT_FP %s\n", s.certFP)
+			}
 		}
 		tlsLn := tls.NewListener(ln, tlsCfg)
 		httpLn := s.maybeEnableTURNMux(tlsLn)
@@ -295,22 +302,17 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check for valid WebSocket subprotocol — use neutral name to avoid fingerprinting.
-	// Accept both legacy "pulse.auth" and new "mqtt" (camouflage).
+	// Only accept the "mqtt" subprotocol — it's a legitimate MQTT-over-WebSocket
+	// identifier that doesn't mention our project. Any other subprotocol
+	// (including the legacy "pulse.auth") gets the decoy 404 so a censor
+	// probing with "pulse.auth" can't use the 101 + echoed header as a
+	// one-shot fingerprint for this IP.
 	proto := r.Header.Get("Sec-WebSocket-Protocol")
-	hasMqtt := strings.Contains(proto, "mqtt")
-	hasPulse := strings.Contains(proto, "pulse")
-	if !hasMqtt && !hasPulse {
-		// No valid protocol header → decoy response
+	if !strings.Contains(proto, "mqtt") {
 		s.decoyHandler.ServeHTTP(w, r)
 		return
 	}
-
-	// Negotiate the subprotocol the client offered
 	negotiated := "mqtt"
-	if !hasMqtt && hasPulse {
-		negotiated = "pulse.auth"
-	}
 
 	// Upgrade with protocol negotiation
 	wsUpgrader := websocket.Upgrader{

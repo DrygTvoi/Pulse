@@ -183,14 +183,19 @@ const (
 // --- Wire structs (flat JSON on the wire) ---
 
 // AuthChallenge is the auth challenge sent to clients.
+//
+// PoW fields are always encoded (not omitempty). Conditionally including them
+// when PoW is enabled would make their presence itself a fingerprint for "PoW
+// enabled → probably Pulse". With the fields always present, a deployment
+// with PoW disabled looks identical to one with PoW enabled on the wire.
 type AuthChallenge struct {
 	Type          string `json:"type"`
 	Nonce         string `json:"nonce"`
 	Timestamp     int64  `json:"ts"`
 	Version       int    `json:"v"`
-	PoWSeed       string `json:"pow_seed,omitempty"`
-	PoWDifficulty int    `json:"pow_difficulty,omitempty"`
-	PoWExpires    int64  `json:"pow_expires,omitempty"`
+	PoWSeed       string `json:"pow_seed"`
+	PoWDifficulty int    `json:"pow_difficulty"`
+	PoWExpires    int64  `json:"pow_expires"`
 }
 
 // PrivacyInfo describes the server's active privacy/obfuscation features.
@@ -206,10 +211,15 @@ type AuthOK struct {
 	Pubkey       string           `json:"pubkey"`
 	Server       string           `json:"server,omitempty"`
 	Turn         *TurnCredentials `json:"turn,omitempty"`
-	CertFP       string           `json:"cert_fp,omitempty"`
 	PendingCount int              `json:"pending_count"`
 	Privacy      *PrivacyInfo     `json:"privacy,omitempty"`
 	SealedCerts  []DeliveryCert   `json:"sealed_certs,omitempty"`
+	// Pad is a filler field so the marshaled size of auth_ok does not leak
+	// the user's pending-message count or which optional fields are present.
+	// Client.sendAuthOK populates this; clients ignore it. The CertFP field
+	// (cert_fp in JSON) was removed — it let a blind prober link a blind TLS
+	// handshake's cert fingerprint to the relay endpoint in one round-trip.
+	Pad string `json:"_pad,omitempty"`
 }
 
 // TurnCredentials holds TURN server connection info.

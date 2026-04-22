@@ -2,7 +2,7 @@ name: pulse_messenger
 description: "Pulse — E2EE decentralized messenger. No servers. No data collection."
 publish_to: 'none'
 
-version: 1.3.0+3
+version: 1.4.0+4
 
 environment:
   sdk: ^3.10.7

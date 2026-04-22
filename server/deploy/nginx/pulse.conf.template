@@ -16,6 +16,12 @@ server {
     http2 on;
     server_name __DOMAIN__;
 
+    # Suppress access logging by default — docker logs would otherwise expose
+    # client IP / path / timestamp to anyone who can `docker logs pulse-nginx`
+    # (VPS provider, compromised ops user, etc.). Uncomment only while
+    # actively debugging a specific issue and do not commit that change.
+    access_log off;
+
     # TLS cert paths — nginx-certbot writes here after successful issuance.
     ssl_certificate     /etc/letsencrypt/live/__DOMAIN__/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/__DOMAIN__/privkey.pem;

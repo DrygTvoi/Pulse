@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"crypto/ed25519"
+	"fmt"
 	"log"
 	"net"
 	"os"
@@ -160,7 +161,21 @@ func runServe(cmd *cobra.Command, args []string) error {
 		}
 
 		if fedAuth != nil {
-			log.Printf("[serve] federation pubkey: %s", fedAuth.PubkeyHex())
+			// Persist federation pubkey to a 0600 file inside the data dir.
+			// Systemd captures stdout into journald, so `fmt.Printf` would
+			// still leak. Writing to a file that only the pulse user can
+			// read keeps the identity out of the journal (anyone with sudo
+			// or journald access can't harvest it via `journalctl`) while
+			// the operator can still read it via `sudo cat`.
+			if dataDir != "" {
+				fpPath := dataDir + "/federation.pubkey"
+				_ = os.WriteFile(fpPath, []byte(fedAuth.PubkeyHex()+"\n"), 0600)
+			}
+			// Only print to stdout if we're attached to a terminal (CLI run),
+			// not when launched by systemd (where stdout → journald).
+			if fi, err := os.Stdout.Stat(); err == nil && (fi.Mode()&os.ModeCharDevice) != 0 {
+				fmt.Printf("federation pubkey: %s\n", fedAuth.PubkeyHex())
+			}
 
 			// Create the peer manager and router together
 			var router *federation.FederationRouter

@@ -1,7 +1,9 @@
 package transport
 
 import (
+	crand "crypto/rand"
 	"embed"
+	"encoding/hex"
 	"fmt"
 	"net/http"
 	"os"
@@ -23,6 +25,11 @@ type DecoyHandler struct {
 	notFoundHTML []byte
 	favicon      []byte
 	robotsTxt    []byte
+	// indexETag / indexLastMod are generated once at startup so every
+	// deployed server has its own value — a censor that scrapes two distinct
+	// Pulse relays can't recognise them by identical static ETags.
+	indexETag    string
+	indexLastMod string
 }
 
 // NewDecoyHandler creates a DecoyHandler using config overrides or embedded defaults.
@@ -38,6 +45,22 @@ func NewDecoyHandler(cfg config.DecoyConfig) *DecoyHandler {
 	d.notFoundHTML = loadOrEmbed(cfg.NotFoundHTML, "decoy_defaults/404.html")
 	d.favicon = loadOrEmbed(cfg.Favicon, "decoy_defaults/favicon.ico")
 	d.robotsTxt, _ = decoyFS.ReadFile("decoy_defaults/robots.txt")
+
+	// Randomise ETag + Last-Modified per-startup. Real nginx derives ETag
+	// from mtime+size of the file on disk, so values naturally differ
+	// between servers. Hardcoded values here previously looked identical
+	// across every Pulse deployment — a stable cross-server fingerprint.
+	etagBytes := make([]byte, 4)
+	_, _ = crand.Read(etagBytes)
+	sizeBytes := make([]byte, 2)
+	_, _ = crand.Read(sizeBytes)
+	d.indexETag = fmt.Sprintf(`"%s-%x"`, hex.EncodeToString(etagBytes), sizeBytes)
+	// Pick a Last-Modified time within the last 6 months, minute granularity
+	// like a real file.
+	offset := make([]byte, 2)
+	_, _ = crand.Read(offset)
+	minutesAgo := int64(offset[0])<<8 | int64(offset[1]) // 0..65535 minutes ≈ 45 days
+	d.indexLastMod = time.Now().Add(-time.Duration(minutesAgo) * time.Minute).UTC().Format(http.TimeFormat)
 
 	return d
 }
@@ -81,12 +104,12 @@ func (d *DecoyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch r.URL.Path {
 	case "/", "/index.html":
 		d.setNginxHeaders(w, "text/html", d.indexHTML)
-		// Fake ETag — nginx generates these from mtime+size
-		w.Header().Set("ETag", `"65a8f3c0-264"`)
-		w.Header().Set("Last-Modified", "Thu, 18 Jan 2024 09:15:12 GMT")
+		// Per-startup randomised ETag + Last-Modified. See NewDecoyHandler.
+		w.Header().Set("ETag", d.indexETag)
+		w.Header().Set("Last-Modified", d.indexLastMod)
 
 		// Handle If-None-Match (browser cache) — nginx does this
-		if r.Header.Get("If-None-Match") == `"65a8f3c0-264"` {
+		if r.Header.Get("If-None-Match") == d.indexETag {
 			w.WriteHeader(http.StatusNotModified)
 			return
 		}
