@@ -916,5 +916,13 @@
   "pulseDismiss": "Descarta",
   "pulseHide7Days": "Amaga durant 7 dies",
   "pulseNeverAskAgain": "No tornis a preguntar",
-  "groupSearchContactsHint": "Cerca contactes…"
+  "groupSearchContactsHint": "Cerca contactes…",
+  "systemActorYou": "Tu",
+  "systemActorPeer": "Contacte",
+  "systemTtlEnabled": "{actor} ha activat els missatges efímers: {duration}",
+  "systemTtlDisabled": "{actor} ha desactivat els missatges efímers",
+  "menuClearChatHistory": "Esborra l’historial del xat",
+  "clearChatTitle": "Esborrar l’historial del xat?",
+  "clearChatBody": "Tots els missatges d’aquest xat s’eliminaran d’aquest dispositiu. L’altra persona conservarà la seva còpia.",
+  "clearChatAction": "Esborra"
 }

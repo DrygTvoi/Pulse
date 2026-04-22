@@ -3081,4 +3081,33 @@ class AppLocalizationsSv extends AppLocalizations {
 
   @override
   String get groupSearchContactsHint => 'Sök kontakter…';
+
+  @override
+  String get systemActorYou => 'Du';
+
+  @override
+  String get systemActorPeer => 'Kontakt';
+
+  @override
+  String systemTtlEnabled(String actor, String duration) {
+    return '$actor aktiverade försvinnande meddelanden: $duration';
+  }
+
+  @override
+  String systemTtlDisabled(String actor) {
+    return '$actor avaktiverade försvinnande meddelanden';
+  }
+
+  @override
+  String get menuClearChatHistory => 'Rensa chatthistorik';
+
+  @override
+  String get clearChatTitle => 'Rensa chatthistoriken?';
+
+  @override
+  String get clearChatBody =>
+      'Alla meddelanden i denna chatt raderas från den här enheten. Den andra personen behåller sin kopia.';
+
+  @override
+  String get clearChatAction => 'Rensa';
 }

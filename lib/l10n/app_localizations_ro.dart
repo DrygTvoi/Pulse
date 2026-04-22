@@ -3099,4 +3099,33 @@ class AppLocalizationsRo extends AppLocalizations {
 
   @override
   String get groupSearchContactsHint => 'Caută contacte…';
+
+  @override
+  String get systemActorYou => 'Tu';
+
+  @override
+  String get systemActorPeer => 'Contact';
+
+  @override
+  String systemTtlEnabled(String actor, String duration) {
+    return '$actor a activat mesajele care dispar: $duration';
+  }
+
+  @override
+  String systemTtlDisabled(String actor) {
+    return '$actor a dezactivat mesajele care dispar';
+  }
+
+  @override
+  String get menuClearChatHistory => 'Șterge istoricul conversației';
+
+  @override
+  String get clearChatTitle => 'Ștergi istoricul conversației?';
+
+  @override
+  String get clearChatBody =>
+      'Toate mesajele din această conversație vor fi șterse de pe acest dispozitiv. Cealaltă persoană își va păstra copia.';
+
+  @override
+  String get clearChatAction => 'Șterge';
 }

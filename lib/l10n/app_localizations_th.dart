@@ -3060,4 +3060,33 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String get groupSearchContactsHint => 'ค้นหาผู้ติดต่อ…';
+
+  @override
+  String get systemActorYou => 'คุณ';
+
+  @override
+  String get systemActorPeer => 'ผู้ติดต่อ';
+
+  @override
+  String systemTtlEnabled(String actor, String duration) {
+    return '$actor เปิดใช้ข้อความที่หายไป: $duration';
+  }
+
+  @override
+  String systemTtlDisabled(String actor) {
+    return '$actor ปิดข้อความที่หายไป';
+  }
+
+  @override
+  String get menuClearChatHistory => 'ล้างประวัติการแชท';
+
+  @override
+  String get clearChatTitle => 'ล้างประวัติการแชท?';
+
+  @override
+  String get clearChatBody =>
+      'ข้อความทั้งหมดในแชทนี้จะถูกลบออกจากอุปกรณ์นี้ อีกฝ่ายจะเก็บสำเนาของตน';
+
+  @override
+  String get clearChatAction => 'ล้าง';
 }

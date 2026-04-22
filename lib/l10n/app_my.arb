@@ -916,5 +916,13 @@
   "pulseDismiss": "ပိတ်",
   "pulseHide7Days": "၇ ရက် ဖျောက်ထား",
   "pulseNeverAskAgain": "ထပ်မမေးပါနှင့်",
-  "groupSearchContactsHint": "အဆက်အသွယ်များ ရှာဖွေ…"
+  "groupSearchContactsHint": "အဆက်အသွယ်များ ရှာဖွေ…",
+  "systemActorYou": "သင်",
+  "systemActorPeer": "အဆက်အသွယ်",
+  "systemTtlEnabled": "{actor} သည် ပျောက်သွားသောစာများကို ဖွင့်ထားသည်- {duration}",
+  "systemTtlDisabled": "{actor} သည် ပျောက်သွားသောစာများကို ပိတ်ထားသည်",
+  "menuClearChatHistory": "ချတ်မှတ်တမ်းကို ရှင်းလင်း",
+  "clearChatTitle": "ချတ်မှတ်တမ်းကို ရှင်းလင်းမည်လား?",
+  "clearChatBody": "ဤချတ်ရှိ စာအားလုံးကို ဤစက်မှ ဖျက်လိုက်ပါမည်။ အခြားသူသည် မိမိ၏ မိတ္တူကို ထိန်းသိမ်းထားပါမည်။",
+  "clearChatAction": "ရှင်းလင်း"
 }

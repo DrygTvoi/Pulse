@@ -916,5 +916,13 @@
   "pulseDismiss": "Fermer",
   "pulseHide7Days": "Masquer pendant 7 jours",
   "pulseNeverAskAgain": "Ne plus demander",
-  "groupSearchContactsHint": "Rechercher des contacts…"
+  "groupSearchContactsHint": "Rechercher des contacts…",
+  "systemActorYou": "Vous",
+  "systemActorPeer": "Contact",
+  "systemTtlEnabled": "{actor} a activé les messages éphémères : {duration}",
+  "systemTtlDisabled": "{actor} a désactivé les messages éphémères",
+  "menuClearChatHistory": "Effacer l’historique du chat",
+  "clearChatTitle": "Effacer l’historique du chat ?",
+  "clearChatBody": "Tous les messages de ce chat seront supprimés de cet appareil. L’autre personne conservera sa copie.",
+  "clearChatAction": "Effacer"
 }

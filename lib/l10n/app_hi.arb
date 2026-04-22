@@ -916,5 +916,13 @@
   "pulseDismiss": "खारिज करें",
   "pulseHide7Days": "7 दिनों के लिए छुपाएं",
   "pulseNeverAskAgain": "फिर से न पूछें",
-  "groupSearchContactsHint": "संपर्क खोजें…"
+  "groupSearchContactsHint": "संपर्क खोजें…",
+  "systemActorYou": "आप",
+  "systemActorPeer": "संपर्क",
+  "systemTtlEnabled": "{actor} ने ग़ायब होने वाले संदेश चालू किए: {duration}",
+  "systemTtlDisabled": "{actor} ने ग़ायब होने वाले संदेश बंद किए",
+  "menuClearChatHistory": "चैट इतिहास साफ़ करें",
+  "clearChatTitle": "चैट इतिहास साफ़ करें?",
+  "clearChatBody": "इस चैट के सभी संदेश इस डिवाइस से हटा दिए जाएंगे। दूसरा व्यक्ति अपनी प्रति बनाए रखेगा।",
+  "clearChatAction": "साफ़ करें"
 }

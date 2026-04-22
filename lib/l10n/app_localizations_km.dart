@@ -3083,4 +3083,33 @@ class AppLocalizationsKm extends AppLocalizations {
 
   @override
   String get groupSearchContactsHint => 'ស្វែងរកទំនាក់ទំនង…';
+
+  @override
+  String get systemActorYou => 'អ្នក';
+
+  @override
+  String get systemActorPeer => 'ទំនាក់ទំនង';
+
+  @override
+  String systemTtlEnabled(String actor, String duration) {
+    return '$actor បានបើកសារដែលបាត់: $duration';
+  }
+
+  @override
+  String systemTtlDisabled(String actor) {
+    return '$actor បានបិទសារដែលបាត់';
+  }
+
+  @override
+  String get menuClearChatHistory => 'សម្អាតប្រវត្តិការសន្ទនា';
+
+  @override
+  String get clearChatTitle => 'សម្អាតប្រវត្តិការសន្ទនា?';
+
+  @override
+  String get clearChatBody =>
+      'សារទាំងអស់ក្នុងការសន្ទនានេះនឹងត្រូវបានលុបចេញពីឧបករណ៍នេះ។ មនុស្សផ្សេងនឹងរក្សាច្បាប់ចម្លងរបស់ពួកគេ។';
+
+  @override
+  String get clearChatAction => 'សម្អាត';
 }

@@ -3092,4 +3092,33 @@ class AppLocalizationsMs extends AppLocalizations {
 
   @override
   String get groupSearchContactsHint => 'Cari kenalan…';
+
+  @override
+  String get systemActorYou => 'Anda';
+
+  @override
+  String get systemActorPeer => 'Kenalan';
+
+  @override
+  String systemTtlEnabled(String actor, String duration) {
+    return '$actor mengaktifkan mesej hilang: $duration';
+  }
+
+  @override
+  String systemTtlDisabled(String actor) {
+    return '$actor menyahaktifkan mesej hilang';
+  }
+
+  @override
+  String get menuClearChatHistory => 'Padam sejarah sembang';
+
+  @override
+  String get clearChatTitle => 'Padam sejarah sembang?';
+
+  @override
+  String get clearChatBody =>
+      'Semua mesej dalam sembang ini akan dipadamkan dari peranti ini. Orang lain akan menyimpan salinan mereka.';
+
+  @override
+  String get clearChatAction => 'Padam';
 }

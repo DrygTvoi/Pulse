@@ -916,5 +916,13 @@
   "pulseDismiss": "Isara",
   "pulseHide7Days": "Itago ng 7 araw",
   "pulseNeverAskAgain": "Huwag nang magtanong muli",
-  "groupSearchContactsHint": "Maghanap ng mga contact…"
+  "groupSearchContactsHint": "Maghanap ng mga contact…",
+  "systemActorYou": "Ikaw",
+  "systemActorPeer": "Contact",
+  "systemTtlEnabled": "Na-enable ni {actor} ang nawawalang mga mensahe: {duration}",
+  "systemTtlDisabled": "Na-disable ni {actor} ang nawawalang mga mensahe",
+  "menuClearChatHistory": "I-clear ang chat history",
+  "clearChatTitle": "I-clear ang chat history?",
+  "clearChatBody": "Lahat ng mensahe sa chat na ito ay tatanggalin sa device na ito. Ang ibang tao ay magpapanatili ng kanilang kopya.",
+  "clearChatAction": "I-clear"
 }

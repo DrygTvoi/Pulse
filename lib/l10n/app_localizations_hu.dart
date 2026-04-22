@@ -3103,4 +3103,33 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get groupSearchContactsHint => 'Kapcsolatok keresése…';
+
+  @override
+  String get systemActorYou => 'Te';
+
+  @override
+  String get systemActorPeer => 'Beszélgetőtárs';
+
+  @override
+  String systemTtlEnabled(String actor, String duration) {
+    return '$actor bekapcsolta az eltűnő üzeneteket: $duration';
+  }
+
+  @override
+  String systemTtlDisabled(String actor) {
+    return '$actor kikapcsolta az eltűnő üzeneteket';
+  }
+
+  @override
+  String get menuClearChatHistory => 'Csevegés előzményeinek törlése';
+
+  @override
+  String get clearChatTitle => 'Törlöd a csevegés előzményeit?';
+
+  @override
+  String get clearChatBody =>
+      'Az összes üzenet törlődik erről az eszközről. A másik fél megtartja a saját másolatát.';
+
+  @override
+  String get clearChatAction => 'Törlés';
 }

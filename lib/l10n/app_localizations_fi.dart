@@ -3100,4 +3100,33 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String get groupSearchContactsHint => 'Etsi yhteystietoja…';
+
+  @override
+  String get systemActorYou => 'Sinä';
+
+  @override
+  String get systemActorPeer => 'Yhteystieto';
+
+  @override
+  String systemTtlEnabled(String actor, String duration) {
+    return '$actor otti katoavat viestit käyttöön: $duration';
+  }
+
+  @override
+  String systemTtlDisabled(String actor) {
+    return '$actor poisti katoavat viestit käytöstä';
+  }
+
+  @override
+  String get menuClearChatHistory => 'Tyhjennä keskusteluhistoria';
+
+  @override
+  String get clearChatTitle => 'Tyhjennetäänkö keskusteluhistoria?';
+
+  @override
+  String get clearChatBody =>
+      'Kaikki tämän keskustelun viestit poistetaan tältä laitteelta. Toinen osapuoli säilyttää oman kopionsa.';
+
+  @override
+  String get clearChatAction => 'Tyhjennä';
 }

@@ -916,5 +916,13 @@
   "pulseDismiss": "Odbaci",
   "pulseHide7Days": "Sakrij na 7 dana",
   "pulseNeverAskAgain": "Ne pitaj više",
-  "groupSearchContactsHint": "Pretraži kontakte…"
+  "groupSearchContactsHint": "Pretraži kontakte…",
+  "systemActorYou": "Vi",
+  "systemActorPeer": "Sugovornik",
+  "systemTtlEnabled": "{actor} je uključio(la) nestajuće poruke: {duration}",
+  "systemTtlDisabled": "{actor} je isključio(la) nestajuće poruke",
+  "menuClearChatHistory": "Izbriši povijest razgovora",
+  "clearChatTitle": "Izbrisati povijest razgovora?",
+  "clearChatBody": "Sve poruke u ovom razgovoru bit će izbrisane s ovog uređaja. Druga osoba zadržat će svoju kopiju.",
+  "clearChatAction": "Izbriši"
 }

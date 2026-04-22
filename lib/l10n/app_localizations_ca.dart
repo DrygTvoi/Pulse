@@ -3131,4 +3131,33 @@ class AppLocalizationsCa extends AppLocalizations {
 
   @override
   String get groupSearchContactsHint => 'Cerca contactes…';
+
+  @override
+  String get systemActorYou => 'Tu';
+
+  @override
+  String get systemActorPeer => 'Contacte';
+
+  @override
+  String systemTtlEnabled(String actor, String duration) {
+    return '$actor ha activat els missatges efímers: $duration';
+  }
+
+  @override
+  String systemTtlDisabled(String actor) {
+    return '$actor ha desactivat els missatges efímers';
+  }
+
+  @override
+  String get menuClearChatHistory => 'Esborra l’historial del xat';
+
+  @override
+  String get clearChatTitle => 'Esborrar l’historial del xat?';
+
+  @override
+  String get clearChatBody =>
+      'Tots els missatges d’aquest xat s’eliminaran d’aquest dispositiu. L’altra persona conservarà la seva còpia.';
+
+  @override
+  String get clearChatAction => 'Esborra';
 }

@@ -3108,4 +3108,33 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get groupSearchContactsHint => 'Buscar contatos…';
+
+  @override
+  String get systemActorYou => 'Você';
+
+  @override
+  String get systemActorPeer => 'Contato';
+
+  @override
+  String systemTtlEnabled(String actor, String duration) {
+    return '$actor ativou mensagens temporárias: $duration';
+  }
+
+  @override
+  String systemTtlDisabled(String actor) {
+    return '$actor desativou mensagens temporárias';
+  }
+
+  @override
+  String get menuClearChatHistory => 'Limpar histórico do chat';
+
+  @override
+  String get clearChatTitle => 'Limpar histórico do chat?';
+
+  @override
+  String get clearChatBody =>
+      'Todas as mensagens deste chat serão excluídas deste dispositivo. A outra pessoa manterá sua cópia.';
+
+  @override
+  String get clearChatAction => 'Limpar';
 }

@@ -3087,4 +3087,33 @@ class AppLocalizationsId extends AppLocalizations {
 
   @override
   String get groupSearchContactsHint => 'Cari kontak…';
+
+  @override
+  String get systemActorYou => 'Kamu';
+
+  @override
+  String get systemActorPeer => 'Kontak';
+
+  @override
+  String systemTtlEnabled(String actor, String duration) {
+    return '$actor mengaktifkan pesan menghilang: $duration';
+  }
+
+  @override
+  String systemTtlDisabled(String actor) {
+    return '$actor menonaktifkan pesan menghilang';
+  }
+
+  @override
+  String get menuClearChatHistory => 'Hapus riwayat obrolan';
+
+  @override
+  String get clearChatTitle => 'Hapus riwayat obrolan?';
+
+  @override
+  String get clearChatBody =>
+      'Semua pesan dalam obrolan ini akan dihapus dari perangkat ini. Orang lain akan menyimpan salinannya.';
+
+  @override
+  String get clearChatAction => 'Hapus';
 }

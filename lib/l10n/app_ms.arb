@@ -916,5 +916,13 @@
   "pulseDismiss": "Tutup",
   "pulseHide7Days": "Sembunyikan 7 hari",
   "pulseNeverAskAgain": "Jangan tanya lagi",
-  "groupSearchContactsHint": "Cari kenalan…"
+  "groupSearchContactsHint": "Cari kenalan…",
+  "systemActorYou": "Anda",
+  "systemActorPeer": "Kenalan",
+  "systemTtlEnabled": "{actor} mengaktifkan mesej hilang: {duration}",
+  "systemTtlDisabled": "{actor} menyahaktifkan mesej hilang",
+  "menuClearChatHistory": "Padam sejarah sembang",
+  "clearChatTitle": "Padam sejarah sembang?",
+  "clearChatBody": "Semua mesej dalam sembang ini akan dipadamkan dari peranti ini. Orang lain akan menyimpan salinan mereka.",
+  "clearChatAction": "Padam"
 }

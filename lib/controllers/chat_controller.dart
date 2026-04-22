@@ -1589,7 +1589,8 @@ class ChatController extends ChangeNotifier {
     _dispatcherSubs.add(pulseServerAcks.listen(_handleServerAck));
 
     _dispatcherSubs.add(d.ttlUpdates.listen((e) {
-      unawaited(setChatTtlSeconds(e.contact, e.seconds, sendSignal: false));
+      unawaited(setChatTtlSeconds(e.contact, e.seconds,
+          sendSignal: false, changedBy: e.contact.id));
     }));
 
     // Reactions — delegate to repo.
@@ -4179,33 +4180,58 @@ class ChatController extends ChangeNotifier {
 
   // ── Disappearing messages ─────────────────────────────────────────────────
 
-  Future<void> setChatTtlSeconds(Contact contact, int seconds, {bool sendSignal = true}) async {
+  Future<void> setChatTtlSeconds(Contact contact, int seconds,
+      {bool sendSignal = true, String? changedBy}) async {
     _repo.setChatTtl(contact.id, seconds);
     final prefs = await _getPrefs();
+    final nowMs = DateTime.now().millisecondsSinceEpoch;
     if (seconds == 0) {
       await prefs.remove('chat_ttl_${contact.id}');
     } else {
       await prefs.setInt('chat_ttl_${contact.id}', seconds);
     }
+    // Record when this TTL value took effect. Telegram-style semantics:
+    // disappearing messages apply to messages sent FROM NOW ON — never
+    // retroactively. The repository uses this timestamp to skip scheduling
+    // TTL timers on pre-existing history.
+    await prefs.setInt('chat_ttl_set_at_${contact.id}', nowMs);
+    _repo.setChatTtlSetAt(contact.id, nowMs);
     if (sendSignal && !contact.isGroup) {
       unawaited(_broadcaster.sendTtlSignal(contact, seconds));
     }
+    // Insert a Telegram-style in-chat notice. The local user changing the
+    // TTL is `changedBy = null → 'self'`; an inbound ttl_update signal sets
+    // `changedBy = peerContactId` so the bubble reads "<peer name> enabled
+    // disappearing messages: 1 hour".
+    await _insertSystemMessage(contact, {
+      '_sys': 'ttl_changed',
+      'seconds': seconds,
+      'by': changedBy ?? 'self',
+    });
+    _scheduleNotify();
+  }
+
+  /// Insert a system (informational) message into the room. Persisted locally
+  /// so it survives restarts; never sent over the wire — both sides generate
+  /// their own copy from the corresponding signal.
+  Future<void> _insertSystemMessage(
+      Contact contact, Map<String, dynamic> sysPayload) async {
     final room = _repo.getRoomForContact(contact.id);
-    if (room != null && seconds > 0) {
-      final now = DateTime.now();
-      room.messages.removeWhere((m) {
-        if (m.timestamp.add(Duration(seconds: seconds)).isBefore(now)) {
-          _repo.untrackMessageId(contact.id, m.id);
-          unawaited(LocalStorageService().deleteMessage(contact.storageKey, m.id));
-          return true;
-        }
-        return false;
-      });
-      for (final m in List.of(room.messages)) {
-        _repo.scheduleTtlDelete(contact, m, seconds, onDeleted: () { if (!_disposed) _scheduleNotify(); });
-      }
-      _scheduleNotify();
-    }
+    if (room == null) return;
+    final selfId = _identity?.id ?? '';
+    final msg = Message(
+      id: _uuid.v4(),
+      senderId: selfId,
+      receiverId: contact.id,
+      encryptedPayload: jsonEncode(sysPayload),
+      timestamp: DateTime.now(),
+      adapterType: 'system',
+      isRead: true,
+      kind: 'system',
+    );
+    room.messages.add(msg);
+    _repo.trackMessageId(contact.id, msg.id);
+    await LocalStorageService().saveMessage(contact.storageKey, msg.toJson());
   }
 
   // ── Broadcast delegation ──────────────────────────────────────────────────

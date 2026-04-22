@@ -916,5 +916,13 @@
   "pulseDismiss": "Zamknij",
   "pulseHide7Days": "Ukryj na 7 dni",
   "pulseNeverAskAgain": "Nie pytaj ponownie",
-  "groupSearchContactsHint": "Szukaj kontaktów…"
+  "groupSearchContactsHint": "Szukaj kontaktów…",
+  "systemActorYou": "Ty",
+  "systemActorPeer": "Rozmówca",
+  "systemTtlEnabled": "{actor} włączył(a) znikające wiadomości: {duration}",
+  "systemTtlDisabled": "{actor} wyłączył(a) znikające wiadomości",
+  "menuClearChatHistory": "Wyczyść historię czatu",
+  "clearChatTitle": "Wyczyścić historię czatu?",
+  "clearChatBody": "Wszystkie wiadomości w tym czacie zostaną usunięte z tego urządzenia. Druga osoba zachowa swoją kopię.",
+  "clearChatAction": "Wyczyść"
 }

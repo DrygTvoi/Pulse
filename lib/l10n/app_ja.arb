@@ -916,5 +916,13 @@
   "pulseDismiss": "閉じる",
   "pulseHide7Days": "7 日間非表示",
   "pulseNeverAskAgain": "今後表示しない",
-  "groupSearchContactsHint": "連絡先を検索…"
+  "groupSearchContactsHint": "連絡先を検索…",
+  "systemActorYou": "あなた",
+  "systemActorPeer": "相手",
+  "systemTtlEnabled": "{actor} が消えるメッセージを有効にしました：{duration}",
+  "systemTtlDisabled": "{actor} が消えるメッセージを無効にしました",
+  "menuClearChatHistory": "チャット履歴を消去",
+  "clearChatTitle": "チャット履歴を消去しますか？",
+  "clearChatBody": "このチャット内のすべてのメッセージはこの端末から削除されます。相手は自分のコピーを保持します。",
+  "clearChatAction": "消去"
 }

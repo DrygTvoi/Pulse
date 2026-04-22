@@ -3092,4 +3092,33 @@ class AppLocalizationsUk extends AppLocalizations {
 
   @override
   String get groupSearchContactsHint => 'Пошук контактів…';
+
+  @override
+  String get systemActorYou => 'Ви';
+
+  @override
+  String get systemActorPeer => 'Співрозмовник';
+
+  @override
+  String systemTtlEnabled(String actor, String duration) {
+    return '$actor увімкнув(ла) зникаючі повідомлення: $duration';
+  }
+
+  @override
+  String systemTtlDisabled(String actor) {
+    return '$actor вимкнув(ла) зникаючі повідомлення';
+  }
+
+  @override
+  String get menuClearChatHistory => 'Очистити історію чату';
+
+  @override
+  String get clearChatTitle => 'Очистити історію чату?';
+
+  @override
+  String get clearChatBody =>
+      'Усі повідомлення цього чату буде видалено з цього пристрою. У співрозмовника копія залишиться.';
+
+  @override
+  String get clearChatAction => 'Очистити';
 }

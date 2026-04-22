@@ -916,5 +916,13 @@
   "pulseDismiss": "වසන්න",
   "pulseHide7Days": "දින 7 ක් සඟවන්න",
   "pulseNeverAskAgain": "නැවත නොඅසන්න",
-  "groupSearchContactsHint": "සම්බන්ධතා සොයන්න…"
+  "groupSearchContactsHint": "සම්බන්ධතා සොයන්න…",
+  "systemActorYou": "ඔබ",
+  "systemActorPeer": "සම්බන්ධතාව",
+  "systemTtlEnabled": "{actor} අතුරුදහන් වන පණිවිඩ සක්‍රීය කළා: {duration}",
+  "systemTtlDisabled": "{actor} අතුරුදහන් වන පණිවිඩ අක්‍රීය කළා",
+  "menuClearChatHistory": "කතාබස් ඉතිහාසය ඉවත් කරන්න",
+  "clearChatTitle": "කතාබස් ඉතිහාසය ඉවත් කරන්නද?",
+  "clearChatBody": "මෙම කතාබසේ ඇති සියලු පණිවිඩ මෙම උපාංගයෙන් මකා දැමෙනු ඇත. අනෙකා තම පිටපත රඳවාගනු ඇත.",
+  "clearChatAction": "ඉවත් කරන්න"
 }

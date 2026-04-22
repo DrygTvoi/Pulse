@@ -3109,4 +3109,33 @@ class AppLocalizationsFil extends AppLocalizations {
 
   @override
   String get groupSearchContactsHint => 'Maghanap ng mga contact…';
+
+  @override
+  String get systemActorYou => 'Ikaw';
+
+  @override
+  String get systemActorPeer => 'Contact';
+
+  @override
+  String systemTtlEnabled(String actor, String duration) {
+    return 'Na-enable ni $actor ang nawawalang mga mensahe: $duration';
+  }
+
+  @override
+  String systemTtlDisabled(String actor) {
+    return 'Na-disable ni $actor ang nawawalang mga mensahe';
+  }
+
+  @override
+  String get menuClearChatHistory => 'I-clear ang chat history';
+
+  @override
+  String get clearChatTitle => 'I-clear ang chat history?';
+
+  @override
+  String get clearChatBody =>
+      'Lahat ng mensahe sa chat na ito ay tatanggalin sa device na ito. Ang ibang tao ay magpapanatili ng kanilang kopya.';
+
+  @override
+  String get clearChatAction => 'I-clear';
 }

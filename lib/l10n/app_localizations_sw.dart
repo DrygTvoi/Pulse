@@ -3104,4 +3104,33 @@ class AppLocalizationsSw extends AppLocalizations {
 
   @override
   String get groupSearchContactsHint => 'Tafuta anwani…';
+
+  @override
+  String get systemActorYou => 'Wewe';
+
+  @override
+  String get systemActorPeer => 'Mwasiliani';
+
+  @override
+  String systemTtlEnabled(String actor, String duration) {
+    return '$actor amewasha ujumbe unaopotea: $duration';
+  }
+
+  @override
+  String systemTtlDisabled(String actor) {
+    return '$actor amezima ujumbe unaopotea';
+  }
+
+  @override
+  String get menuClearChatHistory => 'Futa historia ya gumzo';
+
+  @override
+  String get clearChatTitle => 'Futa historia ya gumzo?';
+
+  @override
+  String get clearChatBody =>
+      'Ujumbe wote katika gumzo hili utafutwa kutoka kifaa hiki. Mtu mwingine atahifadhi nakala yake.';
+
+  @override
+  String get clearChatAction => 'Futa';
 }

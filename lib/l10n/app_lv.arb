@@ -916,5 +916,13 @@
   "pulseDismiss": "Aizvērt",
   "pulseHide7Days": "Paslēpt uz 7 dienām",
   "pulseNeverAskAgain": "Nejautāt vairs",
-  "groupSearchContactsHint": "Meklēt kontaktus…"
+  "groupSearchContactsHint": "Meklēt kontaktus…",
+  "systemActorYou": "Jūs",
+  "systemActorPeer": "Sarunbiedrs",
+  "systemTtlEnabled": "{actor} ieslēdza pazūdošos ziņojumus: {duration}",
+  "systemTtlDisabled": "{actor} izslēdza pazūdošos ziņojumus",
+  "menuClearChatHistory": "Notīrīt sarunas vēsturi",
+  "clearChatTitle": "Notīrīt sarunas vēsturi?",
+  "clearChatBody": "Visas šīs sarunas ziņas tiks dzēstas no šīs ierīces. Otrs cilvēks saglabās savu kopiju.",
+  "clearChatAction": "Notīrīt"
 }

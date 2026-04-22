@@ -916,5 +916,13 @@
   "pulseDismiss": "Sluiten",
   "pulseHide7Days": "Verbergen voor 7 dagen",
   "pulseNeverAskAgain": "Niet meer vragen",
-  "groupSearchContactsHint": "Contacten zoeken…"
+  "groupSearchContactsHint": "Contacten zoeken…",
+  "systemActorYou": "Jij",
+  "systemActorPeer": "Contact",
+  "systemTtlEnabled": "{actor} schakelde verdwijnende berichten in: {duration}",
+  "systemTtlDisabled": "{actor} schakelde verdwijnende berichten uit",
+  "menuClearChatHistory": "Chatgeschiedenis wissen",
+  "clearChatTitle": "Chatgeschiedenis wissen?",
+  "clearChatBody": "Alle berichten in deze chat worden van dit apparaat verwijderd. De andere persoon behoudt zijn kopie.",
+  "clearChatAction": "Wissen"
 }

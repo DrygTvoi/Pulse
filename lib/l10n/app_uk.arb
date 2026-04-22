@@ -916,5 +916,13 @@
   "pulseDismiss": "Приховати",
   "pulseHide7Days": "Приховати на 7 днів",
   "pulseNeverAskAgain": "Більше не запитувати",
-  "groupSearchContactsHint": "Пошук контактів…"
+  "groupSearchContactsHint": "Пошук контактів…",
+  "systemActorYou": "Ви",
+  "systemActorPeer": "Співрозмовник",
+  "systemTtlEnabled": "{actor} увімкнув(ла) зникаючі повідомлення: {duration}",
+  "systemTtlDisabled": "{actor} вимкнув(ла) зникаючі повідомлення",
+  "menuClearChatHistory": "Очистити історію чату",
+  "clearChatTitle": "Очистити історію чату?",
+  "clearChatBody": "Усі повідомлення цього чату буде видалено з цього пристрою. У співрозмовника копія залишиться.",
+  "clearChatAction": "Очистити"
 }

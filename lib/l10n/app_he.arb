@@ -916,5 +916,13 @@
   "pulseDismiss": "סגור",
   "pulseHide7Days": "הסתר ל-7 ימים",
   "pulseNeverAskAgain": "אל תשאל שוב",
-  "groupSearchContactsHint": "חיפוש אנשי קשר…"
+  "groupSearchContactsHint": "חיפוש אנשי קשר…",
+  "systemActorYou": "אתה",
+  "systemActorPeer": "איש קשר",
+  "systemTtlEnabled": "{actor} הפעיל הודעות נעלמות: {duration}",
+  "systemTtlDisabled": "{actor} השבית הודעות נעלמות",
+  "menuClearChatHistory": "נקה היסטוריית צ'אט",
+  "clearChatTitle": "לנקות את היסטוריית הצ'אט?",
+  "clearChatBody": "כל ההודעות בצ'אט זה יימחקו מהמכשיר הזה. הצד השני ישמור את העותק שלו.",
+  "clearChatAction": "נקה"
 }

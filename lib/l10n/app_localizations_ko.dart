@@ -2979,4 +2979,32 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get groupSearchContactsHint => '연락처 검색…';
+
+  @override
+  String get systemActorYou => '나';
+
+  @override
+  String get systemActorPeer => '상대방';
+
+  @override
+  String systemTtlEnabled(String actor, String duration) {
+    return '$actor님이 사라지는 메시지를 켰습니다: $duration';
+  }
+
+  @override
+  String systemTtlDisabled(String actor) {
+    return '$actor님이 사라지는 메시지를 껐습니다';
+  }
+
+  @override
+  String get menuClearChatHistory => '채팅 기록 지우기';
+
+  @override
+  String get clearChatTitle => '채팅 기록을 지우시겠어요?';
+
+  @override
+  String get clearChatBody => '이 채팅의 모든 메시지가 이 기기에서 삭제됩니다. 상대방은 자신의 사본을 유지합니다.';
+
+  @override
+  String get clearChatAction => '지우기';
 }

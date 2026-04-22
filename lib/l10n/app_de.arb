@@ -916,5 +916,13 @@
   "pulseDismiss": "Schließen",
   "pulseHide7Days": "7 Tage ausblenden",
   "pulseNeverAskAgain": "Nicht mehr fragen",
-  "groupSearchContactsHint": "Kontakte suchen…"
+  "groupSearchContactsHint": "Kontakte suchen…",
+  "systemActorYou": "Du",
+  "systemActorPeer": "Gegenüber",
+  "systemTtlEnabled": "{actor} hat verschwindende Nachrichten aktiviert: {duration}",
+  "systemTtlDisabled": "{actor} hat verschwindende Nachrichten deaktiviert",
+  "menuClearChatHistory": "Chatverlauf löschen",
+  "clearChatTitle": "Chatverlauf löschen?",
+  "clearChatBody": "Alle Nachrichten in diesem Chat werden von diesem Gerät gelöscht. Die andere Person behält ihre Kopie.",
+  "clearChatAction": "Löschen"
 }

@@ -3074,4 +3074,33 @@ class AppLocalizationsFa extends AppLocalizations {
 
   @override
   String get groupSearchContactsHint => 'جستجوی مخاطبین…';
+
+  @override
+  String get systemActorYou => 'شما';
+
+  @override
+  String get systemActorPeer => 'مخاطب';
+
+  @override
+  String systemTtlEnabled(String actor, String duration) {
+    return '$actor پیام‌های ناپدیدشونده را فعال کرد: $duration';
+  }
+
+  @override
+  String systemTtlDisabled(String actor) {
+    return '$actor پیام‌های ناپدیدشونده را غیرفعال کرد';
+  }
+
+  @override
+  String get menuClearChatHistory => 'پاک کردن تاریخچه گفتگو';
+
+  @override
+  String get clearChatTitle => 'تاریخچه گفتگو پاک شود؟';
+
+  @override
+  String get clearChatBody =>
+      'تمام پیام‌های این گفتگو از این دستگاه حذف می‌شوند. طرف مقابل نسخه خود را نگه می‌دارد.';
+
+  @override
+  String get clearChatAction => 'پاک کردن';
 }

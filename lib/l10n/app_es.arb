@@ -916,5 +916,13 @@
   "pulseDismiss": "Descartar",
   "pulseHide7Days": "Ocultar por 7 días",
   "pulseNeverAskAgain": "No preguntar de nuevo",
-  "groupSearchContactsHint": "Buscar contactos…"
+  "groupSearchContactsHint": "Buscar contactos…",
+  "systemActorYou": "Tú",
+  "systemActorPeer": "Contacto",
+  "systemTtlEnabled": "{actor} activó los mensajes temporales: {duration}",
+  "systemTtlDisabled": "{actor} desactivó los mensajes temporales",
+  "menuClearChatHistory": "Borrar historial del chat",
+  "clearChatTitle": "¿Borrar historial del chat?",
+  "clearChatBody": "Todos los mensajes de este chat se eliminarán de este dispositivo. La otra persona conservará su copia.",
+  "clearChatAction": "Borrar"
 }

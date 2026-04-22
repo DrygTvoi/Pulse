@@ -916,5 +916,13 @@
   "pulseDismiss": "Одбаци",
   "pulseHide7Days": "Сакриј 7 дана",
   "pulseNeverAskAgain": "Не питај поново",
-  "groupSearchContactsHint": "Претражи контакте…"
+  "groupSearchContactsHint": "Претражи контакте…",
+  "systemActorYou": "Ви",
+  "systemActorPeer": "Саговорник",
+  "systemTtlEnabled": "{actor} је укључио(ла) нестајуће поруке: {duration}",
+  "systemTtlDisabled": "{actor} је искључио(ла) нестајуће поруке",
+  "menuClearChatHistory": "Обриши историју ћаскања",
+  "clearChatTitle": "Обрисати историју ћаскања?",
+  "clearChatBody": "Све поруке у овом ћаскању биће обрисане са овог уређаја. Друга особа ће задржати своју копију.",
+  "clearChatAction": "Обриши"
 }

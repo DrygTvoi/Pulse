@@ -3120,4 +3120,33 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get groupSearchContactsHint => 'Rechercher des contacts…';
+
+  @override
+  String get systemActorYou => 'Vous';
+
+  @override
+  String get systemActorPeer => 'Contact';
+
+  @override
+  String systemTtlEnabled(String actor, String duration) {
+    return '$actor a activé les messages éphémères : $duration';
+  }
+
+  @override
+  String systemTtlDisabled(String actor) {
+    return '$actor a désactivé les messages éphémères';
+  }
+
+  @override
+  String get menuClearChatHistory => 'Effacer l’historique du chat';
+
+  @override
+  String get clearChatTitle => 'Effacer l’historique du chat ?';
+
+  @override
+  String get clearChatBody =>
+      'Tous les messages de ce chat seront supprimés de cet appareil. L’autre personne conservera sa copie.';
+
+  @override
+  String get clearChatAction => 'Effacer';
 }

@@ -916,5 +916,13 @@
   "pulseDismiss": "Închide",
   "pulseHide7Days": "Ascunde pentru 7 zile",
   "pulseNeverAskAgain": "Nu mai întreba",
-  "groupSearchContactsHint": "Caută contacte…"
+  "groupSearchContactsHint": "Caută contacte…",
+  "systemActorYou": "Tu",
+  "systemActorPeer": "Contact",
+  "systemTtlEnabled": "{actor} a activat mesajele care dispar: {duration}",
+  "systemTtlDisabled": "{actor} a dezactivat mesajele care dispar",
+  "menuClearChatHistory": "Șterge istoricul conversației",
+  "clearChatTitle": "Ștergi istoricul conversației?",
+  "clearChatBody": "Toate mesajele din această conversație vor fi șterse de pe acest dispozitiv. Cealaltă persoană își va păstra copia.",
+  "clearChatAction": "Șterge"
 }

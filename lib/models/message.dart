@@ -18,6 +18,11 @@ class Message {
   final List<String> readBy;
   /// For group messages sent by self: list of contactIds who have received it.
   final List<String> deliveredTo;
+  /// Message kind. Empty string means a normal user message. `'system'` is
+  /// an in-chat informational notice generated locally on a per-side basis
+  /// (e.g. "Alice enabled disappearing messages: 1 hour"). System messages
+  /// are not encrypted, not synced over the wire, and not counted as unread.
+  final String kind;
 
   Message({
     required this.id,
@@ -35,7 +40,10 @@ class Message {
     this.scheduledAt,
     this.readBy = const [],
     this.deliveredTo = const [],
+    this.kind = '',
   });
+
+  bool get isSystem => kind == 'system';
 
   Message copyWith({
     String? status,
@@ -85,6 +93,7 @@ class Message {
       if (scheduledAt != null) 'scheduledAt': scheduledAt!.toIso8601String(),
       if (readBy.isNotEmpty) 'readBy': readBy,
       if (deliveredTo.isNotEmpty) 'deliveredTo': deliveredTo,
+      if (kind.isNotEmpty) 'kind': kind,
     };
   }
 
@@ -108,6 +117,7 @@ class Message {
           : null,
       readBy: (json['readBy'] as List<dynamic>?)?.whereType<String>().toList() ?? const [],
       deliveredTo: (json['deliveredTo'] as List<dynamic>?)?.whereType<String>().toList() ?? const [],
+      kind: json['kind'] as String? ?? '',
     );
   }
 

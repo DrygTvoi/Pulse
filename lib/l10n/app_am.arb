@@ -916,5 +916,13 @@
   "pulseDismiss": "ዝጋ",
   "pulseHide7Days": "ለ7 ቀናት ደብቅ",
   "pulseNeverAskAgain": "እንደገና አትጠይቀኝ",
-  "groupSearchContactsHint": "እውቂያዎችን ፈልግ…"
+  "groupSearchContactsHint": "እውቂያዎችን ፈልግ…",
+  "systemActorYou": "እርስዎ",
+  "systemActorPeer": "ዕውቂያ",
+  "systemTtlEnabled": "{actor} የሚጠፉ መልዕክቶችን አንቅቷል: {duration}",
+  "systemTtlDisabled": "{actor} የሚጠፉ መልዕክቶችን አጥፍቷል",
+  "menuClearChatHistory": "የውይይት ታሪክን አጽዳ",
+  "clearChatTitle": "የውይይት ታሪክ ይጽዳ?",
+  "clearChatBody": "በዚህ ውይይት ውስጥ ያሉ ሁሉም መልዕክቶች ከዚህ መሣሪያ ይሰረዛሉ። ሌላው ሰው የራሳቸውን ቅጂ ያቆያሉ።",
+  "clearChatAction": "አጽዳ"
 }

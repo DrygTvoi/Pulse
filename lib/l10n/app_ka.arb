@@ -916,5 +916,13 @@
   "pulseDismiss": "დახურვა",
   "pulseHide7Days": "დამალვა 7 დღით",
   "pulseNeverAskAgain": "აღარ მკითხო",
-  "groupSearchContactsHint": "კონტაქტების ძებნა…"
+  "groupSearchContactsHint": "კონტაქტების ძებნა…",
+  "systemActorYou": "თქვენ",
+  "systemActorPeer": "კონტაქტი",
+  "systemTtlEnabled": "{actor}-მა ჩართო გამქრალი შეტყობინებები: {duration}",
+  "systemTtlDisabled": "{actor}-მა გამორთო გამქრალი შეტყობინებები",
+  "menuClearChatHistory": "ჩატის ისტორიის გასუფთავება",
+  "clearChatTitle": "გასუფთავდეს ჩატის ისტორია?",
+  "clearChatBody": "ამ ჩატის ყველა შეტყობინება წაიშლება ამ მოწყობილობიდან. მეორე ადამიანი შეინარჩუნებს თავის ასლს.",
+  "clearChatAction": "გასუფთავება"
 }

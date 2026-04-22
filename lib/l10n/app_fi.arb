@@ -916,5 +916,13 @@
   "pulseDismiss": "Sulje",
   "pulseHide7Days": "Piilota 7 päiväksi",
   "pulseNeverAskAgain": "Älä kysy uudelleen",
-  "groupSearchContactsHint": "Etsi yhteystietoja…"
+  "groupSearchContactsHint": "Etsi yhteystietoja…",
+  "systemActorYou": "Sinä",
+  "systemActorPeer": "Yhteystieto",
+  "systemTtlEnabled": "{actor} otti katoavat viestit käyttöön: {duration}",
+  "systemTtlDisabled": "{actor} poisti katoavat viestit käytöstä",
+  "menuClearChatHistory": "Tyhjennä keskusteluhistoria",
+  "clearChatTitle": "Tyhjennetäänkö keskusteluhistoria?",
+  "clearChatBody": "Kaikki tämän keskustelun viestit poistetaan tältä laitteelta. Toinen osapuoli säilyttää oman kopionsa.",
+  "clearChatAction": "Tyhjennä"
 }

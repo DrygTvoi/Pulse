@@ -916,5 +916,13 @@
   "pulseDismiss": "ปิด",
   "pulseHide7Days": "ซ่อน 7 วัน",
   "pulseNeverAskAgain": "อย่าถามอีก",
-  "groupSearchContactsHint": "ค้นหาผู้ติดต่อ…"
+  "groupSearchContactsHint": "ค้นหาผู้ติดต่อ…",
+  "systemActorYou": "คุณ",
+  "systemActorPeer": "ผู้ติดต่อ",
+  "systemTtlEnabled": "{actor} เปิดใช้ข้อความที่หายไป: {duration}",
+  "systemTtlDisabled": "{actor} ปิดข้อความที่หายไป",
+  "menuClearChatHistory": "ล้างประวัติการแชท",
+  "clearChatTitle": "ล้างประวัติการแชท?",
+  "clearChatBody": "ข้อความทั้งหมดในแชทนี้จะถูกลบออกจากอุปกรณ์นี้ อีกฝ่ายจะเก็บสำเนาของตน",
+  "clearChatAction": "ล้าง"
 }

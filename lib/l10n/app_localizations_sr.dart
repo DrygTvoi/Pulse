@@ -3095,4 +3095,33 @@ class AppLocalizationsSr extends AppLocalizations {
 
   @override
   String get groupSearchContactsHint => 'Претражи контакте…';
+
+  @override
+  String get systemActorYou => 'Ви';
+
+  @override
+  String get systemActorPeer => 'Саговорник';
+
+  @override
+  String systemTtlEnabled(String actor, String duration) {
+    return '$actor је укључио(ла) нестајуће поруке: $duration';
+  }
+
+  @override
+  String systemTtlDisabled(String actor) {
+    return '$actor је искључио(ла) нестајуће поруке';
+  }
+
+  @override
+  String get menuClearChatHistory => 'Обриши историју ћаскања';
+
+  @override
+  String get clearChatTitle => 'Обрисати историју ћаскања?';
+
+  @override
+  String get clearChatBody =>
+      'Све поруке у овом ћаскању биће обрисане са овог уређаја. Друга особа ће задржати своју копију.';
+
+  @override
+  String get clearChatAction => 'Обриши';
 }

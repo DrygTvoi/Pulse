@@ -3080,4 +3080,33 @@ class AppLocalizationsDa extends AppLocalizations {
 
   @override
   String get groupSearchContactsHint => 'Søg kontakter…';
+
+  @override
+  String get systemActorYou => 'Du';
+
+  @override
+  String get systemActorPeer => 'Kontakt';
+
+  @override
+  String systemTtlEnabled(String actor, String duration) {
+    return '$actor aktiverede forsvindende beskeder: $duration';
+  }
+
+  @override
+  String systemTtlDisabled(String actor) {
+    return '$actor deaktiverede forsvindende beskeder';
+  }
+
+  @override
+  String get menuClearChatHistory => 'Ryd chathistorik';
+
+  @override
+  String get clearChatTitle => 'Ryd chathistorikken?';
+
+  @override
+  String get clearChatBody =>
+      'Alle beskeder i denne chat slettes fra denne enhed. Den anden person beholder deres kopi.';
+
+  @override
+  String get clearChatAction => 'Ryd';
 }

@@ -916,5 +916,13 @@
   "pulseDismiss": "Kapat",
   "pulseHide7Days": "7 gün gizle",
   "pulseNeverAskAgain": "Bir daha sorma",
-  "groupSearchContactsHint": "Kişileri ara…"
+  "groupSearchContactsHint": "Kişileri ara…",
+  "systemActorYou": "Sen",
+  "systemActorPeer": "Kişi",
+  "systemTtlEnabled": "{actor} kaybolan mesajları açtı: {duration}",
+  "systemTtlDisabled": "{actor} kaybolan mesajları kapattı",
+  "menuClearChatHistory": "Sohbet geçmişini temizle",
+  "clearChatTitle": "Sohbet geçmişi temizlensin mi?",
+  "clearChatBody": "Bu sohbetteki tüm mesajlar bu cihazdan silinecek. Diğer kişi kendi kopyasını saklayacak.",
+  "clearChatAction": "Temizle"
 }

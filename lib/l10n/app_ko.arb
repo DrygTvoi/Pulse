@@ -916,5 +916,13 @@
   "pulseDismiss": "닫기",
   "pulseHide7Days": "7일 동안 숨기기",
   "pulseNeverAskAgain": "다시 묻지 않기",
-  "groupSearchContactsHint": "연락처 검색…"
+  "groupSearchContactsHint": "연락처 검색…",
+  "systemActorYou": "나",
+  "systemActorPeer": "상대방",
+  "systemTtlEnabled": "{actor}님이 사라지는 메시지를 켰습니다: {duration}",
+  "systemTtlDisabled": "{actor}님이 사라지는 메시지를 껐습니다",
+  "menuClearChatHistory": "채팅 기록 지우기",
+  "clearChatTitle": "채팅 기록을 지우시겠어요?",
+  "clearChatBody": "이 채팅의 모든 메시지가 이 기기에서 삭제됩니다. 상대방은 자신의 사본을 유지합니다.",
+  "clearChatAction": "지우기"
 }

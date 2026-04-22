@@ -3028,4 +3028,33 @@ class AppLocalizationsAm extends AppLocalizations {
 
   @override
   String get groupSearchContactsHint => 'እውቂያዎችን ፈልግ…';
+
+  @override
+  String get systemActorYou => 'እርስዎ';
+
+  @override
+  String get systemActorPeer => 'ዕውቂያ';
+
+  @override
+  String systemTtlEnabled(String actor, String duration) {
+    return '$actor የሚጠፉ መልዕክቶችን አንቅቷል: $duration';
+  }
+
+  @override
+  String systemTtlDisabled(String actor) {
+    return '$actor የሚጠፉ መልዕክቶችን አጥፍቷል';
+  }
+
+  @override
+  String get menuClearChatHistory => 'የውይይት ታሪክን አጽዳ';
+
+  @override
+  String get clearChatTitle => 'የውይይት ታሪክ ይጽዳ?';
+
+  @override
+  String get clearChatBody =>
+      'በዚህ ውይይት ውስጥ ያሉ ሁሉም መልዕክቶች ከዚህ መሣሪያ ይሰረዛሉ። ሌላው ሰው የራሳቸውን ቅጂ ያቆያሉ።';
+
+  @override
+  String get clearChatAction => 'አጽዳ';
 }

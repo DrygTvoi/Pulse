@@ -3098,4 +3098,33 @@ class AppLocalizationsLv extends AppLocalizations {
 
   @override
   String get groupSearchContactsHint => 'Meklēt kontaktus…';
+
+  @override
+  String get systemActorYou => 'Jūs';
+
+  @override
+  String get systemActorPeer => 'Sarunbiedrs';
+
+  @override
+  String systemTtlEnabled(String actor, String duration) {
+    return '$actor ieslēdza pazūdošos ziņojumus: $duration';
+  }
+
+  @override
+  String systemTtlDisabled(String actor) {
+    return '$actor izslēdza pazūdošos ziņojumus';
+  }
+
+  @override
+  String get menuClearChatHistory => 'Notīrīt sarunas vēsturi';
+
+  @override
+  String get clearChatTitle => 'Notīrīt sarunas vēsturi?';
+
+  @override
+  String get clearChatBody =>
+      'Visas šīs sarunas ziņas tiks dzēstas no šīs ierīces. Otrs cilvēks saglabās savu kopiju.';
+
+  @override
+  String get clearChatAction => 'Notīrīt';
 }

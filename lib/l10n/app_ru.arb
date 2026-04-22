@@ -921,5 +921,13 @@
   "pulseDismiss": "Скрыть",
   "pulseHide7Days": "Скрыть на 7 дней",
   "pulseNeverAskAgain": "Больше не спрашивать",
-  "groupSearchContactsHint": "Поиск контактов…"
+  "groupSearchContactsHint": "Поиск контактов…",
+  "systemActorYou": "Вы",
+  "systemActorPeer": "Собеседник",
+  "systemTtlEnabled": "{actor} включил(а) исчезающие сообщения: {duration}",
+  "systemTtlDisabled": "{actor} выключил(а) исчезающие сообщения",
+  "menuClearChatHistory": "Очистить историю чата",
+  "clearChatTitle": "Очистить историю чата?",
+  "clearChatBody": "Все сообщения этого чата будут удалены с этого устройства. У собеседника копия останется.",
+  "clearChatAction": "Очистить"
 }

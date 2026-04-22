@@ -916,5 +916,13 @@
   "pulseDismiss": "بند کریں",
   "pulseHide7Days": "7 دن کے لیے چھپائیں",
   "pulseNeverAskAgain": "دوبارہ نہ پوچھیں",
-  "groupSearchContactsHint": "رابطے تلاش کریں…"
+  "groupSearchContactsHint": "رابطے تلاش کریں…",
+  "systemActorYou": "آپ",
+  "systemActorPeer": "رابطہ",
+  "systemTtlEnabled": "{actor} نے غائب ہونے والے پیغامات کو فعال کر دیا: {duration}",
+  "systemTtlDisabled": "{actor} نے غائب ہونے والے پیغامات کو غیر فعال کر دیا",
+  "menuClearChatHistory": "چیٹ کی تاریخ صاف کریں",
+  "clearChatTitle": "چیٹ کی تاریخ صاف کریں؟",
+  "clearChatBody": "اس چیٹ کے تمام پیغامات اس ڈیوائس سے حذف ہو جائیں گے۔ دوسرا شخص اپنی کاپی برقرار رکھے گا۔",
+  "clearChatAction": "صاف کریں"
 }

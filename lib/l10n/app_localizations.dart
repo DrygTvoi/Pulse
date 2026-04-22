@@ -5643,6 +5643,54 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Search contacts…'**
   String get groupSearchContactsHint;
+
+  /// Pronoun for the local user in system messages (e.g. 'You enabled disappearing messages')
+  ///
+  /// In en, this message translates to:
+  /// **'You'**
+  String get systemActorYou;
+
+  /// Fallback name for a peer when their contact name is unknown, used in system messages
+  ///
+  /// In en, this message translates to:
+  /// **'Peer'**
+  String get systemActorPeer;
+
+  /// In-chat notice when someone enables disappearing messages
+  ///
+  /// In en, this message translates to:
+  /// **'{actor} enabled disappearing messages: {duration}'**
+  String systemTtlEnabled(String actor, String duration);
+
+  /// In-chat notice when someone disables disappearing messages
+  ///
+  /// In en, this message translates to:
+  /// **'{actor} disabled disappearing messages'**
+  String systemTtlDisabled(String actor);
+
+  /// Chat menu item to delete all messages locally
+  ///
+  /// In en, this message translates to:
+  /// **'Clear chat history'**
+  String get menuClearChatHistory;
+
+  /// Title of the confirm dialog for clearing chat history
+  ///
+  /// In en, this message translates to:
+  /// **'Clear chat history?'**
+  String get clearChatTitle;
+
+  /// Body of the confirm dialog explaining clear-chat is local-only
+  ///
+  /// In en, this message translates to:
+  /// **'All messages in this chat will be deleted from this device. The other person will keep their copy.'**
+  String get clearChatBody;
+
+  /// Destructive button label that confirms the clear-chat action
+  ///
+  /// In en, this message translates to:
+  /// **'Clear'**
+  String get clearChatAction;
 }
 
 class _AppLocalizationsDelegate

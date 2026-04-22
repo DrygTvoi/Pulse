@@ -916,5 +916,13 @@
   "pulseDismiss": "Փակել",
   "pulseHide7Days": "Թաքցնել 7 օրով",
   "pulseNeverAskAgain": "Այլևս չհարցնել",
-  "groupSearchContactsHint": "Որոնել կոնտակտներ…"
+  "groupSearchContactsHint": "Որոնել կոնտակտներ…",
+  "systemActorYou": "Դուք",
+  "systemActorPeer": "Կոնտակտ",
+  "systemTtlEnabled": "{actor}-ը միացրեց անհետացող հաղորդագրությունները՝ {duration}",
+  "systemTtlDisabled": "{actor}-ը անջատեց անհետացող հաղորդագրությունները",
+  "menuClearChatHistory": "Մաքրել զրույցի պատմությունը",
+  "clearChatTitle": "Մաքրե՞լ զրույցի պատմությունը:",
+  "clearChatBody": "Այս զրույցի բոլոր հաղորդագրությունները կջնջվեն այս սարքից։ Մյուս անձը կպահպանի իր պատճենը։",
+  "clearChatAction": "Մաքրել"
 }

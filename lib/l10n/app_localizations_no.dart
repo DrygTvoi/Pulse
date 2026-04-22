@@ -3080,4 +3080,33 @@ class AppLocalizationsNo extends AppLocalizations {
 
   @override
   String get groupSearchContactsHint => 'Søk i kontakter…';
+
+  @override
+  String get systemActorYou => 'Du';
+
+  @override
+  String get systemActorPeer => 'Kontakt';
+
+  @override
+  String systemTtlEnabled(String actor, String duration) {
+    return '$actor aktiverte forsvinnende meldinger: $duration';
+  }
+
+  @override
+  String systemTtlDisabled(String actor) {
+    return '$actor deaktiverte forsvinnende meldinger';
+  }
+
+  @override
+  String get menuClearChatHistory => 'Tøm chatlogg';
+
+  @override
+  String get clearChatTitle => 'Tømme chatloggen?';
+
+  @override
+  String get clearChatBody =>
+      'Alle meldinger i denne chatten slettes fra denne enheten. Den andre personen beholder sin kopi.';
+
+  @override
+  String get clearChatAction => 'Tøm';
 }

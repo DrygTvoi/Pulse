@@ -916,5 +916,13 @@
   "pulseDismiss": "বন্ধ করুন",
   "pulseHide7Days": "7 দিনের জন্য লুকান",
   "pulseNeverAskAgain": "আর জিজ্ঞাসা করবেন না",
-  "groupSearchContactsHint": "পরিচিতি খুঁজুন…"
+  "groupSearchContactsHint": "পরিচিতি খুঁজুন…",
+  "systemActorYou": "আপনি",
+  "systemActorPeer": "যোগাযোগ",
+  "systemTtlEnabled": "{actor} অদৃশ্যকারী বার্তা চালু করেছেন: {duration}",
+  "systemTtlDisabled": "{actor} অদৃশ্যকারী বার্তা বন্ধ করেছেন",
+  "menuClearChatHistory": "চ্যাটের ইতিহাস পরিষ্কার করুন",
+  "clearChatTitle": "চ্যাটের ইতিহাস পরিষ্কার করবেন?",
+  "clearChatBody": "এই চ্যাটের সমস্ত বার্তা এই ডিভাইস থেকে মুছে ফেলা হবে। অপর ব্যক্তি তাদের কপি রাখবেন।",
+  "clearChatAction": "পরিষ্কার করুন"
 }

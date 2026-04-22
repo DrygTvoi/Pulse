@@ -916,5 +916,13 @@
   "pulseDismiss": "Luk",
   "pulseHide7Days": "Skjul i 7 dage",
   "pulseNeverAskAgain": "Spørg ikke igen",
-  "groupSearchContactsHint": "Søg kontakter…"
+  "groupSearchContactsHint": "Søg kontakter…",
+  "systemActorYou": "Du",
+  "systemActorPeer": "Kontakt",
+  "systemTtlEnabled": "{actor} aktiverede forsvindende beskeder: {duration}",
+  "systemTtlDisabled": "{actor} deaktiverede forsvindende beskeder",
+  "menuClearChatHistory": "Ryd chathistorik",
+  "clearChatTitle": "Ryd chathistorikken?",
+  "clearChatBody": "Alle beskeder i denne chat slettes fra denne enhed. Den anden person beholder deres kopi.",
+  "clearChatAction": "Ryd"
 }

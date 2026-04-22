@@ -3080,4 +3080,33 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get groupSearchContactsHint => 'البحث في جهات الاتصال…';
+
+  @override
+  String get systemActorYou => 'أنت';
+
+  @override
+  String get systemActorPeer => 'جهة الاتصال';
+
+  @override
+  String systemTtlEnabled(String actor, String duration) {
+    return '$actor فعَّل الرسائل المختفية: $duration';
+  }
+
+  @override
+  String systemTtlDisabled(String actor) {
+    return '$actor عطَّل الرسائل المختفية';
+  }
+
+  @override
+  String get menuClearChatHistory => 'مسح محفوظات الدردشة';
+
+  @override
+  String get clearChatTitle => 'مسح محفوظات الدردشة؟';
+
+  @override
+  String get clearChatBody =>
+      'ستُحذف جميع رسائل هذه الدردشة من هذا الجهاز. سيحتفظ الطرف الآخر بنسخته.';
+
+  @override
+  String get clearChatAction => 'مسح';
 }

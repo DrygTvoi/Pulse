@@ -916,5 +916,13 @@
   "pulseDismiss": "Funga",
   "pulseHide7Days": "Ficha kwa siku 7",
   "pulseNeverAskAgain": "Usiulize tena",
-  "groupSearchContactsHint": "Tafuta anwani…"
+  "groupSearchContactsHint": "Tafuta anwani…",
+  "systemActorYou": "Wewe",
+  "systemActorPeer": "Mwasiliani",
+  "systemTtlEnabled": "{actor} amewasha ujumbe unaopotea: {duration}",
+  "systemTtlDisabled": "{actor} amezima ujumbe unaopotea",
+  "menuClearChatHistory": "Futa historia ya gumzo",
+  "clearChatTitle": "Futa historia ya gumzo?",
+  "clearChatBody": "Ujumbe wote katika gumzo hili utafutwa kutoka kifaa hiki. Mtu mwingine atahifadhi nakala yake.",
+  "clearChatAction": "Futa"
 }

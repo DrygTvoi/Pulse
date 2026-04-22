@@ -3107,4 +3107,33 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get groupSearchContactsHint => 'Kontakte suchen…';
+
+  @override
+  String get systemActorYou => 'Du';
+
+  @override
+  String get systemActorPeer => 'Gegenüber';
+
+  @override
+  String systemTtlEnabled(String actor, String duration) {
+    return '$actor hat verschwindende Nachrichten aktiviert: $duration';
+  }
+
+  @override
+  String systemTtlDisabled(String actor) {
+    return '$actor hat verschwindende Nachrichten deaktiviert';
+  }
+
+  @override
+  String get menuClearChatHistory => 'Chatverlauf löschen';
+
+  @override
+  String get clearChatTitle => 'Chatverlauf löschen?';
+
+  @override
+  String get clearChatBody =>
+      'Alle Nachrichten in diesem Chat werden von diesem Gerät gelöscht. Die andere Person behält ihre Kopie.';
+
+  @override
+  String get clearChatAction => 'Löschen';
 }

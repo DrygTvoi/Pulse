@@ -3080,4 +3080,33 @@ class AppLocalizationsUr extends AppLocalizations {
 
   @override
   String get groupSearchContactsHint => 'رابطے تلاش کریں…';
+
+  @override
+  String get systemActorYou => 'آپ';
+
+  @override
+  String get systemActorPeer => 'رابطہ';
+
+  @override
+  String systemTtlEnabled(String actor, String duration) {
+    return '$actor نے غائب ہونے والے پیغامات کو فعال کر دیا: $duration';
+  }
+
+  @override
+  String systemTtlDisabled(String actor) {
+    return '$actor نے غائب ہونے والے پیغامات کو غیر فعال کر دیا';
+  }
+
+  @override
+  String get menuClearChatHistory => 'چیٹ کی تاریخ صاف کریں';
+
+  @override
+  String get clearChatTitle => 'چیٹ کی تاریخ صاف کریں؟';
+
+  @override
+  String get clearChatBody =>
+      'اس چیٹ کے تمام پیغامات اس ڈیوائس سے حذف ہو جائیں گے۔ دوسرا شخص اپنی کاپی برقرار رکھے گا۔';
+
+  @override
+  String get clearChatAction => 'صاف کریں';
 }

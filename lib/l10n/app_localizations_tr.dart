@@ -3096,4 +3096,33 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get groupSearchContactsHint => 'Kişileri ara…';
+
+  @override
+  String get systemActorYou => 'Sen';
+
+  @override
+  String get systemActorPeer => 'Kişi';
+
+  @override
+  String systemTtlEnabled(String actor, String duration) {
+    return '$actor kaybolan mesajları açtı: $duration';
+  }
+
+  @override
+  String systemTtlDisabled(String actor) {
+    return '$actor kaybolan mesajları kapattı';
+  }
+
+  @override
+  String get menuClearChatHistory => 'Sohbet geçmişini temizle';
+
+  @override
+  String get clearChatTitle => 'Sohbet geçmişi temizlensin mi?';
+
+  @override
+  String get clearChatBody =>
+      'Bu sohbetteki tüm mesajlar bu cihazdan silinecek. Diğer kişi kendi kopyasını saklayacak.';
+
+  @override
+  String get clearChatAction => 'Temizle';
 }

@@ -916,5 +916,13 @@
   "pulseDismiss": "Lukk",
   "pulseHide7Days": "Skjul i 7 dager",
   "pulseNeverAskAgain": "Ikke spør igjen",
-  "groupSearchContactsHint": "Søk i kontakter…"
+  "groupSearchContactsHint": "Søk i kontakter…",
+  "systemActorYou": "Du",
+  "systemActorPeer": "Kontakt",
+  "systemTtlEnabled": "{actor} aktiverte forsvinnende meldinger: {duration}",
+  "systemTtlDisabled": "{actor} deaktiverte forsvinnende meldinger",
+  "menuClearChatHistory": "Tøm chatlogg",
+  "clearChatTitle": "Tømme chatloggen?",
+  "clearChatBody": "Alle meldinger i denne chatten slettes fra denne enheten. Den andre personen beholder sin kopi.",
+  "clearChatAction": "Tøm"
 }

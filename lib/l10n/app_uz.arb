@@ -916,5 +916,13 @@
   "pulseDismiss": "Yopish",
   "pulseHide7Days": "7 kun yashirish",
   "pulseNeverAskAgain": "Qayta so'ramang",
-  "groupSearchContactsHint": "Kontaktlarni izlash…"
+  "groupSearchContactsHint": "Kontaktlarni izlash…",
+  "systemActorYou": "Siz",
+  "systemActorPeer": "Kontakt",
+  "systemTtlEnabled": "{actor} yoʻqoluvchi xabarlarni yoqdi: {duration}",
+  "systemTtlDisabled": "{actor} yoʻqoluvchi xabarlarni oʻchirdi",
+  "menuClearChatHistory": "Suhbat tarixini tozalash",
+  "clearChatTitle": "Suhbat tarixi tozalansinmi?",
+  "clearChatBody": "Ushbu suhbatdagi barcha xabarlar shu qurilmadan oʻchiriladi. Boshqa odam oʻz nusxasini saqlab qoladi.",
+  "clearChatAction": "Tozalash"
 }

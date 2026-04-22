@@ -3061,4 +3061,33 @@ class AppLocalizationsBn extends AppLocalizations {
 
   @override
   String get groupSearchContactsHint => 'পরিচিতি খুঁজুন…';
+
+  @override
+  String get systemActorYou => 'আপনি';
+
+  @override
+  String get systemActorPeer => 'যোগাযোগ';
+
+  @override
+  String systemTtlEnabled(String actor, String duration) {
+    return '$actor অদৃশ্যকারী বার্তা চালু করেছেন: $duration';
+  }
+
+  @override
+  String systemTtlDisabled(String actor) {
+    return '$actor অদৃশ্যকারী বার্তা বন্ধ করেছেন';
+  }
+
+  @override
+  String get menuClearChatHistory => 'চ্যাটের ইতিহাস পরিষ্কার করুন';
+
+  @override
+  String get clearChatTitle => 'চ্যাটের ইতিহাস পরিষ্কার করবেন?';
+
+  @override
+  String get clearChatBody =>
+      'এই চ্যাটের সমস্ত বার্তা এই ডিভাইস থেকে মুছে ফেলা হবে। অপর ব্যক্তি তাদের কপি রাখবেন।';
+
+  @override
+  String get clearChatAction => 'পরিষ্কার করুন';
 }

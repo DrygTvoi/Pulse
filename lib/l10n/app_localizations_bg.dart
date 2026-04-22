@@ -3108,4 +3108,33 @@ class AppLocalizationsBg extends AppLocalizations {
 
   @override
   String get groupSearchContactsHint => 'Търсене на контакти…';
+
+  @override
+  String get systemActorYou => 'Вие';
+
+  @override
+  String get systemActorPeer => 'Събеседник';
+
+  @override
+  String systemTtlEnabled(String actor, String duration) {
+    return '$actor включи изчезващи съобщения: $duration';
+  }
+
+  @override
+  String systemTtlDisabled(String actor) {
+    return '$actor изключи изчезващи съобщения';
+  }
+
+  @override
+  String get menuClearChatHistory => 'Изчисти историята на чата';
+
+  @override
+  String get clearChatTitle => 'Да се изчисти историята на чата?';
+
+  @override
+  String get clearChatBody =>
+      'Всички съобщения в този чат ще бъдат изтрити от това устройство. Другият човек ще запази своето копие.';
+
+  @override
+  String get clearChatAction => 'Изчисти';
 }

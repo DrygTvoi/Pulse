@@ -3045,4 +3045,33 @@ class AppLocalizationsHe extends AppLocalizations {
 
   @override
   String get groupSearchContactsHint => 'חיפוש אנשי קשר…';
+
+  @override
+  String get systemActorYou => 'אתה';
+
+  @override
+  String get systemActorPeer => 'איש קשר';
+
+  @override
+  String systemTtlEnabled(String actor, String duration) {
+    return '$actor הפעיל הודעות נעלמות: $duration';
+  }
+
+  @override
+  String systemTtlDisabled(String actor) {
+    return '$actor השבית הודעות נעלמות';
+  }
+
+  @override
+  String get menuClearChatHistory => 'נקה היסטוריית צ\'אט';
+
+  @override
+  String get clearChatTitle => 'לנקות את היסטוריית הצ\'אט?';
+
+  @override
+  String get clearChatBody =>
+      'כל ההודעות בצ\'אט זה יימחקו מהמכשיר הזה. הצד השני ישמור את העותק שלו.';
+
+  @override
+  String get clearChatAction => 'נקה';
 }

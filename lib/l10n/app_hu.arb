@@ -916,5 +916,13 @@
   "pulseDismiss": "Elvetés",
   "pulseHide7Days": "Elrejtés 7 napra",
   "pulseNeverAskAgain": "Ne kérdezd többet",
-  "groupSearchContactsHint": "Kapcsolatok keresése…"
+  "groupSearchContactsHint": "Kapcsolatok keresése…",
+  "systemActorYou": "Te",
+  "systemActorPeer": "Beszélgetőtárs",
+  "systemTtlEnabled": "{actor} bekapcsolta az eltűnő üzeneteket: {duration}",
+  "systemTtlDisabled": "{actor} kikapcsolta az eltűnő üzeneteket",
+  "menuClearChatHistory": "Csevegés előzményeinek törlése",
+  "clearChatTitle": "Törlöd a csevegés előzményeit?",
+  "clearChatBody": "Az összes üzenet törlődik erről az eszközről. A másik fél megtartja a saját másolatát.",
+  "clearChatAction": "Törlés"
 }

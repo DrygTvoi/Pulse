@@ -916,5 +916,13 @@
   "pulseDismiss": "Отхвърли",
   "pulseHide7Days": "Скрий за 7 дни",
   "pulseNeverAskAgain": "Не питай повече",
-  "groupSearchContactsHint": "Търсене на контакти…"
+  "groupSearchContactsHint": "Търсене на контакти…",
+  "systemActorYou": "Вие",
+  "systemActorPeer": "Събеседник",
+  "systemTtlEnabled": "{actor} включи изчезващи съобщения: {duration}",
+  "systemTtlDisabled": "{actor} изключи изчезващи съобщения",
+  "menuClearChatHistory": "Изчисти историята на чата",
+  "clearChatTitle": "Да се изчисти историята на чата?",
+  "clearChatBody": "Всички съобщения в този чат ще бъдат изтрити от това устройство. Другият човек ще запази своето копие.",
+  "clearChatAction": "Изчисти"
 }

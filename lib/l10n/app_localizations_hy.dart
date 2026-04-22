@@ -3099,4 +3099,33 @@ class AppLocalizationsHy extends AppLocalizations {
 
   @override
   String get groupSearchContactsHint => 'Որոնել կոնտակտներ…';
+
+  @override
+  String get systemActorYou => 'Դուք';
+
+  @override
+  String get systemActorPeer => 'Կոնտակտ';
+
+  @override
+  String systemTtlEnabled(String actor, String duration) {
+    return '$actor-ը միացրեց անհետացող հաղորդագրությունները՝ $duration';
+  }
+
+  @override
+  String systemTtlDisabled(String actor) {
+    return '$actor-ը անջատեց անհետացող հաղորդագրությունները';
+  }
+
+  @override
+  String get menuClearChatHistory => 'Մաքրել զրույցի պատմությունը';
+
+  @override
+  String get clearChatTitle => 'Մաքրե՞լ զրույցի պատմությունը:';
+
+  @override
+  String get clearChatBody =>
+      'Այս զրույցի բոլոր հաղորդագրությունները կջնջվեն այս սարքից։ Մյուս անձը կպահպանի իր պատճենը։';
+
+  @override
+  String get clearChatAction => 'Մաքրել';
 }

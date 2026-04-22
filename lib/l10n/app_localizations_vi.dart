@@ -3072,4 +3072,33 @@ class AppLocalizationsVi extends AppLocalizations {
 
   @override
   String get groupSearchContactsHint => 'Tìm kiếm liên hệ…';
+
+  @override
+  String get systemActorYou => 'Bạn';
+
+  @override
+  String get systemActorPeer => 'Đối tác';
+
+  @override
+  String systemTtlEnabled(String actor, String duration) {
+    return '$actor đã bật tin nhắn tự huỷ: $duration';
+  }
+
+  @override
+  String systemTtlDisabled(String actor) {
+    return '$actor đã tắt tin nhắn tự huỷ';
+  }
+
+  @override
+  String get menuClearChatHistory => 'Xoá lịch sử trò chuyện';
+
+  @override
+  String get clearChatTitle => 'Xoá lịch sử trò chuyện?';
+
+  @override
+  String get clearChatBody =>
+      'Tất cả tin nhắn trong cuộc trò chuyện này sẽ bị xoá khỏi thiết bị này. Người kia sẽ giữ bản sao của họ.';
+
+  @override
+  String get clearChatAction => 'Xoá';
 }

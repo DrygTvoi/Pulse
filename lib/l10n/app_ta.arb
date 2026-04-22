@@ -916,5 +916,13 @@
   "pulseDismiss": "மூடு",
   "pulseHide7Days": "7 நாட்களுக்கு மறை",
   "pulseNeverAskAgain": "மீண்டும் கேட்காதே",
-  "groupSearchContactsHint": "தொடர்புகளைத் தேடு…"
+  "groupSearchContactsHint": "தொடர்புகளைத் தேடு…",
+  "systemActorYou": "நீங்கள்",
+  "systemActorPeer": "தொடர்பு",
+  "systemTtlEnabled": "{actor} மறையும் செய்திகளை இயக்கினார்: {duration}",
+  "systemTtlDisabled": "{actor} மறையும் செய்திகளை முடக்கினார்",
+  "menuClearChatHistory": "அரட்டை வரலாற்றை அழி",
+  "clearChatTitle": "அரட்டை வரலாற்றை அழிக்கவா?",
+  "clearChatBody": "இந்த அரட்டையில் உள்ள அனைத்து செய்திகளும் இந்த சாதனத்திலிருந்து நீக்கப்படும். மற்றவர் அவர்களின் நகலை வைத்திருப்பார்.",
+  "clearChatAction": "அழி"
 }

@@ -916,5 +916,13 @@
   "pulseDismiss": "Chiudi",
   "pulseHide7Days": "Nascondi per 7 giorni",
   "pulseNeverAskAgain": "Non chiedere più",
-  "groupSearchContactsHint": "Cerca contatti…"
+  "groupSearchContactsHint": "Cerca contatti…",
+  "systemActorYou": "Tu",
+  "systemActorPeer": "Contatto",
+  "systemTtlEnabled": "{actor} ha attivato i messaggi a tempo: {duration}",
+  "systemTtlDisabled": "{actor} ha disattivato i messaggi a tempo",
+  "menuClearChatHistory": "Cancella cronologia chat",
+  "clearChatTitle": "Cancellare la cronologia della chat?",
+  "clearChatBody": "Tutti i messaggi di questa chat saranno eliminati da questo dispositivo. L’altra persona manterrà la sua copia.",
+  "clearChatAction": "Cancella"
 }

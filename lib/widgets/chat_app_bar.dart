@@ -153,6 +153,36 @@ PreferredSizeWidget buildChatAppBar({
             await NotificationService().setChatMuted(contact.id, newMuted);
             onMuteChanged(newMuted);
           }
+          if (value == 'clear_history') {
+            final ctrl = context.read<ChatController>();
+            final confirmed = await showDialog<bool>(
+              context: context,
+              builder: (ctx) => AlertDialog.adaptive(
+                backgroundColor: AppTheme.surface,
+                title: Text(ctx.l10n.clearChatTitle,
+                    style: GoogleFonts.inter(
+                        color: AppTheme.textPrimary,
+                        fontWeight: FontWeight.w700)),
+                content: Text(ctx.l10n.clearChatBody,
+                    style: GoogleFonts.inter(color: AppTheme.textSecondary)),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(ctx, false),
+                    child: Text(ctx.l10n.cancel,
+                        style: GoogleFonts.inter(color: AppTheme.textSecondary)),
+                  ),
+                  TextButton(
+                    onPressed: () => Navigator.pop(ctx, true),
+                    child: Text(ctx.l10n.clearChatAction,
+                        style: GoogleFonts.inter(color: AppTheme.error)),
+                  ),
+                ],
+              ),
+            );
+            if (confirmed == true) {
+              await ctrl.clearRoomHistory(contact);
+            }
+          }
         },
         itemBuilder: (_) => [
           PopupMenuItem(
@@ -204,6 +234,16 @@ PreferredSizeWidget buildChatAppBar({
                 Text(context.l10n.appBarGroupSettings, style: GoogleFonts.inter(color: AppTheme.textPrimary)),
               ]),
             ),
+          PopupMenuItem(
+            value: 'clear_history',
+            child: Row(children: [
+              Icon(Icons.delete_sweep_outlined,
+                  color: AppTheme.error, size: DesignTokens.iconMd),
+              const SizedBox(width: DesignTokens.spacing12),
+              Text(context.l10n.menuClearChatHistory,
+                  style: GoogleFonts.inter(color: AppTheme.error)),
+            ]),
+          ),
         ],
       ),
       const SizedBox(width: DesignTokens.spacing4),

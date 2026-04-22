@@ -916,5 +916,13 @@
   "pulseDismiss": "Bağla",
   "pulseHide7Days": "7 gün gizlət",
   "pulseNeverAskAgain": "Daha soruşma",
-  "groupSearchContactsHint": "Kontaktları axtar…"
+  "groupSearchContactsHint": "Kontaktları axtar…",
+  "systemActorYou": "Siz",
+  "systemActorPeer": "Kontakt",
+  "systemTtlEnabled": "{actor} yox olan mesajları aktivləşdirdi: {duration}",
+  "systemTtlDisabled": "{actor} yox olan mesajları söndürdü",
+  "menuClearChatHistory": "Söhbət tarixçəsini təmizlə",
+  "clearChatTitle": "Söhbət tarixçəsi təmizlənsin?",
+  "clearChatBody": "Bu söhbətdəki bütün mesajlar bu cihazdan silinəcək. Digər şəxs öz nüsxəsini saxlayacaq.",
+  "clearChatAction": "Təmizlə"
 }

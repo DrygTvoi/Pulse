@@ -3097,4 +3097,33 @@ class AppLocalizationsKa extends AppLocalizations {
 
   @override
   String get groupSearchContactsHint => 'კონტაქტების ძებნა…';
+
+  @override
+  String get systemActorYou => 'თქვენ';
+
+  @override
+  String get systemActorPeer => 'კონტაქტი';
+
+  @override
+  String systemTtlEnabled(String actor, String duration) {
+    return '$actor-მა ჩართო გამქრალი შეტყობინებები: $duration';
+  }
+
+  @override
+  String systemTtlDisabled(String actor) {
+    return '$actor-მა გამორთო გამქრალი შეტყობინებები';
+  }
+
+  @override
+  String get menuClearChatHistory => 'ჩატის ისტორიის გასუფთავება';
+
+  @override
+  String get clearChatTitle => 'გასუფთავდეს ჩატის ისტორია?';
+
+  @override
+  String get clearChatBody =>
+      'ამ ჩატის ყველა შეტყობინება წაიშლება ამ მოწყობილობიდან. მეორე ადამიანი შეინარჩუნებს თავის ასლს.';
+
+  @override
+  String get clearChatAction => 'გასუფთავება';
 }

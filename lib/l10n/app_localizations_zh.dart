@@ -2955,4 +2955,32 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get groupSearchContactsHint => '搜索联系人…';
+
+  @override
+  String get systemActorYou => '你';
+
+  @override
+  String get systemActorPeer => '对方';
+
+  @override
+  String systemTtlEnabled(String actor, String duration) {
+    return '$actor开启了阅后即焚：$duration';
+  }
+
+  @override
+  String systemTtlDisabled(String actor) {
+    return '$actor关闭了阅后即焚';
+  }
+
+  @override
+  String get menuClearChatHistory => '清空聊天记录';
+
+  @override
+  String get clearChatTitle => '清空聊天记录？';
+
+  @override
+  String get clearChatBody => '此聊天中的所有消息将从本设备删除。对方将保留其副本。';
+
+  @override
+  String get clearChatAction => '清空';
 }

@@ -3094,4 +3094,33 @@ class AppLocalizationsNl extends AppLocalizations {
 
   @override
   String get groupSearchContactsHint => 'Contacten zoeken…';
+
+  @override
+  String get systemActorYou => 'Jij';
+
+  @override
+  String get systemActorPeer => 'Contact';
+
+  @override
+  String systemTtlEnabled(String actor, String duration) {
+    return '$actor schakelde verdwijnende berichten in: $duration';
+  }
+
+  @override
+  String systemTtlDisabled(String actor) {
+    return '$actor schakelde verdwijnende berichten uit';
+  }
+
+  @override
+  String get menuClearChatHistory => 'Chatgeschiedenis wissen';
+
+  @override
+  String get clearChatTitle => 'Chatgeschiedenis wissen?';
+
+  @override
+  String get clearChatBody =>
+      'Alle berichten in deze chat worden van dit apparaat verwijderd. De andere persoon behoudt zijn kopie.';
+
+  @override
+  String get clearChatAction => 'Wissen';
 }

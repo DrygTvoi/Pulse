@@ -3117,4 +3117,33 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String get groupSearchContactsHint => 'Αναζήτηση επαφών…';
+
+  @override
+  String get systemActorYou => 'Εσύ';
+
+  @override
+  String get systemActorPeer => 'Επαφή';
+
+  @override
+  String systemTtlEnabled(String actor, String duration) {
+    return '$actor ενεργοποίησε τα μηνύματα που εξαφανίζονται: $duration';
+  }
+
+  @override
+  String systemTtlDisabled(String actor) {
+    return '$actor απενεργοποίησε τα μηνύματα που εξαφανίζονται';
+  }
+
+  @override
+  String get menuClearChatHistory => 'Διαγραφή ιστορικού συνομιλίας';
+
+  @override
+  String get clearChatTitle => 'Διαγραφή ιστορικού συνομιλίας;';
+
+  @override
+  String get clearChatBody =>
+      'Όλα τα μηνύματα αυτής της συνομιλίας θα διαγραφούν από αυτή τη συσκευή. Ο/Η συνομιλητής/τρια θα διατηρήσει το αντίγραφό του/της.';
+
+  @override
+  String get clearChatAction => 'Διαγραφή';
 }

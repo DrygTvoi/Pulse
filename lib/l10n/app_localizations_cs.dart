@@ -3080,4 +3080,33 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String get groupSearchContactsHint => 'Hledat kontakty…';
+
+  @override
+  String get systemActorYou => 'Vy';
+
+  @override
+  String get systemActorPeer => 'Protistrana';
+
+  @override
+  String systemTtlEnabled(String actor, String duration) {
+    return '$actor zapnul(a) mizející zprávy: $duration';
+  }
+
+  @override
+  String systemTtlDisabled(String actor) {
+    return '$actor vypnul(a) mizející zprávy';
+  }
+
+  @override
+  String get menuClearChatHistory => 'Vymazat historii chatu';
+
+  @override
+  String get clearChatTitle => 'Vymazat historii chatu?';
+
+  @override
+  String get clearChatBody =>
+      'Všechny zprávy v tomto chatu budou z tohoto zařízení smazány. Druhá osoba si svou kopii ponechá.';
+
+  @override
+  String get clearChatAction => 'Vymazat';
 }

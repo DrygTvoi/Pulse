@@ -916,5 +916,13 @@
   "pulseDismiss": "بستن",
   "pulseHide7Days": "پنهان‌سازی به مدت 7 روز",
   "pulseNeverAskAgain": "دیگر نپرس",
-  "groupSearchContactsHint": "جستجوی مخاطبین…"
+  "groupSearchContactsHint": "جستجوی مخاطبین…",
+  "systemActorYou": "شما",
+  "systemActorPeer": "مخاطب",
+  "systemTtlEnabled": "{actor} پیام‌های ناپدیدشونده را فعال کرد: {duration}",
+  "systemTtlDisabled": "{actor} پیام‌های ناپدیدشونده را غیرفعال کرد",
+  "menuClearChatHistory": "پاک کردن تاریخچه گفتگو",
+  "clearChatTitle": "تاریخچه گفتگو پاک شود؟",
+  "clearChatBody": "تمام پیام‌های این گفتگو از این دستگاه حذف می‌شوند. طرف مقابل نسخه خود را نگه می‌دارد.",
+  "clearChatAction": "پاک کردن"
 }

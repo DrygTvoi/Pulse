@@ -107,6 +107,12 @@ class MessageRepository {
   // Per-room TTL cache (seconds, 0 = off)
   final Map<String, int> _chatTtls = {};
 
+  // Per-room watermark: timestamp (ms since epoch) at which the current TTL
+  // was set. Messages older than this watermark are immune to the active TTL
+  // (Telegram-style "applies to new messages only"). −1 means "no watermark
+  // loaded yet" (loadRoomHistory will populate it from prefs).
+  final Map<String, int> _chatTtlSetAtCache = {};
+
   // TTL deletion timers keyed by message ID
   final Map<String, Timer> _ttlTimers = {};
 
@@ -285,26 +291,26 @@ class MessageRepository {
 
     await loadReactions(storageKey);
 
-    // Load TTL setting and purge expired messages
+    // Telegram-style TTL: disappearing messages apply only to messages sent
+    // AFTER the user enabled the feature — never retroactively. We just load
+    // the current TTL setting here; messages whose `timestamp` predates the
+    // chat_ttl_set_at_<id> watermark stay untouched on history load. Per-
+    // message timers are armed by scheduleTtlDelete (which honours the same
+    // watermark) at send/receive time.
     final prefs = await SharedPreferences.getInstance();
-    final ttlSeconds = prefs.getInt('chat_ttl_${contact.id}') ?? 0;
-    _chatTtls[contact.id] = ttlSeconds;
-    if (ttlSeconds > 0) {
-      final now = DateTime.now();
-      int removed = 0;
-      room.messages.removeWhere((m) {
-        if (m.timestamp.add(Duration(seconds: ttlSeconds)).isBefore(now)) {
-          untrackMessageId(contact.id, m.id);
-          unawaited(LocalStorageService().deleteMessage(storageKey, m.id));
-          removed++;
-          return true;
-        }
-        return false;
-      });
-      if (removed > 0) rebuildPositionIndex(contact.id);
-    }
+    _chatTtls[contact.id] = prefs.getInt('chat_ttl_${contact.id}') ?? 0;
+    _chatTtlSetAtCache[contact.id] =
+        prefs.getInt('chat_ttl_set_at_${contact.id}') ?? -1;
 
     onChanged?.call();
+  }
+
+  /// Update the in-memory watermark when the user changes TTL. Called by the
+  /// controller after writing the new value to SharedPreferences so the very
+  /// next message scheduled for TTL uses the new boundary without needing to
+  /// re-read prefs.
+  void setChatTtlSetAt(String contactId, int unixMs) {
+    _chatTtlSetAtCache[contactId] = unixMs;
   }
 
   /// Load the next page of older messages (cursor-based pagination).
@@ -462,6 +468,14 @@ class MessageRepository {
     required VoidCallback onDeleted,
   }) {
     if (ttlSeconds <= 0) return;
+    // System messages (TTL change notices etc.) are not subject to TTL.
+    if (msg.isSystem) return;
+    // Telegram-style guard: TTL only applies to messages sent AFTER the user
+    // enabled disappearing messages. Skip messages that predate the current
+    // `chat_ttl_set_at_<id>` watermark — they stay forever even if a TTL is
+    // currently active. The setter watermark is read lazily from prefs.
+    final setAtMs = _chatTtlSetAtCache[contact.id] ?? -1;
+    if (setAtMs >= 0 && msg.timestamp.millisecondsSinceEpoch < setAtMs) return;
     // Add 0-10% random jitter to TTL to prevent timing analysis
     final jitter = Duration(
         seconds: Random.secure().nextInt((ttlSeconds * 0.1).ceil().clamp(1, 600)));

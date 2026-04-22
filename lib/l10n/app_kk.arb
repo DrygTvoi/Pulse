@@ -916,5 +916,13 @@
   "pulseDismiss": "Жабу",
   "pulseHide7Days": "7 күнге жасыру",
   "pulseNeverAskAgain": "Қайта сұрама",
-  "groupSearchContactsHint": "Контактілерді іздеу…"
+  "groupSearchContactsHint": "Контактілерді іздеу…",
+  "systemActorYou": "Сіз",
+  "systemActorPeer": "Контакт",
+  "systemTtlEnabled": "{actor} жоғалатын хабарламаларды қосты: {duration}",
+  "systemTtlDisabled": "{actor} жоғалатын хабарламаларды өшірді",
+  "menuClearChatHistory": "Чат тарихын тазалау",
+  "clearChatTitle": "Чат тарихы тазаланса ма?",
+  "clearChatBody": "Бұл чаттағы барлық хабарламалар осы құрылғыдан жойылады. Басқа адам өз көшірмесін сақтайды.",
+  "clearChatAction": "Тазалау"
 }

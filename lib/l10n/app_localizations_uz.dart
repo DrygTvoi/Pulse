@@ -3106,4 +3106,33 @@ class AppLocalizationsUz extends AppLocalizations {
 
   @override
   String get groupSearchContactsHint => 'Kontaktlarni izlash…';
+
+  @override
+  String get systemActorYou => 'Siz';
+
+  @override
+  String get systemActorPeer => 'Kontakt';
+
+  @override
+  String systemTtlEnabled(String actor, String duration) {
+    return '$actor yoʻqoluvchi xabarlarni yoqdi: $duration';
+  }
+
+  @override
+  String systemTtlDisabled(String actor) {
+    return '$actor yoʻqoluvchi xabarlarni oʻchirdi';
+  }
+
+  @override
+  String get menuClearChatHistory => 'Suhbat tarixini tozalash';
+
+  @override
+  String get clearChatTitle => 'Suhbat tarixi tozalansinmi?';
+
+  @override
+  String get clearChatBody =>
+      'Ushbu suhbatdagi barcha xabarlar shu qurilmadan oʻchiriladi. Boshqa odam oʻz nusxasini saqlab qoladi.';
+
+  @override
+  String get clearChatAction => 'Tozalash';
 }

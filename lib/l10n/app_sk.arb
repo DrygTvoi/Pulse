@@ -916,5 +916,13 @@
   "pulseDismiss": "Zavrieť",
   "pulseHide7Days": "Skryť na 7 dní",
   "pulseNeverAskAgain": "Nepýtať sa znova",
-  "groupSearchContactsHint": "Hľadať kontakty…"
+  "groupSearchContactsHint": "Hľadať kontakty…",
+  "systemActorYou": "Vy",
+  "systemActorPeer": "Protistrana",
+  "systemTtlEnabled": "{actor} zapol(a) miznúce správy: {duration}",
+  "systemTtlDisabled": "{actor} vypol(a) miznúce správy",
+  "menuClearChatHistory": "Vymazať históriu chatu",
+  "clearChatTitle": "Vymazať históriu chatu?",
+  "clearChatBody": "Všetky správy v tomto chate sa vymažú z tohto zariadenia. Druhá osoba si svoju kópiu ponechá.",
+  "clearChatAction": "Vymazať"
 }

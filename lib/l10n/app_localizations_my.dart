@@ -3100,4 +3100,33 @@ class AppLocalizationsMy extends AppLocalizations {
 
   @override
   String get groupSearchContactsHint => 'အဆက်အသွယ်များ ရှာဖွေ…';
+
+  @override
+  String get systemActorYou => 'သင်';
+
+  @override
+  String get systemActorPeer => 'အဆက်အသွယ်';
+
+  @override
+  String systemTtlEnabled(String actor, String duration) {
+    return '$actor သည် ပျောက်သွားသောစာများကို ဖွင့်ထားသည်- $duration';
+  }
+
+  @override
+  String systemTtlDisabled(String actor) {
+    return '$actor သည် ပျောက်သွားသောစာများကို ပိတ်ထားသည်';
+  }
+
+  @override
+  String get menuClearChatHistory => 'ချတ်မှတ်တမ်းကို ရှင်းလင်း';
+
+  @override
+  String get clearChatTitle => 'ချတ်မှတ်တမ်းကို ရှင်းလင်းမည်လား?';
+
+  @override
+  String get clearChatBody =>
+      'ဤချတ်ရှိ စာအားလုံးကို ဤစက်မှ ဖျက်လိုက်ပါမည်။ အခြားသူသည် မိမိ၏ မိတ္တူကို ထိန်းသိမ်းထားပါမည်။';
+
+  @override
+  String get clearChatAction => 'ရှင်းလင်း';
 }

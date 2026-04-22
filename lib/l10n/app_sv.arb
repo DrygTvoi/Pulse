@@ -916,5 +916,13 @@
   "pulseDismiss": "Stäng",
   "pulseHide7Days": "Dölj i 7 dagar",
   "pulseNeverAskAgain": "Fråga inte igen",
-  "groupSearchContactsHint": "Sök kontakter…"
+  "groupSearchContactsHint": "Sök kontakter…",
+  "systemActorYou": "Du",
+  "systemActorPeer": "Kontakt",
+  "systemTtlEnabled": "{actor} aktiverade försvinnande meddelanden: {duration}",
+  "systemTtlDisabled": "{actor} avaktiverade försvinnande meddelanden",
+  "menuClearChatHistory": "Rensa chatthistorik",
+  "clearChatTitle": "Rensa chatthistoriken?",
+  "clearChatBody": "Alla meddelanden i denna chatt raderas från den här enheten. Den andra personen behåller sin kopia.",
+  "clearChatAction": "Rensa"
 }

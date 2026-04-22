@@ -3097,4 +3097,33 @@ class AppLocalizationsAz extends AppLocalizations {
 
   @override
   String get groupSearchContactsHint => 'Kontaktları axtar…';
+
+  @override
+  String get systemActorYou => 'Siz';
+
+  @override
+  String get systemActorPeer => 'Kontakt';
+
+  @override
+  String systemTtlEnabled(String actor, String duration) {
+    return '$actor yox olan mesajları aktivləşdirdi: $duration';
+  }
+
+  @override
+  String systemTtlDisabled(String actor) {
+    return '$actor yox olan mesajları söndürdü';
+  }
+
+  @override
+  String get menuClearChatHistory => 'Söhbət tarixçəsini təmizlə';
+
+  @override
+  String get clearChatTitle => 'Söhbət tarixçəsi təmizlənsin?';
+
+  @override
+  String get clearChatBody =>
+      'Bu söhbətdəki bütün mesajlar bu cihazdan silinəcək. Digər şəxs öz nüsxəsini saxlayacaq.';
+
+  @override
+  String get clearChatAction => 'Təmizlə';
 }

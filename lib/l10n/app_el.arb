@@ -916,5 +916,13 @@
   "pulseDismiss": "Απόρριψη",
   "pulseHide7Days": "Απόκρυψη για 7 ημέρες",
   "pulseNeverAskAgain": "Να μη ρωτηθώ ξανά",
-  "groupSearchContactsHint": "Αναζήτηση επαφών…"
+  "groupSearchContactsHint": "Αναζήτηση επαφών…",
+  "systemActorYou": "Εσύ",
+  "systemActorPeer": "Επαφή",
+  "systemTtlEnabled": "{actor} ενεργοποίησε τα μηνύματα που εξαφανίζονται: {duration}",
+  "systemTtlDisabled": "{actor} απενεργοποίησε τα μηνύματα που εξαφανίζονται",
+  "menuClearChatHistory": "Διαγραφή ιστορικού συνομιλίας",
+  "clearChatTitle": "Διαγραφή ιστορικού συνομιλίας;",
+  "clearChatBody": "Όλα τα μηνύματα αυτής της συνομιλίας θα διαγραφούν από αυτή τη συσκευή. Ο/Η συνομιλητής/τρια θα διατηρήσει το αντίγραφό του/της.",
+  "clearChatAction": "Διαγραφή"
 }

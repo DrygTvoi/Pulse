@@ -916,5 +916,13 @@
   "pulseDismiss": "Đóng",
   "pulseHide7Days": "Ẩn trong 7 ngày",
   "pulseNeverAskAgain": "Đừng hỏi nữa",
-  "groupSearchContactsHint": "Tìm kiếm liên hệ…"
+  "groupSearchContactsHint": "Tìm kiếm liên hệ…",
+  "systemActorYou": "Bạn",
+  "systemActorPeer": "Đối tác",
+  "systemTtlEnabled": "{actor} đã bật tin nhắn tự huỷ: {duration}",
+  "systemTtlDisabled": "{actor} đã tắt tin nhắn tự huỷ",
+  "menuClearChatHistory": "Xoá lịch sử trò chuyện",
+  "clearChatTitle": "Xoá lịch sử trò chuyện?",
+  "clearChatBody": "Tất cả tin nhắn trong cuộc trò chuyện này sẽ bị xoá khỏi thiết bị này. Người kia sẽ giữ bản sao của họ.",
+  "clearChatAction": "Xoá"
 }

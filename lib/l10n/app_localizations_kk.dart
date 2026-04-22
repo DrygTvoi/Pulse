@@ -3093,4 +3093,33 @@ class AppLocalizationsKk extends AppLocalizations {
 
   @override
   String get groupSearchContactsHint => 'Контактілерді іздеу…';
+
+  @override
+  String get systemActorYou => 'Сіз';
+
+  @override
+  String get systemActorPeer => 'Контакт';
+
+  @override
+  String systemTtlEnabled(String actor, String duration) {
+    return '$actor жоғалатын хабарламаларды қосты: $duration';
+  }
+
+  @override
+  String systemTtlDisabled(String actor) {
+    return '$actor жоғалатын хабарламаларды өшірді';
+  }
+
+  @override
+  String get menuClearChatHistory => 'Чат тарихын тазалау';
+
+  @override
+  String get clearChatTitle => 'Чат тарихы тазаланса ма?';
+
+  @override
+  String get clearChatBody =>
+      'Бұл чаттағы барлық хабарламалар осы құрылғыдан жойылады. Басқа адам өз көшірмесін сақтайды.';
+
+  @override
+  String get clearChatAction => 'Тазалау';
 }

@@ -3084,4 +3084,33 @@ class AppLocalizationsSi extends AppLocalizations {
 
   @override
   String get groupSearchContactsHint => 'සම්බන්ධතා සොයන්න…';
+
+  @override
+  String get systemActorYou => 'ඔබ';
+
+  @override
+  String get systemActorPeer => 'සම්බන්ධතාව';
+
+  @override
+  String systemTtlEnabled(String actor, String duration) {
+    return '$actor අතුරුදහන් වන පණිවිඩ සක්‍රීය කළා: $duration';
+  }
+
+  @override
+  String systemTtlDisabled(String actor) {
+    return '$actor අතුරුදහන් වන පණිවිඩ අක්‍රීය කළා';
+  }
+
+  @override
+  String get menuClearChatHistory => 'කතාබස් ඉතිහාසය ඉවත් කරන්න';
+
+  @override
+  String get clearChatTitle => 'කතාබස් ඉතිහාසය ඉවත් කරන්නද?';
+
+  @override
+  String get clearChatBody =>
+      'මෙම කතාබසේ ඇති සියලු පණිවිඩ මෙම උපාංගයෙන් මකා දැමෙනු ඇත. අනෙකා තම පිටපත රඳවාගනු ඇත.';
+
+  @override
+  String get clearChatAction => 'ඉවත් කරන්න';
 }

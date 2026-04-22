@@ -916,5 +916,13 @@
   "pulseDismiss": "Uždaryti",
   "pulseHide7Days": "Slėpti 7 dienas",
   "pulseNeverAskAgain": "Daugiau neklausti",
-  "groupSearchContactsHint": "Ieškoti kontaktų…"
+  "groupSearchContactsHint": "Ieškoti kontaktų…",
+  "systemActorYou": "Jūs",
+  "systemActorPeer": "Pašnekovas",
+  "systemTtlEnabled": "{actor} įjungė nykstančias žinutes: {duration}",
+  "systemTtlDisabled": "{actor} išjungė nykstančias žinutes",
+  "menuClearChatHistory": "Išvalyti pokalbio istoriją",
+  "clearChatTitle": "Išvalyti pokalbio istoriją?",
+  "clearChatBody": "Visos žinutės šiame pokalbyje bus ištrintos iš šio įrenginio. Kitas asmuo išsaugos savo kopiją.",
+  "clearChatAction": "Išvalyti"
 }

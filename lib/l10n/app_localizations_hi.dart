@@ -3087,4 +3087,33 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get groupSearchContactsHint => 'संपर्क खोजें…';
+
+  @override
+  String get systemActorYou => 'आप';
+
+  @override
+  String get systemActorPeer => 'संपर्क';
+
+  @override
+  String systemTtlEnabled(String actor, String duration) {
+    return '$actor ने ग़ायब होने वाले संदेश चालू किए: $duration';
+  }
+
+  @override
+  String systemTtlDisabled(String actor) {
+    return '$actor ने ग़ायब होने वाले संदेश बंद किए';
+  }
+
+  @override
+  String get menuClearChatHistory => 'चैट इतिहास साफ़ करें';
+
+  @override
+  String get clearChatTitle => 'चैट इतिहास साफ़ करें?';
+
+  @override
+  String get clearChatBody =>
+      'इस चैट के सभी संदेश इस डिवाइस से हटा दिए जाएंगे। दूसरा व्यक्ति अपनी प्रति बनाए रखेगा।';
+
+  @override
+  String get clearChatAction => 'साफ़ करें';
 }

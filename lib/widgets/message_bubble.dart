@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -94,6 +95,9 @@ class MessageBubble extends StatelessWidget {
   final String message;
   final DateTime timestamp;
   final bool isMe;
+  /// `''` for normal user messages, `'system'` for in-chat informational
+  /// notices like "X enabled disappearing messages".
+  final String kind;
   final String status;     // 'sending', 'sent', 'failed', '' (received)
   final bool showTail;     // true = last message in a consecutive group
   /// Previous message in the timeline is from the SAME sender within the
@@ -131,6 +135,7 @@ class MessageBubble extends StatelessWidget {
     required this.message,
     required this.timestamp,
     required this.isMe,
+    this.kind = '',
     this.status = '',
     this.showTail = true,
     this.previousSameSender = false,
@@ -211,6 +216,13 @@ class MessageBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // System messages (TTL change notices, etc.) render as a centered grey
+    // pill, not a chat bubble. Payload is JSON: {"_sys":"ttl_changed",...}.
+    if (kind == 'system') {
+      return _SystemMessageRow(payload: message, contactIndex: contactIndex,
+          selfId: selfId);
+    }
+
     final isUnencrypted = message.startsWith(_unencryptedPrefix);
     final rawText = isUnencrypted ? message.substring(_unencryptedPrefix.length) : message;
 
@@ -1056,4 +1068,87 @@ class _MarkdownColumn extends StatelessWidget {
       children: children,
     );
   }
+}
+
+// ─── System message row ───────────────────────────────────────────────────────
+
+/// Telegram-style centered grey pill used for in-chat informational notices
+/// like "Alice enabled disappearing messages: 1 hour". Payload is JSON,
+/// rendered into a localised string here. Never shows avatar / timestamp /
+/// reactions / context menu — it isn't a "message" in the user-content sense.
+class _SystemMessageRow extends StatelessWidget {
+  final String payload;
+  final Map<String, Contact>? contactIndex;
+  final String? selfId;
+
+  const _SystemMessageRow({
+    required this.payload,
+    required this.contactIndex,
+    required this.selfId,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final text = _formatSystemText(context, payload, contactIndex, selfId);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: DesignTokens.spacing8),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 320),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: AppTheme.textSecondary.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              text,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.inter(
+                fontSize: DesignTokens.fontSm,
+                color: AppTheme.textSecondary,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+String _formatSystemText(BuildContext context, String payload,
+    Map<String, Contact>? contactIndex, String? selfId) {
+  Map<String, dynamic>? json;
+  try {
+    final dec = const JsonDecoder().convert(payload);
+    if (dec is Map<String, dynamic>) json = dec;
+  } catch (_) {}
+  if (json == null) return payload;
+  final sys = json['_sys'] as String? ?? '';
+  if (sys == 'ttl_changed') {
+    final seconds = (json['seconds'] as num?)?.toInt() ?? 0;
+    final by = json['by'] as String? ?? '';
+    final isSelf = by.isEmpty || by == 'self' || (selfId != null && by == selfId);
+    final actor = isSelf
+        ? context.l10n.systemActorYou
+        : (contactIndex?[by]?.name ?? context.l10n.systemActorPeer);
+    final l10n = context.l10n;
+    if (seconds <= 0) return l10n.systemTtlDisabled(actor);
+    final duration = _formatTtlDuration(context, seconds);
+    return l10n.systemTtlEnabled(actor, duration);
+  }
+  return payload;
+}
+
+String _formatTtlDuration(BuildContext context, int seconds) {
+  final l10n = context.l10n;
+  if (seconds == 3600) return l10n.menuTtl1h;
+  if (seconds == 86400) return l10n.menuTtl24h;
+  if (seconds == 604800) return l10n.menuTtl7d;
+  // Fallback for non-preset values: render in the largest sensible unit.
+  if (seconds % 86400 == 0) return '${seconds ~/ 86400}d';
+  if (seconds % 3600 == 0) return '${seconds ~/ 3600}h';
+  if (seconds % 60 == 0) return '${seconds ~/ 60}m';
+  return '${seconds}s';
 }

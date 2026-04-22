@@ -3102,4 +3102,33 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get groupSearchContactsHint => 'Szukaj kontaktów…';
+
+  @override
+  String get systemActorYou => 'Ty';
+
+  @override
+  String get systemActorPeer => 'Rozmówca';
+
+  @override
+  String systemTtlEnabled(String actor, String duration) {
+    return '$actor włączył(a) znikające wiadomości: $duration';
+  }
+
+  @override
+  String systemTtlDisabled(String actor) {
+    return '$actor wyłączył(a) znikające wiadomości';
+  }
+
+  @override
+  String get menuClearChatHistory => 'Wyczyść historię czatu';
+
+  @override
+  String get clearChatTitle => 'Wyczyścić historię czatu?';
+
+  @override
+  String get clearChatBody =>
+      'Wszystkie wiadomości w tym czacie zostaną usunięte z tego urządzenia. Druga osoba zachowa swoją kopię.';
+
+  @override
+  String get clearChatAction => 'Wyczyść';
 }

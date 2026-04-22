@@ -3090,4 +3090,33 @@ class AppLocalizationsHr extends AppLocalizations {
 
   @override
   String get groupSearchContactsHint => 'Pretraži kontakte…';
+
+  @override
+  String get systemActorYou => 'Vi';
+
+  @override
+  String get systemActorPeer => 'Sugovornik';
+
+  @override
+  String systemTtlEnabled(String actor, String duration) {
+    return '$actor je uključio(la) nestajuće poruke: $duration';
+  }
+
+  @override
+  String systemTtlDisabled(String actor) {
+    return '$actor je isključio(la) nestajuće poruke';
+  }
+
+  @override
+  String get menuClearChatHistory => 'Izbriši povijest razgovora';
+
+  @override
+  String get clearChatTitle => 'Izbrisati povijest razgovora?';
+
+  @override
+  String get clearChatBody =>
+      'Sve poruke u ovom razgovoru bit će izbrisane s ovog uređaja. Druga osoba zadržat će svoju kopiju.';
+
+  @override
+  String get clearChatAction => 'Izbriši';
 }

@@ -916,5 +916,13 @@
   "pulseDismiss": "关闭",
   "pulseHide7Days": "隐藏 7 天",
   "pulseNeverAskAgain": "不再询问",
-  "groupSearchContactsHint": "搜索联系人…"
+  "groupSearchContactsHint": "搜索联系人…",
+  "systemActorYou": "你",
+  "systemActorPeer": "对方",
+  "systemTtlEnabled": "{actor}开启了阅后即焚：{duration}",
+  "systemTtlDisabled": "{actor}关闭了阅后即焚",
+  "menuClearChatHistory": "清空聊天记录",
+  "clearChatTitle": "清空聊天记录？",
+  "clearChatBody": "此聊天中的所有消息将从本设备删除。对方将保留其副本。",
+  "clearChatAction": "清空"
 }

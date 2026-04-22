@@ -916,5 +916,13 @@
   "pulseDismiss": "إغلاق",
   "pulseHide7Days": "إخفاء لمدة 7 أيام",
   "pulseNeverAskAgain": "عدم السؤال مجددًا",
-  "groupSearchContactsHint": "البحث في جهات الاتصال…"
+  "groupSearchContactsHint": "البحث في جهات الاتصال…",
+  "systemActorYou": "أنت",
+  "systemActorPeer": "جهة الاتصال",
+  "systemTtlEnabled": "{actor} فعَّل الرسائل المختفية: {duration}",
+  "systemTtlDisabled": "{actor} عطَّل الرسائل المختفية",
+  "menuClearChatHistory": "مسح محفوظات الدردشة",
+  "clearChatTitle": "مسح محفوظات الدردشة؟",
+  "clearChatBody": "ستُحذف جميع رسائل هذه الدردشة من هذا الجهاز. سيحتفظ الطرف الآخر بنسخته.",
+  "clearChatAction": "مسح"
 }

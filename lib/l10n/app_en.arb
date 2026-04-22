@@ -1939,5 +1939,34 @@
   "@pulseNeverAskAgain": { "description": "Menu option to permanently dismiss the Pulse-server suggestion banner" },
 
   "groupSearchContactsHint": "Search contacts\u2026",
-  "@groupSearchContactsHint": { "description": "Hint text for the contact-search field in the group-creation dialog" }
+  "@groupSearchContactsHint": { "description": "Hint text for the contact-search field in the group-creation dialog" },
+
+  "systemActorYou": "You",
+  "@systemActorYou": { "description": "Pronoun for the local user in system messages (e.g. 'You enabled disappearing messages')" },
+  "systemActorPeer": "Peer",
+  "@systemActorPeer": { "description": "Fallback name for a peer when their contact name is unknown, used in system messages" },
+  "systemTtlEnabled": "{actor} enabled disappearing messages: {duration}",
+  "@systemTtlEnabled": {
+    "description": "In-chat notice when someone enables disappearing messages",
+    "placeholders": {
+      "actor": { "type": "String" },
+      "duration": { "type": "String" }
+    }
+  },
+  "systemTtlDisabled": "{actor} disabled disappearing messages",
+  "@systemTtlDisabled": {
+    "description": "In-chat notice when someone disables disappearing messages",
+    "placeholders": {
+      "actor": { "type": "String" }
+    }
+  },
+
+  "menuClearChatHistory": "Clear chat history",
+  "@menuClearChatHistory": { "description": "Chat menu item to delete all messages locally" },
+  "clearChatTitle": "Clear chat history?",
+  "@clearChatTitle": { "description": "Title of the confirm dialog for clearing chat history" },
+  "clearChatBody": "All messages in this chat will be deleted from this device. The other person will keep their copy.",
+  "@clearChatBody": { "description": "Body of the confirm dialog explaining clear-chat is local-only" },
+  "clearChatAction": "Clear",
+  "@clearChatAction": { "description": "Destructive button label that confirms the clear-chat action" }
 }

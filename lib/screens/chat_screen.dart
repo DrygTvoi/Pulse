@@ -1205,6 +1205,7 @@ class _ChatScreenState extends State<ChatScreen> {
                                 message: msg.encryptedPayload,
                                 timestamp: msg.timestamp,
                                 isMe: isMe,
+                                kind: msg.kind,
                                 status: msg.status,
                                 showTail: entry.isLast,
                                 previousSameSender: entry.isGrouped,

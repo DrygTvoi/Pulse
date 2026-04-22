@@ -3115,4 +3115,33 @@ class AppLocalizationsTa extends AppLocalizations {
 
   @override
   String get groupSearchContactsHint => 'தொடர்புகளைத் தேடு…';
+
+  @override
+  String get systemActorYou => 'நீங்கள்';
+
+  @override
+  String get systemActorPeer => 'தொடர்பு';
+
+  @override
+  String systemTtlEnabled(String actor, String duration) {
+    return '$actor மறையும் செய்திகளை இயக்கினார்: $duration';
+  }
+
+  @override
+  String systemTtlDisabled(String actor) {
+    return '$actor மறையும் செய்திகளை முடக்கினார்';
+  }
+
+  @override
+  String get menuClearChatHistory => 'அரட்டை வரலாற்றை அழி';
+
+  @override
+  String get clearChatTitle => 'அரட்டை வரலாற்றை அழிக்கவா?';
+
+  @override
+  String get clearChatBody =>
+      'இந்த அரட்டையில் உள்ள அனைத்து செய்திகளும் இந்த சாதனத்திலிருந்து நீக்கப்படும். மற்றவர் அவர்களின் நகலை வைத்திருப்பார்.';
+
+  @override
+  String get clearChatAction => 'அழி';
 }

@@ -2981,4 +2981,32 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get groupSearchContactsHint => '連絡先を検索…';
+
+  @override
+  String get systemActorYou => 'あなた';
+
+  @override
+  String get systemActorPeer => '相手';
+
+  @override
+  String systemTtlEnabled(String actor, String duration) {
+    return '$actor が消えるメッセージを有効にしました：$duration';
+  }
+
+  @override
+  String systemTtlDisabled(String actor) {
+    return '$actor が消えるメッセージを無効にしました';
+  }
+
+  @override
+  String get menuClearChatHistory => 'チャット履歴を消去';
+
+  @override
+  String get clearChatTitle => 'チャット履歴を消去しますか？';
+
+  @override
+  String get clearChatBody => 'このチャット内のすべてのメッセージはこの端末から削除されます。相手は自分のコピーを保持します。';
+
+  @override
+  String get clearChatAction => '消去';
 }

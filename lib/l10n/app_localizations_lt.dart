@@ -3104,4 +3104,33 @@ class AppLocalizationsLt extends AppLocalizations {
 
   @override
   String get groupSearchContactsHint => 'Ieškoti kontaktų…';
+
+  @override
+  String get systemActorYou => 'Jūs';
+
+  @override
+  String get systemActorPeer => 'Pašnekovas';
+
+  @override
+  String systemTtlEnabled(String actor, String duration) {
+    return '$actor įjungė nykstančias žinutes: $duration';
+  }
+
+  @override
+  String systemTtlDisabled(String actor) {
+    return '$actor išjungė nykstančias žinutes';
+  }
+
+  @override
+  String get menuClearChatHistory => 'Išvalyti pokalbio istoriją';
+
+  @override
+  String get clearChatTitle => 'Išvalyti pokalbio istoriją?';
+
+  @override
+  String get clearChatBody =>
+      'Visos žinutės šiame pokalbyje bus ištrintos iš šio įrenginio. Kitas asmuo išsaugos savo kopiją.';
+
+  @override
+  String get clearChatAction => 'Išvalyti';
 }

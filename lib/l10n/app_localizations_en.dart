@@ -3070,4 +3070,33 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get groupSearchContactsHint => 'Search contacts…';
+
+  @override
+  String get systemActorYou => 'You';
+
+  @override
+  String get systemActorPeer => 'Peer';
+
+  @override
+  String systemTtlEnabled(String actor, String duration) {
+    return '$actor enabled disappearing messages: $duration';
+  }
+
+  @override
+  String systemTtlDisabled(String actor) {
+    return '$actor disabled disappearing messages';
+  }
+
+  @override
+  String get menuClearChatHistory => 'Clear chat history';
+
+  @override
+  String get clearChatTitle => 'Clear chat history?';
+
+  @override
+  String get clearChatBody =>
+      'All messages in this chat will be deleted from this device. The other person will keep their copy.';
+
+  @override
+  String get clearChatAction => 'Clear';
 }

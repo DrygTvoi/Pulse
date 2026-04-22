@@ -916,5 +916,13 @@
   "pulseDismiss": "Tutup",
   "pulseHide7Days": "Sembunyikan 7 hari",
   "pulseNeverAskAgain": "Jangan tanya lagi",
-  "groupSearchContactsHint": "Cari kontak…"
+  "groupSearchContactsHint": "Cari kontak…",
+  "systemActorYou": "Kamu",
+  "systemActorPeer": "Kontak",
+  "systemTtlEnabled": "{actor} mengaktifkan pesan menghilang: {duration}",
+  "systemTtlDisabled": "{actor} menonaktifkan pesan menghilang",
+  "menuClearChatHistory": "Hapus riwayat obrolan",
+  "clearChatTitle": "Hapus riwayat obrolan?",
+  "clearChatBody": "Semua pesan dalam obrolan ini akan dihapus dari perangkat ini. Orang lain akan menyimpan salinannya.",
+  "clearChatAction": "Hapus"
 }
