@@ -3160,4 +3160,46 @@ class AppLocalizationsCa extends AppLocalizations {
 
   @override
   String get clearChatAction => 'Esborra';
+
+  @override
+  String systemGroupRenamed(String actor, String name) {
+    return '$actor ha canviat el nom del grup a «$name»';
+  }
+
+  @override
+  String systemGroupAvatarChanged(String actor) {
+    return '$actor ha canviat la foto del grup';
+  }
+
+  @override
+  String systemGroupMetaChanged(String actor, String name) {
+    return '$actor ha canviat el nom del grup a «$name» i la foto';
+  }
+
+  @override
+  String get profileInviteLink => 'Enllaç d\'invitació';
+
+  @override
+  String get profileInviteLinkSubtitle => 'Qualsevol amb l\'enllaç pot unir-se';
+
+  @override
+  String get profileInviteLinkCopied => 'Enllaç d\'invitació copiat';
+
+  @override
+  String get groupInviteLinkTitle => 'Unir-te al grup?';
+
+  @override
+  String groupInviteLinkBody(String name, int count) {
+    return 'Has estat convidat a unir-te a «$name» ($count membres).';
+  }
+
+  @override
+  String get groupInviteLinkJoin => 'Unir-se';
+
+  @override
+  String get drawerJoinGroupByLink => 'Unir-te al grup per enllaç';
+
+  @override
+  String get drawerJoinGroupByLinkInvalid =>
+      'Això no sembla un enllaç d\'invitació de Pulse';
 }

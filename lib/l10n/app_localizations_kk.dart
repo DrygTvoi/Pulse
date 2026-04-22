@@ -3122,4 +3122,47 @@ class AppLocalizationsKk extends AppLocalizations {
 
   @override
   String get clearChatAction => 'Тазалау';
+
+  @override
+  String systemGroupRenamed(String actor, String name) {
+    return '$actor топтың атын «$name» деп өзгертті';
+  }
+
+  @override
+  String systemGroupAvatarChanged(String actor) {
+    return '$actor топтың суретін өзгертті';
+  }
+
+  @override
+  String systemGroupMetaChanged(String actor, String name) {
+    return '$actor топтың атын «$name» деп өзгертті және суретін де өзгертті';
+  }
+
+  @override
+  String get profileInviteLink => 'Шақыру сілтемесі';
+
+  @override
+  String get profileInviteLinkSubtitle =>
+      'Сілтемесі бар кез келген адам қосыла алады';
+
+  @override
+  String get profileInviteLinkCopied => 'Шақыру сілтемесі көшірілді';
+
+  @override
+  String get groupInviteLinkTitle => 'Топқа қосылу керек пе?';
+
+  @override
+  String groupInviteLinkBody(String name, int count) {
+    return 'Сізді «$name» тобына шақырды ($count мүше).';
+  }
+
+  @override
+  String get groupInviteLinkJoin => 'Қосылу';
+
+  @override
+  String get drawerJoinGroupByLink => 'Сілтеме арқылы топқа қосылу';
+
+  @override
+  String get drawerJoinGroupByLinkInvalid =>
+      'Бұл Pulse шақыру сілтемесіне ұқсамайды';
 }

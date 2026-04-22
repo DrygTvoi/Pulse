@@ -3146,4 +3146,47 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String get clearChatAction => 'Διαγραφή';
+
+  @override
+  String systemGroupRenamed(String actor, String name) {
+    return '$actor μετονόμασε την ομάδα σε «$name»';
+  }
+
+  @override
+  String systemGroupAvatarChanged(String actor) {
+    return '$actor άλλαξε τη φωτογραφία της ομάδας';
+  }
+
+  @override
+  String systemGroupMetaChanged(String actor, String name) {
+    return '$actor μετονόμασε την ομάδα σε «$name» και άλλαξε τη φωτογραφία';
+  }
+
+  @override
+  String get profileInviteLink => 'Σύνδεσμος πρόσκλησης';
+
+  @override
+  String get profileInviteLinkSubtitle =>
+      'Όποιος έχει τον σύνδεσμο μπορεί να ενταχθεί';
+
+  @override
+  String get profileInviteLinkCopied => 'Ο σύνδεσμος πρόσκλησης αντιγράφηκε';
+
+  @override
+  String get groupInviteLinkTitle => 'Συμμετοχή στην ομάδα;';
+
+  @override
+  String groupInviteLinkBody(String name, int count) {
+    return 'Έχετε προσκληθεί στην «$name» ($count μέλη).';
+  }
+
+  @override
+  String get groupInviteLinkJoin => 'Συμμετοχή';
+
+  @override
+  String get drawerJoinGroupByLink => 'Συμμετοχή σε ομάδα μέσω συνδέσμου';
+
+  @override
+  String get drawerJoinGroupByLinkInvalid =>
+      'Αυτό δεν μοιάζει με σύνδεσμο πρόσκλησης Pulse';
 }

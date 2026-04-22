@@ -924,5 +924,16 @@
   "menuClearChatHistory": "የውይይት ታሪክን አጽዳ",
   "clearChatTitle": "የውይይት ታሪክ ይጽዳ?",
   "clearChatBody": "በዚህ ውይይት ውስጥ ያሉ ሁሉም መልዕክቶች ከዚህ መሣሪያ ይሰረዛሉ። ሌላው ሰው የራሳቸውን ቅጂ ያቆያሉ።",
-  "clearChatAction": "አጽዳ"
+  "clearChatAction": "አጽዳ",
+  "systemGroupRenamed": "{actor} የቡድን ስም ወደ «{name}» ለውጧል",
+  "systemGroupAvatarChanged": "{actor} የቡድን ፎቶ ቀይሯል",
+  "systemGroupMetaChanged": "{actor} የቡድን ስም ወደ «{name}» ቀይሮ ፎቶውንም ቀይሯል",
+  "profileInviteLink": "የግብዣ አገናኝ",
+  "profileInviteLinkSubtitle": "አገናኙ ያለው ማንም ሊቀላቀል ይችላል",
+  "profileInviteLinkCopied": "የግብዣ አገናኝ ተቀድቷል",
+  "groupInviteLinkTitle": "ቡድኑን ይቀላቀሉ?",
+  "groupInviteLinkBody": "«{name}»ን እንዲቀላቀሉ ተጋብዘዋል ({count} አባላት)።",
+  "groupInviteLinkJoin": "ተቀላቀል",
+  "drawerJoinGroupByLink": "በአገናኝ ቡድኑን ይቀላቀሉ",
+  "drawerJoinGroupByLinkInvalid": "ይህ የ Pulse ግብዣ አገናኝ አይመስልም"
 }

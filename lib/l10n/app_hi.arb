@@ -924,5 +924,16 @@
   "menuClearChatHistory": "चैट इतिहास साफ़ करें",
   "clearChatTitle": "चैट इतिहास साफ़ करें?",
   "clearChatBody": "इस चैट के सभी संदेश इस डिवाइस से हटा दिए जाएंगे। दूसरा व्यक्ति अपनी प्रति बनाए रखेगा।",
-  "clearChatAction": "साफ़ करें"
+  "clearChatAction": "साफ़ करें",
+  "systemGroupRenamed": "{actor} ने समूह का नाम बदलकर \"{name}\" कर दिया",
+  "systemGroupAvatarChanged": "{actor} ने समूह की फोटो बदली",
+  "systemGroupMetaChanged": "{actor} ने समूह का नाम बदलकर \"{name}\" किया और फोटो बदली",
+  "profileInviteLink": "आमंत्रण लिंक",
+  "profileInviteLinkSubtitle": "लिंक वाला कोई भी व्यक्ति शामिल हो सकता है",
+  "profileInviteLinkCopied": "आमंत्रण लिंक कॉपी किया गया",
+  "groupInviteLinkTitle": "समूह में शामिल हों?",
+  "groupInviteLinkBody": "आपको \"{name}\" में आमंत्रित किया गया है ({count} सदस्य)।",
+  "groupInviteLinkJoin": "शामिल हों",
+  "drawerJoinGroupByLink": "लिंक से समूह में शामिल हों",
+  "drawerJoinGroupByLinkInvalid": "यह Pulse आमंत्रण लिंक जैसा नहीं लगता"
 }

@@ -3057,4 +3057,45 @@ class AppLocalizationsAm extends AppLocalizations {
 
   @override
   String get clearChatAction => 'አጽዳ';
+
+  @override
+  String systemGroupRenamed(String actor, String name) {
+    return '$actor የቡድን ስም ወደ «$name» ለውጧል';
+  }
+
+  @override
+  String systemGroupAvatarChanged(String actor) {
+    return '$actor የቡድን ፎቶ ቀይሯል';
+  }
+
+  @override
+  String systemGroupMetaChanged(String actor, String name) {
+    return '$actor የቡድን ስም ወደ «$name» ቀይሮ ፎቶውንም ቀይሯል';
+  }
+
+  @override
+  String get profileInviteLink => 'የግብዣ አገናኝ';
+
+  @override
+  String get profileInviteLinkSubtitle => 'አገናኙ ያለው ማንም ሊቀላቀል ይችላል';
+
+  @override
+  String get profileInviteLinkCopied => 'የግብዣ አገናኝ ተቀድቷል';
+
+  @override
+  String get groupInviteLinkTitle => 'ቡድኑን ይቀላቀሉ?';
+
+  @override
+  String groupInviteLinkBody(String name, int count) {
+    return '«$name»ን እንዲቀላቀሉ ተጋብዘዋል ($count አባላት)።';
+  }
+
+  @override
+  String get groupInviteLinkJoin => 'ተቀላቀል';
+
+  @override
+  String get drawerJoinGroupByLink => 'በአገናኝ ቡድኑን ይቀላቀሉ';
+
+  @override
+  String get drawerJoinGroupByLinkInvalid => 'ይህ የ Pulse ግብዣ አገናኝ አይመስልም';
 }

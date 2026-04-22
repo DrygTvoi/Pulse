@@ -22,6 +22,11 @@ import 'call_record_bubble.dart';
 
 final _urlRegex = RegExp(r'https?://[^\s<>"]+[^\s<>".!?,)]', caseSensitive: false);
 
+/// Matches `@username` tokens — letters/digits/underscore/dash/dot, must start
+/// with a letter or digit (no `@.` or `@-`). Loose enough to cover human
+/// nicknames; URL-safe so it doesn't accidentally swallow URL fragments.
+final _mentionRegex = RegExp(r'@([A-Za-z0-9][A-Za-z0-9_.\-]{0,31})');
+
 // ─── LRU parse cache — avoids re-parsing on every widget rebuild ─────────────
 
 class _ParseResult {
@@ -455,11 +460,18 @@ class MessageBubble extends StatelessWidget {
       return Text(text, style: baseStyle);
     }
 
-    // Fast path: pure plain text. Skip span construction entirely; defer to
-    // existing URL-only path or a bare Text/SelectableText.
+    // Resolve our display name once so the inline renderer can flag
+    // self-mentions (`@mike`) without doing this lookup per-span.
+    final selfDisplayName = (selfId != null && contactIndex != null)
+        ? contactIndex![selfId!]?.name
+        : null;
+
+    // Fast path: pure plain text without any URL or @mention. Skip span
+    // construction entirely. We can't take this path if the text contains
+    // either a URL or a mention because both need styled spans.
     if (segments.length == 1 && segments[0].isPlain) {
-      final matches = _urlRegex.allMatches(text).toList();
-      if (matches.isEmpty) {
+      final hasInline = _urlRegex.hasMatch(text) || _mentionRegex.hasMatch(text);
+      if (!hasInline) {
         if (PlatformUtils.isDesktop) {
           return SelectableText(text,
               style: baseStyle,
@@ -467,11 +479,8 @@ class MessageBubble extends StatelessWidget {
         }
         return Text(text, style: baseStyle);
       }
-      return _LinkedText(
-          text: text,
-          matches: matches,
-          baseStyle: baseStyle,
-          isDesktop: PlatformUtils.isDesktop);
+      // Has inline tokens — fall through to _MarkdownInline which handles
+      // both URLs and mentions in one combined pass.
     }
 
     // Code blocks need their own Container (bg + padding + rounded corners) so
@@ -481,13 +490,15 @@ class MessageBubble extends StatelessWidget {
       return _MarkdownColumn(
           segments: segments,
           baseStyle: baseStyle,
-          isDesktop: PlatformUtils.isDesktop);
+          isDesktop: PlatformUtils.isDesktop,
+          selfDisplayName: selfDisplayName);
     }
 
     return _MarkdownInline(
         segments: segments,
         baseStyle: baseStyle,
-        isDesktop: PlatformUtils.isDesktop);
+        isDesktop: PlatformUtils.isDesktop,
+        selfDisplayName: selfDisplayName);
   }
 
   static void _confirmAndLaunchUrl(BuildContext context, String url) {
@@ -893,11 +904,15 @@ class _MarkdownInline extends StatefulWidget {
   final List<MdSegment> segments;
   final TextStyle baseStyle;
   final bool isDesktop;
+  /// Local user's display name, used to detect `@me` self-mentions for
+  /// highlight + (later) notification-priority bumping. May be null.
+  final String? selfDisplayName;
 
   const _MarkdownInline({
     required this.segments,
     required this.baseStyle,
     required this.isDesktop,
+    this.selfDisplayName,
   });
 
   @override
@@ -955,42 +970,109 @@ class _MarkdownInlineState extends State<_MarkdownInline> {
       decoration: seg.strike ? TextDecoration.lineThrough : null,
     );
 
-    // Run URL detection inside this segment's text. URLs keep the segment's
-    // emphasis (bold/italic/strike) but get link colour + tap.
-    final matches = _urlRegex.allMatches(seg.text).toList();
-    if (matches.isEmpty) {
+    // Combined URL + @mention scan. Both styles take precedence over plain
+    // text but URLs win on overlap (a URL like https://x.com/@user contains
+    // an @ that should not become its own mention span).
+    final inlineMatches = _findInlineSpans(seg.text);
+    if (inlineMatches.isEmpty) {
       out.add(TextSpan(text: seg.text, style: styled));
       return;
     }
     int last = 0;
-    for (final m in matches) {
+    for (final m in inlineMatches) {
       if (m.start > last) {
         out.add(TextSpan(text: seg.text.substring(last, m.start), style: styled));
       }
-      final url = m.group(0)!;
-      final recognizer = TapGestureRecognizer()
-        ..onTap = () => MessageBubble._confirmAndLaunchUrl(context, url);
-      _recognizers.add(recognizer);
-      out.add(TextSpan(
-        text: url,
-        style: styled.copyWith(
-          color: AppTheme.info,
-          decoration: seg.strike
-              ? TextDecoration.combine(const [
-                  TextDecoration.underline,
-                  TextDecoration.lineThrough,
-                ])
-              : TextDecoration.underline,
-          decorationColor: AppTheme.info,
-        ),
-        recognizer: recognizer,
-      ));
+      final tokenText = m.text;
+      if (m.kind == 'url') {
+        final recognizer = TapGestureRecognizer()
+          ..onTap = () => MessageBubble._confirmAndLaunchUrl(context, tokenText);
+        _recognizers.add(recognizer);
+        out.add(TextSpan(
+          text: tokenText,
+          style: styled.copyWith(
+            color: AppTheme.info,
+            decoration: seg.strike
+                ? TextDecoration.combine(const [
+                    TextDecoration.underline,
+                    TextDecoration.lineThrough,
+                  ])
+                : TextDecoration.underline,
+            decorationColor: AppTheme.info,
+          ),
+          recognizer: recognizer,
+        ));
+      } else {
+        // Mention: primary-colour text, no underline. No tap action yet — a
+        // future change can wire this to "open profile of @user". Self-
+        // mentions get a faint background tint so the user notices them at
+        // a glance even in a long bubble.
+        final isSelfMention = _isSelfMention(tokenText);
+        out.add(TextSpan(
+          text: tokenText,
+          style: styled.copyWith(
+            color: AppTheme.primary,
+            fontWeight: FontWeight.w600,
+            backgroundColor: isSelfMention
+                ? AppTheme.primary.withValues(alpha: 0.18)
+                : null,
+          ),
+        ));
+      }
       last = m.end;
     }
     if (last < seg.text.length) {
       out.add(TextSpan(text: seg.text.substring(last), style: styled));
     }
   }
+
+  /// Returns true if `@token` refers to the local user. Token includes the
+  /// leading `@`; comparison is case-insensitive against
+  /// `widget.selfDisplayName`.
+  bool _isSelfMention(String token) {
+    final myName = widget.selfDisplayName?.trim();
+    if (myName == null || myName.isEmpty) return false;
+    final stripped = token.startsWith('@') ? token.substring(1) : token;
+    return stripped.toLowerCase() == myName.toLowerCase();
+  }
+}
+
+class _InlineMatch {
+  final int start;
+  final int end;
+  final String kind; // 'url' | 'mention'
+  final String text;
+  const _InlineMatch(this.start, this.end, this.kind, this.text);
+}
+
+/// Find URL and @mention matches in [text], ordered by position with overlaps
+/// resolved in URL's favour. The combined sweep keeps the renderer to a
+/// single pass.
+List<_InlineMatch> _findInlineSpans(String text) {
+  final all = <_InlineMatch>[];
+  for (final m in _urlRegex.allMatches(text)) {
+    all.add(_InlineMatch(m.start, m.end, 'url', m.group(0)!));
+  }
+  for (final m in _mentionRegex.allMatches(text)) {
+    all.add(_InlineMatch(m.start, m.end, 'mention', m.group(0)!));
+  }
+  all.sort((a, b) {
+    final c = a.start.compareTo(b.start);
+    if (c != 0) return c;
+    // Same start? URL wins (it's longer and more specific).
+    if (a.kind == 'url' && b.kind != 'url') return -1;
+    if (b.kind == 'url' && a.kind != 'url') return 1;
+    return 0;
+  });
+  // Drop matches that overlap a previously-accepted one.
+  final out = <_InlineMatch>[];
+  int lastEnd = 0;
+  for (final m in all) {
+    if (m.start < lastEnd) continue;
+    out.add(m);
+    lastEnd = m.end;
+  }
+  return out;
 }
 
 /// Renders a message containing one or more ```code blocks```. Splits the
@@ -1000,11 +1082,13 @@ class _MarkdownColumn extends StatelessWidget {
   final List<MdSegment> segments;
   final TextStyle baseStyle;
   final bool isDesktop;
+  final String? selfDisplayName;
 
   const _MarkdownColumn({
     required this.segments,
     required this.baseStyle,
     required this.isDesktop,
+    this.selfDisplayName,
   });
 
   @override
@@ -1020,6 +1104,7 @@ class _MarkdownColumn extends StatelessWidget {
           segments: run,
           baseStyle: baseStyle,
           isDesktop: isDesktop,
+          selfDisplayName: selfDisplayName,
         ),
       ));
       run = [];
@@ -1126,17 +1211,28 @@ String _formatSystemText(BuildContext context, String payload,
   } catch (_) {}
   if (json == null) return payload;
   final sys = json['_sys'] as String? ?? '';
+  final by = json['by'] as String? ?? '';
+  final isSelf = by.isEmpty || by == 'self' || (selfId != null && by == selfId);
+  final actor = isSelf
+      ? context.l10n.systemActorYou
+      : (contactIndex?[by]?.name ?? context.l10n.systemActorPeer);
+  final l10n = context.l10n;
   if (sys == 'ttl_changed') {
     final seconds = (json['seconds'] as num?)?.toInt() ?? 0;
-    final by = json['by'] as String? ?? '';
-    final isSelf = by.isEmpty || by == 'self' || (selfId != null && by == selfId);
-    final actor = isSelf
-        ? context.l10n.systemActorYou
-        : (contactIndex?[by]?.name ?? context.l10n.systemActorPeer);
-    final l10n = context.l10n;
     if (seconds <= 0) return l10n.systemTtlDisabled(actor);
     final duration = _formatTtlDuration(context, seconds);
     return l10n.systemTtlEnabled(actor, duration);
+  }
+  if (sys == 'group_renamed') {
+    final newName = json['new'] as String? ?? '';
+    return l10n.systemGroupRenamed(actor, newName);
+  }
+  if (sys == 'group_avatar_changed') {
+    return l10n.systemGroupAvatarChanged(actor);
+  }
+  if (sys == 'group_meta_changed') {
+    final newName = json['new'] as String? ?? '';
+    return l10n.systemGroupMetaChanged(actor, newName);
   }
   return payload;
 }

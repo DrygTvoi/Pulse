@@ -24,6 +24,7 @@ import '../widgets/chat_app_bar.dart';
 import '../widgets/pulse_server_suggestion_banner.dart';
 import '../widgets/connection_banner.dart';
 import '../widgets/emoji_picker_panel.dart';
+import '../widgets/avatar_widget.dart';
 import '../services/video_service.dart';
 import '../services/video_note_service.dart';
 import 'video_note_screen.dart';
@@ -348,11 +349,122 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   void _onTyping() {
+    _updateMentionCandidates();
     if (_controller.text.isEmpty) return;
     _typingDebounce?.cancel();
     _typingDebounce = Timer(const Duration(milliseconds: 600), () {
       ChatController().sendTypingSignal(_contact);
     });
+  }
+
+  // ── @mention autocomplete (group chats only) ─────────────────────────────
+
+  /// Currently visible mention candidates. Empty list = picker hidden.
+  List<Contact> _mentionCandidates = const [];
+  /// Position in the controller text where the active `@token` starts. Used
+  /// to replace the typed prefix with the chosen `@username` when the user
+  /// taps a candidate.
+  int _mentionStart = -1;
+
+  /// Recompute mention candidates from the controller's current cursor
+  /// position. Detects `@prefix` immediately preceding the cursor (the
+  /// start-of-string or whitespace boundary). Empty result hides the picker.
+  void _updateMentionCandidates() {
+    if (!_contact.isGroup) {
+      if (_mentionCandidates.isNotEmpty) {
+        setState(() {
+          _mentionCandidates = const [];
+          _mentionStart = -1;
+        });
+      }
+      return;
+    }
+    final text = _controller.text;
+    final caret = _controller.selection.baseOffset;
+    if (caret <= 0 || caret > text.length) {
+      _hideMentionPicker();
+      return;
+    }
+    // Walk backwards from caret looking for `@` that begins this token.
+    int i = caret - 1;
+    while (i >= 0) {
+      final c = text[i];
+      if (c == '@') break;
+      if (c == ' ' || c == '\n' || c == '\t') {
+        _hideMentionPicker();
+        return;
+      }
+      i--;
+    }
+    if (i < 0) {
+      _hideMentionPicker();
+      return;
+    }
+    // `@` must be at start-of-string or follow whitespace.
+    if (i > 0) {
+      final prev = text[i - 1];
+      if (prev != ' ' && prev != '\n' && prev != '\t') {
+        _hideMentionPicker();
+        return;
+      }
+    }
+    final prefix = text.substring(i + 1, caret).toLowerCase();
+    final repo = context.read<IContactRepository>();
+    final myUuid = context.read<ChatController>().identity?.id ?? '';
+    final memberIds =
+        _contact.members.where((id) => id != myUuid).toSet();
+    final candidates = <Contact>[];
+    for (final c in repo.contacts) {
+      if (!memberIds.contains(c.id)) continue;
+      if (prefix.isEmpty || c.name.toLowerCase().startsWith(prefix)) {
+        candidates.add(c);
+      }
+    }
+    candidates.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+    if (candidates.length > 8) {
+      candidates.removeRange(8, candidates.length);
+    }
+    if (candidates.isEmpty) {
+      _hideMentionPicker();
+      return;
+    }
+    setState(() {
+      _mentionCandidates = candidates;
+      _mentionStart = i;
+    });
+  }
+
+  void _hideMentionPicker() {
+    if (_mentionCandidates.isEmpty && _mentionStart < 0) return;
+    setState(() {
+      _mentionCandidates = const [];
+      _mentionStart = -1;
+    });
+  }
+
+  /// Replace the typed `@prefix` with `@<chosen.name> ` and dismiss the
+  /// picker. Cursor lands after the inserted space so the user can keep
+  /// typing the next word.
+  void _onMentionSelected(Contact chosen) {
+    if (_mentionStart < 0) return;
+    final text = _controller.text;
+    final caret = _controller.selection.baseOffset;
+    if (caret < _mentionStart) {
+      _hideMentionPicker();
+      return;
+    }
+    // Mention text uses the contact's display name with whitespace
+    // collapsed to underscores so the regex on the receiving side picks
+    // it up as a single token.
+    final mentionText =
+        '@${chosen.name.replaceAll(RegExp(r'\s+'), "_")} ';
+    final newText = text.replaceRange(_mentionStart, caret, mentionText);
+    final newCursor = _mentionStart + mentionText.length;
+    _controller.value = TextEditingValue(
+      text: newText,
+      selection: TextSelection.collapsed(offset: newCursor),
+    );
+    _hideMentionPicker();
   }
 
   void _onScroll() {
@@ -1360,6 +1472,7 @@ class _ChatScreenState extends State<ChatScreen> {
           },
         ),
         if (!_contact.isPending) ...[
+          if (_mentionCandidates.isNotEmpty) _buildMentionPicker(),
           MessageInputBar(
             controller: _controller,
             focusNode: _inputFocusNode,
@@ -1397,6 +1510,61 @@ class _ChatScreenState extends State<ChatScreen> {
       ])),
         if (_infoPanelOpen && widget.embedded) _buildInfoPanel(),
       ]),
+    );
+  }
+
+  /// Telegram-style horizontal-ish member picker shown above the input bar
+  /// while the user is typing an `@mention`. Only members of the current
+  /// group are listed (excluding the local user); list is filtered by the
+  /// already-typed prefix and capped at 8 entries.
+  Widget _buildMentionPicker() {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTheme.surface,
+        border: Border(
+          top: BorderSide(color: AppTheme.textSecondary.withValues(alpha: 0.12)),
+        ),
+      ),
+      constraints: const BoxConstraints(maxHeight: 200),
+      child: ListView.builder(
+        shrinkWrap: true,
+        itemCount: _mentionCandidates.length,
+        itemBuilder: (_, idx) {
+          final c = _mentionCandidates[idx];
+          return InkWell(
+            onTap: () => _onMentionSelected(c),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                  horizontal: DesignTokens.spacing14,
+                  vertical: DesignTokens.spacing8),
+              child: Row(children: [
+                AvatarWidget(
+                  size: DesignTokens.avatarXs,
+                  name: c.name,
+                  imageBytes: null,
+                ),
+                const SizedBox(width: DesignTokens.spacing12),
+                Expanded(
+                  child: Text(
+                    c.name,
+                    style: GoogleFonts.inter(
+                      color: AppTheme.textPrimary,
+                      fontSize: DesignTokens.fontInput,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                Text('@',
+                    style: GoogleFonts.inter(
+                      color: AppTheme.textSecondary,
+                      fontSize: DesignTokens.fontMd,
+                    )),
+              ]),
+            ),
+          );
+        },
+      ),
     );
   }
 

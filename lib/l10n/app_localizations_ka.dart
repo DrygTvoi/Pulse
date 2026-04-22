@@ -3126,4 +3126,46 @@ class AppLocalizationsKa extends AppLocalizations {
 
   @override
   String get clearChatAction => 'გასუფთავება';
+
+  @override
+  String systemGroupRenamed(String actor, String name) {
+    return '$actor-მა ჯგუფი დაარქვა „$name\"';
+  }
+
+  @override
+  String systemGroupAvatarChanged(String actor) {
+    return '$actor-მა შეცვალა ჯგუფის ფოტო';
+  }
+
+  @override
+  String systemGroupMetaChanged(String actor, String name) {
+    return '$actor-მა ჯგუფი დაარქვა „$name\" და შეცვალა ფოტო';
+  }
+
+  @override
+  String get profileInviteLink => 'მოსაწვევი ბმული';
+
+  @override
+  String get profileInviteLinkSubtitle =>
+      'ნებისმიერ ბმულის მქონე შეუძლია შემოუერთდეს';
+
+  @override
+  String get profileInviteLinkCopied => 'მოსაწვევი ბმული დაკოპირდა';
+
+  @override
+  String get groupInviteLinkTitle => 'შეუერთდე ჯგუფს?';
+
+  @override
+  String groupInviteLinkBody(String name, int count) {
+    return 'მოწვეული ხართ „$name\" ჯგუფში ($count წევრი).';
+  }
+
+  @override
+  String get groupInviteLinkJoin => 'შემოერთება';
+
+  @override
+  String get drawerJoinGroupByLink => 'ბმულით ჯგუფში შესვლა';
+
+  @override
+  String get drawerJoinGroupByLinkInvalid => 'ეს არ ჰგავს Pulse მოსაწვევ ბმულს';
 }

@@ -924,5 +924,16 @@
   "menuClearChatHistory": "Șterge istoricul conversației",
   "clearChatTitle": "Ștergi istoricul conversației?",
   "clearChatBody": "Toate mesajele din această conversație vor fi șterse de pe acest dispozitiv. Cealaltă persoană își va păstra copia.",
-  "clearChatAction": "Șterge"
+  "clearChatAction": "Șterge",
+  "systemGroupRenamed": "{actor} a redenumit grupul în „{name}\"",
+  "systemGroupAvatarChanged": "{actor} a schimbat fotografia grupului",
+  "systemGroupMetaChanged": "{actor} a redenumit grupul în „{name}\" și a schimbat fotografia",
+  "profileInviteLink": "Link de invitație",
+  "profileInviteLinkSubtitle": "Oricine are linkul se poate alătura",
+  "profileInviteLinkCopied": "Link de invitație copiat",
+  "groupInviteLinkTitle": "Te alături grupului?",
+  "groupInviteLinkBody": "Ai fost invitat în „{name}\" ({count} membri).",
+  "groupInviteLinkJoin": "Alătură-te",
+  "drawerJoinGroupByLink": "Alătură-te grupului prin link",
+  "drawerJoinGroupByLinkInvalid": "Acela nu pare un link de invitație Pulse"
 }

@@ -924,5 +924,16 @@
   "menuClearChatHistory": "Cancella cronologia chat",
   "clearChatTitle": "Cancellare la cronologia della chat?",
   "clearChatBody": "Tutti i messaggi di questa chat saranno eliminati da questo dispositivo. L’altra persona manterrà la sua copia.",
-  "clearChatAction": "Cancella"
+  "clearChatAction": "Cancella",
+  "systemGroupRenamed": "{actor} ha rinominato il gruppo in «{name}»",
+  "systemGroupAvatarChanged": "{actor} ha cambiato la foto del gruppo",
+  "systemGroupMetaChanged": "{actor} ha rinominato il gruppo in «{name}» e cambiato la foto",
+  "profileInviteLink": "Link d'invito",
+  "profileInviteLinkSubtitle": "Chiunque abbia il link può unirsi",
+  "profileInviteLinkCopied": "Link d'invito copiato",
+  "groupInviteLinkTitle": "Unirti al gruppo?",
+  "groupInviteLinkBody": "Sei stato invitato a unirti a «{name}» ({count} membri).",
+  "groupInviteLinkJoin": "Unisciti",
+  "drawerJoinGroupByLink": "Unisciti al gruppo tramite link",
+  "drawerJoinGroupByLinkInvalid": "Non sembra un link d'invito Pulse"
 }

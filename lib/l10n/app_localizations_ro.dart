@@ -3128,4 +3128,46 @@ class AppLocalizationsRo extends AppLocalizations {
 
   @override
   String get clearChatAction => 'Șterge';
+
+  @override
+  String systemGroupRenamed(String actor, String name) {
+    return '$actor a redenumit grupul în „$name\"';
+  }
+
+  @override
+  String systemGroupAvatarChanged(String actor) {
+    return '$actor a schimbat fotografia grupului';
+  }
+
+  @override
+  String systemGroupMetaChanged(String actor, String name) {
+    return '$actor a redenumit grupul în „$name\" și a schimbat fotografia';
+  }
+
+  @override
+  String get profileInviteLink => 'Link de invitație';
+
+  @override
+  String get profileInviteLinkSubtitle => 'Oricine are linkul se poate alătura';
+
+  @override
+  String get profileInviteLinkCopied => 'Link de invitație copiat';
+
+  @override
+  String get groupInviteLinkTitle => 'Te alături grupului?';
+
+  @override
+  String groupInviteLinkBody(String name, int count) {
+    return 'Ai fost invitat în „$name\" ($count membri).';
+  }
+
+  @override
+  String get groupInviteLinkJoin => 'Alătură-te';
+
+  @override
+  String get drawerJoinGroupByLink => 'Alătură-te grupului prin link';
+
+  @override
+  String get drawerJoinGroupByLinkInvalid =>
+      'Acela nu pare un link de invitație Pulse';
 }

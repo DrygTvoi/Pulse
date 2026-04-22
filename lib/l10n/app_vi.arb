@@ -924,5 +924,16 @@
   "menuClearChatHistory": "Xoá lịch sử trò chuyện",
   "clearChatTitle": "Xoá lịch sử trò chuyện?",
   "clearChatBody": "Tất cả tin nhắn trong cuộc trò chuyện này sẽ bị xoá khỏi thiết bị này. Người kia sẽ giữ bản sao của họ.",
-  "clearChatAction": "Xoá"
+  "clearChatAction": "Xoá",
+  "systemGroupRenamed": "{actor} đã đổi tên nhóm thành \"{name}\"",
+  "systemGroupAvatarChanged": "{actor} đã thay đổi ảnh nhóm",
+  "systemGroupMetaChanged": "{actor} đã đổi tên nhóm thành \"{name}\" và thay đổi ảnh",
+  "profileInviteLink": "Liên kết mời",
+  "profileInviteLinkSubtitle": "Bất kỳ ai có liên kết đều có thể tham gia",
+  "profileInviteLinkCopied": "Đã sao chép liên kết mời",
+  "groupInviteLinkTitle": "Tham gia nhóm?",
+  "groupInviteLinkBody": "Bạn được mời tham gia \"{name}\" ({count} thành viên).",
+  "groupInviteLinkJoin": "Tham gia",
+  "drawerJoinGroupByLink": "Tham gia nhóm qua liên kết",
+  "drawerJoinGroupByLinkInvalid": "Đây không giống liên kết mời Pulse"
 }

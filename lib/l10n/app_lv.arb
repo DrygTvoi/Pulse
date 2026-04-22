@@ -924,5 +924,16 @@
   "menuClearChatHistory": "Notīrīt sarunas vēsturi",
   "clearChatTitle": "Notīrīt sarunas vēsturi?",
   "clearChatBody": "Visas šīs sarunas ziņas tiks dzēstas no šīs ierīces. Otrs cilvēks saglabās savu kopiju.",
-  "clearChatAction": "Notīrīt"
+  "clearChatAction": "Notīrīt",
+  "systemGroupRenamed": "{actor} pārdēvēja grupu uz „{name}\"",
+  "systemGroupAvatarChanged": "{actor} mainīja grupas attēlu",
+  "systemGroupMetaChanged": "{actor} pārdēvēja grupu uz „{name}\" un mainīja attēlu",
+  "profileInviteLink": "Uzaicinājuma saite",
+  "profileInviteLinkSubtitle": "Ikviens ar saiti var pievienoties",
+  "profileInviteLinkCopied": "Uzaicinājuma saite nokopēta",
+  "groupInviteLinkTitle": "Pievienoties grupai?",
+  "groupInviteLinkBody": "Jūs esat uzaicināts pievienoties „{name}\" ({count} dalībnieki).",
+  "groupInviteLinkJoin": "Pievienoties",
+  "drawerJoinGroupByLink": "Pievienoties grupai pa saiti",
+  "drawerJoinGroupByLinkInvalid": "Tas neizskatās pēc Pulse uzaicinājuma saites"
 }

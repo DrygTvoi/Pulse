@@ -924,5 +924,16 @@
   "menuClearChatHistory": "Մաքրել զրույցի պատմությունը",
   "clearChatTitle": "Մաքրե՞լ զրույցի պատմությունը:",
   "clearChatBody": "Այս զրույցի բոլոր հաղորդագրությունները կջնջվեն այս սարքից։ Մյուս անձը կպահպանի իր պատճենը։",
-  "clearChatAction": "Մաքրել"
+  "clearChatAction": "Մաքրել",
+  "systemGroupRenamed": "{actor}-ը խումբը վերանվանեց «{name}»",
+  "systemGroupAvatarChanged": "{actor}-ը փոխեց խմբի լուսանկարը",
+  "systemGroupMetaChanged": "{actor}-ը խումբը վերանվանեց «{name}» և փոխեց լուսանկարը",
+  "profileInviteLink": "Հրավերի հղում",
+  "profileInviteLinkSubtitle": "Հղումն ունեցող ցանկացած մարդ կարող է միանալ",
+  "profileInviteLinkCopied": "Հրավերի հղումը պատճենվեց",
+  "groupInviteLinkTitle": "Միանա՞լ խմբին:",
+  "groupInviteLinkBody": "Դուք հրավիրված եք «{name}» խմբին ({count} անդամ):",
+  "groupInviteLinkJoin": "Միանալ",
+  "drawerJoinGroupByLink": "Հղման միջոցով միանալ խմբին",
+  "drawerJoinGroupByLinkInvalid": "Սա չի թվում Pulse-ի հրավիրյալ հղում"
 }

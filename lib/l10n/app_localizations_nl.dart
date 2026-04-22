@@ -3123,4 +3123,46 @@ class AppLocalizationsNl extends AppLocalizations {
 
   @override
   String get clearChatAction => 'Wissen';
+
+  @override
+  String systemGroupRenamed(String actor, String name) {
+    return '$actor heeft de groep hernoemd naar \"$name\"';
+  }
+
+  @override
+  String systemGroupAvatarChanged(String actor) {
+    return '$actor heeft de groepsfoto gewijzigd';
+  }
+
+  @override
+  String systemGroupMetaChanged(String actor, String name) {
+    return '$actor heeft de groep hernoemd naar \"$name\" en de foto gewijzigd';
+  }
+
+  @override
+  String get profileInviteLink => 'Uitnodigingslink';
+
+  @override
+  String get profileInviteLinkSubtitle => 'Iedereen met de link kan deelnemen';
+
+  @override
+  String get profileInviteLinkCopied => 'Uitnodigingslink gekopieerd';
+
+  @override
+  String get groupInviteLinkTitle => 'Aan groep deelnemen?';
+
+  @override
+  String groupInviteLinkBody(String name, int count) {
+    return 'Je bent uitgenodigd voor \"$name\" ($count leden).';
+  }
+
+  @override
+  String get groupInviteLinkJoin => 'Deelnemen';
+
+  @override
+  String get drawerJoinGroupByLink => 'Aan groep deelnemen via link';
+
+  @override
+  String get drawerJoinGroupByLinkInvalid =>
+      'Dat lijkt geen Pulse-uitnodigingslink';
 }

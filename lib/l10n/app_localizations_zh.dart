@@ -2983,4 +2983,45 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get clearChatAction => '清空';
+
+  @override
+  String systemGroupRenamed(String actor, String name) {
+    return '$actor 将群组重命名为「$name」';
+  }
+
+  @override
+  String systemGroupAvatarChanged(String actor) {
+    return '$actor 更改了群组照片';
+  }
+
+  @override
+  String systemGroupMetaChanged(String actor, String name) {
+    return '$actor 将群组重命名为「$name」并更改了照片';
+  }
+
+  @override
+  String get profileInviteLink => '邀请链接';
+
+  @override
+  String get profileInviteLinkSubtitle => '任何拥有链接的人都可以加入';
+
+  @override
+  String get profileInviteLinkCopied => '邀请链接已复制';
+
+  @override
+  String get groupInviteLinkTitle => '加入群组？';
+
+  @override
+  String groupInviteLinkBody(String name, int count) {
+    return '您被邀请加入「$name」（$count 位成员）。';
+  }
+
+  @override
+  String get groupInviteLinkJoin => '加入';
+
+  @override
+  String get drawerJoinGroupByLink => '通过链接加入群组';
+
+  @override
+  String get drawerJoinGroupByLinkInvalid => '这看起来不像 Pulse 邀请链接';
 }

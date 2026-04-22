@@ -3109,4 +3109,46 @@ class AppLocalizationsNo extends AppLocalizations {
 
   @override
   String get clearChatAction => 'Tøm';
+
+  @override
+  String systemGroupRenamed(String actor, String name) {
+    return '$actor ga gruppen nytt navn \"$name\"';
+  }
+
+  @override
+  String systemGroupAvatarChanged(String actor) {
+    return '$actor endret gruppebildet';
+  }
+
+  @override
+  String systemGroupMetaChanged(String actor, String name) {
+    return '$actor ga gruppen nytt navn \"$name\" og endret bildet';
+  }
+
+  @override
+  String get profileInviteLink => 'Invitasjonslenke';
+
+  @override
+  String get profileInviteLinkSubtitle => 'Alle med lenken kan bli med';
+
+  @override
+  String get profileInviteLinkCopied => 'Invitasjonslenke kopiert';
+
+  @override
+  String get groupInviteLinkTitle => 'Bli med i gruppen?';
+
+  @override
+  String groupInviteLinkBody(String name, int count) {
+    return 'Du er invitert til å bli med i \"$name\" ($count medlemmer).';
+  }
+
+  @override
+  String get groupInviteLinkJoin => 'Bli med';
+
+  @override
+  String get drawerJoinGroupByLink => 'Bli med i gruppen via lenke';
+
+  @override
+  String get drawerJoinGroupByLinkInvalid =>
+      'Det ser ikke ut som en Pulse-invitasjonslenke';
 }

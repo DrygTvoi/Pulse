@@ -924,5 +924,16 @@
   "menuClearChatHistory": "Tyhjennä keskusteluhistoria",
   "clearChatTitle": "Tyhjennetäänkö keskusteluhistoria?",
   "clearChatBody": "Kaikki tämän keskustelun viestit poistetaan tältä laitteelta. Toinen osapuoli säilyttää oman kopionsa.",
-  "clearChatAction": "Tyhjennä"
+  "clearChatAction": "Tyhjennä",
+  "systemGroupRenamed": "{actor} nimesi ryhmän uudelleen nimellä \"{name}\"",
+  "systemGroupAvatarChanged": "{actor} vaihtoi ryhmän kuvan",
+  "systemGroupMetaChanged": "{actor} nimesi ryhmän uudelleen nimellä \"{name}\" ja vaihtoi kuvan",
+  "profileInviteLink": "Kutsulinkki",
+  "profileInviteLinkSubtitle": "Kuka tahansa, jolla on linkki, voi liittyä",
+  "profileInviteLinkCopied": "Kutsulinkki kopioitu",
+  "groupInviteLinkTitle": "Liitytkö ryhmään?",
+  "groupInviteLinkBody": "Sinut on kutsuttu ryhmään \"{name}\" ({count} jäsentä).",
+  "groupInviteLinkJoin": "Liity",
+  "drawerJoinGroupByLink": "Liity ryhmään linkin kautta",
+  "drawerJoinGroupByLinkInvalid": "Tämä ei näytä Pulse-kutsulinkiltä"
 }

@@ -924,5 +924,16 @@
   "menuClearChatHistory": "ჩატის ისტორიის გასუფთავება",
   "clearChatTitle": "გასუფთავდეს ჩატის ისტორია?",
   "clearChatBody": "ამ ჩატის ყველა შეტყობინება წაიშლება ამ მოწყობილობიდან. მეორე ადამიანი შეინარჩუნებს თავის ასლს.",
-  "clearChatAction": "გასუფთავება"
+  "clearChatAction": "გასუფთავება",
+  "systemGroupRenamed": "{actor}-მა ჯგუფი დაარქვა „{name}\"",
+  "systemGroupAvatarChanged": "{actor}-მა შეცვალა ჯგუფის ფოტო",
+  "systemGroupMetaChanged": "{actor}-მა ჯგუფი დაარქვა „{name}\" და შეცვალა ფოტო",
+  "profileInviteLink": "მოსაწვევი ბმული",
+  "profileInviteLinkSubtitle": "ნებისმიერ ბმულის მქონე შეუძლია შემოუერთდეს",
+  "profileInviteLinkCopied": "მოსაწვევი ბმული დაკოპირდა",
+  "groupInviteLinkTitle": "შეუერთდე ჯგუფს?",
+  "groupInviteLinkBody": "მოწვეული ხართ „{name}\" ჯგუფში ({count} წევრი).",
+  "groupInviteLinkJoin": "შემოერთება",
+  "drawerJoinGroupByLink": "ბმულით ჯგუფში შესვლა",
+  "drawerJoinGroupByLinkInvalid": "ეს არ ჰგავს Pulse მოსაწვევ ბმულს"
 }

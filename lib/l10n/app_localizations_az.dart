@@ -3126,4 +3126,45 @@ class AppLocalizationsAz extends AppLocalizations {
 
   @override
   String get clearChatAction => 'Təmizlə';
+
+  @override
+  String systemGroupRenamed(String actor, String name) {
+    return '$actor qrupun adını \"$name\" olaraq dəyişdi';
+  }
+
+  @override
+  String systemGroupAvatarChanged(String actor) {
+    return '$actor qrupun şəklini dəyişdi';
+  }
+
+  @override
+  String systemGroupMetaChanged(String actor, String name) {
+    return '$actor qrupun adını \"$name\" olaraq dəyişdi və şəkli də dəyişdi';
+  }
+
+  @override
+  String get profileInviteLink => 'Dəvət linki';
+
+  @override
+  String get profileInviteLinkSubtitle => 'Linki olan hər kəs qoşula bilər';
+
+  @override
+  String get profileInviteLinkCopied => 'Dəvət linki kopyalandı';
+
+  @override
+  String get groupInviteLinkTitle => 'Qrupa qoşulasınız?';
+
+  @override
+  String groupInviteLinkBody(String name, int count) {
+    return '\"$name\" qrupuna ($count üzv) dəvət olunmusunuz.';
+  }
+
+  @override
+  String get groupInviteLinkJoin => 'Qoşul';
+
+  @override
+  String get drawerJoinGroupByLink => 'Linklə qrupa qoşul';
+
+  @override
+  String get drawerJoinGroupByLinkInvalid => 'Bu Pulse dəvət linkinə bənzəmir';
 }

@@ -924,5 +924,16 @@
   "menuClearChatHistory": "ล้างประวัติการแชท",
   "clearChatTitle": "ล้างประวัติการแชท?",
   "clearChatBody": "ข้อความทั้งหมดในแชทนี้จะถูกลบออกจากอุปกรณ์นี้ อีกฝ่ายจะเก็บสำเนาของตน",
-  "clearChatAction": "ล้าง"
+  "clearChatAction": "ล้าง",
+  "systemGroupRenamed": "{actor} เปลี่ยนชื่อกลุ่มเป็น \"{name}\"",
+  "systemGroupAvatarChanged": "{actor} เปลี่ยนรูปกลุ่ม",
+  "systemGroupMetaChanged": "{actor} เปลี่ยนชื่อกลุ่มเป็น \"{name}\" และเปลี่ยนรูป",
+  "profileInviteLink": "ลิงก์เชิญ",
+  "profileInviteLinkSubtitle": "ใครก็ตามที่มีลิงก์สามารถเข้าร่วมได้",
+  "profileInviteLinkCopied": "คัดลอกลิงก์เชิญแล้ว",
+  "groupInviteLinkTitle": "เข้าร่วมกลุ่ม?",
+  "groupInviteLinkBody": "คุณได้รับเชิญให้เข้าร่วม \"{name}\" ({count} สมาชิก)",
+  "groupInviteLinkJoin": "เข้าร่วม",
+  "drawerJoinGroupByLink": "เข้าร่วมกลุ่มผ่านลิงก์",
+  "drawerJoinGroupByLinkInvalid": "นี่ไม่ใช่ลิงก์เชิญของ Pulse"
 }

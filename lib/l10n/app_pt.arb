@@ -924,5 +924,16 @@
   "menuClearChatHistory": "Limpar histórico do chat",
   "clearChatTitle": "Limpar histórico do chat?",
   "clearChatBody": "Todas as mensagens deste chat serão excluídas deste dispositivo. A outra pessoa manterá sua cópia.",
-  "clearChatAction": "Limpar"
+  "clearChatAction": "Limpar",
+  "systemGroupRenamed": "{actor} renomeou o grupo para «{name}»",
+  "systemGroupAvatarChanged": "{actor} alterou a foto do grupo",
+  "systemGroupMetaChanged": "{actor} renomeou o grupo para «{name}» e alterou a foto",
+  "profileInviteLink": "Link de convite",
+  "profileInviteLinkSubtitle": "Qualquer pessoa com o link pode entrar",
+  "profileInviteLinkCopied": "Link de convite copiado",
+  "groupInviteLinkTitle": "Entrar no grupo?",
+  "groupInviteLinkBody": "Você foi convidado para «{name}» ({count} membros).",
+  "groupInviteLinkJoin": "Entrar",
+  "drawerJoinGroupByLink": "Entrar no grupo por link",
+  "drawerJoinGroupByLinkInvalid": "Isso não parece um link de convite Pulse"
 }

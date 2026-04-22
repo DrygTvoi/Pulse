@@ -924,5 +924,16 @@
   "menuClearChatHistory": "Hapus riwayat obrolan",
   "clearChatTitle": "Hapus riwayat obrolan?",
   "clearChatBody": "Semua pesan dalam obrolan ini akan dihapus dari perangkat ini. Orang lain akan menyimpan salinannya.",
-  "clearChatAction": "Hapus"
+  "clearChatAction": "Hapus",
+  "systemGroupRenamed": "{actor} mengganti nama grup menjadi \"{name}\"",
+  "systemGroupAvatarChanged": "{actor} mengubah foto grup",
+  "systemGroupMetaChanged": "{actor} mengganti nama grup menjadi \"{name}\" dan mengubah foto",
+  "profileInviteLink": "Tautan undangan",
+  "profileInviteLinkSubtitle": "Siapa pun dengan tautan dapat bergabung",
+  "profileInviteLinkCopied": "Tautan undangan disalin",
+  "groupInviteLinkTitle": "Bergabung dengan grup?",
+  "groupInviteLinkBody": "Anda diundang untuk bergabung dengan \"{name}\" ({count} anggota).",
+  "groupInviteLinkJoin": "Bergabung",
+  "drawerJoinGroupByLink": "Bergabung ke grup melalui tautan",
+  "drawerJoinGroupByLinkInvalid": "Itu tidak terlihat seperti tautan undangan Pulse"
 }

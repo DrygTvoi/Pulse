@@ -3129,4 +3129,47 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String get clearChatAction => 'Tyhjennä';
+
+  @override
+  String systemGroupRenamed(String actor, String name) {
+    return '$actor nimesi ryhmän uudelleen nimellä \"$name\"';
+  }
+
+  @override
+  String systemGroupAvatarChanged(String actor) {
+    return '$actor vaihtoi ryhmän kuvan';
+  }
+
+  @override
+  String systemGroupMetaChanged(String actor, String name) {
+    return '$actor nimesi ryhmän uudelleen nimellä \"$name\" ja vaihtoi kuvan';
+  }
+
+  @override
+  String get profileInviteLink => 'Kutsulinkki';
+
+  @override
+  String get profileInviteLinkSubtitle =>
+      'Kuka tahansa, jolla on linkki, voi liittyä';
+
+  @override
+  String get profileInviteLinkCopied => 'Kutsulinkki kopioitu';
+
+  @override
+  String get groupInviteLinkTitle => 'Liitytkö ryhmään?';
+
+  @override
+  String groupInviteLinkBody(String name, int count) {
+    return 'Sinut on kutsuttu ryhmään \"$name\" ($count jäsentä).';
+  }
+
+  @override
+  String get groupInviteLinkJoin => 'Liity';
+
+  @override
+  String get drawerJoinGroupByLink => 'Liity ryhmään linkin kautta';
+
+  @override
+  String get drawerJoinGroupByLinkInvalid =>
+      'Tämä ei näytä Pulse-kutsulinkiltä';
 }

@@ -924,5 +924,16 @@
   "menuClearChatHistory": "Padam sejarah sembang",
   "clearChatTitle": "Padam sejarah sembang?",
   "clearChatBody": "Semua mesej dalam sembang ini akan dipadamkan dari peranti ini. Orang lain akan menyimpan salinan mereka.",
-  "clearChatAction": "Padam"
+  "clearChatAction": "Padam",
+  "systemGroupRenamed": "{actor} menamakan semula kumpulan kepada \"{name}\"",
+  "systemGroupAvatarChanged": "{actor} menukar foto kumpulan",
+  "systemGroupMetaChanged": "{actor} menamakan semula kumpulan kepada \"{name}\" dan menukar foto",
+  "profileInviteLink": "Pautan jemputan",
+  "profileInviteLinkSubtitle": "Sesiapa sahaja dengan pautan boleh menyertai",
+  "profileInviteLinkCopied": "Pautan jemputan disalin",
+  "groupInviteLinkTitle": "Sertai kumpulan?",
+  "groupInviteLinkBody": "Anda telah dijemput menyertai \"{name}\" ({count} ahli).",
+  "groupInviteLinkJoin": "Sertai",
+  "drawerJoinGroupByLink": "Sertai kumpulan melalui pautan",
+  "drawerJoinGroupByLinkInvalid": "Ini tidak kelihatan seperti pautan jemputan Pulse"
 }

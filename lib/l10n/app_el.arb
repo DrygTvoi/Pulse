@@ -924,5 +924,16 @@
   "menuClearChatHistory": "Διαγραφή ιστορικού συνομιλίας",
   "clearChatTitle": "Διαγραφή ιστορικού συνομιλίας;",
   "clearChatBody": "Όλα τα μηνύματα αυτής της συνομιλίας θα διαγραφούν από αυτή τη συσκευή. Ο/Η συνομιλητής/τρια θα διατηρήσει το αντίγραφό του/της.",
-  "clearChatAction": "Διαγραφή"
+  "clearChatAction": "Διαγραφή",
+  "systemGroupRenamed": "{actor} μετονόμασε την ομάδα σε «{name}»",
+  "systemGroupAvatarChanged": "{actor} άλλαξε τη φωτογραφία της ομάδας",
+  "systemGroupMetaChanged": "{actor} μετονόμασε την ομάδα σε «{name}» και άλλαξε τη φωτογραφία",
+  "profileInviteLink": "Σύνδεσμος πρόσκλησης",
+  "profileInviteLinkSubtitle": "Όποιος έχει τον σύνδεσμο μπορεί να ενταχθεί",
+  "profileInviteLinkCopied": "Ο σύνδεσμος πρόσκλησης αντιγράφηκε",
+  "groupInviteLinkTitle": "Συμμετοχή στην ομάδα;",
+  "groupInviteLinkBody": "Έχετε προσκληθεί στην «{name}» ({count} μέλη).",
+  "groupInviteLinkJoin": "Συμμετοχή",
+  "drawerJoinGroupByLink": "Συμμετοχή σε ομάδα μέσω συνδέσμου",
+  "drawerJoinGroupByLinkInvalid": "Αυτό δεν μοιάζει με σύνδεσμο πρόσκλησης Pulse"
 }

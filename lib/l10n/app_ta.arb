@@ -924,5 +924,16 @@
   "menuClearChatHistory": "அரட்டை வரலாற்றை அழி",
   "clearChatTitle": "அரட்டை வரலாற்றை அழிக்கவா?",
   "clearChatBody": "இந்த அரட்டையில் உள்ள அனைத்து செய்திகளும் இந்த சாதனத்திலிருந்து நீக்கப்படும். மற்றவர் அவர்களின் நகலை வைத்திருப்பார்.",
-  "clearChatAction": "அழி"
+  "clearChatAction": "அழி",
+  "systemGroupRenamed": "{actor} குழுவின் பெயரை \"{name}\" என மாற்றினார்",
+  "systemGroupAvatarChanged": "{actor} குழுவின் புகைப்படத்தை மாற்றினார்",
+  "systemGroupMetaChanged": "{actor} குழுவின் பெயரை \"{name}\" என மாற்றி, புகைப்படத்தையும் மாற்றினார்",
+  "profileInviteLink": "அழைப்பு இணைப்பு",
+  "profileInviteLinkSubtitle": "இணைப்பு உள்ள எவரும் சேரலாம்",
+  "profileInviteLinkCopied": "அழைப்பு இணைப்பு நகலெடுக்கப்பட்டது",
+  "groupInviteLinkTitle": "குழுவில் சேரவா?",
+  "groupInviteLinkBody": "\"{name}\" இல் சேர நீங்கள் அழைக்கப்பட்டுள்ளீர்கள் ({count} உறுப்பினர்கள்).",
+  "groupInviteLinkJoin": "சேர்",
+  "drawerJoinGroupByLink": "இணைப்பு மூலம் குழுவில் சேரவும்",
+  "drawerJoinGroupByLinkInvalid": "இது Pulse அழைப்பு இணைப்பாகத் தெரியவில்லை"
 }

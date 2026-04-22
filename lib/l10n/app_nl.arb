@@ -924,5 +924,16 @@
   "menuClearChatHistory": "Chatgeschiedenis wissen",
   "clearChatTitle": "Chatgeschiedenis wissen?",
   "clearChatBody": "Alle berichten in deze chat worden van dit apparaat verwijderd. De andere persoon behoudt zijn kopie.",
-  "clearChatAction": "Wissen"
+  "clearChatAction": "Wissen",
+  "systemGroupRenamed": "{actor} heeft de groep hernoemd naar \"{name}\"",
+  "systemGroupAvatarChanged": "{actor} heeft de groepsfoto gewijzigd",
+  "systemGroupMetaChanged": "{actor} heeft de groep hernoemd naar \"{name}\" en de foto gewijzigd",
+  "profileInviteLink": "Uitnodigingslink",
+  "profileInviteLinkSubtitle": "Iedereen met de link kan deelnemen",
+  "profileInviteLinkCopied": "Uitnodigingslink gekopieerd",
+  "groupInviteLinkTitle": "Aan groep deelnemen?",
+  "groupInviteLinkBody": "Je bent uitgenodigd voor \"{name}\" ({count} leden).",
+  "groupInviteLinkJoin": "Deelnemen",
+  "drawerJoinGroupByLink": "Aan groep deelnemen via link",
+  "drawerJoinGroupByLinkInvalid": "Dat lijkt geen Pulse-uitnodigingslink"
 }

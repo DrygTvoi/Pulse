@@ -3125,4 +3125,47 @@ class AppLocalizationsSk extends AppLocalizations {
 
   @override
   String get clearChatAction => 'Vymazať';
+
+  @override
+  String systemGroupRenamed(String actor, String name) {
+    return '$actor premenoval(a) skupinu na „$name\"';
+  }
+
+  @override
+  String systemGroupAvatarChanged(String actor) {
+    return '$actor zmenil(a) fotku skupiny';
+  }
+
+  @override
+  String systemGroupMetaChanged(String actor, String name) {
+    return '$actor premenoval(a) skupinu na „$name\" a zmenil(a) fotku';
+  }
+
+  @override
+  String get profileInviteLink => 'Pozývací odkaz';
+
+  @override
+  String get profileInviteLinkSubtitle =>
+      'Ktokoľvek s odkazom sa môže pripojiť';
+
+  @override
+  String get profileInviteLinkCopied => 'Pozývací odkaz skopírovaný';
+
+  @override
+  String get groupInviteLinkTitle => 'Pripojiť sa ku skupine?';
+
+  @override
+  String groupInviteLinkBody(String name, int count) {
+    return 'Bol si pozvaný do „$name\" ($count členov).';
+  }
+
+  @override
+  String get groupInviteLinkJoin => 'Pripojiť sa';
+
+  @override
+  String get drawerJoinGroupByLink => 'Pripojiť sa ku skupine cez odkaz';
+
+  @override
+  String get drawerJoinGroupByLinkInvalid =>
+      'To nevyzerá ako pozývací odkaz Pulse';
 }

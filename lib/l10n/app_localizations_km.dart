@@ -3112,4 +3112,46 @@ class AppLocalizationsKm extends AppLocalizations {
 
   @override
   String get clearChatAction => 'សម្អាត';
+
+  @override
+  String systemGroupRenamed(String actor, String name) {
+    return '$actor បានប្តូរឈ្មោះក្រុមទៅជា \"$name\"';
+  }
+
+  @override
+  String systemGroupAvatarChanged(String actor) {
+    return '$actor បានប្តូររូបភាពក្រុម';
+  }
+
+  @override
+  String systemGroupMetaChanged(String actor, String name) {
+    return '$actor បានប្តូរឈ្មោះក្រុមទៅជា \"$name\" និងប្តូររូបភាព';
+  }
+
+  @override
+  String get profileInviteLink => 'តំណអញ្ជើញ';
+
+  @override
+  String get profileInviteLinkSubtitle => 'នរណាដែលមានតំណអាចចូលរួមបាន';
+
+  @override
+  String get profileInviteLinkCopied => 'បានចម្លងតំណអញ្ជើញ';
+
+  @override
+  String get groupInviteLinkTitle => 'ចូលរួមក្រុម?';
+
+  @override
+  String groupInviteLinkBody(String name, int count) {
+    return 'អ្នកត្រូវបានអញ្ជើញឱ្យចូលរួម \"$name\" ($count សមាជិក)។';
+  }
+
+  @override
+  String get groupInviteLinkJoin => 'ចូលរួម';
+
+  @override
+  String get drawerJoinGroupByLink => 'ចូលរួមក្រុមតាមរយៈតំណ';
+
+  @override
+  String get drawerJoinGroupByLinkInvalid =>
+      'នេះមិនមើលទៅដូចជាតំណអញ្ជើញ Pulse ទេ';
 }

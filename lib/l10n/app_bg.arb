@@ -924,5 +924,16 @@
   "menuClearChatHistory": "Изчисти историята на чата",
   "clearChatTitle": "Да се изчисти историята на чата?",
   "clearChatBody": "Всички съобщения в този чат ще бъдат изтрити от това устройство. Другият човек ще запази своето копие.",
-  "clearChatAction": "Изчисти"
+  "clearChatAction": "Изчисти",
+  "systemGroupRenamed": "{actor} преименува групата на „{name}\"",
+  "systemGroupAvatarChanged": "{actor} смени снимката на групата",
+  "systemGroupMetaChanged": "{actor} преименува групата на „{name}\" и смени снимката",
+  "profileInviteLink": "Връзка за покана",
+  "profileInviteLinkSubtitle": "Всеки с връзката може да се присъедини",
+  "profileInviteLinkCopied": "Връзката за покана е копирана",
+  "groupInviteLinkTitle": "Присъединяване към групата?",
+  "groupInviteLinkBody": "Поканен сте в „{name}\" ({count} участници).",
+  "groupInviteLinkJoin": "Присъединяване",
+  "drawerJoinGroupByLink": "Присъединяване към група чрез връзка",
+  "drawerJoinGroupByLinkInvalid": "Това не изглежда като връзка за покана в Pulse"
 }

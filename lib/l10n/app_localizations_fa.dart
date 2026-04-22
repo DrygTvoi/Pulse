@@ -3103,4 +3103,47 @@ class AppLocalizationsFa extends AppLocalizations {
 
   @override
   String get clearChatAction => 'پاک کردن';
+
+  @override
+  String systemGroupRenamed(String actor, String name) {
+    return '$actor نام گروه را به «$name» تغییر داد';
+  }
+
+  @override
+  String systemGroupAvatarChanged(String actor) {
+    return '$actor عکس گروه را تغییر داد';
+  }
+
+  @override
+  String systemGroupMetaChanged(String actor, String name) {
+    return '$actor نام گروه را به «$name» و عکس آن را تغییر داد';
+  }
+
+  @override
+  String get profileInviteLink => 'لینک دعوت';
+
+  @override
+  String get profileInviteLinkSubtitle =>
+      'هر کسی که لینک را داشته باشد می‌تواند بپیوندد';
+
+  @override
+  String get profileInviteLinkCopied => 'لینک دعوت کپی شد';
+
+  @override
+  String get groupInviteLinkTitle => 'به گروه بپیوندید؟';
+
+  @override
+  String groupInviteLinkBody(String name, int count) {
+    return 'شما به «$name» دعوت شده‌اید ($count عضو).';
+  }
+
+  @override
+  String get groupInviteLinkJoin => 'پیوستن';
+
+  @override
+  String get drawerJoinGroupByLink => 'پیوستن به گروه از طریق لینک';
+
+  @override
+  String get drawerJoinGroupByLinkInvalid =>
+      'این لینک دعوت Pulse به نظر نمی‌رسد';
 }

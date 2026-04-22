@@ -924,5 +924,16 @@
   "menuClearChatHistory": "Futa historia ya gumzo",
   "clearChatTitle": "Futa historia ya gumzo?",
   "clearChatBody": "Ujumbe wote katika gumzo hili utafutwa kutoka kifaa hiki. Mtu mwingine atahifadhi nakala yake.",
-  "clearChatAction": "Futa"
+  "clearChatAction": "Futa",
+  "systemGroupRenamed": "{actor} amebadilisha jina la kikundi kuwa \"{name}\"",
+  "systemGroupAvatarChanged": "{actor} amebadilisha picha ya kikundi",
+  "systemGroupMetaChanged": "{actor} amebadilisha jina la kikundi kuwa \"{name}\" na amebadilisha picha",
+  "profileInviteLink": "Kiungo cha mwaliko",
+  "profileInviteLinkSubtitle": "Yeyote mwenye kiungo anaweza kujiunga",
+  "profileInviteLinkCopied": "Kiungo cha mwaliko kimenakiliwa",
+  "groupInviteLinkTitle": "Jiunge na kikundi?",
+  "groupInviteLinkBody": "Umealikwa kujiunga na \"{name}\" (wanachama {count}).",
+  "groupInviteLinkJoin": "Jiunge",
+  "drawerJoinGroupByLink": "Jiunge na kikundi kwa kiungo",
+  "drawerJoinGroupByLinkInvalid": "Hiki hakionekani kama kiungo cha mwaliko cha Pulse"
 }

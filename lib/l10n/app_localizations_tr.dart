@@ -3125,4 +3125,46 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get clearChatAction => 'Temizle';
+
+  @override
+  String systemGroupRenamed(String actor, String name) {
+    return '$actor grubu \"$name\" olarak yeniden adlandırdı';
+  }
+
+  @override
+  String systemGroupAvatarChanged(String actor) {
+    return '$actor grup fotoğrafını değiştirdi';
+  }
+
+  @override
+  String systemGroupMetaChanged(String actor, String name) {
+    return '$actor grubu \"$name\" olarak yeniden adlandırdı ve fotoğrafı değiştirdi';
+  }
+
+  @override
+  String get profileInviteLink => 'Davet bağlantısı';
+
+  @override
+  String get profileInviteLinkSubtitle => 'Bağlantısı olan herkes katılabilir';
+
+  @override
+  String get profileInviteLinkCopied => 'Davet bağlantısı kopyalandı';
+
+  @override
+  String get groupInviteLinkTitle => 'Gruba katıl?';
+
+  @override
+  String groupInviteLinkBody(String name, int count) {
+    return '\"$name\" grubuna davet edildiniz ($count üye).';
+  }
+
+  @override
+  String get groupInviteLinkJoin => 'Katıl';
+
+  @override
+  String get drawerJoinGroupByLink => 'Bağlantıyla gruba katıl';
+
+  @override
+  String get drawerJoinGroupByLinkInvalid =>
+      'Bu Pulse davet bağlantısına benzemiyor';
 }

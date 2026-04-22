@@ -924,5 +924,16 @@
   "menuClearChatHistory": "Чат тарихын тазалау",
   "clearChatTitle": "Чат тарихы тазаланса ма?",
   "clearChatBody": "Бұл чаттағы барлық хабарламалар осы құрылғыдан жойылады. Басқа адам өз көшірмесін сақтайды.",
-  "clearChatAction": "Тазалау"
+  "clearChatAction": "Тазалау",
+  "systemGroupRenamed": "{actor} топтың атын «{name}» деп өзгертті",
+  "systemGroupAvatarChanged": "{actor} топтың суретін өзгертті",
+  "systemGroupMetaChanged": "{actor} топтың атын «{name}» деп өзгертті және суретін де өзгертті",
+  "profileInviteLink": "Шақыру сілтемесі",
+  "profileInviteLinkSubtitle": "Сілтемесі бар кез келген адам қосыла алады",
+  "profileInviteLinkCopied": "Шақыру сілтемесі көшірілді",
+  "groupInviteLinkTitle": "Топқа қосылу керек пе?",
+  "groupInviteLinkBody": "Сізді «{name}» тобына шақырды ({count} мүше).",
+  "groupInviteLinkJoin": "Қосылу",
+  "drawerJoinGroupByLink": "Сілтеме арқылы топқа қосылу",
+  "drawerJoinGroupByLinkInvalid": "Бұл Pulse шақыру сілтемесіне ұқсамайды"
 }

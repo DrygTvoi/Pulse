@@ -924,5 +924,16 @@
   "menuClearChatHistory": "Izbriši povijest razgovora",
   "clearChatTitle": "Izbrisati povijest razgovora?",
   "clearChatBody": "Sve poruke u ovom razgovoru bit će izbrisane s ovog uređaja. Druga osoba zadržat će svoju kopiju.",
-  "clearChatAction": "Izbriši"
+  "clearChatAction": "Izbriši",
+  "systemGroupRenamed": "{actor} je preimenovao(la) grupu u „{name}\"",
+  "systemGroupAvatarChanged": "{actor} je promijenio(la) sliku grupe",
+  "systemGroupMetaChanged": "{actor} je preimenovao(la) grupu u „{name}\" i promijenio(la) sliku",
+  "profileInviteLink": "Pozivni link",
+  "profileInviteLinkSubtitle": "Svatko s linkom može se pridružiti",
+  "profileInviteLinkCopied": "Pozivni link kopiran",
+  "groupInviteLinkTitle": "Pridružiti se grupi?",
+  "groupInviteLinkBody": "Pozvani ste u „{name}\" ({count} članova).",
+  "groupInviteLinkJoin": "Pridruži se",
+  "drawerJoinGroupByLink": "Pridruži se grupi putem linka",
+  "drawerJoinGroupByLinkInvalid": "Ovo ne izgleda kao Pulse pozivni link"
 }

@@ -924,5 +924,16 @@
   "menuClearChatHistory": "Išvalyti pokalbio istoriją",
   "clearChatTitle": "Išvalyti pokalbio istoriją?",
   "clearChatBody": "Visos žinutės šiame pokalbyje bus ištrintos iš šio įrenginio. Kitas asmuo išsaugos savo kopiją.",
-  "clearChatAction": "Išvalyti"
+  "clearChatAction": "Išvalyti",
+  "systemGroupRenamed": "{actor} pervadino grupę į „{name}\"",
+  "systemGroupAvatarChanged": "{actor} pakeitė grupės nuotrauką",
+  "systemGroupMetaChanged": "{actor} pervadino grupę į „{name}\" ir pakeitė nuotrauką",
+  "profileInviteLink": "Pakvietimo nuoroda",
+  "profileInviteLinkSubtitle": "Bet kas su nuoroda gali prisijungti",
+  "profileInviteLinkCopied": "Pakvietimo nuoroda nukopijuota",
+  "groupInviteLinkTitle": "Prisijungti prie grupės?",
+  "groupInviteLinkBody": "Esate pakviestas prisijungti prie „{name}\" ({count} narių).",
+  "groupInviteLinkJoin": "Prisijungti",
+  "drawerJoinGroupByLink": "Prisijungti prie grupės per nuorodą",
+  "drawerJoinGroupByLinkInvalid": "Tai neatrodo kaip Pulse pakvietimo nuoroda"
 }

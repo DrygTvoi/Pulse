@@ -5691,6 +5691,72 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Clear'**
   String get clearChatAction;
+
+  /// In-chat notice when a group member renames the group
+  ///
+  /// In en, this message translates to:
+  /// **'{actor} renamed the group to \"{name}\"'**
+  String systemGroupRenamed(String actor, String name);
+
+  /// In-chat notice when a group member changes the group avatar
+  ///
+  /// In en, this message translates to:
+  /// **'{actor} changed the group photo'**
+  String systemGroupAvatarChanged(String actor);
+
+  /// In-chat notice when a group member changes both name and avatar at once
+  ///
+  /// In en, this message translates to:
+  /// **'{actor} renamed the group to \"{name}\" and changed the photo'**
+  String systemGroupMetaChanged(String actor, String name);
+
+  /// Group profile row label for sharing an invite link
+  ///
+  /// In en, this message translates to:
+  /// **'Invite link'**
+  String get profileInviteLink;
+
+  /// Subtitle warning that an invite link is not access-controlled
+  ///
+  /// In en, this message translates to:
+  /// **'Anyone with the link can join the group'**
+  String get profileInviteLinkSubtitle;
+
+  /// Snackbar shown after the user taps the invite-link row
+  ///
+  /// In en, this message translates to:
+  /// **'Invite link copied to clipboard'**
+  String get profileInviteLinkCopied;
+
+  /// Title of the dialog shown when an invite-link arrives via deep link
+  ///
+  /// In en, this message translates to:
+  /// **'Join group?'**
+  String get groupInviteLinkTitle;
+
+  /// Body of the invite-link confirm dialog
+  ///
+  /// In en, this message translates to:
+  /// **'You\'ve been invited to join \"{name}\" ({count} members).'**
+  String groupInviteLinkBody(String name, int count);
+
+  /// Confirm-button label that joins the group from an invite link
+  ///
+  /// In en, this message translates to:
+  /// **'Join'**
+  String get groupInviteLinkJoin;
+
+  /// Drawer entry that opens the paste-invite-link dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Join group by link'**
+  String get drawerJoinGroupByLink;
+
+  /// Snackbar shown when pasted text is not a valid pulse://group URL
+  ///
+  /// In en, this message translates to:
+  /// **'That doesn\'t look like a Pulse group invite link'**
+  String get drawerJoinGroupByLinkInvalid;
 }
 
 class _AppLocalizationsDelegate

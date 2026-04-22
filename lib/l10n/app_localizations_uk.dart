@@ -3121,4 +3121,47 @@ class AppLocalizationsUk extends AppLocalizations {
 
   @override
   String get clearChatAction => 'Очистити';
+
+  @override
+  String systemGroupRenamed(String actor, String name) {
+    return '$actor перейменував(ла) групу на «$name»';
+  }
+
+  @override
+  String systemGroupAvatarChanged(String actor) {
+    return '$actor змінив(ла) фото групи';
+  }
+
+  @override
+  String systemGroupMetaChanged(String actor, String name) {
+    return '$actor перейменував(ла) групу на «$name» і змінив(ла) фото';
+  }
+
+  @override
+  String get profileInviteLink => 'Запрошувальне посилання';
+
+  @override
+  String get profileInviteLinkSubtitle =>
+      'Будь-хто з посиланням зможе приєднатися';
+
+  @override
+  String get profileInviteLinkCopied => 'Посилання скопійовано';
+
+  @override
+  String get groupInviteLinkTitle => 'Приєднатися до групи?';
+
+  @override
+  String groupInviteLinkBody(String name, int count) {
+    return 'Вас запрошено до групи «$name» ($count учасників).';
+  }
+
+  @override
+  String get groupInviteLinkJoin => 'Приєднатися';
+
+  @override
+  String get drawerJoinGroupByLink => 'Приєднатися до групи за посиланням';
+
+  @override
+  String get drawerJoinGroupByLinkInvalid =>
+      'Це не схоже на запрошення в групу Pulse';
 }

@@ -3132,4 +3132,47 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get clearChatAction => 'Törlés';
+
+  @override
+  String systemGroupRenamed(String actor, String name) {
+    return '$actor átnevezte a csoportot erre: „$name\"';
+  }
+
+  @override
+  String systemGroupAvatarChanged(String actor) {
+    return '$actor módosította a csoport képét';
+  }
+
+  @override
+  String systemGroupMetaChanged(String actor, String name) {
+    return '$actor átnevezte a csoportot erre: „$name\" és módosította a képét';
+  }
+
+  @override
+  String get profileInviteLink => 'Meghívó link';
+
+  @override
+  String get profileInviteLinkSubtitle =>
+      'Bárki, akinek megvan a link, csatlakozhat';
+
+  @override
+  String get profileInviteLinkCopied => 'Meghívó link a vágólapra másolva';
+
+  @override
+  String get groupInviteLinkTitle => 'Csatlakozol a csoporthoz?';
+
+  @override
+  String groupInviteLinkBody(String name, int count) {
+    return 'Meghívást kaptál a(z) „$name\" csoportba ($count tag).';
+  }
+
+  @override
+  String get groupInviteLinkJoin => 'Csatlakozás';
+
+  @override
+  String get drawerJoinGroupByLink => 'Csatlakozás csoporthoz link alapján';
+
+  @override
+  String get drawerJoinGroupByLinkInvalid =>
+      'Ez nem tűnik Pulse meghívó linknek';
 }

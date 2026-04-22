@@ -3109,4 +3109,45 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get clearChatAction => 'مسح';
+
+  @override
+  String systemGroupRenamed(String actor, String name) {
+    return '$actor غيَّر اسم المجموعة إلى «$name»';
+  }
+
+  @override
+  String systemGroupAvatarChanged(String actor) {
+    return '$actor غيَّر صورة المجموعة';
+  }
+
+  @override
+  String systemGroupMetaChanged(String actor, String name) {
+    return '$actor غيَّر اسم المجموعة إلى «$name» وغيَّر الصورة';
+  }
+
+  @override
+  String get profileInviteLink => 'رابط الدعوة';
+
+  @override
+  String get profileInviteLinkSubtitle => 'يمكن لأي شخص لديه الرابط الانضمام';
+
+  @override
+  String get profileInviteLinkCopied => 'تم نسخ رابط الدعوة';
+
+  @override
+  String get groupInviteLinkTitle => 'الانضمام إلى المجموعة؟';
+
+  @override
+  String groupInviteLinkBody(String name, int count) {
+    return 'تمت دعوتك للانضمام إلى «$name» ($count أعضاء).';
+  }
+
+  @override
+  String get groupInviteLinkJoin => 'انضمام';
+
+  @override
+  String get drawerJoinGroupByLink => 'الانضمام إلى المجموعة عبر الرابط';
+
+  @override
+  String get drawerJoinGroupByLinkInvalid => 'لا يبدو هذا رابط دعوة Pulse';
 }

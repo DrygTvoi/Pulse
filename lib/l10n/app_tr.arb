@@ -924,5 +924,16 @@
   "menuClearChatHistory": "Sohbet geçmişini temizle",
   "clearChatTitle": "Sohbet geçmişi temizlensin mi?",
   "clearChatBody": "Bu sohbetteki tüm mesajlar bu cihazdan silinecek. Diğer kişi kendi kopyasını saklayacak.",
-  "clearChatAction": "Temizle"
+  "clearChatAction": "Temizle",
+  "systemGroupRenamed": "{actor} grubu \"{name}\" olarak yeniden adlandırdı",
+  "systemGroupAvatarChanged": "{actor} grup fotoğrafını değiştirdi",
+  "systemGroupMetaChanged": "{actor} grubu \"{name}\" olarak yeniden adlandırdı ve fotoğrafı değiştirdi",
+  "profileInviteLink": "Davet bağlantısı",
+  "profileInviteLinkSubtitle": "Bağlantısı olan herkes katılabilir",
+  "profileInviteLinkCopied": "Davet bağlantısı kopyalandı",
+  "groupInviteLinkTitle": "Gruba katıl?",
+  "groupInviteLinkBody": "\"{name}\" grubuna davet edildiniz ({count} üye).",
+  "groupInviteLinkJoin": "Katıl",
+  "drawerJoinGroupByLink": "Bağlantıyla gruba katıl",
+  "drawerJoinGroupByLinkInvalid": "Bu Pulse davet bağlantısına benzemiyor"
 }

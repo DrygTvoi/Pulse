@@ -924,5 +924,16 @@
   "menuClearChatHistory": "I-clear ang chat history",
   "clearChatTitle": "I-clear ang chat history?",
   "clearChatBody": "Lahat ng mensahe sa chat na ito ay tatanggalin sa device na ito. Ang ibang tao ay magpapanatili ng kanilang kopya.",
-  "clearChatAction": "I-clear"
+  "clearChatAction": "I-clear",
+  "systemGroupRenamed": "Pinalitan ni {actor} ang pangalan ng grupo sa \"{name}\"",
+  "systemGroupAvatarChanged": "Binago ni {actor} ang larawan ng grupo",
+  "systemGroupMetaChanged": "Pinalitan ni {actor} ang pangalan ng grupo sa \"{name}\" at binago ang larawan",
+  "profileInviteLink": "Link ng paanyaya",
+  "profileInviteLinkSubtitle": "Sinumang may link ay makakasama",
+  "profileInviteLinkCopied": "Nakopya ang link ng paanyaya",
+  "groupInviteLinkTitle": "Sumali sa grupo?",
+  "groupInviteLinkBody": "Inanyayahan ka sa \"{name}\" ({count} miyembro).",
+  "groupInviteLinkJoin": "Sumali",
+  "drawerJoinGroupByLink": "Sumali sa grupo gamit ang link",
+  "drawerJoinGroupByLinkInvalid": "Hindi ito mukhang Pulse invite link"
 }

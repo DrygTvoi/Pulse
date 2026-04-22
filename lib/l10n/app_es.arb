@@ -924,5 +924,16 @@
   "menuClearChatHistory": "Borrar historial del chat",
   "clearChatTitle": "¿Borrar historial del chat?",
   "clearChatBody": "Todos los mensajes de este chat se eliminarán de este dispositivo. La otra persona conservará su copia.",
-  "clearChatAction": "Borrar"
+  "clearChatAction": "Borrar",
+  "systemGroupRenamed": "{actor} cambió el nombre del grupo a «{name}»",
+  "systemGroupAvatarChanged": "{actor} cambió la foto del grupo",
+  "systemGroupMetaChanged": "{actor} cambió el nombre del grupo a «{name}» y la foto",
+  "profileInviteLink": "Enlace de invitación",
+  "profileInviteLinkSubtitle": "Cualquiera con el enlace puede unirse",
+  "profileInviteLinkCopied": "Enlace de invitación copiado",
+  "groupInviteLinkTitle": "¿Unirte al grupo?",
+  "groupInviteLinkBody": "Te han invitado a unirte a «{name}» ({count} miembros).",
+  "groupInviteLinkJoin": "Unirse",
+  "drawerJoinGroupByLink": "Unirse al grupo por enlace",
+  "drawerJoinGroupByLinkInvalid": "Eso no parece un enlace de invitación de Pulse"
 }

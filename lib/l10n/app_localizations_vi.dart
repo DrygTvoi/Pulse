@@ -3101,4 +3101,47 @@ class AppLocalizationsVi extends AppLocalizations {
 
   @override
   String get clearChatAction => 'Xoá';
+
+  @override
+  String systemGroupRenamed(String actor, String name) {
+    return '$actor đã đổi tên nhóm thành \"$name\"';
+  }
+
+  @override
+  String systemGroupAvatarChanged(String actor) {
+    return '$actor đã thay đổi ảnh nhóm';
+  }
+
+  @override
+  String systemGroupMetaChanged(String actor, String name) {
+    return '$actor đã đổi tên nhóm thành \"$name\" và thay đổi ảnh';
+  }
+
+  @override
+  String get profileInviteLink => 'Liên kết mời';
+
+  @override
+  String get profileInviteLinkSubtitle =>
+      'Bất kỳ ai có liên kết đều có thể tham gia';
+
+  @override
+  String get profileInviteLinkCopied => 'Đã sao chép liên kết mời';
+
+  @override
+  String get groupInviteLinkTitle => 'Tham gia nhóm?';
+
+  @override
+  String groupInviteLinkBody(String name, int count) {
+    return 'Bạn được mời tham gia \"$name\" ($count thành viên).';
+  }
+
+  @override
+  String get groupInviteLinkJoin => 'Tham gia';
+
+  @override
+  String get drawerJoinGroupByLink => 'Tham gia nhóm qua liên kết';
+
+  @override
+  String get drawerJoinGroupByLinkInvalid =>
+      'Đây không giống liên kết mời Pulse';
 }

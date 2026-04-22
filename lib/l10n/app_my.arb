@@ -924,5 +924,16 @@
   "menuClearChatHistory": "ချတ်မှတ်တမ်းကို ရှင်းလင်း",
   "clearChatTitle": "ချတ်မှတ်တမ်းကို ရှင်းလင်းမည်လား?",
   "clearChatBody": "ဤချတ်ရှိ စာအားလုံးကို ဤစက်မှ ဖျက်လိုက်ပါမည်။ အခြားသူသည် မိမိ၏ မိတ္တူကို ထိန်းသိမ်းထားပါမည်။",
-  "clearChatAction": "ရှင်းလင်း"
+  "clearChatAction": "ရှင်းလင်း",
+  "systemGroupRenamed": "{actor} သည် အုပ်စုနာမည်ကို \"{name}\" သို့ ပြောင်းခဲ့သည်",
+  "systemGroupAvatarChanged": "{actor} သည် အုပ်စုဓာတ်ပုံကို ပြောင်းခဲ့သည်",
+  "systemGroupMetaChanged": "{actor} သည် အုပ်စုနာမည်ကို \"{name}\" သို့ ပြောင်းပြီး ဓာတ်ပုံကိုလည်း ပြောင်းခဲ့သည်",
+  "profileInviteLink": "ဖိတ်ကြားလင့်ခ်",
+  "profileInviteLinkSubtitle": "လင့်ခ်ရှိသူမည်သူမဆို ပါဝင်နိုင်သည်",
+  "profileInviteLinkCopied": "ဖိတ်ကြားလင့်ခ်ကို ကူးယူပြီးပြီ",
+  "groupInviteLinkTitle": "အုပ်စုသို့ ပါဝင်မလား?",
+  "groupInviteLinkBody": "သင်သည် \"{name}\" သို့ ဖိတ်ကြားခံရသည် (အဖွဲ့ဝင် {count} ဦး)။",
+  "groupInviteLinkJoin": "ပါဝင်",
+  "drawerJoinGroupByLink": "လင့်ခ်ဖြင့် အုပ်စုသို့ ပါဝင်ရန်",
+  "drawerJoinGroupByLinkInvalid": "ဤအရာသည် Pulse ဖိတ်ကြားလင့်ခ်နှင့်မတူပါ"
 }

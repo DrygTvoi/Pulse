@@ -924,5 +924,16 @@
   "menuClearChatHistory": "チャット履歴を消去",
   "clearChatTitle": "チャット履歴を消去しますか？",
   "clearChatBody": "このチャット内のすべてのメッセージはこの端末から削除されます。相手は自分のコピーを保持します。",
-  "clearChatAction": "消去"
+  "clearChatAction": "消去",
+  "systemGroupRenamed": "{actor} がグループ名を「{name}」に変更しました",
+  "systemGroupAvatarChanged": "{actor} がグループ写真を変更しました",
+  "systemGroupMetaChanged": "{actor} がグループ名を「{name}」に変更し、写真も変更しました",
+  "profileInviteLink": "招待リンク",
+  "profileInviteLinkSubtitle": "リンクを知っている人は誰でも参加できます",
+  "profileInviteLinkCopied": "招待リンクをコピーしました",
+  "groupInviteLinkTitle": "グループに参加しますか？",
+  "groupInviteLinkBody": "「{name}」({count} 人) に招待されました。",
+  "groupInviteLinkJoin": "参加",
+  "drawerJoinGroupByLink": "リンクでグループに参加",
+  "drawerJoinGroupByLinkInvalid": "Pulse の招待リンクではないようです"
 }

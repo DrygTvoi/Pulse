@@ -462,6 +462,12 @@ class SignalBroadcaster {
   /// contact, copy their `transportAddresses` into a map keyed by UUID.
   /// Lets invitees auto-create pending contacts for group members they
   /// don't yet know, so group sends don't silently drop that recipient.
+  /// Public alias for callers outside this file (e.g. invite-link builder)
+  /// so they don't need to duplicate the address-collection logic.
+  Map<String, Map<String, List<String>>> buildMemberAddressesForInvite(
+          Contact group, List<Contact> allContacts) =>
+      _buildMemberAddresses(group, allContacts);
+
   Map<String, Map<String, List<String>>> _buildMemberAddresses(
       Contact group, List<Contact> allContacts) {
     final out = <String, Map<String, List<String>>>{};
@@ -488,7 +494,7 @@ class SignalBroadcaster {
   /// them the group is gone.
   Future<void> broadcastGroupUpdate(
       Contact group, List<Contact> allContacts,
-      {Iterable<String>? recipientMemberIds}) async {
+      {Iterable<String>? recipientMemberIds, String? avatar}) async {
     final identity = _getIdentity();
     final selfId = _getSelfId();
     if (identity == null || selfId.isEmpty) return;
@@ -501,16 +507,28 @@ class SignalBroadcaster {
       if (group.memberPubkeys.isNotEmpty)
         'memberPubkeys': Map<String, String>.from(group.memberPubkeys),
       if (memberAddresses.isNotEmpty) 'memberAddresses': memberAddresses,
+      // Caller passes the avatar only when it actually changed, so we don't
+      // re-broadcast a 30 KiB blob on every membership tweak. Cap at 32 KiB
+      // to keep us under nos.lol's 64 KiB Nostr-event ceiling.
+      if (avatar != null && avatar.isNotEmpty && avatar.length <= 32 * 1024)
+        'avatar': avatar,
     };
-    final recipientSet =
-        (recipientMemberIds ?? group.members).toSet();
-    final memberContacts = allContacts
-        .where((c) => !c.isGroup && recipientSet.contains(c.id))
-        .toList();
+    // recipientMemberIds is a per-call override used by deleteGroup to send
+    // the tombstone (members:[]) to the OLD roster. Otherwise, route via
+    // the helper which handles UUID + pubkey-fallback lookup.
+    final List<Contact> recipients;
+    if (recipientMemberIds != null) {
+      final set = recipientMemberIds.toSet();
+      recipients = allContacts
+          .where((c) => !c.isGroup && set.contains(c.id))
+          .toList();
+    } else {
+      recipients = _resolveGroupRecipients(group, allContacts);
+    }
     await Future.wait(
-        memberContacts.map((c) => _sendSignalTo(c, 'group_update', payload)));
+        recipients.map((c) => _sendSignalTo(c, 'group_update', payload)));
     debugPrint(
-        '[Broadcaster] Broadcast membership update for ${group.name} to ${memberContacts.length} members '
+        '[Broadcaster] Broadcast membership update for ${group.name} to ${recipients.length} members '
         '(payload members=${group.members.length})');
   }
 
@@ -599,13 +617,46 @@ class SignalBroadcaster {
         {'_sid': _newSid(), 'msgId': msgId, 'text': text, 'from': selfId});
   }
 
+  /// Resolve a group's `members` (UUIDs from the creator's perspective) to
+  /// local Contact objects. Falls back to pubkey lookup when no contact
+  /// matches by UUID — necessary for invite-link joiners whose hidden
+  /// routing contacts are keyed by pubkey rather than the creator's UUID.
+  List<Contact> _resolveGroupRecipients(
+      Contact group, List<Contact> allContacts) {
+    final byUuid = <String, Contact>{};
+    final byPubkey = <String, Contact>{};
+    for (final c in allContacts) {
+      if (c.isGroup) continue;
+      byUuid[c.id] = c;
+      for (final addrs in c.transportAddresses.values) {
+        for (final addr in addrs) {
+          final at = addr.indexOf('@');
+          final pub = (at > 0 ? addr.substring(0, at) : addr).toLowerCase();
+          if (pub.isNotEmpty) byPubkey[pub] = c;
+        }
+      }
+    }
+    final out = <Contact>{};
+    for (final uuid in group.members) {
+      final direct = byUuid[uuid];
+      if (direct != null) {
+        out.add(direct);
+        continue;
+      }
+      final pub = group.memberPubkeys[uuid]?.toLowerCase();
+      if (pub != null) {
+        final viaPub = byPubkey[pub];
+        if (viaPub != null) out.add(viaPub);
+      }
+    }
+    return out.toList();
+  }
+
   Future<void> sendGroupEditSignal(Contact group, String msgId, String text,
       List<Contact> allContacts) async {
     final selfId = _getSelfId();
     final sid = _newSid();
-    final memberContacts = allContacts
-        .where((c) => !c.isGroup && group.members.contains(c.id))
-        .toList();
+    final memberContacts = _resolveGroupRecipients(group, allContacts);
     await Future.wait(memberContacts.map((c) => _sendSignalTo(c, 'edit', {
           '_sid': sid,
           'msgId': msgId,
@@ -629,9 +680,7 @@ class SignalBroadcaster {
   Future<void> broadcastGroupDelete(
       Contact group, String msgId, List<Contact> allContacts) async {
     final selfId = _getSelfId();
-    final memberContacts = allContacts
-        .where((c) => !c.isGroup && group.members.contains(c.id))
-        .toList();
+    final memberContacts = _resolveGroupRecipients(group, allContacts);
     await Future.wait(memberContacts.map((c) => _sendSignalToAll(c, 'msg_delete', {
           'msgId': msgId,
           'groupId': group.id,
@@ -641,6 +690,21 @@ class SignalBroadcaster {
 
   Future<void> sendTtlSignal(Contact contact, int seconds) =>
       _sendSignalTo(contact, 'ttl_update', {'seconds': seconds});
+
+  /// Broadcast a TTL change for a group to every member. Each member's
+  /// receive-side handler applies the same TTL to their copy of the group
+  /// chat, so disappearing-messages settings stay consistent across the
+  /// whole group instead of being a per-device toggle.
+  Future<void> broadcastGroupTtl(
+      Contact group, int seconds, List<Contact> allContacts) async {
+    if (!group.isGroup) return;
+    final members = _resolveGroupRecipients(group, allContacts);
+    if (members.isEmpty) return;
+    await Future.wait(members.map((c) => _sendSignalToAll(c, 'ttl_update', {
+          'seconds': seconds,
+          'groupId': group.id,
+        })));
+  }
 
   Future<void> sendP2PSignal(
       Contact contact, String type, Map<String, dynamic> payload) =>

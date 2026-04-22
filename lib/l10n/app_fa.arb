@@ -924,5 +924,16 @@
   "menuClearChatHistory": "پاک کردن تاریخچه گفتگو",
   "clearChatTitle": "تاریخچه گفتگو پاک شود؟",
   "clearChatBody": "تمام پیام‌های این گفتگو از این دستگاه حذف می‌شوند. طرف مقابل نسخه خود را نگه می‌دارد.",
-  "clearChatAction": "پاک کردن"
+  "clearChatAction": "پاک کردن",
+  "systemGroupRenamed": "{actor} نام گروه را به «{name}» تغییر داد",
+  "systemGroupAvatarChanged": "{actor} عکس گروه را تغییر داد",
+  "systemGroupMetaChanged": "{actor} نام گروه را به «{name}» و عکس آن را تغییر داد",
+  "profileInviteLink": "لینک دعوت",
+  "profileInviteLinkSubtitle": "هر کسی که لینک را داشته باشد می‌تواند بپیوندد",
+  "profileInviteLinkCopied": "لینک دعوت کپی شد",
+  "groupInviteLinkTitle": "به گروه بپیوندید؟",
+  "groupInviteLinkBody": "شما به «{name}» دعوت شده‌اید ({count} عضو).",
+  "groupInviteLinkJoin": "پیوستن",
+  "drawerJoinGroupByLink": "پیوستن به گروه از طریق لینک",
+  "drawerJoinGroupByLinkInvalid": "این لینک دعوت Pulse به نظر نمی‌رسد"
 }

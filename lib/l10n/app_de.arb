@@ -924,5 +924,16 @@
   "menuClearChatHistory": "Chatverlauf löschen",
   "clearChatTitle": "Chatverlauf löschen?",
   "clearChatBody": "Alle Nachrichten in diesem Chat werden von diesem Gerät gelöscht. Die andere Person behält ihre Kopie.",
-  "clearChatAction": "Löschen"
+  "clearChatAction": "Löschen",
+  "systemGroupRenamed": "{actor} hat die Gruppe in „{name}\" umbenannt",
+  "systemGroupAvatarChanged": "{actor} hat das Gruppenfoto geändert",
+  "systemGroupMetaChanged": "{actor} hat die Gruppe in „{name}\" umbenannt und das Foto geändert",
+  "profileInviteLink": "Einladungslink",
+  "profileInviteLinkSubtitle": "Jeder mit dem Link kann beitreten",
+  "profileInviteLinkCopied": "Einladungslink in die Zwischenablage kopiert",
+  "groupInviteLinkTitle": "Gruppe beitreten?",
+  "groupInviteLinkBody": "Du wurdest zu „{name}\" eingeladen ({count} Mitglieder).",
+  "groupInviteLinkJoin": "Beitreten",
+  "drawerJoinGroupByLink": "Gruppe per Link beitreten",
+  "drawerJoinGroupByLinkInvalid": "Das sieht nicht wie ein Pulse-Gruppeneinladungslink aus"
 }

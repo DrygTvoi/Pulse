@@ -3124,4 +3124,46 @@ class AppLocalizationsSr extends AppLocalizations {
 
   @override
   String get clearChatAction => 'Обриши';
+
+  @override
+  String systemGroupRenamed(String actor, String name) {
+    return '$actor је преименовао(ла) групу у „$name\"';
+  }
+
+  @override
+  String systemGroupAvatarChanged(String actor) {
+    return '$actor је променио(ла) слику групе';
+  }
+
+  @override
+  String systemGroupMetaChanged(String actor, String name) {
+    return '$actor је преименовао(ла) групу у „$name\" и променио(ла) слику';
+  }
+
+  @override
+  String get profileInviteLink => 'Линк за позивницу';
+
+  @override
+  String get profileInviteLinkSubtitle => 'Свако са линком може да се придружи';
+
+  @override
+  String get profileInviteLinkCopied => 'Линк позивнице је копиран';
+
+  @override
+  String get groupInviteLinkTitle => 'Придружити се групи?';
+
+  @override
+  String groupInviteLinkBody(String name, int count) {
+    return 'Позвани сте у „$name\" ($count чланова).';
+  }
+
+  @override
+  String get groupInviteLinkJoin => 'Придружи се';
+
+  @override
+  String get drawerJoinGroupByLink => 'Придружи се групи преко линка';
+
+  @override
+  String get drawerJoinGroupByLinkInvalid =>
+      'Ово не изгледа као Pulse линк позивнице';
 }

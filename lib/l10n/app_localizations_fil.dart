@@ -3138,4 +3138,46 @@ class AppLocalizationsFil extends AppLocalizations {
 
   @override
   String get clearChatAction => 'I-clear';
+
+  @override
+  String systemGroupRenamed(String actor, String name) {
+    return 'Pinalitan ni $actor ang pangalan ng grupo sa \"$name\"';
+  }
+
+  @override
+  String systemGroupAvatarChanged(String actor) {
+    return 'Binago ni $actor ang larawan ng grupo';
+  }
+
+  @override
+  String systemGroupMetaChanged(String actor, String name) {
+    return 'Pinalitan ni $actor ang pangalan ng grupo sa \"$name\" at binago ang larawan';
+  }
+
+  @override
+  String get profileInviteLink => 'Link ng paanyaya';
+
+  @override
+  String get profileInviteLinkSubtitle => 'Sinumang may link ay makakasama';
+
+  @override
+  String get profileInviteLinkCopied => 'Nakopya ang link ng paanyaya';
+
+  @override
+  String get groupInviteLinkTitle => 'Sumali sa grupo?';
+
+  @override
+  String groupInviteLinkBody(String name, int count) {
+    return 'Inanyayahan ka sa \"$name\" ($count miyembro).';
+  }
+
+  @override
+  String get groupInviteLinkJoin => 'Sumali';
+
+  @override
+  String get drawerJoinGroupByLink => 'Sumali sa grupo gamit ang link';
+
+  @override
+  String get drawerJoinGroupByLinkInvalid =>
+      'Hindi ito mukhang Pulse invite link';
 }

@@ -59,10 +59,17 @@ class SignalDeliveryAckEvent {
 }
 
 /// TTL update from contact.
+///
+/// For 1-on-1 chats `contact` is the peer that changed the setting and
+/// `groupId` is null. For group chats `contact` is the group member who
+/// initiated the change and `groupId` is the group's contactId — the
+/// receiver applies the TTL to the group chat, attributing the change to
+/// the member.
 class SignalTtlUpdateEvent {
   final Contact contact;
   final int seconds;
-  SignalTtlUpdateEvent(this.contact, this.seconds);
+  final String? groupId;
+  SignalTtlUpdateEvent(this.contact, this.seconds, {this.groupId});
 }
 
 /// Reaction on a message.
@@ -234,11 +241,15 @@ class SignalGroupUpdateEvent {
   final Map<String, String> memberPubkeys;
   /// See [SignalGroupInviteEvent.memberAddresses].
   final Map<String, Map<String, List<String>>> memberAddresses;
+  /// Optional base64-encoded group avatar. Empty string = no change; the
+  /// receiver should keep its existing local avatar in that case.
+  final String avatar;
   SignalGroupUpdateEvent(this.groupId, this.groupName, this.members,
       {this.creatorId,
       this.senderId = '',
       this.memberPubkeys = const {},
-      this.memberAddresses = const {}});
+      this.memberAddresses = const {},
+      this.avatar = ''});
 }
 
 // ── Callbacks for operations the dispatcher cannot do on its own ────────────
@@ -702,10 +713,13 @@ class SignalDispatcher {
           final payload = sig['payload'];
           final seconds =
               (payload is Map ? payload['seconds'] : null) as int? ?? 0;
+          final groupId =
+              (payload is Map ? payload['groupId'] : null) as String?;
           final fromId = sig['senderId'] as String? ?? '';
           final sender = _resolveContact(fromId, contactByDbId);
           if (sender != null && !_ttlUpdateCtrl.isClosed) {
-            _ttlUpdateCtrl.add(SignalTtlUpdateEvent(sender, seconds));
+            _ttlUpdateCtrl
+                .add(SignalTtlUpdateEvent(sender, seconds, groupId: groupId));
           }
         } else if (sigType == 'reaction') {
           final payload = sig['payload'];
@@ -985,12 +999,21 @@ class SignalDispatcher {
             final memberPubkeys = _extractMemberPubkeys(payload['memberPubkeys']);
             final memberAddresses =
                 _extractMemberAddresses(payload['memberAddresses']);
+            // Reject avatars >32 KiB so a malicious peer can't push huge
+            // payloads to inflate every member's storage.
+            String avatar = '';
+            final rawAvatar = payload['avatar'];
+            if (rawAvatar is String && rawAvatar.isNotEmpty &&
+                rawAvatar.length <= 32 * 1024) {
+              avatar = rawAvatar;
+            }
             if (groupId != null && rawMembers is List && rawMembers.length <= 200 && !_groupUpdateCtrl.isClosed) {
               _groupUpdateCtrl.add(SignalGroupUpdateEvent(
                   groupId, groupName, rawMembers.whereType<String>().toList(),
                   creatorId: creatorId, senderId: sigSender,
                   memberPubkeys: memberPubkeys,
-                  memberAddresses: memberAddresses));
+                  memberAddresses: memberAddresses,
+                  avatar: avatar));
             }
           }
         } else if (sigType == 'group_invite') {

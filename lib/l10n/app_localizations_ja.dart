@@ -3009,4 +3009,45 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get clearChatAction => '消去';
+
+  @override
+  String systemGroupRenamed(String actor, String name) {
+    return '$actor がグループ名を「$name」に変更しました';
+  }
+
+  @override
+  String systemGroupAvatarChanged(String actor) {
+    return '$actor がグループ写真を変更しました';
+  }
+
+  @override
+  String systemGroupMetaChanged(String actor, String name) {
+    return '$actor がグループ名を「$name」に変更し、写真も変更しました';
+  }
+
+  @override
+  String get profileInviteLink => '招待リンク';
+
+  @override
+  String get profileInviteLinkSubtitle => 'リンクを知っている人は誰でも参加できます';
+
+  @override
+  String get profileInviteLinkCopied => '招待リンクをコピーしました';
+
+  @override
+  String get groupInviteLinkTitle => 'グループに参加しますか？';
+
+  @override
+  String groupInviteLinkBody(String name, int count) {
+    return '「$name」($count 人) に招待されました。';
+  }
+
+  @override
+  String get groupInviteLinkJoin => '参加';
+
+  @override
+  String get drawerJoinGroupByLink => 'リンクでグループに参加';
+
+  @override
+  String get drawerJoinGroupByLinkInvalid => 'Pulse の招待リンクではないようです';
 }

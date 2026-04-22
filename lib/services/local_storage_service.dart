@@ -1448,8 +1448,23 @@ class LocalStorageService {
     return rows.first['data'] as String?;
   }
 
-  /// Upsert the base64-encoded avatar for [contactId].
+  /// Upsert the base64-encoded avatar for [contactId]. Validates that the
+  /// payload is real base64 and that the decoded image is at most 512 KiB
+  /// — a malicious peer that sent a 32 KiB string of garbage (passing the
+  /// dispatcher's wire-size cap) would otherwise pollute the DB and crash
+  /// every subsequent base64Decode in the UI.
   Future<void> saveAvatar(String contactId, String base64Data) async {
+    if (base64Data.isEmpty) return;
+    try {
+      final decoded = base64Decode(base64Data);
+      if (decoded.length > 512 * 1024) {
+        debugPrint('[Storage] Reject avatar: decoded ${decoded.length}B > 512 KiB');
+        return;
+      }
+    } catch (e) {
+      debugPrint('[Storage] Reject avatar: not valid base64 ($e)');
+      return;
+    }
     await _database.insert(
       'avatars',
       {'contact_id': contactId, 'data': base64Data},

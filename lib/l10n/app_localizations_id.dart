@@ -3116,4 +3116,47 @@ class AppLocalizationsId extends AppLocalizations {
 
   @override
   String get clearChatAction => 'Hapus';
+
+  @override
+  String systemGroupRenamed(String actor, String name) {
+    return '$actor mengganti nama grup menjadi \"$name\"';
+  }
+
+  @override
+  String systemGroupAvatarChanged(String actor) {
+    return '$actor mengubah foto grup';
+  }
+
+  @override
+  String systemGroupMetaChanged(String actor, String name) {
+    return '$actor mengganti nama grup menjadi \"$name\" dan mengubah foto';
+  }
+
+  @override
+  String get profileInviteLink => 'Tautan undangan';
+
+  @override
+  String get profileInviteLinkSubtitle =>
+      'Siapa pun dengan tautan dapat bergabung';
+
+  @override
+  String get profileInviteLinkCopied => 'Tautan undangan disalin';
+
+  @override
+  String get groupInviteLinkTitle => 'Bergabung dengan grup?';
+
+  @override
+  String groupInviteLinkBody(String name, int count) {
+    return 'Anda diundang untuk bergabung dengan \"$name\" ($count anggota).';
+  }
+
+  @override
+  String get groupInviteLinkJoin => 'Bergabung';
+
+  @override
+  String get drawerJoinGroupByLink => 'Bergabung ke grup melalui tautan';
+
+  @override
+  String get drawerJoinGroupByLinkInvalid =>
+      'Itu tidak terlihat seperti tautan undangan Pulse';
 }

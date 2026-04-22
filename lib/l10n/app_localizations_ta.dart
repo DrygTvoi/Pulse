@@ -3144,4 +3144,46 @@ class AppLocalizationsTa extends AppLocalizations {
 
   @override
   String get clearChatAction => 'அழி';
+
+  @override
+  String systemGroupRenamed(String actor, String name) {
+    return '$actor குழுவின் பெயரை \"$name\" என மாற்றினார்';
+  }
+
+  @override
+  String systemGroupAvatarChanged(String actor) {
+    return '$actor குழுவின் புகைப்படத்தை மாற்றினார்';
+  }
+
+  @override
+  String systemGroupMetaChanged(String actor, String name) {
+    return '$actor குழுவின் பெயரை \"$name\" என மாற்றி, புகைப்படத்தையும் மாற்றினார்';
+  }
+
+  @override
+  String get profileInviteLink => 'அழைப்பு இணைப்பு';
+
+  @override
+  String get profileInviteLinkSubtitle => 'இணைப்பு உள்ள எவரும் சேரலாம்';
+
+  @override
+  String get profileInviteLinkCopied => 'அழைப்பு இணைப்பு நகலெடுக்கப்பட்டது';
+
+  @override
+  String get groupInviteLinkTitle => 'குழுவில் சேரவா?';
+
+  @override
+  String groupInviteLinkBody(String name, int count) {
+    return '\"$name\" இல் சேர நீங்கள் அழைக்கப்பட்டுள்ளீர்கள் ($count உறுப்பினர்கள்).';
+  }
+
+  @override
+  String get groupInviteLinkJoin => 'சேர்';
+
+  @override
+  String get drawerJoinGroupByLink => 'இணைப்பு மூலம் குழுவில் சேரவும்';
+
+  @override
+  String get drawerJoinGroupByLinkInvalid =>
+      'இது Pulse அழைப்பு இணைப்பாகத் தெரியவில்லை';
 }

@@ -3149,4 +3149,47 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get clearChatAction => 'Borrar';
+
+  @override
+  String systemGroupRenamed(String actor, String name) {
+    return '$actor cambió el nombre del grupo a «$name»';
+  }
+
+  @override
+  String systemGroupAvatarChanged(String actor) {
+    return '$actor cambió la foto del grupo';
+  }
+
+  @override
+  String systemGroupMetaChanged(String actor, String name) {
+    return '$actor cambió el nombre del grupo a «$name» y la foto';
+  }
+
+  @override
+  String get profileInviteLink => 'Enlace de invitación';
+
+  @override
+  String get profileInviteLinkSubtitle =>
+      'Cualquiera con el enlace puede unirse';
+
+  @override
+  String get profileInviteLinkCopied => 'Enlace de invitación copiado';
+
+  @override
+  String get groupInviteLinkTitle => '¿Unirte al grupo?';
+
+  @override
+  String groupInviteLinkBody(String name, int count) {
+    return 'Te han invitado a unirte a «$name» ($count miembros).';
+  }
+
+  @override
+  String get groupInviteLinkJoin => 'Unirse';
+
+  @override
+  String get drawerJoinGroupByLink => 'Unirse al grupo por enlace';
+
+  @override
+  String get drawerJoinGroupByLinkInvalid =>
+      'Eso no parece un enlace de invitación de Pulse';
 }

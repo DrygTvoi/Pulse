@@ -3128,4 +3128,47 @@ class AppLocalizationsHy extends AppLocalizations {
 
   @override
   String get clearChatAction => 'Մաքրել';
+
+  @override
+  String systemGroupRenamed(String actor, String name) {
+    return '$actor-ը խումբը վերանվանեց «$name»';
+  }
+
+  @override
+  String systemGroupAvatarChanged(String actor) {
+    return '$actor-ը փոխեց խմբի լուսանկարը';
+  }
+
+  @override
+  String systemGroupMetaChanged(String actor, String name) {
+    return '$actor-ը խումբը վերանվանեց «$name» և փոխեց լուսանկարը';
+  }
+
+  @override
+  String get profileInviteLink => 'Հրավերի հղում';
+
+  @override
+  String get profileInviteLinkSubtitle =>
+      'Հղումն ունեցող ցանկացած մարդ կարող է միանալ';
+
+  @override
+  String get profileInviteLinkCopied => 'Հրավերի հղումը պատճենվեց';
+
+  @override
+  String get groupInviteLinkTitle => 'Միանա՞լ խմբին:';
+
+  @override
+  String groupInviteLinkBody(String name, int count) {
+    return 'Դուք հրավիրված եք «$name» խմբին ($count անդամ):';
+  }
+
+  @override
+  String get groupInviteLinkJoin => 'Միանալ';
+
+  @override
+  String get drawerJoinGroupByLink => 'Հղման միջոցով միանալ խմբին';
+
+  @override
+  String get drawerJoinGroupByLinkInvalid =>
+      'Սա չի թվում Pulse-ի հրավիրյալ հղում';
 }

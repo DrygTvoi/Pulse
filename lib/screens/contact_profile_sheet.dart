@@ -654,13 +654,15 @@ class _ContactProfileBodyState extends State<ContactProfileBody> {
               final name = ctrl.text.trim();
               if (name.isEmpty) return;
               Navigator.pop(ctx);
+              final previousName = _contact.name;
               final updated = _contact.copyWith(name: name);
               await context.read<IContactRepository>().updateContact(updated);
               if (mounted) {
                 setState(() => _contact = updated);
                 widget.onContactUpdated?.call(updated);
                 if (_contact.isGroup) {
-                  unawaited(context.read<ChatController>().broadcastGroupUpdate(updated));
+                  unawaited(context.read<ChatController>().broadcastGroupUpdate(
+                      updated, previousName: previousName));
                 }
               }
             },
@@ -734,6 +736,8 @@ class _ContactProfileBodyState extends State<ContactProfileBody> {
           if (_contact.isGroup) ...[
             const SizedBox(height: DesignTokens.spacing20),
             _buildMembersSection(),
+            const SizedBox(height: DesignTokens.spacing16),
+            _buildInviteLinkRow(),
           ],
           const SizedBox(height: DesignTokens.spacing24),
           _buildActions(context),
@@ -1106,21 +1110,65 @@ class _ContactProfileBodyState extends State<ContactProfileBody> {
       ),
       child: Row(
         children: [
-          Container(
-            width: DesignTokens.avatarXs,
-            height: DesignTokens.avatarXs,
-            decoration: BoxDecoration(color: avatarColor, shape: BoxShape.circle),
-            child: Center(
-              child: Text(initial,
-                  style: GoogleFonts.inter(
-                      color: AppTheme.onPrimary, fontSize: DesignTokens.fontInput, fontWeight: FontWeight.w700)),
-            ),
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Container(
+                width: DesignTokens.avatarXs,
+                height: DesignTokens.avatarXs,
+                decoration: BoxDecoration(color: avatarColor, shape: BoxShape.circle),
+                child: Center(
+                  child: Text(initial,
+                      style: GoogleFonts.inter(
+                          color: AppTheme.onPrimary,
+                          fontSize: DesignTokens.fontInput,
+                          fontWeight: FontWeight.w700)),
+                ),
+              ),
+              // Online dot — small green pip on the bottom-right of the
+              // avatar when ChatController has a recent heartbeat for this
+              // member. Hidden for unresolved members (no Contact yet).
+              if (contact != null)
+                Positioned(
+                  right: -1,
+                  bottom: -1,
+                  child: Container(
+                    width: 10,
+                    height: 10,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: ctrl.isOnline(contact.id)
+                          ? const Color(0xFF22C55E)
+                          : AppTheme.textSecondary.withValues(alpha: 0.45),
+                      border: Border.all(color: AppTheme.background, width: 2),
+                    ),
+                  ),
+                ),
+            ],
           ),
           const SizedBox(width: DesignTokens.spacing12),
           Expanded(
-            child: Text(name,
-                style: GoogleFonts.inter(
-                    color: AppTheme.textPrimary, fontWeight: FontWeight.w500)),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(name,
+                    style: GoogleFonts.inter(
+                        color: AppTheme.textPrimary, fontWeight: FontWeight.w500)),
+                if (contact != null)
+                  Text(
+                    ctrl.isOnline(contact.id)
+                        ? context.l10n.appBarOnline
+                        : ctrl.lastSeenLabel(contact.id),
+                    style: GoogleFonts.inter(
+                      color: AppTheme.textSecondary,
+                      fontSize: DesignTokens.fontXs,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+              ],
+            ),
           ),
           if (memberId == _contact.creatorId)
             Tooltip(
@@ -1195,6 +1243,60 @@ class _ContactProfileBodyState extends State<ContactProfileBody> {
         ],
       ),
     );
+  }
+
+  /// Group-only "Invite link" row. Shows a row with Copy / Share buttons.
+  /// Tapping Copy puts a `pulse://group?cfg=…` URL on the clipboard. The
+  /// URL embeds member pubkeys + transport addresses so the recipient can
+  /// reach everyone without first being added as a 1-on-1 contact.
+  Widget _buildInviteLinkRow() {
+    return InkWell(
+      onTap: _shareInviteLink,
+      borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+            horizontal: DesignTokens.spacing12,
+            vertical: DesignTokens.tilePaddingV),
+        decoration: BoxDecoration(
+          color: AppTheme.background,
+          borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
+        ),
+        child: Row(children: [
+          Icon(Icons.link_rounded,
+              size: DesignTokens.fontHeading, color: AppTheme.primary),
+          const SizedBox(width: DesignTokens.spacing12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(context.l10n.profileInviteLink,
+                    style: GoogleFonts.inter(
+                        color: AppTheme.textPrimary,
+                        fontWeight: FontWeight.w600)),
+                Text(context.l10n.profileInviteLinkSubtitle,
+                    style: GoogleFonts.inter(
+                        color: AppTheme.textSecondary,
+                        fontSize: DesignTokens.fontSm)),
+              ],
+            ),
+          ),
+          Icon(Icons.chevron_right_rounded,
+              size: DesignTokens.fontLg, color: AppTheme.textSecondary),
+        ]),
+      ),
+    );
+  }
+
+  Future<void> _shareInviteLink() async {
+    final ctrl = context.read<ChatController>();
+    final url = ctrl.buildGroupInviteLink(_contact);
+    if (url == null) return;
+    await Clipboard.setData(ClipboardData(text: url));
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(context.l10n.profileInviteLinkCopied),
+      duration: const Duration(seconds: 3),
+    ));
   }
 
   Widget _buildActions(BuildContext context) {

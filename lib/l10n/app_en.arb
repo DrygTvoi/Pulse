@@ -1968,5 +1968,53 @@
   "clearChatBody": "All messages in this chat will be deleted from this device. The other person will keep their copy.",
   "@clearChatBody": { "description": "Body of the confirm dialog explaining clear-chat is local-only" },
   "clearChatAction": "Clear",
-  "@clearChatAction": { "description": "Destructive button label that confirms the clear-chat action" }
+  "@clearChatAction": { "description": "Destructive button label that confirms the clear-chat action" },
+
+  "systemGroupRenamed": "{actor} renamed the group to \"{name}\"",
+  "@systemGroupRenamed": {
+    "description": "In-chat notice when a group member renames the group",
+    "placeholders": {
+      "actor": { "type": "String" },
+      "name": { "type": "String" }
+    }
+  },
+  "systemGroupAvatarChanged": "{actor} changed the group photo",
+  "@systemGroupAvatarChanged": {
+    "description": "In-chat notice when a group member changes the group avatar",
+    "placeholders": {
+      "actor": { "type": "String" }
+    }
+  },
+  "systemGroupMetaChanged": "{actor} renamed the group to \"{name}\" and changed the photo",
+  "@systemGroupMetaChanged": {
+    "description": "In-chat notice when a group member changes both name and avatar at once",
+    "placeholders": {
+      "actor": { "type": "String" },
+      "name": { "type": "String" }
+    }
+  },
+
+  "profileInviteLink": "Invite link",
+  "@profileInviteLink": { "description": "Group profile row label for sharing an invite link" },
+  "profileInviteLinkSubtitle": "Anyone with the link can join the group",
+  "@profileInviteLinkSubtitle": { "description": "Subtitle warning that an invite link is not access-controlled" },
+  "profileInviteLinkCopied": "Invite link copied to clipboard",
+  "@profileInviteLinkCopied": { "description": "Snackbar shown after the user taps the invite-link row" },
+  "groupInviteLinkTitle": "Join group?",
+  "@groupInviteLinkTitle": { "description": "Title of the dialog shown when an invite-link arrives via deep link" },
+  "groupInviteLinkBody": "You've been invited to join \"{name}\" ({count} members).",
+  "@groupInviteLinkBody": {
+    "description": "Body of the invite-link confirm dialog",
+    "placeholders": {
+      "name": { "type": "String" },
+      "count": { "type": "int" }
+    }
+  },
+  "groupInviteLinkJoin": "Join",
+  "@groupInviteLinkJoin": { "description": "Confirm-button label that joins the group from an invite link" },
+
+  "drawerJoinGroupByLink": "Join group by link",
+  "@drawerJoinGroupByLink": { "description": "Drawer entry that opens the paste-invite-link dialog" },
+  "drawerJoinGroupByLinkInvalid": "That doesn't look like a Pulse group invite link",
+  "@drawerJoinGroupByLinkInvalid": { "description": "Snackbar shown when pasted text is not a valid pulse://group URL" }
 }

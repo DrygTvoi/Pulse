@@ -3089,4 +3089,45 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String get clearChatAction => 'ล้าง';
+
+  @override
+  String systemGroupRenamed(String actor, String name) {
+    return '$actor เปลี่ยนชื่อกลุ่มเป็น \"$name\"';
+  }
+
+  @override
+  String systemGroupAvatarChanged(String actor) {
+    return '$actor เปลี่ยนรูปกลุ่ม';
+  }
+
+  @override
+  String systemGroupMetaChanged(String actor, String name) {
+    return '$actor เปลี่ยนชื่อกลุ่มเป็น \"$name\" และเปลี่ยนรูป';
+  }
+
+  @override
+  String get profileInviteLink => 'ลิงก์เชิญ';
+
+  @override
+  String get profileInviteLinkSubtitle => 'ใครก็ตามที่มีลิงก์สามารถเข้าร่วมได้';
+
+  @override
+  String get profileInviteLinkCopied => 'คัดลอกลิงก์เชิญแล้ว';
+
+  @override
+  String get groupInviteLinkTitle => 'เข้าร่วมกลุ่ม?';
+
+  @override
+  String groupInviteLinkBody(String name, int count) {
+    return 'คุณได้รับเชิญให้เข้าร่วม \"$name\" ($count สมาชิก)';
+  }
+
+  @override
+  String get groupInviteLinkJoin => 'เข้าร่วม';
+
+  @override
+  String get drawerJoinGroupByLink => 'เข้าร่วมกลุ่มผ่านลิงก์';
+
+  @override
+  String get drawerJoinGroupByLinkInvalid => 'นี่ไม่ใช่ลิงก์เชิญของ Pulse';
 }

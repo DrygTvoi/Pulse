@@ -924,5 +924,16 @@
   "menuClearChatHistory": "Tøm chatlogg",
   "clearChatTitle": "Tømme chatloggen?",
   "clearChatBody": "Alle meldinger i denne chatten slettes fra denne enheten. Den andre personen beholder sin kopi.",
-  "clearChatAction": "Tøm"
+  "clearChatAction": "Tøm",
+  "systemGroupRenamed": "{actor} ga gruppen nytt navn \"{name}\"",
+  "systemGroupAvatarChanged": "{actor} endret gruppebildet",
+  "systemGroupMetaChanged": "{actor} ga gruppen nytt navn \"{name}\" og endret bildet",
+  "profileInviteLink": "Invitasjonslenke",
+  "profileInviteLinkSubtitle": "Alle med lenken kan bli med",
+  "profileInviteLinkCopied": "Invitasjonslenke kopiert",
+  "groupInviteLinkTitle": "Bli med i gruppen?",
+  "groupInviteLinkBody": "Du er invitert til å bli med i \"{name}\" ({count} medlemmer).",
+  "groupInviteLinkJoin": "Bli med",
+  "drawerJoinGroupByLink": "Bli med i gruppen via lenke",
+  "drawerJoinGroupByLinkInvalid": "Det ser ikke ut som en Pulse-invitasjonslenke"
 }

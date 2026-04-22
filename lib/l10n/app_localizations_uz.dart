@@ -3135,4 +3135,47 @@ class AppLocalizationsUz extends AppLocalizations {
 
   @override
   String get clearChatAction => 'Tozalash';
+
+  @override
+  String systemGroupRenamed(String actor, String name) {
+    return '$actor guruh nomini \"$name\" qilib o\'zgartirdi';
+  }
+
+  @override
+  String systemGroupAvatarChanged(String actor) {
+    return '$actor guruh suratini o\'zgartirdi';
+  }
+
+  @override
+  String systemGroupMetaChanged(String actor, String name) {
+    return '$actor guruh nomini \"$name\" qilib o\'zgartirdi va suratni ham o\'zgartirdi';
+  }
+
+  @override
+  String get profileInviteLink => 'Taklif havolasi';
+
+  @override
+  String get profileInviteLinkSubtitle =>
+      'Havolaga ega har kim qo\'shilishi mumkin';
+
+  @override
+  String get profileInviteLinkCopied => 'Taklif havolasi nusxalandi';
+
+  @override
+  String get groupInviteLinkTitle => 'Guruhga qo\'shilasizmi?';
+
+  @override
+  String groupInviteLinkBody(String name, int count) {
+    return 'Siz \"$name\" guruhiga taklif qilingansiz ($count a\'zo).';
+  }
+
+  @override
+  String get groupInviteLinkJoin => 'Qo\'shilish';
+
+  @override
+  String get drawerJoinGroupByLink => 'Havola orqali guruhga qo\'shilish';
+
+  @override
+  String get drawerJoinGroupByLinkInvalid =>
+      'Bu Pulse taklif havolasiga o\'xshamaydi';
 }

@@ -41,6 +41,7 @@ import '../services/blossom_service.dart';
 import '../services/sentry_service.dart';
 import '../services/voice_service.dart';
 import '../services/sender_key_service.dart';
+import '../services/group_invite_link.dart';
 import '../services/signal_dispatcher.dart';
 import '../services/ice_server_config.dart';
 import '../services/media_validator.dart';
@@ -1589,7 +1590,19 @@ class ChatController extends ChangeNotifier {
     _dispatcherSubs.add(pulseServerAcks.listen(_handleServerAck));
 
     _dispatcherSubs.add(d.ttlUpdates.listen((e) {
-      unawaited(setChatTtlSeconds(e.contact, e.seconds,
+      // For group TTL signals, e.contact is the member who initiated the
+      // change; the TTL must be applied to the group chat itself, with that
+      // member recorded as the actor in the system notice.
+      Contact? target = e.contact;
+      if (e.groupId != null) {
+        try {
+          target = _contacts.contacts.firstWhere((c) => c.id == e.groupId);
+        } catch (_) {
+          target = null;
+        }
+      }
+      if (target == null) return;
+      unawaited(setChatTtlSeconds(target, e.seconds,
           sendSignal: false, changedBy: e.contact.id));
     }));
 
@@ -1886,6 +1899,11 @@ class ChatController extends ChangeNotifier {
     }));
 
     _dispatcherSubs.add(d.groupUpdates.listen((e) async {
+      // Drop loop-back broadcasts: every transport (Pulse server especially)
+      // can echo our own kind:1059 / signed envelope back to us. Without
+      // this filter the sender would re-apply their own change and emit a
+      // duplicate "<self> renamed group" system notice.
+      if (_isOwnAddress(e.senderId)) return;
       final g = _contacts.findById(e.groupId);
       if (g == null || !g.isGroup) return;
       final group = g;
@@ -1927,19 +1945,44 @@ class ChatController extends ChangeNotifier {
           Map<String, String>.from(group.memberPubkeys)
             ..addAll(e.memberPubkeys)
             ..removeWhere((k, _) => !e.members.contains(k));
+      // Detect what actually changed so we can emit a Telegram-style
+      // in-chat notice. Empty groupName / empty avatar in the signal mean
+      // "no change" — only the fields that the sender actually populated
+      // are treated as updates.
+      final newName = e.groupName.isNotEmpty ? e.groupName : group.name;
+      final nameChanged =
+          e.groupName.isNotEmpty && e.groupName != group.name;
+      final avatarChanged = e.avatar.isNotEmpty;
       final updated = group.copyWith(
-        name: e.groupName.isNotEmpty ? e.groupName : group.name,
+        name: newName,
         members: e.members,
         creatorId: group.creatorId ?? e.creatorId,
         memberPubkeys: mergedPubkeys,
       );
       await _contacts.updateContact(updated);
+      if (avatarChanged) {
+        try {
+          await LocalStorageService().saveAvatar(group.id, e.avatar);
+        } catch (err) {
+          debugPrint('[Group] failed to save avatar: $err');
+        }
+      }
       _invalidateContactIndex();
       await _ensurePendingContactsForMembers(
           mergedPubkeys, e.memberAddresses);
       debugPrint('[Group] Membership updated for ${updated.name}: ${e.members.length} members');
       if (memberRemoved && _selfId.isNotEmpty) {
         unawaited(rotateGroupSenderKey(updated));
+      }
+      if (nameChanged || avatarChanged) {
+        await _insertSystemMessage(updated, {
+          '_sys': avatarChanged && nameChanged
+              ? 'group_meta_changed'
+              : (avatarChanged ? 'group_avatar_changed' : 'group_renamed'),
+          if (nameChanged) 'old': group.name,
+          if (nameChanged) 'new': newName,
+          'by': e.senderId,
+        });
       }
       if (!_groupUpdatePublicCtrl.isClosed) _groupUpdatePublicCtrl.add(e);
       _scheduleNotify();
@@ -2479,6 +2522,26 @@ class ChatController extends ChangeNotifier {
                   if (existing == null || existing.isEmpty) {
                     unawaited(LocalStorageService().saveAvatar(senderContact.id, env.senderAvatar!));
                   }
+                }
+                // Promote routing-only auto-pending contacts to a real name
+                // from the envelope. Without this, members the local user
+                // first learnt about via group fan-out keep their placeholder
+                // "Member abc12345" name forever — so every group bubble from
+                // them shows that label instead of the real display name.
+                final envSenderName = env?.senderName;
+                if (envSenderName != null &&
+                    envSenderName.isNotEmpty &&
+                    (senderContact.isHidden ||
+                        senderContact.name.startsWith('Member ') ||
+                        senderContact.name.startsWith('Group: ')) &&
+                    senderContact.name != envSenderName) {
+                  final updated = senderContact.copyWith(
+                      name: envSenderName, isHidden: false);
+                  await _contacts.updateContact(updated);
+                  _invalidateContactIndex();
+                  senderContact = updated;
+                  debugPrint(
+                      '[Chat] Promoted hidden contact ${senderContact.id.substring(0, 8)} → "$envSenderName"');
                 }
               }
             } catch (e) {
@@ -4196,8 +4259,13 @@ class ChatController extends ChangeNotifier {
     // TTL timers on pre-existing history.
     await prefs.setInt('chat_ttl_set_at_${contact.id}', nowMs);
     _repo.setChatTtlSetAt(contact.id, nowMs);
-    if (sendSignal && !contact.isGroup) {
-      unawaited(_broadcaster.sendTtlSignal(contact, seconds));
+    if (sendSignal) {
+      if (contact.isGroup) {
+        unawaited(_broadcaster.broadcastGroupTtl(
+            contact, seconds, _contacts.contacts));
+      } else {
+        unawaited(_broadcaster.sendTtlSignal(contact, seconds));
+      }
     }
     // Insert a Telegram-style in-chat notice. The local user changing the
     // TTL is `changedBy = null → 'self'`; an inbound ttl_update signal sets
@@ -4460,6 +4528,78 @@ class ChatController extends ChangeNotifier {
     await _broadcaster.sendGroupHistory(target, group, messages);
   }
 
+  /// Build a `pulse://group?cfg=…` shareable invite URL for [group]. Returns
+  /// null for non-group contacts. Embeds member pubkeys + transport
+  /// addresses so the recipient can route to everyone immediately on accept.
+  String? buildGroupInviteLink(Contact group) {
+    if (!group.isGroup) return null;
+    final memberAddresses =
+        _broadcaster.buildMemberAddressesForInvite(group, _contacts.contacts);
+    return GroupInviteLink.build(group, memberAddresses: memberAddresses);
+  }
+
+  /// Accept a group invite that arrived via a `pulse://group?cfg=…` deep
+  /// link. The sender is *not* the in-app inviter (we got this out of band)
+  /// but the embedded `creatorId` + `memberPubkeys` are sufficient to seed
+  /// routing. After joining, broadcast a group_update so existing members
+  /// learn we're now in the roster.
+  Future<void> acceptGroupInviteFromLink(GroupInvitePayload payload) async {
+    if (_contacts.findById(payload.groupId) != null) {
+      debugPrint('[Group] Invite link: already in group ${payload.groupId}');
+      return;
+    }
+    if (payload.creatorId == null || payload.creatorId!.isEmpty) {
+      debugPrint('[Group] Invite link rejected: no creatorId');
+      return;
+    }
+    final myUuid = _identity?.id ?? '';
+    // Bail if we don't have an identity yet — clicking a link before setup
+    // shouldn't crash, just no-op until the user finishes onboarding. The
+    // PendingGroupInvite buffer survives across screens, so the dialog can
+    // re-present once identity loads.
+    if (myUuid.isEmpty) {
+      debugPrint('[Group] Invite link deferred: identity not ready');
+      return;
+    }
+    final mergedMembers = List<String>.from(payload.members);
+    if (myUuid.isNotEmpty && !mergedMembers.contains(myUuid)) {
+      mergedMembers.add(myUuid);
+    }
+    final newGroup = Contact(
+      id: payload.groupId,
+      name: payload.name,
+      provider: 'group',
+      databaseId: '',
+      publicKey: '',
+      isGroup: true,
+      members: mergedMembers,
+      creatorId: payload.creatorId,
+      memberPubkeys: payload.memberPubkeys,
+    );
+    await _contacts.addContact(newGroup);
+    _invalidateContactIndex();
+    await _ensurePendingContactsForMembers(
+        payload.memberPubkeys, payload.memberAddresses);
+    // Tell every member (including the creator) that we now belong to the
+    // group so their members[] gets updated. The receive-side handler is
+    // already idempotent — duplicates are safe.
+    final enriched = await enrichGroupMemberPubkeys(newGroup);
+    if (enriched != newGroup) {
+      await _contacts.updateContact(enriched);
+    }
+    unawaited(broadcastGroupUpdate(enriched));
+    // Republish our Signal+Kyber bundle so that every existing member can
+    // fetch our fresh prekeys when they first send to us. Without this, a
+    // member whose client hasn't seen our published keys yet would Sign-
+    // encrypt against an empty bundle and the receiver (us) sees garbage.
+    // This is the primary cause of "I joined the group but messages from
+    // other members are unreadable" right after accepting an invite link.
+    unawaited(_republishAllKeys());
+    debugPrint('[Group] Joined "${payload.name}" via invite link '
+        '(${mergedMembers.length} members)');
+    _scheduleNotify();
+  }
+
   Future<void> acceptGroupInvite(SignalGroupInviteEvent invite) async {
     final _ex = _contacts.findById(invite.groupId);
     if (_ex != null && _ex.isGroup) return;
@@ -4547,13 +4687,20 @@ class ChatController extends ChangeNotifier {
           : <String, List<String>>{
               'Nostr': [for (final r in fallbackRelays) '$pub@$r'],
             };
-      final shortUuid = uuid.length >= 8 ? uuid.substring(0, 8) : uuid;
-      final name = 'Group: $shortUuid';
+      // Routing-only contact — hidden from the chat list. The user never
+      // sees these "Group: <hash>" placeholders; they exist solely so that
+      // group fan-out and Signal sessions can address each member by their
+      // pubkey. Once the user explicitly opens a 1-on-1 chat with this
+      // peer (via member tap or via a direct message arriving), the
+      // pending+hidden flags get cleared in the normal accept flow.
+      final shortPub = pub.length >= 8 ? pub.substring(0, 8) : pub;
+      final name = 'Member $shortPub';
       final c = await ContactManager().createPendingContact(
         senderId: pub,
         senderName: name,
         address: pub,
         transportAddresses: ta,
+        isHidden: true,
       );
       if (c != null) created++;
     }
@@ -4563,8 +4710,32 @@ class ChatController extends ChangeNotifier {
     }
   }
 
-  Future<void> broadcastGroupUpdate(Contact group) =>
-      _broadcaster.broadcastGroupUpdate(group, _contacts.contacts);
+  /// Broadcast a group's metadata to every member. Optionally include an
+  /// `avatar` blob (base64) — it's only sent when actually changed so the
+  /// 30 KiB payload doesn't ride along on every membership tweak.
+  /// `previousName` lets the caller signal a rename so we can insert a
+  /// Telegram-style "<self> renamed group to X" notice in the local chat;
+  /// the receiver-side handler emits its own copy independently.
+  Future<void> broadcastGroupUpdate(Contact group,
+      {String? previousName, String? avatar}) async {
+    await _broadcaster.broadcastGroupUpdate(group, _contacts.contacts,
+        avatar: avatar);
+    final selfUuid = _identity?.id ?? 'self';
+    final renamed =
+        previousName != null && previousName.isNotEmpty && previousName != group.name;
+    final avatarChanged = avatar != null && avatar.isNotEmpty;
+    if (renamed || avatarChanged) {
+      await _insertSystemMessage(group, {
+        '_sys': renamed && avatarChanged
+            ? 'group_meta_changed'
+            : (avatarChanged ? 'group_avatar_changed' : 'group_renamed'),
+        if (renamed) 'old': previousName,
+        if (renamed) 'new': group.name,
+        'by': selfUuid,
+      });
+      _scheduleNotify();
+    }
+  }
 
   /// Build (or refresh) the `memberPubkeys` map on a group Contact by
   /// looking up each member's Nostr pubkey from our local contact list.

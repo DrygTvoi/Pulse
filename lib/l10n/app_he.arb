@@ -924,5 +924,16 @@
   "menuClearChatHistory": "נקה היסטוריית צ'אט",
   "clearChatTitle": "לנקות את היסטוריית הצ'אט?",
   "clearChatBody": "כל ההודעות בצ'אט זה יימחקו מהמכשיר הזה. הצד השני ישמור את העותק שלו.",
-  "clearChatAction": "נקה"
+  "clearChatAction": "נקה",
+  "systemGroupRenamed": "{actor} שינה את שם הקבוצה ל-\"{name}\"",
+  "systemGroupAvatarChanged": "{actor} שינה את תמונת הקבוצה",
+  "systemGroupMetaChanged": "{actor} שינה את שם הקבוצה ל-\"{name}\" ושינה את התמונה",
+  "profileInviteLink": "קישור הזמנה",
+  "profileInviteLinkSubtitle": "כל אחד עם הקישור יכול להצטרף",
+  "profileInviteLinkCopied": "קישור ההזמנה הועתק",
+  "groupInviteLinkTitle": "להצטרף לקבוצה?",
+  "groupInviteLinkBody": "הוזמנת ל-\"{name}\" ({count} חברים).",
+  "groupInviteLinkJoin": "הצטרף",
+  "drawerJoinGroupByLink": "הצטרפות לקבוצה באמצעות קישור",
+  "drawerJoinGroupByLinkInvalid": "זה לא נראה כמו קישור הזמנה של Pulse"
 }

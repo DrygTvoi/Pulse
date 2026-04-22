@@ -3133,4 +3133,46 @@ class AppLocalizationsLt extends AppLocalizations {
 
   @override
   String get clearChatAction => 'Išvalyti';
+
+  @override
+  String systemGroupRenamed(String actor, String name) {
+    return '$actor pervadino grupę į „$name\"';
+  }
+
+  @override
+  String systemGroupAvatarChanged(String actor) {
+    return '$actor pakeitė grupės nuotrauką';
+  }
+
+  @override
+  String systemGroupMetaChanged(String actor, String name) {
+    return '$actor pervadino grupę į „$name\" ir pakeitė nuotrauką';
+  }
+
+  @override
+  String get profileInviteLink => 'Pakvietimo nuoroda';
+
+  @override
+  String get profileInviteLinkSubtitle => 'Bet kas su nuoroda gali prisijungti';
+
+  @override
+  String get profileInviteLinkCopied => 'Pakvietimo nuoroda nukopijuota';
+
+  @override
+  String get groupInviteLinkTitle => 'Prisijungti prie grupės?';
+
+  @override
+  String groupInviteLinkBody(String name, int count) {
+    return 'Esate pakviestas prisijungti prie „$name\" ($count narių).';
+  }
+
+  @override
+  String get groupInviteLinkJoin => 'Prisijungti';
+
+  @override
+  String get drawerJoinGroupByLink => 'Prisijungti prie grupės per nuorodą';
+
+  @override
+  String get drawerJoinGroupByLinkInvalid =>
+      'Tai neatrodo kaip Pulse pakvietimo nuoroda';
 }

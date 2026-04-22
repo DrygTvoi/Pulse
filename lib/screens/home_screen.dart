@@ -7,6 +7,7 @@ import '../models/contact.dart';
 import '../models/user_status.dart';
 import '../services/status_service.dart';
 import '../services/local_storage_service.dart';
+import '../services/group_invite_link.dart';
 import 'chat_screen.dart';
 import 'settings_screen.dart';
 import 'create_group_dialog.dart';
@@ -129,6 +130,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _listenForGroupInvites();
     _listenForGroupInviteDeclines();
     _listenForGroupUpdates();
+    _listenForGroupInviteLinks();
     _searchController.addListener(_onSearchChanged);
     _probeSubscription = ConnectivityProbeService.instance.status.listen((s) {
       if (!mounted) return;
@@ -649,6 +651,121 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  /// Wire the deep-link `pulse://group?cfg=…` channel. main.dart pushes
+  /// parsed payloads into [PendingGroupInvite.notifier]; we drain on every
+  /// change and show a confirm dialog before joining.
+  void _listenForGroupInviteLinks() {
+    void check() {
+      final invite = PendingGroupInvite.consume();
+      if (invite == null || !mounted) return;
+      _showGroupInviteLinkDialog(invite);
+    }
+    // Drain anything already sitting in the buffer (link clicked while we
+    // were on the lock screen / setup) and listen for future arrivals.
+    WidgetsBinding.instance.addPostFrameCallback((_) => check());
+    PendingGroupInvite.notifier.addListener(check);
+  }
+
+  /// "Join group by link" — paste-the-URL dialog. Auto-fills from clipboard
+  /// if it looks like a `pulse://group?cfg=…` URL so the common case is one
+  /// tap. Validates the link and routes to the existing accept dialog.
+  Future<void> _showJoinGroupByLinkDialog() async {
+    final clip = await Clipboard.getData('text/plain');
+    final initial =
+        (clip?.text != null && clip!.text!.startsWith('pulse://group')) ? clip.text! : '';
+    final controller = TextEditingController(text: initial);
+    if (!mounted) return;
+    final url = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog.adaptive(
+        backgroundColor: AppTheme.surface,
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(DesignTokens.dialogRadius)),
+        title: Text(ctx.l10n.drawerJoinGroupByLink,
+            style: GoogleFonts.inter(
+                color: AppTheme.textPrimary, fontWeight: FontWeight.w700)),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          style: GoogleFonts.inter(color: AppTheme.textPrimary),
+          minLines: 2,
+          maxLines: 4,
+          decoration: InputDecoration(
+            hintText: 'pulse://group?cfg=…',
+            hintStyle: GoogleFonts.inter(color: AppTheme.textSecondary),
+            filled: true,
+            fillColor: AppTheme.background,
+            border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
+                borderSide: BorderSide.none),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(ctx.l10n.cancel,
+                style: GoogleFonts.inter(color: AppTheme.textSecondary)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, controller.text.trim()),
+            child: Text(ctx.l10n.next,
+                style: GoogleFonts.inter(
+                    color: AppTheme.primary, fontWeight: FontWeight.w600)),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (url == null || url.isEmpty) return;
+    final invite = GroupInviteLink.tryParse(url);
+    if (invite == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(context.l10n.drawerJoinGroupByLinkInvalid),
+        duration: const Duration(seconds: 3),
+      ));
+      return;
+    }
+    if (!mounted) return;
+    _showGroupInviteLinkDialog(invite);
+  }
+
+  void _showGroupInviteLinkDialog(GroupInvitePayload invite) {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog.adaptive(
+        backgroundColor: AppTheme.surface,
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(DesignTokens.dialogRadius)),
+        title: Text(ctx.l10n.groupInviteLinkTitle,
+            style: GoogleFonts.inter(
+                color: AppTheme.textPrimary, fontWeight: FontWeight.w700)),
+        content: Text(
+          ctx.l10n.groupInviteLinkBody(invite.name, invite.members.length),
+          style: GoogleFonts.inter(
+              color: AppTheme.textSecondary, fontSize: DesignTokens.fontLg),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(ctx.l10n.cancel,
+                style: GoogleFonts.inter(color: AppTheme.textSecondary)),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await ChatController().acceptGroupInviteFromLink(invite);
+              if (mounted) _loadAll();
+            },
+            child: Text(ctx.l10n.groupInviteLinkJoin,
+                style: GoogleFonts.inter(
+                    color: AppTheme.primary, fontWeight: FontWeight.w600)),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _listenForGroupInvites() {
     _groupInviteSubscription = ChatController().groupInvites.listen((invite) async {
       if (!mounted) return;
@@ -894,6 +1011,15 @@ class _HomeScreenState extends State<HomeScreen> {
 
     final items = <_HomeItem>[];
     for (final c in contacts) {
+      // Hidden contacts are routing-only scaffolds (e.g. group members
+      // we know by pubkey but not as a personal contact). They must NOT
+      // appear as their own chat tile, otherwise the user sees ghost
+      // entries like "Member abc12345" that — when tapped — try to start
+      // a brand-new 1-on-1 chat that ends up routed to whatever person
+      // owns that pubkey (typically the group creator). Stay out of the
+      // home list entirely; the group contact still includes them
+      // for fan-out via `memberPubkeys`.
+      if (c.isHidden) continue;
       final room = chatCtrl.getRoomForContact(c.id);
       final messages = room?.messages ?? [];
       final lastTime = messages.isNotEmpty ? messages.last.timestamp : DateTime(2000);
@@ -1004,6 +1130,10 @@ class _HomeScreenState extends State<HomeScreen> {
               context: context,
               builder: (_) => JoinChannelDialog(onJoined: (_) => _loadAll()),
             );
+          },
+          onJoinGroupByLink: () {
+            Navigator.pop(context);
+            _showJoinGroupByLinkDialog();
           },
           onSettings: () {
             Navigator.pop(context);

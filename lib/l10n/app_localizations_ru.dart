@@ -3089,4 +3089,46 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get clearChatAction => 'Очистить';
+
+  @override
+  String systemGroupRenamed(String actor, String name) {
+    return '$actor переименовал(а) группу в «$name»';
+  }
+
+  @override
+  String systemGroupAvatarChanged(String actor) {
+    return '$actor сменил(а) фото группы';
+  }
+
+  @override
+  String systemGroupMetaChanged(String actor, String name) {
+    return '$actor переименовал(а) группу в «$name» и сменил(а) фото';
+  }
+
+  @override
+  String get profileInviteLink => 'Пригласительная ссылка';
+
+  @override
+  String get profileInviteLinkSubtitle =>
+      'Любой по ссылке сможет вступить в группу';
+
+  @override
+  String get profileInviteLinkCopied => 'Пригласительная ссылка скопирована';
+
+  @override
+  String get groupInviteLinkTitle => 'Вступить в группу?';
+
+  @override
+  String groupInviteLinkBody(String name, int count) {
+    return 'Вас пригласили в группу «$name» ($count участников).';
+  }
+
+  @override
+  String get groupInviteLinkJoin => 'Вступить';
+
+  @override
+  String get drawerJoinGroupByLink => 'Вступить в группу по ссылке';
+
+  @override
+  String get drawerJoinGroupByLinkInvalid => 'Это не ссылка-приглашение Pulse';
 }

@@ -924,5 +924,16 @@
   "menuClearChatHistory": "Vymazat historii chatu",
   "clearChatTitle": "Vymazat historii chatu?",
   "clearChatBody": "Všechny zprávy v tomto chatu budou z tohoto zařízení smazány. Druhá osoba si svou kopii ponechá.",
-  "clearChatAction": "Vymazat"
+  "clearChatAction": "Vymazat",
+  "systemGroupRenamed": "{actor} přejmenoval(a) skupinu na „{name}\"",
+  "systemGroupAvatarChanged": "{actor} změnil(a) fotku skupiny",
+  "systemGroupMetaChanged": "{actor} přejmenoval(a) skupinu na „{name}\" a změnil(a) fotku",
+  "profileInviteLink": "Pozvánkový odkaz",
+  "profileInviteLinkSubtitle": "Kdokoli s odkazem se může připojit",
+  "profileInviteLinkCopied": "Pozvánkový odkaz zkopírován",
+  "groupInviteLinkTitle": "Připojit se ke skupině?",
+  "groupInviteLinkBody": "Byl jsi pozván do „{name}\" ({count} členů).",
+  "groupInviteLinkJoin": "Připojit se",
+  "drawerJoinGroupByLink": "Připojit se ke skupině přes odkaz",
+  "drawerJoinGroupByLinkInvalid": "To nevypadá jako pozvánkový odkaz Pulse"
 }

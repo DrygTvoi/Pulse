@@ -3121,4 +3121,47 @@ class AppLocalizationsMs extends AppLocalizations {
 
   @override
   String get clearChatAction => 'Padam';
+
+  @override
+  String systemGroupRenamed(String actor, String name) {
+    return '$actor menamakan semula kumpulan kepada \"$name\"';
+  }
+
+  @override
+  String systemGroupAvatarChanged(String actor) {
+    return '$actor menukar foto kumpulan';
+  }
+
+  @override
+  String systemGroupMetaChanged(String actor, String name) {
+    return '$actor menamakan semula kumpulan kepada \"$name\" dan menukar foto';
+  }
+
+  @override
+  String get profileInviteLink => 'Pautan jemputan';
+
+  @override
+  String get profileInviteLinkSubtitle =>
+      'Sesiapa sahaja dengan pautan boleh menyertai';
+
+  @override
+  String get profileInviteLinkCopied => 'Pautan jemputan disalin';
+
+  @override
+  String get groupInviteLinkTitle => 'Sertai kumpulan?';
+
+  @override
+  String groupInviteLinkBody(String name, int count) {
+    return 'Anda telah dijemput menyertai \"$name\" ($count ahli).';
+  }
+
+  @override
+  String get groupInviteLinkJoin => 'Sertai';
+
+  @override
+  String get drawerJoinGroupByLink => 'Sertai kumpulan melalui pautan';
+
+  @override
+  String get drawerJoinGroupByLinkInvalid =>
+      'Ini tidak kelihatan seperti pautan jemputan Pulse';
 }

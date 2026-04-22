@@ -3113,4 +3113,47 @@ class AppLocalizationsSi extends AppLocalizations {
 
   @override
   String get clearChatAction => 'ඉවත් කරන්න';
+
+  @override
+  String systemGroupRenamed(String actor, String name) {
+    return '$actor කණ්ඩායමේ නම \"$name\" ලෙස වෙනස් කළා';
+  }
+
+  @override
+  String systemGroupAvatarChanged(String actor) {
+    return '$actor කණ්ඩායමේ ඡායාරූපය වෙනස් කළා';
+  }
+
+  @override
+  String systemGroupMetaChanged(String actor, String name) {
+    return '$actor කණ්ඩායමේ නම \"$name\" ලෙස වෙනස් කර ඡායාරූපයත් වෙනස් කළා';
+  }
+
+  @override
+  String get profileInviteLink => 'ආරාධනා සබැඳිය';
+
+  @override
+  String get profileInviteLinkSubtitle =>
+      'සබැඳිය ඇති ඕනෑම කෙනෙකුට එක්වීමට හැකියි';
+
+  @override
+  String get profileInviteLinkCopied => 'ආරාධනා සබැඳිය පිටපත් කරන ලදී';
+
+  @override
+  String get groupInviteLinkTitle => 'කණ්ඩායමට එක්වන්නද?';
+
+  @override
+  String groupInviteLinkBody(String name, int count) {
+    return 'ඔබ \"$name\" වෙත ආරාධනා කර ඇත ($count සාමාජිකයන්).';
+  }
+
+  @override
+  String get groupInviteLinkJoin => 'එක් වන්න';
+
+  @override
+  String get drawerJoinGroupByLink => 'සබැඳියකින් කණ්ඩායමට එක්වන්න';
+
+  @override
+  String get drawerJoinGroupByLinkInvalid =>
+      'මෙය Pulse ආරාධනා සබැඳියකට සමාන නැහැ';
 }

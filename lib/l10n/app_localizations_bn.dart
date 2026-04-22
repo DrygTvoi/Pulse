@@ -3090,4 +3090,46 @@ class AppLocalizationsBn extends AppLocalizations {
 
   @override
   String get clearChatAction => 'পরিষ্কার করুন';
+
+  @override
+  String systemGroupRenamed(String actor, String name) {
+    return '$actor গ্রুপের নাম পরিবর্তন করে \"$name\" করেছেন';
+  }
+
+  @override
+  String systemGroupAvatarChanged(String actor) {
+    return '$actor গ্রুপের ছবি পরিবর্তন করেছেন';
+  }
+
+  @override
+  String systemGroupMetaChanged(String actor, String name) {
+    return '$actor গ্রুপের নাম পরিবর্তন করে \"$name\" করেছেন এবং ছবিও পরিবর্তন করেছেন';
+  }
+
+  @override
+  String get profileInviteLink => 'আমন্ত্রণ লিঙ্ক';
+
+  @override
+  String get profileInviteLinkSubtitle => 'যে কেউ লিঙ্ক দিয়ে যোগ দিতে পারেন';
+
+  @override
+  String get profileInviteLinkCopied => 'আমন্ত্রণ লিঙ্ক কপি করা হয়েছে';
+
+  @override
+  String get groupInviteLinkTitle => 'গ্রুপে যোগ দেবেন?';
+
+  @override
+  String groupInviteLinkBody(String name, int count) {
+    return 'আপনাকে \"$name\" এ আমন্ত্রণ জানানো হয়েছে ($count জন সদস্য)।';
+  }
+
+  @override
+  String get groupInviteLinkJoin => 'যোগ দিন';
+
+  @override
+  String get drawerJoinGroupByLink => 'লিঙ্কের মাধ্যমে গ্রুপে যোগ দিন';
+
+  @override
+  String get drawerJoinGroupByLinkInvalid =>
+      'এটা Pulse আমন্ত্রণ লিঙ্কের মতো দেখাচ্ছে না';
 }

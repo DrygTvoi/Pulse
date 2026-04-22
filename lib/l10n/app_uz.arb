@@ -924,5 +924,16 @@
   "menuClearChatHistory": "Suhbat tarixini tozalash",
   "clearChatTitle": "Suhbat tarixi tozalansinmi?",
   "clearChatBody": "Ushbu suhbatdagi barcha xabarlar shu qurilmadan oʻchiriladi. Boshqa odam oʻz nusxasini saqlab qoladi.",
-  "clearChatAction": "Tozalash"
+  "clearChatAction": "Tozalash",
+  "systemGroupRenamed": "{actor} guruh nomini \"{name}\" qilib o'zgartirdi",
+  "systemGroupAvatarChanged": "{actor} guruh suratini o'zgartirdi",
+  "systemGroupMetaChanged": "{actor} guruh nomini \"{name}\" qilib o'zgartirdi va suratni ham o'zgartirdi",
+  "profileInviteLink": "Taklif havolasi",
+  "profileInviteLinkSubtitle": "Havolaga ega har kim qo'shilishi mumkin",
+  "profileInviteLinkCopied": "Taklif havolasi nusxalandi",
+  "groupInviteLinkTitle": "Guruhga qo'shilasizmi?",
+  "groupInviteLinkBody": "Siz \"{name}\" guruhiga taklif qilingansiz ({count} a'zo).",
+  "groupInviteLinkJoin": "Qo'shilish",
+  "drawerJoinGroupByLink": "Havola orqali guruhga qo'shilish",
+  "drawerJoinGroupByLinkInvalid": "Bu Pulse taklif havolasiga o'xshamaydi"
 }

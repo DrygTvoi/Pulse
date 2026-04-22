@@ -924,5 +924,16 @@
   "menuClearChatHistory": "مسح محفوظات الدردشة",
   "clearChatTitle": "مسح محفوظات الدردشة؟",
   "clearChatBody": "ستُحذف جميع رسائل هذه الدردشة من هذا الجهاز. سيحتفظ الطرف الآخر بنسخته.",
-  "clearChatAction": "مسح"
+  "clearChatAction": "مسح",
+  "systemGroupRenamed": "{actor} غيَّر اسم المجموعة إلى «{name}»",
+  "systemGroupAvatarChanged": "{actor} غيَّر صورة المجموعة",
+  "systemGroupMetaChanged": "{actor} غيَّر اسم المجموعة إلى «{name}» وغيَّر الصورة",
+  "profileInviteLink": "رابط الدعوة",
+  "profileInviteLinkSubtitle": "يمكن لأي شخص لديه الرابط الانضمام",
+  "profileInviteLinkCopied": "تم نسخ رابط الدعوة",
+  "groupInviteLinkTitle": "الانضمام إلى المجموعة؟",
+  "groupInviteLinkBody": "تمت دعوتك للانضمام إلى «{name}» ({count} أعضاء).",
+  "groupInviteLinkJoin": "انضمام",
+  "drawerJoinGroupByLink": "الانضمام إلى المجموعة عبر الرابط",
+  "drawerJoinGroupByLinkInvalid": "لا يبدو هذا رابط دعوة Pulse"
 }

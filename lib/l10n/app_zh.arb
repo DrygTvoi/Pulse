@@ -924,5 +924,16 @@
   "menuClearChatHistory": "清空聊天记录",
   "clearChatTitle": "清空聊天记录？",
   "clearChatBody": "此聊天中的所有消息将从本设备删除。对方将保留其副本。",
-  "clearChatAction": "清空"
+  "clearChatAction": "清空",
+  "systemGroupRenamed": "{actor} 将群组重命名为「{name}」",
+  "systemGroupAvatarChanged": "{actor} 更改了群组照片",
+  "systemGroupMetaChanged": "{actor} 将群组重命名为「{name}」并更改了照片",
+  "profileInviteLink": "邀请链接",
+  "profileInviteLinkSubtitle": "任何拥有链接的人都可以加入",
+  "profileInviteLinkCopied": "邀请链接已复制",
+  "groupInviteLinkTitle": "加入群组？",
+  "groupInviteLinkBody": "您被邀请加入「{name}」（{count} 位成员）。",
+  "groupInviteLinkJoin": "加入",
+  "drawerJoinGroupByLink": "通过链接加入群组",
+  "drawerJoinGroupByLinkInvalid": "这看起来不像 Pulse 邀请链接"
 }

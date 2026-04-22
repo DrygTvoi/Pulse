@@ -924,5 +924,16 @@
   "menuClearChatHistory": "කතාබස් ඉතිහාසය ඉවත් කරන්න",
   "clearChatTitle": "කතාබස් ඉතිහාසය ඉවත් කරන්නද?",
   "clearChatBody": "මෙම කතාබසේ ඇති සියලු පණිවිඩ මෙම උපාංගයෙන් මකා දැමෙනු ඇත. අනෙකා තම පිටපත රඳවාගනු ඇත.",
-  "clearChatAction": "ඉවත් කරන්න"
+  "clearChatAction": "ඉවත් කරන්න",
+  "systemGroupRenamed": "{actor} කණ්ඩායමේ නම \"{name}\" ලෙස වෙනස් කළා",
+  "systemGroupAvatarChanged": "{actor} කණ්ඩායමේ ඡායාරූපය වෙනස් කළා",
+  "systemGroupMetaChanged": "{actor} කණ්ඩායමේ නම \"{name}\" ලෙස වෙනස් කර ඡායාරූපයත් වෙනස් කළා",
+  "profileInviteLink": "ආරාධනා සබැඳිය",
+  "profileInviteLinkSubtitle": "සබැඳිය ඇති ඕනෑම කෙනෙකුට එක්වීමට හැකියි",
+  "profileInviteLinkCopied": "ආරාධනා සබැඳිය පිටපත් කරන ලදී",
+  "groupInviteLinkTitle": "කණ්ඩායමට එක්වන්නද?",
+  "groupInviteLinkBody": "ඔබ \"{name}\" වෙත ආරාධනා කර ඇත ({count} සාමාජිකයන්).",
+  "groupInviteLinkJoin": "එක් වන්න",
+  "drawerJoinGroupByLink": "සබැඳියකින් කණ්ඩායමට එක්වන්න",
+  "drawerJoinGroupByLinkInvalid": "මෙය Pulse ආරාධනා සබැඳියකට සමාන නැහැ"
 }

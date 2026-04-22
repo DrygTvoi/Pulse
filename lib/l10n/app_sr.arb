@@ -924,5 +924,16 @@
   "menuClearChatHistory": "Обриши историју ћаскања",
   "clearChatTitle": "Обрисати историју ћаскања?",
   "clearChatBody": "Све поруке у овом ћаскању биће обрисане са овог уређаја. Друга особа ће задржати своју копију.",
-  "clearChatAction": "Обриши"
+  "clearChatAction": "Обриши",
+  "systemGroupRenamed": "{actor} је преименовао(ла) групу у „{name}\"",
+  "systemGroupAvatarChanged": "{actor} је променио(ла) слику групе",
+  "systemGroupMetaChanged": "{actor} је преименовао(ла) групу у „{name}\" и променио(ла) слику",
+  "profileInviteLink": "Линк за позивницу",
+  "profileInviteLinkSubtitle": "Свако са линком може да се придружи",
+  "profileInviteLinkCopied": "Линк позивнице је копиран",
+  "groupInviteLinkTitle": "Придружити се групи?",
+  "groupInviteLinkBody": "Позвани сте у „{name}\" ({count} чланова).",
+  "groupInviteLinkJoin": "Придружи се",
+  "drawerJoinGroupByLink": "Придружи се групи преко линка",
+  "drawerJoinGroupByLinkInvalid": "Ово не изгледа као Pulse линк позивнице"
 }

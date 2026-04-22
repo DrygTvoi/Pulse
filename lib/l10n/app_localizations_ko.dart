@@ -3007,4 +3007,45 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get clearChatAction => '지우기';
+
+  @override
+  String systemGroupRenamed(String actor, String name) {
+    return '$actor님이 그룹 이름을 \"$name\"(으)로 변경했습니다';
+  }
+
+  @override
+  String systemGroupAvatarChanged(String actor) {
+    return '$actor님이 그룹 사진을 변경했습니다';
+  }
+
+  @override
+  String systemGroupMetaChanged(String actor, String name) {
+    return '$actor님이 그룹 이름을 \"$name\"(으)로 변경하고 사진도 변경했습니다';
+  }
+
+  @override
+  String get profileInviteLink => '초대 링크';
+
+  @override
+  String get profileInviteLinkSubtitle => '링크가 있는 누구나 참여할 수 있습니다';
+
+  @override
+  String get profileInviteLinkCopied => '초대 링크가 클립보드에 복사되었습니다';
+
+  @override
+  String get groupInviteLinkTitle => '그룹에 참여하시겠어요?';
+
+  @override
+  String groupInviteLinkBody(String name, int count) {
+    return '\"$name\" 그룹($count명)에 초대되었습니다.';
+  }
+
+  @override
+  String get groupInviteLinkJoin => '참여';
+
+  @override
+  String get drawerJoinGroupByLink => '링크로 그룹 참여';
+
+  @override
+  String get drawerJoinGroupByLinkInvalid => 'Pulse 초대 링크처럼 보이지 않습니다';
 }

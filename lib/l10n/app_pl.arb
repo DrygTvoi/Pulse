@@ -924,5 +924,16 @@
   "menuClearChatHistory": "Wyczyść historię czatu",
   "clearChatTitle": "Wyczyścić historię czatu?",
   "clearChatBody": "Wszystkie wiadomości w tym czacie zostaną usunięte z tego urządzenia. Druga osoba zachowa swoją kopię.",
-  "clearChatAction": "Wyczyść"
+  "clearChatAction": "Wyczyść",
+  "systemGroupRenamed": "{actor} zmienił(a) nazwę grupy na „{name}\"",
+  "systemGroupAvatarChanged": "{actor} zmienił(a) zdjęcie grupy",
+  "systemGroupMetaChanged": "{actor} zmienił(a) nazwę grupy na „{name}\" i zdjęcie",
+  "profileInviteLink": "Link zapraszający",
+  "profileInviteLinkSubtitle": "Każdy z linkiem może dołączyć do grupy",
+  "profileInviteLinkCopied": "Link zapraszający skopiowany",
+  "groupInviteLinkTitle": "Dołączyć do grupy?",
+  "groupInviteLinkBody": "Zostałeś zaproszony do „{name}\" ({count} członków).",
+  "groupInviteLinkJoin": "Dołącz",
+  "drawerJoinGroupByLink": "Dołącz do grupy przez link",
+  "drawerJoinGroupByLinkInvalid": "To nie wygląda jak link zaproszenia Pulse"
 }

@@ -924,5 +924,16 @@
   "menuClearChatHistory": "Effacer l’historique du chat",
   "clearChatTitle": "Effacer l’historique du chat ?",
   "clearChatBody": "Tous les messages de ce chat seront supprimés de cet appareil. L’autre personne conservera sa copie.",
-  "clearChatAction": "Effacer"
+  "clearChatAction": "Effacer",
+  "systemGroupRenamed": "{actor} a renommé le groupe en «{name}»",
+  "systemGroupAvatarChanged": "{actor} a changé la photo du groupe",
+  "systemGroupMetaChanged": "{actor} a renommé le groupe en «{name}» et changé la photo",
+  "profileInviteLink": "Lien d'invitation",
+  "profileInviteLinkSubtitle": "Toute personne disposant du lien peut rejoindre",
+  "profileInviteLinkCopied": "Lien d'invitation copié",
+  "groupInviteLinkTitle": "Rejoindre le groupe ?",
+  "groupInviteLinkBody": "Tu as été invité à rejoindre «{name}» ({count} membres).",
+  "groupInviteLinkJoin": "Rejoindre",
+  "drawerJoinGroupByLink": "Rejoindre un groupe par lien",
+  "drawerJoinGroupByLinkInvalid": "Ça ne ressemble pas à un lien d'invitation Pulse"
 }

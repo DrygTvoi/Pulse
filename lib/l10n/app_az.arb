@@ -924,5 +924,16 @@
   "menuClearChatHistory": "Söhbət tarixçəsini təmizlə",
   "clearChatTitle": "Söhbət tarixçəsi təmizlənsin?",
   "clearChatBody": "Bu söhbətdəki bütün mesajlar bu cihazdan silinəcək. Digər şəxs öz nüsxəsini saxlayacaq.",
-  "clearChatAction": "Təmizlə"
+  "clearChatAction": "Təmizlə",
+  "systemGroupRenamed": "{actor} qrupun adını \"{name}\" olaraq dəyişdi",
+  "systemGroupAvatarChanged": "{actor} qrupun şəklini dəyişdi",
+  "systemGroupMetaChanged": "{actor} qrupun adını \"{name}\" olaraq dəyişdi və şəkli də dəyişdi",
+  "profileInviteLink": "Dəvət linki",
+  "profileInviteLinkSubtitle": "Linki olan hər kəs qoşula bilər",
+  "profileInviteLinkCopied": "Dəvət linki kopyalandı",
+  "groupInviteLinkTitle": "Qrupa qoşulasınız?",
+  "groupInviteLinkBody": "\"{name}\" qrupuna ({count} üzv) dəvət olunmusunuz.",
+  "groupInviteLinkJoin": "Qoşul",
+  "drawerJoinGroupByLink": "Linklə qrupa qoşul",
+  "drawerJoinGroupByLinkInvalid": "Bu Pulse dəvət linkinə bənzəmir"
 }

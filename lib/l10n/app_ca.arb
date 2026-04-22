@@ -924,5 +924,16 @@
   "menuClearChatHistory": "Esborra l’historial del xat",
   "clearChatTitle": "Esborrar l’historial del xat?",
   "clearChatBody": "Tots els missatges d’aquest xat s’eliminaran d’aquest dispositiu. L’altra persona conservarà la seva còpia.",
-  "clearChatAction": "Esborra"
+  "clearChatAction": "Esborra",
+  "systemGroupRenamed": "{actor} ha canviat el nom del grup a «{name}»",
+  "systemGroupAvatarChanged": "{actor} ha canviat la foto del grup",
+  "systemGroupMetaChanged": "{actor} ha canviat el nom del grup a «{name}» i la foto",
+  "profileInviteLink": "Enllaç d'invitació",
+  "profileInviteLinkSubtitle": "Qualsevol amb l'enllaç pot unir-se",
+  "profileInviteLinkCopied": "Enllaç d'invitació copiat",
+  "groupInviteLinkTitle": "Unir-te al grup?",
+  "groupInviteLinkBody": "Has estat convidat a unir-te a «{name}» ({count} membres).",
+  "groupInviteLinkJoin": "Unir-se",
+  "drawerJoinGroupByLink": "Unir-te al grup per enllaç",
+  "drawerJoinGroupByLinkInvalid": "Això no sembla un enllaç d'invitació de Pulse"
 }

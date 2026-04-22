@@ -924,5 +924,16 @@
   "menuClearChatHistory": "Ryd chathistorik",
   "clearChatTitle": "Ryd chathistorikken?",
   "clearChatBody": "Alle beskeder i denne chat slettes fra denne enhed. Den anden person beholder deres kopi.",
-  "clearChatAction": "Ryd"
+  "clearChatAction": "Ryd",
+  "systemGroupRenamed": "{actor} omdøbte gruppen til \"{name}\"",
+  "systemGroupAvatarChanged": "{actor} ændrede gruppens foto",
+  "systemGroupMetaChanged": "{actor} omdøbte gruppen til \"{name}\" og ændrede fotoet",
+  "profileInviteLink": "Invitationslink",
+  "profileInviteLinkSubtitle": "Alle med linket kan deltage",
+  "profileInviteLinkCopied": "Invitationslink kopieret",
+  "groupInviteLinkTitle": "Deltag i gruppen?",
+  "groupInviteLinkBody": "Du er inviteret til at deltage i \"{name}\" ({count} medlemmer).",
+  "groupInviteLinkJoin": "Deltag",
+  "drawerJoinGroupByLink": "Deltag i gruppe via link",
+  "drawerJoinGroupByLinkInvalid": "Det ligner ikke et Pulse-invitationslink"
 }

@@ -3129,4 +3129,46 @@ class AppLocalizationsMy extends AppLocalizations {
 
   @override
   String get clearChatAction => 'ရှင်းလင်း';
+
+  @override
+  String systemGroupRenamed(String actor, String name) {
+    return '$actor သည် အုပ်စုနာမည်ကို \"$name\" သို့ ပြောင်းခဲ့သည်';
+  }
+
+  @override
+  String systemGroupAvatarChanged(String actor) {
+    return '$actor သည် အုပ်စုဓာတ်ပုံကို ပြောင်းခဲ့သည်';
+  }
+
+  @override
+  String systemGroupMetaChanged(String actor, String name) {
+    return '$actor သည် အုပ်စုနာမည်ကို \"$name\" သို့ ပြောင်းပြီး ဓာတ်ပုံကိုလည်း ပြောင်းခဲ့သည်';
+  }
+
+  @override
+  String get profileInviteLink => 'ဖိတ်ကြားလင့်ခ်';
+
+  @override
+  String get profileInviteLinkSubtitle => 'လင့်ခ်ရှိသူမည်သူမဆို ပါဝင်နိုင်သည်';
+
+  @override
+  String get profileInviteLinkCopied => 'ဖိတ်ကြားလင့်ခ်ကို ကူးယူပြီးပြီ';
+
+  @override
+  String get groupInviteLinkTitle => 'အုပ်စုသို့ ပါဝင်မလား?';
+
+  @override
+  String groupInviteLinkBody(String name, int count) {
+    return 'သင်သည် \"$name\" သို့ ဖိတ်ကြားခံရသည် (အဖွဲ့ဝင် $count ဦး)။';
+  }
+
+  @override
+  String get groupInviteLinkJoin => 'ပါဝင်';
+
+  @override
+  String get drawerJoinGroupByLink => 'လင့်ခ်ဖြင့် အုပ်စုသို့ ပါဝင်ရန်';
+
+  @override
+  String get drawerJoinGroupByLinkInvalid =>
+      'ဤအရာသည် Pulse ဖိတ်ကြားလင့်ခ်နှင့်မတူပါ';
 }

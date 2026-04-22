@@ -3110,4 +3110,46 @@ class AppLocalizationsSv extends AppLocalizations {
 
   @override
   String get clearChatAction => 'Rensa';
+
+  @override
+  String systemGroupRenamed(String actor, String name) {
+    return '$actor bytte namn på gruppen till \"$name\"';
+  }
+
+  @override
+  String systemGroupAvatarChanged(String actor) {
+    return '$actor ändrade gruppfotot';
+  }
+
+  @override
+  String systemGroupMetaChanged(String actor, String name) {
+    return '$actor bytte namn på gruppen till \"$name\" och ändrade fotot';
+  }
+
+  @override
+  String get profileInviteLink => 'Inbjudningslänk';
+
+  @override
+  String get profileInviteLinkSubtitle => 'Alla med länken kan gå med';
+
+  @override
+  String get profileInviteLinkCopied => 'Inbjudningslänk kopierad';
+
+  @override
+  String get groupInviteLinkTitle => 'Gå med i gruppen?';
+
+  @override
+  String groupInviteLinkBody(String name, int count) {
+    return 'Du har bjudits in till \"$name\" ($count medlemmar).';
+  }
+
+  @override
+  String get groupInviteLinkJoin => 'Gå med';
+
+  @override
+  String get drawerJoinGroupByLink => 'Gå med i gruppen via länk';
+
+  @override
+  String get drawerJoinGroupByLinkInvalid =>
+      'Det ser inte ut som en Pulse-inbjudningslänk';
 }

@@ -3127,4 +3127,46 @@ class AppLocalizationsLv extends AppLocalizations {
 
   @override
   String get clearChatAction => 'Notīrīt';
+
+  @override
+  String systemGroupRenamed(String actor, String name) {
+    return '$actor pārdēvēja grupu uz „$name\"';
+  }
+
+  @override
+  String systemGroupAvatarChanged(String actor) {
+    return '$actor mainīja grupas attēlu';
+  }
+
+  @override
+  String systemGroupMetaChanged(String actor, String name) {
+    return '$actor pārdēvēja grupu uz „$name\" un mainīja attēlu';
+  }
+
+  @override
+  String get profileInviteLink => 'Uzaicinājuma saite';
+
+  @override
+  String get profileInviteLinkSubtitle => 'Ikviens ar saiti var pievienoties';
+
+  @override
+  String get profileInviteLinkCopied => 'Uzaicinājuma saite nokopēta';
+
+  @override
+  String get groupInviteLinkTitle => 'Pievienoties grupai?';
+
+  @override
+  String groupInviteLinkBody(String name, int count) {
+    return 'Jūs esat uzaicināts pievienoties „$name\" ($count dalībnieki).';
+  }
+
+  @override
+  String get groupInviteLinkJoin => 'Pievienoties';
+
+  @override
+  String get drawerJoinGroupByLink => 'Pievienoties grupai pa saiti';
+
+  @override
+  String get drawerJoinGroupByLinkInvalid =>
+      'Tas neizskatās pēc Pulse uzaicinājuma saites';
 }

@@ -27,6 +27,12 @@ class Contact {
   /// True for contacts auto-created from incoming messages by unknown senders.
   /// Pending contacts have restricted capabilities until accepted.
   final bool isPending;
+  /// Routing-only contact: created automatically so the messenger can encrypt
+  /// for a group member whose pubkey we know but who is not in our address
+  /// book. Hidden from the chat list (you can't open a chat with a hidden
+  /// contact) but reachable internally for group fan-out + Signal sessions.
+  /// Becomes false the moment the user actually messages them out-of-group.
+  final bool isHidden;
   /// For groups only: map of member UUID → Nostr secp256k1 pubkey hex.
   /// Filled by the creator when broadcasting group_invite / group_update
   /// and carried to receivers so they can resolve member UUIDs back to
@@ -50,6 +56,7 @@ class Contact {
     this.creatorId,
     this.bio = '',
     this.isPending = false,
+    this.isHidden = false,
     this.memberPubkeys = const {},
   });
 
@@ -70,6 +77,7 @@ class Contact {
     List<String>? alternateAddresses,
     String bio = '',
     bool isPending = false,
+    bool isHidden = false,
     Map<String, String> memberPubkeys = const {},
   }) {
     Map<String, List<String>> ta;
@@ -105,6 +113,7 @@ class Contact {
       creatorId: creatorId,
       bio: bio,
       isPending: isPending,
+      isHidden: isHidden,
       memberPubkeys: memberPubkeys,
     );
   }
@@ -170,6 +179,7 @@ class Contact {
       'alternateAddresses': alternateAddresses,
       if (bio.isNotEmpty) 'bio': bio,
       if (isPending) 'isPending': true,
+      if (isHidden) 'isHidden': true,
       if (memberPubkeys.isNotEmpty)
         'memberPubkeys': Map<String, String>.from(memberPubkeys),
     };
@@ -185,6 +195,7 @@ class Contact {
     String? creatorId,
     String? bio,
     bool? isPending,
+    bool? isHidden,
     Map<String, String>? memberPubkeys,
     // Legacy params — translated to transport fields
     String? provider,
@@ -205,6 +216,7 @@ class Contact {
         creatorId: creatorId ?? this.creatorId,
         bio: bio ?? this.bio,
         isPending: isPending ?? this.isPending,
+        isHidden: isHidden ?? this.isHidden,
         memberPubkeys: memberPubkeys ?? this.memberPubkeys,
       );
     }
@@ -232,6 +244,7 @@ class Contact {
         creatorId: creatorId ?? this.creatorId,
         bio: bio ?? this.bio,
         isPending: isPending ?? this.isPending,
+        isHidden: isHidden ?? this.isHidden,
         memberPubkeys: memberPubkeys ?? this.memberPubkeys,
       );
     }
@@ -248,6 +261,7 @@ class Contact {
       creatorId: creatorId ?? this.creatorId,
       bio: bio ?? this.bio,
       isPending: isPending ?? this.isPending,
+      isHidden: isHidden ?? this.isHidden,
       memberPubkeys: memberPubkeys ?? this.memberPubkeys,
     );
   }
@@ -291,6 +305,7 @@ class Contact {
       creatorId: map['creatorId'] as String?,
       bio: (map['bio'] as String?) ?? '',
       isPending: map['isPending'] as bool? ?? false,
+      isHidden: map['isHidden'] as bool? ?? false,
       memberPubkeys: (map['memberPubkeys'] as Map?)
               ?.map((k, v) => MapEntry(k as String, v as String)) ??
           const {},
@@ -400,6 +415,7 @@ class ContactManager implements IContactRepository {
     required String senderName,
     required String address,
     Map<String, List<String>>? transportAddresses,
+    bool isHidden = false,
   }) async {
     if (!canCreatePendingContact()) return null;
     final contactId = senderId.split('@').first;
@@ -414,6 +430,7 @@ class ContactManager implements IContactRepository {
         publicKey: '',
         transportAddresses: transportAddresses,
         isPending: true,
+        isHidden: isHidden,
       );
     } else {
       contact = Contact(
@@ -422,6 +439,7 @@ class ContactManager implements IContactRepository {
         publicKey: '',
         databaseId: address,
         isPending: true,
+        isHidden: isHidden,
       );
     }
     await addContact(contact);
@@ -495,8 +513,35 @@ class ContactManager implements IContactRepository {
     // randomly-assigned id. Drop any pending contact whose bare pubkey is
     // shared with a non-pending, non-group contact.
     _dedupePendingDuplicates();
+    await _migrateLegacyGroupRoutingPhantoms();
     _rebuildIndices();
     await loadBlockList();
+  }
+
+  /// One-shot migration: earlier versions of the auto-pending-from-group-
+  /// member code created visible contacts named "Group: <hash>" that
+  /// appeared as ghost chat tiles. New code marks them isHidden:true; this
+  /// migration retroactively hides any legacy ones still on disk so users
+  /// upgrading from v1.4 don't keep seeing the phantoms.
+  Future<void> _migrateLegacyGroupRoutingPhantoms() async {
+    var migrated = 0;
+    final updates = <Contact>[];
+    for (var i = 0; i < _contacts.length; i++) {
+      final c = _contacts[i];
+      if (c.isHidden || c.isGroup || !c.isPending) continue;
+      if (c.name.startsWith('Group: ') || c.name.startsWith('Member ')) {
+        final fixed = c.copyWith(isHidden: true);
+        _contacts[i] = fixed;
+        updates.add(fixed);
+        migrated++;
+      }
+    }
+    if (migrated == 0) return;
+    for (final c in updates) {
+      try { await LocalStorageService().saveContact(c.id, c.toMap()); }
+      catch (_) {}
+    }
+    debugPrint('[ContactManager] Migrated $migrated legacy group-routing phantoms to hidden');
   }
 
   void _dedupePendingDuplicates() {

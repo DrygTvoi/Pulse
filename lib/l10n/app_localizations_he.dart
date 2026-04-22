@@ -3074,4 +3074,46 @@ class AppLocalizationsHe extends AppLocalizations {
 
   @override
   String get clearChatAction => 'נקה';
+
+  @override
+  String systemGroupRenamed(String actor, String name) {
+    return '$actor שינה את שם הקבוצה ל-\"$name\"';
+  }
+
+  @override
+  String systemGroupAvatarChanged(String actor) {
+    return '$actor שינה את תמונת הקבוצה';
+  }
+
+  @override
+  String systemGroupMetaChanged(String actor, String name) {
+    return '$actor שינה את שם הקבוצה ל-\"$name\" ושינה את התמונה';
+  }
+
+  @override
+  String get profileInviteLink => 'קישור הזמנה';
+
+  @override
+  String get profileInviteLinkSubtitle => 'כל אחד עם הקישור יכול להצטרף';
+
+  @override
+  String get profileInviteLinkCopied => 'קישור ההזמנה הועתק';
+
+  @override
+  String get groupInviteLinkTitle => 'להצטרף לקבוצה?';
+
+  @override
+  String groupInviteLinkBody(String name, int count) {
+    return 'הוזמנת ל-\"$name\" ($count חברים).';
+  }
+
+  @override
+  String get groupInviteLinkJoin => 'הצטרף';
+
+  @override
+  String get drawerJoinGroupByLink => 'הצטרפות לקבוצה באמצעות קישור';
+
+  @override
+  String get drawerJoinGroupByLinkInvalid =>
+      'זה לא נראה כמו קישור הזמנה של Pulse';
 }

@@ -924,5 +924,16 @@
   "menuClearChatHistory": "Csevegés előzményeinek törlése",
   "clearChatTitle": "Törlöd a csevegés előzményeit?",
   "clearChatBody": "Az összes üzenet törlődik erről az eszközről. A másik fél megtartja a saját másolatát.",
-  "clearChatAction": "Törlés"
+  "clearChatAction": "Törlés",
+  "systemGroupRenamed": "{actor} átnevezte a csoportot erre: „{name}\"",
+  "systemGroupAvatarChanged": "{actor} módosította a csoport képét",
+  "systemGroupMetaChanged": "{actor} átnevezte a csoportot erre: „{name}\" és módosította a képét",
+  "profileInviteLink": "Meghívó link",
+  "profileInviteLinkSubtitle": "Bárki, akinek megvan a link, csatlakozhat",
+  "profileInviteLinkCopied": "Meghívó link a vágólapra másolva",
+  "groupInviteLinkTitle": "Csatlakozol a csoporthoz?",
+  "groupInviteLinkBody": "Meghívást kaptál a(z) „{name}\" csoportba ({count} tag).",
+  "groupInviteLinkJoin": "Csatlakozás",
+  "drawerJoinGroupByLink": "Csatlakozás csoporthoz link alapján",
+  "drawerJoinGroupByLinkInvalid": "Ez nem tűnik Pulse meghívó linknek"
 }

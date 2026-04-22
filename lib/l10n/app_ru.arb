@@ -929,5 +929,16 @@
   "menuClearChatHistory": "Очистить историю чата",
   "clearChatTitle": "Очистить историю чата?",
   "clearChatBody": "Все сообщения этого чата будут удалены с этого устройства. У собеседника копия останется.",
-  "clearChatAction": "Очистить"
+  "clearChatAction": "Очистить",
+  "systemGroupRenamed": "{actor} переименовал(а) группу в «{name}»",
+  "systemGroupAvatarChanged": "{actor} сменил(а) фото группы",
+  "systemGroupMetaChanged": "{actor} переименовал(а) группу в «{name}» и сменил(а) фото",
+  "profileInviteLink": "Пригласительная ссылка",
+  "profileInviteLinkSubtitle": "Любой по ссылке сможет вступить в группу",
+  "profileInviteLinkCopied": "Пригласительная ссылка скопирована",
+  "groupInviteLinkTitle": "Вступить в группу?",
+  "groupInviteLinkBody": "Вас пригласили в группу «{name}» ({count} участников).",
+  "groupInviteLinkJoin": "Вступить",
+  "drawerJoinGroupByLink": "Вступить в группу по ссылке",
+  "drawerJoinGroupByLinkInvalid": "Это не ссылка-приглашение Pulse"
 }

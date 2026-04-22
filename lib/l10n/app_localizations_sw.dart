@@ -3133,4 +3133,47 @@ class AppLocalizationsSw extends AppLocalizations {
 
   @override
   String get clearChatAction => 'Futa';
+
+  @override
+  String systemGroupRenamed(String actor, String name) {
+    return '$actor amebadilisha jina la kikundi kuwa \"$name\"';
+  }
+
+  @override
+  String systemGroupAvatarChanged(String actor) {
+    return '$actor amebadilisha picha ya kikundi';
+  }
+
+  @override
+  String systemGroupMetaChanged(String actor, String name) {
+    return '$actor amebadilisha jina la kikundi kuwa \"$name\" na amebadilisha picha';
+  }
+
+  @override
+  String get profileInviteLink => 'Kiungo cha mwaliko';
+
+  @override
+  String get profileInviteLinkSubtitle =>
+      'Yeyote mwenye kiungo anaweza kujiunga';
+
+  @override
+  String get profileInviteLinkCopied => 'Kiungo cha mwaliko kimenakiliwa';
+
+  @override
+  String get groupInviteLinkTitle => 'Jiunge na kikundi?';
+
+  @override
+  String groupInviteLinkBody(String name, int count) {
+    return 'Umealikwa kujiunga na \"$name\" (wanachama $count).';
+  }
+
+  @override
+  String get groupInviteLinkJoin => 'Jiunge';
+
+  @override
+  String get drawerJoinGroupByLink => 'Jiunge na kikundi kwa kiungo';
+
+  @override
+  String get drawerJoinGroupByLinkInvalid =>
+      'Hiki hakionekani kama kiungo cha mwaliko cha Pulse';
 }

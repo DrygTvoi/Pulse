@@ -16,6 +16,7 @@ import 'dart:convert';
 import 'controllers/chat_controller.dart';
 import 'models/contact.dart';
 import 'models/contact_repository.dart';
+import 'services/group_invite_link.dart';
 import 'services/notification_service.dart';
 import 'services/connectivity_probe_service.dart';
 import 'services/utls_service.dart';
@@ -297,6 +298,14 @@ class _PulseAppState extends State<PulseApp> with WidgetsBindingObserver {
           debugPrint('[App] Failed to decode deep link config: $e');
         }
       }
+      return;
+    }
+    // pulse://group?cfg=… — group invite. Pushed onto the
+    // PendingGroupInvite singleton; HomeScreen picks it up via
+    // ValueListenableBuilder.
+    if (uri.scheme == 'pulse' && uri.host == 'group') {
+      PendingGroupInvite.offer(uri.toString());
+      return;
     }
   }
 

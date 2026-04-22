@@ -924,5 +924,16 @@
   "menuClearChatHistory": "Rensa chatthistorik",
   "clearChatTitle": "Rensa chatthistoriken?",
   "clearChatBody": "Alla meddelanden i denna chatt raderas från den här enheten. Den andra personen behåller sin kopia.",
-  "clearChatAction": "Rensa"
+  "clearChatAction": "Rensa",
+  "systemGroupRenamed": "{actor} bytte namn på gruppen till \"{name}\"",
+  "systemGroupAvatarChanged": "{actor} ändrade gruppfotot",
+  "systemGroupMetaChanged": "{actor} bytte namn på gruppen till \"{name}\" och ändrade fotot",
+  "profileInviteLink": "Inbjudningslänk",
+  "profileInviteLinkSubtitle": "Alla med länken kan gå med",
+  "profileInviteLinkCopied": "Inbjudningslänk kopierad",
+  "groupInviteLinkTitle": "Gå med i gruppen?",
+  "groupInviteLinkBody": "Du har bjudits in till \"{name}\" ({count} medlemmar).",
+  "groupInviteLinkJoin": "Gå med",
+  "drawerJoinGroupByLink": "Gå med i gruppen via länk",
+  "drawerJoinGroupByLinkInvalid": "Det ser inte ut som en Pulse-inbjudningslänk"
 }
