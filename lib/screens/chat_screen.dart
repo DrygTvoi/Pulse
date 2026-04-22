@@ -174,7 +174,14 @@ class _ChatScreenState extends State<ChatScreen> {
       if (event is! KeyDownEvent) return KeyEventResult.ignored;
       final ctrl = HardwareKeyboard.instance.isControlPressed;
       final shift = HardwareKeyboard.instance.isShiftPressed;
-      // Enter (no shift) on desktop → send; Shift+Enter → newline
+      // Shift+Enter → insert newline. Must handle explicitly: TextField has
+      // textInputAction: send + onSubmitted, so without intercepting here the
+      // default action fires and the message is sent.
+      if (event.logicalKey == LogicalKeyboardKey.enter && shift && !ctrl) {
+        _insertNewline();
+        return KeyEventResult.handled;
+      }
+      // Enter (no shift) on desktop → send.
       if (event.logicalKey == LogicalKeyboardKey.enter && !shift && PlatformUtils.isDesktop) {
         _sendMessage();
         return KeyEventResult.handled;
@@ -208,6 +215,27 @@ class _ChatScreenState extends State<ChatScreen> {
       if (event.logicalKey == LogicalKeyboardKey.keyF && ctrl) {
         setState(() => _searchActive = true);
         return KeyEventResult.handled;
+      }
+      // Markdown shortcuts (Linux desktop). Wrap selection or insert markers
+      // at cursor: Ctrl+B = bold, Ctrl+I = italic, Ctrl+E = code,
+      // Ctrl+Shift+S = strikethrough.
+      if (ctrl && PlatformUtils.isDesktop) {
+        if (event.logicalKey == LogicalKeyboardKey.keyB) {
+          _wrapSelection('**');
+          return KeyEventResult.handled;
+        }
+        if (event.logicalKey == LogicalKeyboardKey.keyI) {
+          _wrapSelection('*');
+          return KeyEventResult.handled;
+        }
+        if (event.logicalKey == LogicalKeyboardKey.keyE) {
+          _wrapSelection('`');
+          return KeyEventResult.handled;
+        }
+        if (event.logicalKey == LogicalKeyboardKey.keyS && shift) {
+          _wrapSelection('~~');
+          return KeyEventResult.handled;
+        }
       }
       return KeyEventResult.ignored;
     };
@@ -506,6 +534,48 @@ class _ChatScreenState extends State<ChatScreen> {
     _controller.text = newText;
     final newCursor = start + emoji.length;
     _controller.selection = TextSelection.collapsed(offset: newCursor);
+  }
+
+  /// Insert a newline at the current cursor position (or replace selection).
+  /// Used by Shift+Enter to get newline-in-message behaviour despite the
+  /// TextField being configured with textInputAction: send.
+  void _insertNewline() {
+    final text = _controller.text;
+    final selection = _controller.selection;
+    final start = selection.baseOffset >= 0 ? selection.baseOffset : text.length;
+    final end = selection.extentOffset >= 0 ? selection.extentOffset : text.length;
+    final selStart = start < end ? start : end;
+    final selEnd = start < end ? end : start;
+    final newText = text.replaceRange(selStart, selEnd, '\n');
+    _controller.value = TextEditingValue(
+      text: newText,
+      selection: TextSelection.collapsed(offset: selStart + 1),
+    );
+  }
+
+  /// Wrap the current selection with [marker] on both sides. With no selection,
+  /// inserts an empty pair and parks the cursor between them so the user can
+  /// type. Used by markdown shortcuts (Ctrl+B etc.).
+  void _wrapSelection(String marker) {
+    final text = _controller.text;
+    final selection = _controller.selection;
+    final start = selection.baseOffset >= 0 ? selection.baseOffset : text.length;
+    final end = selection.extentOffset >= 0 ? selection.extentOffset : text.length;
+    final selStart = start < end ? start : end;
+    final selEnd = start < end ? end : start;
+    final selected = text.substring(selStart, selEnd);
+    final newText =
+        text.replaceRange(selStart, selEnd, '$marker$selected$marker');
+    final mlen = marker.length;
+    _controller.value = TextEditingValue(
+      text: newText,
+      selection: selected.isEmpty
+          ? TextSelection.collapsed(offset: selStart + mlen)
+          : TextSelection(
+              baseOffset: selStart + mlen,
+              extentOffset: selEnd + mlen,
+            ),
+    );
   }
 
   void _onEmojiBackspace() {

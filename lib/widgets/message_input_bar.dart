@@ -201,10 +201,12 @@ class MessageInputBar extends StatelessWidget {
                   focusNode: focusNode,
                   style: GoogleFonts.inter(color: AppTheme.textPrimary, fontSize: DesignTokens.fontInput)
                       .copyWith(fontFamilyFallback: const ['Noto Color Emoji']),
-                  textInputAction: TextInputAction.send,
+                  // Soft-keyboard Enter inserts a newline (Telegram/WhatsApp
+                  // pattern). Send is via the visible airplane button. Desktop
+                  // Enter is intercepted by ChatScreen's focusNode handler.
+                  textInputAction: TextInputAction.newline,
                   minLines: 1,
                   maxLines: 5,
-                  onSubmitted: (_) => onSend(),
                   decoration: InputDecoration(
                     hintText: context.l10n.inputMessage,
                     hintStyle: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: DesignTokens.fontInput),

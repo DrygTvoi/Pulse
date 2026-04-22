@@ -10,6 +10,7 @@ import '../theme/design_tokens.dart';
 import '../theme/theme_manager.dart';
 import '../models/contact.dart';
 import '../models/contact_repository.dart';
+import '../services/markdown_parser.dart';
 import '../services/media_service.dart';
 import '../services/media_validator.dart';
 import '../screens/image_viewer_screen.dart';
@@ -60,6 +61,30 @@ class _ParseCache {
 
   static void invalidate(String text) {
     _cache.remove(text);
+  }
+}
+
+/// LRU cache for parsed markdown segments. Separate from _ParseCache because
+/// markdown parsing is only relevant for text messages (media payloads have
+/// JSON content with no markdown). Sized smaller — segments are heavier than
+/// a single _ParseResult.
+class _MdCache {
+  static const _maxSize = 128;
+  static final _cache = <String, List<MdSegment>>{};
+
+  static List<MdSegment> get(String text) {
+    final cached = _cache[text];
+    if (cached != null) {
+      _cache.remove(text);
+      _cache[text] = cached;
+      return cached;
+    }
+    final segs = MarkdownParser.parse(text);
+    _cache[text] = segs;
+    if (_cache.length > _maxSize) {
+      _cache.remove(_cache.keys.first);
+    }
+    return segs;
   }
 }
 
@@ -169,6 +194,20 @@ class MessageBubble extends StatelessWidget {
       fontFamilyFallback: const ['Noto Color Emoji']);
   static final _deliveryStatusStyle = _interBase.copyWith(
       fontSize: DesignTokens.fontXs, fontWeight: FontWeight.w500);
+  // Monospace base for inline `code` and ```code blocks```. RobotoMono is
+  // bundled on Android. The fallbacks cover Linux desktop (DejaVu Sans Mono /
+  // Liberation Mono are present on virtually every distribution) and macOS /
+  // Windows ('monospace' alias and 'Courier New').
+  static const _monoBase = TextStyle(
+    fontFamily: 'RobotoMono',
+    fontFamilyFallback: [
+      'DejaVu Sans Mono',
+      'Liberation Mono',
+      'Courier New',
+      'monospace',
+      'Courier',
+    ],
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -392,21 +431,51 @@ class MessageBubble extends StatelessWidget {
   }
 
   Widget _buildLinkedText(BuildContext context, String text) {
-    final bubbleTextColor = isMe
-        ? (ThemeNotifier.instance.isDark ? Colors.white : const Color(0xFF111B21))
-        : (ThemeNotifier.instance.isDark ? Colors.white : const Color(0xFF111B21));
+    final bubbleTextColor = ThemeNotifier.instance.isDark
+        ? Colors.white
+        : const Color(0xFF111B21);
     final baseStyle = _interBaseEmoji.copyWith(
         color: bubbleTextColor,
         fontSize: DesignTokens.fontInput,
         height: 1.35);
-    final matches = _urlRegex.allMatches(text).toList();
-    if (matches.isEmpty) {
-      if (PlatformUtils.isDesktop) {
-        return SelectableText(text, style: baseStyle, contextMenuBuilder: (_, __) => const SizedBox.shrink());
-      }
+    final segments = _MdCache.get(text);
+    if (segments.isEmpty) {
       return Text(text, style: baseStyle);
     }
-    return _LinkedText(text: text, matches: matches, baseStyle: baseStyle, isDesktop: PlatformUtils.isDesktop);
+
+    // Fast path: pure plain text. Skip span construction entirely; defer to
+    // existing URL-only path or a bare Text/SelectableText.
+    if (segments.length == 1 && segments[0].isPlain) {
+      final matches = _urlRegex.allMatches(text).toList();
+      if (matches.isEmpty) {
+        if (PlatformUtils.isDesktop) {
+          return SelectableText(text,
+              style: baseStyle,
+              contextMenuBuilder: (_, __) => const SizedBox.shrink());
+        }
+        return Text(text, style: baseStyle);
+      }
+      return _LinkedText(
+          text: text,
+          matches: matches,
+          baseStyle: baseStyle,
+          isDesktop: PlatformUtils.isDesktop);
+    }
+
+    // Code blocks need their own Container (bg + padding + rounded corners) so
+    // the message becomes a Column of mixed inline runs and code-block boxes.
+    final hasCodeBlock = segments.any((s) => s.codeBlock);
+    if (hasCodeBlock) {
+      return _MarkdownColumn(
+          segments: segments,
+          baseStyle: baseStyle,
+          isDesktop: PlatformUtils.isDesktop);
+    }
+
+    return _MarkdownInline(
+        segments: segments,
+        baseStyle: baseStyle,
+        isDesktop: PlatformUtils.isDesktop);
   }
 
   static void _confirmAndLaunchUrl(BuildContext context, String url) {
@@ -794,5 +863,197 @@ class _LinkedTextState extends State<_LinkedText> {
       );
     }
     return RichText(text: TextSpan(style: widget.baseStyle, children: spans));
+  }
+}
+
+// ─── Markdown rendering ──────────────────────────────────────────────────────
+
+/// Subtle background for inline `code` and ```code blocks```. On dark bubbles
+/// a black tint disappears, so use a light overlay instead; on light bubbles
+/// black gives the desired soft-grey effect. Read theme on each call — chats
+/// can switch theme without a hot restart.
+Color _codeBgColor() => ThemeNotifier.instance.isDark
+    ? Colors.white.withValues(alpha: 0.14)
+    : Colors.black.withValues(alpha: 0.10);
+
+/// Inline-only markdown rendering. Code blocks must use _MarkdownColumn.
+class _MarkdownInline extends StatefulWidget {
+  final List<MdSegment> segments;
+  final TextStyle baseStyle;
+  final bool isDesktop;
+
+  const _MarkdownInline({
+    required this.segments,
+    required this.baseStyle,
+    required this.isDesktop,
+  });
+
+  @override
+  State<_MarkdownInline> createState() => _MarkdownInlineState();
+}
+
+class _MarkdownInlineState extends State<_MarkdownInline> {
+  final List<TapGestureRecognizer> _recognizers = [];
+
+  @override
+  void dispose() {
+    for (final r in _recognizers) {
+      r.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    for (final r in _recognizers) {
+      r.dispose();
+    }
+    _recognizers.clear();
+
+    final spans = <InlineSpan>[];
+    for (final seg in widget.segments) {
+      _appendSegmentSpans(spans, seg, widget.baseStyle, context);
+    }
+
+    final root = TextSpan(style: widget.baseStyle, children: spans);
+    if (widget.isDesktop) {
+      return SelectableText.rich(root,
+          contextMenuBuilder: (_, __) => const SizedBox.shrink());
+    }
+    return RichText(text: root);
+  }
+
+  void _appendSegmentSpans(List<InlineSpan> out, MdSegment seg,
+      TextStyle baseStyle, BuildContext context) {
+    if (seg.code) {
+      out.add(TextSpan(
+        text: seg.text,
+        style: baseStyle.merge(MessageBubble._monoBase).copyWith(
+              backgroundColor: _codeBgColor(),
+              fontFamilyFallback:
+                  const ['monospace', 'Courier', 'Noto Color Emoji'],
+            ),
+      ));
+      return;
+    }
+
+    final styled = baseStyle.copyWith(
+      fontWeight: seg.bold ? FontWeight.w700 : null,
+      fontStyle: seg.italic ? FontStyle.italic : null,
+      decoration: seg.strike ? TextDecoration.lineThrough : null,
+    );
+
+    // Run URL detection inside this segment's text. URLs keep the segment's
+    // emphasis (bold/italic/strike) but get link colour + tap.
+    final matches = _urlRegex.allMatches(seg.text).toList();
+    if (matches.isEmpty) {
+      out.add(TextSpan(text: seg.text, style: styled));
+      return;
+    }
+    int last = 0;
+    for (final m in matches) {
+      if (m.start > last) {
+        out.add(TextSpan(text: seg.text.substring(last, m.start), style: styled));
+      }
+      final url = m.group(0)!;
+      final recognizer = TapGestureRecognizer()
+        ..onTap = () => MessageBubble._confirmAndLaunchUrl(context, url);
+      _recognizers.add(recognizer);
+      out.add(TextSpan(
+        text: url,
+        style: styled.copyWith(
+          color: AppTheme.info,
+          decoration: seg.strike
+              ? TextDecoration.combine(const [
+                  TextDecoration.underline,
+                  TextDecoration.lineThrough,
+                ])
+              : TextDecoration.underline,
+          decorationColor: AppTheme.info,
+        ),
+        recognizer: recognizer,
+      ));
+      last = m.end;
+    }
+    if (last < seg.text.length) {
+      out.add(TextSpan(text: seg.text.substring(last), style: styled));
+    }
+  }
+}
+
+/// Renders a message containing one or more ```code blocks```. Splits the
+/// segment list into runs separated by code-block boundaries, rendering each
+/// run as an inline RichText and each code block as a Container.
+class _MarkdownColumn extends StatelessWidget {
+  final List<MdSegment> segments;
+  final TextStyle baseStyle;
+  final bool isDesktop;
+
+  const _MarkdownColumn({
+    required this.segments,
+    required this.baseStyle,
+    required this.isDesktop,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final children = <Widget>[];
+    var run = <MdSegment>[];
+
+    void flushRun() {
+      if (run.isEmpty) return;
+      children.add(Padding(
+        padding: const EdgeInsets.symmetric(vertical: 1),
+        child: _MarkdownInline(
+          segments: run,
+          baseStyle: baseStyle,
+          isDesktop: isDesktop,
+        ),
+      ));
+      run = [];
+    }
+
+    for (final seg in segments) {
+      if (seg.codeBlock) {
+        flushRun();
+        children.add(Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            decoration: BoxDecoration(
+              color: _codeBgColor(),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: isDesktop
+                  ? SelectableText(
+                      seg.text,
+                      style: baseStyle
+                          .merge(MessageBubble._monoBase)
+                          .copyWith(fontSize: DesignTokens.fontSm),
+                      contextMenuBuilder: (_, __) => const SizedBox.shrink(),
+                    )
+                  : Text(
+                      seg.text,
+                      style: baseStyle
+                          .merge(MessageBubble._monoBase)
+                          .copyWith(fontSize: DesignTokens.fontSm),
+                    ),
+            ),
+          ),
+        ));
+      } else {
+        run.add(seg);
+      }
+    }
+    flushRun();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: children,
+    );
   }
 }
