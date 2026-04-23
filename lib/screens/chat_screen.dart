@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../services/local_storage_service.dart';
 import '../theme/app_theme.dart';
+import 'sfu_call_screen.dart';
 import '../theme/design_tokens.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'contact_profile_sheet.dart';
@@ -1043,6 +1044,9 @@ class _ChatScreenState extends State<ChatScreen> {
         Expanded(child: Column(children: [
         // Offline indicator (hidden while probe is still running)
         OfflineBanner(status: connectionStatus),
+        // Conference banner — shows up when an SFU group call is in
+        // progress. Tapping joins the existing room (no new invite).
+        if (_contact.isGroup) _OngoingCallBanner(group: _contact, myId: myId),
         // Pulse server suggestion — silent no-op if we already have Pulse
         // or the contact doesn't advertise one.
         if (!_contact.isGroup)
@@ -1787,6 +1791,98 @@ class _TypingDotsState extends State<_TypingDots> with SingleTickerProviderState
           ],
         ]);
       },
+    );
+  }
+}
+
+/// Banner that appears in a group chat when an SFU call is in progress.
+/// Tapping joins the existing room (skips the new-call flow entirely).
+class _OngoingCallBanner extends StatefulWidget {
+  final Contact group;
+  final String myId;
+  const _OngoingCallBanner({required this.group, required this.myId});
+  @override
+  State<_OngoingCallBanner> createState() => _OngoingCallBannerState();
+}
+
+class _OngoingCallBannerState extends State<_OngoingCallBanner> {
+  StreamSubscription<String>? _sub;
+
+  @override
+  void initState() {
+    super.initState();
+    _sub = ChatController().activeGroupCallsChanged.listen((groupId) {
+      if (groupId == widget.group.id && mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _sub?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final call = ChatController().activeGroupCall(widget.group.id);
+    if (call == null) return const SizedBox.shrink();
+    return Material(
+      color: AppTheme.providerPulse.withValues(alpha: 0.12),
+      child: InkWell(
+        onTap: () {
+          Navigator.push(context, MaterialPageRoute(
+            builder: (_) => SfuCallScreen(
+              group: widget.group,
+              myId: widget.myId,
+              isCaller: false,
+              existingRoomId: call.roomId,
+              existingToken: call.token,
+            ),
+          ));
+        },
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+              horizontal: DesignTokens.spacing14,
+              vertical: DesignTokens.spacing10),
+          child: Row(children: [
+            Container(
+              width: 32, height: 32,
+              decoration: BoxDecoration(
+                color: AppTheme.providerPulse,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.phone_in_talk_rounded,
+                  color: Colors.white, size: 18),
+            ),
+            const SizedBox(width: DesignTokens.spacing12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Ongoing group call',
+                      style: GoogleFonts.inter(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                          color: AppTheme.textPrimary)),
+                  Text('Tap to join',
+                      style: GoogleFonts.inter(
+                          fontSize: 12,
+                          color: AppTheme.textSecondary)),
+                ],
+              ),
+            ),
+            IconButton(
+              icon: Icon(Icons.close_rounded,
+                  size: 18, color: AppTheme.textSecondary),
+              tooltip: 'Dismiss',
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+              onPressed: () =>
+                  ChatController().clearActiveGroupCall(widget.group.id),
+            ),
+          ]),
+        ),
+      ),
     );
   }
 }

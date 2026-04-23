@@ -43,6 +43,7 @@ class _SfuCallScreenState extends State<SfuCallScreen> {
   bool _isMuted = false;
   bool _isCameraOff = true;
   bool _isScreenSharing = false;
+  bool _speakerphoneOn = true;
 
   Set<String> _activeSet = {};
   String? _dominant;
@@ -50,6 +51,7 @@ class _SfuCallScreenState extends State<SfuCallScreen> {
   String? _pinnedPubkey;
 
   Timer? _durationTimer;
+  Timer? _inviteRebroadcastTimer;
   Duration _callDuration = Duration.zero;
   bool _disposed = false;
   bool _ready = false;
@@ -79,18 +81,27 @@ class _SfuCallScreenState extends State<SfuCallScreen> {
     // a black "Connecting…" screen because every SFU control message
     // (`room_create`, `room_join`, `media_offer`, …) was silently
     // dropped by `sendRawPulseSignal` due to a null `_cachedPulseSender`.
+    debugPrint('[SfuCall] _startCall begin for group=${widget.group.id.substring(0, 8)} '
+        'name="${widget.group.name}" mode=${widget.group.effectiveGroupCallMode} '
+        'serverUrl="${widget.group.groupServerUrl}" '
+        'existingRoom=${widget.existingRoomId != null}');
     final serverUrl = widget.group.groupServerUrl;
     if (serverUrl.isNotEmpty) {
+      debugPrint('[SfuCall] calling ensureGroupPulseConnection($serverUrl)');
       final ok = await ChatController().ensureGroupPulseConnection(serverUrl);
+      debugPrint('[SfuCall] ensureGroupPulseConnection returned $ok');
       if (!ok) {
         debugPrint('[SfuCall] FATAL: could not open Pulse connection to '
             '$serverUrl — call will not start');
         if (mounted) Navigator.pop(context);
         return;
       }
+    } else {
+      debugPrint('[SfuCall] no serverUrl set — skipping ensureGroupPulseConnection');
     }
 
     _sfu = SfuSignalingService(group: widget.group, myId: widget.myId);
+    debugPrint('[SfuCall] SfuSignalingService instantiated; wiring callbacks');
 
     _sfu!.onTrackAvailable = (pubkey, trackId, kind) {
       if (_disposed) return;
@@ -184,6 +195,16 @@ class _SfuCallScreenState extends State<SfuCallScreen> {
       }
     };
 
+    _sfu!.onRoomCreateFailed = () {
+      if (_disposed || !mounted) return;
+      debugPrint('[SfuCall] room_create gave up — popping back to chat');
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(context.l10n.callConnectionFailed),
+        backgroundColor: AppTheme.error,
+      ));
+      Navigator.of(context).pop();
+    };
+
     _sfu!.onRoomReady = () async {
       if (_disposed) return;
       // Caller side: now that the SFU room exists with a token, fan-out an
@@ -195,40 +216,74 @@ class _SfuCallScreenState extends State<SfuCallScreen> {
         unawaited(ctrl.broadcastSfuCallInvite(
             widget.group, _sfu!.roomId!, _sfu!.roomToken!));
       }
-      // Room joined — set up PC and send media. Try audio+video first;
-      // on devices without a camera (Waydroid, headless servers, hardened
-      // sandboxes) the combined request fails outright. Fall back to
-      // audio-only, then to a media-less PC so the user can still
-      // receive others' streams as a listener.
+      // Conference re-broadcast: every participant (caller AND joiners)
+      // periodically re-sends the invite so members who were offline at
+      // call-start, declined the popup, or just installed the app on a
+      // second device discover the ongoing room. The signal is tiny
+      // (~150B), the dispatcher dedups by `_sid`, and the receiver-side
+      // ChatController.activeGroupCall map only adds the entry once.
+      _inviteRebroadcastTimer?.cancel();
+      final rid = _sfu?.roomId;
+      final tok = _sfu?.roomToken;
+      if (rid != null && tok != null) {
+        final ctrl = context.read<ChatController>();
+        _inviteRebroadcastTimer = Timer.periodic(
+          const Duration(seconds: 20),
+          (_) {
+            if (_disposed) return;
+            unawaited(ctrl.broadcastSfuCallInvite(widget.group, rid, tok));
+          },
+        );
+      }
+      // Room joined — set up PC and send media.
+      //
+      // Audio and video MUST be requested separately: combined
+      // getUserMedia({audio, video}) on Linux/Windows libwebrtc returns an
+      // audio track that captures silence (clock-domain mismatch between
+      // the V4L2 video device and the ALSA/PipeWire audio source). The
+      // legacy 1-on-1 call already discovered this — see call_screen.dart
+      // _openUserMedia which deliberately splits them. SFU did the same
+      // mistake; that's why only Android (which uses MediaRecorder, single
+      // clock) had a working mic, while Linux + Windows transmitted dead
+      // air.
       MediaStream? localStream;
       try {
+        // Plain `audio: true` mirrors the 1-on-1 call flow that's known to
+        // produce a working mic on Linux/Windows. Constraint objects with
+        // noise suppression flags pass through libwebrtc and silently
+        // bind to a NullSource on desktop when WebRTC's audio APM doesn't
+        // recognise the device — capture succeeds but the track sends
+        // pure silence (server's forwardRTP times out after 30s).
         localStream = await navigator.mediaDevices.getUserMedia({
-          'audio': {'noiseSuppression': true, 'echoCancellation': true, 'autoGainControl': true},
-          'video': true,
+          'audio': true,
+          'video': false,
         });
       } catch (e) {
-        debugPrint('[SfuCall] getUserMedia(audio+video) failed: $e — '
-            'retrying audio-only');
+        debugPrint('[SfuCall] getUserMedia(audio) failed: $e — '
+            'joining as receive-only listener');
         try {
-          localStream = await navigator.mediaDevices.getUserMedia({
-            'audio': {'noiseSuppression': true, 'echoCancellation': true, 'autoGainControl': true},
-            'video': false,
-          });
-        } catch (e2) {
-          debugPrint('[SfuCall] getUserMedia(audio-only) also failed: $e2 — '
-              'joining as receive-only listener');
-          // Synthetic empty stream so setupPeerConnection still has something
-          // to attach (PCs with zero senders are still valid in WebRTC and
-          // can receive remote tracks). Most plugins accept createLocalMediaStream.
-          try {
-            localStream = await createLocalMediaStream(
-                'sfu_listener_${DateTime.now().millisecondsSinceEpoch}');
-          } catch (e3) {
-            debugPrint('[SfuCall] FATAL: cannot even create empty stream: $e3');
-            if (mounted) Navigator.pop(context);
-            return;
-          }
+          localStream = await createLocalMediaStream(
+              'sfu_listener_${DateTime.now().millisecondsSinceEpoch}');
+        } catch (e3) {
+          debugPrint('[SfuCall] FATAL: cannot even create empty stream: $e3');
+          if (mounted) Navigator.pop(context);
+          return;
         }
+      }
+      // Try to attach a video track too — separately, so audio capture
+      // already running keeps its clock domain. Skip silently on devices
+      // without a camera (Waydroid, headless box) — those joined as
+      // audio-only above; we'll still send their voice.
+      try {
+        final videoStream = await navigator.mediaDevices.getUserMedia({
+          'audio': false,
+          'video': true,
+        });
+        for (final t in videoStream.getVideoTracks()) {
+          localStream.addTrack(t);
+        }
+      } catch (e) {
+        debugPrint('[SfuCall] getUserMedia(video) skipped: $e — audio-only');
       }
       if (_disposed) { localStream.getTracks().forEach((t) => t.stop()); return; }
 
@@ -236,15 +291,30 @@ class _SfuCallScreenState extends State<SfuCallScreen> {
       for (final t in localStream.getVideoTracks()) { t.enabled = false; }
       _localRenderer.srcObject = localStream;
 
+      // Route audio to the loudspeaker, not the earpiece. Without this on
+      // Android (and even some Linux setups), remote audio is silently
+      // playing into the phone's tiny earpiece speaker — looks like "no
+      // sound" because at arm's length you can't hear it.
+      if (Platform.isAndroid || Platform.isIOS) {
+        try {
+          await Helper.setSpeakerphoneOn(true);
+        } catch (e) {
+          debugPrint('[SfuCall] setSpeakerphoneOn failed: $e');
+        }
+      }
+
       await _sfu!.setupPeerConnection(localStream);
       if (mounted) setState(() => _ready = true);
     };
 
     if (widget.existingRoomId != null && widget.existingToken != null) {
+      debugPrint('[SfuCall] joinRoom(${widget.existingRoomId}) — caller=false');
       await _sfu!.joinRoom(widget.existingRoomId!, widget.existingToken!);
     } else {
+      debugPrint('[SfuCall] createRoom() — caller=true');
       await _sfu!.createRoom();
     }
+    debugPrint('[SfuCall] _startCall finished kicking off room flow');
   }
 
   Future<RTCVideoRenderer> _ensureRenderer(String pubkey) async {
@@ -286,6 +356,7 @@ class _SfuCallScreenState extends State<SfuCallScreen> {
     if (!_disposed) {
       _disposed = true;
       _durationTimer?.cancel();
+      _inviteRebroadcastTimer?.cancel();
       _sfu?.hangUp();
       _disposeRenderers();
     }
@@ -351,12 +422,78 @@ class _SfuCallScreenState extends State<SfuCallScreen> {
   Widget build(BuildContext context) => !_ready ? _buildLoading() : _buildCall();
 
   Widget _buildLoading() => Scaffold(
-    backgroundColor: Colors.black,
-    body: Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-      const CircularProgressIndicator(color: Colors.white54),
-      const SizedBox(height: 20),
-      Text(context.l10n.callStarting, style: GoogleFonts.inter(color: Colors.white54, fontSize: 15)),
-    ])),
+    backgroundColor: AppTheme.background,
+    body: SafeArea(
+      child: Stack(children: [
+        Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+          Container(
+            width: 88, height: 88,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: AppTheme.primary.withValues(alpha: 0.12),
+              border: Border.all(color: AppTheme.primary.withValues(alpha: 0.4), width: 2),
+            ),
+            child: Center(
+              child: Icon(Icons.group_rounded, color: AppTheme.primary, size: 38),
+            ),
+          ),
+          const SizedBox(height: 28),
+          Text(widget.group.name,
+              style: GoogleFonts.inter(
+                  color: AppTheme.textPrimary,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700)),
+          const SizedBox(height: 8),
+          Text(context.l10n.callStarting,
+              style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: 14)),
+          const SizedBox(height: 24),
+          SizedBox(
+            width: 120,
+            child: LinearProgressIndicator(
+              backgroundColor: AppTheme.surfaceVariant,
+              valueColor: AlwaysStoppedAnimation(AppTheme.primary),
+              minHeight: 3,
+            ),
+          ),
+          const SizedBox(height: 36),
+          // Cancel/hangup — always available, even mid-connect. Without
+          // this the loading screen had no escape hatch and a stuck SFU
+          // bring-up locked the user inside until they killed the app.
+          GestureDetector(
+            onTap: _hangUp,
+            child: Container(
+              width: 60, height: 60,
+              decoration: BoxDecoration(
+                color: AppTheme.error,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: AppTheme.error.withValues(alpha: 0.4),
+                    blurRadius: 16,
+                    spreadRadius: 1,
+                  ),
+                ],
+              ),
+              child: const Icon(Icons.call_end_rounded, color: Colors.white, size: 26),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(context.l10n.cancel,
+              style: GoogleFonts.inter(
+                  color: AppTheme.textSecondary, fontSize: 12)),
+        ])),
+        // Top-left back button as a second exit — works even if the user
+        // doesn't notice the central hangup.
+        Positioned(
+          top: 8, left: 8,
+          child: IconButton(
+            icon: Icon(Icons.arrow_back_rounded, color: AppTheme.textSecondary),
+            onPressed: _hangUp,
+            tooltip: context.l10n.cancel,
+          ),
+        ),
+      ]),
+    ),
   );
 
   /// Sentinel for the local user inside the participants list. Sorts to
@@ -369,14 +506,9 @@ class _SfuCallScreenState extends State<SfuCallScreen> {
       ..._participantTracks.keys,
     ];
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: AppTheme.background,
       body: SafeArea(child: Stack(children: [
         Positioned.fill(child: _buildGrid(participants)),
-        Positioned(top: 4, left: 12, child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-          decoration: BoxDecoration(color: AppTheme.primary.withValues(alpha: 0.8), borderRadius: BorderRadius.circular(8)),
-          child: Text('SFU', style: GoogleFonts.inter(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700)),
-        )),
         Positioned(top: 0, left: 0, right: 0, child: _buildTopBar()),
         Positioned(bottom: 0, left: 0, right: 0, child: _buildControls()),
       ])),
@@ -452,11 +584,22 @@ class _SfuCallScreenState extends State<SfuCallScreen> {
     return GestureDetector(
       onDoubleTap: isSelf ? null : () => _togglePin(pubkey),
       child: Stack(children: [
-        // Solid bg + avatar — always visible.
+        // Card background — uses theme surface, soft border so tiles read
+        // as separate cards on the dark background.
         Positioned.fill(
           child: Container(
-              color: const Color(0xFF1C1C1E),
-              child: Center(child: _avatar(name, 64))),
+            decoration: BoxDecoration(
+              color: AppTheme.surface,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: isSpeaking
+                    ? (isDominant ? AppTheme.primary : AppTheme.primary.withValues(alpha: 0.6))
+                    : AppTheme.surfaceVariant,
+                width: isSpeaking ? 2 : 1,
+              ),
+            ),
+            child: Center(child: _avatar(name, _avatarSizeFor(participantsCount: _participantTracks.length + 1))),
+          ),
         ),
         // RTCVideoView lives in the tree even when video is muted so the
         // audio sink stays attached and we keep hearing camera-off
@@ -466,37 +609,106 @@ class _SfuCallScreenState extends State<SfuCallScreen> {
           Positioned.fill(
             child: Offstage(
               offstage: !hasVideo,
-              child: RTCVideoView(renderer,
-                  mirror: isSelf && !_isScreenSharing,
-                  objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitCover),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(15),
+                child: RTCVideoView(renderer,
+                    mirror: isSelf && !_isScreenSharing,
+                    objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitCover),
+              ),
             ),
           ),
-        if (isSpeaking) Positioned.fill(child: IgnorePointer(child: Container(
-          decoration: BoxDecoration(border: Border.all(color: isDominant ? Colors.greenAccent : Colors.green, width: isDominant ? 3 : 2)),
-        ))),
-        if (isPinned) const Positioned(right: 8, top: 8, child: Icon(Icons.push_pin_rounded, color: Colors.white, size: 16)),
-        if (!hasVideo && _activeSet.isNotEmpty) Positioned(left: 8, top: 8, child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-          decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(6)),
-          child: Text(context.l10n.sfuAudioOnly, style: GoogleFonts.inter(color: Colors.white54, fontSize: 10)),
-        )),
-        Positioned(left: 10, bottom: 10, child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(8)),
-          child: Text(name, style: GoogleFonts.inter(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
+        if (isPinned) Positioned(
+          right: 10, top: 10,
+          child: Container(
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: AppTheme.primary,
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.push_pin_rounded, color: Colors.white, size: 12),
+          ),
+        ),
+        if (!hasVideo) Positioned(
+          left: 10, top: 10,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+            decoration: BoxDecoration(
+              color: AppTheme.background.withValues(alpha: 0.7),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Icon(Icons.mic_rounded, size: 10, color: AppTheme.textSecondary),
+              const SizedBox(width: 4),
+              Text('audio',
+                  style: GoogleFonts.inter(
+                      color: AppTheme.textSecondary, fontSize: 10)),
+            ]),
+          ),
+        ),
+        Positioned(left: 10, bottom: 10, right: 10, child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          decoration: BoxDecoration(
+              color: AppTheme.background.withValues(alpha: 0.75),
+              borderRadius: BorderRadius.circular(10)),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            if (isSpeaking) ...[
+              Icon(Icons.graphic_eq_rounded,
+                  color: isDominant ? AppTheme.primary : AppTheme.primary.withValues(alpha: 0.7),
+                  size: 12),
+              const SizedBox(width: 6),
+            ],
+            Flexible(
+              child: Text(name,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.inter(
+                      color: AppTheme.textPrimary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600)),
+            ),
+          ]),
         )),
       ]),
     );
+  }
+
+  /// Picks an avatar size that reads well at the current grid density.
+  /// 1-2 participants → big avatar, 5+ → smaller so it fits.
+  double _avatarSizeFor({required int participantsCount}) {
+    if (participantsCount <= 2) return 96;
+    if (participantsCount <= 4) return 76;
+    if (participantsCount <= 9) return 56;
+    return 44;
   }
 
   Widget _avatar(String name, double size) {
     final initial = name.isNotEmpty ? name[0].toUpperCase() : '?';
     return Container(
       width: size, height: size,
-      decoration: const BoxDecoration(shape: BoxShape.circle, color: Color(0xFF2C2C2E)),
-      child: Center(child: Text(initial, style: GoogleFonts.inter(
-        color: Colors.white70, fontSize: size * 0.4, fontWeight: FontWeight.w700,
-      ))),
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            AppTheme.primary.withValues(alpha: 0.55),
+            AppTheme.primary.withValues(alpha: 0.18),
+          ],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.primary.withValues(alpha: 0.18),
+            blurRadius: 18,
+            spreadRadius: 1,
+          ),
+        ],
+      ),
+      child: Center(
+        child: Text(initial,
+            style: GoogleFonts.inter(
+                color: AppTheme.onPrimary,
+                fontSize: size * 0.42,
+                fontWeight: FontWeight.w700)),
+      ),
     );
   }
 
@@ -513,33 +725,73 @@ class _SfuCallScreenState extends State<SfuCallScreen> {
       status = context.l10n.callConnecting;
     }
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 20),
-      decoration: BoxDecoration(gradient: LinearGradient(
-        colors: [Colors.black.withValues(alpha: 0.7), Colors.transparent],
-        begin: Alignment.topCenter, end: Alignment.bottomCenter,
-      )),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+      decoration: BoxDecoration(
+        color: AppTheme.surface,
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.background.withValues(alpha: 0.4),
+            blurRadius: 12,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
       child: Row(children: [
-        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(widget.group.name, style: GoogleFonts.inter(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700)),
-          const SizedBox(height: 2),
-          Text('$status  ${context.l10n.sfuParticipants(_participantTracks.length + 1)}',
-              style: GoogleFonts.inter(color: Colors.white70, fontSize: 12)),
-        ])),
-        if (connected) Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-          decoration: BoxDecoration(color: Colors.green, borderRadius: BorderRadius.circular(10)),
-          child: Text(context.l10n.callLive, style: GoogleFonts.inter(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700)),
+        Container(
+          width: 40, height: 40,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: AppTheme.primary.withValues(alpha: 0.15),
+          ),
+          child: Icon(Icons.group_rounded, color: AppTheme.primary, size: 20),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(widget.group.name,
+                style: GoogleFonts.inter(
+                    color: AppTheme.textPrimary,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700),
+                overflow: TextOverflow.ellipsis),
+            const SizedBox(height: 2),
+            Row(children: [
+              Container(
+                width: 6, height: 6,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: connected ? Colors.greenAccent : Colors.orange,
+                ),
+              ),
+              const SizedBox(width: 6),
+              Text(status,
+                  style: GoogleFonts.inter(
+                      color: AppTheme.textSecondary, fontSize: 12)),
+              Text('  ·  ',
+                  style: GoogleFonts.inter(
+                      color: AppTheme.textSecondary, fontSize: 12)),
+              Text(context.l10n.sfuParticipants(_participantTracks.length + 1),
+                  style: GoogleFonts.inter(
+                      color: AppTheme.textSecondary, fontSize: 12)),
+            ]),
+          ]),
         ),
       ]),
     );
   }
 
   Widget _buildControls() => Container(
-    padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
-    decoration: BoxDecoration(gradient: LinearGradient(
-      colors: [Colors.transparent, Colors.black.withValues(alpha: 0.75)],
-      begin: Alignment.topCenter, end: Alignment.bottomCenter,
-    )),
+    padding: const EdgeInsets.fromLTRB(24, 18, 24, 28),
+    decoration: BoxDecoration(
+      color: AppTheme.surface,
+      boxShadow: [
+        BoxShadow(
+          color: AppTheme.background.withValues(alpha: 0.4),
+          blurRadius: 12,
+          offset: const Offset(0, -2),
+        ),
+      ],
+    ),
     child: Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
       _ctrl(
         icon: _isMuted ? Icons.mic_off_rounded : Icons.mic_rounded,
@@ -550,42 +802,94 @@ class _SfuCallScreenState extends State<SfuCallScreen> {
           _sfu?.localStream?.getAudioTracks().forEach((t) => t.enabled = !_isMuted);
         },
       ),
-      GestureDetector(onTap: _hangUp, child: Container(
-        width: 64, height: 64,
-        decoration: const BoxDecoration(color: Colors.redAccent, shape: BoxShape.circle),
-        child: const Icon(Icons.call_end_rounded, color: Colors.white, size: 28),
-      )),
       _ctrl(
         icon: _isCameraOff ? Icons.videocam_off_rounded : Icons.videocam_rounded,
         label: _isCameraOff ? context.l10n.callCamOff : context.l10n.callCamOn,
         active: !_isCameraOff,
+        // Toggling camera = the visual on/off, NOT mute. Use neutral
+        // surface color when off (camera-off is the default, not an
+        // alarming state) and primary highlight when on.
+        highlight: !_isCameraOff,
         onTap: () {
           setState(() => _isCameraOff = !_isCameraOff);
           _sfu?.localStream?.getVideoTracks().forEach((t) => t.enabled = !_isCameraOff);
         },
       ),
+      GestureDetector(onTap: _hangUp, child: Container(
+        width: 60, height: 60,
+        decoration: BoxDecoration(
+          color: AppTheme.error,
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: AppTheme.error.withValues(alpha: 0.4),
+              blurRadius: 16,
+              spreadRadius: 1,
+            ),
+          ],
+        ),
+        child: const Icon(Icons.call_end_rounded, color: Colors.white, size: 26),
+      )),
       _ctrl(
         icon: _isScreenSharing ? Icons.stop_screen_share_rounded : Icons.screen_share_rounded,
         label: _isScreenSharing ? context.l10n.callStopShare : context.l10n.callShareScreen,
         active: _isScreenSharing,
+        highlight: _isScreenSharing,
         onTap: _toggleScreenShare,
       ),
+      // Speakerphone toggle (mobile only — desktop routes through OS).
+      if (Platform.isAndroid || Platform.isIOS)
+        _ctrl(
+          icon: _speakerphoneOn ? Icons.volume_up_rounded : Icons.volume_down_rounded,
+          label: _speakerphoneOn ? 'Speaker' : 'Earpiece',
+          active: false,
+          highlight: _speakerphoneOn,
+          onTap: () async {
+            final next = !_speakerphoneOn;
+            try { await Helper.setSpeakerphoneOn(next); } catch (_) {}
+            if (mounted) setState(() => _speakerphoneOn = next);
+          },
+        ),
     ]),
   );
 
-  Widget _ctrl({required IconData icon, required String label, required bool active, required VoidCallback onTap}) {
-    return GestureDetector(onTap: onTap, child: Column(mainAxisSize: MainAxisSize.min, children: [
-      Container(
-        width: 52, height: 52,
-        decoration: BoxDecoration(
-          color: active ? Colors.redAccent.withValues(alpha: 0.85) : Colors.white.withValues(alpha: 0.15),
-          shape: BoxShape.circle,
+  Widget _ctrl({
+    required IconData icon,
+    required String label,
+    required bool active,
+    required VoidCallback onTap,
+    bool highlight = false,
+  }) {
+    // Three visual states:
+    //   active   = "this is the muted/off state" — uses error color
+    //   highlight = "this is the on/active state" — uses primary
+    //   neutral   = idle — uses surface variant
+    final Color bg;
+    final Color iconColor;
+    if (active) {
+      bg = AppTheme.error.withValues(alpha: 0.18);
+      iconColor = AppTheme.error;
+    } else if (highlight) {
+      bg = AppTheme.primary.withValues(alpha: 0.22);
+      iconColor = AppTheme.primary;
+    } else {
+      bg = AppTheme.surfaceVariant;
+      iconColor = AppTheme.textPrimary;
+    }
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        Container(
+          width: 50, height: 50,
+          decoration: BoxDecoration(color: bg, shape: BoxShape.circle),
+          child: Icon(icon, color: iconColor, size: 22),
         ),
-        child: Icon(icon, color: Colors.white, size: 22),
-      ),
-      const SizedBox(height: 6),
-      Text(label, style: GoogleFonts.inter(color: Colors.white70, fontSize: 11)),
-    ]));
+        const SizedBox(height: 6),
+        Text(label,
+            style: GoogleFonts.inter(
+                color: AppTheme.textSecondary, fontSize: 11)),
+      ]),
+    );
   }
 }
 

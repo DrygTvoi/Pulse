@@ -113,22 +113,40 @@ PreferredSizeWidget buildChatAppBar({
       IconButton(
         icon: Icon(Icons.call_outlined, color: AppTheme.textSecondary),
         tooltip: context.l10n.appBarVoiceCall,
-        onPressed: () => Navigator.push(context, MaterialPageRoute(
-          // Group calls split by architecture: SFU groups go through the
-          // server-relayed SfuCallScreen, mesh groups stay on the original
-          // peer-to-peer GroupCallScreen. effectiveGroupCallMode treats
-          // legacy groups (no field set) as 'sfu' so existing groups don't
-          // break — the user can switch any specific group later via group
-          // settings.
-          builder: (_) {
-            if (!contact.isGroup) {
-              return CallScreen(contact: contact, myId: myId, isCaller: true);
+        onPressed: () {
+          // Conference mode: if a group call is already in progress on
+          // the SFU server, join it instead of creating a fresh room.
+          // Creating a parallel room would leave the call fragmented and
+          // re-broadcast a redundant sfu_invite to everyone.
+          if (contact.isGroup && !contact.isMeshGroup) {
+            final active = ChatController().activeGroupCall(contact.id);
+            if (active != null) {
+              Navigator.push(context, MaterialPageRoute(
+                builder: (_) => SfuCallScreen(
+                  group: contact,
+                  myId: myId,
+                  isCaller: false,
+                  existingRoomId: active.roomId,
+                  existingToken: active.token,
+                ),
+              ));
+              return;
             }
-            return contact.isMeshGroup
-                ? GroupCallScreen(group: contact, myId: myId, isCaller: true)
-                : SfuCallScreen(group: contact, myId: myId, isCaller: true);
-          },
-        )),
+          }
+          Navigator.push(context, MaterialPageRoute(
+            // Group calls split by architecture: SFU groups go through the
+            // server-relayed SfuCallScreen, mesh groups stay on the original
+            // peer-to-peer GroupCallScreen.
+            builder: (_) {
+              if (!contact.isGroup) {
+                return CallScreen(contact: contact, myId: myId, isCaller: true);
+              }
+              return contact.isMeshGroup
+                  ? GroupCallScreen(group: contact, myId: myId, isCaller: true)
+                  : SfuCallScreen(group: contact, myId: myId, isCaller: true);
+            },
+          ));
+        },
       ),
       if (embedded && onToggleInfoPanel != null)
         IconButton(

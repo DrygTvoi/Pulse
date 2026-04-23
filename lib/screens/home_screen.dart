@@ -69,6 +69,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   StreamSubscription? _signalSubscription;
   StreamSubscription? _groupCallSubscription;
+  StreamSubscription<String>? _activeCallSubscription;
   StreamSubscription? _groupInviteSubscription;
   StreamSubscription? _groupInviteDeclineSubscription;
   StreamSubscription? _groupUpdateSubscription;
@@ -269,6 +270,7 @@ class _HomeScreenState extends State<HomeScreen> {
     ActiveCallService.instance.removeListener(_onActiveCallChanged);
     _signalSubscription?.cancel();
     _groupCallSubscription?.cancel();
+    _activeCallSubscription?.cancel();
     _groupInviteSubscription?.cancel();
     _groupInviteDeclineSubscription?.cancel();
     _groupUpdateSubscription?.cancel();
@@ -568,16 +570,40 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
+  /// Tracks `(groupId|roomId)` pairs whose popup we've already shown so the
+  /// 20-second rebroadcast from active call participants doesn't keep
+  /// hammering the user with the same dialog. The chat-screen banner
+  /// covers the "I dismissed the popup" case — you can still join from
+  /// there.
+  final Set<String> _shownGroupInvites = {};
+
   void _listenForIncomingGroupCalls() {
     _groupCallSubscription = ChatController().incomingGroupCalls.listen((sig) async {
       final groupId = sig['groupId'] as String?;
       if (groupId == null) return;
       if (!mounted) return;
+      // Dedupe — sfu_invite is rebroadcast every 20s while the call is
+      // live so latecomers/offline-rejoiners learn the room. The popup
+      // must only fire once per call attempt.
+      final payload = sig['payload'];
+      String inviteKey = groupId;
+      if (payload is Map) {
+        final rid = payload['sfuRoomId'] as String? ?? payload['room_id'] as String? ?? '';
+        if (rid.isNotEmpty) inviteKey = '$groupId|$rid';
+      }
+      if (!_shownGroupInvites.add(inviteKey)) return;
       final groupContact = context.read<IContactRepository>().findById(groupId);
       if (groupContact == null || !mounted) return;
       final myId = ChatController().identity?.id ?? '';
       _showIncomingGroupCallDialog(groupContact, myId, sig);
     }, onError: (e) => debugPrint('[HomeScreen] incomingGroupCalls stream error: $e'));
+    // Forget the popup after the call ends so a future call gets a fresh
+    // notification.
+    _activeCallSubscription = ChatController().activeGroupCallsChanged.listen((groupId) {
+      if (ChatController().activeGroupCall(groupId) == null) {
+        _shownGroupInvites.removeWhere((key) => key.startsWith('$groupId|'));
+      }
+    });
   }
 
   void _showIncomingGroupCallDialog(
