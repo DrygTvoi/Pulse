@@ -20,6 +20,7 @@ import '../services/gift_wrap_service.dart' as giftwrap;
 import '../services/nostr_event_builder.dart' as eb;
 import 'inbox_manager.dart';
 import '../services/adaptive_relay_service.dart';
+import '../models/contact.dart' show ContactManager;
 
 /// ─────────────────────────────────────────────────────────
 /// Nostr Adapter — Signal Protocol over Nostr transport
@@ -2228,8 +2229,9 @@ class NostrMessageSender implements MessageSender {
   /// relay the recipient is subscribed to.
   List<String> _alternateRelaysForRecipient(String recipientPubkey) {
     try {
-      final ctrl = ChatController();
-      for (final c in ctrl.contacts.contacts) {
+      // Walk the contact roster directly via ContactManager singleton
+      // (avoid importing ChatController to dodge a circular dependency).
+      for (final c in ContactManager().contacts) {
         if (c.isGroup) continue;
         final nostrAddrs = c.transportAddresses['Nostr'] ?? const <String>[];
         // Match by pubkey (case-insensitive). One contact owns one pubkey

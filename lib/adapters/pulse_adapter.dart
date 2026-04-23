@@ -339,6 +339,15 @@ class _PulseSharedWs {
   /// (`https://host:port`, no trailing slash, no fragment).
   static final Map<String, _PulseSharedWs> _pool = {};
 
+  /// Reverse map serverUrl → live PulseInboxReader. Lets the
+  /// PulseMessageSender flag the reader's CBR padding timer to skip
+  /// while a control message is mid-flight on the shared sink. Filled
+  /// by PulseInboxReader.initializeReader; nulled in close().
+  static final Map<String, PulseInboxReader> _readers = {};
+
+  static PulseInboxReader? _readerFor(String serverUrl) =>
+      _readers[_canonicalize(serverUrl)];
+
   /// Optional callback fired when a brand-new pool entry is created. Used
   /// by `pulseServerAcks` so its multiplexed stream picks up acks from
   /// servers that come online after the first listener subscribed.
@@ -374,10 +383,34 @@ class _PulseSharedWs {
     if (s.endsWith('/')) s = s.substring(0, s.length - 1);
     return s.toLowerCase();
   }
+
+  /// Tear down the pool entry for [serverUrl] so the next `forUrl()`
+  /// call rebuilds a fresh `_PulseSharedWs` (clean `authenticated`,
+  /// `serverHealthy`, no leftover `pendingKeysCompleters`). Used by
+  /// ChatController.resetGroupPulseConnection when an SFU control
+  /// message timed out and we need to start auth from scratch.
+  static void dropForUrl(String serverUrl) {
+    final key = _canonicalize(serverUrl);
+    final entry = _pool.remove(key);
+    if (entry != null) {
+      try { entry.channel?.sink.close(); } catch (_) {}
+      entry.channel = null;
+      entry.authenticated = false;
+      entry.serverHealthy = false;
+    }
+    _readers.remove(key);
+  }
 }
 
 /// Public API: suppress Pulse connection rotation during active calls.
 void setPulseCallActive(bool active) => _PulseSharedWs.callActive = active;
+
+/// Public API: tear down the per-server pool entry so the next reader
+/// rebuilds clean state (clears `authenticated`, `serverHealthy`,
+/// pending key completers, etc.). Called by ChatController when an SFU
+/// control message timed out and we want to start auth from scratch.
+void dropPulseSharedPoolFor(String serverUrl) =>
+    _PulseSharedWs.dropForUrl(serverUrl);
 
 /// Public API: poll the per-server pool entry for [serverUrl] until its
 /// reader has finished the auth handshake (PoW + auth_ok), or [timeout]
@@ -416,6 +449,11 @@ class PulseInboxReader implements InboxReader {
   /// Lookup is keyed by `_serverUrl` so multiple readers (one per Pulse
   /// server the client is participating in) don't clobber each other.
   _PulseSharedWs get _shared => _PulseSharedWs.forUrl(_serverUrl);
+
+  /// Set true while an SFU control message is being written to the
+  /// shared sink, so the CBR padding timer skips its next tick instead
+  /// of competing for the same write slot.
+  bool _sfuSinkBusy = false;
 
   WebSocketChannel? _ws;
   StreamController<List<Message>> _msgCtrl =
@@ -499,6 +537,9 @@ class PulseInboxReader implements InboxReader {
 
     debugPrint('[Pulse] Initialized: pubkey=${_pubkeyHex.isNotEmpty ? '${_pubkeyHex.substring(0, 8)}...' : 'EMPTY'}, '
         'seed=<redacted>, wsUrl=$_wsUrl, fp=${_certFingerprint.isNotEmpty ? '${_certFingerprint.substring(0, 8)}...' : 'none'}');
+    // Register in the per-server reader map so PulseMessageSender can
+    // pause CBR padding while a control message is on the sink.
+    _PulseSharedWs._readers[_PulseSharedWs._canonicalize(_serverUrl)] = this;
 
     // Load Tor + CF Worker + Force-Tor settings
     final prefs = await _getPrefs();
@@ -703,9 +744,11 @@ class PulseInboxReader implements InboxReader {
           debugPrint('[Pulse] TURN creds saved: $urls');
 
           // Start local TLS-terminating proxy for TURNS URLs.
-          // Linux: BoringSSL lacks ISRG Root X1 (Let's Encrypt)
-          // Android/Waydroid: native WebRTC TLS TURN broken in container
-          if (Platform.isLinux || Platform.isAndroid) {
+          // Linux:   BoringSSL lacks ISRG Root X1 (Let's Encrypt)
+          // Android: native WebRTC TLS TURN broken in Waydroid container
+          // Windows: turns://host:8080 isn't reachable directly when
+          //          nginx fronts the relay on 443 — proxy bridges to WS.
+          if (Platform.isLinux || Platform.isAndroid || Platform.isWindows) {
             for (final u in urls) {
               final s = u.toString();
               if (s.startsWith('turns:')) {
@@ -866,15 +909,28 @@ class PulseInboxReader implements InboxReader {
 
                   // Start upstream CBR padding if server advertises it
                   final privacy = data['privacy'];
+                  // CBR padding — but rate-limited to one frame per second
+                  // instead of ten. The original 100ms cadence saturated the
+                  // Dart WebSocket sink queue (verified via tcpdump: text
+                  // frames like room_create literally never reached the
+                  // wire — only padding binary frames were going out).
+                  // 1Hz keeps the timing-side-channel obfuscation alive
+                  // (active connection still looks "fed") without monopol-
+                  // izing the sink. Pause padding entirely while an SFU
+                  // control message is mid-flight via `_sfuSinkBusy`.
                   if (privacy is Map<String, dynamic> &&
                       privacy['padding'] == 'cbr') {
                     final rateKbps = (privacy['rate_kbps'] as num?)?.toInt() ?? 0;
                     if (rateKbps > 0) {
+                      // Frame size unchanged so total volume == legacy /
+                      // 10. Rate set to 1 Hz.
                       final bytesPerFrame = rateKbps * 1000 ~/ 8 ~/ 10;
-                      debugPrint('[Pulse] CBR padding: ${rateKbps}kbps → ${bytesPerFrame}B/100ms');
+                      debugPrint('[Pulse] CBR padding: ${rateKbps}kbps '
+                          '(rate-limited to 1Hz, ${bytesPerFrame}B/frame)');
                       cbrTimer?.cancel();
                       cbrTimer = Timer.periodic(
-                          const Duration(milliseconds: 100), (_) {
+                          const Duration(seconds: 1), (_) {
+                        if (_sfuSinkBusy) return;
                         try {
                           final frame = Uint8List(1 + bytesPerFrame);
                           frame[0] = 0xFF; // padding marker
@@ -960,6 +1016,13 @@ class PulseInboxReader implements InboxReader {
                   _dispatchKeys(data);
                 case 'error':
                   debugPrint('[Pulse] Server error: ${data['message'] ?? data}');
+                  // SFU subscribers care about join/subscribe failures so
+                  // they can clear stale "ongoing call" banners. Forward
+                  // the error through the SFU stream too — the receiver
+                  // ignores codes it doesn't recognise.
+                  if (!_sigCtrl.isClosed) {
+                    _sigCtrl.add([{'type': 'sfu', 'payload': data}]);
+                  }
                 // SFU message types — forward through signal stream
                 case 'room_created':
                 case 'room_info':
@@ -1800,14 +1863,30 @@ class PulseMessageSender implements MessageSender {
     final ws = _ws;
     if (ws != null && _authenticated) {
       ws.sink.add(jsonMsg);
-    } else {
-      // Fall back to shared reader connection
-      final shared = _shared.channel;
-      if (shared != null && _shared.authenticated) {
+      debugPrint('[Pulse.sendRaw] via own _ws (serverUrl=$_serverUrl, len=${jsonMsg.length})');
+      return;
+    }
+    // Fall back to shared reader connection — borrow the reader's
+    // PulseInboxReader instance (per pool entry) so we can mark it as
+    // mid-flight to keep the CBR timer from racing the same sink.
+    final reader = _PulseSharedWs._readerFor(_serverUrl);
+    final shared = _shared.channel;
+    if (shared != null && _shared.authenticated) {
+      reader?._sfuSinkBusy = true;
+      try {
         shared.sink.add(jsonMsg);
-      } else {
-        debugPrint('[Pulse] sendRaw: no authenticated connection');
+      } finally {
+        // Microtask delay so the sink has actually flushed before the
+        // CBR timer is allowed to write again.
+        Future<void>.delayed(const Duration(milliseconds: 50), () {
+          reader?._sfuSinkBusy = false;
+        });
       }
+      debugPrint('[Pulse.sendRaw] via _shared.channel (serverUrl=$_serverUrl, len=${jsonMsg.length})');
+    } else {
+      debugPrint('[Pulse.sendRaw] no authenticated connection (serverUrl=$_serverUrl, '
+          'own_ws=${ws != null}/_authenticated=$_authenticated, '
+          'shared.channel=${shared != null}/shared.authenticated=${_shared.authenticated})');
     }
   }
 

@@ -32,8 +32,23 @@ class SfuSignalingService {
   Function(RTCTrackEvent event)? onRemoteTrack;
   Function(RTCIceConnectionState state)? onIceState;
   VoidCallback? onRoomReady;
+  /// Fired when room_create / room_join exhausts retries — UI should pop
+  /// the loading screen and show "couldn't reach SFU server" so the user
+  /// isn't stranded.
+  VoidCallback? onRoomCreateFailed;
 
   StreamSubscription? _signalSub;
+
+  // Retry state for room_create / room_join — the Pulse WS sink silently
+  // drops bytes if the underlying socket has half-closed (server EOF arrives
+  // late on the read side), so a `sent=true` from sendRaw does NOT prove
+  // the message reached the wire. If room_created/room_info doesn't come
+  // back in time, resend; SfuCallScreen otherwise sits in `_buildLoading()`
+  // forever.
+  Timer? _roomCreateTimer;
+  int _roomCreateAttempts = 0;
+  static const _kMaxRoomCreateAttempts = 4;
+  static const _kRoomCreateTimeout = Duration(seconds: 6);
 
   SfuSignalingService({required this.group, required this.myId});
 
@@ -43,7 +58,36 @@ class SfuSignalingService {
   /// Create a new SFU room.
   Future<void> createRoom() async {
     _listenForSfuSignals();
+    _roomCreateAttempts = 0;
+    unawaited(_sendRoomCreateWithRetry());
+  }
+
+  Future<void> _sendRoomCreateWithRetry() async {
+    if (_disposed || _roomId != null) return;
+    _roomCreateAttempts++;
+    debugPrint('[SFU] room_create attempt $_roomCreateAttempts/$_kMaxRoomCreateAttempts');
+    // After 1st silent failure assume the underlying Pulse WS is dead
+    // (Dart sink.add returns without error on a half-closed socket — the
+    // bytes pile up in the OS buffer and never reach the wire). Force a
+    // reconnect AND WAIT for it to finish auth before sending — otherwise
+    // we race the new sender's wiring and fall through to "no
+    // authenticated connection".
+    if (_roomCreateAttempts > 1) {
+      await ChatController().resetGroupPulseConnection(group.groupServerUrl);
+    }
+    if (_disposed || _roomId != null) return;
     _send({'type': 'room_create', 'max': 20, 'name': group.name, 'e2ee': true});
+    _roomCreateTimer?.cancel();
+    _roomCreateTimer = Timer(_kRoomCreateTimeout, () {
+      if (_disposed || _roomId != null) return;
+      if (_roomCreateAttempts < _kMaxRoomCreateAttempts) {
+        debugPrint('[SFU] room_create timeout — retrying');
+        unawaited(_sendRoomCreateWithRetry());
+      } else {
+        debugPrint('[SFU] room_create gave up after $_roomCreateAttempts attempts');
+        onRoomCreateFailed?.call();
+      }
+    });
   }
 
   /// Join an existing SFU room.
@@ -51,7 +95,30 @@ class SfuSignalingService {
     _roomId = roomId;
     _roomToken = token;
     _listenForSfuSignals();
-    _send({'type': 'room_join', 'room_id': roomId, 'token': token});
+    _roomCreateAttempts = 0;
+    unawaited(_sendRoomJoinWithRetry());
+  }
+
+  Future<void> _sendRoomJoinWithRetry() async {
+    if (_disposed) return;
+    _roomCreateAttempts++;
+    debugPrint('[SFU] room_join attempt $_roomCreateAttempts/$_kMaxRoomCreateAttempts');
+    if (_roomCreateAttempts > 1) {
+      await ChatController().resetGroupPulseConnection(group.groupServerUrl);
+    }
+    if (_disposed) return;
+    _send({'type': 'room_join', 'room_id': _roomId, 'token': _roomToken});
+    _roomCreateTimer?.cancel();
+    _roomCreateTimer = Timer(_kRoomCreateTimeout, () {
+      if (_disposed) return;
+      if (_roomCreateAttempts < _kMaxRoomCreateAttempts) {
+        debugPrint('[SFU] room_join timeout — retrying');
+        unawaited(_sendRoomJoinWithRetry());
+      } else {
+        debugPrint('[SFU] room_join gave up after $_roomCreateAttempts attempts');
+        onRoomCreateFailed?.call();
+      }
+    });
   }
 
   /// Set up PeerConnection with simulcast and send offer.
@@ -118,9 +185,31 @@ class SfuSignalingService {
     _send({'type': 'media_offer', 'room_id': _roomId, 'sdp': offer.sdp});
   }
 
+  /// Pending subscriptions queued before the local PC was ready.
+  /// `room_info` arrives in ~50ms after `room_join`, but `setupPeerConnection`
+  /// takes ~1s (getUserMedia → SDP → media_offer round-trip). The server
+  /// rejects `track_subscribe` with "no PeerConnection" if it lands first,
+  /// so the audio fan-out is silently lost. Buffer here and flush from
+  /// `media_answer` (which is the moment the server-side PC is ready).
+  final List<({String trackId, String layer})> _pendingSubscriptions = [];
+  bool _pcReadyForSubscribes = false;
+
   void subscribeTrack(String trackId, {String layer = 'h'}) {
     if (_roomId == null) return;
+    if (!_pcReadyForSubscribes) {
+      _pendingSubscriptions.add((trackId: trackId, layer: layer));
+      return;
+    }
     _send({'type': 'track_subscribe', 'room_id': _roomId, 'track_id': trackId, 'layer': layer});
+  }
+
+  void _flushPendingSubscriptions() {
+    if (_pendingSubscriptions.isEmpty) return;
+    debugPrint('[SFU] flushing ${_pendingSubscriptions.length} queued track_subscribe(s)');
+    for (final s in _pendingSubscriptions) {
+      _send({'type': 'track_subscribe', 'room_id': _roomId, 'track_id': s.trackId, 'layer': s.layer});
+    }
+    _pendingSubscriptions.clear();
   }
 
   /// Builds the PeerConnection config:
@@ -272,6 +361,10 @@ class SfuSignalingService {
   Future<void> hangUp() async {
     if (_disposed) return;
     _disposed = true;
+    _roomCreateTimer?.cancel();
+    _roomCreateTimer = null;
+    _pendingSubscriptions.clear();
+    _pcReadyForSubscribes = false;
     if (_roomId != null) _send({'type': 'room_leave', 'room_id': _roomId});
     _signalSub?.cancel();
     localStream?.getTracks().forEach((t) => t.stop());
@@ -298,15 +391,20 @@ class SfuSignalingService {
 
     switch (type) {
       case 'room_created':
+        _roomCreateTimer?.cancel();
+        _roomCreateTimer = null;
         _roomId = data['room_id'] as String?;
         _roomToken = data['token'] as String?;
         debugPrint('[SFU] Room created: $_roomId');
         // Auto-join the room we just created
         if (_roomId != null && _roomToken != null) {
-          _send({'type': 'room_join', 'room_id': _roomId, 'token': _roomToken});
+          _roomCreateAttempts = 0;
+          unawaited(_sendRoomJoinWithRetry());
         }
 
       case 'room_info':
+        _roomCreateTimer?.cancel();
+        _roomCreateTimer = null;
         final participants = data['participants'] as List<dynamic>? ?? [];
         for (final p in participants) {
           if (p is! Map<String, dynamic>) continue;
@@ -323,6 +421,11 @@ class SfuSignalingService {
         final sdp = data['sdp'] as String?;
         if (sdp != null && _pc != null) {
           _pc!.setRemoteDescription(RTCSessionDescription(sdp, 'answer'));
+          // Server has now created our PC and is ready to accept
+          // subscriptions. Drain anything that came in before
+          // setupPeerConnection finished.
+          _pcReadyForSubscribes = true;
+          _flushPendingSubscriptions();
         }
 
       case 'media_renegotiate':
@@ -375,6 +478,24 @@ class SfuSignalingService {
       case 'last_n_update':
         final activeSet = (data['active_set'] as List<dynamic>?)?.cast<String>() ?? [];
         onLastNUpdate?.call(activeSet, data['dominant'] as String?);
+
+      case 'error':
+        // Server rejected something we sent. The cases that strand the
+        // user UI are room_join failures (room garbage-collected after
+        // 5min idle, or the call host explicitly ended it) — clear the
+        // local "ongoing call" entry so the chat banner disappears and
+        // the next call button creates a fresh room. Other errors are
+        // just logged.
+        final code = data['code'] as String? ?? '';
+        final msg = data['message'] as String? ?? '';
+        debugPrint('[SFU] server error: $code — $msg');
+        if (code == 'not_found' || code == 'join_failed' ||
+            msg.contains('room not found') || msg.contains('join_failed')) {
+          _roomCreateTimer?.cancel();
+          _roomCreateTimer = null;
+          ChatController().clearActiveGroupCall(group.id);
+          onRoomCreateFailed?.call();
+        }
     }
   }
 
@@ -382,20 +503,19 @@ class SfuSignalingService {
 
   void _send(Map<String, dynamic> msg) {
     final url = group.groupServerUrl;
+    final json = jsonEncode(msg);
+    final type = msg['type'];
     if (url.isNotEmpty) {
-      // Per-group server: route through the dedicated pool entry instead
-      // of the user's primary Pulse sender. Otherwise multi-server users
-      // (own Pulse on server-A, joined SFU group on server-B) would send
-      // SFU control messages to the WRONG server.
-      if (ChatController().sendRawPulseSignalToServer(url, jsonEncode(msg))) {
-        return;
-      }
+      final sent = ChatController().sendRawPulseSignalToServer(url, json);
+      debugPrint('[SFU._send] type=$type url=$url via=server-pool sent=$sent');
+      if (sent) return;
     }
     // Fallback: legacy single-server path. Used when the group has no
     // explicit server URL set (legacy groups created before
     // groupServerUrl existed) OR when the per-server sender hasn't been
     // initialized yet (caller forgot to await ensureGroupPulseConnection).
-    ChatController().sendRawPulseSignal(jsonEncode(msg));
+    debugPrint('[SFU._send] type=$type url="$url" via=legacy-cached-sender');
+    ChatController().sendRawPulseSignal(json);
   }
 
   // ── DTX helper ────────────────────────────────────────────────────────

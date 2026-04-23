@@ -187,8 +187,12 @@ class IceServerConfig {
       if (pulseTurnUrl.isNotEmpty &&
           (pulseTurnUrl.startsWith('turn:') || pulseTurnUrl.startsWith('turns:')) &&
           !_isTurnHostPrivate(_extractTurnHost(pulseTurnUrl))) {
-        // Replace turns: with local proxy URL (Linux: BoringSSL cert issue, Android: Waydroid TLS)
-        final useProxy = (Platform.isLinux || Platform.isAndroid) &&
+        // Replace turns: with local proxy URL.
+        // Linux:   BoringSSL lacks ISRG Root X1 (Let's Encrypt cert)
+        // Android: Waydroid TLS TURN broken in container
+        // Windows: turns://host:8080 not externally reachable when nginx
+        //          terminates TLS on 443 — proxy bridges via WS.
+        final useProxy = (Platform.isLinux || Platform.isAndroid || Platform.isWindows) &&
             pulseTurnUrl.startsWith('turns:') &&
             PulseTurnProxy.instance.isRunning;
         final url = useProxy ? PulseTurnProxy.instance.localTurnUrl : pulseTurnUrl;

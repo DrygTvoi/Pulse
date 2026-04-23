@@ -315,6 +315,53 @@ class ChatController extends ChangeNotifier {
   final StreamController<Map<String, dynamic>> _incomingGroupCallController = StreamController.broadcast();
   Stream<Map<String, dynamic>> get incomingGroupCalls => _incomingGroupCallController.stream;
 
+  /// Active SFU group calls keyed by groupId. Stays populated for the
+  /// lifetime of the call so members who declined the initial popup or
+  /// joined the group mid-call can still hop in via the chat-screen
+  /// "ongoing call" banner. Cleared when the host explicitly ends the
+  /// call (room_left for last participant) or after a 30-min idle
+  /// timeout — whichever comes first.
+  final Map<String, ActiveGroupCall> _activeGroupCalls = {};
+  final StreamController<String> _activeCallsCtrl =
+      StreamController<String>.broadcast();
+  /// Emits groupId whenever an active group call is added/updated/removed.
+  Stream<String> get activeGroupCallsChanged => _activeCallsCtrl.stream;
+  ActiveGroupCall? activeGroupCall(String groupId) => _activeGroupCalls[groupId];
+
+  void _registerActiveGroupCall(
+      String groupId, String roomId, String token, String hostId,
+      {bool isVideoCall = false}) {
+    final existing = _activeGroupCalls[groupId];
+    if (existing != null && existing.roomId == roomId) return;
+    _activeGroupCalls[groupId] = ActiveGroupCall(
+      groupId: groupId,
+      roomId: roomId,
+      token: token,
+      hostId: hostId,
+      isVideoCall: isVideoCall,
+      startedAt: DateTime.now(),
+    );
+    if (!_activeCallsCtrl.isClosed) _activeCallsCtrl.add(groupId);
+    // Auto-expire after 30 min of presumed activity unless refreshed.
+    Timer(const Duration(minutes: 30), () => _expireActiveGroupCall(groupId, roomId));
+  }
+
+  void _expireActiveGroupCall(String groupId, String roomId) {
+    final call = _activeGroupCalls[groupId];
+    if (call == null || call.roomId != roomId) return;
+    _activeGroupCalls.remove(groupId);
+    if (!_activeCallsCtrl.isClosed) _activeCallsCtrl.add(groupId);
+  }
+
+  /// Remove an active call entry — called from SfuCallScreen after the
+  /// host taps "end for everyone" or when we get a definitive signal
+  /// that the room is gone.
+  void clearActiveGroupCall(String groupId) {
+    if (_activeGroupCalls.remove(groupId) != null) {
+      if (!_activeCallsCtrl.isClosed) _activeCallsCtrl.add(groupId);
+    }
+  }
+
   final StreamController<Map<String, dynamic>> _signalStreamController = StreamController.broadcast();
   Stream<Map<String, dynamic>> get signalStream => _signalStreamController.stream;
 
@@ -1699,6 +1746,23 @@ class ChatController extends ChangeNotifier {
     _dispatcherSubs.add(d.incomingGroupCalls.listen((e) {
       if (!_incomingGroupCallController.isClosed) {
         _incomingGroupCallController.add({...e.signal, 'groupId': e.groupId});
+      }
+      // Conference mode: track the call so members who dismiss the
+      // popup (or arrive after the invite landed) can still join via
+      // the chat-screen "ongoing call" banner.
+      final sigType = e.signal['type'] as String? ?? '';
+      if (sigType == 'sfu_invite') {
+        final p = e.signal['payload'];
+        if (p is Map) {
+          final roomId = p['sfuRoomId'] as String? ?? p['room_id'] as String? ?? '';
+          final token = p['sfuToken'] as String? ?? p['token'] as String? ?? '';
+          final isVideo = p['isVideoCall'] as bool? ?? false;
+          final hostId = e.signal['senderId'] as String? ?? '';
+          if (roomId.isNotEmpty && token.isNotEmpty) {
+            _registerActiveGroupCall(e.groupId, roomId, token, hostId,
+                isVideoCall: isVideo);
+          }
+        }
       }
     }));
 
@@ -5046,10 +5110,16 @@ class ChatController extends ChangeNotifier {
   /// decline dialog.
   Future<void> broadcastSfuCallInvite(
       Contact group, String roomId, String token,
-      {bool isVideoCall = false}) =>
-      _broadcaster.broadcastSfuInvite(
-          group, roomId, token, _contacts.contacts,
-          isVideoCall: isVideoCall);
+      {bool isVideoCall = false}) {
+    // Self-register first so the host's own chat shows the banner too —
+    // the broadcast goes out to everyone EXCEPT us.
+    _registerActiveGroupCall(
+        group.id, roomId, token, _identity?.id ?? 'self',
+        isVideoCall: isVideoCall);
+    return _broadcaster.broadcastSfuInvite(
+        group, roomId, token, _contacts.contacts,
+        isVideoCall: isVideoCall);
+  }
 
   /// Broadcast a group's metadata to every member. Optionally include an
   /// `avatar` blob (base64) — it's only sent when actually changed so the
@@ -5794,14 +5864,42 @@ class ChatController extends ChangeNotifier {
     }
     try {
       final apiKey = jsonEncode({'privkey': privkey, 'serverUrl': serverUrl});
-      final reader = await InboxManager().createAdhocReader('Pulse', apiKey, serverUrl);
-      if (reader is PulseInboxReader) {
-        _pulseReadersByServer[key] = reader;
-        _messageSubs.add(reader.listenForMessages().listen(_handleIncomingMessages));
-        _signalSubs.add(reader.listenForSignals().listen(
-            (sigs) => _signalDispatcher!.dispatch(sigs, sourceTransport: 'Pulse')));
-        debugPrint('[Group/SFU] Opened pool reader for $serverUrl');
+
+      // Reuse an existing reader for this server if one already exists.
+      // Pulse-server enforces "1 connection per pubkey" — opening a
+      // second WS would make the server kick the first one (sending
+      // "abnormal closure: unexpected EOF" to the dropped side), and we
+      // never get to send the SFU control message. Two readers can
+      // happen because:
+      //   - the InboxManager's primary auto-opened an adhoc Pulse reader
+      //     during _initialize when pulse_server_url was set in prefs,
+      //   - then the user joins an SFU group whose groupServerUrl
+      //     matches → ensureGroupPulseConnection naively opens another.
+      // Detect both _pulseReadersByServer entries AND the legacy
+      // _adhocPulseReader; either covers us.
+      PulseInboxReader? reader = _pulseReadersByServer[key];
+      final adhocServerKey = _canonicalizePulseUrl(
+          // Read primary Pulse server URL from prefs to compare.
+          (await _getPrefs()).getString('pulse_server_url') ?? '');
+      if (reader == null &&
+          _adhocPulseReader != null &&
+          adhocServerKey == key) {
+        reader = _adhocPulseReader;
+        _pulseReadersByServer[key] = reader!;
+        debugPrint('[Group/SFU] Reusing primary adhoc Pulse reader for $serverUrl');
       }
+      if (reader == null) {
+        final created = await InboxManager().createAdhocReader('Pulse', apiKey, serverUrl);
+        if (created is PulseInboxReader) {
+          reader = created;
+          _pulseReadersByServer[key] = reader;
+          _messageSubs.add(reader.listenForMessages().listen(_handleIncomingMessages));
+          _signalSubs.add(reader.listenForSignals().listen(
+              (sigs) => _signalDispatcher!.dispatch(sigs, sourceTransport: 'Pulse')));
+          debugPrint('[Group/SFU] Opened pool reader for $serverUrl');
+        }
+      }
+
       final sender = PulseMessageSender();
       await sender.initializeSender(apiKey);
       _pulseSendersByServer[key] = sender;
@@ -5824,6 +5922,42 @@ class ChatController extends ChangeNotifier {
       debugPrint('[Group/SFU] ensureGroupPulseConnection failed: $e');
       return false;
     }
+  }
+
+  /// Force-reconnect the per-server Pulse pool entry. Used by SFU when
+  /// `room_create` / `room_join` retries silently timed out — usually
+  /// the underlying WS sink is half-closed (Dart's `sink.add` returns
+  /// without raising even when the TCP layer dropped the connection),
+  /// so we tear down the old reader+sender and force a fresh
+  /// authenticated channel before the caller resends.
+  ///
+  /// IMPORTANT: do not call `reader.resetConnection()` — that
+  /// auto-restarts the runLoop, racing the new reader we open via
+  /// ensureGroupPulseConnection and producing two competing
+  /// connections (server's "1 client per pubkey" then ping-pongs
+  /// between them, neither lasts long enough to deliver SFU control
+  /// messages). `close()` stops the loop without restarting it.
+  Future<void> resetGroupPulseConnection(String serverUrl) async {
+    if (serverUrl.isEmpty) return;
+    final key = _canonicalizePulseUrl(serverUrl);
+    debugPrint('[Group/SFU] forcing Pulse reconnect for $serverUrl');
+    final reader = _pulseReadersByServer.remove(key);
+    final sender = _pulseSendersByServer.remove(key);
+    // Hard-stop old reader. close() sets _running=false + closes the
+    // WS sink without spawning a fresh loop. Sender holds no
+    // connection state (it borrows the reader's shared channel) so
+    // dropping the map reference is enough.
+    try { reader?.close(); } catch (_) {}
+    sender; // intentionally not closed
+    // Drop the shared pool entry too so the next ensureGroup creates
+    // a brand-new _PulseSharedWs instead of a stale `authenticated=true`
+    // shell from the dead connection.
+    dropPulseSharedPoolFor(serverUrl);
+    // Tiny breather so close() completes before we reopen.
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+    // Re-open. ensureGroupPulseConnection rebuilds reader+sender +
+    // signal subscriptions and waits for auth before returning.
+    await ensureGroupPulseConnection(serverUrl);
   }
 
   /// Same canonicalization as _PulseSharedWs._canonicalize so our pool
@@ -5878,6 +6012,7 @@ class ChatController extends ChangeNotifier {
     _typingStreamCtrl.close();
     _incomingCallController.close();
     _incomingGroupCallController.close();
+    _activeCallsCtrl.close();
     _signalStreamController.close();
     _newMsgController.close();
     _unreadChangedCtrl.close();
@@ -5938,6 +6073,26 @@ class _P2PFileTransfer {
 }
 
 // ── Thumbnail generation (runs in isolate) ────────────────────────────────
+
+/// Tracks an SFU group call that's currently in progress on the server.
+/// Used by the chat-screen banner so users who dismissed the popup or
+/// joined the group after the invite went out can still hop in.
+class ActiveGroupCall {
+  final String groupId;
+  final String roomId;
+  final String token;
+  final String hostId;
+  final bool isVideoCall;
+  final DateTime startedAt;
+  ActiveGroupCall({
+    required this.groupId,
+    required this.roomId,
+    required this.token,
+    required this.hostId,
+    required this.isVideoCall,
+    required this.startedAt,
+  });
+}
 
 /// Top-level function for compute(): generates a tiny JPEG thumbnail.
 String? _generateThumbnailIsolate(Uint8List bytes) {

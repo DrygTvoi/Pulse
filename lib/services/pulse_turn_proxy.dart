@@ -74,7 +74,14 @@ class PulseTurnProxy {
 
   /// The TURN URL for ICE config — plain TCP to local proxy.
   String get localTurnUrl {
-    final ip = Platform.isAndroid ? '127.0.0.1' : _localIp;
+    // Loopback for sandboxed/single-host platforms (Android emulator,
+    // Windows VM with NAT). Linux desktop falls back to LAN IP because
+    // some firewalls block 127.0.0.1 STUN binding requests from
+    // libwebrtc — using a real interface address keeps it consistent
+    // with what the OS sees as "this machine".
+    final ip = (Platform.isAndroid || Platform.isWindows)
+        ? '127.0.0.1'
+        : _localIp;
     return 'turn:$ip:$_localPort?transport=tcp';
   }
 
