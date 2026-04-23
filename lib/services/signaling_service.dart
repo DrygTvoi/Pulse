@@ -101,8 +101,10 @@ class SignalingService {
     debugPrint('[Signaling] init: ${servers.length} ICE servers, policy=${config['iceTransportPolicy']}');
 
     final isRelay = config['iceTransportPolicy'] == 'relay';
-    if (Platform.isLinux && servers.length > 10) {
-      // Linux native libwebrtc segfaults with many ICE servers (>30).
+    if ((Platform.isLinux || Platform.isWindows) && servers.length > 10) {
+      // Native libwebrtc segfaults with many ICE servers on both Linux
+      // (libflutter_webrtc_plugin.so + CreateIceServers + __libc_free)
+      // and Windows (same crash signature in flutter_webrtc.dll).
       // Create PC with a small safe set, then add the rest via setConfiguration.
       final stunServers = isRelay ? <dynamic>[] : servers.where((s) {
         final u = (s as Map)['urls']?.toString() ?? '';
@@ -115,7 +117,7 @@ class SignalingService {
       // Safe initial set: STUN (if not relay) + first 2 TURN
       final safeServers = [...stunServers, ...turnServers.take(2)];
       config['iceServers'] = safeServers;
-      debugPrint('[Signaling] Linux: creating PC with ${safeServers.length} safe servers, ${servers.length} total');
+      debugPrint('[Signaling] desktop: creating PC with ${safeServers.length} safe servers, ${servers.length} total');
       peerConnection = await createPeerConnection(config);
       // Add remaining TURN servers via setConfiguration
       if (turnServers.length > 2) {
@@ -126,9 +128,9 @@ class SignalingService {
             if (config.containsKey('bundlePolicy')) 'bundlePolicy': config['bundlePolicy'],
           };
           await peerConnection!.setConfiguration(fullConfig);
-          debugPrint('[Signaling] Linux: setConfiguration OK with ${stunServers.length + turnServers.length} servers');
+          debugPrint('[Signaling] desktop: setConfiguration OK with ${stunServers.length + turnServers.length} servers');
         } catch (e) {
-          debugPrint('[Signaling] Linux: setConfiguration failed (non-fatal, using ${safeServers.length} servers): $e');
+          debugPrint('[Signaling] desktop: setConfiguration failed (non-fatal, using ${safeServers.length} servers): $e');
         }
       }
     } else {

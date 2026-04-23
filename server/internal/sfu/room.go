@@ -3,6 +3,7 @@ package sfu
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net"
@@ -59,6 +60,16 @@ type Participant struct {
 	// Bandwidth estimation (Phase 4)
 	EstimatedBW  atomic.Int64 // bps, from REMB
 	LastBWUpdate atomic.Int64 // unix ms
+
+	// Renegotiation serialization. AddTrack on a live PC requires a fresh
+	// offer/answer cycle; if subscribes arrive faster than the round-trip
+	// completes we'd start a second offer in "have-local-offer" state and
+	// Pion would reject it. The mutex serializes the offer flow per
+	// participant; pending=true while one is in flight; dirty=true if more
+	// AddTrack happened during the in-flight one (so we re-run on completion).
+	renegMu      sync.Mutex
+	renegPending bool
+	renegDirty   bool
 }
 
 // Room represents an SFU media room.
@@ -818,7 +829,102 @@ func (r *Room) SubscribeTrackWithLayer(pubkey, trackID, layer string) error {
 		}
 	}()
 
+	// Trigger renegotiation so the subscriber's RTCPeerConnection learns
+	// about the new transceiver. Without this the client never gets
+	// onTrack for the added track and the audio/video stays silent.
+	// Run async so SubscribeTrackWithLayer returns quickly to the caller;
+	// renegotiation latency is dominated by ICE-gathering completion.
+	go r.scheduleRenegotiation(p)
+
 	return nil
+}
+
+// scheduleRenegotiation kicks off a renegotiation cycle for the
+// participant, coalescing any concurrent calls. If a cycle is already in
+// flight, mark it dirty so a fresh one runs as soon as the current one
+// finishes (covers the case where more AddTracks happened during the
+// round-trip). Strictly serial — Pion rejects CreateOffer in
+// "have-local-offer" state.
+func (r *Room) scheduleRenegotiation(p *Participant) {
+	p.renegMu.Lock()
+	if p.renegPending {
+		p.renegDirty = true
+		p.renegMu.Unlock()
+		return
+	}
+	p.renegPending = true
+	p.renegMu.Unlock()
+
+	for {
+		p.mu.Lock()
+		pc := p.PC
+		send := p.SendMessage
+		p.mu.Unlock()
+		r.renegotiateWithSubscriber(pc, send, r.ID)
+
+		p.renegMu.Lock()
+		if p.renegDirty {
+			p.renegDirty = false
+			p.renegMu.Unlock()
+			continue // run again to cover tracks added during the previous cycle
+		}
+		p.renegPending = false
+		p.renegMu.Unlock()
+		return
+	}
+}
+
+// renegotiateWithSubscriber regenerates the SDP for a subscriber's PC
+// (after AddTrack on the server side) and pushes the new offer down the
+// wire. Pion does not surface OnNegotiationNeeded for server-side AddTrack
+// so we drive it explicitly. Errors are best-effort and only logged: a
+// second subscribe will overwrite the negotiation state anyway.
+func (r *Room) renegotiateWithSubscriber(pc *webrtc.PeerConnection, sendMsg func([]byte) error, roomID string) {
+	if pc == nil || sendMsg == nil {
+		return
+	}
+	offer, err := pc.CreateOffer(nil)
+	if err != nil {
+		log.Printf("[sfu] renegotiate: CreateOffer failed: %v", err)
+		return
+	}
+	if err := pc.SetLocalDescription(offer); err != nil {
+		log.Printf("[sfu] renegotiate: SetLocalDescription failed: %v", err)
+		return
+	}
+	// Wait for ICE gathering so the SDP carries every candidate. For an
+	// already-connected PC this is essentially instant — no new transports
+	// need to come up.
+	<-webrtc.GatheringCompletePromise(pc)
+
+	desc := pc.LocalDescription()
+	if desc == nil {
+		return
+	}
+	if err := sendMsg(mediaRenegotiateJSON(roomID, desc.SDP)); err != nil {
+		log.Printf("[sfu] renegotiate: send failed: %v", err)
+	}
+}
+
+// HandleRenegotiateAnswer applies the client's answer to a server-initiated
+// renegotiation offer. Returns an error if the participant or PC is missing.
+func (r *Room) HandleRenegotiateAnswer(pubkey, sdp string) error {
+	r.mu.RLock()
+	p, ok := r.Participants[pubkey]
+	r.mu.RUnlock()
+	if !ok {
+		return fmt.Errorf("not in room")
+	}
+	p.mu.Lock()
+	pc := p.PC
+	p.mu.Unlock()
+	if pc == nil {
+		return fmt.Errorf("no PeerConnection")
+	}
+	return pc.SetRemoteDescription(webrtc.SessionDescription{
+		Type: webrtc.SDPTypeAnswer,
+		SDP:  sdp,
+	})
 }
 
 // SwitchLayer switches a subscriber's simulcast layer for a given track.
@@ -841,7 +947,6 @@ func (r *Room) SwitchLayer(subscriberPubkey, trackID, newLayer string) error {
 	}
 
 	p.mu.Lock()
-	defer p.mu.Unlock()
 
 	// The participant lookup above is stale — between the RUnlock and
 	// taking p.mu.Lock() another goroutine may have run
@@ -851,6 +956,7 @@ func (r *Room) SwitchLayer(subscriberPubkey, trackID, newLayer string) error {
 	_, stillIn := r.Participants[subscriberPubkey]
 	r.mu.RUnlock()
 	if !stillIn || p.PC == nil {
+		p.mu.Unlock()
 		return fmt.Errorf("participant gone")
 	}
 
@@ -864,16 +970,23 @@ func (r *Room) SwitchLayer(subscriberPubkey, trackID, newLayer string) error {
 	}
 
 	if p.PC == nil {
+		p.mu.Unlock()
 		return fmt.Errorf("no PeerConnection")
 	}
 
 	// Add new layer
 	sender, err := p.PC.AddTrack(newLayerInfo.LocalSink)
 	if err != nil {
+		p.mu.Unlock()
 		return fmt.Errorf("failed to switch layer: %w", err)
 	}
 	p.Subscriptions[trackID] = sender
 	p.SubLayers[trackID] = newLayer
+	p.mu.Unlock()
+
+	// RemoveTrack+AddTrack changes the SDP m-section, requiring a fresh
+	// offer/answer round so the subscriber's PC re-binds the new sink.
+	go r.scheduleRenegotiation(p)
 
 	// RTCP reader for new sender — exits when sender.Stop() is called
 	// (on next layer switch or participant removal).
@@ -1084,6 +1197,20 @@ func trackRemovedJSON(roomID, pubkey, trackID string) []byte {
 
 func roomLeftJSON(roomID, pubkey string) []byte {
 	return []byte(fmt.Sprintf(`{"type":"room_left","room_id":"%s","pubkey":"%s"}`, roomID, pubkey))
+}
+
+// mediaRenegotiateJSON wraps a server-side SDP offer that was generated
+// after AddTrack on an already-connected PC. SDP contains CRLF and
+// arbitrary attribute text, so it has to be JSON-encoded properly rather
+// than concatenated.
+func mediaRenegotiateJSON(roomID, sdp string) []byte {
+	type msg struct {
+		Type   string `json:"type"`
+		RoomID string `json:"room_id"`
+		SDP    string `json:"sdp"`
+	}
+	b, _ := json.Marshal(msg{Type: "media_renegotiate", RoomID: roomID, SDP: sdp})
+	return b
 }
 
 func lastNUpdateJSON(roomID string, activeSet []string, dominant string) []byte {

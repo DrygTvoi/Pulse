@@ -63,6 +63,20 @@ func NewManager(cfg *config.MediaConfig, tcpListener net.Listener) *Manager {
 		log.Printf("[sfu] ICE-TCP mux enabled on shared listener")
 	}
 
+	// In stealth mode, restrict candidate gathering to TCP only — UDP
+	// host candidates would expose a separate UDP plane (raw DTLS-SRTP)
+	// that GFW can fingerprint independently of the TLS WebSocket. This
+	// is what makes "ICE-TCP only" actually mean what it says: paired
+	// with the TCP mux above, every ICE candidate the server publishes
+	// is reachable solely via the 443/TCP/TLS surface.
+	if cfg.Mode == "stealth" {
+		settingEngine.SetNetworkTypes([]webrtc.NetworkType{
+			webrtc.NetworkTypeTCP4,
+			webrtc.NetworkTypeTCP6,
+		})
+		log.Printf("[sfu] stealth mode — gathering TCP-only ICE candidates")
+	}
+
 	// Allow detached data channels for performance
 	settingEngine.DetachDataChannels()
 
@@ -225,6 +239,16 @@ func (m *Manager) HandleMediaOffer(roomID, pubkey, sdpOffer string) (string, err
 	return pc.LocalDescription().SDP, nil
 }
 
+// HandleRenegotiateAnswer routes a client's answer to a server-initiated
+// renegotiation offer back to the participant's PeerConnection.
+func (m *Manager) HandleRenegotiateAnswer(roomID, pubkey, sdp string) error {
+	room := m.GetRoom(roomID)
+	if room == nil {
+		return fmt.Errorf("room not found")
+	}
+	return room.HandleRenegotiateAnswer(pubkey, sdp)
+}
+
 // HandleICECandidate adds an ICE candidate to a participant's PeerConnection.
 func (m *Manager) HandleICECandidate(roomID, pubkey string, candidate webrtc.ICECandidateInit) error {
 	room := m.GetRoom(roomID)
@@ -270,20 +294,15 @@ func (m *Manager) RemoveParticipantFromAll(pubkey string) {
 }
 
 func (m *Manager) buildICEConfig() webrtc.Configuration {
-	config := webrtc.Configuration{}
-
-	switch m.cfg.Mode {
-	case "stealth":
-		// ICE-TCP only — no UDP candidates
-		config.ICETransportPolicy = webrtc.ICETransportPolicyRelay
-	case "performance":
-		// UDP preferred
-		config.ICETransportPolicy = webrtc.ICETransportPolicyAll
-	default:
-		config.ICETransportPolicy = webrtc.ICETransportPolicyAll
+	// ICETransportPolicy applies to LOCAL candidate gathering. The server
+	// has no TURN client so ICETransportPolicyRelay would leave it with
+	// zero candidates and ICE failure — gathering scope is controlled
+	// instead via SettingEngine.SetNetworkTypes (TCP-only in stealth mode).
+	// Always advertise All so paired remote (TURNS-relay) candidates are
+	// considered.
+	return webrtc.Configuration{
+		ICETransportPolicy: webrtc.ICETransportPolicyAll,
 	}
-
-	return config
 }
 
 // speakerDetectionLoop periodically checks audio levels and sends speaker updates.

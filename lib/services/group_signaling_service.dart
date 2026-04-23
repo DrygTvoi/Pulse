@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io' show Platform;
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
@@ -56,6 +57,35 @@ class GroupSignalingService {
   static String _routingToken(String groupId) =>
       sha256.convert(utf8.encode(groupId)).toString();
 
+  /// Trim the ICE-server list so flutter_webrtc's native parser doesn't
+  /// segfault. The desktop builds (Linux + Windows) crash inside
+  /// `CreateIceServers → __libc_free` when the list contains more than
+  /// ~10 entries — observed both on outgoing call init and during
+  /// receive-side createPeerConnection. The mobile (Android) path is
+  /// unaffected so we leave the config untouched there.
+  Map<String, dynamic> _safeConfig(Map<String, dynamic> cfg) {
+    if (!(Platform.isLinux || Platform.isWindows)) return cfg;
+    final servers =
+        (cfg['iceServers'] as List?)?.cast<Map<dynamic, dynamic>>() ?? const [];
+    if (servers.length <= 10) return cfg;
+    final relay = cfg['iceTransportPolicy'] == 'relay';
+    final stun = relay
+        ? <Map<dynamic, dynamic>>[]
+        : servers.where((s) {
+            final u = s['urls']?.toString() ?? '';
+            return u.startsWith('stun:');
+          }).take(3).toList();
+    final turn = servers.where((s) {
+      final u = s['urls']?.toString() ?? '';
+      return u.startsWith('turn:') || u.startsWith('turns:');
+    }).take(7).toList();
+    final out = Map<String, dynamic>.from(cfg);
+    out['iceServers'] = [...stun, ...turn];
+    debugPrint('[GroupSignaling] desktop-safe ICE config: '
+        '${servers.length} → ${out['iceServers'].length}');
+    return out;
+  }
+
   Future<void> init({CallTransportProfile profile = CallTransportProfile.auto}) async {
     _peerConfig = await profile.peerConfig();
     for (final member in members) {
@@ -65,7 +95,7 @@ class GroupSignalingService {
   }
 
   Future<RTCPeerConnection> _createPeer(Contact member) async {
-    final pc = await createPeerConnection(_peerConfig);
+    final pc = await createPeerConnection(_safeConfig(_peerConfig));
 
     pc.onIceCandidate = (candidate) {
       if (candidate.candidate != null) {

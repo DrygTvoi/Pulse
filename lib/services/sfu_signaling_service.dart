@@ -3,8 +3,10 @@ import 'dart:convert';
 import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../controllers/chat_controller.dart';
 import '../models/contact.dart';
+import 'call_transport.dart';
 
 /// SFU signaling service — single PeerConnection to the Pulse server.
 ///
@@ -55,11 +57,18 @@ class SfuSignalingService {
   Future<void> setupPeerConnection(MediaStream stream) async {
     localStream = stream;
 
-    _pc = await createPeerConnection({
-      'iceServers': [
-        {'urls': 'stun:stun.l.google.com:19302'},
-      ],
-    });
+    // Build ICE config that fits the user's stealth profile. Default for
+    // SFU is "Restricted" — TURNS-only over the local PulseTurnProxy →
+    // 443/TCP/TLS WebSocket tunnel — so the entire media plane (DTLS+SRTP)
+    // rides inside the same uTLS+ECH connection that carries chat traffic.
+    // GFW / Iranian / Russian DPI sees one TLS flow on 443, no STUN, no
+    // exposed UDP, no separately-fingerprintable WebRTC handshake.
+    //
+    // Auto profile is only used if the user has a working direct path
+    // (no Force-Tor, no Restricted toggle) — otherwise we always force
+    // relay-only so the call never falls back to plain UDP.
+    final pcConfig = await _buildPeerConfig();
+    _pc = await createPeerConnection(pcConfig);
 
     _pc!.onIceCandidate = (c) {
       if (c.candidate != null && _roomId != null) {
@@ -111,6 +120,81 @@ class SfuSignalingService {
   void subscribeTrack(String trackId, {String layer = 'h'}) {
     if (_roomId == null) return;
     _send({'type': 'track_subscribe', 'room_id': _roomId, 'track_id': trackId, 'layer': layer});
+  }
+
+  /// Builds the PeerConnection config:
+  ///   - Restricted (TURNS-only, relay policy) when Force-Tor or the
+  ///     "Restricted" toggle is on, OR when no direct STUN candidates are
+  ///     reachable (default for SFU which always wants to ride the WS
+  ///     tunnel rather than expose a separate UDP/DTLS plane).
+  ///   - Auto (full ICE) only when the user explicitly opts out of stealth.
+  ///
+  /// Linux + Windows have a flutter_webrtc bug where >10 ICE servers in
+  /// CreateIceServers segfault native code (__libc_free). Trim to a safe
+  /// top-N (3 STUN + 7 TURN) on those platforms — same pattern as
+  /// signaling_service.dart and group_signaling_service.dart.
+  Future<Map<String, dynamic>> _buildPeerConfig() async {
+    final prefs = await SharedPreferences.getInstance();
+    final forceRelay = prefs.getBool('dev_force_relay') ?? false;
+    final forceTor   = prefs.getBool('force_tor_enabled') ?? false;
+    final restricted = prefs.getBool('restricted_network') ?? false;
+    // Default SFU behavior is restricted — keeps every byte inside the
+    // existing uTLS+ECH WS tunnel rather than opening a fresh DTLS UDP
+    // plane that GFW/Iran would fingerprint within seconds.
+    final useRestricted = forceRelay || forceTor || restricted || _kSfuStealthDefault;
+
+    final profile = useRestricted
+        ? CallTransportProfile.restricted
+        : CallTransportProfile.auto;
+    final cfg = await profile.peerConfig();
+
+    // Safety net: even Auto profile should never publish raw Google STUN
+    // for SFU — fall back to Restricted if loadRelay() came back empty
+    // (no TURNS configured), so we never silently regress to plain UDP.
+    final servers = (cfg['iceServers'] as List?)?.cast<Map<String, dynamic>>()
+        ?? const <Map<String, dynamic>>[];
+    if (useRestricted && servers.isEmpty) {
+      // No TURNS at all — log loudly. SFU will fail to connect, which is
+      // better than silently leaking the user's IP via direct candidates.
+      debugPrint('[SFU] WARNING: restricted profile but no TURNS servers '
+          'available. SFU connection will fail. Configure a TURN server '
+          'or disable Force-Tor / Restricted Network.');
+    }
+
+    final trimmed = _safeIceServers(servers);
+    return {
+      ...cfg,
+      'iceServers': trimmed,
+      'bundlePolicy': 'max-bundle',
+    };
+  }
+
+  // SFU defaults to TURNS-only (stealth). Set to false to allow direct
+  // STUN/UDP plane — generally undesirable since it opens a fingerprintable
+  // surface that GFW will pick up even when chat traffic is hidden.
+  static const bool _kSfuStealthDefault = true;
+
+  static List<Map<String, dynamic>> _safeIceServers(List<Map<String, dynamic>> servers) {
+    if (!(Platform.isLinux || Platform.isWindows) || servers.length <= 10) {
+      return servers;
+    }
+    // 3 STUN + 7 TURN keeps us well under the segfault threshold while
+    // still giving ICE several candidates to try.
+    final stun = <Map<String, dynamic>>[];
+    final turn = <Map<String, dynamic>>[];
+    for (final s in servers) {
+      final urls = s['urls'];
+      final str = urls is String ? urls : (urls is List && urls.isNotEmpty ? urls.first.toString() : '');
+      if (str.startsWith('stun:')) {
+        if (stun.length < 3) stun.add(s);
+      } else if (str.startsWith('turn:') || str.startsWith('turns:')) {
+        if (turn.length < 7) turn.add(s);
+      }
+      if (stun.length >= 3 && turn.length >= 7) break;
+    }
+    final result = [...stun, ...turn];
+    debugPrint('[SFU] desktop ICE-server safe-set: ${servers.length} → ${result.length}');
+    return result;
   }
 
   void preferQuality(String trackId, String layer) {
@@ -173,6 +257,29 @@ class SfuSignalingService {
         if (sdp != null && _pc != null) {
           _pc!.setRemoteDescription(RTCSessionDescription(sdp, 'answer'));
         }
+
+      case 'media_renegotiate':
+        // Server-driven renegotiation: a track was added to our PC on the
+        // server side (e.g. after track_subscribe). Apply the new offer,
+        // generate an answer, and ship it back. Without this round-trip
+        // the new transceiver never lights up on our side and the audio
+        // stays silent.
+        final sdp = data['sdp'] as String?;
+        if (sdp == null || _pc == null) break;
+        () async {
+          try {
+            await _pc!.setRemoteDescription(RTCSessionDescription(sdp, 'offer'));
+            final answer = await _pc!.createAnswer();
+            await _pc!.setLocalDescription(answer);
+            _send({
+              'type': 'media_renegotiate_answer',
+              'room_id': _roomId,
+              'sdp': answer.sdp,
+            });
+          } catch (e) {
+            debugPrint('[SFU] renegotiate failed: $e');
+          }
+        }();
 
       case 'media_candidate':
         if (_pc != null) {

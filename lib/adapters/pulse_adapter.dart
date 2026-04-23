@@ -889,6 +889,7 @@ class PulseInboxReader implements InboxReader {
                 case 'room_info':
                 case 'room_left':
                 case 'media_answer':
+                case 'media_renegotiate':
                 case 'media_candidate':
                 case 'track_published':
                 case 'track_available':

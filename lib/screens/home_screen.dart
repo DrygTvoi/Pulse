@@ -37,6 +37,7 @@ import '../services/channel_service.dart';
 import 'channel_screen.dart';
 import 'call_screen.dart';
 import 'group_call_screen.dart';
+import 'sfu_call_screen.dart';
 import '../services/active_call_service.dart';
 import '../services/connectivity_probe_service.dart';
 import '../widgets/minimized_call_banner.dart';
@@ -575,11 +576,12 @@ class _HomeScreenState extends State<HomeScreen> {
       final groupContact = context.read<IContactRepository>().findById(groupId);
       if (groupContact == null || !mounted) return;
       final myId = ChatController().identity?.id ?? '';
-      _showIncomingGroupCallDialog(groupContact, myId);
+      _showIncomingGroupCallDialog(groupContact, myId, sig);
     }, onError: (e) => debugPrint('[HomeScreen] incomingGroupCalls stream error: $e'));
   }
 
-  void _showIncomingGroupCallDialog(Contact group, String myId) {
+  void _showIncomingGroupCallDialog(
+      Contact group, String myId, Map<String, dynamic> sig) {
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -637,6 +639,22 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             onPressed: () {
               Navigator.pop(context);
+              // SFU-hosted call? Skip the mesh setup and join the room
+              // directly with the room id + token from the invite.
+              final sfuRoomId = sig['sfuRoomId'] as String?;
+              final sfuToken = sig['sfuToken'] as String?;
+              if (sfuRoomId != null && sfuToken != null) {
+                Navigator.push(context, MaterialPageRoute(
+                  builder: (_) => SfuCallScreen(
+                    group: group,
+                    myId: myId,
+                    isCaller: false,
+                    existingRoomId: sfuRoomId,
+                    existingToken: sfuToken,
+                  ),
+                ));
+                return;
+              }
               Navigator.push(context, MaterialPageRoute(
                 builder: (_) => GroupCallScreen(
                   group: group,

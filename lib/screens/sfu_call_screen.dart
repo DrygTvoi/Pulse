@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../models/contact.dart';
 import '../models/contact_repository.dart';
 import '../services/sfu_signaling_service.dart';
+import '../controllers/chat_controller.dart';
 import '../theme/app_theme.dart';
 import '../l10n/l10n_ext.dart';
 
@@ -76,6 +77,8 @@ class _SfuCallScreenState extends State<SfuCallScreen> {
 
     _sfu!.onTrackAvailable = (pubkey, trackId, kind) {
       if (_disposed) return;
+      debugPrint('[SfuCall] onTrackAvailable: pubkey=${pubkey.substring(0, 8)}… '
+          'kind=$kind trackId=$trackId');
       _trackOwners[trackId] = pubkey;
       _participantTracks.putIfAbsent(pubkey, () => []);
       _participantTracks[pubkey]!.add(_TrackMeta(trackId, kind));
@@ -113,27 +116,47 @@ class _SfuCallScreenState extends State<SfuCallScreen> {
       if (_disposed) return;
       final track = event.track;
       final streams = event.streams;
+      debugPrint('[SfuCall] onRemoteTrack: kind=${track.kind} id=${track.id} '
+          'streams=${streams.length} streamId=${streams.isEmpty ? "-" : streams.first.id} '
+          'enabled=${track.enabled} muted=${track.muted}');
       if (streams.isEmpty) return;
       final stream = streams.first;
+      // Force-enable the track in case the server muted it on the way in.
+      track.enabled = true;
 
-      // Match remote track to a participant by scanning track metadata
-      String? ownerPubkey;
-      for (final entry in _participantTracks.entries) {
-        for (final meta in entry.value) {
-          if (track.kind == 'video' && (meta.kind == 'video' || meta.kind == 'screen')) {
-            ownerPubkey = entry.key;
-            break;
+      // Resolve participant. First by trackId via the _trackOwners map
+      // populated from `track_available` SFU notifications. Fall back to
+      // matching the track's KIND against a participant who advertised a
+      // track of that kind (works while no two participants of the same
+      // kind have arrived simultaneously — good enough for 3-4 person
+      // calls until the SFU server starts labelling streams by pubkey).
+      String? ownerPubkey = _trackOwners[track.id];
+      if (ownerPubkey == null) {
+        for (final entry in _participantTracks.entries) {
+          for (final meta in entry.value) {
+            final wantsThisKind = (track.kind == 'video' &&
+                    (meta.kind == 'video' || meta.kind == 'screen')) ||
+                (track.kind == 'audio' && meta.kind == 'audio');
+            if (wantsThisKind) {
+              ownerPubkey = entry.key;
+              break;
+            }
           }
+          if (ownerPubkey != null) break;
         }
-        if (ownerPubkey != null) break;
       }
+      if (ownerPubkey == null) return;
 
-      if (ownerPubkey != null && track.kind == 'video') {
-        _ensureRenderer(ownerPubkey).then((r) {
-          r.srcObject = stream;
-          if (mounted) setState(() {});
-        });
-      }
+      // Attach the stream to the participant's renderer for BOTH audio
+      // and video. flutter_webrtc plays the audio through the stream as
+      // long as the renderer is mounted in the widget tree — that's why
+      // _tile() always rendres an RTCVideoView (zero-size when there's
+      // no active video to display) so audio for camera-off members
+      // still reaches the speakers.
+      _ensureRenderer(ownerPubkey).then((r) {
+        r.srcObject = stream;
+        if (mounted) setState(() {});
+      });
     };
 
     _sfu!.onIceState = (state) {
@@ -146,6 +169,15 @@ class _SfuCallScreenState extends State<SfuCallScreen> {
 
     _sfu!.onRoomReady = () async {
       if (_disposed) return;
+      // Caller side: now that the SFU room exists with a token, fan-out an
+      // sfu_invite signal to every group member so their incoming-call UI
+      // pops with this room's id+token. Receivers tap "Accept" → join the
+      // same room. Without this step the caller is talking to themselves.
+      if (widget.isCaller && _sfu?.roomId != null && _sfu?.roomToken != null) {
+        final ctrl = context.read<ChatController>();
+        unawaited(ctrl.broadcastSfuCallInvite(
+            widget.group, _sfu!.roomId!, _sfu!.roomToken!));
+      }
       // Room joined — set up PC and send media
       final localStream = await navigator.mediaDevices.getUserMedia({
         'audio': {'noiseSuppression': true, 'echoCancellation': true, 'autoGainControl': true},
@@ -280,20 +312,19 @@ class _SfuCallScreenState extends State<SfuCallScreen> {
     ])),
   );
 
+  /// Sentinel for the local user inside the participants list. Sorts to
+  /// position 0 so "you" is always the leftmost tile in the grid.
+  static const _selfKey = '__self__';
+
   Widget _buildCall() {
-    final participants = _participantTracks.keys.toList();
+    final participants = <String>[
+      _selfKey,
+      ..._participantTracks.keys,
+    ];
     return Scaffold(
       backgroundColor: Colors.black,
       body: SafeArea(child: Stack(children: [
         Positioned.fill(child: _buildGrid(participants)),
-        if (_localRenderer.textureId != null)
-          Positioned(right: 12, top: 72, child: ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: SizedBox(width: 110, height: 150, child: RTCVideoView(
-              _localRenderer, mirror: !_isScreenSharing,
-              objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
-            )),
-          )),
         Positioned(top: 4, left: 12, child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
           decoration: BoxDecoration(color: AppTheme.primary.withValues(alpha: 0.8), borderRadius: BorderRadius.circular(8)),
@@ -314,36 +345,85 @@ class _SfuCallScreenState extends State<SfuCallScreen> {
       ]));
     }
     final c = participants.length;
-    if (c == 1) return _tile(participants[0]);
-    if (c == 2) return Row(children: participants.map((p) => Expanded(child: _tile(p))).toList());
-    if (c == 3) return Column(children: [
-      Expanded(child: Row(children: [Expanded(child: _tile(participants[0])), Expanded(child: _tile(participants[1]))])),
-      Expanded(child: Center(child: AspectRatio(aspectRatio: 1.5, child: _tile(participants[2])))),
-    ]);
-    return GridView.count(
-      crossAxisCount: 2, physics: const NeverScrollableScrollPhysics(),
-      children: participants.take(6).map(_tile).toList(),
+    // Discord/Telegram-style equal grid: every participant gets the same
+    // tile size, separated by gaps + rounded corners so the layout is
+    // visually parsable even when everybody has video off.
+    int cols, rows;
+    if (c == 1)        { cols = 1; rows = 1; }
+    else if (c == 2)   { cols = 2; rows = 1; }
+    else if (c <= 4)   { cols = 2; rows = 2; }
+    else if (c <= 6)   { cols = 3; rows = 2; }
+    else if (c <= 9)   { cols = 3; rows = 3; }
+    else               { cols = 4; rows = ((c + 3) ~/ 4); }
+    final shown = participants.take(cols * rows).toList();
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 80, 8, 110), // top-bar + controls
+      child: LayoutBuilder(builder: (_, constraints) {
+        const gap = 6.0;
+        final tileW = (constraints.maxWidth - gap * (cols - 1)) / cols;
+        final tileH = (constraints.maxHeight - gap * (rows - 1)) / rows;
+        return Wrap(
+          spacing: gap,
+          runSpacing: gap,
+          alignment: WrapAlignment.center,
+          children: [
+            for (final p in shown)
+              SizedBox(
+                width: tileW,
+                height: tileH,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(14),
+                  child: _tile(p),
+                ),
+              ),
+          ],
+        );
+      }),
     );
   }
 
   Widget _tile(String pubkey) {
-    final renderer = _remoteRenderers[pubkey];
-    final hasVideo = _activeSet.isEmpty || _activeSet.contains(pubkey);
-    final isSpeaking = _speakers.contains(pubkey);
-    final isDominant = pubkey == _dominant;
-    final isPinned = pubkey == _pinnedPubkey;
+    final isSelf = pubkey == _selfKey;
+    final renderer = isSelf ? _localRenderer : _remoteRenderers[pubkey];
+    // Self always shows video when camera is on; remotes follow the SFU's
+    // active-set so quality stays inside our subscription budget.
+    final hasVideo = isSelf
+        ? !_isCameraOff
+        : (_activeSet.isEmpty || _activeSet.contains(pubkey));
+    final isSpeaking = !isSelf && _speakers.contains(pubkey);
+    final isDominant = !isSelf && pubkey == _dominant;
+    final isPinned = !isSelf && pubkey == _pinnedPubkey;
 
-    final contact = _findContact(context, pubkey);
-    final name = contact?.name ?? (pubkey.length > 8 ? pubkey.substring(0, 8) : pubkey);
+    final String name;
+    if (isSelf) {
+      name = context.l10n.systemActorYou;
+    } else {
+      final contact = _findContact(context, pubkey);
+      name = contact?.name ?? (pubkey.length > 8 ? pubkey.substring(0, 8) : pubkey);
+    }
 
     return GestureDetector(
-      onDoubleTap: () => _togglePin(pubkey),
+      onDoubleTap: isSelf ? null : () => _togglePin(pubkey),
       child: Stack(children: [
+        // Solid bg + avatar — always visible.
         Positioned.fill(
-          child: hasVideo && renderer != null && renderer.textureId != null
-              ? RTCVideoView(renderer, objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitCover)
-              : Container(color: const Color(0xFF1C1C1E), child: Center(child: _avatar(name, 64))),
+          child: Container(
+              color: const Color(0xFF1C1C1E),
+              child: Center(child: _avatar(name, 64))),
         ),
+        // RTCVideoView lives in the tree even when video is muted so the
+        // audio sink stays attached and we keep hearing camera-off
+        // participants. Hidden behind the avatar via Offstage when there's
+        // no active video.
+        if (renderer != null && renderer.textureId != null)
+          Positioned.fill(
+            child: Offstage(
+              offstage: !hasVideo,
+              child: RTCVideoView(renderer,
+                  mirror: isSelf && !_isScreenSharing,
+                  objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitCover),
+            ),
+          ),
         if (isSpeaking) Positioned.fill(child: IgnorePointer(child: Container(
           decoration: BoxDecoration(border: Border.all(color: isDominant ? Colors.greenAccent : Colors.green, width: isDominant ? 3 : 2)),
         ))),

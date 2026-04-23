@@ -159,6 +159,12 @@ const (
 	TypeMediaOffer      = "media_offer"
 	TypeMediaAnswer     = "media_answer"
 	TypeMediaCandidate  = "media_candidate"
+	// Server → Client: server-initiated renegotiation when new tracks are
+	// added to the subscriber's PC after the initial offer/answer (e.g.
+	// after track_subscribe).
+	TypeMediaRenegotiate       = "media_renegotiate"
+	// Client → Server: SDP answer to TypeMediaRenegotiate.
+	TypeMediaRenegotiateAnswer = "media_renegotiate_answer"
 	TypeTrackPublish    = "track_publish"
 	TypeTrackPublished  = "track_published"
 	TypeTrackAvailable  = "track_available"
@@ -360,6 +366,22 @@ type MediaOffer struct {
 
 // MediaAnswer — Server → Client (SDP answer)
 type MediaAnswer struct {
+	Type   string `json:"type"`
+	RoomID string `json:"room_id"`
+	SDP    string `json:"sdp"`
+}
+
+// MediaRenegotiate — Server → Client: new SDP offer covering all tracks
+// currently attached to the subscriber's PC. Sent after AddTrack on an
+// already-connected PC so the client adds a transceiver for the new track.
+type MediaRenegotiate struct {
+	Type   string `json:"type"`
+	RoomID string `json:"room_id"`
+	SDP    string `json:"sdp"`
+}
+
+// MediaRenegotiateAnswer — Client → Server: SDP answer to MediaRenegotiate.
+type MediaRenegotiateAnswer struct {
 	Type   string `json:"type"`
 	RoomID string `json:"room_id"`
 	SDP    string `json:"sdp"`

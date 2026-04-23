@@ -80,10 +80,38 @@ class _GroupCallScreenState extends State<GroupCallScreen> {
   Future<void> _startCall() async {
     final contactRepo = context.read<IContactRepository>();
     final chatCtrl = context.read<ChatController>();
-    final memberContacts = contactRepo
-        .contacts
-        .where((c) => widget.group.members.contains(c.id))
-        .toList();
+    // Two-pass member resolution. Direct UUID match first, then fallback to
+    // pubkey via group.memberPubkeys. The fallback is required for invite-
+    // link joiners whose hidden routing contacts are keyed by pubkey rather
+    // than the creator-side UUID stored in `group.members`.
+    final byUuid = <String, Contact>{
+      for (final c in contactRepo.contacts) c.id: c
+    };
+    final byPubkey = <String, Contact>{};
+    for (final c in contactRepo.contacts) {
+      if (c.isGroup) continue;
+      for (final addrs in c.transportAddresses.values) {
+        for (final addr in addrs) {
+          final at = addr.indexOf('@');
+          final pub = (at > 0 ? addr.substring(0, at) : addr).toLowerCase();
+          if (pub.isNotEmpty) byPubkey[pub] = c;
+        }
+      }
+    }
+    final memberSet = <Contact>{};
+    for (final uuid in widget.group.members) {
+      final direct = byUuid[uuid];
+      if (direct != null && !direct.isGroup) {
+        memberSet.add(direct);
+        continue;
+      }
+      final pub = widget.group.memberPubkeys[uuid]?.toLowerCase();
+      if (pub != null) {
+        final viaPub = byPubkey[pub];
+        if (viaPub != null) memberSet.add(viaPub);
+      }
+    }
+    final memberContacts = memberSet.toList();
 
     // total = other members + self
     final total = memberContacts.length + 1;

@@ -372,6 +372,8 @@ func (h *Hub) HandleMessage(client *Client, env *Envelope) {
 		safeDispatch(TypeRoomLeave, func() { h.handleRoomLeave(client, env.Payload) })
 	case TypeMediaOffer:
 		safeDispatch(TypeMediaOffer, func() { h.handleMediaOffer(client, env.Payload) })
+	case TypeMediaRenegotiateAnswer:
+		safeDispatch(TypeMediaRenegotiateAnswer, func() { h.handleMediaRenegotiateAnswer(client, env.Payload) })
 	case TypeMediaCandidate:
 		safeDispatch(TypeMediaCandidate, func() { h.handleMediaCandidate(client, env.Payload) })
 	case TypeTrackPublish:
@@ -1124,6 +1126,20 @@ func (h *Hub) handleMediaOffer(client *Client, payload json.RawMessage) {
 		RoomID: req.RoomID,
 		SDP:    answerSDP,
 	})
+}
+
+func (h *Hub) handleMediaRenegotiateAnswer(client *Client, payload json.RawMessage) {
+	if h.sfuManager == nil {
+		return
+	}
+	var req MediaRenegotiateAnswer
+	if err := json.Unmarshal(payload, &req); err != nil {
+		client.SendError("invalid_payload", "failed to parse media_renegotiate_answer")
+		return
+	}
+	if err := h.sfuManager.HandleRenegotiateAnswer(req.RoomID, client.pubkey, req.SDP); err != nil {
+		client.SendError("renegotiate_failed", err.Error())
+	}
 }
 
 func (h *Hub) handleMediaCandidate(client *Client, payload json.RawMessage) {
