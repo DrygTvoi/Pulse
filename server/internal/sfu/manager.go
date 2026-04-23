@@ -241,9 +241,16 @@ func (m *Manager) HandleMediaOffer(roomID, pubkey, sdpOffer string) (string, err
 		return "", fmt.Errorf("failed to set local description: %w", err)
 	}
 
-	// Wait for ICE gathering to complete
-	gatherComplete := webrtc.GatheringCompletePromise(pc)
-	<-gatherComplete
+	// Wait for ICE gathering to complete, but cap the wait — Pion can
+	// stall here when no UDP route is reachable (stealth-only deploys
+	// behind nginx, missing TURN listener) and we'd leak a goroutine
+	// per call attempt. After 5s send whatever candidates we have; the
+	// client can still trickle the rest via media_candidate.
+	select {
+	case <-webrtc.GatheringCompletePromise(pc):
+	case <-time.After(5 * time.Second):
+		log.Printf("[sfu] ICE gathering timeout for %s in room %s — sending partial SDP", pubkey[:8], roomID)
+	}
 
 	return pc.LocalDescription().SDP, nil
 }

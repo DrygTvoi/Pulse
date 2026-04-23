@@ -153,15 +153,42 @@ func generateTrackID() string {
 // AddParticipant adds a new participant to the room.
 func (r *Room) AddParticipant(pubkey string, sendMsg func([]byte) error, sendBin func([]byte) error) (*Participant, error) {
 	r.mu.Lock()
-	defer r.mu.Unlock()
 
 	if len(r.Participants) >= r.MaxSize {
+		r.mu.Unlock()
 		return nil, fmt.Errorf("room is full (%d/%d)", len(r.Participants), r.MaxSize)
 	}
 
-	if _, exists := r.Participants[pubkey]; exists {
-		return nil, fmt.Errorf("already in room")
+	// Conference re-join: when the user pops the call screen and immediately
+	// re-enters via the chat banner, the new room_join can race the previous
+	// room_leave. Old behaviour ("already in room") rejected the rejoin and
+	// the client sat on an empty "Connecting…" screen. Replace the stale
+	// participant instead — close their PC, clear subscriptions, drop their
+	// published tracks, then proceed with a fresh registration.
+	if existing, ok := r.Participants[pubkey]; ok {
+		// Snapshot under lock — never call PC.Close (slow Pion teardown)
+		// inside the room mutex, that holds up every other op in the room.
+		existingPC := existing.PC
+		existingTracks := make([]string, 0, len(existing.PublishedTracks))
+		for trackID := range existing.PublishedTracks {
+			existingTracks = append(existingTracks, trackID)
+			delete(r.Tracks, trackID)
+		}
+		delete(r.Participants, pubkey)
+		r.mu.Unlock()
+		// broadcast the implicit leave + track removals so other peers
+		// drop the stale subscriptions before we re-add them.
+		r.broadcastExcept(pubkey, roomLeftJSON(r.ID, pubkey))
+		for _, trackID := range existingTracks {
+			r.broadcastExcept(pubkey, trackRemovedJSON(r.ID, pubkey, trackID))
+		}
+		// Close PC off-goroutine.
+		if existingPC != nil {
+			go func() { _ = existingPC.Close() }()
+		}
+		r.mu.Lock()
 	}
+	defer r.mu.Unlock()
 
 	p := &Participant{
 		Pubkey:          pubkey,
@@ -179,6 +206,15 @@ func (r *Room) AddParticipant(pubkey string, sendMsg func([]byte) error, sendBin
 }
 
 // RemoveParticipant removes a participant and cleans up their tracks.
+//
+// CRITICAL ordering: NEVER call broadcastExcept (or anything that takes
+// r.mu.RLock) while holding r.mu.Lock. Go's sync.RWMutex is NOT
+// reentrant — an RLock from the same goroutine that holds Lock
+// deadlocks the room *and* the hub Run loop (which calls this from
+// the unregister case), which then stops draining h.register, which
+// fills the buffered channel, which blocks new client auths. The
+// whole server appears dead. Collect the work under the lock, release
+// the lock, *then* broadcast and close the PC.
 func (r *Room) RemoveParticipant(pubkey string) {
 	r.mu.Lock()
 	p, ok := r.Participants[pubkey]
@@ -187,26 +223,27 @@ func (r *Room) RemoveParticipant(pubkey string) {
 		return
 	}
 
-	// Clean up published tracks
-	for trackID, track := range p.PublishedTracks {
+	// Snapshot data we need outside the lock.
+	trackIDs := make([]string, 0, len(p.PublishedTracks))
+	for trackID := range p.PublishedTracks {
+		trackIDs = append(trackIDs, trackID)
 		delete(r.Tracks, trackID)
-		_ = track // track resources cleaned up when PC closes
-
-		// Notify other participants that track is gone
-		r.broadcastExcept(pubkey, trackRemovedJSON(r.ID, pubkey, trackID))
 	}
-
-	// Close PeerConnection
-	if p.PC != nil {
-		p.PC.Close()
-	}
-
+	pc := p.PC
 	delete(r.Participants, pubkey)
 	empty := len(r.Participants) == 0
 	r.mu.Unlock()
 
-	// Notify others about departure
+	// Now safe to take r.mu.RLock via broadcastExcept.
+	for _, trackID := range trackIDs {
+		r.broadcastExcept(pubkey, trackRemovedJSON(r.ID, pubkey, trackID))
+	}
 	r.broadcastExcept(pubkey, roomLeftJSON(r.ID, pubkey))
+
+	// PC.Close can be slow (Pion teardown). Off the hub goroutine.
+	if pc != nil {
+		go func() { _ = pc.Close() }()
+	}
 
 	if empty && r.onEmpty != nil {
 		r.onEmpty(r.ID)
@@ -311,6 +348,9 @@ func (r *Room) handleIncomingTrack(pubkey string, remote *webrtc.TrackRemote) {
 	if kind == "audio" {
 		r.hasAudio.Store(true)
 	}
+
+	log.Printf("[sfu] track published: room=%s owner=%s kind=%s codec=%s trackID=%s",
+		r.ID, pubkey[:8], kind, codec, trackID)
 
 	// Notify publisher of track ID
 	if ok {
@@ -430,7 +470,15 @@ func (r *Room) handleSimulcastLayer(pubkey string, remote *webrtc.TrackRemote, k
 // source silently dies.
 func (r *Room) forwardRTP(remote *webrtc.TrackRemote, local *webrtc.TrackLocalStaticRTP, track *Track) {
 	const readTimeout = 5 * time.Second
-	const maxConsecutiveTimeouts = 6 // ~30s of silence before giving up
+	// Audio tracks can be silent for arbitrary durations — a participant
+	// who mutes for 30s and unmutes shouldn't have their track silently
+	// killed by the server (they then re-join with a fresh track ID and
+	// nobody re-subscribes — they appear "dead" forever). Real disconnects
+	// are caught by PC.OnICEConnectionStateChange (RemoveParticipant
+	// closes the PC, which terminates this loop via Read error). For
+	// video/screen, keep the original 30s shield because long-silent
+	// video tracks usually mean a stuck encoder, not legitimate quiet.
+	const maxConsecutiveTimeoutsVideo = 6 // ~30s
 
 	buf := make([]byte, 1500)
 	isAudio := track.Kind == "audio"
@@ -450,7 +498,8 @@ func (r *Room) forwardRTP(remote *webrtc.TrackRemote, local *webrtc.TrackLocalSt
 			// Timeouts surface as net.Error with Timeout()==true.
 			if ne, ok := err.(net.Error); ok && ne.Timeout() {
 				timeouts++
-				if timeouts >= maxConsecutiveTimeouts {
+				// Audio: never give up on silence. Video/screen: 30s cap.
+				if !isAudio && timeouts >= maxConsecutiveTimeoutsVideo {
 					log.Printf("[sfu] forwardRTP: %d consecutive timeouts on track %s (owner=%s kind=%s), exiting",
 						timeouts, track.ID, track.Owner[:8], track.Kind)
 					return
@@ -805,6 +854,9 @@ func (r *Room) SubscribeTrackWithLayer(pubkey, trackID, layer string) error {
 		return fmt.Errorf("failed to add track: %w", err)
 	}
 
+	log.Printf("[sfu] subscribed: room=%s subscriber=%s trackID=%s kind=%s layer=%s",
+		r.ID, pubkey[:8], trackID, track.Kind, layer)
+
 	p.Subscriptions[trackID] = sender
 	p.SubLayers[trackID] = layer
 	if track.Kind == "video" || track.Kind == "screen" {
@@ -894,8 +946,12 @@ func (r *Room) renegotiateWithSubscriber(pc *webrtc.PeerConnection, sendMsg func
 	}
 	// Wait for ICE gathering so the SDP carries every candidate. For an
 	// already-connected PC this is essentially instant — no new transports
-	// need to come up.
-	<-webrtc.GatheringCompletePromise(pc)
+	// need to come up. Cap at 5s in case Pion stalls (no UDP route etc).
+	select {
+	case <-webrtc.GatheringCompletePromise(pc):
+	case <-time.After(5 * time.Second):
+		log.Printf("[sfu] renegotiate: ICE gathering timeout — sending partial SDP")
+	}
 
 	desc := pc.LocalDescription()
 	if desc == nil {
@@ -903,6 +959,9 @@ func (r *Room) renegotiateWithSubscriber(pc *webrtc.PeerConnection, sendMsg func
 	}
 	if err := sendMsg(mediaRenegotiateJSON(roomID, desc.SDP)); err != nil {
 		log.Printf("[sfu] renegotiate: send failed: %v", err)
+	} else {
+		log.Printf("[sfu] renegotiate: sent offer (%d bytes) for room=%s",
+			len(desc.SDP), roomID)
 	}
 }
 

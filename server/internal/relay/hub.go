@@ -364,26 +364,46 @@ func (h *Hub) HandleMessage(client *Client, env *Envelope) {
 		safeDispatch(TypeDownloadReq, func() { h.handleDownloadReq(client, env.Payload) })
 
 	// SFU (Phase 2+3)
+	//
+	// EVERY SFU handler runs in its own goroutine. The readPump goroutine
+	// that owns this dispatch MUST NOT block — the kernel recvq fills up
+	// after ~250 bytes, the WebSocket reader stops calling ReadMessage,
+	// and the whole client connection looks "stuck" forever. Even the
+	// quick handlers can stall: handleRoomJoin → AddParticipant now
+	// closes a stale PC on rejoin, handleTrackSubscribe → AddTrack +
+	// scheduleRenegotiation, etc. Reply via SendEnvelope which is
+	// non-blocking (writePump owns its own goroutine).
 	case TypeRoomCreate:
-		safeDispatch(TypeRoomCreate, func() { h.handleRoomCreate(client, env.Payload) })
+		payload := env.Payload
+		go safeDispatch(TypeRoomCreate, func() { h.handleRoomCreate(client, payload) })
 	case TypeRoomJoin:
-		safeDispatch(TypeRoomJoin, func() { h.handleRoomJoin(client, env.Payload) })
+		payload := env.Payload
+		go safeDispatch(TypeRoomJoin, func() { h.handleRoomJoin(client, payload) })
 	case TypeRoomLeave:
-		safeDispatch(TypeRoomLeave, func() { h.handleRoomLeave(client, env.Payload) })
+		payload := env.Payload
+		go safeDispatch(TypeRoomLeave, func() { h.handleRoomLeave(client, payload) })
 	case TypeMediaOffer:
-		safeDispatch(TypeMediaOffer, func() { h.handleMediaOffer(client, env.Payload) })
+		payload := env.Payload
+		go safeDispatch(TypeMediaOffer, func() { h.handleMediaOffer(client, payload) })
 	case TypeMediaRenegotiateAnswer:
-		safeDispatch(TypeMediaRenegotiateAnswer, func() { h.handleMediaRenegotiateAnswer(client, env.Payload) })
+		payload := env.Payload
+		go safeDispatch(TypeMediaRenegotiateAnswer, func() { h.handleMediaRenegotiateAnswer(client, payload) })
 	case TypeMediaCandidate:
-		safeDispatch(TypeMediaCandidate, func() { h.handleMediaCandidate(client, env.Payload) })
+		payload := env.Payload
+		go safeDispatch(TypeMediaCandidate, func() { h.handleMediaCandidate(client, payload) })
 	case TypeTrackPublish:
-		safeDispatch(TypeTrackPublish, func() { h.handleTrackPublish(client, env.Payload) })
+		payload := env.Payload
+		go safeDispatch(TypeTrackPublish, func() { h.handleTrackPublish(client, payload) })
 	case TypeTrackSubscribe:
-		safeDispatch(TypeTrackSubscribe, func() { h.handleTrackSubscribe(client, env.Payload) })
+		payload := env.Payload
+		go safeDispatch(TypeTrackSubscribe, func() { h.handleTrackSubscribe(client, payload) })
 	case TypeTrackPause, TypeTrackResume:
-		safeDispatch(env.Type, func() { h.handleTrackPauseResume(client, env.Type, env.Payload) })
+		t := env.Type
+		payload := env.Payload
+		go safeDispatch(t, func() { h.handleTrackPauseResume(client, t, payload) })
 	case TypeQualityPrefer:
-		safeDispatch(TypeQualityPrefer, func() { h.handleQualityPrefer(client, env.Payload) })
+		payload := env.Payload
+		go safeDispatch(TypeQualityPrefer, func() { h.handleQualityPrefer(client, payload) })
 
 	// Tunnel (Phase 5)
 	case TypeTunnelOpen:
