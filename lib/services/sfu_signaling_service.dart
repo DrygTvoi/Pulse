@@ -4,6 +4,7 @@ import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../controllers/chat_controller.dart';
 import '../models/contact.dart';
 import 'call_transport.dart';
@@ -146,19 +147,48 @@ class SfuSignalingService {
     final profile = useRestricted
         ? CallTransportProfile.restricted
         : CallTransportProfile.auto;
-    final cfg = await profile.peerConfig();
+    var cfg = await profile.peerConfig();
 
-    // Safety net: even Auto profile should never publish raw Google STUN
-    // for SFU — fall back to Restricted if loadRelay() came back empty
-    // (no TURNS configured), so we never silently regress to plain UDP.
-    final servers = (cfg['iceServers'] as List?)?.cast<Map<String, dynamic>>()
+    var servers = (cfg['iceServers'] as List?)?.cast<Map<String, dynamic>>()
         ?? const <Map<String, dynamic>>[];
+
+    // Race: when ensureGroupPulseConnection just opened an adhoc reader to
+    // the group's server, TURN credentials are written to secure storage
+    // asynchronously after auth_ok. profile.peerConfig() reads them back
+    // through IceServerConfig.loadRelay() — if we get here a few hundred
+    // ms after auth, the secure-storage write may still be in flight and
+    // loadRelay returns empty, leaving the SFU PC with no TURN server at
+    // all and the call silently failing.
+    //
+    // Retry the load a few times before giving up: each iteration is
+    // cheap (one secure-storage read), gives the auth side time to land
+    // its credentials, and recovers without involving the user.
     if (useRestricted && servers.isEmpty) {
-      // No TURNS at all — log loudly. SFU will fail to connect, which is
-      // better than silently leaking the user's IP via direct candidates.
-      debugPrint('[SFU] WARNING: restricted profile but no TURNS servers '
-          'available. SFU connection will fail. Configure a TURN server '
-          'or disable Force-Tor / Restricted Network.');
+      for (var attempt = 0; attempt < 10 && servers.isEmpty; attempt++) {
+        await Future<void>.delayed(const Duration(milliseconds: 150));
+        cfg = await profile.peerConfig();
+        servers = (cfg['iceServers'] as List?)?.cast<Map<String, dynamic>>()
+            ?? const <Map<String, dynamic>>[];
+      }
+    }
+
+    if (useRestricted && servers.isEmpty) {
+      // Last-resort fallback: synthesize a TURNS entry from the group's
+      // own Pulse server URL. Pulse servers always expose TURNS on
+      // port 8080 (see server's auth_ok response). Without this, a
+      // first-time SFU call on a fresh client wedges with "no TURNS
+      // available" before secure storage has caught up.
+      final fallback = await _synthesizeGroupTurns();
+      if (fallback != null) {
+        servers = [fallback];
+        debugPrint('[SFU] Using synthesized fallback TURNS '
+            '(${fallback['urls']}) — secure storage credentials not yet '
+            'persisted by the adhoc Pulse reader.');
+      } else {
+        debugPrint('[SFU] WARNING: restricted profile but no TURNS servers '
+            'available. SFU connection will fail. Configure a TURN server '
+            'or disable Force-Tor / Restricted Network.');
+      }
     }
 
     final trimmed = _safeIceServers(servers);
@@ -173,6 +203,43 @@ class SfuSignalingService {
   // STUN/UDP plane — generally undesirable since it opens a fingerprintable
   // surface that GFW will pick up even when chat traffic is hidden.
   static const bool _kSfuStealthDefault = true;
+
+  /// Synthesizes a TURNS entry that points at the same Pulse server that
+  /// hosts this group's SFU room. Used when IceServerConfig.loadRelay()
+  /// returned empty (cold start, secure storage write race) — Pulse
+  /// servers always expose TURNS on port 8080, and the same Ed25519
+  /// pubkey/seed authenticates against TURN as against the WS endpoint,
+  /// so we already have what we need without waiting for the adhoc
+  /// reader to flush its credentials.
+  Future<Map<String, dynamic>?> _synthesizeGroupTurns() async {
+    final url = group.groupServerUrl;
+    if (url.isEmpty) return null;
+    // Strip scheme and any path. Server URLs are stored as
+    // `https://host:port[/...]` — we want just `host:port`.
+    var hostPort = url;
+    if (hostPort.startsWith('https://')) {
+      hostPort = hostPort.substring('https://'.length);
+    } else if (hostPort.startsWith('http://')) {
+      hostPort = hostPort.substring('http://'.length);
+    }
+    final slash = hostPort.indexOf('/');
+    if (slash != -1) hostPort = hostPort.substring(0, slash);
+    final hash = hostPort.indexOf('#');
+    if (hash != -1) hostPort = hostPort.substring(0, hash);
+    // Drop the original :port — TURNS lives on its own well-known port.
+    final colon = hostPort.lastIndexOf(':');
+    final host = colon != -1 ? hostPort.substring(0, colon) : hostPort;
+    if (host.isEmpty) return null;
+
+    const ss = FlutterSecureStorage();
+    final user = await ss.read(key: 'pulse_turn_user') ?? '';
+    final pass = await ss.read(key: 'pulse_turn_pass') ?? '';
+    return {
+      'urls': 'turns:$host:8080?transport=tcp',
+      if (user.isNotEmpty) 'username': user,
+      if (pass.isNotEmpty) 'credential': pass,
+    };
+  }
 
   static List<Map<String, dynamic>> _safeIceServers(List<Map<String, dynamic>> servers) {
     if (!(Platform.isLinux || Platform.isWindows) || servers.length <= 10) {
@@ -314,6 +381,20 @@ class SfuSignalingService {
   // ── Send path ─────────────────────────────────────────────────────────
 
   void _send(Map<String, dynamic> msg) {
+    final url = group.groupServerUrl;
+    if (url.isNotEmpty) {
+      // Per-group server: route through the dedicated pool entry instead
+      // of the user's primary Pulse sender. Otherwise multi-server users
+      // (own Pulse on server-A, joined SFU group on server-B) would send
+      // SFU control messages to the WRONG server.
+      if (ChatController().sendRawPulseSignalToServer(url, jsonEncode(msg))) {
+        return;
+      }
+    }
+    // Fallback: legacy single-server path. Used when the group has no
+    // explicit server URL set (legacy groups created before
+    // groupServerUrl existed) OR when the per-server sender hasn't been
+    // initialized yet (caller forgot to await ensureGroupPulseConnection).
     ChatController().sendRawPulseSignal(jsonEncode(msg));
   }
 

@@ -75,6 +75,11 @@ class ChatController extends ChangeNotifier {
 
   final IContactRepository _contacts;
 
+  /// Public read-only handle on the contact repository — used by adapters
+  /// that need to walk the roster (e.g. nostr_adapter falling over to
+  /// recipient's alternate relays when the primary publish fails).
+  IContactRepository get contacts => _contacts;
+
   Identity? _identity;
   String _selfId = ''; // adapter-specific ID used as senderId in outgoing messages
   String _selfName = ''; // display name for message envelope
@@ -5709,12 +5714,129 @@ class ChatController extends ChangeNotifier {
   }
 
   /// Send a raw JSON message to the Pulse relay (for SFU signaling).
+  /// Backward-compat: routes to the user's PRIMARY Pulse sender. For
+  /// per-group SFU calls on a foreign Pulse server, callers must use
+  /// [sendRawPulseSignalToServer] instead so the message lands on the
+  /// correct server in the multi-server pool.
   void sendRawPulseSignal(String jsonMsg) {
     _cachedPulseSender?.sendRaw(jsonMsg);
   }
 
   /// Check if a Pulse relay sender is available (for SFU routing).
   bool get hasPulseRelay => _cachedPulseSender != null;
+
+  /// Per-server pool of Pulse senders. Keyed by canonicalized server URL
+  /// — same canonicalization as `_PulseSharedWs.forUrl` so each entry
+  /// here lines up 1:1 with a `_PulseSharedWs` pool entry inside
+  /// `pulse_adapter`. Lets the client maintain independent Pulse
+  /// connections to multiple servers (primary + N group servers) without
+  /// any of them clobbering the others.
+  final Map<String, PulseMessageSender> _pulseSendersByServer = {};
+
+  /// Per-server pool of adhoc Pulse readers (auth + RX loop) opened by
+  /// [ensureGroupPulseConnection]. Kept so we don't open a second reader
+  /// for the same server on subsequent calls.
+  final Map<String, PulseInboxReader> _pulseReadersByServer = {};
+
+  /// Send a raw JSON SFU control message to a SPECIFIC Pulse server in
+  /// the pool. Required for group calls whose `groupServerUrl` differs
+  /// from the user's primary Pulse server — the legacy
+  /// [sendRawPulseSignal] always goes to the primary sender and would
+  /// silently miss the right server.
+  ///
+  /// Returns false if no sender exists for [serverUrl] (caller must
+  /// run [ensureGroupPulseConnection] first).
+  bool sendRawPulseSignalToServer(String serverUrl, String jsonMsg) {
+    final key = _canonicalizePulseUrl(serverUrl);
+    final sender = _pulseSendersByServer[key];
+    if (sender == null) {
+      debugPrint('[Group/SFU] sendRawPulseSignalToServer: no sender for '
+          '$serverUrl (call ensureGroupPulseConnection first)');
+      return false;
+    }
+    sender.sendRaw(jsonMsg);
+    return true;
+  }
+
+  /// Open (or reuse) a dedicated Pulse WebSocket connection to
+  /// [serverUrl] and register a sender + reader in the per-server pool.
+  ///
+  /// This is the multi-server primitive: a client keeps its own primary
+  /// Pulse connection AND any number of group-server connections in
+  /// parallel, each with their own `_PulseSharedWs` pool entry inside
+  /// `pulse_adapter`. Without this, group calls on a foreign Pulse
+  /// server fail because either:
+  ///   1) the user has no primary Pulse at all (Nostr-primary identity)
+  ///      — `_cachedPulseSender` is null and `sendRawPulseSignal` is a
+  ///      no-op; or
+  ///   2) the user has a different primary Pulse server — `sendRaw`
+  ///      would land on the WRONG server's WS channel.
+  ///
+  /// Uses the deterministic Pulse private key (Argon2id-derived from the
+  /// recovery key, identical on every server) so any client can join any
+  /// open server without preregistration. For closed servers the caller
+  /// is expected to have stashed `groupServerInvite` server-side already.
+  ///
+  /// Returns true once a sender for [serverUrl] is ready.
+  Future<bool> ensureGroupPulseConnection(String serverUrl) async {
+    if (serverUrl.isEmpty) return false;
+    final key = _canonicalizePulseUrl(serverUrl);
+    if (_pulseSendersByServer.containsKey(key)) return true;
+
+    var privkey = await _secureStorage.read(key: 'pulse_privkey') ?? '';
+    if (privkey.isEmpty) {
+      privkey = await _recoverTransportKey('pulse_privkey');
+    }
+    if (privkey.isEmpty) {
+      debugPrint('[Group/SFU] ensureGroupPulseConnection: no pulse_privkey '
+          'and recovery_key derivation failed — cannot open SFU connection');
+      return false;
+    }
+    try {
+      final apiKey = jsonEncode({'privkey': privkey, 'serverUrl': serverUrl});
+      final reader = await InboxManager().createAdhocReader('Pulse', apiKey, serverUrl);
+      if (reader is PulseInboxReader) {
+        _pulseReadersByServer[key] = reader;
+        _messageSubs.add(reader.listenForMessages().listen(_handleIncomingMessages));
+        _signalSubs.add(reader.listenForSignals().listen(
+            (sigs) => _signalDispatcher!.dispatch(sigs, sourceTransport: 'Pulse')));
+        debugPrint('[Group/SFU] Opened pool reader for $serverUrl');
+      }
+      final sender = PulseMessageSender();
+      await sender.initializeSender(apiKey);
+      _pulseSendersByServer[key] = sender;
+      // Also seed _cachedPulseSender if the user had no primary Pulse
+      // at all — keeps legacy `sendRawPulseSignal` callers (broadcaster
+      // etc.) working when the user is otherwise Nostr-only.
+      _cachedPulseSender ??= sender;
+      // Reader auth is async — finishes when the run loop reaches
+      // auth_ok. Block here until the pool entry's `_shared.channel` is
+      // populated, otherwise the very first sender.sendRaw races and
+      // emits "no authenticated connection". 15s covers PoW (~2-5s) + a
+      // generous margin for slow networks / Tor.
+      final ready = await waitForPulseAuth(serverUrl);
+      if (!ready) {
+        debugPrint('[Group/SFU] ensureGroupPulseConnection: auth timed out '
+            'for $serverUrl — sender created but channel not ready yet');
+      }
+      return ready;
+    } catch (e) {
+      debugPrint('[Group/SFU] ensureGroupPulseConnection failed: $e');
+      return false;
+    }
+  }
+
+  /// Same canonicalization as _PulseSharedWs._canonicalize so our pool
+  /// keys line up 1:1 with the pulse_adapter pool. Strips fragment and
+  /// trailing slash, lower-cases scheme+host.
+  static String _canonicalizePulseUrl(String serverUrl) {
+    if (serverUrl.isEmpty) return '';
+    var s = serverUrl.trim();
+    final hash = s.indexOf('#');
+    if (hash != -1) s = s.substring(0, hash);
+    if (s.endsWith('/')) s = s.substring(0, s.length - 1);
+    return s.toLowerCase();
+  }
 
   /// Reset all Pulse relay connections (called when Force-Tor toggle changes).
   Future<void> resetPulseConnections() async {

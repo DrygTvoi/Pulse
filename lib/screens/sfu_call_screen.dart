@@ -73,6 +73,23 @@ class _SfuCallScreenState extends State<SfuCallScreen> {
   Future<void> _startCall() async {
     await _localRenderer.initialize();
 
+    // Make sure we have a live Pulse WebSocket pointed at this group's
+    // SFU server. Without this an SFU group on a foreign server (or a
+    // user whose primary identity isn't Pulse at all) hangs forever on
+    // a black "Connecting…" screen because every SFU control message
+    // (`room_create`, `room_join`, `media_offer`, …) was silently
+    // dropped by `sendRawPulseSignal` due to a null `_cachedPulseSender`.
+    final serverUrl = widget.group.groupServerUrl;
+    if (serverUrl.isNotEmpty) {
+      final ok = await ChatController().ensureGroupPulseConnection(serverUrl);
+      if (!ok) {
+        debugPrint('[SfuCall] FATAL: could not open Pulse connection to '
+            '$serverUrl — call will not start');
+        if (mounted) Navigator.pop(context);
+        return;
+      }
+    }
+
     _sfu = SfuSignalingService(group: widget.group, myId: widget.myId);
 
     _sfu!.onTrackAvailable = (pubkey, trackId, kind) {
@@ -178,11 +195,41 @@ class _SfuCallScreenState extends State<SfuCallScreen> {
         unawaited(ctrl.broadcastSfuCallInvite(
             widget.group, _sfu!.roomId!, _sfu!.roomToken!));
       }
-      // Room joined — set up PC and send media
-      final localStream = await navigator.mediaDevices.getUserMedia({
-        'audio': {'noiseSuppression': true, 'echoCancellation': true, 'autoGainControl': true},
-        'video': true,
-      });
+      // Room joined — set up PC and send media. Try audio+video first;
+      // on devices without a camera (Waydroid, headless servers, hardened
+      // sandboxes) the combined request fails outright. Fall back to
+      // audio-only, then to a media-less PC so the user can still
+      // receive others' streams as a listener.
+      MediaStream? localStream;
+      try {
+        localStream = await navigator.mediaDevices.getUserMedia({
+          'audio': {'noiseSuppression': true, 'echoCancellation': true, 'autoGainControl': true},
+          'video': true,
+        });
+      } catch (e) {
+        debugPrint('[SfuCall] getUserMedia(audio+video) failed: $e — '
+            'retrying audio-only');
+        try {
+          localStream = await navigator.mediaDevices.getUserMedia({
+            'audio': {'noiseSuppression': true, 'echoCancellation': true, 'autoGainControl': true},
+            'video': false,
+          });
+        } catch (e2) {
+          debugPrint('[SfuCall] getUserMedia(audio-only) also failed: $e2 — '
+              'joining as receive-only listener');
+          // Synthetic empty stream so setupPeerConnection still has something
+          // to attach (PCs with zero senders are still valid in WebRTC and
+          // can receive remote tracks). Most plugins accept createLocalMediaStream.
+          try {
+            localStream = await createLocalMediaStream(
+                'sfu_listener_${DateTime.now().millisecondsSinceEpoch}');
+          } catch (e3) {
+            debugPrint('[SfuCall] FATAL: cannot even create empty stream: $e3');
+            if (mounted) Navigator.pop(context);
+            return;
+          }
+        }
+      }
       if (_disposed) { localStream.getTracks().forEach((t) => t.stop()); return; }
 
       // Camera off by default

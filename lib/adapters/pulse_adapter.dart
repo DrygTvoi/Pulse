@@ -305,29 +305,100 @@ Future<WebSocketChannel> _connectPulseWebSocketViaUtls(
 
 /// Shared authenticated WebSocket so reader and sender don't fight.
 /// The reader (long-lived loop) owns the connection; the sender borrows it.
+///
+/// **Multi-server pool** — was a global singleton; now keyed by `serverUrl`
+/// so a client connected to multiple Pulse servers (e.g. primary on
+/// server-A, joined an SFU group whose `groupServerUrl` points at
+/// server-B) keeps independent state for each. Reader/sender pick the
+/// right pool entry via `_PulseSharedWs.forUrl(serverUrl)`.
 class _PulseSharedWs {
-  static WebSocketChannel? channel;
-  static bool authenticated = false;
+  WebSocketChannel? channel;
+  bool authenticated = false;
   /// Set to true when reader's _runLoop starts, so sender knows to wait.
-  static bool readerActive = false;
+  bool readerActive = false;
   /// Reader-maintained health flag. True on auth_ok, false when the reader's
   /// connection cycle ends without success (server unreachable, auth rejected,
   /// dropped connection). Sender consults this to skip Pulse instantly and
   /// fall back to Nostr/Session without a per-send timeout. Defaults true so a
   /// fresh boot still gives the reader a chance to connect before skipping.
-  static bool serverHealthy = true;
+  bool serverHealthy = true;
   /// Shared keys completers — reader resolves, sender registers.
-  static final pendingKeysCompleters = <String, Completer<Map<String, dynamic>?>>{};
+  final pendingKeysCompleters = <String, Completer<Map<String, dynamic>?>>{};
   /// Sealed sender delivery certificates (single-use, from auth_ok).
-  static final sealedCerts = <({String token, int expires})>[];
-  /// Set true during active calls to suppress connection rotation.
-  static bool callActive = false;
+  final sealedCerts = <({String token, int expires})>[];
   /// Server-confirmed message storage ACKs (message ID when server stored it).
-  static final serverAckCtrl = StreamController<String>.broadcast();
+  final serverAckCtrl = StreamController<String>.broadcast();
+
+  /// Active-call flag — global across all servers. Suppresses connection
+  /// rotation on every pool entry so a call can stay up.
+  static bool _callActive = false;
+  static bool get callActive => _callActive;
+  static set callActive(bool v) => _callActive = v;
+
+  /// Pool of per-server shared state. Keyed by canonicalized server URL
+  /// (`https://host:port`, no trailing slash, no fragment).
+  static final Map<String, _PulseSharedWs> _pool = {};
+
+  /// Optional callback fired when a brand-new pool entry is created. Used
+  /// by `pulseServerAcks` so its multiplexed stream picks up acks from
+  /// servers that come online after the first listener subscribed.
+  static void Function(_PulseSharedWs)? _onNewPoolEntry;
+
+  /// Lookup-or-create a pool entry for [serverUrl]. The empty key serves
+  /// as a backwards-compat fallback for callers that don't yet pass a
+  /// URL — they all share one anonymous entry.
+  static _PulseSharedWs forUrl(String serverUrl) {
+    final key = _canonicalize(serverUrl);
+    final existing = _pool[key];
+    if (existing != null) return existing;
+    final created = _PulseSharedWs();
+    _pool[key] = created;
+    _onNewPoolEntry?.call(created);
+    return created;
+  }
+
+  /// Returns true if ANY pool entry has an active call. Used by the
+  /// connection-rotation timer which doesn't know per-call URLs.
+  static bool anyChannelHealthy() {
+    for (final s in _pool.values) {
+      if (s.serverHealthy && s.channel != null) return true;
+    }
+    return false;
+  }
+
+  static String _canonicalize(String serverUrl) {
+    if (serverUrl.isEmpty) return '';
+    var s = serverUrl.trim();
+    final hash = s.indexOf('#');
+    if (hash != -1) s = s.substring(0, hash);
+    if (s.endsWith('/')) s = s.substring(0, s.length - 1);
+    return s.toLowerCase();
+  }
 }
 
 /// Public API: suppress Pulse connection rotation during active calls.
 void setPulseCallActive(bool active) => _PulseSharedWs.callActive = active;
+
+/// Public API: poll the per-server pool entry for [serverUrl] until its
+/// reader has finished the auth handshake (PoW + auth_ok), or [timeout]
+/// elapses. Returns true if authentication completed in time.
+///
+/// Needed by callers that just opened an adhoc reader and want to send
+/// SFU control messages on the same connection — the reader's run loop
+/// completes auth asynchronously, so without an explicit wait
+/// `sendRaw` races and lands on a half-open channel ("no authenticated
+/// connection").
+Future<bool> waitForPulseAuth(String serverUrl,
+    {Duration timeout = const Duration(seconds: 15)}) async {
+  final shared = _PulseSharedWs.forUrl(serverUrl);
+  if (shared.authenticated && shared.channel != null) return true;
+  final deadline = DateTime.now().add(timeout);
+  while (DateTime.now().isBefore(deadline)) {
+    if (shared.authenticated && shared.channel != null) return true;
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+  }
+  return shared.authenticated && shared.channel != null;
+}
 
 // ── PulseInboxReader ────────────────────────────────────────────────────────
 
@@ -340,6 +411,11 @@ class PulseInboxReader implements InboxReader {
 
   /// TLS cert SHA-256 fingerprint parsed from `#suffix` in serverUrl.
   String _certFingerprint = '';
+
+  /// Per-server shared state — connection, auth, pending key fetches.
+  /// Lookup is keyed by `_serverUrl` so multiple readers (one per Pulse
+  /// server the client is participating in) don't clobber each other.
+  _PulseSharedWs get _shared => _PulseSharedWs.forUrl(_serverUrl);
 
   WebSocketChannel? _ws;
   StreamController<List<Message>> _msgCtrl =
@@ -673,7 +749,7 @@ class PulseInboxReader implements InboxReader {
   }
 
   Future<void> _runLoop() async {
-    _PulseSharedWs.readerActive = true;
+    _shared.readerActive = true;
     while (_running) {
       WebSocketChannel? channel;
       bool cycleSuccess = false;
@@ -768,17 +844,17 @@ class PulseInboxReader implements InboxReader {
                   // Store sealed sender delivery certificates
                   final sealedCerts = data['sealed_certs'];
                   if (sealedCerts is List) {
-                    _PulseSharedWs.sealedCerts.clear();
+                    _shared.sealedCerts.clear();
                     for (final c in sealedCerts) {
                       if (c is Map<String, dynamic>) {
-                        _PulseSharedWs.sealedCerts.add((
+                        _shared.sealedCerts.add((
                           token: c['token'] as String? ?? '',
                           expires: c['expires'] as int? ?? 0,
                         ));
                       }
                     }
-                    if (_PulseSharedWs.sealedCerts.isNotEmpty) {
-                      debugPrint('[Pulse] Received ${_PulseSharedWs.sealedCerts.length} sealed certs');
+                    if (_shared.sealedCerts.isNotEmpty) {
+                      debugPrint('[Pulse] Received ${_shared.sealedCerts.length} sealed certs');
                     }
                   }
 
@@ -823,9 +899,9 @@ class PulseInboxReader implements InboxReader {
                   _ws = channel;
                   // Publish to shared pool so PulseMessageSender reuses
                   // this connection instead of opening a competing one.
-                  _PulseSharedWs.channel = channel;
-                  _PulseSharedWs.authenticated = true;
-                  _PulseSharedWs.serverHealthy = true;
+                  _shared.channel = channel;
+                  _shared.authenticated = true;
+                  _shared.serverHealthy = true;
                   // Set WS channel for TURN-over-WebSocket (single connection)
                   PulseTurnProxy.setWebSocketChannel(channel);
                   if (!_isHealthy && !_healthCtrl.isClosed) {
@@ -860,7 +936,7 @@ class PulseInboxReader implements InboxReader {
                 case 'stored':
                   final storedId = data['id'] as String?;
                   if (storedId != null && storedId.isNotEmpty) {
-                    _PulseSharedWs.serverAckCtrl.add(storedId);
+                    _shared.serverAckCtrl.add(storedId);
                   }
                   _dispatchStored(data, channel);
                 case 'ack':
@@ -869,7 +945,7 @@ class PulseInboxReader implements InboxReader {
                   // Complete pending keys completer (for fetchContactKeys)
                   final kPub = data['pubkey'] as String? ?? '';
                   if (kPub.isNotEmpty) {
-                    final kc = _PulseSharedWs.pendingKeysCompleters.remove(kPub);
+                    final kc = _shared.pendingKeysCompleters.remove(kPub);
                     if (kc != null && !kc.isCompleted) {
                       final bundle = data['bundle'];
                       Map<String, dynamic>? bundleMap;
@@ -925,9 +1001,9 @@ class PulseInboxReader implements InboxReader {
         rotationTimer?.cancel();
         rotationTimer = null;
         // Only clear shared pool if WE own it (sender may have taken over)
-        if (_PulseSharedWs.channel == channel) {
-          _PulseSharedWs.channel = null;
-          _PulseSharedWs.authenticated = false;
+        if (_shared.channel == channel) {
+          _shared.channel = null;
+          _shared.authenticated = false;
           PulseTurnProxy.setWebSocketChannel(null);
         }
         // Flag unhealthy only on post-auth disconnect (a reader that was
@@ -936,7 +1012,7 @@ class PulseInboxReader implements InboxReader {
         // replaced during reconnect (Nostr probe etc.) and the new reader
         // is about to auth — flagging in that case causes the sender to
         // spuriously fall back to Session for a few seconds.
-        if (cycleSuccess) _PulseSharedWs.serverHealthy = false;
+        if (cycleSuccess) _shared.serverHealthy = false;
         _ws = null;
         try { channel?.sink.close(); } catch (_) {}
       }
@@ -1208,6 +1284,12 @@ class PulseMessageSender implements MessageSender {
   /// TLS cert SHA-256 fingerprint parsed from `#suffix` in serverUrl.
   String _certFingerprint = '';
 
+  /// Per-server shared state. Each Pulse server the client touches has
+  /// its own pool entry; the sender always borrows from the entry that
+  /// matches its `_serverUrl` so a sender configured for server-A never
+  /// reads/writes the server-B channel.
+  _PulseSharedWs get _shared => _PulseSharedWs.forUrl(_serverUrl);
+
   // Tor settings
   bool _torEnabled = false;
   String _torHost = '127.0.0.1';
@@ -1392,28 +1474,28 @@ class PulseMessageSender implements MessageSender {
     if (ws != null && _authenticated) return ws;
 
     // 2. Borrow the reader's long-lived connection (avoids duplicate auth)
-    if (_PulseSharedWs.channel != null && _PulseSharedWs.authenticated) {
-      return _PulseSharedWs.channel;
+    if (_shared.channel != null && _shared.authenticated) {
+      return _shared.channel;
     }
 
     // 2b. Reader is active — wait for it to connect+authenticate.
     //     Creating a duplicate connection would kick the reader from the hub.
     //     If the reader has already signalled the server is down, skip
     //     entirely so the caller falls back to Nostr/Session without delay.
-    if (_PulseSharedWs.readerActive) {
-      if (!_PulseSharedWs.serverHealthy) {
+    if (_shared.readerActive) {
+      if (!_shared.serverHealthy) {
         debugPrint('[Pulse/Sender] Reader reports server unhealthy — skipping Pulse');
         return null;
       }
       debugPrint('[Pulse/Sender] Waiting for reader to authenticate...');
       for (int i = 0; i < 30; i++) { // up to 3 seconds
         await Future.delayed(const Duration(milliseconds: 100));
-        if (_PulseSharedWs.authenticated && _PulseSharedWs.channel != null) {
+        if (_shared.authenticated && _shared.channel != null) {
           debugPrint('[Pulse/Sender] Reader authenticated, borrowing connection');
-          return _PulseSharedWs.channel;
+          return _shared.channel;
         }
         // Reader marked server dead mid-wait — bail early.
-        if (!_PulseSharedWs.serverHealthy) {
+        if (!_shared.serverHealthy) {
           debugPrint('[Pulse/Sender] Server marked unhealthy mid-wait — skipping');
           return null;
         }
@@ -1495,7 +1577,7 @@ class PulseMessageSender implements MessageSender {
             } else if (bundle is String) {
               try { bundleMap = jsonDecode(bundle) as Map<String, dynamic>; } catch (_) {}
             }
-            final keysCompleter = _PulseSharedWs.pendingKeysCompleters.remove(pubkey);
+            final keysCompleter = _shared.pendingKeysCompleters.remove(pubkey);
             if (keysCompleter != null && !keysCompleter.isCompleted) {
               keysCompleter.complete(bundleMap);
             }
@@ -1507,18 +1589,18 @@ class PulseMessageSender implements MessageSender {
         if (!completer.isCompleted) completer.complete(false);
         _ws = null;
         _authenticated = false;
-        for (final c in _PulseSharedWs.pendingKeysCompleters.values) {
+        for (final c in _shared.pendingKeysCompleters.values) {
           if (!c.isCompleted) c.complete(null);
         }
-        _PulseSharedWs.pendingKeysCompleters.clear();
+        _shared.pendingKeysCompleters.clear();
       }, onDone: () {
         if (!completer.isCompleted) completer.complete(false);
         _ws = null;
         _authenticated = false;
-        for (final c in _PulseSharedWs.pendingKeysCompleters.values) {
+        for (final c in _shared.pendingKeysCompleters.values) {
           if (!c.isCompleted) c.complete(null);
         }
-        _PulseSharedWs.pendingKeysCompleters.clear();
+        _shared.pendingKeysCompleters.clear();
       },
         cancelOnError: false,
       );
@@ -1548,8 +1630,8 @@ class PulseMessageSender implements MessageSender {
   /// Pop a valid (non-expired) sealed cert, or null if none available.
   ({String token, int expires})? _popSealedCert() {
     final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-    while (_PulseSharedWs.sealedCerts.isNotEmpty) {
-      final cert = _PulseSharedWs.sealedCerts.removeLast();
+    while (_shared.sealedCerts.isNotEmpty) {
+      final cert = _shared.sealedCerts.removeLast();
       if (cert.expires > now && cert.token.isNotEmpty) return cert;
     }
     return null;
@@ -1696,13 +1778,13 @@ class PulseMessageSender implements MessageSender {
 
       // Register a completer that will be resolved by the shared stream listener
       // when the server sends the keys response for this pubkey.
-      final completer = _PulseSharedWs.pendingKeysCompleters.putIfAbsent(
+      final completer = _shared.pendingKeysCompleters.putIfAbsent(
           pubkey, () => Completer<Map<String, dynamic>?>());
 
       channel.sink.add(jsonEncode({'type': 'keys_get', 'pubkey': pubkey}));
 
       Timer(const Duration(seconds: 10), () {
-        final c = _PulseSharedWs.pendingKeysCompleters.remove(pubkey);
+        final c = _shared.pendingKeysCompleters.remove(pubkey);
         if (c != null && !c.isCompleted) c.complete(null);
       });
 
@@ -1720,8 +1802,8 @@ class PulseMessageSender implements MessageSender {
       ws.sink.add(jsonMsg);
     } else {
       // Fall back to shared reader connection
-      final shared = _PulseSharedWs.channel;
-      if (shared != null && _PulseSharedWs.authenticated) {
+      final shared = _shared.channel;
+      if (shared != null && _shared.authenticated) {
         shared.sink.add(jsonMsg);
       } else {
         debugPrint('[Pulse] sendRaw: no authenticated connection');
@@ -1731,10 +1813,10 @@ class PulseMessageSender implements MessageSender {
 
   /// Clear private key from memory and close connection.
   void zeroize() {
-    for (final c in _PulseSharedWs.pendingKeysCompleters.values) {
+    for (final c in _shared.pendingKeysCompleters.values) {
       if (!c.isCompleted) c.complete(null);
     }
-    _PulseSharedWs.pendingKeysCompleters.clear();
+    _shared.pendingKeysCompleters.clear();
     for (int i = 0; i < _seed.length; i++) {
       _seed[i] = 0;
     }
@@ -1746,5 +1828,24 @@ class PulseMessageSender implements MessageSender {
   }
 }
 
-/// Stream of message IDs confirmed stored by the Pulse server.
-Stream<String> get pulseServerAcks => _PulseSharedWs.serverAckCtrl.stream;
+/// Stream of message IDs confirmed stored by ANY connected Pulse server.
+///
+/// Multiplexes the per-server `serverAckCtrl` streams from every pool
+/// entry. New pool entries added after this getter is first called are
+/// also picked up — `_PulseSharedWs._pool` is observed indirectly
+/// because [_PulseSharedWs.forUrl] calls `register` here when it
+/// inserts a fresh entry.
+StreamController<String>? _pulseServerAcksMux;
+Stream<String> get pulseServerAcks {
+  final mux = _pulseServerAcksMux ??= () {
+    final c = StreamController<String>.broadcast();
+    // Hook into current pool entries.
+    for (final s in _PulseSharedWs._pool.values) {
+      s.serverAckCtrl.stream.listen(c.add);
+    }
+    // Future entries register themselves via _PulseSharedWs.forUrl().
+    _PulseSharedWs._onNewPoolEntry = (s) => s.serverAckCtrl.stream.listen(c.add);
+    return c;
+  }();
+  return mux.stream;
+}

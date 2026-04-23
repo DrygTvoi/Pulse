@@ -688,20 +688,45 @@ class SignalBroadcaster {
         }
       }
     }
+    final selfPub = _selfPubkeyLower();
     final out = <Contact>{};
+    final seenUuids = <String>{};
+    // Pass 1 — group.members (UUID-keyed). Cross-device UUID match first,
+    // pubkey fallback via memberPubkeys[uuid].
     for (final uuid in group.members) {
+      seenUuids.add(uuid);
       final direct = byUuid[uuid];
       if (direct != null) {
         out.add(direct);
         continue;
       }
       final pub = group.memberPubkeys[uuid]?.toLowerCase();
-      if (pub != null) {
+      if (pub != null && pub != selfPub) {
         final viaPub = byPubkey[pub];
         if (viaPub != null) out.add(viaPub);
       }
     }
+    // Pass 2 — sweep memberPubkeys for entries whose UUID was NOT in
+    // group.members (creator's local roster doesn't always contain itself
+    // or every member from every device's perspective). Without this, a
+    // group whose creator forgot to add themselves to `members` causes
+    // every fan-out to silently skip the creator — sfu_invite never
+    // reaches them, the pairwise sender_key dist misses them, etc. Safe
+    // because we still skip self by pubkey and dedup against `out`.
+    for (final entry in group.memberPubkeys.entries) {
+      if (seenUuids.contains(entry.key)) continue;
+      final pub = entry.value.toLowerCase();
+      if (pub.isEmpty || pub == selfPub) continue;
+      final viaPub = byPubkey[pub];
+      if (viaPub != null) out.add(viaPub);
+    }
     return out.toList();
+  }
+
+  String _selfPubkeyLower() {
+    final selfId = _getSelfId();
+    final at = selfId.indexOf('@');
+    return (at > 0 ? selfId.substring(0, at) : selfId).toLowerCase();
   }
 
   Future<void> sendGroupEditSignal(Contact group, String msgId, String text,

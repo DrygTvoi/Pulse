@@ -63,18 +63,27 @@ func NewManager(cfg *config.MediaConfig, tcpListener net.Listener) *Manager {
 		log.Printf("[sfu] ICE-TCP mux enabled on shared listener")
 	}
 
-	// In stealth mode, restrict candidate gathering to TCP only — UDP
-	// host candidates would expose a separate UDP plane (raw DTLS-SRTP)
-	// that GFW can fingerprint independently of the TLS WebSocket. This
-	// is what makes "ICE-TCP only" actually mean what it says: paired
-	// with the TCP mux above, every ICE candidate the server publishes
-	// is reachable solely via the 443/TCP/TLS surface.
-	if cfg.Mode == "stealth" {
+	// TCP-only candidate gathering is ONLY safe when we actually have an
+	// ICE-TCP mux to receive incoming connections on. Without the mux
+	// (e.g. server is behind nginx and was started without a shared TLS
+	// listener), TCP-only would gather candidates that nothing can
+	// connect to — every ICE check times out and clients see "checking
+	// → failed" while the server side reports the same.
+	//
+	// So: if we got a tcpListener AND we're in stealth mode, lock to TCP
+	// (real GFW-safe behaviour). Otherwise fall back to default
+	// (UDP+TCP) gathering so calls work via TURNS-relayed UDP through
+	// the bundled coturn — slightly less stealthy but the alternative
+	// is no calls at all behind a reverse proxy.
+	if cfg.Mode == "stealth" && tcpListener != nil {
 		settingEngine.SetNetworkTypes([]webrtc.NetworkType{
 			webrtc.NetworkTypeTCP4,
 			webrtc.NetworkTypeTCP6,
 		})
 		log.Printf("[sfu] stealth mode — gathering TCP-only ICE candidates")
+	} else if cfg.Mode == "stealth" {
+		log.Printf("[sfu] stealth mode but no TCP mux listener — keeping " +
+			"default UDP+TCP gathering so calls reach clients via TURN")
 	}
 
 	// Allow detached data channels for performance

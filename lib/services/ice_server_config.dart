@@ -231,14 +231,15 @@ class IceServerConfig {
     for (final server in all) {
       final urls = server['urls'];
       if (urls is String) {
-        if (urls.startsWith('turns:')) result.add(server);
+        if (_isStealthRelayUrl(urls)) result.add(server);
       } else if (urls is List) {
-        final tls = urls.where((u) => u.toString().startsWith('turns:')).toList();
-        if (tls.isNotEmpty) {
-          // Preserve username/credential, replace urls with TLS-only subset
+        final stealth =
+            urls.where((u) => _isStealthRelayUrl(u.toString())).toList();
+        if (stealth.isNotEmpty) {
+          // Preserve username/credential, replace urls with stealth-only subset
           result.add({
             ...server,
-            'urls': tls.length == 1 ? tls.first as String : tls,
+            'urls': stealth.length == 1 ? stealth.first as String : stealth,
           });
         }
       }
@@ -247,6 +248,40 @@ class IceServerConfig {
     }
 
     return result;
+  }
+
+  /// Whether [url] is acceptable for stealth relay-only mode. Three cases:
+  ///
+  ///   1. `turns:` — TLS over TCP. The original GFW-safe transport.
+  ///
+  ///   2. `turn:` to a loopback address — this is the PulseTurnProxy local
+  ///      endpoint as exposed on Android. Tunnels through the same TLS
+  ///      WebSocket as chat (via 0x30 binary frames). Indistinguishable
+  ///      from `turns:` on 443 to anything observing the wire.
+  ///
+  ///   3. `turn:` URL that exactly matches the running PulseTurnProxy's
+  ///      published address — desktop builds publish the LAN IP (e.g.
+  ///      `192.168.x.y:34430`) instead of loopback so other devices on
+  ///      the LAN can use the same proxy for native WebRTC. The actual
+  ///      relay still happens through the WS tunnel; the LAN IP is just
+  ///      the local listening interface. Without this rule `loadRelay()`
+  ///      dropped these entries on Linux/Windows and SFU calls fell back
+  ///      to plaintext synthesized URLs that GFW could fingerprint.
+  static bool _isStealthRelayUrl(String url) {
+    if (url.startsWith('turns:')) return true;
+    if (!url.startsWith('turn:')) return false;
+    final host = _extractTurnHost(url);
+    if (host == '127.0.0.1' || host == 'localhost' || host == '::1') {
+      return true;
+    }
+    // PulseTurnProxy is the only legitimate plain-`turn:` we ever publish.
+    // If it's running and this URL is its address, accept it — otherwise
+    // a third-party plain-TURN entry shouldn't be allowed in stealth mode.
+    if (PulseTurnProxy.instance.isRunning) {
+      final proxyUrl = PulseTurnProxy.instance.localTurnUrl;
+      if (proxyUrl.isNotEmpty && url == proxyUrl) return true;
+    }
+    return false;
   }
 
   // ── Persistence helpers ──────────────────────────────────────────────────
