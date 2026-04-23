@@ -446,6 +446,7 @@ class SignalBroadcaster {
     final selfId = _getSelfId();
     if (identity == null || selfId.isEmpty) return;
     final memberAddresses = _buildMemberAddresses(group, allContacts);
+    final memberNames = _buildMemberNames(group, allContacts);
     await _sendSignalTo(target, 'group_invite', {
       'groupId': group.id,
       'name': group.name,
@@ -454,6 +455,7 @@ class SignalBroadcaster {
       if (group.memberPubkeys.isNotEmpty)
         'memberPubkeys': Map<String, String>.from(group.memberPubkeys),
       if (memberAddresses.isNotEmpty) 'memberAddresses': memberAddresses,
+      if (memberNames.isNotEmpty) 'memberNames': memberNames,
     });
     debugPrint('[Broadcaster] Sent group invite to ${target.name} for "${group.name}"');
   }
@@ -487,6 +489,39 @@ class SignalBroadcaster {
     return out;
   }
 
+  /// Maps each member UUID → the display name we have for that contact
+  /// locally. Lets invitees / receivers populate auto-pending member
+  /// contacts with the real name instead of the "Member <pubkey>" stub —
+  /// otherwise users in the group whose contact isn't in YOUR address book
+  /// show up as gibberish like "Member 30bb9a6e".
+  ///
+  /// Skip empty / placeholder names so we never overwrite a better local
+  /// name with our own placeholder. Self isn't included — we'd be naming
+  /// ourselves to ourselves.
+  Map<String, String> _buildMemberNames(
+      Contact group, List<Contact> allContacts) {
+    final out = <String, String>{};
+    for (final uuid in group.members) {
+      Contact? mc;
+      for (final c in allContacts) {
+        if (c.isGroup) continue;
+        if (c.id == uuid) {
+          mc = c;
+          break;
+        }
+      }
+      if (mc == null) continue;
+      final name = mc.name.trim();
+      if (name.isEmpty) continue;
+      // Skip the auto-generated "Member <pubkey>" stub — sending it would
+      // overwrite a real name on the receiving side if their ContactManager
+      // happens to have one.
+      if (RegExp(r'^Member [0-9a-f]{4,}$').hasMatch(name)) continue;
+      out[uuid] = name;
+    }
+    return out;
+  }
+
   /// Broadcast a group_update to [recipientMemberIds] if given, else to
   /// everyone currently in `group.members`. The override is needed for
   /// tombstone ("delete group") sends where the NEW payload has
@@ -499,6 +534,7 @@ class SignalBroadcaster {
     final selfId = _getSelfId();
     if (identity == null || selfId.isEmpty) return;
     final memberAddresses = _buildMemberAddresses(group, allContacts);
+    final memberNames = _buildMemberNames(group, allContacts);
     final payload = <String, dynamic>{
       'groupId': group.id,
       'name': group.name,
@@ -507,6 +543,7 @@ class SignalBroadcaster {
       if (group.memberPubkeys.isNotEmpty)
         'memberPubkeys': Map<String, String>.from(group.memberPubkeys),
       if (memberAddresses.isNotEmpty) 'memberAddresses': memberAddresses,
+      if (memberNames.isNotEmpty) 'memberNames': memberNames,
       // Caller passes the avatar only when it actually changed, so we don't
       // re-broadcast a 30 KiB blob on every membership tweak. Cap at 32 KiB
       // to keep us under nos.lol's 64 KiB Nostr-event ceiling.
@@ -690,6 +727,34 @@ class SignalBroadcaster {
 
   Future<void> sendTtlSignal(Contact contact, int seconds) =>
       _sendSignalTo(contact, 'ttl_update', {'seconds': seconds});
+
+  /// Broadcast an SFU call invite to every group member. Carries the SFU
+  /// room id + token in cleartext (HMAC-signed by the existing signal
+  /// signing layer) so receivers can join the same room. Until SFU media
+  /// metadata gets a proper E2EE wrapper this leaks "a call started in
+  /// group X" to the Pulse relay; the actual media stream over SFU is
+  /// still per-pair encrypted by Signal at the application layer above.
+  Future<void> broadcastSfuInvite(Contact group, String roomId, String token,
+      List<Contact> allContacts,
+      {bool isVideoCall = false}) async {
+    if (!group.isGroup) return;
+    final members = _resolveGroupRecipients(group, allContacts);
+    if (members.isEmpty) return;
+    final sid = _newSid();
+    // Use _sendSignalTo (single best transport) instead of _sendSignalToAll:
+    // call invites are real-time so an offline recipient isn't going to
+    // join anyway, and All-transport delivery makes every recipient ring
+    // 2-3 times (one per transport) which is the "повторные уведомления"
+    // bug the user hit. The `_sid` field lets the dispatcher dedupe in
+    // case the same invite is replayed.
+    await Future.wait(members.map((c) => _sendSignalTo(c, 'sfu_invite', {
+          '_sid': sid,
+          'groupId': group.id,
+          'sfuRoomId': roomId,
+          'sfuToken': token,
+          'isVideoCall': isVideoCall,
+        })));
+  }
 
   /// Broadcast a TTL change for a group to every member. Each member's
   /// receive-side handler applies the same TTL to their copy of the group

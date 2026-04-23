@@ -26,7 +26,12 @@ class SignalIncomingGroupCallEvent {
   final Map<String, dynamic> signal;
   final String groupId;
   final bool isVideoCall;
-  SignalIncomingGroupCallEvent(this.signal, this.groupId, {this.isVideoCall = true});
+  /// Non-null when this is an SFU-hosted call: holds the room id + access
+  /// token receivers need to join the same SFU room.
+  final String? sfuRoomId;
+  final String? sfuToken;
+  SignalIncomingGroupCallEvent(this.signal, this.groupId,
+      {this.isVideoCall = true, this.sfuRoomId, this.sfuToken});
 }
 
 /// Contact started typing (optionally in a group room).
@@ -225,10 +230,15 @@ class SignalGroupInviteEvent {
   /// know locally, so group sends don't silently drop that recipient.
   /// Empty for legacy invites pre-dating this field.
   final Map<String, Map<String, List<String>>> memberAddresses;
+  /// Per-member UUID → display name as known to the inviter. Lets receivers
+  /// label auto-pending member contacts with a real human name instead of
+  /// the "Member <pubkey>" stub. Empty for legacy invites.
+  final Map<String, String> memberNames;
   SignalGroupInviteEvent(this.fromContact, this.groupId, this.groupName, this.members,
       {this.creatorId,
       this.memberPubkeys = const {},
-      this.memberAddresses = const {}});
+      this.memberAddresses = const {},
+      this.memberNames = const {}});
 }
 
 /// Group membership change broadcast by group admin.
@@ -241,6 +251,8 @@ class SignalGroupUpdateEvent {
   final Map<String, String> memberPubkeys;
   /// See [SignalGroupInviteEvent.memberAddresses].
   final Map<String, Map<String, List<String>>> memberAddresses;
+  /// See [SignalGroupInviteEvent.memberNames].
+  final Map<String, String> memberNames;
   /// Optional base64-encoded group avatar. Empty string = no change; the
   /// receiver should keep its existing local avatar in that case.
   final String avatar;
@@ -249,6 +261,7 @@ class SignalGroupUpdateEvent {
       this.senderId = '',
       this.memberPubkeys = const {},
       this.memberAddresses = const {},
+      this.memberNames = const {},
       this.avatar = ''});
 }
 
@@ -277,6 +290,23 @@ Map<String, String> _extractMemberPubkeys(dynamic raw) {
     if (k is String && v is String && k.isNotEmpty && v.isNotEmpty) {
       out[k] = v;
     }
+  });
+  return out;
+}
+
+/// Coerce the `memberNames` field of a group signal payload into a strict
+/// `Map<UUID, String>`. Trims whitespace; drops entries with empty values
+/// or values that look like the auto-pending placeholder so a peer can't
+/// poison our address book with synthesized "Member <pubkey>" labels.
+Map<String, String> _extractMemberNames(dynamic raw) {
+  if (raw is! Map) return const {};
+  final out = <String, String>{};
+  raw.forEach((k, v) {
+    if (k is! String || k.isEmpty || v is! String) return;
+    final name = v.trim();
+    if (name.isEmpty) return;
+    if (RegExp(r'^Member [0-9a-f]{4,}$').hasMatch(name)) return;
+    out[k] = name;
   });
   return out;
 }
@@ -416,6 +446,7 @@ class SignalDispatcher {
     'profile_update',
     'group_update',
     'group_invite',
+    'sfu_invite',
     'status_update',
     'msg_delete',
     'edit',
@@ -650,7 +681,31 @@ class SignalDispatcher {
         }
 
         // ── Route by type ──────────────────────────────────────────────
-        if (sigType == 'webrtc_offer') {
+        if (sigType == 'sfu_invite') {
+          final rawPayload = sig['payload'];
+          if (rawPayload is Map) {
+            final groupId = rawPayload['groupId'] as String?;
+            final sfuRoomId = rawPayload['sfuRoomId'] as String?;
+            final sfuToken = rawPayload['sfuToken'] as String?;
+            final isVideoCall = rawPayload['isVideoCall'] as bool? ?? false;
+            if (groupId != null && sfuRoomId != null && sfuToken != null) {
+              if (!_incomingGroupCallCtrl.isClosed) {
+                _incomingGroupCallCtrl.add(SignalIncomingGroupCallEvent(
+                    {
+                      ...sig,
+                      'groupId': groupId,
+                      'isVideoCall': isVideoCall,
+                      'sfuRoomId': sfuRoomId,
+                      'sfuToken': sfuToken,
+                    },
+                    groupId,
+                    isVideoCall: isVideoCall,
+                    sfuRoomId: sfuRoomId,
+                    sfuToken: sfuToken));
+              }
+            }
+          }
+        } else if (sigType == 'webrtc_offer') {
           final rawPayload = sig['payload'];
           final groupId =
               rawPayload is Map ? rawPayload['groupId'] as String? : null;
@@ -999,6 +1054,7 @@ class SignalDispatcher {
             final memberPubkeys = _extractMemberPubkeys(payload['memberPubkeys']);
             final memberAddresses =
                 _extractMemberAddresses(payload['memberAddresses']);
+            final memberNames = _extractMemberNames(payload['memberNames']);
             // Reject avatars >32 KiB so a malicious peer can't push huge
             // payloads to inflate every member's storage.
             String avatar = '';
@@ -1013,6 +1069,7 @@ class SignalDispatcher {
                   creatorId: creatorId, senderId: sigSender,
                   memberPubkeys: memberPubkeys,
                   memberAddresses: memberAddresses,
+                  memberNames: memberNames,
                   avatar: avatar));
             }
           }
@@ -1026,6 +1083,7 @@ class SignalDispatcher {
             final memberPubkeys = _extractMemberPubkeys(payload['memberPubkeys']);
             final memberAddresses =
                 _extractMemberAddresses(payload['memberAddresses']);
+            final memberNames = _extractMemberNames(payload['memberNames']);
             final senderId = sig['senderId'] as String? ?? '';
             final inviter = _resolveContact(senderId, contactByDbId);
             if (groupId != null && rawMembers is List && rawMembers.length <= 200 && inviter != null &&
@@ -1034,7 +1092,8 @@ class SignalDispatcher {
                   inviter, groupId, groupName, rawMembers.whereType<String>().toList(),
                   creatorId: creatorId,
                   memberPubkeys: memberPubkeys,
-                  memberAddresses: memberAddresses));
+                  memberAddresses: memberAddresses,
+                  memberNames: memberNames));
             }
           }
         } else if (sigType == 'group_invite_decline') {

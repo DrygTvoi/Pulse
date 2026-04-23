@@ -51,6 +51,8 @@ import '../models/contact_repository.dart';
 // Facade services
 import '../services/message_repository.dart';
 import '../services/key_manager.dart';
+import '../services/key_derivation_service.dart';
+import '../services/recovery_key_service.dart';
 import '../services/signal_broadcaster.dart';
 import '../services/nip44_service.dart' as nip44;
 
@@ -452,23 +454,46 @@ class ChatController extends ChangeNotifier {
     if (_identity == null) return allAddresses;
 
     // Find our Nostr pubkey from any existing Nostr address in _allAddresses.
+    // CRITICAL: only accept entries whose left-of-@ part is a valid 64-hex
+    // secp256k1 pubkey. UUID-shaped IDs (`bbbcc341-…`) sometimes leak into
+    // _allAddresses when the Nostr privkey was missing at startup; copying
+    // them into the invite link makes every receiver crash on
+    // BigInt.parse("bbbcc341-…", radix: 16). One bad entry there has been
+    // killing whole conversations — silently dropping non-hex prefixes is
+    // strictly safer than blindly fanning them out across N relays.
     String? nostrPub;
     for (final addr in _allAddresses) {
       final wssIdx = addr.indexOf('@wss://');
       final wsIdx = wssIdx == -1 ? addr.indexOf('@ws://') : -1;
       final atIdx = wssIdx != -1 ? wssIdx : wsIdx;
       if (atIdx > 0) {
-        nostrPub = addr.substring(0, atIdx);
-        break;
+        final candidate = addr.substring(0, atIdx);
+        if (_isValidHexPubkey(candidate)) {
+          nostrPub = candidate;
+          break;
+        }
       }
     }
     // Nostr-primary: extract from selfId
     if (nostrPub == null && _identity!.preferredAdapter == 'nostr') {
       final atIdx = _selfId.indexOf('@');
-      if (atIdx > 0) nostrPub = _selfId.substring(0, atIdx);
+      if (atIdx > 0) {
+        final candidate = _selfId.substring(0, atIdx);
+        if (_isValidHexPubkey(candidate)) nostrPub = candidate;
+      }
     }
 
-    if (nostrPub == null) return allAddresses;
+    if (nostrPub == null) {
+      // Filter even the pass-through fallback — never include `@wss://`
+      // entries with non-hex left side.
+      return allAddresses.where((a) {
+        final wssIdx = a.indexOf('@wss://');
+        final wsIdx = wssIdx == -1 ? a.indexOf('@ws://') : -1;
+        final atIdx = wssIdx != -1 ? wssIdx : wsIdx;
+        if (atIdx <= 0) return true; // not a Nostr-shaped address, keep
+        return _isValidHexPubkey(a.substring(0, atIdx));
+      }).toList();
+    }
 
     // Build Nostr addresses for all known live relays.
     final relays = _gatherOwnNostrRelays(limit: 5);
@@ -476,13 +501,68 @@ class ChatController extends ChangeNotifier {
     for (final relay in relays) {
       result.add('$nostrPub@$relay');
     }
-    // Add non-Nostr addresses (Pulse, Session, etc.)
+    // Add non-Nostr addresses (Pulse, Session, etc.) — apply the same
+    // hex-pubkey check on Pulse-style entries (also "<pubkey>@host") so a
+    // poisoned Pulse address can't slip in via this branch either.
     for (final addr in _allAddresses) {
-      if (!addr.contains('@wss://') && !addr.contains('@ws://')) {
-        result.add(addr);
+      if (addr.contains('@wss://') || addr.contains('@ws://')) continue;
+      final atIdx = addr.indexOf('@');
+      if (atIdx > 0) {
+        final left = addr.substring(0, atIdx);
+        // Pulse pubkey is 64-hex (Ed25519) just like Nostr; Session ID is
+        // 66-hex starting with "05" and lives WITHOUT a "@host" suffix so
+        // it lands in the no-"@" branch below.
+        if (!_isValidHexPubkey(left)) continue;
       }
+      result.add(addr);
     }
     return result.isEmpty ? allAddresses : result;
+  }
+
+  /// True when [pubkey] looks like a hex-encoded 32-byte secp256k1/ed25519
+  /// public key (exactly 64 hex chars). Anything else — UUID, blank, base64,
+  /// half-substituted address — must NOT be advertised as a Nostr/Pulse
+  /// pubkey because every consumer (NIP-04 ECDH, gift-wrap, HMAC ECDH) calls
+  /// `BigInt.parse(it, radix: 16)` and crashes.
+  static bool _isValidHexPubkey(String pubkey) {
+    if (pubkey.length != 64) return false;
+    return RegExp(r'^[0-9a-fA-F]{64}$').hasMatch(pubkey);
+  }
+
+  /// Last-resort transport key recovery. Returns the hex-encoded private key
+  /// or "" if the recovery key isn't available / KDF failed.
+  ///
+  /// Re-derives the same Argon2id output the setup screen wrote on first run
+  /// and persists it back to secure storage so the next app start finds it
+  /// without a second KDF round (~2 s on a phone).
+  Future<String> _recoverTransportKey(String secureStorageKey) async {
+    try {
+      final recovery =
+          await _secureStorage.read(key: 'recovery_key') ?? '';
+      if (recovery.isEmpty || !RecoveryKeyService.isValid(recovery)) {
+        return '';
+      }
+      final password = RecoveryKeyService.normalize(recovery);
+      Uint8List bytes;
+      switch (secureStorageKey) {
+        case 'nostr_privkey':
+          bytes = await KeyDerivationService.deriveNostrKey(password);
+        case 'pulse_privkey':
+          bytes = await KeyDerivationService.derivePulseKey(password);
+        case 'session_seed':
+          bytes = await KeyDerivationService.deriveSessionSeed(password);
+        default:
+          return '';
+      }
+      final hexEncoded = hex.encode(bytes);
+      bytes.fillRange(0, bytes.length, 0);
+      await _secureStorage.write(key: secureStorageKey, value: hexEncoded);
+      debugPrint('[ChatController] Recovered $secureStorageKey from recovery_key');
+      return hexEncoded;
+    } catch (e) {
+      debugPrint('[ChatController] _recoverTransportKey($secureStorageKey) failed: $e');
+      return '';
+    }
   }
 
   /// Auto-retry timers keyed by message ID
@@ -759,7 +839,17 @@ class ChatController extends ChangeNotifier {
         }
       case 'nostr':
         providerName = 'Nostr';
-        final privkey = await _secureStorage.read(key: 'nostr_privkey') ?? '';
+        var privkey = await _secureStorage.read(key: 'nostr_privkey') ?? '';
+        // Recover from recovery_key when the secure-storage privkey has been
+        // wiped or never landed (Windows Keystore migration loss, fresh
+        // install with imported identity, etc). Without this guard we fall
+        // through to using _identity.id (a UUID) as the "pubkey", which
+        // poisons every outgoing Nostr address: invite links carry
+        // <UUID>@wss://… which BigInt.parse can't read → every sendSignal
+        // dies with FormatException and the contact effectively goes dark.
+        if (privkey.isEmpty) {
+          privkey = await _recoverTransportKey('nostr_privkey');
+        }
         final prefs = await _getPrefs();
         final relay = _identity!.adapterConfig['relay'] ??
             prefs.getString('nostr_relay') ?? _kDefaultNostrRelay;
@@ -776,7 +866,17 @@ class ChatController extends ChangeNotifier {
             return;
           }
         } else {
-          _selfId = '${_identity!.id}@$relay';
+          // Last-resort fallback: identity has no usable Nostr key and
+          // recovery failed too. Refuse to fabricate a UUID-shaped "pubkey"
+          // — it's worse than no Nostr at all because it leaks broken
+          // addresses into invite links. Bail and let the user re-import
+          // the recovery key from Settings → Security.
+          debugPrint('[ChatController] Nostr-primary identity but no privkey '
+              'and recovery_key derivation failed. Refusing to fabricate a '
+              'UUID-pubkey — Nostr disabled until recovery key is restored.');
+          _connectionStatus = ConnectionStatus.disconnected;
+          _scheduleNotify();
+          return;
         }
       case 'session':
         providerName = 'Session';
@@ -791,7 +891,10 @@ class ChatController extends ChangeNotifier {
       case 'pulse':
         providerName = 'Pulse';
         {
-          final privkey = await _secureStorage.read(key: 'pulse_privkey') ?? '';
+          var privkey = await _secureStorage.read(key: 'pulse_privkey') ?? '';
+          if (privkey.isEmpty) {
+            privkey = await _recoverTransportKey('pulse_privkey');
+          }
           final prefs = await _getPrefs();
           final serverUrl = prefs.getString('pulse_server_url') ?? '';
           final invite = prefs.getString('pulse_invite_code') ?? '';
@@ -809,7 +912,13 @@ class ChatController extends ChangeNotifier {
               return;
             }
           } else {
-            _selfId = '${_identity!.id}@$serverUrl';
+            // Same rationale as Nostr: never fabricate a UUID-pubkey.
+            debugPrint('[ChatController] Pulse-primary identity but no privkey '
+                'and recovery_key derivation failed. Refusing to use UUID — '
+                'Pulse disabled until recovery key is restored.');
+            _connectionStatus = ConnectionStatus.disconnected;
+            _scheduleNotify();
+            return;
           }
         }
       default:
@@ -1462,17 +1571,43 @@ class ChatController extends ChangeNotifier {
   /// `memberPubkeys` map propagated in group_invite / group_update.
   bool _isSenderInGroup(Contact group, Contact sender) {
     if (group.members.contains(sender.id)) return true;
-    if (group.memberPubkeys.isEmpty) return false;
-    final nostrAddrs = sender.transportAddresses['Nostr'] ?? const <String>[];
-    for (final addr in nostrAddrs) {
-      final atIdx = addr.indexOf('@');
-      final pub =
-          (atIdx > 0 ? addr.substring(0, atIdx) : addr).toLowerCase();
-      if (pub.isEmpty) continue;
+    if (group.memberPubkeys.isNotEmpty) {
+      // Build a single normalized set of all pubkeys/IDs the sender is known
+      // by — local DB id, databaseId (full and id-part), and the pubkey part
+      // of every transport address (not just Nostr). Membership is then a
+      // single set lookup against memberPubkeys.values (also normalized).
+      // Previous version only checked Nostr-transport addresses, so a member
+      // who joined via Pulse/Session never matched and group messages from
+      // them were misclassified as 1-on-1 — that's the "пишу в группу,
+      // приходит как ЛС" bug.
+      final senderIds = <String>{
+        sender.id.toLowerCase(),
+        sender.databaseId.toLowerCase(),
+        sender.databaseId.split('@').first.toLowerCase(),
+      };
+      for (final addrs in sender.transportAddresses.values) {
+        for (final addr in addrs) {
+          final atIdx = addr.indexOf('@');
+          final id = (atIdx > 0 ? addr.substring(0, atIdx) : addr).toLowerCase();
+          if (id.isNotEmpty) senderIds.add(id);
+        }
+      }
+      for (final addr in sender.alternateAddresses) {
+        final atIdx = addr.indexOf('@');
+        final id = (atIdx > 0 ? addr.substring(0, atIdx) : addr).toLowerCase();
+        if (id.isNotEmpty) senderIds.add(id);
+      }
+      senderIds.remove('');
       for (final mp in group.memberPubkeys.values) {
-        if (mp.toLowerCase() == pub) return true;
+        if (senderIds.contains(mp.toLowerCase())) return true;
       }
     }
+    debugPrint('[Group] _isSenderInGroup MISS: group=${group.id.substring(0, 8)} '
+        'sender=${sender.name} sender.id=${sender.id} '
+        'sender.dbId=${sender.databaseId} '
+        'sender.altAddrs=${sender.alternateAddresses} '
+        'group.members=${group.members} '
+        'group.memberPubkeys=${group.memberPubkeys}');
     return false;
   }
 
@@ -1684,6 +1819,16 @@ class ChatController extends ChangeNotifier {
       _keys.cacheContactKyberPk(e.contact.databaseId, e.payload);
       if (keyChanged && !_keyChangeCtrl.isClosed) {
         _keyChangeCtrl.add((contactName: e.contact.name, contactId: e.contact.databaseId));
+      }
+      if (keyChanged) {
+        // Peer's identity rotated (e.g. reinstall after wipe). Sync the new
+        // pubkey into every group's `memberPubkeys` map so subsequent
+        // group_delete tombstones, group_update broadcasts, and pairwise
+        // sender_key distributions go to the NEW identity instead of the
+        // dead old one. Without this, "delete group" silently never
+        // reaches a re-installed peer because _resolveGroupRecipients
+        // looks up by old pubkey.
+        await _refreshGroupMembershipForContact(e.contact);
       }
       if (e.contact.provider == 'Session') {
         unawaited(_keys.publishSessionKeysTo(e.contact, _selfId));
@@ -1969,7 +2114,13 @@ class ChatController extends ChangeNotifier {
       }
       _invalidateContactIndex();
       await _ensurePendingContactsForMembers(
-          mergedPubkeys, e.memberAddresses);
+          mergedPubkeys, e.memberAddresses, memberNames: e.memberNames);
+      // Promote any "Member <pubkey>" placeholders to the inviter-provided
+      // name. Only renames placeholders — never overwrites a name the user
+      // chose locally.
+      if (e.memberNames.isNotEmpty) {
+        await _promotePlaceholderNames(e.memberNames, mergedPubkeys);
+      }
       debugPrint('[Group] Membership updated for ${updated.name}: ${e.members.length} members');
       if (memberRemoved && _selfId.isNotEmpty) {
         unawaited(rotateGroupSenderKey(updated));
@@ -4083,7 +4234,16 @@ class ChatController extends ChangeNotifier {
     if (updated.isNotEmpty) {
       unawaited(LocalStorageService().saveMessagesBatch(contact.storageKey, updated));
       _scheduleNotify();
-      unawaited(_broadcaster.sendReadReceipt(contact));
+      // 1-on-1 only: a group "contact" has no transport addresses of its own
+      // (it's a routing aggregate), so sendReadReceipt(group) ends up calling
+      // _sendSignalTo with the group's UUID as recipient pubkey — which then
+      // fails on every transport ("msg_read to <gid> failed on all
+      // transports") and uselessly retries on every relay. Per-message read
+      // receipts for groups are sent via sendGroupReadReceipt from
+      // _markGroupHistoryRead → handles each sender individually.
+      if (!contact.isGroup) {
+        unawaited(_broadcaster.sendReadReceipt(contact));
+      }
     }
     // Reset incremental unread count
     if (_unreadCounts.containsKey(contact.id)) {
@@ -4644,7 +4804,11 @@ class ChatController extends ChangeNotifier {
     await _contacts.addContact(newGroup);
     _invalidateContactIndex();
     await _ensurePendingContactsForMembers(
-        invite.memberPubkeys, invite.memberAddresses);
+        invite.memberPubkeys, invite.memberAddresses,
+        memberNames: invite.memberNames);
+    if (invite.memberNames.isNotEmpty) {
+      await _promotePlaceholderNames(invite.memberNames, invite.memberPubkeys);
+    }
     debugPrint('[Group] Joined group "${invite.groupName}" via invite');
     _scheduleNotify();
   }
@@ -4659,7 +4823,8 @@ class ChatController extends ChangeNotifier {
   /// receive path in `_handleIncomingMessages`).
   Future<void> _ensurePendingContactsForMembers(
       Map<String, String> memberPubkeys,
-      Map<String, Map<String, List<String>>> memberAddresses) async {
+      Map<String, Map<String, List<String>>> memberAddresses,
+      {Map<String, String> memberNames = const {}}) async {
     if (memberPubkeys.isEmpty) return;
     final selfId = _selfId;
     final ownPubAt = selfId.indexOf('@');
@@ -4693,8 +4858,14 @@ class ChatController extends ChangeNotifier {
       // pubkey. Once the user explicitly opens a 1-on-1 chat with this
       // peer (via member tap or via a direct message arriving), the
       // pending+hidden flags get cleared in the normal accept flow.
+      //
+      // Prefer the inviter's display name for this member if they sent it
+      // (modern group_invite payload includes `memberNames`). Without it
+      // the user sees "Member 30bb9a6e" stubs in group rosters / message
+      // attribution, which the user described as "парсинг ников сломан".
       final shortPub = pub.length >= 8 ? pub.substring(0, 8) : pub;
-      final name = 'Member $shortPub';
+      final fromInviter = memberNames[uuid]?.trim() ?? '';
+      final name = fromInviter.isNotEmpty ? fromInviter : 'Member $shortPub';
       final c = await ContactManager().createPendingContact(
         senderId: pub,
         senderName: name,
@@ -4702,13 +4873,162 @@ class ChatController extends ChangeNotifier {
         transportAddresses: ta,
         isHidden: true,
       );
-      if (c != null) created++;
+      if (c != null) {
+        created++;
+        // Pre-warm a Signal session with this newly-known group member.
+        // Without this, the FIRST sender_key distribution to them dies with
+        // InvalidKeyException because there's no session yet — ratchet
+        // never establishes, and that member never sees ANY of our group
+        // messages. By fetching+buildSession upfront, the next
+        // sender_key_dist (or pairwise group payload) finds a valid
+        // session and goes through on the first try.
+        unawaited(_prewarmSignalSession(c));
+      }
     }
     if (created > 0) {
       _invalidateContactIndex();
       debugPrint('[Group] Auto-pended $created group members for pubkey routing');
     }
   }
+
+  /// When [contact]'s pubkey rotates (peer reinstalled), every group whose
+  /// `memberPubkeys` map still points at the OLD pubkey for this member
+  /// needs to be patched in-place. Otherwise `_resolveGroupRecipients`
+  /// keeps looking up the dead old pubkey, and tombstones / sender keys /
+  /// group updates silently fail to reach the new install.
+  Future<void> _refreshGroupMembershipForContact(Contact contact) async {
+    final newPub = _extractPubkeyFromContact(contact);
+    if (newPub.isEmpty) return;
+    final updated = <Contact>[];
+    for (final g in _contacts.contacts) {
+      if (!g.isGroup) continue;
+      // Did this group reference the (now stale) contact at all? Match by
+      // local UUID first, then by old pubkey value (safest detection).
+      String? mappedKey;
+      for (final entry in g.memberPubkeys.entries) {
+        if (entry.key == contact.id ||
+            entry.value.toLowerCase() == newPub.toLowerCase()) {
+          mappedKey = entry.key;
+          break;
+        }
+      }
+      if (mappedKey == null) continue;
+      final newMap = Map<String, String>.from(g.memberPubkeys);
+      final oldPub = newMap[mappedKey];
+      if (oldPub != null && oldPub.toLowerCase() == newPub.toLowerCase()) continue;
+      newMap[mappedKey] = newPub;
+      // Also make sure this member is in `members`.
+      final newMembers = List<String>.from(g.members);
+      if (!newMembers.contains(mappedKey)) newMembers.add(mappedKey);
+      final patched = g.copyWith(
+        memberPubkeys: newMap,
+        members: newMembers,
+      );
+      await _contacts.updateContact(patched);
+      updated.add(patched);
+    }
+    if (updated.isNotEmpty) {
+      _invalidateContactIndex();
+      debugPrint('[Group] Refreshed memberPubkeys for ${contact.name} '
+          'in ${updated.length} group(s) after identity rotation');
+      _scheduleNotify();
+    }
+  }
+
+  /// Replace "Member <pubkey>" placeholder names on already-existing
+  /// contacts with the human-readable name we just learned via group_invite
+  /// or group_update. Looks up each (uuid → pubkey) entry, finds the
+  /// matching local contact (by either local UUID or pubkey), and renames
+  /// it ONLY when the current name is the auto-pending placeholder so we
+  /// never trample a name the user typed in themselves.
+  Future<void> _promotePlaceholderNames(
+      Map<String, String> memberNames,
+      Map<String, String> memberPubkeys) async {
+    if (memberNames.isEmpty) return;
+    final placeholder = RegExp(r'^Member [0-9a-f]{4,}$');
+    var renamed = 0;
+    for (final entry in memberNames.entries) {
+      final uuid = entry.key;
+      final newName = entry.value.trim();
+      if (newName.isEmpty || placeholder.hasMatch(newName)) continue;
+      // Try by local UUID first, then by pubkey from the same payload —
+      // since cross-device UUIDs don't necessarily match, the pubkey
+      // path is what catches re-add'd / freshly-pended members.
+      Contact? c = _contacts.findById(uuid);
+      if (c == null) {
+        final pub = memberPubkeys[uuid]?.toLowerCase();
+        if (pub != null && pub.isNotEmpty) {
+          c = _contacts.findByPubkey(pub);
+        }
+      }
+      if (c == null) continue;
+      if (!placeholder.hasMatch(c.name)) continue; // user-set name → leave alone
+      final patched = c.copyWith(name: newName);
+      await _contacts.updateContact(patched);
+      renamed++;
+    }
+    if (renamed > 0) {
+      _invalidateContactIndex();
+      debugPrint('[Group] Promoted $renamed placeholder name(s) → real names');
+      _scheduleNotify();
+    }
+  }
+
+  /// Pull the 64-hex pubkey out of a contact's Nostr/Pulse address. Returns
+  /// "" if no recognizable hex prefix is found.
+  String _extractPubkeyFromContact(Contact c) {
+    for (final addrs in c.transportAddresses.values) {
+      for (final addr in addrs) {
+        final at = addr.indexOf('@');
+        final left = at > 0 ? addr.substring(0, at) : addr;
+        if (_hex64.hasMatch(left)) return left.toLowerCase();
+      }
+    }
+    return '';
+  }
+
+  /// Best-effort fetch of the contact's published Signal+PQC bundle and
+  /// `buildSession` so the first encryptMessage doesn't have to take the
+  /// slow lazy path (and possibly fail because the relay hasn't seen our
+  /// `#p` filter yet). Errors are swallowed — if the relay isn't reachable
+  /// right now we'll retry on the next outgoing message.
+  Future<void> _prewarmSignalSession(Contact contact) async {
+    try {
+      // Walk every transport address until we find one that returns a
+      // bundle. Nostr is checked first because it's the most common
+      // identity transport; Pulse next; Session last (already write-only
+      // and pushed via publishSessionKeysTo in the lazy path).
+      Map<String, dynamic>? bundle;
+      for (final entry in contact.transportAddresses.entries) {
+        final provider = entry.key;
+        if (provider == 'Session') continue;
+        for (final addr in entry.value) {
+          try {
+            final b = await _fetchKeysFromAddress(addr, provider);
+            if (b != null) { bundle = b; break; }
+          } catch (_) {}
+        }
+        if (bundle != null) break;
+      }
+      if (bundle == null) return;
+      await _signalService.buildSession(contact.databaseId, bundle);
+      _keys.cacheContactKyberPk(contact.databaseId, bundle);
+      debugPrint('[Group] Pre-warmed Signal session with ${contact.name}');
+    } catch (e) {
+      debugPrint('[Group] _prewarmSignalSession(${contact.name}) failed: $e');
+    }
+  }
+
+  /// Caller side of an SFU group call: after `room_create` returns a
+  /// roomId + token, push the invite to every group member so their
+  /// `incomingGroupCalls` stream fires and they see the standard accept/
+  /// decline dialog.
+  Future<void> broadcastSfuCallInvite(
+      Contact group, String roomId, String token,
+      {bool isVideoCall = false}) =>
+      _broadcaster.broadcastSfuInvite(
+          group, roomId, token, _contacts.contacts,
+          isVideoCall: isVideoCall);
 
   /// Broadcast a group's metadata to every member. Optionally include an
   /// `avatar` blob (base64) — it's only sent when actually changed so the
