@@ -794,6 +794,38 @@ bool _isValidRelayUrl(String url) {
 
 // ─── InboxReader ─────────────────────────────────────────
 
+/// In-memory queue of gift wraps that arrived while the previous reader
+/// was already closed. Keyed by recipient pubkey (lower-case hex). When a
+/// new reader for the same pubkey calls [initializeReader], it drains
+/// this queue and re-dispatches the events into its fresh controllers.
+///
+/// Without this, momentary reader churn (relay failover, primary swap,
+/// connection cycle) loses any event that landed in the half-second gap
+/// between "old reader closing" and "new reader subscribing", because
+/// most relays don't replay an EVENT a client has already been sent
+/// once.
+class _NostrPendingGiftWraps {
+  static final Map<String, List<Map<String, dynamic>>> _byPubkey = {};
+  static const _kMaxPerPubkey = 64;
+
+  static void enqueue(String pubkeyHex, Map<String, dynamic> gw) {
+    if (pubkeyHex.isEmpty) return;
+    final key = pubkeyHex.toLowerCase();
+    final list = _byPubkey.putIfAbsent(key, () => <Map<String, dynamic>>[]);
+    list.add(gw);
+    // Cap to avoid unbounded growth if a reader never comes back.
+    if (list.length > _kMaxPerPubkey) {
+      list.removeRange(0, list.length - _kMaxPerPubkey);
+    }
+  }
+
+  static List<Map<String, dynamic>> drain(String pubkeyHex) {
+    if (pubkeyHex.isEmpty) return const [];
+    final list = _byPubkey.remove(pubkeyHex.toLowerCase());
+    return list ?? const [];
+  }
+}
+
 class NostrInboxReader implements InboxReader {
   String _privateKeyHex = '';
   String _publicKeyHex = '';
@@ -871,6 +903,21 @@ class NostrInboxReader implements InboxReader {
         debugPrint('[Nostr] Failed to derive pubkey from privkey: $e');
       }
     }
+
+    // Replay any gift wraps that arrived after the previous reader for
+    // this pubkey closed but before we got here — see
+    // _NostrPendingGiftWraps for the why. Run after the controllers are
+    // listened-to, so the dispatch actually lands somewhere.
+    Future<void>.delayed(Duration.zero, () {
+      if (_publicKeyHex.isEmpty || _closed) return;
+      final pending = _NostrPendingGiftWraps.drain(_publicKeyHex);
+      if (pending.isEmpty) return;
+      debugPrint('[Nostr] Replaying ${pending.length} buffered gift wrap(s) '
+          'for ${_publicKeyHex.substring(0, 8)}…');
+      for (final gw in pending) {
+        unawaited(_dispatchGiftWrap(gw));
+      }
+    });
 
     // Load Tor, I2P, and custom proxy settings
     final prefs = await _getPrefs();
@@ -1583,13 +1630,16 @@ class NostrInboxReader implements InboxReader {
         delivered = false;
       }
       // Track seenId only when the event reached a live listener. If no
-      // listener (reader closed or subscription cancelled), let the next
-      // reader re-receive and deliver it; the outer-id dedup on that
-      // reader's _seenIds (populated freshly at init) will not fire, and
-      // the inner event is replayed to the active subscription.
+      // listener (reader closed or subscription cancelled), stash the
+      // gift wrap so the next reader for this pubkey can replay it on
+      // init — relays often don't re-send EVENTs they've already
+      // delivered once, so the previous "rely on relay re-delivery"
+      // strategy silently lost messages during reader churn.
       if (delivered && innerId.isNotEmpty) _trackSeenId(innerId);
       if (!delivered && _closed) {
-        debugPrint('[Nostr] Gift Wrap: reader closed, dispatch dropped for $wrapId — new reader will redeliver');
+        _NostrPendingGiftWraps.enqueue(_publicKeyHex, event);
+        debugPrint('[Nostr] Gift Wrap: reader closed for $wrapId — '
+            'queued for next reader to replay (queue size now ${_NostrPendingGiftWraps._byPubkey[_publicKeyHex.toLowerCase()]?.length ?? 0})');
       }
     } catch (e) {
       debugPrint('[Nostr] Gift Wrap dispatch error for $wrapId: $e');
@@ -2149,17 +2199,18 @@ class NostrMessageSender implements MessageSender {
       // Retry once on same relay (pool entry was evicted on timeout, fresh WS).
       debugPrint('[Nostr] sendMessage: first attempt failed, retrying $relay');
       if (await _publishEvent(event, relay)) return true;
-      // Fallback: publish to own relay if target relay failed (rate-limited, down, etc.)
-      if (relay != _relayUrl) {
-        debugPrint('[Nostr] sendMessage: target relay failed, trying own relay $_relayUrl');
-        if (await _publishEvent(event, _relayUrl)) return true;
-      }
-      // Fallback: try all known relays (skip already tried)
-      final tried = <String>{relay, _relayUrl};
-      final fallbacks = await gatherKnownRelays(_relayUrl);
-      for (final fb in fallbacks) {
+      // Don't fall back to OUR primary relay — recipient is almost certainly
+      // not subscribed there, we'd just be writing to our own inbox-of-the-
+      // void. Fall back instead to the recipient's OTHER announced relays
+      // (anything they put in their addr_update beyond the primary), which
+      // we know for a fact they're listening on.
+      final tried = <String>{relay};
+      final altRelaysForRecipient =
+          _alternateRelaysForRecipient(recipientPubkey);
+      for (final fb in altRelaysForRecipient) {
         if (tried.contains(fb)) continue;
-        debugPrint('[Nostr] sendMessage: trying fallback relay $fb');
+        tried.add(fb);
+        debugPrint('[Nostr] sendMessage: trying recipient alt relay $fb');
         if (await _publishEvent(event, fb)) return true;
       }
       return false;
@@ -2167,6 +2218,45 @@ class NostrMessageSender implements MessageSender {
       debugPrint('[Nostr] sendMessage error: $e');
       return false;
     }
+  }
+
+  /// Pull every Nostr relay the recipient is reachable on from the local
+  /// contact roster. A contact's `transportAddresses['Nostr']` lists
+  /// `<pubkey>@<relay>` entries — one per relay they've published in
+  /// addr_update. Iterating these (instead of falling back to the
+  /// SENDER's own primary) means a delivery retry actually reaches a
+  /// relay the recipient is subscribed to.
+  List<String> _alternateRelaysForRecipient(String recipientPubkey) {
+    try {
+      final ctrl = ChatController();
+      for (final c in ctrl.contacts.contacts) {
+        if (c.isGroup) continue;
+        final nostrAddrs = c.transportAddresses['Nostr'] ?? const <String>[];
+        // Match by pubkey (case-insensitive). One contact owns one pubkey
+        // across all their relays, so this finds the right roster entry.
+        var matches = false;
+        for (final addr in nostrAddrs) {
+          final at = addr.indexOf('@');
+          final pub = at > 0 ? addr.substring(0, at) : addr;
+          if (pub.toLowerCase() == recipientPubkey.toLowerCase()) {
+            matches = true; break;
+          }
+        }
+        if (!matches) continue;
+        final out = <String>[];
+        for (final addr in nostrAddrs) {
+          final at = addr.indexOf('@');
+          if (at <= 0) continue;
+          final r = addr.substring(at + 1);
+          if (r.isEmpty || !_isValidRelayUrl(r)) continue;
+          if (!out.contains(r)) out.add(r);
+        }
+        return out;
+      }
+    } catch (e) {
+      debugPrint('[Nostr] _alternateRelaysForRecipient error: $e');
+    }
+    return const [];
   }
 
   @override
@@ -2235,17 +2325,16 @@ class NostrMessageSender implements MessageSender {
         innerTags: [['p', recipientPubkey]],
       );
       if (await _publishEvent(event, relay)) return true;
-      // Fallback: publish to own relay if target relay failed (rate-limited, down, etc.)
-      if (relay != _relayUrl) {
-        debugPrint('[Nostr] sendSignal: target relay failed, trying own relay $_relayUrl');
-        if (await _publishEvent(event, _relayUrl)) return true;
-      }
-      // Fallback: try all known relays (skip already tried)
-      final tried = <String>{relay, _relayUrl};
-      final fallbacks = await gatherKnownRelays(_relayUrl);
-      for (final fb in fallbacks) {
+      // Don't fall back to OUR primary relay — recipient is almost
+      // certainly not subscribed there. Iterate over the recipient's
+      // OTHER announced Nostr relays so the retry actually reaches them.
+      final tried = <String>{relay};
+      final altRelaysForRecipient =
+          _alternateRelaysForRecipient(recipientPubkey);
+      for (final fb in altRelaysForRecipient) {
         if (tried.contains(fb)) continue;
-        debugPrint('[Nostr] sendSignal: trying fallback relay $fb');
+        tried.add(fb);
+        debugPrint('[Nostr] sendSignal: trying recipient alt relay $fb');
         if (await _publishEvent(event, fb)) return true;
       }
       return false;
