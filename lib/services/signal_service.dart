@@ -597,6 +597,21 @@ class SignalService {
         _rapidKeyChangeCtrl.add('Rapid identity key change detected for $remoteId');
       }
       _lastKeyChange[remoteId] = now;
+
+      // Peer's identity key rotated — wipe the old session before building
+      // a new one. Without this, processPreKeyBundle layers a fresh session
+      // ON TOP OF the stored UntrustedIdentity / stale chain, and the very
+      // next encryptMessage explodes with InvalidKeyException ("rebuilding
+      // session" loops forever). This commonly happens when a peer reinstalls
+      // (Windows wipe + re-setup) — their fresh recovery_key derives a brand
+      // new Argon2id-seeded keypair, but our store still has their previous
+      // identity bound to this databaseId.
+      try {
+        await _store.deleteAllSessions(remoteId);
+        debugPrint('[Signal] Identity rotated for $remoteId — old sessions wiped');
+      } catch (e) {
+        debugPrint('[Signal] Failed to wipe old sessions on key rotation: $e');
+      }
     }
 
     final sessionBuilder = SessionBuilder(_store, _store, _store, _store, remoteAddress);

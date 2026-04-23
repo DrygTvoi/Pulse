@@ -2183,6 +2183,19 @@ class NostrMessageSender implements MessageSender {
     final recipientPubkey = parts[0];
     final rawRelayS = parts.length > 1 ? parts.sublist(1).join('@') : '';
     final relay = (rawRelayS.isNotEmpty && _isValidRelayUrl(rawRelayS)) ? rawRelayS : _relayUrl;
+    // Hard bail-out before anything that calls BigInt.parse(it, radix: 16):
+    // a poisoned contact entry like `bbbcc341-…@wss://nostr.mom` (UUID in the
+    // pubkey slot) used to retry across every fallback relay (5×) and spam
+    // the log with FormatException — without ever delivering anything. Dropping
+    // immediately surfaces the real problem (a broken contact address) and
+    // lets the broadcaster move on to other transports for the same signal.
+    if (recipientPubkey.length != 64 ||
+        !RegExp(r'^[0-9a-fA-F]{64}$').hasMatch(recipientPubkey)) {
+      debugPrint('[Nostr] sendSignal: refusing non-hex pubkey '
+          '"${recipientPubkey.length > 16 ? "${recipientPubkey.substring(0, 16)}…" : recipientPubkey}" '
+          '(length=${recipientPubkey.length}) — contact has a corrupt Nostr address');
+      return false;
+    }
     debugPrint('[Nostr] sendSignal: type=$type recipient=${recipientPubkey.substring(0, 8)}… relay=$relay');
 
     // Signal key bundle (sys_keys): must use real key (kind 10009, replaceable by pubkey).
