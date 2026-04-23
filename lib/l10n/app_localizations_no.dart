@@ -3146,9 +3146,42 @@ class AppLocalizationsNo extends AppLocalizations {
   String get groupInviteLinkJoin => 'Bli med';
 
   @override
-  String get drawerJoinGroupByLink => 'Bli med i gruppen via lenke';
+  String get drawerCreateGroup => 'Opprett gruppe';
+
+  @override
+  String get drawerJoinGroup => 'Bli med i gruppe';
 
   @override
   String get drawerJoinGroupByLinkInvalid =>
       'Det ser ikke ut som en Pulse-invitasjonslenke';
+
+  @override
+  String get groupModeMeshTitle => 'Vanlig';
+
+  @override
+  String groupModeMeshSubtitle(int n) {
+    return 'Ingen tjener, opptil $n personer';
+  }
+
+  @override
+  String get groupModeSfuTitle => 'Med Pulse-tjener';
+
+  @override
+  String groupModeSfuSubtitle(int n) {
+    return 'Via tjener, opptil $n personer';
+  }
+
+  @override
+  String get groupPulseServerHint => 'https://din-pulse-tjener';
+
+  @override
+  String get groupPulseServerClosed => 'Lukket tjener (krever invitasjonskode)';
+
+  @override
+  String get groupPulseInviteHint => 'Invitasjonskode';
+
+  @override
+  String groupMeshLimitReached(int n) {
+    return 'Denne samtaletypen er begrenset til $n personer';
+  }
 }

@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:image/image.dart' as img;
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 import '../theme/app_theme.dart';
 import '../theme/design_tokens.dart';
@@ -13,6 +14,14 @@ import '../models/contact_repository.dart';
 import '../controllers/chat_controller.dart';
 import '../l10n/l10n_ext.dart';
 import '../widgets/avatar_widget.dart';
+
+/// Hard cap on how many people can sit in a mesh-mode group call. Each
+/// participant runs N−1 PeerConnections; CPU + uplink usage scales with
+/// this number, so we cap at 4 to keep desktop+mobile usable. SFU groups
+/// scale to ~20 thanks to the server doing the fan-out for them.
+const int kMeshGroupLimit = 4;
+const int kSfuGroupLimit = 20;
+const String _kDefaultPulseServer = 'https://duck.azxc.site:443';
 
 class CreateGroupDialog extends StatefulWidget {
   final Function(Contact group) onCreate;
@@ -25,16 +34,29 @@ class CreateGroupDialog extends StatefulWidget {
 class _CreateGroupDialogState extends State<CreateGroupDialog> {
   final _nameController = TextEditingController();
   final _searchController = TextEditingController();
+  final _serverUrlController = TextEditingController(text: _kDefaultPulseServer);
+  final _serverInviteController = TextEditingController();
   final Set<String> _selectedIds = {};
   late List<Contact> _contacts;
   Uint8List? _avatarBytes;
-  bool _step2 = false; // false = name+avatar, true = member selection
+  bool _step2 = false; // false = name+avatar+mode, true = member selection
+  String _callMode = 'mesh'; // 'mesh' (default) | 'sfu'
+  bool _serverIsClosed = false;
 
   @override
   void initState() {
     super.initState();
     _nameController.addListener(() { if (mounted) setState(() {}); });
     _searchController.addListener(() { if (mounted) setState(() {}); });
+    _serverUrlController.addListener(() { if (mounted) setState(() {}); });
+    // Pre-fill the Pulse server URL from the user's own pulse_server_url
+    // setting if they have one configured (most likely scenario for SFU).
+    SharedPreferences.getInstance().then((prefs) {
+      final saved = prefs.getString('pulse_server_url') ?? '';
+      if (saved.isNotEmpty && mounted) {
+        _serverUrlController.text = saved;
+      }
+    });
   }
 
   @override
@@ -47,8 +69,15 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
   void dispose() {
     _nameController.dispose();
     _searchController.dispose();
+    _serverUrlController.dispose();
+    _serverInviteController.dispose();
     super.dispose();
   }
+
+  int get _memberLimit =>
+      _callMode == 'mesh' ? kMeshGroupLimit - 1 : kSfuGroupLimit - 1;
+  // -1 because the creator counts toward the group total but isn't in
+  // _selectedIds (which lists OTHER members the creator picked).
 
   Future<void> _pickAvatar() async {
     final result = await FilePicker.platform.pickFiles(
@@ -66,8 +95,17 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
     if (mounted) setState(() => _avatarBytes = Uint8List.fromList(jpeg));
   }
 
+  /// True iff the user picked SFU but the server URL is empty. Disables
+  /// the Next button so we can't accidentally create a broken SFU group.
+  bool get _sfuConfigInvalid {
+    if (_callMode != 'sfu') return false;
+    final url = _serverUrlController.text.trim();
+    return !(url.startsWith('https://') || url.startsWith('http://'));
+  }
+
   void _goToStep2() {
     if (_nameController.text.trim().isEmpty) return;
+    if (_sfuConfigInvalid) return;
     setState(() => _step2 = true);
   }
 
@@ -76,8 +114,10 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
   void _submit() {
     final name = _nameController.text.trim();
     if (name.isEmpty || _selectedIds.length < 2) return;
+    if (_sfuConfigInvalid) return;
 
     final myId = context.read<ChatController>().identity?.id ?? '';
+    final isSfu = _callMode == 'sfu';
     final group = Contact(
       id: const Uuid().v4(),
       name: name,
@@ -87,6 +127,10 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
       isGroup: true,
       members: _selectedIds.toList(),
       creatorId: myId.isNotEmpty ? myId : null,
+      groupCallMode: _callMode,
+      groupServerUrl: isSfu ? _serverUrlController.text.trim() : '',
+      groupServerInvite:
+          isSfu && _serverIsClosed ? _serverInviteController.text.trim() : '',
     );
     widget.onCreate(group);
     Navigator.pop(context);
@@ -206,13 +250,23 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
             ),
             onSubmitted: (_) => _goToStep2(),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
+
+          // Call-mode picker
+          _buildCallModePicker(),
+
+          // Pulse server fields (only visible in SFU mode)
+          if (_callMode == 'sfu') ...[
+            const SizedBox(height: 12),
+            _buildPulseServerFields(),
+          ],
+          const SizedBox(height: 20),
 
           // Next button
           SizedBox(
             width: double.infinity, height: 48,
             child: FilledButton(
-              onPressed: name.isNotEmpty ? _goToStep2 : null,
+              onPressed: (name.isNotEmpty && !_sfuConfigInvalid) ? _goToStep2 : null,
               style: FilledButton.styleFrom(
                 backgroundColor: AppTheme.primary,
                 disabledBackgroundColor: AppTheme.primary.withValues(alpha: 0.3),
@@ -232,6 +286,159 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
           ),
         ],
       ),
+    );
+  }
+
+  /// Two-option segmented control: 🌐 Mesh ⚡ SFU. Each tile shows a short
+  /// description so the user understands the trade-off without leaving the
+  /// dialog (mesh = no server / small group, sfu = server / bigger group).
+  Widget _buildCallModePicker() {
+    return Row(
+      children: [
+        Expanded(child: _modeTile(
+          mode: 'mesh',
+          icon: Icons.public_rounded,
+          title: context.l10n.groupModeMeshTitle,
+          subtitle: context.l10n.groupModeMeshSubtitle(kMeshGroupLimit),
+        )),
+        const SizedBox(width: 8),
+        Expanded(child: _modeTile(
+          mode: 'sfu',
+          icon: Icons.bolt_rounded,
+          title: context.l10n.groupModeSfuTitle,
+          subtitle: context.l10n.groupModeSfuSubtitle(kSfuGroupLimit),
+        )),
+      ],
+    );
+  }
+
+  Widget _modeTile({
+    required String mode,
+    required IconData icon,
+    required String title,
+    required String subtitle,
+  }) {
+    final selected = _callMode == mode;
+    return InkWell(
+      onTap: () {
+        setState(() {
+          _callMode = mode;
+          // Trim selection if switching from sfu→mesh would exceed limit.
+          if (mode == 'mesh' && _selectedIds.length > _memberLimit) {
+            final keep = _selectedIds.take(_memberLimit).toSet();
+            _selectedIds
+              ..clear()
+              ..addAll(keep);
+          }
+        });
+      },
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        decoration: BoxDecoration(
+          color: selected
+              ? AppTheme.primary.withValues(alpha: 0.15)
+              : AppTheme.surfaceVariant,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: selected
+                ? AppTheme.primary
+                : AppTheme.textSecondary.withValues(alpha: 0.15),
+            width: 1.5,
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 20,
+                color: selected ? AppTheme.primary : AppTheme.textSecondary),
+            const SizedBox(height: 8),
+            Text(title,
+                style: GoogleFonts.inter(
+                    color: AppTheme.textPrimary,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700)),
+            const SizedBox(height: 2),
+            Text(subtitle,
+                style: GoogleFonts.inter(
+                    color: AppTheme.textSecondary,
+                    fontSize: 11)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPulseServerFields() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        TextField(
+          controller: _serverUrlController,
+          style: GoogleFonts.inter(color: AppTheme.textPrimary, fontSize: 13),
+          decoration: InputDecoration(
+            hintText: context.l10n.groupPulseServerHint,
+            hintStyle: GoogleFonts.inter(
+                color: AppTheme.textSecondary.withValues(alpha: 0.5), fontSize: 12),
+            prefixIcon: Icon(Icons.dns_rounded,
+                color: AppTheme.textSecondary, size: 18),
+            isDense: true,
+            filled: true,
+            fillColor: AppTheme.surfaceVariant,
+            border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide.none),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          ),
+        ),
+        const SizedBox(height: 8),
+        InkWell(
+          onTap: () => setState(() => _serverIsClosed = !_serverIsClosed),
+          borderRadius: BorderRadius.circular(8),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+            child: Row(children: [
+              SizedBox(
+                width: 18, height: 18,
+                child: Checkbox(
+                  value: _serverIsClosed,
+                  onChanged: (v) => setState(() => _serverIsClosed = v ?? false),
+                  visualDensity: VisualDensity.compact,
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(context.l10n.groupPulseServerClosed,
+                    style: GoogleFonts.inter(
+                        color: AppTheme.textPrimary, fontSize: 12)),
+              ),
+            ]),
+          ),
+        ),
+        if (_serverIsClosed) ...[
+          const SizedBox(height: 4),
+          TextField(
+            controller: _serverInviteController,
+            style: GoogleFonts.inter(color: AppTheme.textPrimary, fontSize: 13),
+            decoration: InputDecoration(
+              hintText: context.l10n.groupPulseInviteHint,
+              hintStyle: GoogleFonts.inter(
+                  color: AppTheme.textSecondary.withValues(alpha: 0.5), fontSize: 12),
+              prefixIcon: Icon(Icons.vpn_key_rounded,
+                  color: AppTheme.textSecondary, size: 18),
+              isDense: true,
+              filled: true,
+              fillColor: AppTheme.surfaceVariant,
+              border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide.none),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            ),
+          ),
+        ],
+      ],
     );
   }
 
@@ -349,11 +556,25 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
                 itemBuilder: (_, i) {
                   final c = filtered[i];
                   final selected = _selectedIds.contains(c.id);
+                  final atLimit = !selected && _selectedIds.length >= _memberLimit;
                   return InkWell(
-                    onTap: () => setState(() {
-                      if (selected) _selectedIds.remove(c.id);
-                      else _selectedIds.add(c.id);
-                    }),
+                    onTap: atLimit
+                        ? () {
+                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                              content: Text(context.l10n.groupMeshLimitReached(
+                                  _callMode == 'mesh'
+                                      ? kMeshGroupLimit
+                                      : kSfuGroupLimit)),
+                              duration: const Duration(seconds: 2),
+                            ));
+                          }
+                        : () => setState(() {
+                              if (selected) {
+                                _selectedIds.remove(c.id);
+                              } else {
+                                _selectedIds.add(c.id);
+                              }
+                            }),
                     borderRadius: BorderRadius.circular(10),
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 7),

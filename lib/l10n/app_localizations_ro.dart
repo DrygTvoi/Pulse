@@ -3165,9 +3165,43 @@ class AppLocalizationsRo extends AppLocalizations {
   String get groupInviteLinkJoin => 'Alătură-te';
 
   @override
-  String get drawerJoinGroupByLink => 'Alătură-te grupului prin link';
+  String get drawerCreateGroup => 'Creează grup';
+
+  @override
+  String get drawerJoinGroup => 'Alătură-te grupului';
 
   @override
   String get drawerJoinGroupByLinkInvalid =>
       'Acela nu pare un link de invitație Pulse';
+
+  @override
+  String get groupModeMeshTitle => 'Obișnuit';
+
+  @override
+  String groupModeMeshSubtitle(int n) {
+    return 'Fără server, până la $n persoane';
+  }
+
+  @override
+  String get groupModeSfuTitle => 'Cu server Pulse';
+
+  @override
+  String groupModeSfuSubtitle(int n) {
+    return 'Prin server, până la $n persoane';
+  }
+
+  @override
+  String get groupPulseServerHint => 'https://serverul-tau-pulse';
+
+  @override
+  String get groupPulseServerClosed =>
+      'Server închis (necesită cod de invitație)';
+
+  @override
+  String get groupPulseInviteHint => 'Cod de invitație';
+
+  @override
+  String groupMeshLimitReached(int n) {
+    return 'Acest tip de apel este limitat la $n persoane';
+  }
 }

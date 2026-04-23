@@ -3166,9 +3166,42 @@ class AppLocalizationsMy extends AppLocalizations {
   String get groupInviteLinkJoin => 'ပါဝင်';
 
   @override
-  String get drawerJoinGroupByLink => 'လင့်ခ်ဖြင့် အုပ်စုသို့ ပါဝင်ရန်';
+  String get drawerCreateGroup => 'အဖွဲ့ဖန်တီးရန်';
+
+  @override
+  String get drawerJoinGroup => 'အဖွဲ့သို့ ပါဝင်ရန်';
 
   @override
   String get drawerJoinGroupByLinkInvalid =>
       'ဤအရာသည် Pulse ဖိတ်ကြားလင့်ခ်နှင့်မတူပါ';
+
+  @override
+  String get groupModeMeshTitle => 'ပုံမှန်';
+
+  @override
+  String groupModeMeshSubtitle(int n) {
+    return 'ဆာဗာမလို၊ $n ယောက်အထိ';
+  }
+
+  @override
+  String get groupModeSfuTitle => 'Pulse ဆာဗာဖြင့်';
+
+  @override
+  String groupModeSfuSubtitle(int n) {
+    return 'ဆာဗာကတစ်ဆင့်၊ $n ယောက်အထိ';
+  }
+
+  @override
+  String get groupPulseServerHint => 'https://သင့်-pulse-ဆာဗာ';
+
+  @override
+  String get groupPulseServerClosed => 'ပိတ်ထားသော ဆာဗာ (ဖိတ်ခေါ်ကုဒ် လိုအပ်)';
+
+  @override
+  String get groupPulseInviteHint => 'ဖိတ်ခေါ်ကုဒ်';
+
+  @override
+  String groupMeshLimitReached(int n) {
+    return 'ဤခေါ်ဆိုမှု အမျိုးအစားသည် လူ $n ယောက်ဖြင့် ကန့်သတ်ထား';
+  }
 }

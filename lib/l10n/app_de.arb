@@ -934,6 +934,25 @@
   "groupInviteLinkTitle": "Gruppe beitreten?",
   "groupInviteLinkBody": "Du wurdest zu „{name}\" eingeladen ({count} Mitglieder).",
   "groupInviteLinkJoin": "Beitreten",
-  "drawerJoinGroupByLink": "Gruppe per Link beitreten",
-  "drawerJoinGroupByLinkInvalid": "Das sieht nicht wie ein Pulse-Gruppeneinladungslink aus"
+  "drawerCreateGroup": "Gruppe erstellen",
+  "@drawerCreateGroup": { "description": "Drawer entry that opens the create-group dialog (verb form, paired with drawerJoinGroup)" },
+
+  "drawerJoinGroup": "Gruppe beitreten",
+  "drawerJoinGroupByLinkInvalid": "Das sieht nicht wie ein Pulse-Gruppeneinladungslink aus",
+  "groupModeMeshTitle": "Normal",
+  "@groupModeMeshTitle": { "description": "Mesh-mode tile title in CreateGroupDialog" },
+  "groupModeMeshSubtitle": "Ohne Server, bis zu {n} Personen",
+  "@groupModeMeshSubtitle": { "description": "Mesh-mode tile subtitle (n = participant cap)", "placeholders": { "n": { "type": "int" } } },
+  "groupModeSfuTitle": "Mit Pulse-Server",
+  "@groupModeSfuTitle": { "description": "SFU-mode tile title in CreateGroupDialog" },
+  "groupModeSfuSubtitle": "Über Server, bis zu {n} Personen",
+  "@groupModeSfuSubtitle": { "description": "SFU-mode tile subtitle (n = participant cap)", "placeholders": { "n": { "type": "int" } } },
+  "groupPulseServerHint": "https://dein-pulse-server",
+  "@groupPulseServerHint": { "description": "Hint inside the Pulse server URL field" },
+  "groupPulseServerClosed": "Geschlossener Server (Einladungscode erforderlich)",
+  "@groupPulseServerClosed": { "description": "Checkbox label for closed-server toggle" },
+  "groupPulseInviteHint": "Einladungscode",
+  "@groupPulseInviteHint": { "description": "Hint inside the invite-code field for closed servers" },
+  "groupMeshLimitReached": "Dieser Anruftyp ist auf {n} Personen begrenzt",
+  "@groupMeshLimitReached": { "description": "Snackbar shown when user tries to add more members than the call type allows", "placeholders": { "n": { "type": "int" } } }
 }

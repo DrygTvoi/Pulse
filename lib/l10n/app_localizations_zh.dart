@@ -3020,8 +3020,41 @@ class AppLocalizationsZh extends AppLocalizations {
   String get groupInviteLinkJoin => '加入';
 
   @override
-  String get drawerJoinGroupByLink => '通过链接加入群组';
+  String get drawerCreateGroup => '创建群组';
+
+  @override
+  String get drawerJoinGroup => '加入群组';
 
   @override
   String get drawerJoinGroupByLinkInvalid => '这看起来不像 Pulse 邀请链接';
+
+  @override
+  String get groupModeMeshTitle => '普通';
+
+  @override
+  String groupModeMeshSubtitle(int n) {
+    return '无服务器，最多 $n 人';
+  }
+
+  @override
+  String get groupModeSfuTitle => '使用 Pulse 服务器';
+
+  @override
+  String groupModeSfuSubtitle(int n) {
+    return '通过服务器，最多 $n 人';
+  }
+
+  @override
+  String get groupPulseServerHint => 'https://你的-pulse-服务器';
+
+  @override
+  String get groupPulseServerClosed => '封闭服务器（需要邀请码）';
+
+  @override
+  String get groupPulseInviteHint => '邀请码';
+
+  @override
+  String groupMeshLimitReached(int n) {
+    return '此通话类型限制为 $n 人';
+  }
 }

@@ -3163,8 +3163,41 @@ class AppLocalizationsAz extends AppLocalizations {
   String get groupInviteLinkJoin => 'Qoşul';
 
   @override
-  String get drawerJoinGroupByLink => 'Linklə qrupa qoşul';
+  String get drawerCreateGroup => 'Qrup yarat';
+
+  @override
+  String get drawerJoinGroup => 'Qrupa qoşul';
 
   @override
   String get drawerJoinGroupByLinkInvalid => 'Bu Pulse dəvət linkinə bənzəmir';
+
+  @override
+  String get groupModeMeshTitle => 'Adi';
+
+  @override
+  String groupModeMeshSubtitle(int n) {
+    return 'Serversiz, $n nəfərə qədər';
+  }
+
+  @override
+  String get groupModeSfuTitle => 'Pulse serveri ilə';
+
+  @override
+  String groupModeSfuSubtitle(int n) {
+    return 'Server vasitəsilə, $n nəfərə qədər';
+  }
+
+  @override
+  String get groupPulseServerHint => 'https://sizin-pulse-serveriniz';
+
+  @override
+  String get groupPulseServerClosed => 'Bağlı server (dəvət kodu lazımdır)';
+
+  @override
+  String get groupPulseInviteHint => 'Dəvət kodu';
+
+  @override
+  String groupMeshLimitReached(int n) {
+    return 'Bu zəng növü $n iştirakçıya qədər məhduddur';
+  }
 }

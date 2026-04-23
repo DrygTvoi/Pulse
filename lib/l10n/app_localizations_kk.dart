@@ -3160,9 +3160,42 @@ class AppLocalizationsKk extends AppLocalizations {
   String get groupInviteLinkJoin => 'Қосылу';
 
   @override
-  String get drawerJoinGroupByLink => 'Сілтеме арқылы топқа қосылу';
+  String get drawerCreateGroup => 'Топ құру';
+
+  @override
+  String get drawerJoinGroup => 'Топқа қосылу';
 
   @override
   String get drawerJoinGroupByLinkInvalid =>
       'Бұл Pulse шақыру сілтемесіне ұқсамайды';
+
+  @override
+  String get groupModeMeshTitle => 'Қарапайым';
+
+  @override
+  String groupModeMeshSubtitle(int n) {
+    return 'Серверсіз, $n адамға дейін';
+  }
+
+  @override
+  String get groupModeSfuTitle => 'Pulse серверімен';
+
+  @override
+  String groupModeSfuSubtitle(int n) {
+    return 'Сервер арқылы, $n адамға дейін';
+  }
+
+  @override
+  String get groupPulseServerHint => 'https://сіздің-pulse-серверіңіз';
+
+  @override
+  String get groupPulseServerClosed => 'Жабық сервер (шақыру коды қажет)';
+
+  @override
+  String get groupPulseInviteHint => 'Шақыру коды';
+
+  @override
+  String groupMeshLimitReached(int n) {
+    return 'Бұл қоңырау түрі $n қатысушымен шектелген';
+  }
 }

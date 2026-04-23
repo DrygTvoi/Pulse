@@ -3197,9 +3197,43 @@ class AppLocalizationsCa extends AppLocalizations {
   String get groupInviteLinkJoin => 'Unir-se';
 
   @override
-  String get drawerJoinGroupByLink => 'Unir-te al grup per enllaç';
+  String get drawerCreateGroup => 'Crea un grup';
+
+  @override
+  String get drawerJoinGroup => 'Uneix-te a un grup';
 
   @override
   String get drawerJoinGroupByLinkInvalid =>
       'Això no sembla un enllaç d\'invitació de Pulse';
+
+  @override
+  String get groupModeMeshTitle => 'Normal';
+
+  @override
+  String groupModeMeshSubtitle(int n) {
+    return 'Sense servidor, fins a $n persones';
+  }
+
+  @override
+  String get groupModeSfuTitle => 'Amb servidor Pulse';
+
+  @override
+  String groupModeSfuSubtitle(int n) {
+    return 'A través del servidor, fins a $n persones';
+  }
+
+  @override
+  String get groupPulseServerHint => 'https://el-teu-servidor-pulse';
+
+  @override
+  String get groupPulseServerClosed =>
+      'Servidor tancat (requereix codi d\'invitació)';
+
+  @override
+  String get groupPulseInviteHint => 'Codi d\'invitació';
+
+  @override
+  String groupMeshLimitReached(int n) {
+    return 'Aquest tipus de trucada està limitat a $n persones';
+  }
 }

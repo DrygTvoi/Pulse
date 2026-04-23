@@ -3139,9 +3139,42 @@ class AppLocalizationsVi extends AppLocalizations {
   String get groupInviteLinkJoin => 'Tham gia';
 
   @override
-  String get drawerJoinGroupByLink => 'Tham gia nhóm qua liên kết';
+  String get drawerCreateGroup => 'Tạo nhóm';
+
+  @override
+  String get drawerJoinGroup => 'Tham gia nhóm';
 
   @override
   String get drawerJoinGroupByLinkInvalid =>
       'Đây không giống liên kết mời Pulse';
+
+  @override
+  String get groupModeMeshTitle => 'Thông thường';
+
+  @override
+  String groupModeMeshSubtitle(int n) {
+    return 'Không cần máy chủ, tối đa $n người';
+  }
+
+  @override
+  String get groupModeSfuTitle => 'Với máy chủ Pulse';
+
+  @override
+  String groupModeSfuSubtitle(int n) {
+    return 'Qua máy chủ, tối đa $n người';
+  }
+
+  @override
+  String get groupPulseServerHint => 'https://may-chu-pulse-cua-ban';
+
+  @override
+  String get groupPulseServerClosed => 'Máy chủ đóng (cần mã mời)';
+
+  @override
+  String get groupPulseInviteHint => 'Mã mời';
+
+  @override
+  String groupMeshLimitReached(int n) {
+    return 'Loại cuộc gọi này giới hạn ở $n người';
+  }
 }

@@ -3046,8 +3046,41 @@ class AppLocalizationsJa extends AppLocalizations {
   String get groupInviteLinkJoin => '参加';
 
   @override
-  String get drawerJoinGroupByLink => 'リンクでグループに参加';
+  String get drawerCreateGroup => 'グループを作成';
+
+  @override
+  String get drawerJoinGroup => 'グループに参加';
 
   @override
   String get drawerJoinGroupByLinkInvalid => 'Pulse の招待リンクではないようです';
+
+  @override
+  String get groupModeMeshTitle => '通常';
+
+  @override
+  String groupModeMeshSubtitle(int n) {
+    return 'サーバーなし、最大 $n 人';
+  }
+
+  @override
+  String get groupModeSfuTitle => 'Pulse サーバー使用';
+
+  @override
+  String groupModeSfuSubtitle(int n) {
+    return 'サーバー経由、最大 $n 人';
+  }
+
+  @override
+  String get groupPulseServerHint => 'https://your-pulse-server';
+
+  @override
+  String get groupPulseServerClosed => '非公開サーバー（招待コードが必要）';
+
+  @override
+  String get groupPulseInviteHint => '招待コード';
+
+  @override
+  String groupMeshLimitReached(int n) {
+    return 'この通話タイプは $n 人までです';
+  }
 }

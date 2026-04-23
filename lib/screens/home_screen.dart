@@ -699,7 +699,7 @@ class _HomeScreenState extends State<HomeScreen> {
         backgroundColor: AppTheme.surface,
         shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(DesignTokens.dialogRadius)),
-        title: Text(ctx.l10n.drawerJoinGroupByLink,
+        title: Text(ctx.l10n.drawerJoinGroup,
             style: GoogleFonts.inter(
                 color: AppTheme.textPrimary, fontWeight: FontWeight.w700)),
         content: TextField(
@@ -1094,7 +1094,7 @@ class _HomeScreenState extends State<HomeScreen> {
           torBootPercent: _torBootPercent,
           torPtLabel: TorService.instance.activePtLabel,
           showNoEch: !_utlsAvailable && _torRunning,
-          onNewChat: () {
+          onAddContact: () {
             Navigator.pop(context);
             showDialog(
               context: context,
@@ -1132,16 +1132,6 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             );
           },
-          onAddContact: () {
-            Navigator.pop(context);
-            showDialog(
-              context: context,
-              builder: (_) => AddContactDialog(onAdd: (contact) async {
-                await context.read<IContactRepository>().addContact(contact);
-                _loadAll();
-              }),
-            ).then((_) => _loadAll());
-          },
           onJoinChannel: () {
             Navigator.pop(context);
             showDialog(
@@ -1149,7 +1139,7 @@ class _HomeScreenState extends State<HomeScreen> {
               builder: (_) => JoinChannelDialog(onJoined: (_) => _loadAll()),
             );
           },
-          onJoinGroupByLink: () {
+          onJoinGroup: () {
             Navigator.pop(context);
             _showJoinGroupByLinkDialog();
           },

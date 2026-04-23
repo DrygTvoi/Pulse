@@ -3141,9 +3141,42 @@ class AppLocalizationsFa extends AppLocalizations {
   String get groupInviteLinkJoin => 'پیوستن';
 
   @override
-  String get drawerJoinGroupByLink => 'پیوستن به گروه از طریق لینک';
+  String get drawerCreateGroup => 'ایجاد گروه';
+
+  @override
+  String get drawerJoinGroup => 'پیوستن به گروه';
 
   @override
   String get drawerJoinGroupByLinkInvalid =>
       'این لینک دعوت Pulse به نظر نمی‌رسد';
+
+  @override
+  String get groupModeMeshTitle => 'عادی';
+
+  @override
+  String groupModeMeshSubtitle(int n) {
+    return 'بدون سرور، حداکثر $n نفر';
+  }
+
+  @override
+  String get groupModeSfuTitle => 'با سرور Pulse';
+
+  @override
+  String groupModeSfuSubtitle(int n) {
+    return 'از طریق سرور، حداکثر $n نفر';
+  }
+
+  @override
+  String get groupPulseServerHint => 'https://سرور-pulse-شما';
+
+  @override
+  String get groupPulseServerClosed => 'سرور بسته (نیاز به کد دعوت)';
+
+  @override
+  String get groupPulseInviteHint => 'کد دعوت';
+
+  @override
+  String groupMeshLimitReached(int n) {
+    return 'این نوع تماس به $n نفر محدود است';
+  }
 }

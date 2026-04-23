@@ -456,6 +456,14 @@ class SignalBroadcaster {
         'memberPubkeys': Map<String, String>.from(group.memberPubkeys),
       if (memberAddresses.isNotEmpty) 'memberAddresses': memberAddresses,
       if (memberNames.isNotEmpty) 'memberNames': memberNames,
+      // Carry the call architecture + Pulse server endpoint so every
+      // joiner stores the same flag and routes their own calls the same
+      // way as the creator. Empty string = legacy / unspecified → readers
+      // fall back to 'sfu' for backward compat.
+      if (group.groupCallMode.isNotEmpty) 'groupCallMode': group.groupCallMode,
+      if (group.groupServerUrl.isNotEmpty) 'groupServerUrl': group.groupServerUrl,
+      if (group.groupServerInvite.isNotEmpty)
+        'groupServerInvite': group.groupServerInvite,
     });
     debugPrint('[Broadcaster] Sent group invite to ${target.name} for "${group.name}"');
   }
@@ -544,6 +552,13 @@ class SignalBroadcaster {
         'memberPubkeys': Map<String, String>.from(group.memberPubkeys),
       if (memberAddresses.isNotEmpty) 'memberAddresses': memberAddresses,
       if (memberNames.isNotEmpty) 'memberNames': memberNames,
+      // Mirror invite-side fields so a client that joined via a *link*
+      // (no group_invite signal received) still learns the call mode +
+      // Pulse server when the creator next broadcasts an update.
+      if (group.groupCallMode.isNotEmpty) 'groupCallMode': group.groupCallMode,
+      if (group.groupServerUrl.isNotEmpty) 'groupServerUrl': group.groupServerUrl,
+      if (group.groupServerInvite.isNotEmpty)
+        'groupServerInvite': group.groupServerInvite,
       // Caller passes the avatar only when it actually changed, so we don't
       // re-broadcast a 30 KiB blob on every membership tweak. Cap at 32 KiB
       // to keep us under nos.lol's 64 KiB Nostr-event ceiling.

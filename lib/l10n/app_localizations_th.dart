@@ -3126,8 +3126,41 @@ class AppLocalizationsTh extends AppLocalizations {
   String get groupInviteLinkJoin => 'เข้าร่วม';
 
   @override
-  String get drawerJoinGroupByLink => 'เข้าร่วมกลุ่มผ่านลิงก์';
+  String get drawerCreateGroup => 'สร้างกลุ่ม';
+
+  @override
+  String get drawerJoinGroup => 'เข้าร่วมกลุ่ม';
 
   @override
   String get drawerJoinGroupByLinkInvalid => 'นี่ไม่ใช่ลิงก์เชิญของ Pulse';
+
+  @override
+  String get groupModeMeshTitle => 'ปกติ';
+
+  @override
+  String groupModeMeshSubtitle(int n) {
+    return 'ไม่มีเซิร์ฟเวอร์ สูงสุด $n คน';
+  }
+
+  @override
+  String get groupModeSfuTitle => 'พร้อมเซิร์ฟเวอร์ Pulse';
+
+  @override
+  String groupModeSfuSubtitle(int n) {
+    return 'ผ่านเซิร์ฟเวอร์ สูงสุด $n คน';
+  }
+
+  @override
+  String get groupPulseServerHint => 'https://เซิร์ฟเวอร์-pulse-ของคุณ';
+
+  @override
+  String get groupPulseServerClosed => 'เซิร์ฟเวอร์ปิด (ต้องมีรหัสคำเชิญ)';
+
+  @override
+  String get groupPulseInviteHint => 'รหัสคำเชิญ';
+
+  @override
+  String groupMeshLimitReached(int n) {
+    return 'การโทรประเภทนี้จำกัดที่ $n คน';
+  }
 }

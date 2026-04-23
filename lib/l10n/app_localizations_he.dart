@@ -3111,9 +3111,42 @@ class AppLocalizationsHe extends AppLocalizations {
   String get groupInviteLinkJoin => 'הצטרף';
 
   @override
-  String get drawerJoinGroupByLink => 'הצטרפות לקבוצה באמצעות קישור';
+  String get drawerCreateGroup => 'יצירת קבוצה';
+
+  @override
+  String get drawerJoinGroup => 'הצטרפות לקבוצה';
 
   @override
   String get drawerJoinGroupByLinkInvalid =>
       'זה לא נראה כמו קישור הזמנה של Pulse';
+
+  @override
+  String get groupModeMeshTitle => 'רגיל';
+
+  @override
+  String groupModeMeshSubtitle(int n) {
+    return 'ללא שרת, עד $n אנשים';
+  }
+
+  @override
+  String get groupModeSfuTitle => 'עם שרת Pulse';
+
+  @override
+  String groupModeSfuSubtitle(int n) {
+    return 'דרך שרת, עד $n אנשים';
+  }
+
+  @override
+  String get groupPulseServerHint => 'https://שרת-pulse-שלך';
+
+  @override
+  String get groupPulseServerClosed => 'שרת סגור (דורש קוד הזמנה)';
+
+  @override
+  String get groupPulseInviteHint => 'קוד הזמנה';
+
+  @override
+  String groupMeshLimitReached(int n) {
+    return 'סוג שיחה זה מוגבל ל-$n אנשים';
+  }
 }

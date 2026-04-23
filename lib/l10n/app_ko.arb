@@ -934,6 +934,25 @@
   "groupInviteLinkTitle": "그룹에 참여하시겠어요?",
   "groupInviteLinkBody": "\"{name}\" 그룹({count}명)에 초대되었습니다.",
   "groupInviteLinkJoin": "참여",
-  "drawerJoinGroupByLink": "링크로 그룹 참여",
-  "drawerJoinGroupByLinkInvalid": "Pulse 초대 링크처럼 보이지 않습니다"
+  "drawerCreateGroup": "그룹 만들기",
+  "@drawerCreateGroup": { "description": "Drawer entry that opens the create-group dialog (verb form, paired with drawerJoinGroup)" },
+
+  "drawerJoinGroup": "그룹 참여",
+  "drawerJoinGroupByLinkInvalid": "Pulse 초대 링크처럼 보이지 않습니다",
+  "groupModeMeshTitle": "일반",
+  "@groupModeMeshTitle": { "description": "Mesh-mode tile title in CreateGroupDialog" },
+  "groupModeMeshSubtitle": "서버 없음, 최대 {n}명",
+  "@groupModeMeshSubtitle": { "description": "Mesh-mode tile subtitle (n = participant cap)", "placeholders": { "n": { "type": "int" } } },
+  "groupModeSfuTitle": "Pulse 서버 사용",
+  "@groupModeSfuTitle": { "description": "SFU-mode tile title in CreateGroupDialog" },
+  "groupModeSfuSubtitle": "서버 경유, 최대 {n}명",
+  "@groupModeSfuSubtitle": { "description": "SFU-mode tile subtitle (n = participant cap)", "placeholders": { "n": { "type": "int" } } },
+  "groupPulseServerHint": "https://your-pulse-server",
+  "@groupPulseServerHint": { "description": "Hint inside the Pulse server URL field" },
+  "groupPulseServerClosed": "비공개 서버 (초대 코드 필요)",
+  "@groupPulseServerClosed": { "description": "Checkbox label for closed-server toggle" },
+  "groupPulseInviteHint": "초대 코드",
+  "@groupPulseInviteHint": { "description": "Hint inside the invite-code field for closed servers" },
+  "groupMeshLimitReached": "이 통화 유형은 {n}명으로 제한됩니다",
+  "@groupMeshLimitReached": { "description": "Snackbar shown when user tries to add more members than the call type allows", "placeholders": { "n": { "type": "int" } } }
 }

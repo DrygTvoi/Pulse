@@ -3167,9 +3167,42 @@ class AppLocalizationsFi extends AppLocalizations {
   String get groupInviteLinkJoin => 'Liity';
 
   @override
-  String get drawerJoinGroupByLink => 'Liity ryhmään linkin kautta';
+  String get drawerCreateGroup => 'Luo ryhmä';
+
+  @override
+  String get drawerJoinGroup => 'Liity ryhmään';
 
   @override
   String get drawerJoinGroupByLinkInvalid =>
       'Tämä ei näytä Pulse-kutsulinkiltä';
+
+  @override
+  String get groupModeMeshTitle => 'Tavallinen';
+
+  @override
+  String groupModeMeshSubtitle(int n) {
+    return 'Ei palvelinta, jopa $n henkilöä';
+  }
+
+  @override
+  String get groupModeSfuTitle => 'Pulse-palvelimella';
+
+  @override
+  String groupModeSfuSubtitle(int n) {
+    return 'Palvelimen kautta, jopa $n henkilöä';
+  }
+
+  @override
+  String get groupPulseServerHint => 'https://oma-pulse-palvelin';
+
+  @override
+  String get groupPulseServerClosed => 'Suljettu palvelin (vaatii kutsukoodin)';
+
+  @override
+  String get groupPulseInviteHint => 'Kutsukoodi';
+
+  @override
+  String groupMeshLimitReached(int n) {
+    return 'Tämä puhelutyyppi on rajoitettu $n henkilöön';
+  }
 }

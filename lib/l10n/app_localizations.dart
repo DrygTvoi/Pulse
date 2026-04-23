@@ -5746,17 +5746,71 @@ abstract class AppLocalizations {
   /// **'Join'**
   String get groupInviteLinkJoin;
 
-  /// Drawer entry that opens the paste-invite-link dialog
+  /// Drawer entry that opens the create-group dialog (verb form, paired with drawerJoinGroup)
   ///
   /// In en, this message translates to:
-  /// **'Join group by link'**
-  String get drawerJoinGroupByLink;
+  /// **'Create group'**
+  String get drawerCreateGroup;
+
+  /// Drawer entry that opens the join-group-by-link dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Join group'**
+  String get drawerJoinGroup;
 
   /// Snackbar shown when pasted text is not a valid pulse://group URL
   ///
   /// In en, this message translates to:
   /// **'That doesn\'t look like a Pulse group invite link'**
   String get drawerJoinGroupByLinkInvalid;
+
+  /// Mesh-mode tile title in CreateGroupDialog
+  ///
+  /// In en, this message translates to:
+  /// **'Regular'**
+  String get groupModeMeshTitle;
+
+  /// Mesh-mode tile subtitle (n = participant cap)
+  ///
+  /// In en, this message translates to:
+  /// **'No server, up to {n} people'**
+  String groupModeMeshSubtitle(int n);
+
+  /// SFU-mode tile title in CreateGroupDialog
+  ///
+  /// In en, this message translates to:
+  /// **'With Pulse server'**
+  String get groupModeSfuTitle;
+
+  /// SFU-mode tile subtitle (n = participant cap)
+  ///
+  /// In en, this message translates to:
+  /// **'Server-relayed, up to {n} people'**
+  String groupModeSfuSubtitle(int n);
+
+  /// Hint inside the Pulse server URL field
+  ///
+  /// In en, this message translates to:
+  /// **'https://your-pulse-server'**
+  String get groupPulseServerHint;
+
+  /// Checkbox label for closed-server toggle
+  ///
+  /// In en, this message translates to:
+  /// **'Closed server (needs invite code)'**
+  String get groupPulseServerClosed;
+
+  /// Hint inside the invite-code field for closed servers
+  ///
+  /// In en, this message translates to:
+  /// **'Invite code'**
+  String get groupPulseInviteHint;
+
+  /// Snackbar shown when user tries to add more members than the call type allows
+  ///
+  /// In en, this message translates to:
+  /// **'This call type is limited to {n} people'**
+  String groupMeshLimitReached(int n);
 }
 
 class _AppLocalizationsDelegate

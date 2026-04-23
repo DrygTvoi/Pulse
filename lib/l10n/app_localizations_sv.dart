@@ -3147,9 +3147,42 @@ class AppLocalizationsSv extends AppLocalizations {
   String get groupInviteLinkJoin => 'Gå med';
 
   @override
-  String get drawerJoinGroupByLink => 'Gå med i gruppen via länk';
+  String get drawerCreateGroup => 'Skapa grupp';
+
+  @override
+  String get drawerJoinGroup => 'Gå med i grupp';
 
   @override
   String get drawerJoinGroupByLinkInvalid =>
       'Det ser inte ut som en Pulse-inbjudningslänk';
+
+  @override
+  String get groupModeMeshTitle => 'Vanlig';
+
+  @override
+  String groupModeMeshSubtitle(int n) {
+    return 'Ingen server, upp till $n personer';
+  }
+
+  @override
+  String get groupModeSfuTitle => 'Med Pulse-server';
+
+  @override
+  String groupModeSfuSubtitle(int n) {
+    return 'Via server, upp till $n personer';
+  }
+
+  @override
+  String get groupPulseServerHint => 'https://din-pulse-server';
+
+  @override
+  String get groupPulseServerClosed => 'Stängd server (kräver inbjudningskod)';
+
+  @override
+  String get groupPulseInviteHint => 'Inbjudningskod';
+
+  @override
+  String groupMeshLimitReached(int n) {
+    return 'Denna samtalstyp är begränsad till $n personer';
+  }
 }

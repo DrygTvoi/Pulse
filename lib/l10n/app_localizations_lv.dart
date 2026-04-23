@@ -3164,9 +3164,43 @@ class AppLocalizationsLv extends AppLocalizations {
   String get groupInviteLinkJoin => 'Pievienoties';
 
   @override
-  String get drawerJoinGroupByLink => 'Pievienoties grupai pa saiti';
+  String get drawerCreateGroup => 'Izveidot grupu';
+
+  @override
+  String get drawerJoinGroup => 'Pievienoties grupai';
 
   @override
   String get drawerJoinGroupByLinkInvalid =>
       'Tas neizskatās pēc Pulse uzaicinājuma saites';
+
+  @override
+  String get groupModeMeshTitle => 'Parasts';
+
+  @override
+  String groupModeMeshSubtitle(int n) {
+    return 'Bez servera, līdz $n cilvēkiem';
+  }
+
+  @override
+  String get groupModeSfuTitle => 'Ar Pulse serveri';
+
+  @override
+  String groupModeSfuSubtitle(int n) {
+    return 'Caur serveri, līdz $n cilvēkiem';
+  }
+
+  @override
+  String get groupPulseServerHint => 'https://jusu-pulse-serveris';
+
+  @override
+  String get groupPulseServerClosed =>
+      'Slēgts serveris (nepieciešams ielūguma kods)';
+
+  @override
+  String get groupPulseInviteHint => 'Ielūguma kods';
+
+  @override
+  String groupMeshLimitReached(int n) {
+    return 'Šis zvanu veids ir ierobežots līdz $n cilvēkiem';
+  }
 }

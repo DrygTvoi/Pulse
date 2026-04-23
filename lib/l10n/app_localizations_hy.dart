@@ -3166,9 +3166,42 @@ class AppLocalizationsHy extends AppLocalizations {
   String get groupInviteLinkJoin => 'Միանալ';
 
   @override
-  String get drawerJoinGroupByLink => 'Հղման միջոցով միանալ խմբին';
+  String get drawerCreateGroup => 'Ստեղծել խումբ';
+
+  @override
+  String get drawerJoinGroup => 'Միանալ խմբին';
 
   @override
   String get drawerJoinGroupByLinkInvalid =>
       'Սա չի թվում Pulse-ի հրավիրյալ հղում';
+
+  @override
+  String get groupModeMeshTitle => 'Սովորական';
+
+  @override
+  String groupModeMeshSubtitle(int n) {
+    return 'Առանց սերվերի, մինչև $n մարդ';
+  }
+
+  @override
+  String get groupModeSfuTitle => 'Pulse սերվերով';
+
+  @override
+  String groupModeSfuSubtitle(int n) {
+    return 'Սերվերի միջոցով, մինչև $n մարդ';
+  }
+
+  @override
+  String get groupPulseServerHint => 'https://dzer-pulse-server';
+
+  @override
+  String get groupPulseServerClosed => 'Փակ սերվեր (պահանջում է հրավերի կոդ)';
+
+  @override
+  String get groupPulseInviteHint => 'Հրավերի կոդ';
+
+  @override
+  String groupMeshLimitReached(int n) {
+    return 'Այս զանգի տեսակը սահմանափակված է $n մարդով';
+  }
 }

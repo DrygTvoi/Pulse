@@ -3170,9 +3170,42 @@ class AppLocalizationsHu extends AppLocalizations {
   String get groupInviteLinkJoin => 'Csatlakozás';
 
   @override
-  String get drawerJoinGroupByLink => 'Csatlakozás csoporthoz link alapján';
+  String get drawerCreateGroup => 'Csoport létrehozása';
+
+  @override
+  String get drawerJoinGroup => 'Csatlakozás csoporthoz';
 
   @override
   String get drawerJoinGroupByLinkInvalid =>
       'Ez nem tűnik Pulse meghívó linknek';
+
+  @override
+  String get groupModeMeshTitle => 'Hagyományos';
+
+  @override
+  String groupModeMeshSubtitle(int n) {
+    return 'Szerver nélkül, max. $n fő';
+  }
+
+  @override
+  String get groupModeSfuTitle => 'Pulse-szerverrel';
+
+  @override
+  String groupModeSfuSubtitle(int n) {
+    return 'Szerveren keresztül, max. $n fő';
+  }
+
+  @override
+  String get groupPulseServerHint => 'https://a-pulse-szervered';
+
+  @override
+  String get groupPulseServerClosed => 'Zárt szerver (meghívókód szükséges)';
+
+  @override
+  String get groupPulseInviteHint => 'Meghívókód';
+
+  @override
+  String groupMeshLimitReached(int n) {
+    return 'Ez a hívástípus $n főre korlátozott';
+  }
 }

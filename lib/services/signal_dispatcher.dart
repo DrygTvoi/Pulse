@@ -234,11 +234,21 @@ class SignalGroupInviteEvent {
   /// label auto-pending member contacts with a real human name instead of
   /// the "Member <pubkey>" stub. Empty for legacy invites.
   final Map<String, String> memberNames;
+  /// Group call architecture as picked by the creator: 'mesh' | 'sfu' (or
+  /// '' for legacy invites — receiver treats empty as 'sfu').
+  final String groupCallMode;
+  /// Pulse SFU server endpoint, set only when groupCallMode == 'sfu'.
+  final String groupServerUrl;
+  /// Optional invite code for closed Pulse servers.
+  final String groupServerInvite;
   SignalGroupInviteEvent(this.fromContact, this.groupId, this.groupName, this.members,
       {this.creatorId,
       this.memberPubkeys = const {},
       this.memberAddresses = const {},
-      this.memberNames = const {}});
+      this.memberNames = const {},
+      this.groupCallMode = '',
+      this.groupServerUrl = '',
+      this.groupServerInvite = ''});
 }
 
 /// Group membership change broadcast by group admin.
@@ -253,6 +263,12 @@ class SignalGroupUpdateEvent {
   final Map<String, Map<String, List<String>>> memberAddresses;
   /// See [SignalGroupInviteEvent.memberNames].
   final Map<String, String> memberNames;
+  /// See [SignalGroupInviteEvent.groupCallMode].
+  final String groupCallMode;
+  /// See [SignalGroupInviteEvent.groupServerUrl].
+  final String groupServerUrl;
+  /// See [SignalGroupInviteEvent.groupServerInvite].
+  final String groupServerInvite;
   /// Optional base64-encoded group avatar. Empty string = no change; the
   /// receiver should keep its existing local avatar in that case.
   final String avatar;
@@ -262,6 +278,9 @@ class SignalGroupUpdateEvent {
       this.memberPubkeys = const {},
       this.memberAddresses = const {},
       this.memberNames = const {},
+      this.groupCallMode = '',
+      this.groupServerUrl = '',
+      this.groupServerInvite = '',
       this.avatar = ''});
 }
 
@@ -1055,6 +1074,12 @@ class SignalDispatcher {
             final memberAddresses =
                 _extractMemberAddresses(payload['memberAddresses']);
             final memberNames = _extractMemberNames(payload['memberNames']);
+            final groupCallMode =
+                (payload['groupCallMode'] as String?)?.trim() ?? '';
+            final groupServerUrl =
+                (payload['groupServerUrl'] as String?)?.trim() ?? '';
+            final groupServerInvite =
+                (payload['groupServerInvite'] as String?)?.trim() ?? '';
             // Reject avatars >32 KiB so a malicious peer can't push huge
             // payloads to inflate every member's storage.
             String avatar = '';
@@ -1070,6 +1095,9 @@ class SignalDispatcher {
                   memberPubkeys: memberPubkeys,
                   memberAddresses: memberAddresses,
                   memberNames: memberNames,
+                  groupCallMode: groupCallMode,
+                  groupServerUrl: groupServerUrl,
+                  groupServerInvite: groupServerInvite,
                   avatar: avatar));
             }
           }
@@ -1084,6 +1112,12 @@ class SignalDispatcher {
             final memberAddresses =
                 _extractMemberAddresses(payload['memberAddresses']);
             final memberNames = _extractMemberNames(payload['memberNames']);
+            final groupCallMode =
+                (payload['groupCallMode'] as String?)?.trim() ?? '';
+            final groupServerUrl =
+                (payload['groupServerUrl'] as String?)?.trim() ?? '';
+            final groupServerInvite =
+                (payload['groupServerInvite'] as String?)?.trim() ?? '';
             final senderId = sig['senderId'] as String? ?? '';
             final inviter = _resolveContact(senderId, contactByDbId);
             if (groupId != null && rawMembers is List && rawMembers.length <= 200 && inviter != null &&
@@ -1093,7 +1127,10 @@ class SignalDispatcher {
                   creatorId: creatorId,
                   memberPubkeys: memberPubkeys,
                   memberAddresses: memberAddresses,
-                  memberNames: memberNames));
+                  memberNames: memberNames,
+                  groupCallMode: groupCallMode,
+                  groupServerUrl: groupServerUrl,
+                  groupServerInvite: groupServerInvite));
             }
           }
         } else if (sigType == 'group_invite_decline') {

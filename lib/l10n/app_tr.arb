@@ -934,6 +934,25 @@
   "groupInviteLinkTitle": "Gruba katıl?",
   "groupInviteLinkBody": "\"{name}\" grubuna davet edildiniz ({count} üye).",
   "groupInviteLinkJoin": "Katıl",
-  "drawerJoinGroupByLink": "Bağlantıyla gruba katıl",
-  "drawerJoinGroupByLinkInvalid": "Bu Pulse davet bağlantısına benzemiyor"
+  "drawerCreateGroup": "Grup oluştur",
+  "@drawerCreateGroup": { "description": "Drawer entry that opens the create-group dialog (verb form, paired with drawerJoinGroup)" },
+
+  "drawerJoinGroup": "Gruba katıl",
+  "drawerJoinGroupByLinkInvalid": "Bu Pulse davet bağlantısına benzemiyor",
+  "groupModeMeshTitle": "Normal",
+  "@groupModeMeshTitle": { "description": "Mesh-mode tile title in CreateGroupDialog" },
+  "groupModeMeshSubtitle": "Sunucusuz, en fazla {n} kişi",
+  "@groupModeMeshSubtitle": { "description": "Mesh-mode tile subtitle (n = participant cap)", "placeholders": { "n": { "type": "int" } } },
+  "groupModeSfuTitle": "Pulse sunucusuyla",
+  "@groupModeSfuTitle": { "description": "SFU-mode tile title in CreateGroupDialog" },
+  "groupModeSfuSubtitle": "Sunucu üzerinden, en fazla {n} kişi",
+  "@groupModeSfuSubtitle": { "description": "SFU-mode tile subtitle (n = participant cap)", "placeholders": { "n": { "type": "int" } } },
+  "groupPulseServerHint": "https://pulse-sunucunuz",
+  "@groupPulseServerHint": { "description": "Hint inside the Pulse server URL field" },
+  "groupPulseServerClosed": "Kapalı sunucu (davet kodu gerekir)",
+  "@groupPulseServerClosed": { "description": "Checkbox label for closed-server toggle" },
+  "groupPulseInviteHint": "Davet kodu",
+  "@groupPulseInviteHint": { "description": "Hint inside the invite-code field for closed servers" },
+  "groupMeshLimitReached": "Bu çağrı türü {n} kişi ile sınırlıdır",
+  "@groupMeshLimitReached": { "description": "Snackbar shown when user tries to add more members than the call type allows", "placeholders": { "n": { "type": "int" } } }
 }

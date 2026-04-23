@@ -3164,8 +3164,42 @@ class AppLocalizationsKa extends AppLocalizations {
   String get groupInviteLinkJoin => 'შემოერთება';
 
   @override
-  String get drawerJoinGroupByLink => 'ბმულით ჯგუფში შესვლა';
+  String get drawerCreateGroup => 'ჯგუფის შექმნა';
+
+  @override
+  String get drawerJoinGroup => 'ჯგუფში შესვლა';
 
   @override
   String get drawerJoinGroupByLinkInvalid => 'ეს არ ჰგავს Pulse მოსაწვევ ბმულს';
+
+  @override
+  String get groupModeMeshTitle => 'ჩვეულებრივი';
+
+  @override
+  String groupModeMeshSubtitle(int n) {
+    return 'სერვერის გარეშე, $n ადამიანამდე';
+  }
+
+  @override
+  String get groupModeSfuTitle => 'Pulse სერვერით';
+
+  @override
+  String groupModeSfuSubtitle(int n) {
+    return 'სერვერის გავლით, $n ადამიანამდე';
+  }
+
+  @override
+  String get groupPulseServerHint => 'https://tqveni-pulse-serveri';
+
+  @override
+  String get groupPulseServerClosed =>
+      'დახურული სერვერი (საჭიროა მოწვევის კოდი)';
+
+  @override
+  String get groupPulseInviteHint => 'მოწვევის კოდი';
+
+  @override
+  String groupMeshLimitReached(int n) {
+    return 'ამ ტიპის ზარი შეზღუდულია $n მონაწილემდე';
+  }
 }

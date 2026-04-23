@@ -3170,9 +3170,43 @@ class AppLocalizationsLt extends AppLocalizations {
   String get groupInviteLinkJoin => 'Prisijungti';
 
   @override
-  String get drawerJoinGroupByLink => 'Prisijungti prie grupės per nuorodą';
+  String get drawerCreateGroup => 'Sukurti grupę';
+
+  @override
+  String get drawerJoinGroup => 'Prisijungti prie grupės';
 
   @override
   String get drawerJoinGroupByLinkInvalid =>
       'Tai neatrodo kaip Pulse pakvietimo nuoroda';
+
+  @override
+  String get groupModeMeshTitle => 'Įprastas';
+
+  @override
+  String groupModeMeshSubtitle(int n) {
+    return 'Be serverio, iki $n žmonių';
+  }
+
+  @override
+  String get groupModeSfuTitle => 'Su Pulse serveriu';
+
+  @override
+  String groupModeSfuSubtitle(int n) {
+    return 'Per serverį, iki $n žmonių';
+  }
+
+  @override
+  String get groupPulseServerHint => 'https://jusu-pulse-serveris';
+
+  @override
+  String get groupPulseServerClosed =>
+      'Uždaras serveris (reikia pakvietimo kodo)';
+
+  @override
+  String get groupPulseInviteHint => 'Pakvietimo kodas';
+
+  @override
+  String groupMeshLimitReached(int n) {
+    return 'Šio tipo skambutis apribotas iki $n žmonių';
+  }
 }

@@ -3146,8 +3146,41 @@ class AppLocalizationsAr extends AppLocalizations {
   String get groupInviteLinkJoin => 'انضمام';
 
   @override
-  String get drawerJoinGroupByLink => 'الانضمام إلى المجموعة عبر الرابط';
+  String get drawerCreateGroup => 'إنشاء مجموعة';
+
+  @override
+  String get drawerJoinGroup => 'الانضمام إلى المجموعة';
 
   @override
   String get drawerJoinGroupByLinkInvalid => 'لا يبدو هذا رابط دعوة Pulse';
+
+  @override
+  String get groupModeMeshTitle => 'عادي';
+
+  @override
+  String groupModeMeshSubtitle(int n) {
+    return 'بدون خادم، حتى $n أشخاص';
+  }
+
+  @override
+  String get groupModeSfuTitle => 'مع خادم Pulse';
+
+  @override
+  String groupModeSfuSubtitle(int n) {
+    return 'عبر الخادم، حتى $n أشخاص';
+  }
+
+  @override
+  String get groupPulseServerHint => 'https://خادم-pulse-الخاص-بك';
+
+  @override
+  String get groupPulseServerClosed => 'خادم مغلق (يتطلب رمز دعوة)';
+
+  @override
+  String get groupPulseInviteHint => 'رمز الدعوة';
+
+  @override
+  String groupMeshLimitReached(int n) {
+    return 'هذا النوع من المكالمات محدود بـ $n أشخاص';
+  }
 }

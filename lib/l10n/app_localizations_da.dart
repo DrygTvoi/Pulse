@@ -3146,9 +3146,42 @@ class AppLocalizationsDa extends AppLocalizations {
   String get groupInviteLinkJoin => 'Deltag';
 
   @override
-  String get drawerJoinGroupByLink => 'Deltag i gruppe via link';
+  String get drawerCreateGroup => 'Opret gruppe';
+
+  @override
+  String get drawerJoinGroup => 'Tilslut gruppe';
 
   @override
   String get drawerJoinGroupByLinkInvalid =>
       'Det ligner ikke et Pulse-invitationslink';
+
+  @override
+  String get groupModeMeshTitle => 'Almindelig';
+
+  @override
+  String groupModeMeshSubtitle(int n) {
+    return 'Ingen server, op til $n personer';
+  }
+
+  @override
+  String get groupModeSfuTitle => 'Med Pulse-server';
+
+  @override
+  String groupModeSfuSubtitle(int n) {
+    return 'Via server, op til $n personer';
+  }
+
+  @override
+  String get groupPulseServerHint => 'https://din-pulse-server';
+
+  @override
+  String get groupPulseServerClosed => 'Lukket server (kræver invitationskode)';
+
+  @override
+  String get groupPulseInviteHint => 'Invitationskode';
+
+  @override
+  String groupMeshLimitReached(int n) {
+    return 'Denne opkaldstype er begrænset til $n personer';
+  }
 }

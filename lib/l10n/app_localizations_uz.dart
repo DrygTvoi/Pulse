@@ -3173,9 +3173,42 @@ class AppLocalizationsUz extends AppLocalizations {
   String get groupInviteLinkJoin => 'Qo\'shilish';
 
   @override
-  String get drawerJoinGroupByLink => 'Havola orqali guruhga qo\'shilish';
+  String get drawerCreateGroup => 'Guruh yaratish';
+
+  @override
+  String get drawerJoinGroup => 'Guruhga qo‘shilish';
 
   @override
   String get drawerJoinGroupByLinkInvalid =>
       'Bu Pulse taklif havolasiga o\'xshamaydi';
+
+  @override
+  String get groupModeMeshTitle => 'Oddiy';
+
+  @override
+  String groupModeMeshSubtitle(int n) {
+    return 'Serversiz, $n kishigacha';
+  }
+
+  @override
+  String get groupModeSfuTitle => 'Pulse serveri bilan';
+
+  @override
+  String groupModeSfuSubtitle(int n) {
+    return 'Server orqali, $n kishigacha';
+  }
+
+  @override
+  String get groupPulseServerHint => 'https://sizning-pulse-serveringiz';
+
+  @override
+  String get groupPulseServerClosed => 'Yopiq server (taklif kodi kerak)';
+
+  @override
+  String get groupPulseInviteHint => 'Taklif kodi';
+
+  @override
+  String groupMeshLimitReached(int n) {
+    return 'Bu qo‘ng‘iroq turi $n ishtirokchi bilan cheklangan';
+  }
 }

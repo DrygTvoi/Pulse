@@ -2098,11 +2098,24 @@ class ChatController extends ChangeNotifier {
       final nameChanged =
           e.groupName.isNotEmpty && e.groupName != group.name;
       final avatarChanged = e.avatar.isNotEmpty;
+      // Inherit creator's call mode + Pulse server, but only when the
+      // payload populated them — empty string in the signal means "no
+      // change", we keep whatever we already have. Lets the creator switch
+      // a group between mesh/SFU after the fact.
+      final newCallMode = e.groupCallMode.isNotEmpty
+          ? e.groupCallMode : group.groupCallMode;
+      final newServerUrl = e.groupServerUrl.isNotEmpty
+          ? e.groupServerUrl : group.groupServerUrl;
+      final newServerInvite = e.groupServerInvite.isNotEmpty
+          ? e.groupServerInvite : group.groupServerInvite;
       final updated = group.copyWith(
         name: newName,
         members: e.members,
         creatorId: group.creatorId ?? e.creatorId,
         memberPubkeys: mergedPubkeys,
+        groupCallMode: newCallMode,
+        groupServerUrl: newServerUrl,
+        groupServerInvite: newServerInvite,
       );
       await _contacts.updateContact(updated);
       if (avatarChanged) {
@@ -4800,6 +4813,9 @@ class ChatController extends ChangeNotifier {
       members: invite.members,
       creatorId: invite.creatorId,
       memberPubkeys: invite.memberPubkeys,
+      groupCallMode: invite.groupCallMode,
+      groupServerUrl: invite.groupServerUrl,
+      groupServerInvite: invite.groupServerInvite,
     );
     await _contacts.addContact(newGroup);
     _invalidateContactIndex();

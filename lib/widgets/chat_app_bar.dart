@@ -8,6 +8,7 @@ import '../models/contact.dart';
 import '../controllers/chat_controller.dart';
 import '../screens/call_screen.dart';
 import '../screens/group_call_screen.dart';
+import '../screens/sfu_call_screen.dart';
 import '../screens/media_gallery_screen.dart';
 import '../services/notification_service.dart';
 import '../widgets/avatar_widget.dart';
@@ -113,9 +114,20 @@ PreferredSizeWidget buildChatAppBar({
         icon: Icon(Icons.call_outlined, color: AppTheme.textSecondary),
         tooltip: context.l10n.appBarVoiceCall,
         onPressed: () => Navigator.push(context, MaterialPageRoute(
-          builder: (_) => contact.isGroup
-              ? GroupCallScreen(group: contact, myId: myId, isCaller: true)
-              : CallScreen(contact: contact, myId: myId, isCaller: true),
+          // Group calls split by architecture: SFU groups go through the
+          // server-relayed SfuCallScreen, mesh groups stay on the original
+          // peer-to-peer GroupCallScreen. effectiveGroupCallMode treats
+          // legacy groups (no field set) as 'sfu' so existing groups don't
+          // break — the user can switch any specific group later via group
+          // settings.
+          builder: (_) {
+            if (!contact.isGroup) {
+              return CallScreen(contact: contact, myId: myId, isCaller: true);
+            }
+            return contact.isMeshGroup
+                ? GroupCallScreen(group: contact, myId: myId, isCaller: true)
+                : SfuCallScreen(group: contact, myId: myId, isCaller: true);
+          },
         )),
       ),
       if (embedded && onToggleInfoPanel != null)

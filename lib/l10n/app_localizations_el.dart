@@ -3184,9 +3184,43 @@ class AppLocalizationsEl extends AppLocalizations {
   String get groupInviteLinkJoin => 'Συμμετοχή';
 
   @override
-  String get drawerJoinGroupByLink => 'Συμμετοχή σε ομάδα μέσω συνδέσμου';
+  String get drawerCreateGroup => 'Δημιουργία ομάδας';
+
+  @override
+  String get drawerJoinGroup => 'Συμμετοχή σε ομάδα';
 
   @override
   String get drawerJoinGroupByLinkInvalid =>
       'Αυτό δεν μοιάζει με σύνδεσμο πρόσκλησης Pulse';
+
+  @override
+  String get groupModeMeshTitle => 'Κανονικό';
+
+  @override
+  String groupModeMeshSubtitle(int n) {
+    return 'Χωρίς διακομιστή, έως $n άτομα';
+  }
+
+  @override
+  String get groupModeSfuTitle => 'Με διακομιστή Pulse';
+
+  @override
+  String groupModeSfuSubtitle(int n) {
+    return 'Μέσω διακομιστή, έως $n άτομα';
+  }
+
+  @override
+  String get groupPulseServerHint => 'https://o-diakomistis-pulse-sou';
+
+  @override
+  String get groupPulseServerClosed =>
+      'Κλειστός διακομιστής (απαιτεί κωδικό πρόσκλησης)';
+
+  @override
+  String get groupPulseInviteHint => 'Κωδικός πρόσκλησης';
+
+  @override
+  String groupMeshLimitReached(int n) {
+    return 'Αυτός ο τύπος κλήσης περιορίζεται σε $n άτομα';
+  }
 }

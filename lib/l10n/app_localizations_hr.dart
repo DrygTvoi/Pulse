@@ -3156,9 +3156,43 @@ class AppLocalizationsHr extends AppLocalizations {
   String get groupInviteLinkJoin => 'Pridruži se';
 
   @override
-  String get drawerJoinGroupByLink => 'Pridruži se grupi putem linka';
+  String get drawerCreateGroup => 'Stvori grupu';
+
+  @override
+  String get drawerJoinGroup => 'Pridruži se grupi';
 
   @override
   String get drawerJoinGroupByLinkInvalid =>
       'Ovo ne izgleda kao Pulse pozivni link';
+
+  @override
+  String get groupModeMeshTitle => 'Obična';
+
+  @override
+  String groupModeMeshSubtitle(int n) {
+    return 'Bez poslužitelja, do $n osoba';
+  }
+
+  @override
+  String get groupModeSfuTitle => 'S Pulse poslužiteljem';
+
+  @override
+  String groupModeSfuSubtitle(int n) {
+    return 'Preko poslužitelja, do $n osoba';
+  }
+
+  @override
+  String get groupPulseServerHint => 'https://vas-pulse-posluzitelj';
+
+  @override
+  String get groupPulseServerClosed =>
+      'Zatvoreni poslužitelj (potreban kod pozivnice)';
+
+  @override
+  String get groupPulseInviteHint => 'Kod pozivnice';
+
+  @override
+  String groupMeshLimitReached(int n) {
+    return 'Ova vrsta poziva ograničena je na $n osoba';
+  }
 }

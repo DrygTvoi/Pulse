@@ -3174,9 +3174,43 @@ class AppLocalizationsDe extends AppLocalizations {
   String get groupInviteLinkJoin => 'Beitreten';
 
   @override
-  String get drawerJoinGroupByLink => 'Gruppe per Link beitreten';
+  String get drawerCreateGroup => 'Gruppe erstellen';
+
+  @override
+  String get drawerJoinGroup => 'Gruppe beitreten';
 
   @override
   String get drawerJoinGroupByLinkInvalid =>
       'Das sieht nicht wie ein Pulse-Gruppeneinladungslink aus';
+
+  @override
+  String get groupModeMeshTitle => 'Normal';
+
+  @override
+  String groupModeMeshSubtitle(int n) {
+    return 'Ohne Server, bis zu $n Personen';
+  }
+
+  @override
+  String get groupModeSfuTitle => 'Mit Pulse-Server';
+
+  @override
+  String groupModeSfuSubtitle(int n) {
+    return 'Über Server, bis zu $n Personen';
+  }
+
+  @override
+  String get groupPulseServerHint => 'https://dein-pulse-server';
+
+  @override
+  String get groupPulseServerClosed =>
+      'Geschlossener Server (Einladungscode erforderlich)';
+
+  @override
+  String get groupPulseInviteHint => 'Einladungscode';
+
+  @override
+  String groupMeshLimitReached(int n) {
+    return 'Dieser Anruftyp ist auf $n Personen begrenzt';
+  }
 }

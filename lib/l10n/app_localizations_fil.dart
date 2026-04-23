@@ -3175,9 +3175,43 @@ class AppLocalizationsFil extends AppLocalizations {
   String get groupInviteLinkJoin => 'Sumali';
 
   @override
-  String get drawerJoinGroupByLink => 'Sumali sa grupo gamit ang link';
+  String get drawerCreateGroup => 'Lumikha ng grupo';
+
+  @override
+  String get drawerJoinGroup => 'Sumali sa grupo';
 
   @override
   String get drawerJoinGroupByLinkInvalid =>
       'Hindi ito mukhang Pulse invite link';
+
+  @override
+  String get groupModeMeshTitle => 'Karaniwan';
+
+  @override
+  String groupModeMeshSubtitle(int n) {
+    return 'Walang server, hanggang $n tao';
+  }
+
+  @override
+  String get groupModeSfuTitle => 'May Pulse server';
+
+  @override
+  String groupModeSfuSubtitle(int n) {
+    return 'Sa pamamagitan ng server, hanggang $n tao';
+  }
+
+  @override
+  String get groupPulseServerHint => 'https://iyong-pulse-server';
+
+  @override
+  String get groupPulseServerClosed =>
+      'Saradong server (kailangan ng code ng paanyaya)';
+
+  @override
+  String get groupPulseInviteHint => 'Code ng paanyaya';
+
+  @override
+  String groupMeshLimitReached(int n) {
+    return 'Ang uri ng tawag na ito ay limitado sa $n tao';
+  }
 }

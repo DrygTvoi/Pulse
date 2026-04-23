@@ -3127,8 +3127,42 @@ class AppLocalizationsRu extends AppLocalizations {
   String get groupInviteLinkJoin => 'Вступить';
 
   @override
-  String get drawerJoinGroupByLink => 'Вступить в группу по ссылке';
+  String get drawerCreateGroup => 'Создать группу';
+
+  @override
+  String get drawerJoinGroup => 'Вступить в группу';
 
   @override
   String get drawerJoinGroupByLinkInvalid => 'Это не ссылка-приглашение Pulse';
+
+  @override
+  String get groupModeMeshTitle => 'Обычная';
+
+  @override
+  String groupModeMeshSubtitle(int n) {
+    return 'Без сервера, до $n человек';
+  }
+
+  @override
+  String get groupModeSfuTitle => 'С Pulse-сервером';
+
+  @override
+  String groupModeSfuSubtitle(int n) {
+    return 'Через сервер, до $n человек';
+  }
+
+  @override
+  String get groupPulseServerHint => 'https://ваш-pulse-сервер';
+
+  @override
+  String get groupPulseServerClosed =>
+      'Закрытый сервер (нужен код приглашения)';
+
+  @override
+  String get groupPulseInviteHint => 'Код приглашения';
+
+  @override
+  String groupMeshLimitReached(int n) {
+    return 'Этот тип звонка ограничен $n участниками';
+  }
 }

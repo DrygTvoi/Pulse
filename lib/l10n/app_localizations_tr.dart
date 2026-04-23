@@ -3162,9 +3162,42 @@ class AppLocalizationsTr extends AppLocalizations {
   String get groupInviteLinkJoin => 'Katıl';
 
   @override
-  String get drawerJoinGroupByLink => 'Bağlantıyla gruba katıl';
+  String get drawerCreateGroup => 'Grup oluştur';
+
+  @override
+  String get drawerJoinGroup => 'Gruba katıl';
 
   @override
   String get drawerJoinGroupByLinkInvalid =>
       'Bu Pulse davet bağlantısına benzemiyor';
+
+  @override
+  String get groupModeMeshTitle => 'Normal';
+
+  @override
+  String groupModeMeshSubtitle(int n) {
+    return 'Sunucusuz, en fazla $n kişi';
+  }
+
+  @override
+  String get groupModeSfuTitle => 'Pulse sunucusuyla';
+
+  @override
+  String groupModeSfuSubtitle(int n) {
+    return 'Sunucu üzerinden, en fazla $n kişi';
+  }
+
+  @override
+  String get groupPulseServerHint => 'https://pulse-sunucunuz';
+
+  @override
+  String get groupPulseServerClosed => 'Kapalı sunucu (davet kodu gerekir)';
+
+  @override
+  String get groupPulseInviteHint => 'Davet kodu';
+
+  @override
+  String groupMeshLimitReached(int n) {
+    return 'Bu çağrı türü $n kişi ile sınırlıdır';
+  }
 }

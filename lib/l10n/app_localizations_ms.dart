@@ -3159,9 +3159,42 @@ class AppLocalizationsMs extends AppLocalizations {
   String get groupInviteLinkJoin => 'Sertai';
 
   @override
-  String get drawerJoinGroupByLink => 'Sertai kumpulan melalui pautan';
+  String get drawerCreateGroup => 'Cipta kumpulan';
+
+  @override
+  String get drawerJoinGroup => 'Sertai kumpulan';
 
   @override
   String get drawerJoinGroupByLinkInvalid =>
       'Ini tidak kelihatan seperti pautan jemputan Pulse';
+
+  @override
+  String get groupModeMeshTitle => 'Biasa';
+
+  @override
+  String groupModeMeshSubtitle(int n) {
+    return 'Tanpa pelayan, sehingga $n orang';
+  }
+
+  @override
+  String get groupModeSfuTitle => 'Dengan pelayan Pulse';
+
+  @override
+  String groupModeSfuSubtitle(int n) {
+    return 'Melalui pelayan, sehingga $n orang';
+  }
+
+  @override
+  String get groupPulseServerHint => 'https://pelayan-pulse-anda';
+
+  @override
+  String get groupPulseServerClosed => 'Pelayan tertutup (perlu kod jemputan)';
+
+  @override
+  String get groupPulseInviteHint => 'Kod jemputan';
+
+  @override
+  String groupMeshLimitReached(int n) {
+    return 'Jenis panggilan ini terhad kepada $n orang';
+  }
 }

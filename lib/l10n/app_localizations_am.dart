@@ -3094,8 +3094,41 @@ class AppLocalizationsAm extends AppLocalizations {
   String get groupInviteLinkJoin => 'ተቀላቀል';
 
   @override
-  String get drawerJoinGroupByLink => 'በአገናኝ ቡድኑን ይቀላቀሉ';
+  String get drawerCreateGroup => 'ቡድን ፍጠር';
+
+  @override
+  String get drawerJoinGroup => 'ቡድን ተቀላቀል';
 
   @override
   String get drawerJoinGroupByLinkInvalid => 'ይህ የ Pulse ግብዣ አገናኝ አይመስልም';
+
+  @override
+  String get groupModeMeshTitle => 'መደበኛ';
+
+  @override
+  String groupModeMeshSubtitle(int n) {
+    return 'ያለ ሰርቨር፣ እስከ $n ሰዎች';
+  }
+
+  @override
+  String get groupModeSfuTitle => 'ከPulse ሰርቨር ጋር';
+
+  @override
+  String groupModeSfuSubtitle(int n) {
+    return 'በሰርቨር በኩል፣ እስከ $n ሰዎች';
+  }
+
+  @override
+  String get groupPulseServerHint => 'https://yante-pulse-server';
+
+  @override
+  String get groupPulseServerClosed => 'የተዘጋ ሰርቨር (የግብዣ ኮድ ያስፈልጋል)';
+
+  @override
+  String get groupPulseInviteHint => 'የግብዣ ኮድ';
+
+  @override
+  String groupMeshLimitReached(int n) {
+    return 'ይህ የጥሪ አይነት እስከ $n ሰዎች ብቻ ነው';
+  }
 }

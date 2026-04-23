@@ -3044,8 +3044,41 @@ class AppLocalizationsKo extends AppLocalizations {
   String get groupInviteLinkJoin => '참여';
 
   @override
-  String get drawerJoinGroupByLink => '링크로 그룹 참여';
+  String get drawerCreateGroup => '그룹 만들기';
+
+  @override
+  String get drawerJoinGroup => '그룹 참여';
 
   @override
   String get drawerJoinGroupByLinkInvalid => 'Pulse 초대 링크처럼 보이지 않습니다';
+
+  @override
+  String get groupModeMeshTitle => '일반';
+
+  @override
+  String groupModeMeshSubtitle(int n) {
+    return '서버 없음, 최대 $n명';
+  }
+
+  @override
+  String get groupModeSfuTitle => 'Pulse 서버 사용';
+
+  @override
+  String groupModeSfuSubtitle(int n) {
+    return '서버 경유, 최대 $n명';
+  }
+
+  @override
+  String get groupPulseServerHint => 'https://your-pulse-server';
+
+  @override
+  String get groupPulseServerClosed => '비공개 서버 (초대 코드 필요)';
+
+  @override
+  String get groupPulseInviteHint => '초대 코드';
+
+  @override
+  String groupMeshLimitReached(int n) {
+    return '이 통화 유형은 $n명으로 제한됩니다';
+  }
 }

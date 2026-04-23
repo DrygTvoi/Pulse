@@ -3154,9 +3154,42 @@ class AppLocalizationsId extends AppLocalizations {
   String get groupInviteLinkJoin => 'Bergabung';
 
   @override
-  String get drawerJoinGroupByLink => 'Bergabung ke grup melalui tautan';
+  String get drawerCreateGroup => 'Buat grup';
+
+  @override
+  String get drawerJoinGroup => 'Gabung grup';
 
   @override
   String get drawerJoinGroupByLinkInvalid =>
       'Itu tidak terlihat seperti tautan undangan Pulse';
+
+  @override
+  String get groupModeMeshTitle => 'Biasa';
+
+  @override
+  String groupModeMeshSubtitle(int n) {
+    return 'Tanpa server, hingga $n orang';
+  }
+
+  @override
+  String get groupModeSfuTitle => 'Dengan server Pulse';
+
+  @override
+  String groupModeSfuSubtitle(int n) {
+    return 'Melalui server, hingga $n orang';
+  }
+
+  @override
+  String get groupPulseServerHint => 'https://server-pulse-anda';
+
+  @override
+  String get groupPulseServerClosed => 'Server tertutup (perlu kode undangan)';
+
+  @override
+  String get groupPulseInviteHint => 'Kode undangan';
+
+  @override
+  String groupMeshLimitReached(int n) {
+    return 'Jenis panggilan ini dibatasi hingga $n orang';
+  }
 }

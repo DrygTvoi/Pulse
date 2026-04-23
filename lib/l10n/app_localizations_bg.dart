@@ -3175,9 +3175,42 @@ class AppLocalizationsBg extends AppLocalizations {
   String get groupInviteLinkJoin => 'Присъединяване';
 
   @override
-  String get drawerJoinGroupByLink => 'Присъединяване към група чрез връзка';
+  String get drawerCreateGroup => 'Създаване на група';
+
+  @override
+  String get drawerJoinGroup => 'Присъединяване към група';
 
   @override
   String get drawerJoinGroupByLinkInvalid =>
       'Това не изглежда като връзка за покана в Pulse';
+
+  @override
+  String get groupModeMeshTitle => 'Обикновена';
+
+  @override
+  String groupModeMeshSubtitle(int n) {
+    return 'Без сървър, до $n души';
+  }
+
+  @override
+  String get groupModeSfuTitle => 'С Pulse сървър';
+
+  @override
+  String groupModeSfuSubtitle(int n) {
+    return 'През сървър, до $n души';
+  }
+
+  @override
+  String get groupPulseServerHint => 'https://вашият-pulse-сървър';
+
+  @override
+  String get groupPulseServerClosed => 'Затворен сървър (нужен код за покана)';
+
+  @override
+  String get groupPulseInviteHint => 'Код за покана';
+
+  @override
+  String groupMeshLimitReached(int n) {
+    return 'Този тип обаждане е ограничен до $n души';
+  }
 }

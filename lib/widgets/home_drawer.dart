@@ -10,11 +10,13 @@ class HomeDrawer extends StatelessWidget {
   final String ownName;
   final Uint8List? ownAvatarBytes;
   final ConnectionStatus connectionStatus;
-  final VoidCallback onNewChat;
-  final VoidCallback onNewGroup;
+  // "New chat" was removed — it duplicated "Add contact". The remaining
+  // four entries form a single create/join cluster: pair (Add contact /
+  // Create group) followed by pair (Join group / Join channel).
   final VoidCallback onAddContact;
+  final VoidCallback onNewGroup;
+  final VoidCallback onJoinGroup;
   final VoidCallback onJoinChannel;
-  final VoidCallback onJoinGroupByLink;
   final VoidCallback onSettings;
   final bool torRunning;
   final int torBootPercent;
@@ -26,11 +28,10 @@ class HomeDrawer extends StatelessWidget {
     required this.ownName,
     required this.ownAvatarBytes,
     required this.connectionStatus,
-    required this.onNewChat,
-    required this.onNewGroup,
     required this.onAddContact,
+    required this.onNewGroup,
+    required this.onJoinGroup,
     required this.onJoinChannel,
-    required this.onJoinGroupByLink,
     required this.onSettings,
     this.torRunning = false,
     this.torBootPercent = 0,
@@ -109,31 +110,34 @@ class HomeDrawer extends StatelessWidget {
                 ),
               ),
               SizedBox(height: DesignTokens.spacing8),
-              // Menu items
-              ListTile(
-                leading: Icon(Icons.chat_rounded, color: AppTheme.textSecondary),
-                title: Text(context.l10n.homeNewChat, style: AppTheme.menuItem),
-                onTap: onNewChat,
-              ),
-              ListTile(
-                leading: Icon(Icons.group_add_rounded, color: AppTheme.textSecondary),
-                title: Text(context.l10n.contactsNewGroup, style: AppTheme.menuItem),
-                onTap: onNewGroup,
-              ),
+              // Menu items — order is deliberate: create row (add contact +
+              // create group) above join row (join group + join channel).
+              // "New chat" was removed because it duplicated Add contact.
               ListTile(
                 leading: Icon(Icons.person_add_rounded, color: AppTheme.textSecondary),
                 title: Text(context.l10n.contactsAddContact, style: AppTheme.menuItem),
                 onTap: onAddContact,
               ),
               ListTile(
-                leading: Icon(Icons.cell_tower_rounded, color: AppTheme.textSecondary),
-                title: Text(context.l10n.joinChannelTitle, style: AppTheme.menuItem),
-                onTap: onJoinChannel,
+                leading: Icon(Icons.group_add_rounded, color: AppTheme.textSecondary),
+                title: Text(context.l10n.drawerCreateGroup, style: AppTheme.menuItem),
+                onTap: onNewGroup,
               ),
               ListTile(
-                leading: Icon(Icons.link_rounded, color: AppTheme.textSecondary),
-                title: Text(context.l10n.drawerJoinGroupByLink, style: AppTheme.menuItem),
-                onTap: onJoinGroupByLink,
+                leading: Icon(Icons.group_rounded, color: AppTheme.textSecondary),
+                title: Text(context.l10n.drawerJoinGroup, style: AppTheme.menuItem),
+                onTap: onJoinGroup,
+              ),
+              ListTile(
+                // cell_tower_rounded was rendering as a fallback glyph on
+                // some Flutter Material font subsets — looked like a stray
+                // person+plus rather than the intended antenna. podcasts is
+                // shipped in every Material Icons release we depend on and
+                // visually reads as "broadcast waves", which matches the
+                // Telegram/Slack-style channel concept.
+                leading: Icon(Icons.podcasts_rounded, color: AppTheme.textSecondary),
+                title: Text(context.l10n.joinChannelTitle, style: AppTheme.menuItem),
+                onTap: onJoinChannel,
               ),
               Divider(color: AppTheme.surfaceVariant, height: 1),
               ListTile(

@@ -3154,9 +3154,42 @@ class AppLocalizationsHi extends AppLocalizations {
   String get groupInviteLinkJoin => 'शामिल हों';
 
   @override
-  String get drawerJoinGroupByLink => 'लिंक से समूह में शामिल हों';
+  String get drawerCreateGroup => 'समूह बनाएं';
+
+  @override
+  String get drawerJoinGroup => 'समूह में शामिल हों';
 
   @override
   String get drawerJoinGroupByLinkInvalid =>
       'यह Pulse आमंत्रण लिंक जैसा नहीं लगता';
+
+  @override
+  String get groupModeMeshTitle => 'सामान्य';
+
+  @override
+  String groupModeMeshSubtitle(int n) {
+    return 'सर्वर के बिना, $n लोगों तक';
+  }
+
+  @override
+  String get groupModeSfuTitle => 'Pulse सर्वर के साथ';
+
+  @override
+  String groupModeSfuSubtitle(int n) {
+    return 'सर्वर के माध्यम से, $n लोगों तक';
+  }
+
+  @override
+  String get groupPulseServerHint => 'https://आपका-pulse-सर्वर';
+
+  @override
+  String get groupPulseServerClosed => 'बंद सर्वर (आमंत्रण कोड आवश्यक)';
+
+  @override
+  String get groupPulseInviteHint => 'आमंत्रण कोड';
+
+  @override
+  String groupMeshLimitReached(int n) {
+    return 'इस कॉल प्रकार की सीमा $n लोग है';
+  }
 }

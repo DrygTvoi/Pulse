@@ -3146,9 +3146,43 @@ class AppLocalizationsCs extends AppLocalizations {
   String get groupInviteLinkJoin => 'Připojit se';
 
   @override
-  String get drawerJoinGroupByLink => 'Připojit se ke skupině přes odkaz';
+  String get drawerCreateGroup => 'Vytvořit skupinu';
+
+  @override
+  String get drawerJoinGroup => 'Připojit se ke skupině';
 
   @override
   String get drawerJoinGroupByLinkInvalid =>
       'To nevypadá jako pozvánkový odkaz Pulse';
+
+  @override
+  String get groupModeMeshTitle => 'Obyčejná';
+
+  @override
+  String groupModeMeshSubtitle(int n) {
+    return 'Bez serveru, až $n osob';
+  }
+
+  @override
+  String get groupModeSfuTitle => 'Se serverem Pulse';
+
+  @override
+  String groupModeSfuSubtitle(int n) {
+    return 'Přes server, až $n osob';
+  }
+
+  @override
+  String get groupPulseServerHint => 'https://vas-pulse-server';
+
+  @override
+  String get groupPulseServerClosed =>
+      'Uzavřený server (vyžaduje pozvánkový kód)';
+
+  @override
+  String get groupPulseInviteHint => 'Pozvánkový kód';
+
+  @override
+  String groupMeshLimitReached(int n) {
+    return 'Tento typ hovoru je omezen na $n osob';
+  }
 }

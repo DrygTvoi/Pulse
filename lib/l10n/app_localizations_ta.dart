@@ -3181,9 +3181,43 @@ class AppLocalizationsTa extends AppLocalizations {
   String get groupInviteLinkJoin => 'சேர்';
 
   @override
-  String get drawerJoinGroupByLink => 'இணைப்பு மூலம் குழுவில் சேரவும்';
+  String get drawerCreateGroup => 'குழுவை உருவாக்கு';
+
+  @override
+  String get drawerJoinGroup => 'குழுவில் சேர்';
 
   @override
   String get drawerJoinGroupByLinkInvalid =>
       'இது Pulse அழைப்பு இணைப்பாகத் தெரியவில்லை';
+
+  @override
+  String get groupModeMeshTitle => 'சாதாரண';
+
+  @override
+  String groupModeMeshSubtitle(int n) {
+    return 'சேவையகம் இல்லாமல், $n நபர்கள் வரை';
+  }
+
+  @override
+  String get groupModeSfuTitle => 'Pulse சேவையகத்துடன்';
+
+  @override
+  String groupModeSfuSubtitle(int n) {
+    return 'சேவையகம் வழியாக, $n நபர்கள் வரை';
+  }
+
+  @override
+  String get groupPulseServerHint => 'https://உங்கள்-pulse-சேவையகம்';
+
+  @override
+  String get groupPulseServerClosed =>
+      'மூடிய சேவையகம் (அழைப்புக் குறியீடு தேவை)';
+
+  @override
+  String get groupPulseInviteHint => 'அழைப்புக் குறியீடு';
+
+  @override
+  String groupMeshLimitReached(int n) {
+    return 'இந்த அழைப்பு வகை $n நபர்களுக்கு வரம்பிடப்பட்டுள்ளது';
+  }
 }

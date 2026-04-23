@@ -3160,9 +3160,43 @@ class AppLocalizationsNl extends AppLocalizations {
   String get groupInviteLinkJoin => 'Deelnemen';
 
   @override
-  String get drawerJoinGroupByLink => 'Aan groep deelnemen via link';
+  String get drawerCreateGroup => 'Groep maken';
+
+  @override
+  String get drawerJoinGroup => 'Lid worden van groep';
 
   @override
   String get drawerJoinGroupByLinkInvalid =>
       'Dat lijkt geen Pulse-uitnodigingslink';
+
+  @override
+  String get groupModeMeshTitle => 'Gewoon';
+
+  @override
+  String groupModeMeshSubtitle(int n) {
+    return 'Geen server, tot $n personen';
+  }
+
+  @override
+  String get groupModeSfuTitle => 'Met Pulse-server';
+
+  @override
+  String groupModeSfuSubtitle(int n) {
+    return 'Via server, tot $n personen';
+  }
+
+  @override
+  String get groupPulseServerHint => 'https://jouw-pulse-server';
+
+  @override
+  String get groupPulseServerClosed =>
+      'Gesloten server (uitnodigingscode vereist)';
+
+  @override
+  String get groupPulseInviteHint => 'Uitnodigingscode';
+
+  @override
+  String groupMeshLimitReached(int n) {
+    return 'Dit oproeptype is beperkt tot $n personen';
+  }
 }

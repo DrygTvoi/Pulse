@@ -3149,9 +3149,42 @@ class AppLocalizationsKm extends AppLocalizations {
   String get groupInviteLinkJoin => 'ចូលរួម';
 
   @override
-  String get drawerJoinGroupByLink => 'ចូលរួមក្រុមតាមរយៈតំណ';
+  String get drawerCreateGroup => 'បង្កើតក្រុម';
+
+  @override
+  String get drawerJoinGroup => 'ចូលរួមក្រុម';
 
   @override
   String get drawerJoinGroupByLinkInvalid =>
       'នេះមិនមើលទៅដូចជាតំណអញ្ជើញ Pulse ទេ';
+
+  @override
+  String get groupModeMeshTitle => 'ធម្មតា';
+
+  @override
+  String groupModeMeshSubtitle(int n) {
+    return 'គ្មានម៉ាស៊ីនមេ មនុស្សរហូតដល់ $n នាក់';
+  }
+
+  @override
+  String get groupModeSfuTitle => 'ជាមួយម៉ាស៊ីនមេ Pulse';
+
+  @override
+  String groupModeSfuSubtitle(int n) {
+    return 'តាមរយៈម៉ាស៊ីនមេ មនុស្សរហូតដល់ $n នាក់';
+  }
+
+  @override
+  String get groupPulseServerHint => 'https://ម៉ាស៊ីនមេ-pulse-របស់អ្នក';
+
+  @override
+  String get groupPulseServerClosed => 'ម៉ាស៊ីនមេបិទ (ត្រូវការលេខកូដអញ្ជើញ)';
+
+  @override
+  String get groupPulseInviteHint => 'លេខកូដអញ្ជើញ';
+
+  @override
+  String groupMeshLimitReached(int n) {
+    return 'ប្រភេទការហៅនេះត្រូវបានកំណត់ត្រឹម $n នាក់';
+  }
 }

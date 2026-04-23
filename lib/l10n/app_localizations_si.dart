@@ -3151,9 +3151,43 @@ class AppLocalizationsSi extends AppLocalizations {
   String get groupInviteLinkJoin => 'එක් වන්න';
 
   @override
-  String get drawerJoinGroupByLink => 'සබැඳියකින් කණ්ඩායමට එක්වන්න';
+  String get drawerCreateGroup => 'කණ්ඩායමක් සාදන්න';
+
+  @override
+  String get drawerJoinGroup => 'කණ්ඩායමට එක්වන්න';
 
   @override
   String get drawerJoinGroupByLinkInvalid =>
       'මෙය Pulse ආරාධනා සබැඳියකට සමාන නැහැ';
+
+  @override
+  String get groupModeMeshTitle => 'සාමාන්‍ය';
+
+  @override
+  String groupModeMeshSubtitle(int n) {
+    return 'සේවාදායකයක් නැතිව, $n දෙනෙකු දක්වා';
+  }
+
+  @override
+  String get groupModeSfuTitle => 'Pulse සේවාදායකය සමග';
+
+  @override
+  String groupModeSfuSubtitle(int n) {
+    return 'සේවාදායකය හරහා, $n දෙනෙකු දක්වා';
+  }
+
+  @override
+  String get groupPulseServerHint => 'https://obage-pulse-sevadayakaya';
+
+  @override
+  String get groupPulseServerClosed =>
+      'වසා දැමූ සේවාදායකය (ආරාධනා කේතයක් අවශ්‍යයි)';
+
+  @override
+  String get groupPulseInviteHint => 'ආරාධනා කේතය';
+
+  @override
+  String groupMeshLimitReached(int n) {
+    return 'මෙම ඇමතුම් වර්ගය $n දෙනෙකුට සීමා වේ';
+  }
 }

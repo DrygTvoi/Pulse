@@ -934,6 +934,25 @@
   "groupInviteLinkTitle": "Միանա՞լ խմբին:",
   "groupInviteLinkBody": "Դուք հրավիրված եք «{name}» խմբին ({count} անդամ):",
   "groupInviteLinkJoin": "Միանալ",
-  "drawerJoinGroupByLink": "Հղման միջոցով միանալ խմբին",
-  "drawerJoinGroupByLinkInvalid": "Սա չի թվում Pulse-ի հրավիրյալ հղում"
+  "drawerCreateGroup": "Ստեղծել խումբ",
+  "@drawerCreateGroup": { "description": "Drawer entry that opens the create-group dialog (verb form, paired with drawerJoinGroup)" },
+
+  "drawerJoinGroup": "Միանալ խմբին",
+  "drawerJoinGroupByLinkInvalid": "Սա չի թվում Pulse-ի հրավիրյալ հղում",
+  "groupModeMeshTitle": "Սովորական",
+  "@groupModeMeshTitle": { "description": "Mesh-mode tile title in CreateGroupDialog" },
+  "groupModeMeshSubtitle": "Առանց սերվերի, մինչև {n} մարդ",
+  "@groupModeMeshSubtitle": { "description": "Mesh-mode tile subtitle (n = participant cap)", "placeholders": { "n": { "type": "int" } } },
+  "groupModeSfuTitle": "Pulse սերվերով",
+  "@groupModeSfuTitle": { "description": "SFU-mode tile title in CreateGroupDialog" },
+  "groupModeSfuSubtitle": "Սերվերի միջոցով, մինչև {n} մարդ",
+  "@groupModeSfuSubtitle": { "description": "SFU-mode tile subtitle (n = participant cap)", "placeholders": { "n": { "type": "int" } } },
+  "groupPulseServerHint": "https://dzer-pulse-server",
+  "@groupPulseServerHint": { "description": "Hint inside the Pulse server URL field" },
+  "groupPulseServerClosed": "Փակ սերվեր (պահանջում է հրավերի կոդ)",
+  "@groupPulseServerClosed": { "description": "Checkbox label for closed-server toggle" },
+  "groupPulseInviteHint": "Հրավերի կոդ",
+  "@groupPulseInviteHint": { "description": "Hint inside the invite-code field for closed servers" },
+  "groupMeshLimitReached": "Այս զանգի տեսակը սահմանափակված է {n} մարդով",
+  "@groupMeshLimitReached": { "description": "Snackbar shown when user tries to add more members than the call type allows", "placeholders": { "n": { "type": "int" } } }
 }

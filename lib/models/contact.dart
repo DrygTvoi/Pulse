@@ -43,6 +43,30 @@ class Contact {
   /// created before this field existed.
   final Map<String, String> memberPubkeys;
 
+  /// For groups only. Selects the call architecture used for *this* group:
+  ///   'mesh' — full peer mesh, every member holds N−1 RTCPeerConnections
+  ///            directly to the others. No server, no media-relay. Best
+  ///            for small (≤4) trusted-roster groups; bandwidth scales with
+  ///            roster size on every device.
+  ///   'sfu'  — Selective Forwarding Unit, every client uploads once to
+  ///            the Pulse SFU server (configured via [groupServerUrl]) and
+  ///            downloads each remote stream from that server. Scales to
+  ///            ~20 participants but requires a reachable Pulse server.
+  ///
+  /// Empty string for non-group contacts. For groups created before this
+  /// field existed (legacy DB rows), readers should treat empty as
+  /// implicit-'sfu' so existing groups keep working unchanged.
+  final String groupCallMode;
+
+  /// Pulse server endpoint used for SFU group calls (only when
+  /// [groupCallMode] == 'sfu'). Format: `https://host:port` (or `http://`
+  /// for self-hosted dev). Empty string for mesh groups and non-groups.
+  final String groupServerUrl;
+
+  /// Optional invite code required by closed Pulse servers. Empty string
+  /// when the server is open or for mesh groups.
+  final String groupServerInvite;
+
   // Private generative constructor
   Contact._raw({
     required this.id,
@@ -58,6 +82,9 @@ class Contact {
     this.isPending = false,
     this.isHidden = false,
     this.memberPubkeys = const {},
+    this.groupCallMode = '',
+    this.groupServerUrl = '',
+    this.groupServerInvite = '',
   });
 
   /// Create a Contact, accepting either new-style transportAddresses or
@@ -79,6 +106,9 @@ class Contact {
     bool isPending = false,
     bool isHidden = false,
     Map<String, String> memberPubkeys = const {},
+    String groupCallMode = '',
+    String groupServerUrl = '',
+    String groupServerInvite = '',
   }) {
     Map<String, List<String>> ta;
     List<String> tp;
@@ -115,6 +145,9 @@ class Contact {
       isPending: isPending,
       isHidden: isHidden,
       memberPubkeys: memberPubkeys,
+      groupCallMode: groupCallMode,
+      groupServerUrl: groupServerUrl,
+      groupServerInvite: groupServerInvite,
     );
   }
 
@@ -182,6 +215,9 @@ class Contact {
       if (isHidden) 'isHidden': true,
       if (memberPubkeys.isNotEmpty)
         'memberPubkeys': Map<String, String>.from(memberPubkeys),
+      if (groupCallMode.isNotEmpty) 'groupCallMode': groupCallMode,
+      if (groupServerUrl.isNotEmpty) 'groupServerUrl': groupServerUrl,
+      if (groupServerInvite.isNotEmpty) 'groupServerInvite': groupServerInvite,
     };
   }
 
@@ -197,6 +233,9 @@ class Contact {
     bool? isPending,
     bool? isHidden,
     Map<String, String>? memberPubkeys,
+    String? groupCallMode,
+    String? groupServerUrl,
+    String? groupServerInvite,
     // Legacy params — translated to transport fields
     String? provider,
     String? databaseId,
@@ -218,6 +257,9 @@ class Contact {
         isPending: isPending ?? this.isPending,
         isHidden: isHidden ?? this.isHidden,
         memberPubkeys: memberPubkeys ?? this.memberPubkeys,
+        groupCallMode: groupCallMode ?? this.groupCallMode,
+        groupServerUrl: groupServerUrl ?? this.groupServerUrl,
+        groupServerInvite: groupServerInvite ?? this.groupServerInvite,
       );
     }
     // If caller uses legacy params, rebuild transport map
@@ -246,6 +288,9 @@ class Contact {
         isPending: isPending ?? this.isPending,
         isHidden: isHidden ?? this.isHidden,
         memberPubkeys: memberPubkeys ?? this.memberPubkeys,
+        groupCallMode: groupCallMode ?? this.groupCallMode,
+        groupServerUrl: groupServerUrl ?? this.groupServerUrl,
+        groupServerInvite: groupServerInvite ?? this.groupServerInvite,
       );
     }
     // No transport changes — keep existing
@@ -263,6 +308,9 @@ class Contact {
       isPending: isPending ?? this.isPending,
       isHidden: isHidden ?? this.isHidden,
       memberPubkeys: memberPubkeys ?? this.memberPubkeys,
+      groupCallMode: groupCallMode ?? this.groupCallMode,
+      groupServerUrl: groupServerUrl ?? this.groupServerUrl,
+      groupServerInvite: groupServerInvite ?? this.groupServerInvite,
     );
   }
 
@@ -309,8 +357,26 @@ class Contact {
       memberPubkeys: (map['memberPubkeys'] as Map?)
               ?.map((k, v) => MapEntry(k as String, v as String)) ??
           const {},
+      groupCallMode: (map['groupCallMode'] as String?) ?? '',
+      groupServerUrl: (map['groupServerUrl'] as String?) ?? '',
+      groupServerInvite: (map['groupServerInvite'] as String?) ?? '',
     );
   }
+
+  // ── Group call helpers ──────────────────────────────────────────────────
+
+  /// Resolves the effective call architecture for this group, applying the
+  /// legacy default. Pre-2026-04-23 groups stored an empty mode; treat them
+  /// as 'sfu' so they keep working without manual migration. New groups set
+  /// the field explicitly via CreateGroupDialog.
+  String get effectiveGroupCallMode {
+    if (!isGroup) return '';
+    return groupCallMode.isEmpty ? 'sfu' : groupCallMode;
+  }
+
+  /// True iff this group should be called via the local mesh (each member
+  /// connects directly to every other member). False = SFU-relayed.
+  bool get isMeshGroup => effectiveGroupCallMode == 'mesh';
 
   // ── Address classification helper ──────────────────────────────────────
 

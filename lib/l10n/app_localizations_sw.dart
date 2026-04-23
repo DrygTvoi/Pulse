@@ -3171,9 +3171,43 @@ class AppLocalizationsSw extends AppLocalizations {
   String get groupInviteLinkJoin => 'Jiunge';
 
   @override
-  String get drawerJoinGroupByLink => 'Jiunge na kikundi kwa kiungo';
+  String get drawerCreateGroup => 'Unda kikundi';
+
+  @override
+  String get drawerJoinGroup => 'Jiunge na kikundi';
 
   @override
   String get drawerJoinGroupByLinkInvalid =>
       'Hiki hakionekani kama kiungo cha mwaliko cha Pulse';
+
+  @override
+  String get groupModeMeshTitle => 'Kawaida';
+
+  @override
+  String groupModeMeshSubtitle(int n) {
+    return 'Bila seva, hadi watu $n';
+  }
+
+  @override
+  String get groupModeSfuTitle => 'Na seva ya Pulse';
+
+  @override
+  String groupModeSfuSubtitle(int n) {
+    return 'Kupitia seva, hadi watu $n';
+  }
+
+  @override
+  String get groupPulseServerHint => 'https://seva-yako-ya-pulse';
+
+  @override
+  String get groupPulseServerClosed =>
+      'Seva iliyofungwa (inahitaji msimbo wa mwaliko)';
+
+  @override
+  String get groupPulseInviteHint => 'Msimbo wa mwaliko';
+
+  @override
+  String groupMeshLimitReached(int n) {
+    return 'Aina hii ya simu imewekewa kikomo cha watu $n';
+  }
 }
