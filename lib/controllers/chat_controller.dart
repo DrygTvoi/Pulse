@@ -335,6 +335,21 @@ class ChatController extends ChangeNotifier {
   /// join dialog and every tap hits "room not found" again.
   final Set<String> _deadRoomIds = {};
 
+  /// Dedup keys (`groupId|roomId`) for sfu_invite popups that the UI has
+  /// already shown this session. Lives in the controller (not
+  /// HomeScreen state) so that navigating away from home + coming back
+  /// doesn't reset the set and cause every rebroadcast to re-pop the
+  /// same accept/decline dialog. Entries are removed when the call
+  /// itself is cleared (see [clearActiveGroupCall] / staleness timer).
+  final Set<String> _shownInviteKeys = {};
+  bool markInviteShownIfNew(String groupId, String roomId) {
+    if (groupId.isEmpty || roomId.isEmpty) return true;
+    return _shownInviteKeys.add('$groupId|$roomId');
+  }
+  void forgetInvitesForGroup(String groupId) {
+    _shownInviteKeys.removeWhere((k) => k.startsWith('$groupId|'));
+  }
+
   /// GroupIds where THIS client is currently a live SFU participant
   /// (SfuCallScreen mounted + ICE connected). Probes are only answered
   /// from this set — a stale `_activeGroupCalls` entry from a previous
@@ -461,6 +476,7 @@ class ChatController extends ChangeNotifier {
   /// that the room is gone.
   void clearActiveGroupCall(String groupId) {
     _callStalenessTimers.remove(groupId)?.cancel();
+    forgetInvitesForGroup(groupId);
     if (_activeGroupCalls.remove(groupId) != null) {
       if (!_activeCallsCtrl.isClosed) _activeCallsCtrl.add(groupId);
     }
