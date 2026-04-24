@@ -1714,6 +1714,9 @@ class NostrInboxReader implements InboxReader {
           // F4-1: Mark as Nostr-adapter signal so SignalDispatcher can skip HMAC
           // only for signals that went through Schnorr verification above.
           'adapterType': 'nostr',
+          // Propagate the inner event's created_at so downstream consumers
+          // can reject stale replays (sfu_invite for dead rooms, etc.).
+          '_ts': event['created_at'],
         }]);
       }
     } catch (e) {

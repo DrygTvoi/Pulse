@@ -136,9 +136,12 @@ class SfuSignalingService {
     // (no Force-Tor, no Restricted toggle) — otherwise we always force
     // relay-only so the call never falls back to plain UDP.
     final pcConfig = await _buildPeerConfig();
+    debugPrint('[SFU] PC config: iceTransportPolicy=${pcConfig['iceTransportPolicy']} '
+        'bundlePolicy=${pcConfig['bundlePolicy']} iceServers=${pcConfig['iceServers']}');
     _pc = await createPeerConnection(pcConfig);
 
     _pc!.onIceCandidate = (c) {
+      debugPrint('[SFU] onIceCandidate: ${c.candidate}');
       if (c.candidate != null && _roomId != null) {
         _send({
           'type': 'media_candidate',
@@ -150,7 +153,13 @@ class SfuSignalingService {
       }
     };
 
-    _pc!.onIceConnectionState = (state) => onIceState?.call(state);
+    _pc!.onIceConnectionState = (state) {
+      debugPrint('[SFU] ICE state: $state');
+      onIceState?.call(state);
+    };
+    _pc!.onIceGatheringState = (state) {
+      debugPrint('[SFU] ICE gathering: $state');
+    };
     _pc!.onTrack = (event) => onRemoteTrack?.call(event);
 
     // Add audio tracks
@@ -374,6 +383,35 @@ class SfuSignalingService {
     _pc = null;
   }
 
+  /// Tear down the current peer connection and re-join the same room.
+  /// Used to recover from an ICE failure caused by a transient WS drop
+  /// (nginx 24h timeout isn't the issue; `close 1006` from Waydroid-ish
+  /// networks is). Requires that the caller has already ensured the
+  /// underlying Pulse WS is authenticated again — otherwise
+  /// `_sendRoomJoinWithRetry` will fail immediately. Returns false if
+  /// the service has been permanently disposed (hangUp already called)
+  /// or we never had a room to rejoin.
+  Future<bool> rejoin() async {
+    if (_disposed) return false;
+    final roomId = _roomId;
+    final token = _roomToken;
+    if (roomId == null || token == null) return false;
+    debugPrint('[SFU] rejoin(): tearing down old PC and re-sending room_join');
+    _pendingSubscriptions.clear();
+    _pcReadyForSubscribes = false;
+    _roomCreateTimer?.cancel();
+    _roomCreateTimer = null;
+    _roomCreateAttempts = 0;
+    // Stop old media tracks and PC. We don't dispose localStream since
+    // the UI layer owns it and will pass a fresh copy back through
+    // setupPeerConnection() after onRoomReady fires.
+    final oldPc = _pc;
+    _pc = null;
+    try { await oldPc?.close(); } catch (_) {}
+    unawaited(_sendRoomJoinWithRetry());
+    return true;
+  }
+
   // ── Receive path ──────────────────────────────────────────────────────
 
   void _listenForSfuSignals() {
@@ -493,6 +531,14 @@ class SfuSignalingService {
             msg.contains('room not found') || msg.contains('join_failed')) {
           _roomCreateTimer?.cancel();
           _roomCreateTimer = null;
+          final dead = _roomId;
+          if (dead != null && dead.isNotEmpty) {
+            // Remember this roomId is gone so future sfu_invite replays
+            // (other members still rebroadcasting, their local timer
+            // hasn't caught up with server-side GC) don't re-pop the join
+            // dialog and re-trigger the same failure.
+            ChatController().markRoomDead(dead);
+          }
           ChatController().clearActiveGroupCall(group.id);
           onRoomCreateFailed?.call();
         }

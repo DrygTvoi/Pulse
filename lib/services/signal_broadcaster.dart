@@ -774,9 +774,25 @@ class SignalBroadcaster {
   /// metadata gets a proper E2EE wrapper this leaks "a call started in
   /// group X" to the Pulse relay; the actual media stream over SFU is
   /// still per-pair encrypted by Signal at the application layer above.
+  /// Ask every group member "is there an SFU call in progress for this
+  /// group right now?". Members who are in a call respond via their
+  /// normal `sfu_invite` rebroadcast (fired immediately instead of
+  /// waiting for the next 20s tick) so the prober learns the room ID.
+  /// Used before `room_create` so we never fragment a group into two
+  /// parallel calls just because the notification was lost / hadn't
+  /// arrived yet.
+  Future<void> broadcastSfuProbe(Contact group, List<Contact> allContacts) async {
+    if (!group.isGroup) return;
+    final members = _resolveGroupRecipients(group, allContacts);
+    if (members.isEmpty) return;
+    await Future.wait(members.map((c) => _sendSignalTo(c, 'sfu_probe', {
+          'groupId': group.id,
+        })));
+  }
+
   Future<void> broadcastSfuInvite(Contact group, String roomId, String token,
       List<Contact> allContacts,
-      {bool isVideoCall = false}) async {
+      {bool isVideoCall = false, String ownPulseAddr = ''}) async {
     if (!group.isGroup) return;
     final members = _resolveGroupRecipients(group, allContacts);
     if (members.isEmpty) return;
@@ -787,12 +803,20 @@ class SignalBroadcaster {
     // 2-3 times (one per transport) which is the "повторные уведомления"
     // bug the user hit. The `_sid` field lets the dispatcher dedupe in
     // case the same invite is replayed.
+    //
+    // `_pulseAddr` carries our own Pulse address so receivers can learn
+    // the Nostr-senderId ↔ Pulse-pubkey mapping — otherwise the SFU
+    // hands them bare Pulse pubkeys in `track_available` with no way to
+    // resolve them to a local Contact (their `transportAddresses` may
+    // have only Nostr) → the UI falls back to showing the first 8 hex
+    // chars of the pubkey instead of the member's name.
     await Future.wait(members.map((c) => _sendSignalTo(c, 'sfu_invite', {
           '_sid': sid,
           'groupId': group.id,
           'sfuRoomId': roomId,
           'sfuToken': token,
           'isVideoCall': isVideoCall,
+          if (ownPulseAddr.isNotEmpty) '_pulseAddr': ownPulseAddr,
         })));
   }
 

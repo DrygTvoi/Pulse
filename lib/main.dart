@@ -30,6 +30,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'l10n/app_localizations.dart';
 import 'services/locale_notifier.dart';
 import 'services/blossom_service.dart';
+import 'services/debug_file_logger.dart';
 import 'constants.dart';
 
 Future<void> main() async {
@@ -37,6 +38,10 @@ Future<void> main() async {
 
   // Silence debugPrint in release builds — prevents log spam on user devices.
   if (kReleaseMode) debugPrint = (String? message, {int? wrapWidth}) {};
+
+  // Debug-only: tee debugPrint + Flutter errors to %TEMP%\pulse.log (Win)
+  // or /tmp/pulse.log so users can share logs without launching from a shell.
+  DebugFileLogger.init();
 
   // Use bundled fonts from google_fonts/ — no runtime fetching from Google servers.
   GoogleFonts.config.allowRuntimeFetching = false;

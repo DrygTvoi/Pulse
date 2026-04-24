@@ -113,14 +113,16 @@ PreferredSizeWidget buildChatAppBar({
       IconButton(
         icon: Icon(Icons.call_outlined, color: AppTheme.textSecondary),
         tooltip: context.l10n.appBarVoiceCall,
-        onPressed: () {
-          // Conference mode: if a group call is already in progress on
-          // the SFU server, join it instead of creating a fresh room.
-          // Creating a parallel room would leave the call fragmented and
-          // re-broadcast a redundant sfu_invite to everyone.
+        onPressed: () async {
+          // Conference mode: a group can only have ONE SFU room at a
+          // time. If we already know about it (activeGroupCall) → join.
+          // Else probe the group members first — if anyone is in a call
+          // they'll reply with sfu_invite within ~2s so we can join
+          // instead of fragmenting the group into two parallel rooms.
           if (contact.isGroup && !contact.isMeshGroup) {
-            final active = ChatController().activeGroupCall(contact.id);
+            final active = await ChatController().discoverGroupCall(contact);
             if (active != null) {
+              if (!context.mounted) return;
               Navigator.push(context, MaterialPageRoute(
                 builder: (_) => SfuCallScreen(
                   group: contact,
@@ -132,6 +134,7 @@ PreferredSizeWidget buildChatAppBar({
               ));
               return;
             }
+            if (!context.mounted) return;
           }
           Navigator.push(context, MaterialPageRoute(
             // Group calls split by architecture: SFU groups go through the

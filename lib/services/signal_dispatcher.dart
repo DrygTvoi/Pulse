@@ -6,6 +6,7 @@ import '../models/contact.dart';
 import '../models/user_status.dart';
 import '../services/rate_limiter.dart';
 import '../services/crypto_layer.dart';
+import '../controllers/chat_controller.dart';
 
 // ── Event types emitted by SignalDispatcher ─────────────────────────────────
 
@@ -700,13 +701,51 @@ class SignalDispatcher {
         }
 
         // ── Route by type ──────────────────────────────────────────────
+        if (sigType == 'sfu_probe') {
+          final p = sig['payload'];
+          final gid = p is Map ? p['groupId'] as String? : null;
+          if (gid != null) ChatController().handleSfuProbe(gid);
+          continue;
+        }
         if (sigType == 'sfu_invite') {
+          // Reject stale invites replayed from Nostr relay history. The
+          // caller rebroadcasts every 20s while the call is live, so any
+          // event older than 5 min is a stale replay — its room has long
+          // been GC'd by the SFU. Without this guard, activeGroupCall
+          // points to a dead roomId; the user taps "join" and the server
+          // answers "room not found" (the "ошибка подключения к
+          // существующему звонку" bug).
+          final ts = sig['_ts'];
+          if (ts is int && ts > 0) {
+            final nowSec = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+            final ageSec = nowSec - ts;
+            if (ageSec > 5 * 60) {
+              debugPrint('[SignalDispatcher] Dropping stale sfu_invite (age ${ageSec}s) from $sigSender');
+              continue;
+            }
+          }
           final rawPayload = sig['payload'];
           if (rawPayload is Map) {
             final groupId = rawPayload['groupId'] as String?;
             final sfuRoomId = rawPayload['sfuRoomId'] as String?;
             final sfuToken = rawPayload['sfuToken'] as String?;
             final isVideoCall = rawPayload['isVideoCall'] as bool? ?? false;
+            // Sender tells us their Pulse address so we can label them
+            // in the SFU participant grid later (SFU hands us Pulse
+            // pubkeys; Contact records are keyed on Nostr pubkeys).
+            final senderPulseAddr = rawPayload['_pulseAddr'] as String?;
+            if (senderPulseAddr != null && senderPulseAddr.isNotEmpty) {
+              ChatController().learnPulseFromInvite(sigSender, senderPulseAddr);
+            }
+            // Skip invites for rooms we already confirmed are dead
+            // (previous join attempt hit "room not found"). Other members
+            // may keep rebroadcasting the same roomId; without this every
+            // 10–20s the dialog re-pops and the user gets hammered with
+            // notifications they can't accept.
+            if (sfuRoomId != null && ChatController().isRoomDead(sfuRoomId)) {
+              debugPrint('[SignalDispatcher] Dropping sfu_invite for dead room $sfuRoomId');
+              continue;
+            }
             if (groupId != null && sfuRoomId != null && sfuToken != null) {
               if (!_incomingGroupCallCtrl.isClosed) {
                 _incomingGroupCallCtrl.add(SignalIncomingGroupCallEvent(

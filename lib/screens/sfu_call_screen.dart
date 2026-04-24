@@ -57,13 +57,38 @@ class _SfuCallScreenState extends State<SfuCallScreen> {
   bool _ready = false;
   RTCIceConnectionState? _iceState;
 
-  // Contact lookup cache — avoids O(N) findByAddress scan per participant per rebuild
+
+  // Contact lookup cache — avoids O(N) scan per participant per rebuild.
+  // SFU participants are identified by their Pulse pubkey (64-hex) so we
+  // build an index keyed on the pubkey prefix of every Pulse transport
+  // address we know about. Previously `_findContact` indexed by the full
+  // databaseId (`pubkey@https://server`) which never matches the bare
+  // pubkey the SFU hands us → participants showed up as their 8-char
+  // pubkey prefix instead of their real name.
   Map<String, Contact>? _contactByAddress;
-  Contact? _findContact(BuildContext context, String address) {
-    _contactByAddress ??= {
-      for (final c in context.read<IContactRepository>().contacts) c.databaseId: c
-    };
-    return _contactByAddress![address];
+  Contact? _findContact(BuildContext context, String pubkey) {
+    // Rebuild every call: contacts get updated as sfu_invite arrives
+    // with new members, and caching defeats that freshness. N is small
+    // (dozens of contacts, handful of participants per frame).
+    final lc = pubkey.toLowerCase();
+    final contacts = context.read<IContactRepository>().contacts;
+    // Step 1: Pulse → Nostr sender mapping learned from sfu_invite.
+    final nostrSender = ChatController().nostrSenderForPulsePk(lc);
+    // Step 2: scan all contacts, matching either the learned Nostr
+    // senderId or any transport-address pubkey prefix directly.
+    for (final c in contacts) {
+      if (c.databaseId.toLowerCase() == lc) return c;
+      for (final addrs in c.transportAddresses.values) {
+        for (final addr in addrs) {
+          final at = addr.indexOf('@');
+          final pk = (at > 0 ? addr.substring(0, at) : addr).toLowerCase();
+          if (pk.isEmpty) continue;
+          if (pk == lc) return c;
+          if (nostrSender != null && pk == nostrSender.toLowerCase()) return c;
+        }
+      }
+    }
+    return null;
   }
 
   @override
@@ -192,6 +217,24 @@ class _SfuCallScreenState extends State<SfuCallScreen> {
       setState(() => _iceState = state);
       if (state == RTCIceConnectionState.RTCIceConnectionStateConnected) {
         _startDurationTimer();
+        ChatController().enterSfuCall(widget.group.id);
+      }
+      // Transient drop → pop back to chat. The "ongoing call" banner
+      // there (driven by sfu_invite rebroadcasts from other members)
+      // gives a one-tap rejoin path. Auto-rejoin in-place was tried
+      // and caused `invalid signaling state transition` errors because
+      // the server kept stale participant state from the old PC; manual
+      // rejoin via the banner takes a clean new path each time.
+      if (state == RTCIceConnectionState.RTCIceConnectionStateFailed ||
+          state == RTCIceConnectionState.RTCIceConnectionStateClosed) {
+        debugPrint('[SfuCall] ICE $state — popping back to chat');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(context.l10n.callEnded),
+            backgroundColor: AppTheme.error,
+          ));
+          Navigator.of(context).pop();
+        }
       }
     };
 
@@ -337,10 +380,19 @@ class _SfuCallScreenState extends State<SfuCallScreen> {
     if (_disposed) return;
     _disposed = true;
     _durationTimer?.cancel();
+    // CRITICAL: cancel the invite rebroadcast timer here. `dispose()`
+    // below is gated on `!_disposed`, which is now true, so without this
+    // line the timer keeps firing every 20s for the rest of the process
+    // lifetime — spamming `sfu_invite` to every group member and keeping
+    // the "ongoing call" banner alive on their screens long after this
+    // user hung up.
+    _inviteRebroadcastTimer?.cancel();
+    ChatController().exitSfuCall(widget.group.id);
     await _sfu?.hangUp();
     _disposeRenderers();
     if (mounted) Navigator.pop(context);
   }
+
 
   void _disposeRenderers() {
     try { _localRenderer.srcObject = null; } catch (_) {}
@@ -357,6 +409,7 @@ class _SfuCallScreenState extends State<SfuCallScreen> {
       _disposed = true;
       _durationTimer?.cancel();
       _inviteRebroadcastTimer?.cancel();
+      ChatController().exitSfuCall(widget.group.id);
       _sfu?.hangUp();
       _disposeRenderers();
     }
@@ -607,8 +660,17 @@ class _SfuCallScreenState extends State<SfuCallScreen> {
         // no active video.
         if (renderer != null && renderer.textureId != null)
           Positioned.fill(
-            child: Offstage(
-              offstage: !hasVideo,
+            // Visibility (instead of Offstage) so the audio sink stays
+            // attached when video is muted AND Linux/GStreamer doesn't
+            // leak stale texture pixels as the gray-streak artifact
+            // you see when offstage'd RTCVideoView isn't fully detached
+            // from the shared GL texture cache.
+            child: Visibility(
+              visible: hasVideo,
+              maintainState: true,
+              maintainAnimation: true,
+              maintainSize: true,
+              maintainInteractivity: false,
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(15),
                 child: RTCVideoView(renderer,

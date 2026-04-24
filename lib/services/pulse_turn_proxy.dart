@@ -26,11 +26,19 @@ class _TurnWSBridge {
   /// Send STUN data to server via WS binary frame: 0x30 + payload.
   static void sendTurnData(List<int> data) {
     final ch = channel;
-    if (ch == null) return;
+    if (ch == null) {
+      debugPrint('[TurnWS] DROP ${data.length}B — no WS channel');
+      return;
+    }
     final frame = Uint8List(1 + data.length);
     frame[0] = 0x30;
     frame.setRange(1, frame.length, data);
-    ch.sink.add(frame);
+    try {
+      ch.sink.add(frame);
+      debugPrint('[TurnWS] → WS ${data.length}B (clients=${_clients.length})');
+    } catch (e) {
+      debugPrint('[TurnWS] WS send failed: $e');
+    }
   }
 
   /// Called by PulseInboxReader when a 0x30 binary frame arrives.
@@ -39,6 +47,7 @@ class _TurnWSBridge {
   static void onTurnData(List<int> data) {
     if (data.isEmpty) return;
     final stunData = data; // prefix already stripped by caller
+    debugPrint('[TurnWS] ← WS ${data.length}B → ${_clients.length} clients');
     for (final client in _clients.values) {
       try {
         client.add(stunData);
@@ -74,14 +83,13 @@ class PulseTurnProxy {
 
   /// The TURN URL for ICE config — plain TCP to local proxy.
   String get localTurnUrl {
-    // Loopback for sandboxed/single-host platforms (Android emulator,
-    // Windows VM with NAT). Linux desktop falls back to LAN IP because
-    // some firewalls block 127.0.0.1 STUN binding requests from
-    // libwebrtc — using a real interface address keeps it consistent
-    // with what the OS sees as "this machine".
-    final ip = (Platform.isAndroid || Platform.isWindows)
-        ? '127.0.0.1'
-        : _localIp;
+    // Android (emulator, Waydroid): use loopback — no separate LAN plane.
+    // Linux + Windows desktop: use real interface IP. libwebrtc on these
+    // platforms silently drops `turn:127.0.0.1:...?transport=tcp` (ICE
+    // gathering completes in <100ms with zero candidates emitted); using
+    // a real address matches what the OS treats as "this machine" and
+    // libwebrtc actually opens the TCP connection to the proxy.
+    final ip = Platform.isAndroid ? '127.0.0.1' : _localIp;
     return 'turn:$ip:$_localPort?transport=tcp';
   }
 

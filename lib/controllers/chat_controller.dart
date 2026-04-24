@@ -328,9 +328,112 @@ class ChatController extends ChangeNotifier {
   Stream<String> get activeGroupCallsChanged => _activeCallsCtrl.stream;
   ActiveGroupCall? activeGroupCall(String groupId) => _activeGroupCalls[groupId];
 
+  /// Session-scope blocklist of SFU rooms the server has confirmed do not
+  /// exist. Other group members can keep rebroadcasting sfu_invite for a
+  /// GC'd room (their local rebroadcast timer doesn't know the server
+  /// already cleaned up) — without this, every rebroadcast re-pops the
+  /// join dialog and every tap hits "room not found" again.
+  final Set<String> _deadRoomIds = {};
+
+  /// GroupIds where THIS client is currently a live SFU participant
+  /// (SfuCallScreen mounted + ICE connected). Probes are only answered
+  /// from this set — a stale `_activeGroupCalls` entry from a previous
+  /// session would otherwise make the prober join a room that's
+  /// already been GC'd by the server.
+  final Set<String> _inCallGroupIds = {};
+  void enterSfuCall(String groupId) {
+    _inCallGroupIds.add(groupId);
+    debugPrint('[Chat] enterSfuCall($groupId) — inCall=${_inCallGroupIds.length}');
+  }
+  void exitSfuCall(String groupId) {
+    if (_inCallGroupIds.remove(groupId)) {
+      debugPrint('[Chat] exitSfuCall($groupId) — inCall=${_inCallGroupIds.length}');
+    }
+  }
+
+  /// Handle an incoming `sfu_probe` signal. Only respond if we're
+  /// *currently* in an SFU call for this group — otherwise a
+  /// just-restarted client with a stale `_activeGroupCalls` entry
+  /// would echo a dead roomId back to the prober.
+  void handleSfuProbe(String groupId) {
+    if (!_inCallGroupIds.contains(groupId)) return;
+    final call = _activeGroupCalls[groupId];
+    if (call == null) return;
+    final group = _contacts.findById(groupId);
+    if (group == null || !group.isGroup) return;
+    debugPrint('[Chat] sfu_probe for $groupId — rebroadcasting invite');
+    unawaited(broadcastSfuCallInvite(group, call.roomId, call.token,
+        isVideoCall: call.isVideoCall));
+  }
+
+  /// Before creating a new SFU room, probe the group — if anyone is
+  /// already in a call they'll rebroadcast their invite, letting us
+  /// join instead of fragmenting the group into two parallel rooms.
+  /// Returns the discovered active call, or null after [probeTimeout].
+  Future<ActiveGroupCall?> discoverGroupCall(Contact group,
+      {Duration probeTimeout = const Duration(seconds: 2)}) async {
+    var active = activeGroupCall(group.id);
+    if (active != null) return active;
+    await _broadcaster.broadcastSfuProbe(group, _contacts.contacts);
+    final deadline = DateTime.now().add(probeTimeout);
+    while (DateTime.now().isBefore(deadline)) {
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+      active = activeGroupCall(group.id);
+      if (active != null) return active;
+    }
+    return null;
+  }
+
+  /// Pulse pubkey → Contact lookup. Populated from the `_pulseAddr` hint
+  /// on sfu_invite payloads so SfuCallScreen can resolve participant
+  /// pubkeys (as reported by the SFU in `track_available`) to a local
+  /// Contact — the `transportAddresses` map on a Contact may only carry
+  /// Nostr addresses until that member explicitly shares Pulse.
+  final Map<String, String> _pulsePkToNostrSender = {};
+  String? nostrSenderForPulsePk(String pulsePk) =>
+      _pulsePkToNostrSender[pulsePk.toLowerCase()];
+  void learnPulseFromInvite(String nostrSenderId, String pulseAddr) {
+    if (pulseAddr.isEmpty || nostrSenderId.isEmpty) return;
+    final at = pulseAddr.indexOf('@');
+    final pulsePk = (at > 0 ? pulseAddr.substring(0, at) : pulseAddr).toLowerCase();
+    if (pulsePk.isEmpty) return;
+    if (_pulsePkToNostrSender[pulsePk] == nostrSenderId) return;
+    _pulsePkToNostrSender[pulsePk] = nostrSenderId;
+    debugPrint('[Chat] Learned Pulse pubkey for Nostr sender ${nostrSenderId.substring(0, nostrSenderId.length.clamp(0, 8))}…: ${pulsePk.substring(0, 8)}…');
+  }
+  bool isRoomDead(String roomId) => _deadRoomIds.contains(roomId);
+  void markRoomDead(String roomId) {
+    if (roomId.isEmpty) return;
+    if (_deadRoomIds.add(roomId)) {
+      debugPrint('[Chat] Marked SFU room dead: $roomId');
+    }
+  }
+
+  /// Per-group staleness timers. Reset on every sfu_invite we accept —
+  /// caller re-broadcasts every 20s while they're in the call, so 45s of
+  /// silence means the call effectively ended (everyone left / caller's
+  /// network dropped). Without this, the "ongoing call" banner stays
+  /// forever after all participants hang up.
+  final Map<String, Timer> _callStalenessTimers = {};
+  static const _kCallStalenessTimeout = Duration(seconds: 45);
+
   void _registerActiveGroupCall(
       String groupId, String roomId, String token, String hostId,
       {bool isVideoCall = false}) {
+    // Refresh staleness timer on every invite — even if we already have
+    // this exact (groupId, roomId) entry. Drop the entry after 45s of
+    // silence so the UI doesn't keep a ghost banner.
+    _callStalenessTimers[groupId]?.cancel();
+    _callStalenessTimers[groupId] = Timer(_kCallStalenessTimeout, () {
+      debugPrint('[Chat] No sfu_invite for $groupId in ${_kCallStalenessTimeout.inSeconds}s — clearing stale call');
+      _callStalenessTimers.remove(groupId);
+      clearActiveGroupCall(groupId);
+    });
+
+    if (_deadRoomIds.contains(roomId)) {
+      debugPrint('[Chat] Ignoring activeGroupCall for dead room $roomId');
+      return;
+    }
     final existing = _activeGroupCalls[groupId];
     if (existing != null && existing.roomId == roomId) return;
     _activeGroupCalls[groupId] = ActiveGroupCall(
@@ -357,6 +460,7 @@ class ChatController extends ChangeNotifier {
   /// host taps "end for everyone" or when we get a definitive signal
   /// that the room is gone.
   void clearActiveGroupCall(String groupId) {
+    _callStalenessTimers.remove(groupId)?.cancel();
     if (_activeGroupCalls.remove(groupId) != null) {
       if (!_activeCallsCtrl.isClosed) _activeCallsCtrl.add(groupId);
     }
@@ -5110,15 +5214,43 @@ class ChatController extends ChangeNotifier {
   /// decline dialog.
   Future<void> broadcastSfuCallInvite(
       Contact group, String roomId, String token,
-      {bool isVideoCall = false}) {
+      {bool isVideoCall = false}) async {
     // Self-register first so the host's own chat shows the banner too —
     // the broadcast goes out to everyone EXCEPT us.
     _registerActiveGroupCall(
         group.id, roomId, token, _identity?.id ?? 'self',
         isVideoCall: isVideoCall);
+    // Find our own Pulse address on this group's server — receivers use
+    // it to map Pulse pubkeys (what the SFU reports in `track_available`)
+    // back to Nostr senderIds (what their Contact records are keyed on).
+    // Try `_allAddresses` first, then derive from secure-storage key as
+    // a fallback — Nostr-primary users may not have the group-server
+    // Pulse address in `_allAddresses` until the first addr_update
+    // rebuild, which happens strictly AFTER adapter init.
+    final serverUrl = group.groupServerUrl;
+    String ownPulseAddr = '';
+    if (serverUrl.isNotEmpty) {
+      ownPulseAddr = _allAddresses.firstWhere(
+          (a) => a.endsWith('@$serverUrl'),
+          orElse: () => '');
+      if (ownPulseAddr.isEmpty) {
+        try {
+          final pulseKey = await _secureStorage.read(key: 'pulse_privkey') ?? '';
+          if (pulseKey.isNotEmpty) {
+            final seed = Uint8List.fromList(hex.decode(pulseKey));
+            final pulsePub = await ed25519PubkeyFromSeed(seed);
+            ownPulseAddr = '$pulsePub@$serverUrl';
+          }
+        } catch (e) {
+          debugPrint('[Chat] broadcastSfuCallInvite: failed to derive Pulse pk: $e');
+        }
+      }
+    }
+    debugPrint('[Chat] broadcastSfuCallInvite: ownPulseAddr="${ownPulseAddr.isEmpty ? "<empty>" : "${ownPulseAddr.substring(0, ownPulseAddr.length.clamp(0, 24))}…"}"');
     return _broadcaster.broadcastSfuInvite(
         group, roomId, token, _contacts.contacts,
-        isVideoCall: isVideoCall);
+        isVideoCall: isVideoCall,
+        ownPulseAddr: ownPulseAddr);
   }
 
   /// Broadcast a group's metadata to every member. Optionally include an
