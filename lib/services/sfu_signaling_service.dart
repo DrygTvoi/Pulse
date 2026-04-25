@@ -19,7 +19,14 @@ class SfuSignalingService {
   final String myId;
 
   RTCPeerConnection? _pc;
+  RTCPeerConnection? get peerConnection => _pc;
   MediaStream? localStream;
+  /// The currently active video sender (camera or screen share). Kept so
+  /// we can `removeTrack` it when switching sources — `replaceTrack` is
+  /// broken in flutter_webrtc on Linux/GStreamer; remote never gets the
+  /// new frames, so we do the remove+addTrack+renegotiate dance.
+  RTCRtpSender? _videoSender;
+  RTCRtpSender? get videoSender => _videoSender;
   String? _roomId;
   String? _roomToken;
   bool _disposed = false;
@@ -164,15 +171,19 @@ class SfuSignalingService {
 
     // Add audio tracks
     for (final track in stream.getAudioTracks()) {
+      debugPrint('[SFU] adding audio track: id=${track.id} '
+          'enabled=${track.enabled} muted=${track.muted} kind=${track.kind} '
+          'label=${track.label}');
+      track.enabled = true;
       await _pc!.addTrack(track, stream);
     }
 
     // Add video tracks with simulcast (non-Linux)
     for (final track in stream.getVideoTracks()) {
       if (Platform.isLinux) {
-        await _pc!.addTrack(track, stream);
+        _videoSender = await _pc!.addTrack(track, stream);
       } else {
-        await _pc!.addTransceiver(
+        final trans = await _pc!.addTransceiver(
           track: track,
           kind: RTCRtpMediaType.RTCRtpMediaTypeVideo,
           init: RTCRtpTransceiverInit(
@@ -184,6 +195,7 @@ class SfuSignalingService {
             ],
           ),
         );
+        _videoSender = trans.sender;
       }
     }
 
@@ -191,7 +203,91 @@ class SfuSignalingService {
     offer = _applyDtx(offer);
     await _pc!.setLocalDescription(offer);
 
+    final sdp = offer.sdp ?? '';
+    final mLines = RegExp(r'^m=', multiLine: true).allMatches(sdp).length;
+    final audio = RegExp(r'^m=audio', multiLine: true).allMatches(sdp).length;
+    final video = RegExp(r'^m=video', multiLine: true).allMatches(sdp).length;
+    debugPrint('[SFU] setupPeerConnection: media_offer mlines=$mLines '
+        'audio=$audio video=$video');
     _send({'type': 'media_offer', 'room_id': _roomId, 'sdp': offer.sdp});
+  }
+
+  /// Swap the current outgoing video source (camera → screen, screen →
+  /// camera, or none → camera) and renegotiate with the SFU. Passing
+  /// `null` removes the sender entirely (video off for remote peers).
+  ///
+  /// Uses `removeTrack` + `addTrack` rather than `replaceTrack` because
+  /// the latter is broken in flutter_webrtc on Linux/GStreamer — remote
+  /// never sees the new frames.
+  Future<void> replaceVideoSource(MediaStream? newStream,
+      {int maxBitrate = 2500000}) async {
+    if (_disposed || _pc == null) {
+      debugPrint('[SFU] replaceVideoSource: skipped (disposed=$_disposed pc=${_pc != null})');
+      return;
+    }
+    final pc = _pc!;
+    debugPrint('[SFU] replaceVideoSource: enter (newStream=${newStream?.id ?? "null"} '
+        'oldSender=${_videoSender != null})');
+    // Tear down the current video sender if we had one.
+    if (_videoSender != null) {
+      try {
+        await pc.removeTrack(_videoSender!);
+        debugPrint('[SFU] replaceVideoSource: removed old video sender');
+      } catch (e) {
+        debugPrint('[SFU] replaceVideoSource: removeTrack failed: $e');
+      }
+      _videoSender = null;
+    }
+    // Add the new track if provided.
+    if (newStream != null) {
+      final tracks = newStream.getVideoTracks();
+      debugPrint('[SFU] replaceVideoSource: newStream has ${tracks.length} video track(s)');
+      if (tracks.isNotEmpty) {
+        try {
+          // Pass the original audio MediaStream as the addTrack stream
+          // arg so the SDP `a=msid:<streamId> <trackId>` lines for both
+          // audio AND video share the same streamId. With different
+          // msids the SFU re-classifies the audio as a NEW publication
+          // on every renegotiation — that's why other participants
+          // briefly stopped hearing the screen-sharer.
+          final stream = localStream ?? newStream;
+          _videoSender = await pc.addTrack(tracks.first, stream);
+          debugPrint('[SFU] replaceVideoSource: added new video sender (track=${tracks.first.id})');
+          // Default sender bitrate is ~250 kbps — way too low for
+          // screen share or full-frame camera. Caller passes the
+          // chosen quality (5/12/20 Mbps for 720/1080/1440p).
+          if (maxBitrate > 0) {
+            try {
+              final params = _videoSender!.parameters;
+              params.encodings ??= [RTCRtpEncoding()];
+              for (final enc in params.encodings!) {
+                enc.maxBitrate = maxBitrate;
+                enc.active = true;
+              }
+              await _videoSender!.setParameters(params);
+            } catch (e) {
+              debugPrint('[SFU] replaceVideoSource: setParameters failed: $e');
+            }
+          }
+        } catch (e) {
+          debugPrint('[SFU] replaceVideoSource: addTrack failed: $e');
+        }
+      }
+    }
+    // Renegotiate so the server learns about the change.
+    try {
+      var offer = await pc.createOffer();
+      offer = _applyDtx(offer);
+      await pc.setLocalDescription(offer);
+      // Count m-lines so we can spot stuck-old-mline issues from logs.
+      final sdp = offer.sdp ?? '';
+      final mLines = RegExp(r'^m=', multiLine: true).allMatches(sdp).length;
+      final videoLines = RegExp(r'^m=video', multiLine: true).allMatches(sdp).length;
+      debugPrint('[SFU] replaceVideoSource: sending media_offer (mlines=$mLines video=$videoLines)');
+      _send({'type': 'media_offer', 'room_id': _roomId, 'sdp': offer.sdp});
+    } catch (e) {
+      debugPrint('[SFU] replaceVideoSource: renegotiation failed: $e');
+    }
   }
 
   /// Pending subscriptions queued before the local PC was ready.
@@ -201,10 +297,16 @@ class SfuSignalingService {
   /// so the audio fan-out is silently lost. Buffer here and flush from
   /// `media_answer` (which is the moment the server-side PC is ready).
   final List<({String trackId, String layer})> _pendingSubscriptions = [];
+  /// All tracks we ever subscribed to. Replayed after each
+  /// client-driven renegotiation because the SFU drops the recv
+  /// subscriptions when we send it a fresh media_offer that doesn't
+  /// list them in our SDP.
+  final Map<String, ({String trackId, String layer})> _knownSubscriptions = {};
   bool _pcReadyForSubscribes = false;
 
   void subscribeTrack(String trackId, {String layer = 'h'}) {
     if (_roomId == null) return;
+    _knownSubscriptions[trackId] = (trackId: trackId, layer: layer);
     if (!_pcReadyForSubscribes) {
       _pendingSubscriptions.add((trackId: trackId, layer: layer));
       return;
@@ -379,7 +481,13 @@ class SfuSignalingService {
     localStream?.getTracks().forEach((t) => t.stop());
     await localStream?.dispose();
     localStream = null;
-    await _pc?.close();
+    // CRITICAL: dispose() not close() — flutter_webrtc on Linux/GStreamer
+    // (and Windows) leaks the underlying TURN TCP socket on plain close,
+    // so the next call's PC can't open a fresh allocation: pion's
+    // TURN-over-WS bridge keeps fanning packets to the stale socket and
+    // outbound RTP for call #2 never reaches the new room's PC. Same
+    // workaround is documented for the 1-on-1 CallScreen.
+    await _pc?.dispose();
     _pc = null;
   }
 
@@ -427,6 +535,21 @@ class SfuSignalingService {
     if (_disposed) return;
     final type = data['type'] as String? ?? '';
 
+    // Multiple SfuSignalingService instances over a session share the
+    // same `signalStream` from ChatController. Without a room_id guard,
+    // a stale media_answer / media_renegotiate from the previous call
+    // would land here and apply to the FRESH PC of the new call,
+    // poisoning its SDP state and silently killing the audio publish.
+    // `room_created` arrives BEFORE we know our own _roomId so it must
+    // bypass the check; same for non-room messages.
+    if (type != 'room_created') {
+      final msgRoom = data['room_id'] as String?;
+      if (msgRoom != null && _roomId != null && msgRoom != _roomId) {
+        debugPrint('[SFU] dropping stale $type for room $msgRoom (current=$_roomId)');
+        return;
+      }
+    }
+
     switch (type) {
       case 'room_created':
         _roomCreateTimer?.cancel();
@@ -458,12 +581,27 @@ class SfuSignalingService {
       case 'media_answer':
         final sdp = data['sdp'] as String?;
         if (sdp != null && _pc != null) {
+          final wasReady = _pcReadyForSubscribes;
           _pc!.setRemoteDescription(RTCSessionDescription(sdp, 'answer'));
-          // Server has now created our PC and is ready to accept
-          // subscriptions. Drain anything that came in before
-          // setupPeerConnection finished.
           _pcReadyForSubscribes = true;
           _flushPendingSubscriptions();
+          // Subsequent media_answer (after replaceVideoSource): the
+          // server drops our previously-subscribed RECV tracks because
+          // our fresh local offer doesn't list them. Re-send the
+          // track_subscribe for every track we already know about so
+          // the screen-sharer keeps hearing the other participants.
+          if (wasReady && _knownSubscriptions.isNotEmpty) {
+            for (final s in _knownSubscriptions.values) {
+              _send({
+                'type': 'track_subscribe',
+                'room_id': _roomId,
+                'track_id': s.trackId,
+                'layer': s.layer,
+              });
+            }
+            debugPrint('[SFU] Re-subscribed to ${_knownSubscriptions.length} '
+                'tracks after renegotiation');
+          }
         }
 
       case 'media_renegotiate':

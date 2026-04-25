@@ -356,14 +356,27 @@ class ChatController extends ChangeNotifier {
   /// session would otherwise make the prober join a room that's
   /// already been GC'd by the server.
   final Set<String> _inCallGroupIds = {};
+  /// Timestamp of the last `exitSfuCall` per group. The Pulse SFU's
+  /// participant cleanup is asynchronous: a fresh `room_create` issued
+  /// <2s after `room_leave` lands while the previous PC is still being
+  /// torn down server-side, and the new participant ends up unable to
+  /// publish audio (server treats the ssrc mapping as already-used).
+  /// We use this to throttle rapid hangup→call cycles.
+  final Map<String, DateTime> _recentSfuExit = {};
   void enterSfuCall(String groupId) {
     _inCallGroupIds.add(groupId);
     debugPrint('[Chat] enterSfuCall($groupId) — inCall=${_inCallGroupIds.length}');
   }
   void exitSfuCall(String groupId) {
     if (_inCallGroupIds.remove(groupId)) {
+      _recentSfuExit[groupId] = DateTime.now();
       debugPrint('[Chat] exitSfuCall($groupId) — inCall=${_inCallGroupIds.length}');
     }
+  }
+  Duration? sinceLastSfuExit(String groupId) {
+    final t = _recentSfuExit[groupId];
+    if (t == null) return null;
+    return DateTime.now().difference(t);
   }
 
   /// Handle an incoming `sfu_probe` signal. Only respond if we're
@@ -385,18 +398,34 @@ class ChatController extends ChangeNotifier {
   /// already in a call they'll rebroadcast their invite, letting us
   /// join instead of fragmenting the group into two parallel rooms.
   /// Returns the discovered active call, or null after [probeTimeout].
+  ///
+  /// Concurrent callers (double-tapping the call button, hot UI rebuild
+  /// while waiting) share the SAME in-flight Future — without this we
+  /// fired N probes, all timed out independently, and each issued its
+  /// own `room_create`, giving the server a fresh room per tap.
+  final Map<String, Future<ActiveGroupCall?>> _inflightProbes = {};
   Future<ActiveGroupCall?> discoverGroupCall(Contact group,
-      {Duration probeTimeout = const Duration(seconds: 2)}) async {
-    var active = activeGroupCall(group.id);
-    if (active != null) return active;
-    await _broadcaster.broadcastSfuProbe(group, _contacts.contacts);
-    final deadline = DateTime.now().add(probeTimeout);
-    while (DateTime.now().isBefore(deadline)) {
-      await Future<void>.delayed(const Duration(milliseconds: 100));
-      active = activeGroupCall(group.id);
-      if (active != null) return active;
-    }
-    return null;
+      {Duration probeTimeout = const Duration(seconds: 2)}) {
+    final existing = _inflightProbes[group.id];
+    if (existing != null) return existing;
+    final active = activeGroupCall(group.id);
+    if (active != null) return Future.value(active);
+    final fut = () async {
+      try {
+        await _broadcaster.broadcastSfuProbe(group, _contacts.contacts);
+        final deadline = DateTime.now().add(probeTimeout);
+        while (DateTime.now().isBefore(deadline)) {
+          await Future<void>.delayed(const Duration(milliseconds: 100));
+          final hit = activeGroupCall(group.id);
+          if (hit != null) return hit;
+        }
+        return null;
+      } finally {
+        _inflightProbes.remove(group.id);
+      }
+    }();
+    _inflightProbes[group.id] = fut;
+    return fut;
   }
 
   /// Pulse pubkey → Contact lookup. Populated from the `_pulseAddr` hint

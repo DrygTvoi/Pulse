@@ -1,15 +1,26 @@
 import 'dart:async';
 import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show MethodChannel;
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../models/contact.dart';
 import '../models/contact_repository.dart';
 import '../services/sfu_signaling_service.dart';
+import '../services/pulse_turn_proxy.dart';
 import '../controllers/chat_controller.dart';
 import '../theme/app_theme.dart';
+import '../theme/design_tokens.dart';
+import '../utils/platform_utils.dart';
 import '../l10n/l10n_ext.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+/// Shares the same Android foreground service as the 1-on-1 call path —
+/// Android 14+ requires the service to be running with
+/// FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION before `getDisplayMedia` is
+/// called, otherwise the app crashes with SecurityException.
+const _kSfuScreenShareChannel = MethodChannel('im.pulse.messenger/screen_share');
 
 /// SFU group call screen — single PeerConnection to Pulse server.
 /// Also used as media relay fallback for 1-on-1 calls when P2P fails.
@@ -49,6 +60,26 @@ class _SfuCallScreenState extends State<SfuCallScreen> {
   String? _dominant;
   Set<String> _speakers = {};
   String? _pinnedPubkey;
+  /// Pubkey currently rendered fullscreen (Teams/Meet-style "expand").
+  /// Tap any tile in the grid to enter; tap close button or back to exit.
+  String? _expandedPubkey;
+
+  /// Last participant who advertised a track of each kind. Used as a
+  /// fallback owner when `onRemoteTrack` fires with no usable trackId
+  /// or streamId — the SFU sometimes hands us a UUID streamId for
+  /// video (especially for screen shares) instead of the
+  /// `sfu_<pubkey>_<kind>` label, leaving the receiver with no way to
+  /// route the track to a participant tile. The most-recent
+  /// `track_available` of the matching kind is the best guess.
+  String? _lastVideoOwner;
+  String? _lastAudioOwner;
+
+  /// Tracks that arrived before we knew their owner — queued here, then
+  /// drained the moment a matching `track_available` lands. Without
+  /// this the very first onRemoteTrack of a new screen-share session
+  /// (which typically races ahead of track_available) is dropped and
+  /// the receiver tile stays blank until the sender re-publishes.
+  final List<({MediaStreamTrack track, MediaStream stream})> _orphanTracks = [];
 
   Timer? _durationTimer;
   Timer? _inviteRebroadcastTimer;
@@ -125,6 +156,21 @@ class _SfuCallScreenState extends State<SfuCallScreen> {
       debugPrint('[SfuCall] no serverUrl set — skipping ensureGroupPulseConnection');
     }
 
+    // Throttle rapid hangup→call cycles. Pion's participant-cleanup is
+    // async, so a `room_create` issued shortly after the previous
+    // `room_leave` lands while the prior PC is still being torn down
+    // server-side AND the libwebrtc-side TURN allocation hasn't been
+    // released — server skips opening a fresh `[turn-ws] new session`,
+    // and the new participant ends up unable to publish audio.
+    final since = ChatController().sinceLastSfuExit(widget.group.id);
+    if (since != null && since < const Duration(seconds: 4)) {
+      final wait = const Duration(seconds: 4) - since;
+      debugPrint('[SfuCall] last exit was ${since.inMilliseconds}ms ago — '
+          'waiting ${wait.inMilliseconds}ms for server cleanup');
+      await Future<void>.delayed(wait);
+      if (_disposed || !mounted) return;
+    }
+
     _sfu = SfuSignalingService(group: widget.group, myId: widget.myId);
     debugPrint('[SfuCall] SfuSignalingService instantiated; wiring callbacks');
 
@@ -133,8 +179,28 @@ class _SfuCallScreenState extends State<SfuCallScreen> {
       debugPrint('[SfuCall] onTrackAvailable: pubkey=${pubkey.substring(0, 8)}… '
           'kind=$kind trackId=$trackId');
       _trackOwners[trackId] = pubkey;
+      if (kind == 'video' || kind == 'screen') _lastVideoOwner = pubkey;
+      if (kind == 'audio') _lastAudioOwner = pubkey;
       _participantTracks.putIfAbsent(pubkey, () => []);
       _participantTracks[pubkey]!.add(_TrackMeta(trackId, kind));
+
+      // Drain any orphan track of matching kind into this participant.
+      final wantsVideo = kind == 'video' || kind == 'screen';
+      ({MediaStreamTrack track, MediaStream stream})? matchedOrphan;
+      for (final o in _orphanTracks) {
+        final match = (o.track.kind == 'video' && wantsVideo) ||
+            (o.track.kind == 'audio' && kind == 'audio');
+        if (match) { matchedOrphan = o; break; }
+      }
+      if (matchedOrphan != null) {
+        _orphanTracks.remove(matchedOrphan);
+        final orphan = matchedOrphan;
+        debugPrint('[SfuCall] draining orphan ${orphan.track.kind} track for ${pubkey.substring(0, 8)}');
+        _ensureRenderer(pubkey).then((r) {
+          try { r.srcObject = orphan.stream; } catch (_) {}
+          if (mounted) setState(() {});
+        });
+      }
 
       if (kind == 'audio') {
         _sfu!.subscribeTrack(trackId);
@@ -177,13 +243,31 @@ class _SfuCallScreenState extends State<SfuCallScreen> {
       // Force-enable the track in case the server muted it on the way in.
       track.enabled = true;
 
-      // Resolve participant. First by trackId via the _trackOwners map
-      // populated from `track_available` SFU notifications. Fall back to
-      // matching the track's KIND against a participant who advertised a
-      // track of that kind (works while no two participants of the same
-      // kind have arrived simultaneously — good enough for 3-4 person
-      // calls until the SFU server starts labelling streams by pubkey).
+      // Resolve participant. Three-tier lookup:
+      //   1. _trackOwners[track.id] — populated from track_available.
+      //      Almost never matches because flutter_webrtc generates a
+      //      local UUID for `track.id`, NOT the server's track id.
+      //   2. Stream id `sfu_<pubkey>_<kind>` — Pulse SFU labels its
+      //      streams this way. Reliable when present.
+      //   3. Fallback: first participant who advertised any track of
+      //      this kind. Breaks down once two people share video
+      //      simultaneously, but covers the common 1-publisher case.
       String? ownerPubkey = _trackOwners[track.id];
+      if (ownerPubkey == null) {
+        final sid = stream.id;
+        if (sid.startsWith('sfu_')) {
+          final rest = sid.substring(4);
+          final underscore = rest.lastIndexOf('_');
+          if (underscore > 0) {
+            final candidate = rest.substring(0, underscore);
+            // Pulse pubkeys are 64 hex chars.
+            if (candidate.length == 64 &&
+                RegExp(r'^[0-9a-f]+$').hasMatch(candidate)) {
+              ownerPubkey = candidate;
+            }
+          }
+        }
+      }
       if (ownerPubkey == null) {
         for (final entry in _participantTracks.entries) {
           for (final meta in entry.value) {
@@ -198,7 +282,23 @@ class _SfuCallScreenState extends State<SfuCallScreen> {
           if (ownerPubkey != null) break;
         }
       }
-      if (ownerPubkey == null) return;
+      // Last-resort: the SFU forwarded a track but never sent us a
+      // matching `track_available` (or it arrived with no resolvable
+      // streamId pattern). Use the most-recent track_available for
+      // the same kind as the owner — accurate when one publisher at a
+      // time, slightly wrong if two simultaneous publishers race.
+      ownerPubkey ??= track.kind == 'audio' ? _lastAudioOwner : _lastVideoOwner;
+      if (ownerPubkey == null) {
+        // Park as orphan — matching track_available may still arrive.
+        debugPrint('[SfuCall] onRemoteTrack: parking orphan kind=${track.kind} '
+            'stream=${stream.id}');
+        _orphanTracks.add((track: track, stream: stream));
+        // Cap the queue so we don't leak on a runaway server.
+        while (_orphanTracks.length > 6) {
+          _orphanTracks.removeAt(0);
+        }
+        return;
+      }
 
       // Attach the stream to the participant's renderer for BOTH audio
       // and video. flutter_webrtc plays the audio through the stream as
@@ -206,9 +306,21 @@ class _SfuCallScreenState extends State<SfuCallScreen> {
       // _tile() always rendres an RTCVideoView (zero-size when there's
       // no active video to display) so audio for camera-off members
       // still reaches the speakers.
-      _ensureRenderer(ownerPubkey).then((r) {
-        r.srcObject = stream;
+      final resolvedOwner = ownerPubkey;
+      debugPrint('[SfuCall] resolved owner=${resolvedOwner.substring(0, 8)} '
+          '— calling _ensureRenderer');
+      _ensureRenderer(resolvedOwner).then((r) {
+        try {
+          r.srcObject = stream;
+          debugPrint('[SfuCall] attached stream for '
+              '${resolvedOwner.substring(0, 8)} kind=${track.kind} '
+              'textureId=${r.textureId}');
+        } catch (e, st) {
+          debugPrint('[SfuCall] srcObject assign failed: $e\n$st');
+        }
         if (mounted) setState(() {});
+      }).catchError((e, st) {
+        debugPrint('[SfuCall] _ensureRenderer failed: $e\n$st');
       });
     };
 
@@ -313,25 +425,16 @@ class _SfuCallScreenState extends State<SfuCallScreen> {
           return;
         }
       }
-      // Try to attach a video track too — separately, so audio capture
-      // already running keeps its clock domain. Skip silently on devices
-      // without a camera (Waydroid, headless box) — those joined as
-      // audio-only above; we'll still send their voice.
-      try {
-        final videoStream = await navigator.mediaDevices.getUserMedia({
-          'audio': false,
-          'video': true,
-        });
-        for (final t in videoStream.getVideoTracks()) {
-          localStream.addTrack(t);
-        }
-      } catch (e) {
-        debugPrint('[SfuCall] getUserMedia(video) skipped: $e — audio-only');
-      }
+      // Start audio-only. Camera / screen share join the PC later via
+      // `_toggleCamera` / `_toggleScreenShare` → `replaceVideoSource`
+      // (removeTrack+addTrack+renegotiate). Having video present at
+      // setup time as a disabled track doesn't help: the SFU doesn't
+      // forward disabled tracks, so remote peers would never see the
+      // video even after `track.enabled = true`. Lazy-adding also
+      // avoids the crash on Waydroid/headless boxes where the camera
+      // open fails, and lets Android request MediaProjection only when
+      // the user actually taps screen-share.
       if (_disposed) { localStream.getTracks().forEach((t) => t.stop()); return; }
-
-      // Camera off by default
-      for (final t in localStream.getVideoTracks()) { t.enabled = false; }
       _localRenderer.srcObject = localStream;
 
       // Route audio to the loudspeaker, not the earpiece. Without this on
@@ -388,8 +491,34 @@ class _SfuCallScreenState extends State<SfuCallScreen> {
     // user hung up.
     _inviteRebroadcastTimer?.cancel();
     ChatController().exitSfuCall(widget.group.id);
+    for (final s in [_cameraStream, _screenShareStream]) {
+      if (s == null) continue;
+      for (final t in s.getTracks()) {
+        try { await t.stop(); } catch (_) {}
+      }
+    }
+    _cameraStream = null;
+    _screenShareStream = null;
+    if (Platform.isAndroid && _isScreenSharing) {
+      try { await _kSfuScreenShareChannel.invokeMethod('stopService'); } catch (_) {}
+    }
     await _sfu?.hangUp();
     _disposeRenderers();
+    // Drop the local TURN-over-WS bridge clients so call #2's PC gets
+    // a clean slot — flutter_webrtc on Linux/GStreamer leaks the prior
+    // allocation's TCP socket otherwise, and `_TurnWSBridge` then
+    // fans WS frames to BOTH the leaked socket and the new one, which
+    // routed call #2's outbound audio to a dead TURN session and
+    // silently dropped it.
+    PulseTurnProxy.instance.resetClients();
+    // Force the Pulse WS for this group's SFU to reconnect — pion
+    // doesn't release the TURN-over-WS allocation cleanly when the
+    // local PC closes; a full reset gives the next call a clean
+    // server-side state too.
+    final serverUrl = widget.group.groupServerUrl;
+    if (serverUrl.isNotEmpty) {
+      unawaited(ChatController().resetGroupPulseConnection(serverUrl));
+    }
     if (mounted) Navigator.pop(context);
   }
 
@@ -443,30 +572,270 @@ class _SfuCallScreenState extends State<SfuCallScreen> {
     });
   }
 
+  MediaStream? _screenShareStream;
+  MediaStream? _cameraStream;
+  bool _videoToggling = false;
+
+  /// Turn camera on/off. "On" = get fresh camera stream, install as the
+  /// peer connection's video sender, renegotiate with SFU. "Off" = tear
+  /// down sender, renegotiate so remote peers stop seeing anything.
+  /// Screen share is treated as a separate mode and always wins — the
+  /// camera button becomes no-op while screen sharing.
+  Future<void> _toggleCamera() async {
+    if (_videoToggling || _disposed) return;
+    if (_isScreenSharing) return;
+    _videoToggling = true;
+    try {
+      if (_isCameraOff) {
+        MediaStream cam;
+        try {
+          cam = await navigator.mediaDevices.getUserMedia({'audio': false, 'video': true});
+        } catch (e) {
+          debugPrint('[SfuCall] _toggleCamera: getUserMedia failed: $e');
+          return;
+        }
+        _cameraStream = cam;
+        _localRenderer.srcObject = cam;
+        // Camera doesn't need 12 Mbps — 1.5 Mbps gives crisp 720p.
+        await _sfu?.replaceVideoSource(cam, maxBitrate: 1500000);
+        if (mounted) setState(() => _isCameraOff = false);
+      } else {
+        // Stop the capture locally so LEDs turn off immediately.
+        if (_cameraStream != null) {
+          for (final t in _cameraStream!.getTracks()) {
+            try { await t.stop(); } catch (_) {}
+          }
+          _cameraStream = null;
+        }
+        _localRenderer.srcObject = null;
+        await _sfu?.replaceVideoSource(null);
+        if (mounted) setState(() => _isCameraOff = true);
+      }
+    } finally {
+      _videoToggling = false;
+    }
+  }
+
+  /// Start/stop screen sharing. Screen share replaces the camera as the
+  /// outgoing video source; when you stop, video turns off entirely
+  /// (tap the camera button to go back to camera).
   Future<void> _toggleScreenShare() async {
+    if (_videoToggling || _disposed) return;
+    _videoToggling = true;
     try {
       if (_isScreenSharing) {
-        final camStream = await navigator.mediaDevices.getUserMedia({'audio': false, 'video': true});
-        _localRenderer.srcObject = camStream;
-        if (mounted) setState(() => _isScreenSharing = false);
-      } else {
-        MediaStream screen;
-        if (Platform.isLinux || Platform.isMacOS || Platform.isWindows) {
+        if (_screenShareStream != null) {
+          for (final t in _screenShareStream!.getTracks()) {
+            try { await t.stop(); } catch (_) {}
+          }
+          _screenShareStream = null;
+        }
+        _localRenderer.srcObject = null;
+        await _sfu?.replaceVideoSource(null);
+        if (Platform.isAndroid) {
+          try { await _kSfuScreenShareChannel.invokeMethod('stopService'); } catch (_) {}
+        }
+        if (mounted) setState(() { _isScreenSharing = false; _isCameraOff = true; });
+        return;
+      }
+
+      // Quality picker first — saved choice persists across calls.
+      final prefs = await SharedPreferences.getInstance();
+      int fps = prefs.getInt('sfu_screen_share_fps') ?? 30;
+      int resWidth = prefs.getInt('sfu_screen_share_res') ?? 1920;
+      if (mounted) {
+        final picked = await _showScreenShareQualityDialog(fps, resWidth);
+        if (picked == null) return;
+        fps = picked.$1;
+        resWidth = picked.$2;
+        await prefs.setInt('sfu_screen_share_fps', fps);
+        await prefs.setInt('sfu_screen_share_res', resWidth);
+      }
+
+      // Android 14+ requires a foreground service with
+      // FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION before getDisplayMedia.
+      if (Platform.isAndroid) {
+        try {
+          await _kSfuScreenShareChannel.invokeMethod('startService');
+          await Future.delayed(const Duration(milliseconds: 300));
+        } catch (e) {
+          debugPrint('[SfuCall] startService failed: $e');
+        }
+      }
+
+      final Map<String, dynamic> mandatory = {
+        'maxFrameRate': fps.toDouble(),
+        if (resWidth > 0) ...{
+          'maxWidth': resWidth,
+          'maxHeight': resWidth * 9 ~/ 16,
+        },
+      };
+
+      MediaStream screen;
+      try {
+        if (Platform.isLinux || Platform.isWindows || Platform.isMacOS) {
+          // Desktop: enumerate sources first; the xdg-desktop-portal /
+          // CGGetDisplay / Win32 Capture picker fires here. Passing
+          // `deviceId` to getDisplayMedia reuses that selection so
+          // the user only sees one picker. Without this step the
+          // capture either fails silently or starts on a wrong
+          // monitor with no UI to choose.
           final sources = await desktopCapturer.getSources(types: [SourceType.Screen]);
           if (sources.isEmpty) return;
           screen = await navigator.mediaDevices.getDisplayMedia({
-            'video': {'deviceId': {'exact': sources.first.id}, 'mandatory': {'frameRate': 30.0}},
+            'video': {
+              'deviceId': {'exact': sources.first.id},
+              'mandatory': mandatory,
+            },
             'audio': false,
           });
         } else {
-          screen = await navigator.mediaDevices.getDisplayMedia({'video': true, 'audio': false});
+          // Mobile: getDisplayMedia triggers the system picker directly.
+          screen = await navigator.mediaDevices.getDisplayMedia({
+            'video': {'mandatory': mandatory},
+            'audio': false,
+          });
         }
-        _localRenderer.srcObject = screen;
-        if (mounted) setState(() => _isScreenSharing = true);
+      } catch (e) {
+        debugPrint('[SfuCall] getDisplayMedia failed: $e');
+        if (Platform.isAndroid) {
+          try { await _kSfuScreenShareChannel.invokeMethod('stopService'); } catch (_) {}
+        }
+        return;
       }
+      // If camera was already on, stop its tracks — one video sender at a time.
+      if (_cameraStream != null) {
+        for (final t in _cameraStream!.getTracks()) {
+          try { await t.stop(); } catch (_) {}
+        }
+        _cameraStream = null;
+      }
+      _screenShareStream = screen;
+      _localRenderer.srcObject = screen;
+      final screenTracks = screen.getVideoTracks();
+      if (screenTracks.isNotEmpty) {
+        // (flutter_webrtc doesn't expose `contentHint` on
+        // MediaStreamTrack — would have liked to set 'detail' here so
+        // the VP8 encoder optimises for sharpness over framerate.
+        // Quality boost comes from the resolution+bitrate picker
+        // instead.)
+        screenTracks.first.onEnded = () {
+          if (!_disposed && mounted && _isScreenSharing) {
+            _toggleScreenShare();
+          }
+        };
+      }
+      final maxBitrate = _resWidthToBitrate(resWidth);
+      await _sfu?.replaceVideoSource(screen, maxBitrate: maxBitrate);
+      if (mounted) setState(() { _isScreenSharing = true; _isCameraOff = true; });
     } catch (e) {
       debugPrint('[SfuCall] Screen share error: $e');
+    } finally {
+      _videoToggling = false;
     }
+  }
+
+  /// Resolution width → max bitrate for the SFU video sender. Higher
+  /// numbers = sharper picture for the same content but more upload BW.
+  static int _resWidthToBitrate(int width) {
+    if (width <= 0) return 0;            // Auto — let WebRTC decide
+    if (width <= 1280) return 5000000;   // 720p   → 5 Mbps
+    if (width <= 1920) return 12000000;  // 1080p  → 12 Mbps
+    return 20000000;                     // 1440p+ → 20 Mbps
+  }
+
+  Future<(int fps, int resWidth)?> _showScreenShareQualityDialog(
+      int currentFps, int currentResWidth) async {
+    int selFps = currentFps;
+    int selResWidth = currentResWidth;
+    Widget body(BuildContext ctx, StateSetter setS) => Padding(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(context.l10n.callScreenShareQuality,
+              style: GoogleFonts.inter(color: AppTheme.textPrimary,
+                  fontSize: DesignTokens.fontXl, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 16),
+          Text(context.l10n.callFrameRate,
+              style: GoogleFonts.inter(color: AppTheme.textSecondary,
+                  fontSize: DesignTokens.fontBody)),
+          const SizedBox(height: 8),
+          _qualityChips(
+              const [15, 30, 60], const ['15 fps', '30 fps', '60 fps'],
+              selFps, (v) => setS(() => selFps = v)),
+          const SizedBox(height: 16),
+          Text(context.l10n.callResolution,
+              style: GoogleFonts.inter(color: AppTheme.textSecondary,
+                  fontSize: DesignTokens.fontBody)),
+          const SizedBox(height: 8),
+          _qualityChips(
+              const [1280, 1920, 2560, 0],
+              const ['720p', '1080p', '1440p', 'Auto'],
+              selResWidth, (v) => setS(() => selResWidth = v)),
+          const SizedBox(height: 20),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primary,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+              ),
+              onPressed: () => Navigator.pop(ctx, (selFps, selResWidth)),
+              child: Text(context.l10n.callStartSharing,
+                  style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (PlatformUtils.isDesktop) {
+      return showDialog<(int, int)>(
+        context: context,
+        builder: (ctx) => Dialog(
+          backgroundColor: AppTheme.surface,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 400),
+            child: StatefulBuilder(builder: body),
+          ),
+        ),
+      );
+    }
+    return showModalBottomSheet<(int, int)>(
+      context: context,
+      backgroundColor: AppTheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => StatefulBuilder(builder: body),
+    );
+  }
+
+  Widget _qualityChips(List<int> options, List<String> labels,
+      int selected, ValueChanged<int> onSelect) {
+    return Wrap(
+      spacing: 8,
+      children: List.generate(options.length, (i) {
+        final active = options[i] == selected;
+        return GestureDetector(
+          onTap: () => onSelect(options[i]),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            decoration: BoxDecoration(
+              color: active ? AppTheme.primary : AppTheme.surfaceVariant,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(labels[i],
+                style: GoogleFonts.inter(
+                    color: active ? Colors.white : AppTheme.textSecondary,
+                    fontSize: DesignTokens.fontMd,
+                    fontWeight: active ? FontWeight.w700 : FontWeight.w500)),
+          ),
+        );
+      }),
+    );
   }
 
   // ── Build ──────────────────────────────────────────────────────────────
@@ -558,13 +927,49 @@ class _SfuCallScreenState extends State<SfuCallScreen> {
       _selfKey,
       ..._participantTracks.keys,
     ];
+    final expanded = _expandedPubkey != null && participants.contains(_expandedPubkey);
     return Scaffold(
       backgroundColor: AppTheme.background,
       body: SafeArea(child: Stack(children: [
-        Positioned.fill(child: _buildGrid(participants)),
+        if (expanded)
+          Positioned.fill(child: _buildExpanded(_expandedPubkey!, participants))
+        else
+          Positioned.fill(child: _buildGrid(participants)),
         Positioned(top: 0, left: 0, right: 0, child: _buildTopBar()),
         Positioned(bottom: 0, left: 0, right: 0, child: _buildControls()),
       ])),
+    );
+  }
+
+  /// Fullscreen view of [pubkey] (Meet-style). Close button in the
+  /// top-right corner; tapping the tile body itself does NOT collapse
+  /// (avoids accidental dismissal during long screen-share sessions).
+  Widget _buildExpanded(String pubkey, List<String> _) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 80, 8, 110),
+      child: Stack(children: [
+        Positioned.fill(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(14),
+            child: _tile(pubkey),
+          ),
+        ),
+        Positioned(
+          top: 8, right: 8,
+          child: Material(
+            color: Colors.black54,
+            shape: const CircleBorder(),
+            child: InkWell(
+              customBorder: const CircleBorder(),
+              onTap: () => setState(() => _expandedPubkey = null),
+              child: const Padding(
+                padding: EdgeInsets.all(8),
+                child: Icon(Icons.fullscreen_exit_rounded, color: Colors.white, size: 22),
+              ),
+            ),
+          ),
+        ),
+      ]),
     );
   }
 
@@ -603,9 +1008,12 @@ class _SfuCallScreenState extends State<SfuCallScreen> {
               SizedBox(
                 width: tileW,
                 height: tileH,
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(14),
-                  child: _tile(p),
+                child: GestureDetector(
+                  onTap: () => setState(() => _expandedPubkey = p),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(14),
+                    child: _tile(p),
+                  ),
                 ),
               ),
           ],
@@ -619,9 +1027,17 @@ class _SfuCallScreenState extends State<SfuCallScreen> {
     final renderer = isSelf ? _localRenderer : _remoteRenderers[pubkey];
     // Self always shows video when camera is on; remotes follow the SFU's
     // active-set so quality stays inside our subscription budget.
+    // Show video iff THIS participant actually has a published video
+    // track. Don't gate on `_activeSet` — that's the server's
+    // last-N speaker subscription budget, NOT a per-participant
+    // "is publishing video" signal. With activeSet gating, a non-
+    // speaking participant who's screen-sharing was hidden behind
+    // their avatar even though their video stream was flowing.
     final hasVideo = isSelf
-        ? !_isCameraOff
-        : (_activeSet.isEmpty || _activeSet.contains(pubkey));
+        ? (!_isCameraOff || _isScreenSharing)
+        : (_participantTracks[pubkey]?.any(
+                (m) => m.kind == 'video' || m.kind == 'screen') ??
+            false);
     final isSpeaking = !isSelf && _speakers.contains(pubkey);
     final isDominant = !isSelf && pubkey == _dominant;
     final isPinned = !isSelf && pubkey == _pinnedPubkey;
@@ -868,14 +1284,8 @@ class _SfuCallScreenState extends State<SfuCallScreen> {
         icon: _isCameraOff ? Icons.videocam_off_rounded : Icons.videocam_rounded,
         label: _isCameraOff ? context.l10n.callCamOff : context.l10n.callCamOn,
         active: !_isCameraOff,
-        // Toggling camera = the visual on/off, NOT mute. Use neutral
-        // surface color when off (camera-off is the default, not an
-        // alarming state) and primary highlight when on.
         highlight: !_isCameraOff,
-        onTap: () {
-          setState(() => _isCameraOff = !_isCameraOff);
-          _sfu?.localStream?.getVideoTracks().forEach((t) => t.enabled = !_isCameraOff);
-        },
+        onTap: _toggleCamera,
       ),
       GestureDetector(onTap: _hangUp, child: Container(
         width: 60, height: 60,

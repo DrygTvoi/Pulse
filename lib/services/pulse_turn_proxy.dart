@@ -23,6 +23,24 @@ class _TurnWSBridge {
     _clients.remove(id);
   }
 
+  /// Hard-drop every local TCP client currently bridged through the WS.
+  /// Called between SFU calls so a stale, leaked socket from the prior
+  /// libwebrtc TURN allocation can't keep eating fanout from the new
+  /// session — that's the bug that made call #2 silently lose its
+  /// outbound audio after a fast hangup→call cycle.
+  ///
+  /// Iterate a snapshot — `client.destroy()` synchronously fires the
+  /// socket's onDone, which calls back into `unregister()` and
+  /// mutates `_clients`, blowing up live iteration with
+  /// ConcurrentModificationError.
+  static void dropAllClients() {
+    final snapshot = List<Socket>.of(_clients.values);
+    _clients.clear();
+    for (final c in snapshot) {
+      try { c.destroy(); } catch (_) {}
+    }
+  }
+
   /// Send STUN data to server via WS binary frame: 0x30 + payload.
   static void sendTurnData(List<int> data) {
     final ch = channel;
@@ -142,6 +160,15 @@ class PulseTurnProxy {
     _sub = null;
     await _server?.close();
     _server = null;
+    _TurnWSBridge.dropAllClients();
+  }
+
+  /// Drop every leaked-or-active local TCP client without tearing down
+  /// the listening proxy. Used between SFU calls so call #2's libwebrtc
+  /// gets a fresh slot in the bridge and stale TURN allocations from
+  /// call #1 can't intercept its RTP.
+  void resetClients() {
+    _TurnWSBridge.dropAllClients();
   }
 
   final List<Completer<void>> _tlsWaiters = [];
