@@ -264,6 +264,13 @@ class SfuSignalingService {
                 enc.maxBitrate = maxBitrate;
                 enc.active = true;
               }
+              // For screen share / camera at user-picked quality:
+              // prefer to drop FPS over resolution. Without this the
+              // VP8 encoder defaults to maintain-framerate, which
+              // dumps the chosen 1440p down to 360p the instant the
+              // network blips — text becomes unreadable.
+              params.degradationPreference =
+                  RTCDegradationPreference.MAINTAIN_RESOLUTION;
               await _videoSender!.setParameters(params);
             } catch (e) {
               debugPrint('[SFU] replaceVideoSource: setParameters failed: $e');
@@ -278,16 +285,36 @@ class SfuSignalingService {
     try {
       var offer = await pc.createOffer();
       offer = _applyDtx(offer);
+      // Inject `b=AS:<kbps>` into the video m-line so the GStreamer
+      // encoder sees the bandwidth target up-front. Without this, the
+      // VP8 encoder stays at its default ~250 kbps cap and the
+      // receiver gets a smeared low-resolution picture even when
+      // setParameters() was called with a 20 Mbps maxBitrate cap.
+      if (maxBitrate > 0) {
+        final patched = _injectVideoBitrate(offer.sdp ?? '', maxBitrate ~/ 1000);
+        offer = RTCSessionDescription(patched, offer.type);
+      }
       await pc.setLocalDescription(offer);
-      // Count m-lines so we can spot stuck-old-mline issues from logs.
       final sdp = offer.sdp ?? '';
       final mLines = RegExp(r'^m=', multiLine: true).allMatches(sdp).length;
       final videoLines = RegExp(r'^m=video', multiLine: true).allMatches(sdp).length;
-      debugPrint('[SFU] replaceVideoSource: sending media_offer (mlines=$mLines video=$videoLines)');
+      final hasAS = RegExp(r'^b=AS:', multiLine: true).hasMatch(sdp);
+      debugPrint('[SFU] replaceVideoSource: sending media_offer '
+          '(mlines=$mLines video=$videoLines b=AS=$hasAS)');
       _send({'type': 'media_offer', 'room_id': _roomId, 'sdp': offer.sdp});
     } catch (e) {
       debugPrint('[SFU] replaceVideoSource: renegotiation failed: $e');
     }
+  }
+
+  /// Inserts `b=AS:<kbps>` directly under the video m= line. Targeting
+  /// only the video m-line keeps audio bitrate untouched (Opus picks
+  /// its own.)
+  String _injectVideoBitrate(String sdp, int kbps) {
+    return sdp.replaceFirstMapped(
+      RegExp(r'(m=video [^\r\n]*\r?\n)((?:i=[^\r\n]*\r?\n)?(?:c=[^\r\n]*\r?\n)?)'),
+      (m) => '${m.group(1)!}${m.group(2)!}b=AS:$kbps\r\n',
+    );
   }
 
   /// Pending subscriptions queued before the local PC was ready.

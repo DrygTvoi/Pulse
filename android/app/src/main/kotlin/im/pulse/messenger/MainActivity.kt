@@ -14,12 +14,23 @@ class MainActivity : FlutterActivity() {
             .setMethodCallHandler { call, result ->
                 when (call.method) {
                     "startService" -> {
-                        val intent = Intent(this, ScreenShareService::class.java)
-                        startForegroundService(intent)
-                        result.success(null)
+                        try {
+                            val intent = Intent(this, ScreenShareService::class.java)
+                            startForegroundService(intent)
+                            result.success(null)
+                        } catch (e: Throwable) {
+                            // ForegroundServiceStartNotAllowedException +
+                            // RemoteServiceException would otherwise propagate
+                            // and kill the whole process the moment the user
+                            // grants MediaProjection permission.
+                            result.error("START_SERVICE_FAILED",
+                                e.javaClass.simpleName + ": " + e.message, null)
+                        }
                     }
                     "stopService" -> {
-                        stopService(Intent(this, ScreenShareService::class.java))
+                        try {
+                            stopService(Intent(this, ScreenShareService::class.java))
+                        } catch (_: Throwable) {}
                         result.success(null)
                     }
                     else -> result.notImplemented()
