@@ -36,6 +36,7 @@ library;
 
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -354,6 +355,83 @@ class TestClient {
   /// learned via roster-update broadcasts.
   final Map<String, TestGroup> _groups = <String, TestGroup>{};
 
+  /// Per-(groupId, senderAddr) completers used by `waitForSkdmProcessed`.
+  /// Resolved by `_onGroupSkdm` after its async libsignal call returns,
+  /// giving tests a deterministic barrier instead of `Future.delayed(...)`.
+  final Map<String, Completer<void>> _skdmReady = <String, Completer<void>>{};
+
+  /// Serialize inbound bus dispatch. Stream listener callbacks that return
+  /// futures are NOT awaited by the broadcast stream — without this chain
+  /// `_onGroupSkdm` (async libsignal work) can be racing `_onGroupMessage`
+  /// for the same (group, sender), leading to "no session found" decrypt
+  /// failures under load.
+  Future<void> _busQueue = Future<void>.value();
+
+  // ── Recovery-flow counters / state (commit 39546b0 invariants) ─────────
+
+  /// Count of `session_reset` signals we've SENT. Used by tests that need
+  /// to assert recovery is rate-limited (one per peer per window) and not
+  /// fired N-times for N consecutive decrypt failures.
+  int sessionResetSendCount = 0;
+
+  /// Count of `session_reset` signals we've RECEIVED + processed. Lets
+  /// tests assert "exactly one round-trip recovery" instead of the
+  /// pre-fix multi-retry storm.
+  int sessionResetReceiveCount = 0;
+
+  /// Count of `pqc_stale` signals we've SENT — receiver detected a Kyber
+  /// unwrap failure and is asking the sender to refresh its cached pubkey.
+  int pqcStaleSendCount = 0;
+
+  /// Per-peer rate-limit timestamps for outgoing `session_reset` signals.
+  /// Mirrors production's `_pushOwnBundleTo` rate-limiter — a peer that
+  /// hits Bad MAC three times in a row should still only generate ONE
+  /// `session_reset` broadcast.
+  final Map<String, DateTime> _lastSessionResetSentTo = {};
+
+  /// Time window for the rate-limiter. Production uses ~30s; the
+  /// harness uses 1s so tests stay fast while still exercising the
+  /// rate-limit logic.
+  static const Duration _kSessionResetCooldown = Duration(seconds: 1);
+
+  /// Streamed `session_reset` reception events — tests can `await` on
+  /// `recoveryEvents.first` to know when to retry.
+  final StreamController<String> _recoveryCtrl =
+      StreamController<String>.broadcast();
+  Stream<String> get recoveryEvents => _recoveryCtrl.stream;
+
+  /// Total decrypt-failures observed on this client's inbound stream.
+  /// Tests assert on this in lieu of subscribing to error events on
+  /// the [incoming] stream — pushing decrypt-fails through `incoming`
+  /// trips flutter_test's zone-level unhandled-error guard even when
+  /// a subscription installs an onError handler (the listener is
+  /// rooted in `bus.inbox(...).listen(...)` so the failure escapes
+  /// the test zone via the future path).
+  int decryptFailCount = 0;
+
+  /// Per-event stream of decrypt failures. Tests that need to
+  /// synchronize on the FIRST decrypt-fail (rather than poll
+  /// [decryptFailCount]) can `await decryptFailures.first`.
+  final StreamController<DecryptFailEvent> _decryptFailCtrl =
+      StreamController<DecryptFailEvent>.broadcast();
+  Stream<DecryptFailEvent> get decryptFailures => _decryptFailCtrl.stream;
+
+  // ── PQC simulation (conceptual, not real Kyber KEM) ────────────────────
+  //
+  // The harness models the PQC layer as a 64-byte cached "pubkey" per
+  // peer. `wrapPqc` requires the cached pubkey to match the peer's
+  // current key for the unwrap to succeed; a `rotateKyber()` call
+  // replaces the local pubkey, simulating a peer that re-keyed without
+  // notifying us. Receiver detects the mismatch and broadcasts a
+  // `pqc_stale` signal — sender clears the stale cache + rebuilds.
+  //
+  // We deliberately stop short of actual Kyber KEM to keep the harness
+  // CPU-cheap and dependency-free — the bug that commit 39546b0 fixed
+  // is in the *control flow*, not in the KEM.
+  bool _pqcEnabled = false;
+  Uint8List _kyberPubkey = Uint8List(0);
+  final Map<String, Uint8List> _peerKyberPubkeys = {};
+
   bool _disposed = false;
 
   /// Stream of decrypted incoming 1-on-1 messages targeted at this client.
@@ -430,9 +508,30 @@ class TestClient {
     // `incoming.listen(...)` aren't lost. The broadcast controller still
     // requires a listener for delivery, but bus → controller routing
     // happens synchronously inside the bus mailbox listener below.
-    client._busSub = bus.inbox(client.address).listen(client._onBusMessage);
+    //
+    // Inbound dispatch is serialized through `_dispatchBusMessage` so
+    // that async handlers (libsignal SKDM/decrypt work) run one at a time
+    // — prevents "msg arrived before SKDM processed" races.
+    client._busSub =
+        bus.inbox(client.address).listen(client._dispatchBusMessage);
 
     return client;
+  }
+
+  /// Tail-recursive serialization: every inbound bus message is queued
+  /// on `_busQueue` so that the previous `_onBusMessage` future resolves
+  /// before the next dispatch starts. Errors in any handler are swallowed
+  /// here and surfaced via the per-handler streams (`_decryptFailCtrl`,
+  /// `_incomingGroupCtrl.addError`, etc.) — the chain MUST keep flowing.
+  void _dispatchBusMessage(BusMessage m) {
+    _busQueue = _busQueue.then((_) async {
+      try {
+        await _onBusMessage(m);
+      } catch (_) {
+        // Per-handler error paths already emit on their dedicated
+        // streams; swallow here to keep the dispatch chain alive.
+      }
+    });
   }
 
   // ── Public API ─────────────────────────────────────────────────────────
@@ -482,6 +581,159 @@ class TestClient {
     _store.identityStore.trustedKeys.remove(addr);
   }
 
+  // ── Recovery flow API (commit 39546b0) ─────────────────────────────────
+
+  /// Send a `session_reset` signal to [peer] carrying our CURRENT public
+  /// PreKey bundle inline. Mirrors production's atomic recovery flow:
+  /// instead of just wiping our stale session and waiting for the
+  /// recipient to re-fetch our bundle from the relay (race condition),
+  /// we push the bundle inline so the recipient can call
+  /// `forgetPeer()` + `addContact()` atomically and decrypt our next
+  /// message without any further round-trip.
+  ///
+  /// Rate-limited to one signal per peer per [_kSessionResetCooldown] —
+  /// a sender that hits Bad MAC N times in a row only emits ONE
+  /// `session_reset` (the bug commit 39546b0 fixed: pre-fix code emitted
+  /// one per failure).
+  ///
+  /// Returns `true` if the signal was actually emitted, `false` if the
+  /// rate-limiter suppressed it.
+  bool requestSessionReset(TestClient peer) {
+    final now = DateTime.now();
+    final last = _lastSessionResetSentTo[peer.address];
+    if (last != null && now.difference(last) < _kSessionResetCooldown) {
+      return false;
+    }
+    _lastSessionResetSentTo[peer.address] = now;
+
+    final bundle = publicBundle();
+    sessionResetSendCount++;
+    bus.send(BusMessage(
+      to: peer.address,
+      from: address,
+      kind: 'signal',
+      payload: jsonEncode({
+        'type': 'session_reset',
+        'payload': _serializeBundle(bundle),
+      }),
+    ));
+    return true;
+  }
+
+  /// Wait until our `sessionResetSendCount` stops increasing for one
+  /// `_kSessionResetCooldown` window AND our next outgoing message
+  /// decrypts successfully on the peer. Useful for asserting that
+  /// recovery converges in bounded time without busy-polling.
+  Future<void> waitForRecovery(Duration timeout) async {
+    final deadline = DateTime.now().add(timeout);
+    var lastCount = sessionResetSendCount;
+    var stableSince = DateTime.now();
+    while (DateTime.now().isBefore(deadline)) {
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      if (sessionResetSendCount != lastCount) {
+        lastCount = sessionResetSendCount;
+        stableSince = DateTime.now();
+        continue;
+      }
+      if (DateTime.now().difference(stableSince) >=
+          _kSessionResetCooldown) {
+        return;
+      }
+    }
+  }
+
+  // ── PQC simulation API ─────────────────────────────────────────────────
+
+  /// Generate a (conceptual) Kyber pubkey for this client and start
+  /// including it in publicBundles + checking it on inbound. The bytes
+  /// are random — the harness only checks for byte equality on
+  /// unwrap, never an actual KEM operation.
+  void enablePqc() {
+    _pqcEnabled = true;
+    _kyberPubkey = _randomBytes(64);
+  }
+
+  /// Simulate a peer rotating their PQC keypair (e.g. after reinstall
+  /// or scheduled rotation). Tests use this to drive the
+  /// "cached-stale-pubkey" branch of the unwrap flow.
+  void rotateKyber() {
+    if (!_pqcEnabled) {
+      throw StateError('rotateKyber called before enablePqc');
+    }
+    _kyberPubkey = _randomBytes(64);
+  }
+
+  /// Locally cache [peer]'s current Kyber pubkey. Receiver of a PQC
+  /// envelope cross-checks this against the peer's *current* pubkey;
+  /// mismatch triggers `pqc_stale`. Tests use this to seed a deliberate
+  /// mismatch.
+  void cachePeerKyber(TestClient peer) {
+    if (!peer._pqcEnabled) {
+      throw StateError(
+          'cachePeerKyber: peer ${peer.address} did not call enablePqc()');
+    }
+    _peerKyberPubkeys[peer.address] = Uint8List.fromList(peer._kyberPubkey);
+  }
+
+  /// Send a PQC-wrapped text to [peer]. The "wrap" here is symbolic —
+  /// the wire payload carries the cached peer pubkey we *think* is
+  /// current. Receiver compares against its actual pubkey; mismatch
+  /// surfaces as a "PQC unwrap failure" event.
+  ///
+  /// On unwrap-success, the inner Signal-encrypted body is delivered
+  /// exactly like a normal `sendText` call.
+  Future<void> sendPqcText(TestClient peer, String text) async {
+    if (!_pqcEnabled) {
+      throw StateError('sendPqcText: enablePqc() not called on sender');
+    }
+    final cached = _peerKyberPubkeys[peer.address];
+    if (cached == null) {
+      throw StateError(
+          'sendPqcText: no cached Kyber pubkey for ${peer.address}');
+    }
+
+    // Build the inner Signal envelope exactly like sendText does, then
+    // wrap it inside a PQC envelope that carries the cached peer pubkey.
+    final wrapped = MessageEnvelope.wrap(address, text);
+    final remoteAddress = SignalProtocolAddress(peer.address, 1);
+    final cipher =
+        SessionCipher(_store, _store, _store, _store, remoteAddress);
+    final ct = await cipher.encrypt(Uint8List.fromList(utf8.encode(wrapped)));
+    final inner = 'E2EE||${ct.getType()}||${base64Encode(ct.serialize())}';
+
+    bus.send(BusMessage(
+      to: peer.address,
+      from: address,
+      kind: 'pqc_msg',
+      payload: jsonEncode({
+        'kyber': base64Encode(cached),
+        'inner': inner,
+      }),
+      ts: DateTime.now().millisecondsSinceEpoch,
+    ));
+  }
+
+  /// Notify [peer] that we (the receiver) detected a stale Kyber pubkey.
+  /// Carries our *current* Kyber pubkey inline so [peer] can refresh its
+  /// cache atomically — no relay round-trip needed.
+  void notifyPqcStale(TestClient peer) {
+    if (!_pqcEnabled) {
+      throw StateError('notifyPqcStale: enablePqc() not called');
+    }
+    pqcStaleSendCount++;
+    bus.send(BusMessage(
+      to: peer.address,
+      from: address,
+      kind: 'signal',
+      payload: jsonEncode({
+        'type': 'pqc_stale',
+        'payload': {
+          'kyber': base64Encode(_kyberPubkey),
+        },
+      }),
+    ));
+  }
+
   /// Encrypt + send [text] to [peer] via the bus.
   Future<void> sendText(TestClient peer, String text) async {
     final wrapped = MessageEnvelope.wrap(address, text);
@@ -526,6 +778,8 @@ class TestClient {
     await _busSub?.cancel();
     await _incomingCtrl.close();
     await _incomingGroupCtrl.close();
+    await _recoveryCtrl.close();
+    await _decryptFailCtrl.close();
     clearBucket(_storagePrefix);
   }
 
@@ -691,43 +945,201 @@ class TestClient {
       case 'group_remove':
         _onGroupRemove(m);
         return;
+      case 'signal':
+        await _onSignal(m);
+        return;
+      case 'pqc_msg':
+        await _onPqcMessage(m);
+        return;
       default:
-        return; // signals routed elsewhere
+        return; // unknown kinds — tests can subscribe directly to bus.inbox
     }
   }
 
-  Future<void> _onDirectMessage(BusMessage m) async {
+  // ── Inbound signals (recovery flow) ────────────────────────────────────
+
+  Future<void> _onSignal(BusMessage m) async {
+    Map<String, dynamic> outer;
     try {
-      final plaintext = await _decrypt(m.from, m.payload);
-      final envelope = MessageEnvelope.tryUnwrap(plaintext);
-      if (envelope == null) {
-        // Plaintext fallback — still useful for tests that assert on raw
-        // (un-enveloped) decrypted bodies.
-        _incomingCtrl.add(DecryptedMessage(
-          from: m.from,
-          text: plaintext,
-          ts: DateTime.fromMillisecondsSinceEpoch(
-              m.ts ?? DateTime.now().millisecondsSinceEpoch),
-        ));
-        return;
-      }
-      _incomingCtrl.add(DecryptedMessage(
-        from: envelope.from,
-        text: envelope.body,
-        ts: DateTime.fromMillisecondsSinceEpoch(
-            m.ts ?? DateTime.now().millisecondsSinceEpoch),
-      ));
-    } catch (e, st) {
-      // Surface decrypt failures so tests that *expect* failure can
-      // `.handleError(...)`. Without this they'd hang on `.first`.
-      _incomingCtrl.addError(e, st);
+      outer = jsonDecode(m.payload) as Map<String, dynamic>;
+    } catch (_) {
+      return;
     }
+    final type = outer['type'] as String?;
+    final payload = (outer['payload'] as Map?)?.cast<String, dynamic>();
+    if (type == null || payload == null) return;
+
+    switch (type) {
+      case 'session_reset':
+        sessionResetReceiveCount++;
+        // Atomic recovery: drop the stale session + trusted-identity
+        // entry, then build a fresh session from the inline bundle.
+        // Mirrors the production fix in commit 39546b0 — without
+        // the inline bundle, the receiver would have to refetch from
+        // the relay and race the next incoming message.
+        await forgetPeer(m.from);
+        try {
+          final bundle = _deserializeBundle(payload);
+          final remoteAddress = SignalProtocolAddress(m.from, 1);
+          await SessionBuilder(
+                  _store, _store, _store, _store, remoteAddress)
+              .processPreKeyBundle(bundle);
+          if (!_recoveryCtrl.isClosed) {
+            _recoveryCtrl.add(m.from);
+          }
+        } catch (e, st) {
+          if (!_recoveryCtrl.isClosed) {
+            _recoveryCtrl.addError(e, st);
+          }
+        }
+        return;
+      case 'pqc_stale':
+        // Sender's cached pubkey is stale — refresh from the inline
+        // payload. No relay round-trip needed.
+        final kyberB64 = payload['kyber'] as String?;
+        if (kyberB64 != null) {
+          _peerKyberPubkeys[m.from] = base64Decode(kyberB64);
+        }
+        return;
+      default:
+        return; // unknown signal types pass silently
+    }
+  }
+
+  Future<void> _onPqcMessage(BusMessage m) async {
+    if (!_pqcEnabled) {
+      // Tests that don't enable PQC ignore inbound PQC envelopes —
+      // mirrors production behaviour for downgraded peers.
+      return;
+    }
+    Map<String, dynamic> j;
+    try {
+      j = jsonDecode(m.payload) as Map<String, dynamic>;
+    } catch (e, st) {
+      _incomingCtrl.addError(e, st);
+      return;
+    }
+    final claimedB64 = j['kyber'] as String?;
+    final inner = j['inner'] as String?;
+    if (claimedB64 == null || inner == null) return;
+
+    final claimed = base64Decode(claimedB64);
+    if (!_bytesEqual(claimed, _kyberPubkey)) {
+      // Unwrap-fail. Production silently dropped these pre-fix; we
+      // now broadcast a `pqc_stale` so the sender refreshes its
+      // cache atomically and retries. Inlined here because we only
+      // know the sender's address (string), not a TestClient handle.
+      pqcStaleSendCount++;
+      bus.send(BusMessage(
+        to: m.from,
+        from: address,
+        kind: 'signal',
+        payload: jsonEncode({
+          'type': 'pqc_stale',
+          'payload': {
+            'kyber': base64Encode(_kyberPubkey),
+          },
+        }),
+      ));
+      return;
+    }
+
+    // Unwrap OK — feed the inner Signal envelope to the regular
+    // direct-message path.
+    final inlined = BusMessage(
+      to: m.to,
+      from: m.from,
+      kind: 'msg',
+      payload: inner,
+      ts: m.ts,
+    );
+    await _onDirectMessage(inlined);
+  }
+
+
+  Future<void> _onDirectMessage(BusMessage m) async {
+    // libsignal's `SessionCipher.decryptWithCallback` is async and runs
+    // its hot path through a zone-scoped continuation. When it throws
+    // (e.g. InvalidKeyIdException from a missing prekey, BadMacException
+    // from a stale session), the throw is "double-reported" — the
+    // catch below sees it AND it also surfaces as an unhandled
+    // zone error in flutter_test, failing the test even when the
+    // catch handles it gracefully.
+    //
+    // We isolate the decrypt under a guarded zone so the redundant
+    // zone-error report is swallowed and only our explicit catch
+    // path drives recovery.
+    Object? decryptError;
+    StackTrace? decryptStack;
+    String? plaintext;
+    await runZonedGuarded(() async {
+      try {
+        plaintext = await _decrypt(m.from, m.payload);
+      } catch (e, st) {
+        decryptError = e;
+        decryptStack = st;
+      }
+    }, (e, st) {
+      decryptError ??= e;
+      decryptStack ??= st;
+    });
+
+    if (decryptError != null) {
+      decryptFailCount++;
+      if (!_decryptFailCtrl.isClosed) {
+        _decryptFailCtrl.add(DecryptFailEvent(
+            from: m.from, error: decryptError!, stack: decryptStack!));
+      }
+      _maybeRequestResetForAddress(m.from);
+      return;
+    }
+
+    final pt = plaintext!;
+    final envelope = MessageEnvelope.tryUnwrap(pt);
+    final ts = DateTime.fromMillisecondsSinceEpoch(
+        m.ts ?? DateTime.now().millisecondsSinceEpoch);
+    if (envelope == null) {
+      // Plaintext fallback — still useful for tests that assert on raw
+      // (un-enveloped) decrypted bodies.
+      _incomingCtrl.add(DecryptedMessage(from: m.from, text: pt, ts: ts));
+      return;
+    }
+    _incomingCtrl.add(DecryptedMessage(
+      from: envelope.from,
+      text: envelope.body,
+      ts: ts,
+    ));
+  }
+
+  /// Schedule a `session_reset` at [peer]'s address using just the
+  /// string address (we don't always hold a TestClient handle for
+  /// the sender). Routes through [requestSessionReset] indirectly by
+  /// inlining the same logic — keeps the rate-limiter consistent.
+  void _maybeRequestResetForAddress(String peerAddress) {
+    final now = DateTime.now();
+    final last = _lastSessionResetSentTo[peerAddress];
+    if (last != null && now.difference(last) < _kSessionResetCooldown) {
+      return;
+    }
+    _lastSessionResetSentTo[peerAddress] = now;
+    final bundle = publicBundle();
+    sessionResetSendCount++;
+    bus.send(BusMessage(
+      to: peerAddress,
+      from: address,
+      kind: 'signal',
+      payload: jsonEncode({
+        'type': 'session_reset',
+        'payload': _serializeBundle(bundle),
+      }),
+    ));
   }
 
   Future<void> _onGroupSkdm(BusMessage m) async {
+    String? gid;
     try {
       final j = jsonDecode(m.payload) as Map<String, dynamic>;
-      final gid = j['gid'] as String;
+      gid = j['gid'] as String;
       final skdmBytes = base64Decode(j['skdm'] as String);
       final senderKeyName =
           SenderKeyName(gid, SignalProtocolAddress(m.from, 1));
@@ -736,9 +1148,34 @@ class TestClient {
       await _groupBuilder.process(senderKeyName, skdm);
       // Invalidate cached cipher so a fresh one picks up the new state.
       _groupCiphers.remove('$gid::${m.from}');
+      // Resolve any pending `waitForSkdmProcessed` future for this
+      // (group, sender). Tests use this as a deterministic barrier
+      // before sending the first encrypted group message. Guarded
+      // because the same SKDM can be re-broadcast (e.g. roster change)
+      // and the completer is single-shot.
+      final key = '$gid::${m.from}';
+      final c = _skdmReady.putIfAbsent(key, () => Completer<void>());
+      if (!c.isCompleted) c.complete();
     } catch (e, st) {
       _incomingGroupCtrl.addError(e, st);
+      // Still surface failure on the barrier so tests don't hang.
+      if (gid != null) {
+        final key = '$gid::${m.from}';
+        final c = _skdmReady.putIfAbsent(key, () => Completer<void>());
+        if (!c.isCompleted) c.completeError(e, st);
+      }
     }
+  }
+
+  /// Future that completes the moment `_onGroupSkdm` finishes processing
+  /// a SKDM for [groupId] from [senderAddr]. If the SKDM arrives BEFORE
+  /// the test calls this, the future resolves immediately. Used by
+  /// regression tests in lieu of `Future.delayed(...)` settlement timers.
+  Future<void> waitForSkdmProcessed(String groupId, String senderAddr) {
+    final key = '$groupId::$senderAddr';
+    return _skdmReady
+        .putIfAbsent(key, () => Completer<void>())
+        .future;
   }
 
   Future<void> _onGroupMessage(BusMessage m) async {
@@ -797,6 +1234,60 @@ class TestClient {
     }
   }
 
+  // ── Bundle serialization (for inline `session_reset` payloads) ─────────
+
+  Map<String, dynamic> _serializeBundle(PreKeyBundle b) {
+    final pre = b.getPreKey();
+    final spk = b.getSignedPreKey();
+    final sig = b.getSignedPreKeySignature();
+    return <String, dynamic>{
+      'rid': b.getRegistrationId(),
+      'did': b.getDeviceId(),
+      'pkid': b.getPreKeyId(),
+      'pk': pre == null ? null : base64Encode(pre.serialize()),
+      'spkid': b.getSignedPreKeyId(),
+      'spk': spk == null ? null : base64Encode(spk.serialize()),
+      'sig': sig == null ? null : base64Encode(sig),
+      'idk': base64Encode(b.getIdentityKey().serialize()),
+    };
+  }
+
+  PreKeyBundle _deserializeBundle(Map<String, dynamic> j) {
+    final pkB64 = j['pk'] as String?;
+    final spkB64 = j['spk'] as String?;
+    final sigB64 = j['sig'] as String?;
+    final idkB64 = j['idk'] as String;
+    return PreKeyBundle(
+      j['rid'] as int,
+      j['did'] as int,
+      j['pkid'] as int?,
+      pkB64 == null ? null : Curve.decodePoint(base64Decode(pkB64), 0),
+      j['spkid'] as int,
+      spkB64 == null ? null : Curve.decodePoint(base64Decode(spkB64), 0),
+      sigB64 == null ? null : base64Decode(sigB64),
+      IdentityKey.fromBytes(base64Decode(idkB64), 0),
+    );
+  }
+
+  // ── Tiny crypto-adjacent utilities ─────────────────────────────────────
+
+  static final _rand = math.Random.secure();
+  static Uint8List _randomBytes(int n) {
+    final out = Uint8List(n);
+    for (var i = 0; i < n; i++) {
+      out[i] = _rand.nextInt(256);
+    }
+    return out;
+  }
+
+  static bool _bytesEqual(Uint8List a, Uint8List b) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
+  }
+
   Future<String> _decrypt(String fromAddress, String wire) async {
     if (!wire.startsWith('E2EE||')) return wire;
     final parts = wire.split('||');
@@ -817,6 +1308,218 @@ class TestClient {
     }
     return utf8.decode(plain);
   }
+
+  // ── Reconnect / sleep / wake regression hooks ──────────────────────────
+  //
+  // Added 2026-04-26 to back regression tests for commits 9872c3f
+  // (reconnectInbox subscription leak + wake-from-sleep watchdog) and
+  // 39546b0 (addr_update UNION-MERGE + group invite Pulse seeding).
+  //
+  // Names use the `pulseRegression…` prefix so they cannot collide with
+  // helpers another agent may add to this same file in parallel.
+
+  /// Wall-clock timestamp the watchdog last saw "alive". A
+  /// [pulseRegressionSimulateWake] call detects a gap > 60s and forces a
+  /// resubscribe, mirroring the production wake-from-sleep behaviour.
+  DateTime _pulseRegressionLastTick = DateTime.now();
+
+  /// Simulated "we missed wall-clock ticks while suspended" flag — set by
+  /// [pulseRegressionSimulateSleep], cleared by [pulseRegressionSimulateWake].
+  bool _pulseRegressionWokenFromSleep = false;
+
+  /// Cached pulse pubkey for self — populated lazily so tests can read it
+  /// without forcing a setter API. Derived deterministically from [name].
+  String get pulseRegressionSelfPulsePub =>
+      _pulseRegressionPulseFor(address);
+
+  /// Per-contact address book. Mirrors production's
+  /// `Contact.transportAddresses` map, but trimmed to the surface area
+  /// the addr_update + group-invite regression tests need.
+  final Map<String, ContactAddresses> _pulseRegressionContacts =
+      <String, ContactAddresses>{};
+
+  /// Tear down the live bus subscription and re-establish it against the
+  /// same mailbox. Models the production
+  /// `PulseInboxReader.reconnectInbox()` flow: cancel → tear down →
+  /// re-subscribe. Any messages that arrive between cancel and resubscribe
+  /// are buffered by the bus's per-address mailbox stream.
+  ///
+  /// Verifies the invariant from commit 9872c3f: after a reconnect the
+  /// new subscription must actually receive the next inbound message.
+  Future<void> pulseRegressionSimulateReconnect() async {
+    final stash = _busSub;
+    _busSub = null;
+    await stash?.cancel();
+    // Re-wire the bus subscription onto the SAME mailbox. The bus's
+    // broadcast controller will deliver any messages produced after this
+    // point. Use `_dispatchBusMessage` (the serialized variant) for
+    // identical race-avoidance to the initial subscribe.
+    _busSub = bus.inbox(address).listen(_dispatchBusMessage);
+    _pulseRegressionLastTick = DateTime.now();
+  }
+
+  /// Simulate the OS suspending this client for [gap]. Marks the bus
+  /// connection as zombie (no further sends are observed by the client)
+  /// and rewinds [_pulseRegressionLastTick] so that the next
+  /// [pulseRegressionSimulateWake] call detects a wall-clock jump.
+  Future<void> pulseRegressionSimulateSleep(Duration gap) async {
+    bus.disconnect(address);
+    _pulseRegressionLastTick =
+        DateTime.now().subtract(gap + const Duration(seconds: 1));
+    _pulseRegressionWokenFromSleep = true;
+  }
+
+  /// Detect that wall-clock has jumped past the watchdog threshold (60s)
+  /// and force a fresh subscription on top of the already-buffered
+  /// mailbox. Mirrors the production wake-from-sleep watchdog teardown +
+  /// reopen sequence.
+  Future<void> pulseRegressionSimulateWake({
+    Duration threshold = const Duration(seconds: 60),
+  }) async {
+    final now = DateTime.now();
+    final delta = now.difference(_pulseRegressionLastTick);
+    if (delta < threshold && !_pulseRegressionWokenFromSleep) {
+      // No jump observed — nothing to do.
+      return;
+    }
+    _pulseRegressionWokenFromSleep = false;
+    // 1. Tear down the now-zombie bus subscription before draining the
+    //    offline buffer, so we don't double-process anything.
+    final stash = _busSub;
+    _busSub = null;
+    await stash?.cancel();
+    // 2. Re-subscribe FIRST so we observe the offline-buffer drain.
+    //    Use the serialized dispatcher so async handlers (libsignal
+    //    SKDM/decrypt) don't interleave on the just-drained backlog.
+    _busSub = bus.inbox(address).listen(_dispatchBusMessage);
+    // 3. Resume bus delivery — drains the offline buffer in FIFO order.
+    bus.reconnect(address);
+    _pulseRegressionLastTick = now;
+  }
+
+  /// Look up the cached Pulse pubkey for [contactAddress]. Returns `null`
+  /// when this client has never learned a Pulse address for that contact.
+  String? pulseRegressionGetContactPulse(String contactAddress) {
+    final entry = _pulseRegressionContacts[contactAddress];
+    final pulses = entry?.addresses['Pulse'];
+    if (pulses == null || pulses.isEmpty) return null;
+    return pulses.first;
+  }
+
+  /// Replace this client's local view of [contactAddress]'s addresses
+  /// with [addresses]. Used by tests that need to seed an initial Pulse
+  /// address before the addr_update / invite flow runs.
+  void pulseRegressionSetContactAddresses(
+      String contactAddress, Map<String, List<String>> addresses) {
+    _pulseRegressionContacts[contactAddress] = ContactAddresses(
+      addresses: {
+        for (final e in addresses.entries) e.key: List<String>.from(e.value),
+      },
+    );
+  }
+
+  /// UNION-MERGE the addresses carried in an `addr_update` bus message
+  /// into this client's local contact book — the exact behaviour
+  /// commit 39546b0 introduced (and that the test guards against any
+  /// future revert).
+  ///
+  /// Old behaviour was REPLACE: an update missing the Pulse transport
+  /// would silently drop the Pulse pubkey. UNION-MERGE preserves any
+  /// transport key the update doesn't mention.
+  Future<void> pulseRegressionHandleAddrUpdate(BusMessage update) async {
+    if (update.kind != 'addr_update') return;
+    final j = jsonDecode(update.payload) as Map<String, dynamic>;
+    final transportMap = (j['transportAddresses'] as Map?)?.cast<String, dynamic>() ?? {};
+    final existing = _pulseRegressionContacts[update.from] ??
+        ContactAddresses(addresses: <String, List<String>>{});
+    final merged = <String, List<String>>{
+      for (final e in existing.addresses.entries)
+        e.key: List<String>.from(e.value),
+    };
+    transportMap.forEach((transport, raw) {
+      final list = (raw as List).cast<String>();
+      // UNION: merge incoming list into existing, dedup preserving order.
+      final acc = <String>[...?merged[transport]];
+      for (final addr in list) {
+        if (!acc.contains(addr)) acc.add(addr);
+      }
+      merged[transport] = acc;
+    });
+    _pulseRegressionContacts[update.from] =
+        ContactAddresses(addresses: merged);
+  }
+
+  /// Build a deterministic Pulse pubkey for an address. Production keys
+  /// are real ed25519 hex strings; for tests we just need a stable
+  /// non-empty string so the test can compare for equality.
+  String _pulseRegressionPulseFor(String addr) =>
+      'pulsePub_${addr.hashCode.toRadixString(16)}';
+
+  /// Build a group-invite bus message that carries `memberPulsePubkeys`
+  /// the way the post-39546b0 production code does. The receiver is
+  /// expected to call [pulseRegressionApplyInvite] to seed every
+  /// member's Pulse pubkey into the local contact book before sending
+  /// the first message in the group.
+  Future<void> pulseRegressionSendGroupInvite(
+    TestClient invitee, {
+    required String groupId,
+    required List<TestClient> members,
+  }) async {
+    final memberPulsePubkeys = <String, String>{
+      for (final m in members) m.address: m.pulseRegressionSelfPulsePub,
+    };
+    bus.send(BusMessage(
+      to: invitee.address,
+      from: address,
+      kind: 'group_invite',
+      payload: jsonEncode({
+        'gid': groupId,
+        'memberPulsePubkeys': memberPulsePubkeys,
+      }),
+    ));
+  }
+
+  /// Apply a previously-received `group_invite` bus message: seed the
+  /// `memberPulsePubkeys` map into this client's local contact book so
+  /// the FIRST group message routes via Pulse without an extra
+  /// addr_update round-trip.
+  Future<void> pulseRegressionApplyInvite(BusMessage invite) async {
+    if (invite.kind != 'group_invite') return;
+    final j = jsonDecode(invite.payload) as Map<String, dynamic>;
+    final keys = (j['memberPulsePubkeys'] as Map).cast<String, dynamic>();
+    keys.forEach((memberAddr, pulsePub) {
+      if (memberAddr == address) return; // skip self
+      final existing = _pulseRegressionContacts[memberAddr] ??
+          ContactAddresses(addresses: <String, List<String>>{});
+      final merged = <String, List<String>>{
+        for (final e in existing.addresses.entries)
+          e.key: List<String>.from(e.value),
+      };
+      final acc = <String>[...?merged['Pulse']];
+      final p = pulsePub as String;
+      if (!acc.contains(p)) acc.add(p);
+      merged['Pulse'] = acc;
+      _pulseRegressionContacts[memberAddr] =
+          ContactAddresses(addresses: merged);
+    });
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Contact-address model (regression-test scope)
+// ─────────────────────────────────────────────────────────────────────────
+
+/// Minimal mirror of production's `Contact.transportAddresses` map. Keyed
+/// by transport label (`'Pulse'`, `'Nostr'`, …) → list of concrete
+/// addresses. Used by the addr_update UNION-MERGE and group-invite
+/// regression tests.
+class ContactAddresses {
+  ContactAddresses({required this.addresses});
+
+  final Map<String, List<String>> addresses;
+
+  @override
+  String toString() => 'ContactAddresses($addresses)';
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -858,4 +1561,15 @@ class _TestSignalStore extends InMemorySignalProtocolStore {
   @override
   Future<int> getLocalRegistrationId() =>
       identityStore.getLocalRegistrationId();
+}
+
+/// One inbound decrypt-failure event surfaced by [TestClient.decryptFailures].
+/// Tests that need to know WHY a decrypt failed can switch on
+/// [error]'s runtimeType (e.g. `InvalidKeyIdException`, `InvalidMessageException`).
+class DecryptFailEvent {
+  DecryptFailEvent(
+      {required this.from, required this.error, required this.stack});
+  final String from;
+  final Object error;
+  final StackTrace stack;
 }

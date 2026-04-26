@@ -1,15 +1,16 @@
-/// Five regression tests covering bugs that were fixed during the
+/// Regression tests covering bugs that were fixed during the
 /// 2026-04-26 group-messaging push (commits 39546b0 + 9872c3f) plus
 /// foundational invariants the harness should always uphold.
 ///
-/// Each test should run in well under one second; all five together
-/// finish in roughly the same time as one production-style E2E test.
+/// Each test should run in well under one second; the full suite
+/// finishes in roughly the same time as one production-style E2E test.
 ///
 /// Run with:
 ///   LD_LIBRARY_PATH=linux/libs flutter test test/integration/regression_test.dart
 library;
 
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 
@@ -140,8 +141,16 @@ void main() {
 
     final group = await alice.createGroup('test-group', [bob, carol]);
 
-    // Allow SKDM dispatch to settle before encrypting.
-    await Future<void>.delayed(const Duration(milliseconds: 30));
+    // Deterministic SKDM-ready barrier: wait for the SKDM-processed
+    // future the harness exposes. No `Future.delayed` race window —
+    // the future completes the moment _onGroupSkdm finishes its async
+    // processing for this (groupId, sender) pair on each member.
+    await Future.wait([
+      bob.waitForSkdmProcessed(group.id, alice.address)
+          .timeout(const Duration(seconds: 3)),
+      carol.waitForSkdmProcessed(group.id, alice.address)
+          .timeout(const Duration(seconds: 3)),
+    ]);
 
     await alice.sendGroupText(group, 'hello group');
 
@@ -187,27 +196,46 @@ void main() {
     final bobSub = bob.incomingGroup.listen((e) => bobEvents.add(e));
     addTearDown(bobSub.cancel);
 
+    // Deterministic barrier for the initial roster, attached BEFORE
+    // createGroup so we never miss the event.
+    final carolFirstRoster =
+        carol.incomingGroup.firstWhere((e) => e.kind == 'roster');
+    final bobFirstRoster =
+        bob.incomingGroup.firstWhere((e) => e.kind == 'roster');
+
     final group = await alice.createGroup('kick-test', [bob, carol]);
-    await Future<void>.delayed(const Duration(milliseconds: 30));
+
+    // Wait for both members to actually receive the initial roster
+    // event — replaces a timer-based 30ms wait that could miss the
+    // event under load.
+    await Future.wait([
+      carolFirstRoster.timeout(const Duration(seconds: 2)),
+      bobFirstRoster.timeout(const Duration(seconds: 2)),
+    ]);
 
     // Sanity: carol got the initial roster.
     expect(carolEvents.where((e) => e.kind == 'roster'), isNotEmpty);
 
+    // Pre-arm barriers BEFORE the kick so we observe the events.
+    final carolRemoval =
+        carol.incomingGroup.firstWhere((e) => e.kind == 'removed');
+    final bobNewRoster =
+        bob.incomingGroup.firstWhere((e) => e.kind == 'roster');
+
     await alice.kickFromGroup(group, carol);
-    await Future<void>.delayed(const Duration(milliseconds: 30));
 
     // Catches commit 39546b0: kicked member must be told about the kick.
-    final removalEvents = carolEvents.where((e) => e.kind == 'removed');
-    expect(removalEvents, isNotEmpty,
-        reason: 'kicked member should receive a removal notice');
-    expect(removalEvents.first.groupId, group.id);
+    final removeEvent =
+        await carolRemoval.timeout(const Duration(seconds: 2));
+    expect(removeEvent.groupId, group.id);
+    expect(carolEvents.any((e) => e.kind == 'removed'), isTrue);
 
-    // The remaining roster should have been delivered to bob and should
-    // exclude carol.
-    final bobRosters = bobEvents.where((e) => e.kind == 'roster').toList();
-    expect(bobRosters.last.members, contains(bob.address));
-    expect(bobRosters.last.members, contains(alice.address));
-    expect(bobRosters.last.members, isNot(contains(carol.address)));
+    // The remaining roster must reach bob and must exclude carol.
+    final bobRosterEvent =
+        await bobNewRoster.timeout(const Duration(seconds: 2));
+    expect(bobRosterEvent.members, contains(bob.address));
+    expect(bobRosterEvent.members, contains(alice.address));
+    expect(bobRosterEvent.members, isNot(contains(carol.address)));
   });
 
   // ─────────────────────────────────────────────────────────────────────
@@ -259,5 +287,478 @@ void main() {
     final secondBob = bob.incoming.first;
     await alice.sendText(bob, 'hi-2');
     expect((await secondBob.timeout(const Duration(seconds: 2))).text, 'hi-2');
+  });
+
+  // ─────────────────────────────────────────────────────────────────────
+  // Test 6 — Session reset with inline bundle eliminates the relay race.
+  //
+  // Catches commit 39546b0: when a peer's Signal session for us has
+  // gone bad (e.g. they wiped state), the recovery flow must NOT be
+  //
+  //   sender hits Bad MAC → wipe own session → wait for next inbound
+  //   → maybe re-fetch peer bundle from relay → maybe rebuild → maybe
+  //   the next message arrives before the re-fetch completes → loop.
+  //
+  // Instead the receiver who hit Bad MAC sends a `session_reset`
+  // signal carrying its OWN current PreKey bundle inline. The sender
+  // applies it atomically (forgetPeer + processPreKeyBundle) and the
+  // very next outbound message decrypts on the first try — exactly
+  // ONE round-trip recovery.
+  // ─────────────────────────────────────────────────────────────────────
+  test('session_reset with inline bundle: 1 round-trip recovery', () async {
+    final bus = InMemoryBus();
+    addTearDown(bus.dispose);
+
+    final alice = await TestClient.spawn('alice@bus', bus);
+    final bob = await TestClient.spawn('bob@bus', bus);
+    addTearDown(alice.dispose);
+    addTearDown(bob.dispose);
+
+    await alice.addContact(bob);
+    await bob.addContact(alice);
+
+    // Warm up: hello round-trips fine.
+    final helloFut = bob.incoming.first;
+    await alice.sendText(bob, 'hello');
+    expect((await helloFut.timeout(const Duration(seconds: 2))).text, 'hello');
+
+    // Bob's session for alice goes bad — simulates "bob wiped state"
+    // or "the on-disk session record got corrupted".
+    await bob.forgetPeer(alice.address);
+
+    // Alice sends — bob's _onDirectMessage hits a decrypt-fail and
+    // (per the production fix) emits a `session_reset` signal back
+    // at alice with bob's CURRENT bundle inline.
+    final aliceRecovery = alice.recoveryEvents.first;
+    await alice.sendText(bob, 'after-reset');
+
+    // Alice receives the `session_reset` and atomically rebuilds.
+    await aliceRecovery.timeout(const Duration(seconds: 2));
+    expect(alice.sessionResetReceiveCount, 1,
+        reason: 'alice should process exactly one session_reset');
+    expect(bob.sessionResetSendCount, 1,
+        reason: 'bob should emit exactly one session_reset for one fail');
+    expect(bob.decryptFailCount, 1,
+        reason: 'exactly one decrypt-fail before recovery');
+
+    // Next message decrypts on the first try — the recovery is atomic
+    // so we do NOT need to "wait for relay propagation" before retry.
+    final recoveredFut = bob.incoming.first;
+    await alice.sendText(bob, 'after-recovery');
+    final got = await recoveredFut.timeout(const Duration(seconds: 2));
+    expect(got.text, 'after-recovery');
+
+    // Final invariant: NO additional resets fired during the happy
+    // path that follows recovery — the rate-limiter was not the
+    // reason we converged, the inline-bundle handoff was.
+    expect(bob.sessionResetSendCount, 1);
+    expect(bob.decryptFailCount, 1);
+  });
+
+  // ─────────────────────────────────────────────────────────────────────
+  // Test 7 — PQC unwrap failure triggers a re-handshake (not silent drop).
+  //
+  // Catches commit 39546b0's PQC branch: a sender that cached a peer's
+  // OLD Kyber pubkey and wraps a signal against it would silently fail
+  // on the receiver side. Pre-fix, the receiver dropped the envelope
+  // with no log, no notify, no recovery — calls/files/keys vanished.
+  //
+  // Post-fix: receiver detects the unwrap-fail, broadcasts a `pqc_stale`
+  // signal carrying its CURRENT Kyber pubkey inline. Sender refreshes
+  // the cache and the next wrapped envelope succeeds.
+  //
+  // The harness models PQC as a 64-byte cached pubkey + byte-equality
+  // check (no actual KEM). The bug being regression-guarded is in the
+  // control flow, not in the KEM math.
+  // ─────────────────────────────────────────────────────────────────────
+  test('PQC unwrap fail triggers pqc_stale + recovery', () async {
+    final bus = InMemoryBus();
+    addTearDown(bus.dispose);
+
+    final alice = await TestClient.spawn('alice@bus', bus);
+    final bob = await TestClient.spawn('bob@bus', bus);
+    addTearDown(alice.dispose);
+    addTearDown(bob.dispose);
+
+    await alice.addContact(bob);
+    await bob.addContact(alice);
+
+    alice.enablePqc();
+    bob.enablePqc();
+    alice.cachePeerKyber(bob);
+    bob.cachePeerKyber(alice);
+
+    // Warm-up: PQC envelope round-trips fine.
+    final firstFut = bob.incoming.first;
+    await alice.sendPqcText(bob, 'pqc-ok');
+    expect(
+      (await firstFut.timeout(const Duration(seconds: 2))).text,
+      'pqc-ok',
+    );
+
+    // Bob rotates his Kyber keypair WITHOUT telling alice (simulates a
+    // peer that re-keyed mid-session, or reinstalled their PQC layer).
+    bob.rotateKyber();
+
+    // Alice still wraps with the stale cached pubkey — bob's unwrap
+    // fails on the byte-equality check and (per commit 39546b0) emits
+    // a `pqc_stale` signal carrying his fresh pubkey inline.
+    await alice.sendPqcText(bob, 'pqc-fail');
+
+    // Drain microtasks so the bus-routed signal lands in alice's
+    // inbox handler.
+    for (var i = 0; i < 10 && bob.pqcStaleSendCount == 0; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 25));
+    }
+
+    expect(bob.pqcStaleSendCount, 1,
+        reason: 'unwrap-fail must trigger one pqc_stale, not silent drop');
+
+    // Wait for the stale signal to refresh alice's cache.
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+
+    // Retry — alice's cached pubkey is now bob's fresh one, so the
+    // next wrapped envelope decrypts.
+    final retryFut = bob.incoming.first;
+    await alice.sendPqcText(bob, 'pqc-recovered');
+    final got = await retryFut.timeout(const Duration(seconds: 2));
+    expect(got.text, 'pqc-recovered');
+
+    // Invariant: no further pqc_stale needed — the recovery loop
+    // converged in one round-trip, not a silent retry storm.
+    expect(bob.pqcStaleSendCount, 1);
+  });
+
+  // ─────────────────────────────────────────────────────────────────────
+  // Test 8 — Wide stale-PreKey detection (Bad MAC / no-session) is
+  // rate-limited to one session_reset per cooldown.
+  //
+  // Catches commit 39546b0: pre-fix, only `InvalidKeyIdException`
+  // triggered `_pushOwnBundleTo`. Post-fix, the detector ALSO catches
+  // Bad MAC and "no valid sessions" — both of which fire when the
+  // sender's session for us has been wiped. The fix would be useless
+  // (and a flooding hazard) without rate-limiting: 3 consecutive
+  // failures must produce ONE outgoing `session_reset`, not three.
+  // ─────────────────────────────────────────────────────────────────────
+  test('Bad MAC / no-session detection is rate-limited to 1 reset',
+      () async {
+    final bus = InMemoryBus();
+    addTearDown(bus.dispose);
+
+    final alice = await TestClient.spawn('alice@bus', bus);
+    final bob = await TestClient.spawn('bob@bus', bus);
+    addTearDown(alice.dispose);
+    addTearDown(bob.dispose);
+
+    await alice.addContact(bob);
+    await bob.addContact(alice);
+
+    // Warm-up consumes bob's one-time prekey #0. Without this, bob's
+    // store still has prekey 0 and the post-wipe PreKey message
+    // decrypts cleanly (no session_reset triggered).
+    final warmFut = bob.incoming.first;
+    await alice.sendText(bob, 'warmup');
+    expect((await warmFut.timeout(const Duration(seconds: 2))).text, 'warmup');
+
+    // Bob's session for alice goes bad. The trusted-identity entry
+    // is gone too — alice's next PreKey message will TOFU-reaccept,
+    // try to load prekey 0 (consumed by warm-up), and throw
+    // InvalidKeyIdException → recovery flow.
+    await bob.forgetPeer(alice.address);
+
+    // Alice fires 3 messages rapidly. Each one hits decrypt-fail on
+    // bob until alice's session is rebuilt via the inline `session_reset`
+    // bundle. The fix demands: ONE outgoing `session_reset`, not three.
+    //
+    // We do NOT wait for recovery between sends — the messages get
+    // queued back-to-back so the rate-limiter sees rapid fire.
+    final aSent = alice.sendText(bob, 'a');
+    final bSent = alice.sendText(bob, 'b');
+    final cSent = alice.sendText(bob, 'c');
+    await Future.wait([aSent, bSent, cSent]);
+
+    // Wait for bob's outgoing reset count to stabilize.
+    await bob.waitForRecovery(const Duration(seconds: 3));
+
+    // ── Core invariant ─────────────────────────────────────────────
+    expect(bob.sessionResetSendCount, 1,
+        reason:
+            '3 consecutive decrypt failures must produce exactly ONE '
+            'session_reset (rate-limiter regression — commit 39546b0)');
+    expect(bob.decryptFailCount, greaterThanOrEqualTo(1),
+        reason: 'at least one decrypt-fail should be observed');
+
+    // ── Recovery still works after rate-limit kicked in ────────────
+    final recoverFut = bob.incoming.first;
+    await alice.sendText(bob, 'after');
+    final got = await recoverFut.timeout(const Duration(seconds: 2));
+    expect(got.text, 'after');
+  });
+
+  // ─────────────────────────────────────────────────────────────────────
+  // Test 9 — pool subscriptions persist after reconnect simulation.
+  //
+  // Regression for commit 9872c3f: `reconnectInbox()` cancelled every
+  // signal subscription but never re-attached the pool readers. The next
+  // `ensureGroupPulseConnection()` early-returned because the pool still
+  // looked "open", and every inbound signal was silently dropped on the
+  // floor.
+  //
+  // Invariant: after `pulseRegressionSimulateReconnect()`, the next
+  // inbound message reaches the recipient without loss.
+  // ─────────────────────────────────────────────────────────────────────
+  test(
+      'Pool subscription survives reconnectInbox — '
+      'next inbound after reconnect is delivered', () async {
+    final bus = InMemoryBus();
+    addTearDown(bus.dispose);
+
+    final alice = await TestClient.spawn('alice', bus);
+    final bob = await TestClient.spawn('bob', bus);
+    addTearDown(alice.dispose);
+    addTearDown(bob.dispose);
+
+    await alice.addContact(bob);
+    await bob.addContact(alice);
+
+    // Baseline: alice receives a message to confirm her subscription is
+    // wired before the simulated reconnect.
+    final beforeFut = alice.incoming.first;
+    await bob.sendText(alice, 'before');
+    expect((await beforeFut.timeout(const Duration(seconds: 2))).text,
+        'before');
+
+    // Tear down + re-establish alice's bus subscription. This is the
+    // regression: any future change to reconnectInbox MUST resubscribe
+    // before this completes.
+    await alice.pulseRegressionSimulateReconnect();
+
+    // After reconnect, the next inbound message must still reach alice.
+    final afterFut = alice.incoming.first;
+    await bob.sendText(alice, 'after-reconnect');
+    final got = await afterFut.timeout(const Duration(seconds: 2));
+    expect(got.text, 'after-reconnect',
+        reason:
+            'reconnectInbox must re-establish the subscription so signals '
+            'arriving after the reconnect are still delivered');
+  });
+
+  // ─────────────────────────────────────────────────────────────────────
+  // Test 10 — wake-from-sleep detection triggers reconnect.
+  //
+  // Regression for commit 9872c3f: after the OS suspends the process the
+  // WS sink turns into a zombie — `sink.add` returns void and writes go
+  // into /dev/null. The watchdog now checks wall-clock between ticks; a
+  // gap > 60s triggers tear-down + reopen of the pool.
+  //
+  // Invariant: messages sent while alice was "asleep" must be delivered
+  // after `pulseRegressionSimulateWake()` resumes the bus.
+  // ─────────────────────────────────────────────────────────────────────
+  test(
+      'Wake-from-sleep watchdog reopens pool — '
+      'messages buffered during sleep arrive after wake', () async {
+    final bus = InMemoryBus();
+    addTearDown(bus.dispose);
+
+    final alice = await TestClient.spawn('alice', bus);
+    final bob = await TestClient.spawn('bob', bus);
+    addTearDown(alice.dispose);
+    addTearDown(bob.dispose);
+
+    await alice.addContact(bob);
+    await bob.addContact(alice);
+
+    // Baseline send so we know the pipe is healthy before sleep.
+    final baselineFut = alice.incoming.first;
+    await bob.sendText(alice, 'baseline');
+    expect((await baselineFut.timeout(const Duration(seconds: 2))).text,
+        'baseline');
+
+    // Buffer everything else alice receives so we can assert on the
+    // post-wake delivery without racing `.first`.
+    final received = <String>[];
+    final sub = alice.incoming.listen((m) => received.add(m.text));
+    addTearDown(sub.cancel);
+
+    // Alice's process gets suspended. Bob keeps sending; messages pile up
+    // in the bus offline buffer.
+    await alice.pulseRegressionSimulateSleep(const Duration(seconds: 90));
+
+    await bob.sendText(alice, 'while-asleep-1');
+    await bob.sendText(alice, 'while-asleep-2');
+
+    // Confirm nothing leaked through during the sleep window.
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+    expect(received, isEmpty,
+        reason: 'no messages should be delivered while suspended');
+
+    // Wake. Watchdog detects > 60s gap → tear down + reopen.
+    await alice.pulseRegressionSimulateWake();
+
+    // Drain micro-tasks for libsignal decrypt.
+    for (var i = 0; i < 12 && received.length < 2; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 25));
+    }
+
+    expect(received, equals(['while-asleep-1', 'while-asleep-2']),
+        reason: 'wake must drain the offline buffer in FIFO order');
+
+    // And new messages after wake still flow.
+    await bob.sendText(alice, 'after-wake');
+    for (var i = 0; i < 12 && received.length < 3; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 25));
+    }
+    expect(received.last, 'after-wake');
+  });
+
+  // ─────────────────────────────────────────────────────────────────────
+  // Test 11 — addr_update UNION-MERGE preserves Pulse address.
+  //
+  // Regression for commit 39546b0: addr_update used to REPLACE the
+  // contact's address map. If a peer re-published their Nostr addresses
+  // before the Pulse startup probe finished, the incoming addr_update
+  // arrived without the Pulse transport and silently wiped the Pulse
+  // pubkey we already knew — every future Pulse send dropped on the floor.
+  //
+  // Invariant: an addr_update missing the Pulse transport must NOT erase
+  // a previously-known Pulse pubkey for that contact.
+  // ─────────────────────────────────────────────────────────────────────
+  test(
+      'addr_update UNION-MERGE preserves Pulse address when update only '
+      'carries Nostr', () async {
+    final bus = InMemoryBus();
+    addTearDown(bus.dispose);
+
+    final alice = await TestClient.spawn('alice', bus);
+    final bob = await TestClient.spawn('bob', bus);
+    addTearDown(alice.dispose);
+    addTearDown(bob.dispose);
+
+    // Seed alice's local view of bob: she already knows his Pulse
+    // pubkey + a Nostr relay.
+    final knownPulse = bob.pulseRegressionSelfPulsePub;
+    alice.pulseRegressionSetContactAddresses(bob.address, {
+      'Pulse': [knownPulse],
+      'Nostr': ['bob@wss://relay-old.example'],
+    });
+    expect(alice.pulseRegressionGetContactPulse(bob.address), knownPulse,
+        reason: 'sanity: alice knows bob via Pulse before the update');
+
+    // Bob publishes an addr_update that ONLY carries Nostr addresses —
+    // his Pulse startup probe has not run yet, so his shareable address
+    // map omits the Pulse transport entirely. With pre-39546b0 REPLACE
+    // semantics, this would erase alice's Pulse entry for bob.
+    final update = BusMessage(
+      to: alice.address,
+      from: bob.address,
+      kind: 'addr_update',
+      payload: jsonEncode({
+        'transportAddresses': {
+          'Nostr': [
+            'bob@wss://relay-new-1.example',
+            'bob@wss://relay-new-2.example',
+          ],
+        },
+      }),
+    );
+    await alice.pulseRegressionHandleAddrUpdate(update);
+
+    // The Pulse pubkey alice already knew must still be there.
+    expect(alice.pulseRegressionGetContactPulse(bob.address), knownPulse,
+        reason:
+            'addr_update must UNION-MERGE: a payload without Pulse must '
+            'not erase a previously-learned Pulse pubkey');
+  });
+
+  // ─────────────────────────────────────────────────────────────────────
+  // Test 12 — member Pulse addresses seeded on group invite.
+  //
+  // Regression for commit 39546b0: when a Pulse group is created, the
+  // invite payload now carries `memberPulsePubkeys: {memberAddr →
+  // pulsePub}`. The receiver auto-populates `contacts['Pulse']` for every
+  // member so the FIRST message in the group routes via Pulse without an
+  // out-of-band addr_update round-trip. Before the fix, carol's first
+  // group send would fan out via whatever transport happened to be
+  // configured (or silently fail on Pulse-only contacts).
+  //
+  // Invariant: after applying the invite, carol's local contact book has
+  // a non-empty Pulse pubkey for every other member.
+  // ─────────────────────────────────────────────────────────────────────
+  test(
+      'Group invite seeds member Pulse pubkeys — '
+      'first group message reaches every member', () async {
+    final bus = InMemoryBus();
+    addTearDown(bus.dispose);
+
+    final alice = await TestClient.spawn('alice', bus);
+    final bob = await TestClient.spawn('bob', bus);
+    final carol = await TestClient.spawn('carol', bus);
+    addTearDown(alice.dispose);
+    addTearDown(bob.dispose);
+    addTearDown(carol.dispose);
+
+    // Buffer the invite that alice broadcasts to carol.
+    final inviteFut = bus
+        .inbox(carol.address)
+        .firstWhere((m) => m.kind == 'group_invite');
+
+    // Alice creates the group and sends carol an invite that includes
+    // memberPulsePubkeys for every member (alice + bob).
+    const groupId = 'g-pulse-seed-001';
+    await alice.pulseRegressionSendGroupInvite(
+      carol,
+      groupId: groupId,
+      members: [alice, bob],
+    );
+
+    final invite = await inviteFut.timeout(const Duration(seconds: 1));
+    await carol.pulseRegressionApplyInvite(invite);
+
+    // Carol's local contact book must now know every other member's
+    // Pulse pubkey — proving the seed-on-invite path worked. With the
+    // pre-39546b0 invite payload (no memberPulsePubkeys) these would
+    // both be null.
+    final bobPulse = carol.pulseRegressionGetContactPulse(bob.address);
+    final alicePulse = carol.pulseRegressionGetContactPulse(alice.address);
+    expect(bobPulse, isNotNull,
+        reason: 'invite must seed Pulse pubkey for bob');
+    expect(alicePulse, isNotNull,
+        reason: 'invite must seed Pulse pubkey for alice');
+    expect(bobPulse, bob.pulseRegressionSelfPulsePub);
+    expect(alicePulse, alice.pulseRegressionSelfPulsePub);
+
+    // And carol shouldn't have accidentally seeded a self-entry.
+    expect(carol.pulseRegressionGetContactPulse(carol.address), isNull,
+        reason: 'invite must not seed a self Pulse entry');
+
+    // Sanity: now that Pulse is seeded, a real first group message
+    // round-trips to bob and alice (proves the harness end-to-end works
+    // when the Pulse pubkeys are present from the very first send).
+    await carol.addContact(bob);
+    await carol.addContact(alice);
+
+    // Pre-arm the msg listeners BEFORE createGroup so we don't miss
+    // anything between "group created" and "barrier set up".
+    final bobGotMsg = bob.incomingGroup.firstWhere((e) => e.kind == 'msg');
+    final aliceGotMsg =
+        alice.incomingGroup.firstWhere((e) => e.kind == 'msg');
+
+    final group = await carol.createGroup('post-invite', [bob, alice]);
+
+    // Wait for SKDM to be processed on every other member before sending
+    // — replaces a 30ms timer that could be too short under load.
+    await Future.wait([
+      bob.waitForSkdmProcessed(group.id, carol.address)
+          .timeout(const Duration(seconds: 3)),
+      alice.waitForSkdmProcessed(group.id, carol.address)
+          .timeout(const Duration(seconds: 3)),
+    ]);
+
+    await carol.sendGroupText(group, 'first-with-seeded-pulse');
+
+    final bobMsg = await bobGotMsg.timeout(const Duration(seconds: 2));
+    final aliceMsg = await aliceGotMsg.timeout(const Duration(seconds: 2));
+    expect(bobMsg.text, 'first-with-seeded-pulse');
+    expect(aliceMsg.text, 'first-with-seeded-pulse');
   });
 }

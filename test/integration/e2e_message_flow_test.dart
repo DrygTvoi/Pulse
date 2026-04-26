@@ -205,16 +205,17 @@ void main() {
 
       await alice.buildSessionWith(bob);
 
-      final messages = <String>[];
-      transport.inbox(bob.address).listen(messages.add);
+      // Deterministic barrier: take exactly 5 events from the broadcast
+      // stream, then await the resulting list. No `Future.delayed` race —
+      // `take(5).toList()` completes ONLY after the 5th add() lands.
+      final messagesFut = transport.inbox(bob.address).take(5).toList()
+          .timeout(const Duration(seconds: 5));
 
       for (var i = 0; i < 5; i++) {
         await alice.sendText(bob, 'Message $i');
       }
 
-      // Small delay to let stream deliver
-      await Future<void>.delayed(Duration.zero);
-
+      final messages = await messagesFut;
       expect(messages.length, equals(5));
       for (var i = 0; i < 5; i++) {
         final env = await bob.receiveAndDecrypt(alice, messages[i]);
