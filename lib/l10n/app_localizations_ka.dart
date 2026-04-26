@@ -3181,10 +3181,10 @@ class AppLocalizationsKa extends AppLocalizations {
   }
 
   @override
-  String get groupModeSfuTitle => 'Pulse სერვერით';
+  String get groupModePulseTitle => 'Pulse სერვერი';
 
   @override
-  String groupModeSfuSubtitle(int n) {
+  String groupModePulseSubtitle(int n) {
     return 'სერვერის გავლით, $n ადამიანამდე';
   }
 
@@ -3197,6 +3197,11 @@ class AppLocalizationsKa extends AppLocalizations {
 
   @override
   String get groupPulseInviteHint => 'მოწვევის კოდი';
+
+  @override
+  String pulseGroupForeignServerBanner(String host) {
+    return 'შეტყობინებები მიდის $host-ის გავლით (არ არის თქვენი Pulse სერვერი)';
+  }
 
   @override
   String groupMeshLimitReached(int n) {

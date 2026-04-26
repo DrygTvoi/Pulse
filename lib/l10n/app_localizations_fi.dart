@@ -3185,10 +3185,10 @@ class AppLocalizationsFi extends AppLocalizations {
   }
 
   @override
-  String get groupModeSfuTitle => 'Pulse-palvelimella';
+  String get groupModePulseTitle => 'Pulse-palvelin';
 
   @override
-  String groupModeSfuSubtitle(int n) {
+  String groupModePulseSubtitle(int n) {
     return 'Palvelimen kautta, jopa $n henkilöä';
   }
 
@@ -3200,6 +3200,11 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String get groupPulseInviteHint => 'Kutsukoodi';
+
+  @override
+  String pulseGroupForeignServerBanner(String host) {
+    return 'Viestit ohjataan $host kautta (ei sinun Pulse-palvelin)';
+  }
 
   @override
   String groupMeshLimitReached(int n) {

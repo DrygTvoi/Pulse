@@ -935,24 +935,65 @@
   "groupInviteLinkBody": "သင်သည် \"{name}\" သို့ ဖိတ်ကြားခံရသည် (အဖွဲ့ဝင် {count} ဦး)။",
   "groupInviteLinkJoin": "ပါဝင်",
   "drawerCreateGroup": "အဖွဲ့ဖန်တီးရန်",
-  "@drawerCreateGroup": { "description": "Drawer entry that opens the create-group dialog (verb form, paired with drawerJoinGroup)" },
-
+  "@drawerCreateGroup": {
+    "description": "Drawer entry that opens the create-group dialog (verb form, paired with drawerJoinGroup)"
+  },
   "drawerJoinGroup": "အဖွဲ့သို့ ပါဝင်ရန်",
   "drawerJoinGroupByLinkInvalid": "ဤအရာသည် Pulse ဖိတ်ကြားလင့်ခ်နှင့်မတူပါ",
   "groupModeMeshTitle": "ပုံမှန်",
-  "@groupModeMeshTitle": { "description": "Mesh-mode tile title in CreateGroupDialog" },
+  "@groupModeMeshTitle": {
+    "description": "Mesh-mode tile title in CreateGroupDialog"
+  },
   "groupModeMeshSubtitle": "ဆာဗာမလို၊ {n} ယောက်အထိ",
-  "@groupModeMeshSubtitle": { "description": "Mesh-mode tile subtitle (n = participant cap)", "placeholders": { "n": { "type": "int" } } },
-  "groupModeSfuTitle": "Pulse ဆာဗာဖြင့်",
-  "@groupModeSfuTitle": { "description": "SFU-mode tile title in CreateGroupDialog" },
-  "groupModeSfuSubtitle": "ဆာဗာကတစ်ဆင့်၊ {n} ယောက်အထိ",
-  "@groupModeSfuSubtitle": { "description": "SFU-mode tile subtitle (n = participant cap)", "placeholders": { "n": { "type": "int" } } },
+  "@groupModeMeshSubtitle": {
+    "description": "Mesh-mode tile subtitle (n = participant cap)",
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "groupModePulseTitle": "Pulse ဆာဗာ",
+  "@groupModePulseTitle": {
+    "description": "Pulse-mode tile title in CreateGroupDialog"
+  },
+  "groupModePulseSubtitle": "ဆာဗာမှတဆင့်၊ {n} ဦးအထိ",
+  "@groupModePulseSubtitle": {
+    "description": "Pulse-mode tile subtitle (n = participant cap)",
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
   "groupPulseServerHint": "https://သင့်-pulse-ဆာဗာ",
-  "@groupPulseServerHint": { "description": "Hint inside the Pulse server URL field" },
+  "@groupPulseServerHint": {
+    "description": "Hint inside the Pulse server URL field"
+  },
   "groupPulseServerClosed": "ပိတ်ထားသော ဆာဗာ (ဖိတ်ခေါ်ကုဒ် လိုအပ်)",
-  "@groupPulseServerClosed": { "description": "Checkbox label for closed-server toggle" },
+  "@groupPulseServerClosed": {
+    "description": "Checkbox label for closed-server toggle"
+  },
   "groupPulseInviteHint": "ဖိတ်ခေါ်ကုဒ်",
-  "@groupPulseInviteHint": { "description": "Hint inside the invite-code field for closed servers" },
+  "@groupPulseInviteHint": {
+    "description": "Hint inside the invite-code field for closed servers"
+  },
   "groupMeshLimitReached": "ဤခေါ်ဆိုမှု အမျိုးအစားသည် လူ {n} ယောက်ဖြင့် ကန့်သတ်ထား",
-  "@groupMeshLimitReached": { "description": "Snackbar shown when user tries to add more members than the call type allows", "placeholders": { "n": { "type": "int" } } }
+  "@groupMeshLimitReached": {
+    "description": "Snackbar shown when user tries to add more members than the call type allows",
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "pulseGroupForeignServerBanner": "မက်ဆေ့ချ်များကို {host} မှတဆင့် ပို့ဆောင်သည် (သင်၏ Pulse ဆာဗာမဟုတ်ပါ)",
+  "@pulseGroupForeignServerBanner": {
+    "description": "Banner shown in pulse-mode group chats hosted on a server different from the user's own pulse_server_url. {host} = short hostname.",
+    "placeholders": {
+      "host": {
+        "type": "String"
+      }
+    }
+  }
 }

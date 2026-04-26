@@ -3111,11 +3111,11 @@ class AppLocalizationsAm extends AppLocalizations {
   }
 
   @override
-  String get groupModeSfuTitle => 'ከPulse ሰርቨር ጋር';
+  String get groupModePulseTitle => 'Pulse አገልጋይ';
 
   @override
-  String groupModeSfuSubtitle(int n) {
-    return 'በሰርቨር በኩል፣ እስከ $n ሰዎች';
+  String groupModePulseSubtitle(int n) {
+    return 'በአገልጋይ በኩል፣ እስከ $n ሰዎች';
   }
 
   @override
@@ -3126,6 +3126,11 @@ class AppLocalizationsAm extends AppLocalizations {
 
   @override
   String get groupPulseInviteHint => 'የግብዣ ኮድ';
+
+  @override
+  String pulseGroupForeignServerBanner(String host) {
+    return 'መልዕክቶች በ $host በኩል ይተላለፋሉ (የእርስዎ Pulse አገልጋይ አይደለም)';
+  }
 
   @override
   String groupMeshLimitReached(int n) {

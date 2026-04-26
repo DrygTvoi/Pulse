@@ -15,13 +15,17 @@ import '../controllers/chat_controller.dart';
 import '../l10n/l10n_ext.dart';
 import '../widgets/avatar_widget.dart';
 
-/// Hard cap on how many people can sit in a mesh-mode group call. Each
-/// participant runs N−1 PeerConnections; CPU + uplink usage scales with
-/// this number, so we cap at 4 to keep desktop+mobile usable. SFU groups
-/// scale to ~20 thanks to the server doing the fan-out for them.
+/// Hard cap on how many people can sit in a mesh-mode group. Each
+/// participant runs N−1 PeerConnections during a call; CPU + uplink usage
+/// scales with this number, so we cap at 4 to keep desktop+mobile usable.
+/// Pulse-routed groups scale to ~20 thanks to the server doing the fan-out.
 const int kMeshGroupLimit = 4;
-const int kSfuGroupLimit = 20;
-const String _kDefaultPulseServer = 'https://duck.azxc.site:443';
+const int kPulseGroupLimit = 20;
+// Empty default — the user must explicitly enter their Pulse server URL
+// (or have one saved in `pulse_server_url` prefs which we pre-fill below).
+// Hardcoding `duck.azxc.site:443` was confusing — it's our test server, not
+// a sensible global default, and showed up even for users who didn't pick it.
+const String _kDefaultPulseServer = '';
 
 class CreateGroupDialog extends StatefulWidget {
   final Function(Contact group) onCreate;
@@ -40,7 +44,7 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
   late List<Contact> _contacts;
   Uint8List? _avatarBytes;
   bool _step2 = false; // false = name+avatar+mode, true = member selection
-  String _callMode = 'mesh'; // 'mesh' (default) | 'sfu'
+  String _transportMode = 'mesh'; // 'mesh' (default) | 'pulse'
   bool _serverIsClosed = false;
 
   @override
@@ -50,7 +54,7 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
     _searchController.addListener(() { if (mounted) setState(() {}); });
     _serverUrlController.addListener(() { if (mounted) setState(() {}); });
     // Pre-fill the Pulse server URL from the user's own pulse_server_url
-    // setting if they have one configured (most likely scenario for SFU).
+    // setting if they have one configured.
     SharedPreferences.getInstance().then((prefs) {
       final saved = prefs.getString('pulse_server_url') ?? '';
       if (saved.isNotEmpty && mounted) {
@@ -62,7 +66,14 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _contacts = context.read<IContactRepository>().contacts.where((c) => !c.isGroup).toList();
+    // Hide auto-pending routing-only contacts (`isHidden: true`, created by
+    // `_ensurePendingContactsForMembers` for group fan-out) and unaccepted
+    // message-request contacts (`isPending: true`) — neither belongs in the
+    // member picker. Without this filter, every previously-seen group member
+    // shows up as a duplicate "Member <pubkey>" / leftover hidden contact.
+    _contacts = context.read<IContactRepository>().contacts
+        .where((c) => !c.isGroup && !c.isHidden && !c.isPending)
+        .toList();
   }
 
   @override
@@ -75,7 +86,7 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
   }
 
   int get _memberLimit =>
-      _callMode == 'mesh' ? kMeshGroupLimit - 1 : kSfuGroupLimit - 1;
+      _transportMode == 'mesh' ? kMeshGroupLimit - 1 : kPulseGroupLimit - 1;
   // -1 because the creator counts toward the group total but isn't in
   // _selectedIds (which lists OTHER members the creator picked).
 
@@ -95,17 +106,19 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
     if (mounted) setState(() => _avatarBytes = Uint8List.fromList(jpeg));
   }
 
-  /// True iff the user picked SFU but the server URL is empty. Disables
-  /// the Next button so we can't accidentally create a broken SFU group.
-  bool get _sfuConfigInvalid {
-    if (_callMode != 'sfu') return false;
+  /// True iff the user picked Pulse but the server URL isn't a valid
+  /// http(s) URL. Disables the Next button so we can't accidentally create
+  /// a broken Pulse group with no server. Pulse groups REQUIRE a server
+  /// URL by definition — that's the whole point of the mode.
+  bool get _pulseConfigInvalid {
+    if (_transportMode != 'pulse') return false;
     final url = _serverUrlController.text.trim();
     return !(url.startsWith('https://') || url.startsWith('http://'));
   }
 
   void _goToStep2() {
     if (_nameController.text.trim().isEmpty) return;
-    if (_sfuConfigInvalid) return;
+    if (_pulseConfigInvalid) return;
     setState(() => _step2 = true);
   }
 
@@ -114,10 +127,10 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
   void _submit() {
     final name = _nameController.text.trim();
     if (name.isEmpty || _selectedIds.length < 2) return;
-    if (_sfuConfigInvalid) return;
+    if (_pulseConfigInvalid) return;
 
     final myId = context.read<ChatController>().identity?.id ?? '';
-    final isSfu = _callMode == 'sfu';
+    final isPulse = _transportMode == 'pulse';
     final group = Contact(
       id: const Uuid().v4(),
       name: name,
@@ -127,10 +140,10 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
       isGroup: true,
       members: _selectedIds.toList(),
       creatorId: myId.isNotEmpty ? myId : null,
-      groupCallMode: _callMode,
-      groupServerUrl: isSfu ? _serverUrlController.text.trim() : '',
+      groupTransportMode: _transportMode,
+      groupServerUrl: isPulse ? _serverUrlController.text.trim() : '',
       groupServerInvite:
-          isSfu && _serverIsClosed ? _serverInviteController.text.trim() : '',
+          isPulse && _serverIsClosed ? _serverInviteController.text.trim() : '',
     );
     widget.onCreate(group);
     Navigator.pop(context);
@@ -252,11 +265,11 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
           ),
           const SizedBox(height: 16),
 
-          // Call-mode picker
-          _buildCallModePicker(),
+          // Transport-mode picker
+          _buildTransportModePicker(),
 
-          // Pulse server fields (only visible in SFU mode)
-          if (_callMode == 'sfu') ...[
+          // Pulse server fields (only visible in pulse mode)
+          if (_transportMode == 'pulse') ...[
             const SizedBox(height: 12),
             _buildPulseServerFields(),
           ],
@@ -266,7 +279,7 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
           SizedBox(
             width: double.infinity, height: 48,
             child: FilledButton(
-              onPressed: (name.isNotEmpty && !_sfuConfigInvalid) ? _goToStep2 : null,
+              onPressed: (name.isNotEmpty && !_pulseConfigInvalid) ? _goToStep2 : null,
               style: FilledButton.styleFrom(
                 backgroundColor: AppTheme.primary,
                 disabledBackgroundColor: AppTheme.primary.withValues(alpha: 0.3),
@@ -289,10 +302,11 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
     );
   }
 
-  /// Two-option segmented control: 🌐 Mesh ⚡ SFU. Each tile shows a short
-  /// description so the user understands the trade-off without leaving the
-  /// dialog (mesh = no server / small group, sfu = server / bigger group).
-  Widget _buildCallModePicker() {
+  /// Two-option segmented control: 🌐 Mesh ⚡ Pulse. Each tile shows a short
+  /// description (mesh = P2P pairwise, no server, small group; pulse =
+  /// everything routed through a Pulse server, bigger group + works
+  /// regardless of relay availability).
+  Widget _buildTransportModePicker() {
     return Row(
       children: [
         Expanded(child: _modeTile(
@@ -303,10 +317,10 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
         )),
         const SizedBox(width: 8),
         Expanded(child: _modeTile(
-          mode: 'sfu',
+          mode: 'pulse',
           icon: Icons.bolt_rounded,
-          title: context.l10n.groupModeSfuTitle,
-          subtitle: context.l10n.groupModeSfuSubtitle(kSfuGroupLimit),
+          title: context.l10n.groupModePulseTitle,
+          subtitle: context.l10n.groupModePulseSubtitle(kPulseGroupLimit),
         )),
       ],
     );
@@ -318,12 +332,12 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
     required String title,
     required String subtitle,
   }) {
-    final selected = _callMode == mode;
+    final selected = _transportMode == mode;
     return InkWell(
       onTap: () {
         setState(() {
-          _callMode = mode;
-          // Trim selection if switching from sfu→mesh would exceed limit.
+          _transportMode = mode;
+          // Trim selection if switching pulse→mesh would exceed mesh limit.
           if (mode == 'mesh' && _selectedIds.length > _memberLimit) {
             final keep = _selectedIds.take(_memberLimit).toSet();
             _selectedIds
@@ -562,9 +576,9 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
                         ? () {
                             ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                               content: Text(context.l10n.groupMeshLimitReached(
-                                  _callMode == 'mesh'
+                                  _transportMode == 'mesh'
                                       ? kMeshGroupLimit
-                                      : kSfuGroupLimit)),
+                                      : kPulseGroupLimit)),
                               duration: const Duration(seconds: 2),
                             ));
                           }

@@ -3167,11 +3167,11 @@ class AppLocalizationsKm extends AppLocalizations {
   }
 
   @override
-  String get groupModeSfuTitle => 'ជាមួយម៉ាស៊ីនមេ Pulse';
+  String get groupModePulseTitle => 'ម៉ាស៊ីនបម្រើ Pulse';
 
   @override
-  String groupModeSfuSubtitle(int n) {
-    return 'តាមរយៈម៉ាស៊ីនមេ មនុស្សរហូតដល់ $n នាក់';
+  String groupModePulseSubtitle(int n) {
+    return 'តាមរយៈម៉ាស៊ីនបម្រើ រហូតដល់ $n នាក់';
   }
 
   @override
@@ -3182,6 +3182,11 @@ class AppLocalizationsKm extends AppLocalizations {
 
   @override
   String get groupPulseInviteHint => 'លេខកូដអញ្ជើញ';
+
+  @override
+  String pulseGroupForeignServerBanner(String host) {
+    return 'សារត្រូវបានបញ្ជូនតាម $host (មិនមែនម៉ាស៊ីនបម្រើ Pulse របស់អ្នកទេ)';
+  }
 
   @override
   String groupMeshLimitReached(int n) {

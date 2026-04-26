@@ -3199,11 +3199,11 @@ class AppLocalizationsTa extends AppLocalizations {
   }
 
   @override
-  String get groupModeSfuTitle => 'Pulse சேவையகத்துடன்';
+  String get groupModePulseTitle => 'Pulse சேவையகம்';
 
   @override
-  String groupModeSfuSubtitle(int n) {
-    return 'சேவையகம் வழியாக, $n நபர்கள் வரை';
+  String groupModePulseSubtitle(int n) {
+    return 'சேவையகம் வழியாக, $n பேர் வரை';
   }
 
   @override
@@ -3215,6 +3215,11 @@ class AppLocalizationsTa extends AppLocalizations {
 
   @override
   String get groupPulseInviteHint => 'அழைப்புக் குறியீடு';
+
+  @override
+  String pulseGroupForeignServerBanner(String host) {
+    return 'செய்திகள் $host வழியாக அனுப்பப்படுகின்றன (உங்கள் Pulse சேவையகம் அல்ல)';
+  }
 
   @override
   String groupMeshLimitReached(int n) {

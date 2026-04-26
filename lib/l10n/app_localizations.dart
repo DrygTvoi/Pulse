@@ -5776,17 +5776,17 @@ abstract class AppLocalizations {
   /// **'No server, up to {n} people'**
   String groupModeMeshSubtitle(int n);
 
-  /// SFU-mode tile title in CreateGroupDialog
+  /// Pulse-mode tile title in CreateGroupDialog
   ///
   /// In en, this message translates to:
-  /// **'With Pulse server'**
-  String get groupModeSfuTitle;
+  /// **'Pulse server'**
+  String get groupModePulseTitle;
 
-  /// SFU-mode tile subtitle (n = participant cap)
+  /// Pulse-mode tile subtitle (n = participant cap)
   ///
   /// In en, this message translates to:
   /// **'Server-relayed, up to {n} people'**
-  String groupModeSfuSubtitle(int n);
+  String groupModePulseSubtitle(int n);
 
   /// Hint inside the Pulse server URL field
   ///
@@ -5805,6 +5805,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Invite code'**
   String get groupPulseInviteHint;
+
+  /// Banner shown in pulse-mode group chats hosted on a server different from the user's own pulse_server_url. {host} = short hostname.
+  ///
+  /// In en, this message translates to:
+  /// **'Messages routed via {host} (not your Pulse server)'**
+  String pulseGroupForeignServerBanner(String host);
 
   /// Snackbar shown when user tries to add more members than the call type allows
   ///

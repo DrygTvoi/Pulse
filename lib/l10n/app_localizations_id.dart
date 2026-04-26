@@ -3172,10 +3172,10 @@ class AppLocalizationsId extends AppLocalizations {
   }
 
   @override
-  String get groupModeSfuTitle => 'Dengan server Pulse';
+  String get groupModePulseTitle => 'Server Pulse';
 
   @override
-  String groupModeSfuSubtitle(int n) {
+  String groupModePulseSubtitle(int n) {
     return 'Melalui server, hingga $n orang';
   }
 
@@ -3187,6 +3187,11 @@ class AppLocalizationsId extends AppLocalizations {
 
   @override
   String get groupPulseInviteHint => 'Kode undangan';
+
+  @override
+  String pulseGroupForeignServerBanner(String host) {
+    return 'Pesan dirutekan melalui $host (bukan server Pulse Anda)';
+  }
 
   @override
   String groupMeshLimitReached(int n) {

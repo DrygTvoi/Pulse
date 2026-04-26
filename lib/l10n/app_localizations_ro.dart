@@ -3183,10 +3183,10 @@ class AppLocalizationsRo extends AppLocalizations {
   }
 
   @override
-  String get groupModeSfuTitle => 'Cu server Pulse';
+  String get groupModePulseTitle => 'Server Pulse';
 
   @override
-  String groupModeSfuSubtitle(int n) {
+  String groupModePulseSubtitle(int n) {
     return 'Prin server, până la $n persoane';
   }
 
@@ -3199,6 +3199,11 @@ class AppLocalizationsRo extends AppLocalizations {
 
   @override
   String get groupPulseInviteHint => 'Cod de invitație';
+
+  @override
+  String pulseGroupForeignServerBanner(String host) {
+    return 'Mesajele sunt direcționate prin $host (nu serverul tău Pulse)';
+  }
 
   @override
   String groupMeshLimitReached(int n) {

@@ -3181,11 +3181,11 @@ class AppLocalizationsSk extends AppLocalizations {
   }
 
   @override
-  String get groupModeSfuTitle => 'So serverom Pulse';
+  String get groupModePulseTitle => 'Pulse server';
 
   @override
-  String groupModeSfuSubtitle(int n) {
-    return 'Cez server, až $n osôb';
+  String groupModePulseSubtitle(int n) {
+    return 'Cez server, až $n ľudí';
   }
 
   @override
@@ -3197,6 +3197,11 @@ class AppLocalizationsSk extends AppLocalizations {
 
   @override
   String get groupPulseInviteHint => 'Pozvánkový kód';
+
+  @override
+  String pulseGroupForeignServerBanner(String host) {
+    return 'Správy idú cez $host (nie váš Pulse server)';
+  }
 
   @override
   String groupMeshLimitReached(int n) {

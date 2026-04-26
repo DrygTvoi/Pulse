@@ -8,6 +8,7 @@ import '../adapters/inbox_manager.dart';
 import '../adapters/firebase_adapter.dart';
 import '../adapters/nostr_adapter.dart';
 import '../adapters/session_adapter.dart';
+import '../adapters/pulse_adapter.dart';
 import '../constants.dart';
 import 'signal_service.dart';
 import 'pqc_service.dart';
@@ -217,6 +218,13 @@ class KeyManager {
         sender = NostrMessageSender();
       } else if (provider == 'Session') {
         sender = SessionMessageSender();
+      } else if (provider == 'Pulse') {
+        // Pulse uses the same key-derivation seed across servers, but each
+        // server holds its own key store — peers fetching our bundle from
+        // a particular `serverUrl` need it to have been published THERE.
+        // Used by `ensureGroupPulseConnection` so pulse-group peers can
+        // bootstrap their Signal session against us via the host server.
+        sender = PulseMessageSender();
       } else {
         return;
       }

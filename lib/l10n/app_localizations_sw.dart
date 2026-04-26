@@ -3189,10 +3189,10 @@ class AppLocalizationsSw extends AppLocalizations {
   }
 
   @override
-  String get groupModeSfuTitle => 'Na seva ya Pulse';
+  String get groupModePulseTitle => 'Seva ya Pulse';
 
   @override
-  String groupModeSfuSubtitle(int n) {
+  String groupModePulseSubtitle(int n) {
     return 'Kupitia seva, hadi watu $n';
   }
 
@@ -3205,6 +3205,11 @@ class AppLocalizationsSw extends AppLocalizations {
 
   @override
   String get groupPulseInviteHint => 'Msimbo wa mwaliko';
+
+  @override
+  String pulseGroupForeignServerBanner(String host) {
+    return 'Ujumbe hupitishwa kupitia $host (siyo seva yako ya Pulse)';
+  }
 
   @override
   String groupMeshLimitReached(int n) {

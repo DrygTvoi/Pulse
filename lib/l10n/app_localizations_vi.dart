@@ -3157,10 +3157,10 @@ class AppLocalizationsVi extends AppLocalizations {
   }
 
   @override
-  String get groupModeSfuTitle => 'Với máy chủ Pulse';
+  String get groupModePulseTitle => 'Máy chủ Pulse';
 
   @override
-  String groupModeSfuSubtitle(int n) {
+  String groupModePulseSubtitle(int n) {
     return 'Qua máy chủ, tối đa $n người';
   }
 
@@ -3172,6 +3172,11 @@ class AppLocalizationsVi extends AppLocalizations {
 
   @override
   String get groupPulseInviteHint => 'Mã mời';
+
+  @override
+  String pulseGroupForeignServerBanner(String host) {
+    return 'Tin nhắn được chuyển qua $host (không phải máy chủ Pulse của bạn)';
+  }
 
   @override
   String groupMeshLimitReached(int n) {

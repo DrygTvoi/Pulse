@@ -3174,10 +3174,10 @@ class AppLocalizationsHr extends AppLocalizations {
   }
 
   @override
-  String get groupModeSfuTitle => 'S Pulse poslužiteljem';
+  String get groupModePulseTitle => 'Pulse poslužitelj';
 
   @override
-  String groupModeSfuSubtitle(int n) {
+  String groupModePulseSubtitle(int n) {
     return 'Preko poslužitelja, do $n osoba';
   }
 
@@ -3190,6 +3190,11 @@ class AppLocalizationsHr extends AppLocalizations {
 
   @override
   String get groupPulseInviteHint => 'Kod pozivnice';
+
+  @override
+  String pulseGroupForeignServerBanner(String host) {
+    return 'Poruke idu preko $host (nije vaš Pulse poslužitelj)';
+  }
 
   @override
   String groupMeshLimitReached(int n) {

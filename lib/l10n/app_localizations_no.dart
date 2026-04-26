@@ -3164,11 +3164,11 @@ class AppLocalizationsNo extends AppLocalizations {
   }
 
   @override
-  String get groupModeSfuTitle => 'Med Pulse-tjener';
+  String get groupModePulseTitle => 'Pulse-server';
 
   @override
-  String groupModeSfuSubtitle(int n) {
-    return 'Via tjener, opptil $n personer';
+  String groupModePulseSubtitle(int n) {
+    return 'Via server, opptil $n personer';
   }
 
   @override
@@ -3179,6 +3179,11 @@ class AppLocalizationsNo extends AppLocalizations {
 
   @override
   String get groupPulseInviteHint => 'Invitasjonskode';
+
+  @override
+  String pulseGroupForeignServerBanner(String host) {
+    return 'Meldinger rutes via $host (ikke din Pulse-server)';
+  }
 
   @override
   String groupMeshLimitReached(int n) {

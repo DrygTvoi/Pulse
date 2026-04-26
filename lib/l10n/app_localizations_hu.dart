@@ -3188,11 +3188,11 @@ class AppLocalizationsHu extends AppLocalizations {
   }
 
   @override
-  String get groupModeSfuTitle => 'Pulse-szerverrel';
+  String get groupModePulseTitle => 'Pulse szerver';
 
   @override
-  String groupModeSfuSubtitle(int n) {
-    return 'Szerveren keresztül, max. $n fő';
+  String groupModePulseSubtitle(int n) {
+    return 'Szerveren keresztül, legfeljebb $n fő';
   }
 
   @override
@@ -3203,6 +3203,11 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get groupPulseInviteHint => 'Meghívókód';
+
+  @override
+  String pulseGroupForeignServerBanner(String host) {
+    return 'Üzenetek átirányítva: $host (nem a saját Pulse szervere)';
+  }
 
   @override
   String groupMeshLimitReached(int n) {

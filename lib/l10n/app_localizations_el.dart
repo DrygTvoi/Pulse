@@ -3202,10 +3202,10 @@ class AppLocalizationsEl extends AppLocalizations {
   }
 
   @override
-  String get groupModeSfuTitle => 'Με διακομιστή Pulse';
+  String get groupModePulseTitle => 'Διακομιστής Pulse';
 
   @override
-  String groupModeSfuSubtitle(int n) {
+  String groupModePulseSubtitle(int n) {
     return 'Μέσω διακομιστή, έως $n άτομα';
   }
 
@@ -3218,6 +3218,11 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String get groupPulseInviteHint => 'Κωδικός πρόσκλησης';
+
+  @override
+  String pulseGroupForeignServerBanner(String host) {
+    return 'Τα μηνύματα δρομολογούνται μέσω $host (όχι ο δικός σας Pulse server)';
+  }
 
   @override
   String groupMeshLimitReached(int n) {

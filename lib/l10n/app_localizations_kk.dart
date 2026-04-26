@@ -3178,10 +3178,10 @@ class AppLocalizationsKk extends AppLocalizations {
   }
 
   @override
-  String get groupModeSfuTitle => 'Pulse серверімен';
+  String get groupModePulseTitle => 'Pulse сервері';
 
   @override
-  String groupModeSfuSubtitle(int n) {
+  String groupModePulseSubtitle(int n) {
     return 'Сервер арқылы, $n адамға дейін';
   }
 
@@ -3193,6 +3193,11 @@ class AppLocalizationsKk extends AppLocalizations {
 
   @override
   String get groupPulseInviteHint => 'Шақыру коды';
+
+  @override
+  String pulseGroupForeignServerBanner(String host) {
+    return 'Хабарламалар $host арқылы жіберіледі (сіздің Pulse серверіңіз емес)';
+  }
 
   @override
   String groupMeshLimitReached(int n) {

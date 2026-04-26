@@ -3063,10 +3063,10 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
-  String get groupModeSfuTitle => 'Pulse サーバー使用';
+  String get groupModePulseTitle => 'Pulse サーバー';
 
   @override
-  String groupModeSfuSubtitle(int n) {
+  String groupModePulseSubtitle(int n) {
     return 'サーバー経由、最大 $n 人';
   }
 
@@ -3078,6 +3078,11 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get groupPulseInviteHint => '招待コード';
+
+  @override
+  String pulseGroupForeignServerBanner(String host) {
+    return 'メッセージは $host 経由で送信されます (あなたの Pulse サーバーではありません)';
+  }
 
   @override
   String groupMeshLimitReached(int n) {

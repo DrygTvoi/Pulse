@@ -3037,10 +3037,10 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get groupModeSfuTitle => '使用 Pulse 服务器';
+  String get groupModePulseTitle => 'Pulse 服务器';
 
   @override
-  String groupModeSfuSubtitle(int n) {
+  String groupModePulseSubtitle(int n) {
     return '通过服务器，最多 $n 人';
   }
 
@@ -3052,6 +3052,11 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get groupPulseInviteHint => '邀请码';
+
+  @override
+  String pulseGroupForeignServerBanner(String host) {
+    return '消息通过 $host 转发（不是您的 Pulse 服务器）';
+  }
 
   @override
   String groupMeshLimitReached(int n) {

@@ -24,10 +24,24 @@ import 'app_lifecycle_service.dart';
 ///
 /// Owns the typing + heartbeat timer state. ChatController delegates all signal
 /// sending here; public API is unchanged.
+/// Optional callback type used by pulse-routed groups to bypass the
+/// normal per-transport signal loop and dispatch through the per-server
+/// Pulse pool maintained by ChatController. Set via
+/// [SignalBroadcaster.pulseGroupSignalSender] from ChatController during
+/// init. Returns true on successful queue-to-WS.
+typedef PulseGroupSignalSender = Future<bool> Function(
+    Contact contact, String type, Map<String, dynamic> payload,
+    String pulseServerUrl);
+
 class SignalBroadcaster {
   final KeyManager _keys;
   final Identity? Function() _getIdentity;
   final String Function() _getSelfId;
+
+  /// Set by ChatController so pulse-group signal methods can route through
+  /// the per-server Pulse pool. Null until wired — pulse-mode signals
+  /// fall back to the normal transport loop in that case.
+  PulseGroupSignalSender? pulseGroupSignalSender;
 
   static const _secureStorage = FlutterSecureStorage();
   static const _kDefaultNostrRelay = kDefaultNostrRelay;
@@ -239,8 +253,9 @@ class SignalBroadcaster {
           .where((c) => !c.isGroup && contact.members.contains(c.id))
           .toList();
       final payload = {'from': selfId, 'groupId': contact.id};
-      await Future.wait(
-          memberContacts.map((m) => _sendSignalTo(m, 'typing', payload)));
+      final pulseUrl = contact.isPulseGroup ? contact.groupServerUrl : null;
+      await Future.wait(memberContacts.map((m) =>
+          _sendSignalTo(m, 'typing', payload, overridePulseServer: pulseUrl)));
     } else {
       await _sendSignalTo(contact, 'typing', {'from': selfId});
     }
@@ -339,7 +354,7 @@ class SignalBroadcaster {
   /// Used for critical signals like addr_update that must reach the recipient.
   Future<void> _sendSignalToAll(
       Contact contact, String type, Map<String, dynamic> payload,
-      {bool pqcWrap = true}) async {
+      {bool pqcWrap = true, String? overridePulseServer}) async {
     final identity = _getIdentity();
     final selfId = _getSelfId();
     if (identity == null || selfId.isEmpty) return;
@@ -356,6 +371,26 @@ class SignalBroadcaster {
     final effectivePayload = pqcWrap
         ? await _maybePqcWrap(signedPayload ?? payload, contact.databaseId)
         : (signedPayload ?? payload);
+
+    // Pulse-group routing: collapse the "every transport" semantics into a
+    // single Pulse-server send. The pool sender already buffers + retries
+    // on its own WS; spamming additional transports defeats the "all via
+    // host's Pulse" promise. Reaches one server, by design.
+    if (overridePulseServer != null && overridePulseServer.isNotEmpty &&
+        pulseGroupSignalSender != null) {
+      try {
+        final ok = await pulseGroupSignalSender!(
+            contact, type, effectivePayload, overridePulseServer);
+        if (ok) {
+          debugPrint('[Broadcaster] Signal $type (toAll) delivered via Pulse-group server: $overridePulseServer');
+        } else {
+          debugPrint('[Broadcaster] Signal $type (toAll) FAILED via Pulse-group server $overridePulseServer');
+        }
+      } catch (e) {
+        debugPrint('[Broadcaster] Signal $type (toAll) via Pulse-group server $overridePulseServer threw: $e');
+      }
+      return;
+    }
 
     // Developer mode: check adapter toggles
     final prefs = await _getPrefs();
@@ -447,6 +482,7 @@ class SignalBroadcaster {
     if (identity == null || selfId.isEmpty) return;
     final memberAddresses = _buildMemberAddresses(group, allContacts);
     final memberNames = _buildMemberNames(group, allContacts);
+    final memberPulsePubkeys = _buildMemberPulsePubkeys(group, allContacts);
     await _sendSignalTo(target, 'group_invite', {
       'groupId': group.id,
       'name': group.name,
@@ -456,11 +492,19 @@ class SignalBroadcaster {
         'memberPubkeys': Map<String, String>.from(group.memberPubkeys),
       if (memberAddresses.isNotEmpty) 'memberAddresses': memberAddresses,
       if (memberNames.isNotEmpty) 'memberNames': memberNames,
+      // Pulse-pubkey hint for fast bootstrap of pulse-mode groups: every
+      // recipient now knows every other member's universal Pulse pubkey
+      // immediately, without waiting for that member's first addr_update
+      // to propagate after they accept the invite. Receiver pairs this
+      // pubkey with the group's `groupServerUrl` to address messages.
+      if (memberPulsePubkeys.isNotEmpty)
+        'memberPulsePubkeys': memberPulsePubkeys,
       // Carry the call architecture + Pulse server endpoint so every
       // joiner stores the same flag and routes their own calls the same
       // way as the creator. Empty string = legacy / unspecified → readers
       // fall back to 'sfu' for backward compat.
-      if (group.groupCallMode.isNotEmpty) 'groupCallMode': group.groupCallMode,
+      if (group.groupTransportMode.isNotEmpty)
+        'groupTransportMode': group.groupTransportMode,
       if (group.groupServerUrl.isNotEmpty) 'groupServerUrl': group.groupServerUrl,
       if (group.groupServerInvite.isNotEmpty)
         'groupServerInvite': group.groupServerInvite,
@@ -493,6 +537,43 @@ class SignalBroadcaster {
       if (mc == null || mc.transportAddresses.isEmpty) continue;
       out[uuid] = mc.transportAddresses.map(
           (k, v) => MapEntry(k, List<String>.from(v)));
+    }
+    return out;
+  }
+
+  /// Maps each member UUID → their universal Pulse pubkey (64-hex
+  /// ed25519), extracted from the first Pulse address in their contact's
+  /// transport map. Pulse pubkey is universal — same on every server —
+  /// so the receiver of an invite can pair it with the group's
+  /// `groupServerUrl` to address pulse-mode messages immediately,
+  /// without waiting for the member's own `addr_update` after they
+  /// accept and connect to the group's host server.
+  ///
+  /// Empty entries are dropped so the payload stays small and we never
+  /// poison receivers with garbage pubkeys.
+  Map<String, String> _buildMemberPulsePubkeys(
+      Contact group, List<Contact> allContacts) {
+    final out = <String, String>{};
+    for (final uuid in group.members) {
+      Contact? mc;
+      for (final c in allContacts) {
+        if (c.isGroup) continue;
+        if (c.id == uuid) {
+          mc = c;
+          break;
+        }
+      }
+      if (mc == null) continue;
+      for (final addr in mc.transportAddresses['Pulse'] ?? const []) {
+        final at = addr.indexOf('@');
+        if (at <= 0) continue;
+        final pub = addr.substring(0, at).toLowerCase();
+        // 64-hex sanity check — anything else is poisoned data.
+        if (pub.length == 64 && RegExp(r'^[0-9a-f]{64}$').hasMatch(pub)) {
+          out[uuid] = pub;
+          break;
+        }
+      }
     }
     return out;
   }
@@ -543,6 +624,7 @@ class SignalBroadcaster {
     if (identity == null || selfId.isEmpty) return;
     final memberAddresses = _buildMemberAddresses(group, allContacts);
     final memberNames = _buildMemberNames(group, allContacts);
+    final memberPulsePubkeys = _buildMemberPulsePubkeys(group, allContacts);
     final payload = <String, dynamic>{
       'groupId': group.id,
       'name': group.name,
@@ -552,10 +634,13 @@ class SignalBroadcaster {
         'memberPubkeys': Map<String, String>.from(group.memberPubkeys),
       if (memberAddresses.isNotEmpty) 'memberAddresses': memberAddresses,
       if (memberNames.isNotEmpty) 'memberNames': memberNames,
+      if (memberPulsePubkeys.isNotEmpty)
+        'memberPulsePubkeys': memberPulsePubkeys,
       // Mirror invite-side fields so a client that joined via a *link*
       // (no group_invite signal received) still learns the call mode +
       // Pulse server when the creator next broadcasts an update.
-      if (group.groupCallMode.isNotEmpty) 'groupCallMode': group.groupCallMode,
+      if (group.groupTransportMode.isNotEmpty)
+        'groupTransportMode': group.groupTransportMode,
       if (group.groupServerUrl.isNotEmpty) 'groupServerUrl': group.groupServerUrl,
       if (group.groupServerInvite.isNotEmpty)
         'groupServerInvite': group.groupServerInvite,
@@ -577,8 +662,10 @@ class SignalBroadcaster {
     } else {
       recipients = _resolveGroupRecipients(group, allContacts);
     }
+    final pulseUrl = group.isPulseGroup ? group.groupServerUrl : null;
     await Future.wait(
-        recipients.map((c) => _sendSignalTo(c, 'group_update', payload)));
+        recipients.map((c) => _sendSignalTo(c, 'group_update', payload,
+            overridePulseServer: pulseUrl)));
     debugPrint(
         '[Broadcaster] Broadcast membership update for ${group.name} to ${recipients.length} members '
         '(payload members=${group.members.length})');
@@ -608,15 +695,19 @@ class SignalBroadcaster {
         }
       }
       if (senderContact == null) continue;
-      unawaited(sendGroupReadReceipt(senderContact, group.id, msg.id));
+      unawaited(sendGroupReadReceipt(senderContact, group.id, msg.id, group: group));
     }
   }
 
   Future<void> sendGroupReadReceipt(
-      Contact senderContact, String groupId, String msgId) {
+      Contact senderContact, String groupId, String msgId,
+      {Contact? group}) {
     final selfId = _getSelfId();
+    final pulseUrl =
+        (group != null && group.isPulseGroup) ? group.groupServerUrl : null;
     return _sendSignalTo(senderContact, 'msg_read',
-        {'from': selfId, 'groupId': groupId, 'msgId': msgId});
+        {'from': selfId, 'groupId': groupId, 'msgId': msgId},
+        overridePulseServer: pulseUrl);
   }
 
   // ── 1-on-1 receipts ───────────────────────────────────────────────────────
@@ -627,13 +718,15 @@ class SignalBroadcaster {
   }
 
   Future<void> sendDeliveryAck(Contact contact, String msgId,
-      {String? groupId}) {
+      {String? groupId, Contact? group}) {
     final selfId = _getSelfId();
+    final pulseUrl =
+        (group != null && group.isPulseGroup) ? group.groupServerUrl : null;
     return _sendSignalTo(contact, 'msg_ack', {
       'msgId': msgId,
       'from': selfId,
       'groupId': groupId,
-    });
+    }, overridePulseServer: pulseUrl);
   }
 
   // ── Reactions / Edit / Delete ─────────────────────────────────────────────
@@ -652,7 +745,9 @@ class SignalBroadcaster {
 
   Future<void> sendReactionSignal(
       Contact contact, String msgId, String emoji, String selfId,
-      {bool remove = false, String? groupId}) {
+      {bool remove = false, String? groupId, Contact? group}) {
+    final pulseUrl =
+        (group != null && group.isPulseGroup) ? group.groupServerUrl : null;
     return _sendSignalTo(contact, 'reaction', {
       '_sid': _newSid(),
       'msgId': msgId,
@@ -660,7 +755,7 @@ class SignalBroadcaster {
       'from': selfId,
       if (remove) 'remove': true,
       'groupId': groupId,
-    });
+    }, overridePulseServer: pulseUrl);
   }
 
   Future<void> sendEditSignal(Contact contact, String msgId, String text) {
@@ -734,35 +829,39 @@ class SignalBroadcaster {
     final selfId = _getSelfId();
     final sid = _newSid();
     final memberContacts = _resolveGroupRecipients(group, allContacts);
+    final pulseUrl = group.isPulseGroup ? group.groupServerUrl : null;
     await Future.wait(memberContacts.map((c) => _sendSignalTo(c, 'edit', {
           '_sid': sid,
           'msgId': msgId,
           'text': text,
           'from': selfId,
           'groupId': group.id,
-        })));
+        }, overridePulseServer: pulseUrl)));
   }
 
   Future<void> sendDeleteSignal(Contact contact, String msgId,
-      {String? groupId}) {
+      {String? groupId, Contact? group}) {
     final selfId = _getSelfId();
+    final pulseUrl =
+        (group != null && group.isPulseGroup) ? group.groupServerUrl : null;
     return _sendSignalTo(contact, 'msg_delete', {
       '_sid': _newSid(),
       'msgId': msgId,
       'groupId': groupId,
       'from': selfId,
-    });
+    }, overridePulseServer: pulseUrl);
   }
 
   Future<void> broadcastGroupDelete(
       Contact group, String msgId, List<Contact> allContacts) async {
     final selfId = _getSelfId();
     final memberContacts = _resolveGroupRecipients(group, allContacts);
+    final pulseUrl = group.isPulseGroup ? group.groupServerUrl : null;
     await Future.wait(memberContacts.map((c) => _sendSignalToAll(c, 'msg_delete', {
           'msgId': msgId,
           'groupId': group.id,
           'from': selfId,
-        })));
+        }, overridePulseServer: pulseUrl)));
   }
 
   Future<void> sendTtlSignal(Contact contact, int seconds) =>
@@ -785,9 +884,10 @@ class SignalBroadcaster {
     if (!group.isGroup) return;
     final members = _resolveGroupRecipients(group, allContacts);
     if (members.isEmpty) return;
+    final pulseUrl = group.isPulseGroup ? group.groupServerUrl : null;
     await Future.wait(members.map((c) => _sendSignalTo(c, 'sfu_probe', {
           'groupId': group.id,
-        })));
+        }, overridePulseServer: pulseUrl)));
   }
 
   Future<void> broadcastSfuInvite(Contact group, String roomId, String token,
@@ -810,6 +910,7 @@ class SignalBroadcaster {
     // resolve them to a local Contact (their `transportAddresses` may
     // have only Nostr) → the UI falls back to showing the first 8 hex
     // chars of the pubkey instead of the member's name.
+    final pulseUrl = group.isPulseGroup ? group.groupServerUrl : null;
     await Future.wait(members.map((c) => _sendSignalTo(c, 'sfu_invite', {
           '_sid': sid,
           'groupId': group.id,
@@ -817,7 +918,7 @@ class SignalBroadcaster {
           'sfuToken': token,
           'isVideoCall': isVideoCall,
           if (ownPulseAddr.isNotEmpty) '_pulseAddr': ownPulseAddr,
-        })));
+        }, overridePulseServer: pulseUrl)));
   }
 
   /// Broadcast a TTL change for a group to every member. Each member's
@@ -829,10 +930,11 @@ class SignalBroadcaster {
     if (!group.isGroup) return;
     final members = _resolveGroupRecipients(group, allContacts);
     if (members.isEmpty) return;
+    final pulseUrl = group.isPulseGroup ? group.groupServerUrl : null;
     await Future.wait(members.map((c) => _sendSignalToAll(c, 'ttl_update', {
           'seconds': seconds,
           'groupId': group.id,
-        })));
+        }, overridePulseServer: pulseUrl)));
   }
 
   Future<void> sendP2PSignal(
@@ -942,11 +1044,12 @@ class SignalBroadcaster {
   /// Sign + send a signal to a contact using transport-priority routing.
   /// Iterates transports in priority order; stops on first success.
   Future<void> _sendSignalTo(
-      Contact contact, String type, Map<String, dynamic> payload) async {
+      Contact contact, String type, Map<String, dynamic> payload,
+      {String? overridePulseServer}) async {
     final identity = _getIdentity();
     final selfId = _getSelfId();
     if (identity == null || selfId.isEmpty) return;
-    debugPrint('[Broadcaster] _sendSignalTo: type=$type contact=${contact.name} provider=${contact.provider} selfId=${selfId.substring(0, selfId.length.clamp(0, 16))}…');
+    debugPrint('[Broadcaster] _sendSignalTo: type=$type contact=${contact.name} provider=${contact.provider} selfId=${selfId.substring(0, selfId.length.clamp(0, 16))}…${overridePulseServer != null ? " viaPulse=$overridePulseServer" : ""}');
 
     final prefs = await _getPrefs();
     final devModeOn = prefs.getBool('dev_mode_enabled') ?? false;
@@ -959,6 +1062,26 @@ class SignalBroadcaster {
       signedPayload = await _keys.signPayload(contact, type, payload, selfPubkey);
     } catch (_) {}
     final effectivePayload = await _maybePqcWrap(signedPayload, contact.databaseId);
+
+    // Pulse-group routing override: dispatch via the per-server Pulse pool
+    // and DON'T fall back to other transports on failure. The user picked
+    // "everything through this server" — silently rerouting via Nostr would
+    // leak the group activity off the chosen server.
+    if (overridePulseServer != null && overridePulseServer.isNotEmpty &&
+        pulseGroupSignalSender != null) {
+      try {
+        final ok = await pulseGroupSignalSender!(
+            contact, type, effectivePayload, overridePulseServer);
+        if (ok) {
+          debugPrint('[Broadcaster] Signal $type delivered via Pulse-group server: $overridePulseServer');
+        } else {
+          debugPrint('[Broadcaster] Signal $type FAILED via Pulse-group server $overridePulseServer (no fallback by design)');
+        }
+      } catch (e) {
+        debugPrint('[Broadcaster] Signal $type via Pulse-group server $overridePulseServer threw: $e');
+      }
+      return;
+    }
 
     for (final transport in contact.transportPriority) {
       if (devModeOn && !(prefs.getBool('dev_adapter_$transport') ?? true)) continue;

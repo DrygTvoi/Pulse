@@ -935,24 +935,65 @@
   "groupInviteLinkBody": "您被邀请加入「{name}」（{count} 位成员）。",
   "groupInviteLinkJoin": "加入",
   "drawerCreateGroup": "创建群组",
-  "@drawerCreateGroup": { "description": "Drawer entry that opens the create-group dialog (verb form, paired with drawerJoinGroup)" },
-
+  "@drawerCreateGroup": {
+    "description": "Drawer entry that opens the create-group dialog (verb form, paired with drawerJoinGroup)"
+  },
   "drawerJoinGroup": "加入群组",
   "drawerJoinGroupByLinkInvalid": "这看起来不像 Pulse 邀请链接",
   "groupModeMeshTitle": "普通",
-  "@groupModeMeshTitle": { "description": "Mesh-mode tile title in CreateGroupDialog" },
+  "@groupModeMeshTitle": {
+    "description": "Mesh-mode tile title in CreateGroupDialog"
+  },
   "groupModeMeshSubtitle": "无服务器，最多 {n} 人",
-  "@groupModeMeshSubtitle": { "description": "Mesh-mode tile subtitle (n = participant cap)", "placeholders": { "n": { "type": "int" } } },
-  "groupModeSfuTitle": "使用 Pulse 服务器",
-  "@groupModeSfuTitle": { "description": "SFU-mode tile title in CreateGroupDialog" },
-  "groupModeSfuSubtitle": "通过服务器，最多 {n} 人",
-  "@groupModeSfuSubtitle": { "description": "SFU-mode tile subtitle (n = participant cap)", "placeholders": { "n": { "type": "int" } } },
+  "@groupModeMeshSubtitle": {
+    "description": "Mesh-mode tile subtitle (n = participant cap)",
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "groupModePulseTitle": "Pulse 服务器",
+  "@groupModePulseTitle": {
+    "description": "Pulse-mode tile title in CreateGroupDialog"
+  },
+  "groupModePulseSubtitle": "通过服务器，最多 {n} 人",
+  "@groupModePulseSubtitle": {
+    "description": "Pulse-mode tile subtitle (n = participant cap)",
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
   "groupPulseServerHint": "https://你的-pulse-服务器",
-  "@groupPulseServerHint": { "description": "Hint inside the Pulse server URL field" },
+  "@groupPulseServerHint": {
+    "description": "Hint inside the Pulse server URL field"
+  },
   "groupPulseServerClosed": "封闭服务器（需要邀请码）",
-  "@groupPulseServerClosed": { "description": "Checkbox label for closed-server toggle" },
+  "@groupPulseServerClosed": {
+    "description": "Checkbox label for closed-server toggle"
+  },
   "groupPulseInviteHint": "邀请码",
-  "@groupPulseInviteHint": { "description": "Hint inside the invite-code field for closed servers" },
+  "@groupPulseInviteHint": {
+    "description": "Hint inside the invite-code field for closed servers"
+  },
   "groupMeshLimitReached": "此通话类型限制为 {n} 人",
-  "@groupMeshLimitReached": { "description": "Snackbar shown when user tries to add more members than the call type allows", "placeholders": { "n": { "type": "int" } } }
+  "@groupMeshLimitReached": {
+    "description": "Snackbar shown when user tries to add more members than the call type allows",
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "pulseGroupForeignServerBanner": "消息通过 {host} 转发（不是您的 Pulse 服务器）",
+  "@pulseGroupForeignServerBanner": {
+    "description": "Banner shown in pulse-mode group chats hosted on a server different from the user's own pulse_server_url. {host} = short hostname.",
+    "placeholders": {
+      "host": {
+        "type": "String"
+      }
+    }
+  }
 }

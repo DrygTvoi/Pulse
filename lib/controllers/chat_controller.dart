@@ -119,7 +119,7 @@ class ChatController extends ChangeNotifier {
     keys: _keys,
     getIdentity: () => _identity,
     getSelfId: () => _selfId,
-  );
+  )..pulseGroupSignalSender = _sendSignalToContactViaPulseServer;
 
   // Emits (from: oldAddr, to: newAddr) when automatic failover occurs.
   final StreamController<({String from, String to})> _failoverCtrl =
@@ -939,6 +939,18 @@ class ChatController extends ChangeNotifier {
     _reconnecting = true; // block reconnectInbox() until setup completes
     try {
       await _initInbox();
+      // Open per-server Pulse pool entries for every existing pulse-mode
+      // group so the user starts receiving group messages on app start
+      // without waiting for a manual chat-screen open. Dedup by server URL
+      // so multi-group-on-same-server only opens one connection. Fire-and-
+      // forget — failures get retried on the next send.
+      final seenServers = <String>{};
+      for (final c in _contacts.contacts) {
+        if (!c.isGroup || !c.isPulseGroup) continue;
+        final url = c.groupServerUrl;
+        if (url.isEmpty || !seenServers.add(_canonicalizePulseUrl(url))) continue;
+        unawaited(ensureGroupPulseConnection(url));
+      }
     } catch (e, st) {
       debugPrint('[ChatController] adapter init failed: $e\n$st');
       _connectionStatus = ConnectionStatus.disconnected;
@@ -1716,19 +1728,47 @@ class ChatController extends ChangeNotifier {
   /// by calling `buildSession` — which replaces any existing session
   /// state with one keyed to our freshly-published prekeys. Recovers from
   /// the "sender has a stale prekey bundle" failure mode.
+  /// Push our current Signal+Kyber bundle directly to [contact] as a
+  /// `session_reset` signal carrying the bundle in its payload.
+  ///
+  /// **Why inline bundle instead of relying on relay republish:**
+  /// the receiver's SignalDispatcher pre-builds a fresh session from
+  /// the embedded bundle BEFORE the next encrypt. Eliminates the race
+  /// where the receiver re-fetched our published bundle from a relay
+  /// that hadn't yet propagated our most recent kind:10009 update —
+  /// empirically that race burned ~50% of stale-prekey recoveries
+  /// (peer rebuilt session against the same stale prekey and failed
+  /// again, looping forever).
+  ///
+  /// Recovery sequence after we hit a stale-prekey / Bad-Mac decrypt:
+  ///   1. AWAIT `_republishAllKeys()` so the published bundle is on
+  ///      record before the peer might refetch via legacy path.
+  ///   2. Snapshot the bundle right after publish.
+  ///   3. Send `session_reset` carrying the bundle directly. Peer
+  ///      builds session from the inline payload, no relay round-trip.
+  ///
+  /// `pqcWrap: false` because the inline bundle includes the Kyber
+  /// public key — wrapping the unwrap-key in PQC would be circular.
   Future<void> _pushOwnBundleTo(Contact contact) async {
     try {
-      // Republish our fresh own-inbox bundle so that when [contact]
-      // rebuilds its session against us it pulls current prekeys.
-      unawaited(_republishAllKeys());
-      // Then tell them to drop the stale session. session_reset travels
-      // as a normal directed signal (not kind:10009 own-inbox), so it
-      // actually reaches the peer — unlike sys_keys which the Nostr
-      // adapter publishes to our own inbox regardless of the recipient.
+      // CRITICAL: AWAIT the republish, otherwise the session_reset
+      // signal beats our own publish to the peer's relay and they
+      // refetch a stale bundle.
+      await _republishAllKeys();
+      Map<String, dynamic>? bundle;
+      try {
+        bundle = await _keys.buildOwnBundle();
+      } catch (e) {
+        debugPrint('[ChatController] _pushOwnBundleTo: buildOwnBundle failed: $e');
+      }
+      final payload = <String, dynamic>{
+        'ts': DateTime.now().toUtc().toIso8601String(),
+        if (bundle != null) 'bundle': bundle,
+      };
       await _broadcaster.sendSignalToAllTransports(
-          contact, 'session_reset', {'ts': DateTime.now().toUtc().toIso8601String()},
-          pqcWrap: false);
-      debugPrint('[ChatController] Pushed session_reset to ${contact.name} after stale-prekey failure');
+          contact, 'session_reset', payload, pqcWrap: false);
+      debugPrint('[ChatController] Pushed session_reset to ${contact.name} '
+          'with inline bundle=${bundle != null} after stale-prekey failure');
     } catch (e) {
       debugPrint('[ChatController] Failed to push session_reset to ${contact.name}: $e');
     }
@@ -2053,12 +2093,64 @@ class ChatController extends ChangeNotifier {
       }
     }));
 
+    // PQC unwrap failure: dispatcher tried to unwrap a PQC2-wrapped signal
+    // payload but our Kyber privkey couldn't decrypt it. The peer cached
+    // our OLD Kyber pubkey (likely they reinstalled or we did) and keeps
+    // wrapping replies for the dead key — every subsequent signal silently
+    // gets dropped. Clear `_pqcConfirmed` so we stop telling broadcaster
+    // to PQC-wrap THEIR replies, drop their cached Kyber so we don't try
+    // to wrap, and trigger session_reset so the peer pulls our fresh
+    // bundle (which carries our current Kyber pubkey).
+    _dispatcherSubs.add(d.pqcUnwrapFailed.listen((senderId) async {
+      if (senderId.isEmpty) return;
+      _pqcConfirmed.remove(senderId);
+      _pqcConfirmed.remove(senderId.split('@').first);
+      _keys.clearContactKyberPk(senderId);
+      // Find the local contact for this sender and push our fresh bundle.
+      final idx = _getContactIndex();
+      final c = idx[senderId] ?? idx[senderId.split('@').first];
+      if (c != null) {
+        debugPrint('[ChatController] PQC unwrap failed from ${c.name} — '
+            'cleared cached Kyber + triggering session_reset with fresh bundle');
+        unawaited(_pushOwnBundleTo(c));
+      } else {
+        debugPrint('[ChatController] PQC unwrap failed from unknown $senderId — '
+            'cleared cached Kyber, no contact to push to');
+      }
+    }));
+
     // Peer-initiated session reset: they failed to decrypt our messages
     // because the prekey we used has been rotated out on their side.
-    // Drop our session so the next encrypt fetches their current bundle.
+    //
+    // Modern peers include their freshly-republished Signal bundle inline
+    // in the signal payload. When present, do delete + buildSession
+    // atomically so we never race against the peer's own-inbox publish —
+    // that race made about half of recoveries pull a stale bundle from a
+    // relay that hadn't yet propagated the peer's update.
+    //
+    // Without inline bundle (legacy peer): just delete; our next encrypt
+    // path will fetch their bundle from a relay (slightly racy, but the
+    // peer is now expecting the rebuild so timing is more forgiving).
     _dispatcherSubs.add(d.sessionResets.listen((e) async {
-      debugPrint('[ChatController] Peer ${e.contact.name} asked for session reset — clearing session');
+      debugPrint('[ChatController] Peer ${e.contact.name} asked for session reset '
+          '— clearing session (inlineBundle=${e.bundle != null})');
       await _signalService.deleteContactData(e.contact.databaseId);
+      final bundle = e.bundle;
+      if (bundle != null) {
+        try {
+          final keyChanged =
+              await _signalService.buildSession(e.contact.databaseId, bundle);
+          _keys.cacheContactKyberPk(e.contact.databaseId, bundle);
+          if (keyChanged && !_keyChangeCtrl.isClosed) {
+            _keyChangeCtrl
+                .add((contactName: e.contact.name, contactId: e.contact.databaseId));
+          }
+          debugPrint('[ChatController] Built fresh session for ${e.contact.name} '
+              'from inline bundle (keyChanged=$keyChanged)');
+        } catch (err) {
+          debugPrint('[ChatController] buildSession from inline bundle failed: $err');
+        }
+      }
     }));
 
     _dispatcherSubs.add(d.p2pEvents.listen((e) {
@@ -2144,28 +2236,33 @@ class ChatController extends ChangeNotifier {
           debugPrint('[ChatController] addr_update: empty transportAddresses, ignoring');
           return;
         }
-        // Nostr-list UNION-MERGE (bug fix for advertise-set shrinkage):
-        // Senders occasionally ship a smaller Nostr list than the receiver
-        // already has — e.g. when their startup probe couldn't handshake all
-        // secondaries in 8s. Replacing would clobber our 5-relay view with a
-        // 1-relay view and break routing redundancy. Merge new addresses in
-        // front of the existing set (preserving fresh primary-first order)
-        // and cap at 10 to bound growth. Other transports keep replace
-        // semantics so a user switching Pulse/Session server is honoured.
-        final existingNostr = addrContact.transportAddresses['Nostr']
-            ?? const <String>[];
-        final incomingNostr = ta['Nostr'] ?? const <String>[];
-        if (incomingNostr.isNotEmpty || existingNostr.isNotEmpty) {
+        // UNION-MERGE every transport's address list with what we already
+        // have (was Nostr-only — broke pulse-mode groups because the sender
+        // briefly sent an addr_update WITHOUT Pulse during startup, which
+        // wiped the Pulse address we'd just learned, and the next message
+        // failed with "No Pulse pubkey for X"). New addresses go first
+        // (fresh primary takes precedence), existing ones backfill, capped
+        // at 10 per transport to bound growth. A user genuinely SWITCHING
+        // their Pulse/Session server can still happen — the new entries
+        // will appear first in the priority order, and stale entries get
+        // pruned by health-check / never-acked routing later. This trades
+        // a sliver of "switch is instant" UX for "we never lose a learned
+        // address mid-flight" reliability.
+        for (final transport in {'Nostr', 'Pulse', 'Session', 'Firebase'}) {
+          final existing = addrContact.transportAddresses[transport]
+              ?? const <String>[];
+          final incoming = ta[transport] ?? const <String>[];
+          if (incoming.isEmpty && existing.isEmpty) continue;
           final merged = <String>[];
           final seen = <String>{};
-          for (final a in incomingNostr) {
+          for (final a in incoming) {
             if (seen.add(a)) merged.add(a);
           }
-          for (final a in existingNostr) {
+          for (final a in existing) {
             if (merged.length >= 10) break;
             if (seen.add(a)) merged.add(a);
           }
-          if (merged.isNotEmpty) ta['Nostr'] = merged;
+          if (merged.isNotEmpty) ta[transport] = merged;
         }
         updated = addrContact.copyWith(
           transportAddresses: ta,
@@ -2188,23 +2285,22 @@ class ChatController extends ChangeNotifier {
         final ta = _buildTransportMap(allAddrs.toList());
         final primaryTransport = _providerFromAddress(primary);
         final tp = [primaryTransport, ...ta.keys.where((t) => t != primaryTransport)];
-        // Same Nostr-list UNION-MERGE as in the new-format branch — see the
-        // comment there. Prevents flaky-startup shrinkage from clobbering our
-        // redundant relay view of this contact.
-        final existingNostr = addrContact.transportAddresses['Nostr']
-            ?? const <String>[];
-        final incomingNostr = ta['Nostr'] ?? const <String>[];
-        if (incomingNostr.isNotEmpty || existingNostr.isNotEmpty) {
+        // Same UNION-MERGE for every transport as in the new-format branch.
+        for (final transport in {'Nostr', 'Pulse', 'Session', 'Firebase'}) {
+          final existing = addrContact.transportAddresses[transport]
+              ?? const <String>[];
+          final incoming = ta[transport] ?? const <String>[];
+          if (incoming.isEmpty && existing.isEmpty) continue;
           final merged = <String>[];
           final seen = <String>{};
-          for (final a in incomingNostr) {
+          for (final a in incoming) {
             if (seen.add(a)) merged.add(a);
           }
-          for (final a in existingNostr) {
+          for (final a in existing) {
             if (merged.length >= 10) break;
             if (seen.add(a)) merged.add(a);
           }
-          if (merged.isNotEmpty) ta['Nostr'] = merged;
+          if (merged.isNotEmpty) ta[transport] = merged;
         }
         updated = addrContact.copyWith(
           transportAddresses: ta,
@@ -2250,6 +2346,10 @@ class ChatController extends ChangeNotifier {
     }));
 
     _dispatcherSubs.add(d.groupInvites.listen((e) {
+      debugPrint('[ChatController] relay group_invite from dispatcher: '
+          'group="${e.groupName}" id=${e.groupId} from=${e.fromContact.name} '
+          'publicCtrlClosed=${_groupInviteCtrl.isClosed} '
+          'publicCtrlHasListener=${_groupInviteCtrl.hasListener}');
       if (!_groupInviteCtrl.isClosed) _groupInviteCtrl.add(e);
     }));
 
@@ -2316,12 +2416,12 @@ class ChatController extends ChangeNotifier {
       final nameChanged =
           e.groupName.isNotEmpty && e.groupName != group.name;
       final avatarChanged = e.avatar.isNotEmpty;
-      // Inherit creator's call mode + Pulse server, but only when the
+      // Inherit creator's transport mode + Pulse server, but only when the
       // payload populated them — empty string in the signal means "no
       // change", we keep whatever we already have. Lets the creator switch
-      // a group between mesh/SFU after the fact.
-      final newCallMode = e.groupCallMode.isNotEmpty
-          ? e.groupCallMode : group.groupCallMode;
+      // a group between mesh/pulse after the fact (rare but supported).
+      final newTransportMode = e.groupTransportMode.isNotEmpty
+          ? e.groupTransportMode : group.groupTransportMode;
       final newServerUrl = e.groupServerUrl.isNotEmpty
           ? e.groupServerUrl : group.groupServerUrl;
       final newServerInvite = e.groupServerInvite.isNotEmpty
@@ -2331,7 +2431,7 @@ class ChatController extends ChangeNotifier {
         members: e.members,
         creatorId: group.creatorId ?? e.creatorId,
         memberPubkeys: mergedPubkeys,
-        groupCallMode: newCallMode,
+        groupTransportMode: newTransportMode,
         groupServerUrl: newServerUrl,
         groupServerInvite: newServerInvite,
       );
@@ -2346,6 +2446,15 @@ class ChatController extends ChangeNotifier {
       _invalidateContactIndex();
       await _ensurePendingContactsForMembers(
           mergedPubkeys, e.memberAddresses, memberNames: e.memberNames);
+      // Same Pulse-pubkey bootstrap as in acceptGroupInvite — group_update
+      // is the primary delivery path for "members got added" after the
+      // initial invite, so newcomers' pubkeys arrive here.
+      if (updated.isPulseGroup &&
+          updated.groupServerUrl.isNotEmpty &&
+          e.memberPulsePubkeys.isNotEmpty) {
+        await _seedMemberPulseAddresses(
+            e.memberPulsePubkeys, mergedPubkeys, updated.groupServerUrl);
+      }
       // Promote any "Member <pubkey>" placeholders to the inviter-provided
       // name. Only renames placeholders — never overwrites a name the user
       // chose locally.
@@ -2520,8 +2629,22 @@ class ChatController extends ChangeNotifier {
         bool sawStalePrekey = false;
         bool isStalePrekeyError(Object e) {
           final s = e.toString();
-          return s.contains('InvalidKeyIdException') ||
-              s.contains('No such prekeyrecord');
+          // The classic "you used a prekey that no longer exists" cases.
+          if (s.contains('InvalidKeyIdException') ||
+              s.contains('No such prekeyrecord')) return true;
+          // Pulse-group key-rotation case: when both sides rebuild their
+          // own session against the OTHER side's freshly-fetched bundle
+          // (e.g. after my `_sendToContactViaPulseServer` rebuild path
+          // fired on Linux, the resulting message either lands as a
+          // PreKey type that Android can't decode against its existing
+          // identity for that contact, or as a Whisper without any
+          // matching session). Both manifest as "Bad Mac" / "No valid
+          // sessions" — treat the same as stale-prekey so the existing
+          // recovery (delete session + push our fresh bundle back) fires.
+          if (s.contains('No valid sessions') ||
+              s.contains('Bad Mac') ||
+              s.contains('InvalidMessageException')) return true;
+          return false;
         }
         if (rawPayload.startsWith('E2EE||')) {
           final fastContact = contactByDbId[msg.senderId]
@@ -2887,10 +3010,12 @@ class ChatController extends ChangeNotifier {
                     }
                   }
                   unawaited(_broadcaster.sendDeliveryAck(senderContact, decryptedMsg.id,
-                      groupId: targetContact.isGroup ? targetContact.id : null));
+                      groupId: targetContact.isGroup ? targetContact.id : null,
+                      group: targetContact.isGroup ? targetContact : null));
                   if (targetContact.isGroup && _activeRoomId == targetContact.id) {
                     unawaited(_broadcaster.sendGroupReadReceipt(
-                        senderContact, targetContact.id, decryptedMsg.id));
+                        senderContact, targetContact.id, decryptedMsg.id,
+                        group: targetContact));
                   }
                   final ttl = _repo.getChatTtlCached(targetContact.id);
                   if (ttl > 0) {
@@ -3086,6 +3211,16 @@ class ChatController extends ChangeNotifier {
         recipients.add(mc);
       }
 
+      // For pulse-mode groups, ensure we're connected to the host's Pulse
+      // server before fan-out. Fast no-op once warmed up; first call after
+      // app start pays ~1-3s for WS auth + PoW. Done up here so both the
+      // sender-key and pairwise paths benefit.
+      final isPulseRouted =
+          contact.isPulseGroup && contact.groupServerUrl.isNotEmpty;
+      if (isPulseRouted) {
+        await ensureGroupPulseConnection(contact.groupServerUrl);
+      }
+
       // ── Sender Key path: only when every member UUID resolves via
       //    findById on THIS device. Otherwise the SenderKeyService's
       //    UUID-keyed distribution tracking (`markDistributed`,
@@ -3104,10 +3239,21 @@ class ChatController extends ChangeNotifier {
             final skdmBytes = await sk.createDistribution(contact.id, _selfId);
             final skdmB64 = base64Encode(skdmBytes);
             for (final memberContact in recipients) {
-              final distOk = await _sendSignalTo(memberContact, 'sender_key_dist', {
-                'groupId': contact.id,
-                'skdm': skdmB64,
-              });
+              // Pulse-routed groups: SKDM goes through the host's Pulse
+              // server too — otherwise the very first message can't be
+              // decrypted by recipients waiting on the SK distribution to
+              // arrive over a different transport (Nostr/Session) that
+              // may be slower / unreachable for that pair.
+              final distOk = isPulseRouted
+                  ? await _sendSignalToContactViaPulseServer(
+                      memberContact, 'sender_key_dist', {
+                      'groupId': contact.id,
+                      'skdm': skdmB64,
+                    }, contact.groupServerUrl)
+                  : await _sendSignalTo(memberContact, 'sender_key_dist', {
+                      'groupId': contact.id,
+                      'skdm': skdmB64,
+                    });
               if (distOk) await sk.markDistributed(contact.id, memberContact.id);
             }
           }
@@ -3119,8 +3265,12 @@ class ChatController extends ChangeNotifier {
             'ct': base64Encode(cipherBytes),
           });
           for (final memberContact in recipients) {
-            await _sendToContact(memberContact, skEnvelope, noAutoRetry: noAutoRetry);
-            sent++;
+            final ok = isPulseRouted
+                ? await _sendToContactViaPulseServer(
+                    memberContact, skEnvelope, contact.groupServerUrl)
+                : await _sendToContact(memberContact, skEnvelope,
+                    noAutoRetry: noAutoRetry);
+            if (ok) sent++;
           }
           usedSenderKey = true;
         } catch (e) {
@@ -3133,8 +3283,12 @@ class ChatController extends ChangeNotifier {
       if (!usedSenderKey) {
         sent = 0;
         for (final memberContact in recipients) {
-          await _sendToContact(memberContact, groupPayload, noAutoRetry: noAutoRetry);
-          sent++;
+          final ok = isPulseRouted
+              ? await _sendToContactViaPulseServer(
+                  memberContact, groupPayload, contact.groupServerUrl)
+              : await _sendToContact(memberContact, groupPayload,
+                  noAutoRetry: noAutoRetry);
+          if (ok) sent++;
         }
       }
       debugPrint('[Group] send id=${localMsg.id} group=${contact.id} '
@@ -3814,6 +3968,191 @@ class ChatController extends ChangeNotifier {
     return sent;
   }
 
+  /// Send [plaintext] to a single group member through a specific Pulse
+  /// server (the group's `groupServerUrl`), bypassing the normal transport-
+  /// priority routing. Used for pulse-mode groups so every group message
+  /// flows through the host's Pulse server regardless of the recipient's
+  /// preferred transport. Returns true on successful queue-to-WS.
+  ///
+  /// We intentionally do NOT fall back to other transports on failure —
+  /// the whole point of a pulse group is that the user picked "always go
+  /// through this server"; silently rerouting via Nostr would leak the
+  /// group conversation off the chosen server.
+  Future<bool> _sendToContactViaPulseServer(
+      Contact rawContact, String plaintext, String pulseServerUrl) async {
+    if (_identity == null) return false;
+    final contact = _contacts.findById(rawContact.id) ?? rawContact;
+
+    // Resolve recipient's Pulse pubkey. The pubkey is universal (same on
+    // every Pulse server), so we only need to know it once — the server
+    // we send through is the one that holds the group, regardless of
+    // where this recipient's primary Pulse identity normally lives.
+    String? recipientPulsePub;
+    for (final addr in contact.transportAddresses['Pulse'] ?? const []) {
+      final at = addr.indexOf('@');
+      if (at > 0) {
+        recipientPulsePub = addr.substring(0, at);
+        break;
+      }
+    }
+    if (recipientPulsePub == null || recipientPulsePub.isEmpty) {
+      debugPrint('[PulseGroup] No Pulse pubkey for ${contact.name} — '
+          'cannot route through $pulseServerUrl. Recipient must reconnect '
+          'to a Pulse server (any) to advertise their pubkey.');
+      return false;
+    }
+
+    // Encrypt via existing Signal session. The cipher blob is transport-
+    // agnostic — keyed by `contact.databaseId` (whatever transport that
+    // session was originally built on); the receiver decrypts on identity,
+    // not transport.
+    final envelope = MessageEnvelope.wrap(
+        _selfId.isNotEmpty ? _selfId : _identity!.id, plaintext,
+        senderName: _selfName,
+        senderAvatar: _selfAvatar,
+        senderAddresses: _buildOwnTransportMap());
+    String encryptedText;
+    try {
+      encryptedText = await _signalService.encryptMessage(contact.databaseId, envelope);
+    } catch (e) {
+      // Stale / missing Signal session (most often InvalidKeyException after
+      // the recipient reinstalled and rotated their identity key). Wipe
+      // local session and refetch their bundle, preferring their Pulse
+      // address on the GROUP's host server — it's where they're definitely
+      // online for this group, and it skips Nostr-relay key fetch lottery.
+      debugPrint('[PulseGroup] Encrypt failed for ${contact.name}: $e — '
+          'rebuilding Signal session');
+      try {
+        await _signalService.deleteContactData(contact.databaseId);
+        final pulseKey = await _secureStorage.read(key: 'pulse_privkey') ?? '';
+        if (pulseKey.isEmpty) {
+          debugPrint('[PulseGroup] Rebuild aborted: no pulse_privkey');
+          return false;
+        }
+        final reader = PulseInboxReader();
+        final readerApiKey =
+            jsonEncode({'privkey': pulseKey, 'serverUrl': pulseServerUrl});
+        final readerDbId = '$recipientPulsePub@$pulseServerUrl';
+        Map<String, dynamic>? bundle;
+        try {
+          await reader.initializeReader(readerApiKey, readerDbId);
+          bundle = await reader.fetchPublicKeys();
+        } finally {
+          try { reader.close(); } catch (_) {}
+        }
+        if (bundle == null) {
+          debugPrint('[PulseGroup] Rebuild aborted: no bundle on $pulseServerUrl');
+          return false;
+        }
+        final keyChanged = await _signalService.buildSession(contact.databaseId, bundle);
+        _keys.cacheContactKyberPk(contact.databaseId, bundle);
+        if (keyChanged && !_keyChangeCtrl.isClosed) {
+          _keyChangeCtrl.add((contactName: contact.name, contactId: contact.databaseId));
+        }
+        encryptedText = await _signalService.encryptMessage(contact.databaseId, envelope);
+        debugPrint('[PulseGroup] Session rebuilt + re-encrypted for ${contact.name}');
+      } catch (e2) {
+        debugPrint('[PulseGroup] Session rebuild failed for ${contact.name}: $e2');
+        return false;
+      }
+    }
+    if (encryptedText.startsWith('E2EE||') &&
+        _pqcConfirmed.contains(contact.databaseId)) {
+      encryptedText = await _keys.pqcWrap(encryptedText, contact.databaseId);
+    }
+
+    // Look up the per-server sender. ensureGroupPulseConnection should
+    // have populated this when the group was loaded/accepted. If missing,
+    // open it on demand — costs ~1-3s the first time (PoW + WS auth) but
+    // amortizes across the rest of the chat.
+    final key = _canonicalizePulseUrl(pulseServerUrl);
+    if (!_pulseSendersByServer.containsKey(key)) {
+      debugPrint('[PulseGroup] No pool sender for $pulseServerUrl — '
+          'opening on-demand');
+      final ok = await ensureGroupPulseConnection(pulseServerUrl);
+      if (!ok) return false;
+    }
+    final activeSender = _pulseSendersByServer[key];
+    if (activeSender == null) return false;
+
+    final targetDbId = '$recipientPulsePub@$pulseServerUrl';
+    final msg = Message(
+      id: _uuid.v4(),
+      senderId: _selfId.isNotEmpty ? _selfId : _identity!.id,
+      receiverId: targetDbId,
+      encryptedPayload: encryptedText,
+      timestamp: DateTime.now(),
+      adapterType: 'pulse',
+      isRead: true,
+      status: 'sending',
+    );
+    final ok = await activeSender.sendMessage(targetDbId, '', msg);
+    if (ok) _lastDeliveryTransport[contact.id] = 'Pulse';
+    return ok;
+  }
+
+  /// Signal-flavoured sibling of [_sendToContactViaPulseServer]. Used for
+  /// pulse-group fan-out of typing/read/edit/delete/reaction/group_update/
+  /// sender_key_dist/sfu_invite — anything the broadcaster would otherwise
+  /// send through the per-transport priority loop.
+  ///
+  /// Wired into [SignalBroadcaster.pulseGroupSignalSender] during
+  /// initialization; broadcaster invokes this when a group method passes
+  /// `overridePulseServer`. Returns true on successful sink.add.
+  Future<bool> _sendSignalToContactViaPulseServer(Contact rawContact,
+      String type, Map<String, dynamic> payload, String pulseServerUrl) async {
+    if (_identity == null) return false;
+    final contact = _contacts.findById(rawContact.id) ?? rawContact;
+
+    String? recipientPulsePub;
+    for (final addr in contact.transportAddresses['Pulse'] ?? const []) {
+      final at = addr.indexOf('@');
+      if (at > 0) {
+        recipientPulsePub = addr.substring(0, at);
+        break;
+      }
+    }
+    if (recipientPulsePub == null || recipientPulsePub.isEmpty) {
+      debugPrint('[PulseGroup] Signal $type → ${contact.name}: no Pulse '
+          'pubkey known. Recipient must connect to a Pulse server first '
+          '(addr_update will then propagate their pubkey).');
+      return false;
+    }
+
+    final key = _canonicalizePulseUrl(pulseServerUrl);
+    if (!_pulseSendersByServer.containsKey(key)) {
+      final ok = await ensureGroupPulseConnection(pulseServerUrl);
+      if (!ok) return false;
+    }
+    final sender = _pulseSendersByServer[key];
+    if (sender == null) return false;
+
+    // Sign the payload before sending — Pulse-transport signals MUST carry
+    // `_sig` + `_spk` (HMAC over canonical {t, p}) or the receiver's
+    // SignalDispatcher rejects them as "unsigned" via the
+    // `_signatureRequiredSignals` gate. Broadcaster's normal `_sendSignalTo`
+    // does this for us, but the override callback bypasses that path; we
+    // have to replicate the signing locally. Without this, sender_key_dist
+    // / group_update / edit / delete / msg_read silently get dropped on the
+    // recipient and the chat shows raw "_sk:true ct:..." envelopes
+    // because no one ever distributed the sender key.
+    Map<String, dynamic> signedPayload = payload;
+    if (!payload.containsKey('_sig')) {
+      try {
+        final privkey = await _getNostrPrivkey();
+        final selfPubkey =
+            privkey.isNotEmpty ? deriveNostrPubkeyHex(privkey) : null;
+        signedPayload =
+            await _keys.signPayload(contact, type, payload, selfPubkey);
+      } catch (e) {
+        debugPrint('[PulseGroup] Signal $type sign failed: $e');
+      }
+    }
+    final targetDbId = '$recipientPulsePub@$pulseServerUrl';
+    final selfId = _selfId.isNotEmpty ? _selfId : (_identity?.id ?? '');
+    return sender.sendSignal(targetDbId, targetDbId, selfId, type, signedPayload);
+  }
+
   // ── Smart media routing ─────────────────────────────────────────────────
   //
   //  <48KB          → inline in single message (small photos, gzipped voice)
@@ -4147,11 +4486,19 @@ class ChatController extends ChangeNotifier {
       bool sent = false;
       if (isGroup) {
         final groupPayload = jsonEncode({'_group': contact.id, 'text': payload});
+        final isPulseRouted =
+            contact.isPulseGroup && contact.groupServerUrl.isNotEmpty;
+        if (isPulseRouted) {
+          await ensureGroupPulseConnection(contact.groupServerUrl);
+        }
         int membersSent = 0;
         for (final memberId in contact.members) {
           final memberContact = _contacts.findById(memberId);
           if (memberContact == null) continue;
-          final ok = await _sendToContact(memberContact, groupPayload);
+          final ok = isPulseRouted
+              ? await _sendToContactViaPulseServer(
+                  memberContact, groupPayload, contact.groupServerUrl)
+              : await _sendToContact(memberContact, groupPayload);
           if (ok) membersSent++;
         }
         sent = membersSent > 0;
@@ -4320,6 +4667,11 @@ class ChatController extends ChangeNotifier {
     final ownPubAt = selfId.indexOf('@');
     final ownPub =
         (ownPubAt > 0 ? selfId.substring(0, ownPubAt) : selfId).toLowerCase();
+    final isPulseRouted =
+        group.isPulseGroup && group.groupServerUrl.isNotEmpty;
+    if (isPulseRouted) {
+      await ensureGroupPulseConnection(group.groupServerUrl);
+    }
     int sent = 0;
     final seen = <String>{};
     final memberIds = <String>[
@@ -4338,7 +4690,10 @@ class ChatController extends ChangeNotifier {
       }
       if (memberContact == null) continue;
       if (!seen.add(memberContact.id)) continue;
-      final ok = await _sendToContact(memberContact, groupPayload);
+      final ok = isPulseRouted
+          ? await _sendToContactViaPulseServer(
+              memberContact, groupPayload, group.groupServerUrl)
+          : await _sendToContact(memberContact, groupPayload);
       if (ok) sent++;
     }
     return sent > 0;
@@ -4885,8 +5240,17 @@ class ChatController extends ChangeNotifier {
   Future<void> broadcastTurnToContact(Contact contact) =>
       _broadcaster.broadcastTurnToContact(contact);
 
-  Future<void> sendGroupInvite(Contact target, Contact group) =>
-      _broadcaster.sendGroupInvite(target, group, _contacts.contacts);
+  Future<void> sendGroupInvite(Contact target, Contact group) async {
+    // Pre-warm the Pulse server connection on the creator side so the very
+    // first invite (and the SFU room create that often follows) doesn't
+    // race against WS auth. Fire-and-forget — the invite send itself runs
+    // over Nostr/Session/whatever transport the target has, the pulse
+    // connection is for FUTURE group messages.
+    if (group.isPulseGroup && group.groupServerUrl.isNotEmpty) {
+      unawaited(ensureGroupPulseConnection(group.groupServerUrl));
+    }
+    return _broadcaster.sendGroupInvite(target, group, _contacts.contacts);
+  }
 
   Future<void> declineGroupInvite(SignalGroupInviteEvent invite) async {
     if (_identity == null || _selfId.isEmpty) return;
@@ -5031,7 +5395,7 @@ class ChatController extends ChangeNotifier {
       members: invite.members,
       creatorId: invite.creatorId,
       memberPubkeys: invite.memberPubkeys,
-      groupCallMode: invite.groupCallMode,
+      groupTransportMode: invite.groupTransportMode,
       groupServerUrl: invite.groupServerUrl,
       groupServerInvite: invite.groupServerInvite,
     );
@@ -5043,8 +5407,78 @@ class ChatController extends ChangeNotifier {
     if (invite.memberNames.isNotEmpty) {
       await _promotePlaceholderNames(invite.memberNames, invite.memberPubkeys);
     }
+    // Bootstrap each member's Pulse address on the GROUP's host server.
+    // Without this, the first send from us to a member can't construct a
+    // target db-id (no Pulse pubkey known) and silently drops until the
+    // member's own addr_update propagates from the host server.
+    if (newGroup.isPulseGroup &&
+        newGroup.groupServerUrl.isNotEmpty &&
+        invite.memberPulsePubkeys.isNotEmpty) {
+      await _seedMemberPulseAddresses(
+          invite.memberPulsePubkeys, invite.memberPubkeys,
+          newGroup.groupServerUrl);
+    }
+    // For pulse groups, eagerly open the host's Pulse server connection so
+    // the very first outgoing message doesn't pay 1-3s of WS-auth latency
+    // and so we start receiving group messages immediately. Fire-and-forget
+    // — we don't want to block invite acceptance on slow PoW.
+    if (newGroup.isPulseGroup && newGroup.groupServerUrl.isNotEmpty) {
+      unawaited(ensureGroupPulseConnection(newGroup.groupServerUrl));
+    }
     debugPrint('[Group] Joined group "${invite.groupName}" via invite');
     _scheduleNotify();
+  }
+
+  /// For each `(memberUuid → pulsePubkey)` entry from a pulse-group invite
+  /// or update, look up the local contact (by UUID first, then by Nostr
+  /// pubkey from `memberPubkeys`) and graft `<pulsePub>@<groupServerUrl>`
+  /// into their `transportAddresses['Pulse']` if not already present.
+  /// Lets us address pulse-mode messages to that member immediately
+  /// without waiting for their own addr_update to circulate via the
+  /// host server.
+  Future<void> _seedMemberPulseAddresses(
+      Map<String, String> memberPulsePubkeys,
+      Map<String, String> memberPubkeys,
+      String groupServerUrl) async {
+    if (memberPulsePubkeys.isEmpty || groupServerUrl.isEmpty) return;
+    var seeded = 0;
+    for (final entry in memberPulsePubkeys.entries) {
+      final uuid = entry.key;
+      final pulsePub = entry.value.toLowerCase();
+      if (pulsePub.length != 64) continue;
+      // Locate the local contact: try UUID, then Nostr pubkey from the
+      // sibling map (the contact may exist under a different cross-device
+      // UUID than the inviter assigned).
+      Contact? c = _contacts.findById(uuid);
+      if (c == null) {
+        final nostrPub = memberPubkeys[uuid]?.toLowerCase();
+        if (nostrPub != null && nostrPub.isNotEmpty) {
+          c = _contacts.findByPubkey(nostrPub);
+        }
+      }
+      if (c == null) continue;
+      final addr = '$pulsePub@$groupServerUrl';
+      final existing = List<String>.from(c.transportAddresses['Pulse'] ?? const []);
+      if (existing.any((a) => a.toLowerCase() == addr.toLowerCase())) continue;
+      existing.add(addr);
+      final newTa = Map<String, List<String>>.from(c.transportAddresses);
+      newTa['Pulse'] = existing;
+      // Append Pulse to priority list if missing — keeps the contact's
+      // existing primary transport intact, just teaches it Pulse exists.
+      final newTp = List<String>.from(c.transportPriority);
+      if (!newTp.contains('Pulse')) newTp.add('Pulse');
+      final patched = c.copyWith(
+        transportAddresses: newTa,
+        transportPriority: newTp,
+      );
+      await _contacts.updateContact(patched);
+      seeded++;
+    }
+    if (seeded > 0) {
+      _invalidateContactIndex();
+      debugPrint('[PulseGroup] Seeded $seeded member Pulse address(es) on $groupServerUrl');
+      _scheduleNotify();
+    }
   }
 
   /// For every `(memberUuid → pubkey)` entry we don't already have a local
@@ -5305,9 +5739,10 @@ class ChatController extends ChangeNotifier {
   /// Telegram-style "<self> renamed group to X" notice in the local chat;
   /// the receiver-side handler emits its own copy independently.
   Future<void> broadcastGroupUpdate(Contact group,
-      {String? previousName, String? avatar}) async {
+      {String? previousName, String? avatar,
+      Iterable<String>? recipientMemberIds}) async {
     await _broadcaster.broadcastGroupUpdate(group, _contacts.contacts,
-        avatar: avatar);
+        avatar: avatar, recipientMemberIds: recipientMemberIds);
     final selfUuid = _identity?.id ?? 'self';
     final renamed =
         previousName != null && previousName.isNotEmpty && previousName != group.name;
@@ -5534,7 +5969,7 @@ class ChatController extends ChangeNotifier {
         if (memberContact == null) continue;
         unawaited(_broadcaster.sendReactionSignal(
             memberContact, msgId, emoji, _selfId,
-            remove: alreadyReacted, groupId: contact.id));
+            remove: alreadyReacted, groupId: contact.id, group: contact));
       }
     } else {
       unawaited(_broadcaster.sendReactionSignal(
@@ -6094,6 +6529,57 @@ class ChatController extends ChangeNotifier {
         debugPrint('[Group/SFU] ensureGroupPulseConnection: auth timed out '
             'for $serverUrl — sender created but channel not ready yet');
       }
+
+      // Advertise our Pulse address on this server in `_allAddresses` so the
+      // next addr_update broadcast carries it. Without this, peers in our
+      // pulse-mode groups never learn our universal Pulse pubkey and their
+      // sends to us silently fail with "No Pulse pubkey for X" — the exact
+      // bootstrap dead-end that breaks the very first send to a fresh
+      // pulse group. Idempotent; broadcastAddressUpdate dedupes too.
+      try {
+        final seed = Uint8List.fromList(hex.decode(privkey));
+        final pulsePub = await ed25519PubkeyFromSeed(seed);
+        final selfPulseAddr = '$pulsePub@$serverUrl';
+        if (!_allAddresses.contains(selfPulseAddr)) {
+          _allAddresses = [..._allAddresses, selfPulseAddr];
+          _adapterHealth[selfPulseAddr] = ready;
+          debugPrint('[Group/SFU] ensureGroupPulseConnection: advertised '
+              'self Pulse address $selfPulseAddr to peers');
+          // Fire-and-forget — no need to block; receivers will pick up on
+          // the next signal exchange anyway, and serializing here would
+          // delay subsequent group sends behind addr_update fan-out.
+          unawaited(broadcastAddressUpdate());
+        }
+        // Publish our Signal/Kyber prekey bundle to THIS server too so
+        // pulse-group peers can fetch it (via `fetchPublicKeys` against
+        // `<our_pulse_pub>@<groupServerUrl>`) and bootstrap their session
+        // for sending to us. CRITICAL: reuse the per-server pool sender
+        // we just created — `publishKeysToAdapter` would naively spawn a
+        // second `PulseMessageSender` and call `initializeSender`, but
+        // the Pulse hub allows only one WS per pubkey, so the second
+        // connection kicks the first (the long-lived reader) and the
+        // sys_keys publish silently fails with no log. Going through the
+        // existing sender ensures we ride the already-authenticated WS.
+        try {
+          final bundle = await _keys.buildOwnBundle();
+          final ok = await sender.sendSignal(
+              selfPulseAddr, selfPulseAddr, selfPulseAddr, 'sys_keys', bundle);
+          if (ok) {
+            debugPrint('[Group/SFU] Published Signal bundle to $serverUrl '
+                'via reused pool sender');
+          } else {
+            debugPrint('[Group/SFU] Failed to publish Signal bundle to '
+                '$serverUrl (sender returned false)');
+          }
+        } catch (err) {
+          debugPrint('[Group/SFU] Failed to publish Signal bundle to '
+              '$serverUrl: $err');
+        }
+      } catch (e) {
+        debugPrint('[Group/SFU] ensureGroupPulseConnection: failed to '
+            'advertise self Pulse address / publish keys: $e');
+      }
+
       return ready;
     } catch (e) {
       debugPrint('[Group/SFU] ensureGroupPulseConnection failed: $e');

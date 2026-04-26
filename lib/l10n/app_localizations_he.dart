@@ -3129,10 +3129,10 @@ class AppLocalizationsHe extends AppLocalizations {
   }
 
   @override
-  String get groupModeSfuTitle => 'עם שרת Pulse';
+  String get groupModePulseTitle => 'שרת Pulse';
 
   @override
-  String groupModeSfuSubtitle(int n) {
+  String groupModePulseSubtitle(int n) {
     return 'דרך שרת, עד $n אנשים';
   }
 
@@ -3144,6 +3144,11 @@ class AppLocalizationsHe extends AppLocalizations {
 
   @override
   String get groupPulseInviteHint => 'קוד הזמנה';
+
+  @override
+  String pulseGroupForeignServerBanner(String host) {
+    return 'ההודעות מנותבות דרך $host (לא שרת ה-Pulse שלך)';
+  }
 
   @override
   String groupMeshLimitReached(int n) {

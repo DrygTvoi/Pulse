@@ -3159,11 +3159,11 @@ class AppLocalizationsFa extends AppLocalizations {
   }
 
   @override
-  String get groupModeSfuTitle => 'با سرور Pulse';
+  String get groupModePulseTitle => 'سرور Pulse';
 
   @override
-  String groupModeSfuSubtitle(int n) {
-    return 'از طریق سرور، حداکثر $n نفر';
+  String groupModePulseSubtitle(int n) {
+    return 'از طریق سرور، تا $n نفر';
   }
 
   @override
@@ -3174,6 +3174,11 @@ class AppLocalizationsFa extends AppLocalizations {
 
   @override
   String get groupPulseInviteHint => 'کد دعوت';
+
+  @override
+  String pulseGroupForeignServerBanner(String host) {
+    return 'پیام‌ها از طریق $host ارسال می‌شوند (سرور Pulse شما نیست)';
+  }
 
   @override
   String groupMeshLimitReached(int n) {

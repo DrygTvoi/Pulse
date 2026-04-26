@@ -361,11 +361,19 @@ class _ContactProfileBodyState extends State<ContactProfileBody> {
     );
     if (confirmed != true || !mounted) return;
     final myId = context.read<ChatController>().identity?.id ?? '';
+    // Capture the OLD roster before trimming. We need to send the
+    // group_update to the OLD set (which still includes us) — otherwise
+    // `_resolveGroupRecipients` is built from the NEW (trimmed) member list
+    // and the remaining members never see the change. Sending to old
+    // members is also harmless for self because outgoing-to-self is
+    // filtered downstream.
+    final oldMembers = List<String>.from(_contact.members);
     final updated = _contact.copyWith(
       members: _contact.members.where((id) => id != myId).toList(),
     );
     // Notify remaining members before removing locally
-    unawaited(context.read<ChatController>().broadcastGroupUpdate(updated));
+    unawaited(context.read<ChatController>().broadcastGroupUpdate(updated,
+        recipientMemberIds: oldMembers));
     await context.read<IContactRepository>().removeContact(_contact.id);
     if (mounted) {
       _dismiss();
@@ -376,14 +384,22 @@ class _ContactProfileBodyState extends State<ContactProfileBody> {
   void _kickMember(String memberId) async {
     final repo = context.read<IContactRepository>();
     final ctrl = context.read<ChatController>();
+    // Capture OLD members BEFORE trimming so we can broadcast to the kicked
+    // user too. Without this they never receive the update telling them
+    // they were removed and the group stays visible on their device. The
+    // receiver-side handler in chat_controller already removes the group
+    // when `weWereMember && !weStillMember` — it just never gets the
+    // signal otherwise.
+    final oldMembers = List<String>.from(_contact.members);
     final updated = _contact.copyWith(
       members: _contact.members.where((id) => id != memberId).toList(),
     );
     await repo.updateContact(updated);
     setState(() => _contact = updated);
     widget.onContactUpdated?.call(updated);
-    // Notify remaining members of the new member list
-    unawaited(ctrl.broadcastGroupUpdate(updated));
+    // Send to OLD roster (includes the kicked member).
+    unawaited(ctrl.broadcastGroupUpdate(updated,
+        recipientMemberIds: oldMembers));
   }
 
   void _showTransferAdminConfirm(String memberId, String name) {

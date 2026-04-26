@@ -827,6 +827,51 @@ class _NostrPendingGiftWraps {
   }
 }
 
+/// Process-wide registry of LIVE NostrInboxReader instances per own pubkey.
+/// Used to handle the "racing reader swap" case: when two readers exist for
+/// the same own pubkey (configureSelf called twice on startup, or during
+/// failover) and the OLD one's WebSocket has buffered events that arrive
+/// AFTER `close()` was called on it, those events would be dropped by
+/// `_dispatchMessage` / `_dispatchSignal` (both early-return on `_closed`).
+///
+/// The pre-existing `_NostrPendingGiftWraps` queue solves the cold-start
+/// case (no reader alive → next-init drain). This registry solves the
+/// concurrent case: forward to a sibling reader that IS alive, so the
+/// listener (ChatController) sees the event without waiting for another
+/// init cycle.
+class _NostrLiveReaders {
+  static final Map<String, Set<NostrInboxReader>> _byPubkey = {};
+
+  static void register(String pubkeyHex, NostrInboxReader r) {
+    if (pubkeyHex.isEmpty) return;
+    _byPubkey
+        .putIfAbsent(pubkeyHex.toLowerCase(), () => <NostrInboxReader>{})
+        .add(r);
+  }
+
+  static void unregister(String pubkeyHex, NostrInboxReader r) {
+    if (pubkeyHex.isEmpty) return;
+    final set = _byPubkey[pubkeyHex.toLowerCase()];
+    if (set == null) return;
+    set.remove(r);
+    if (set.isEmpty) _byPubkey.remove(pubkeyHex.toLowerCase());
+  }
+
+  /// Returns the first non-closed sibling reader for [pubkeyHex] other than
+  /// [exclude], or null if none. Caller is responsible for filtering by
+  /// listener-presence on the inner controller it intends to push to.
+  static NostrInboxReader? siblingOf(String pubkeyHex, NostrInboxReader exclude) {
+    final set = _byPubkey[pubkeyHex.toLowerCase()];
+    if (set == null) return null;
+    for (final r in set) {
+      if (identical(r, exclude)) continue;
+      if (r._closed) continue;
+      return r;
+    }
+    return null;
+  }
+}
+
 class NostrInboxReader implements InboxReader {
   String _privateKeyHex = '';
   String _publicKeyHex = '';
@@ -904,6 +949,11 @@ class NostrInboxReader implements InboxReader {
         debugPrint('[Nostr] Failed to derive pubkey from privkey: $e');
       }
     }
+
+    // Register in the live-readers index so a SIBLING reader being closed
+    // mid-flight (e.g. configureSelf called twice on startup, or relay
+    // failover) can forward its in-flight events to us instead of dropping.
+    _NostrLiveReaders.register(_publicKeyHex, this);
 
     // Replay any gift wraps that arrived after the previous reader for
     // this pubkey closed but before we got here — see
@@ -1052,6 +1102,9 @@ class NostrInboxReader implements InboxReader {
     try { _activeChannel?.sink.close(); } catch (_) {}
     _activeChannel = null;
     _closeSecondaryRelays();
+    // Drop ourselves from the live-readers index so siblings stop trying to
+    // forward to a controller that's now dead.
+    _NostrLiveReaders.unregister(_publicKeyHex, this);
   }
 
   // ── Secondary relay subscriptions ────────────────────────────────────────
@@ -1655,8 +1708,7 @@ class NostrInboxReader implements InboxReader {
       final createdAt = event['created_at'] as int?;
       if (id.isEmpty || pubkey.isEmpty || content.isEmpty) return;
       debugPrint('[Nostr] _dispatchMessage: id=${id.substring(0, 8)} pk=${pubkey.substring(0, 8)} hasListener=${_msgCtrl.hasListener} closed=$_closed');
-      if (_closed) return;
-      _msgCtrl.add([Message(
+      final msg = Message(
         id: id,
         senderId: pubkey,
         receiverId: _publicKeyHex,
@@ -1665,7 +1717,23 @@ class NostrInboxReader implements InboxReader {
             ? DateTime.fromMillisecondsSinceEpoch(createdAt * 1000)
             : DateTime.now(),
         adapterType: 'nostr',
-      )]);
+      );
+      // If our own controller is gone (closed during reader swap, or its
+      // listener got cancelled mid-flight), try to hand off to a sibling
+      // reader for the same own-pubkey instead of silently dropping. The
+      // sibling's _seenIds will dedupe if it's already seen this id.
+      if (_closed || !_msgCtrl.hasListener) {
+        final sibling = _NostrLiveReaders.siblingOf(_publicKeyHex, this);
+        if (sibling != null && sibling._msgCtrl.hasListener) {
+          sibling._msgCtrl.add([msg]);
+          debugPrint('[Nostr] _dispatchMessage: forwarded id=${id.substring(0, 8)} to sibling reader');
+          return;
+        }
+        if (_closed) return;
+        // Not closed but no listener — fall through and add() will be a
+        // no-op on a broadcast controller (existing behavior).
+      }
+      _msgCtrl.add([msg]);
     } catch (e) {
       debugPrint('[Nostr] Failed to parse message: $e');
     }
@@ -1705,20 +1773,30 @@ class NostrInboxReader implements InboxReader {
       // _dispatchSignal is async (awaits NIP-44 decryption above), so a close()
       // can interleave between the decrypt and the add. Checking _closed rather
       // than _sigCtrl.isClosed because controllers are never closed.
-      if (!_closed) {
-        _sigCtrl.add([{
-          'type': data['type'],
-          'senderId': senderPubkey,
-          'roomId': data['roomId'],
-          'payload': data['payload'],
-          // F4-1: Mark as Nostr-adapter signal so SignalDispatcher can skip HMAC
-          // only for signals that went through Schnorr verification above.
-          'adapterType': 'nostr',
-          // Propagate the inner event's created_at so downstream consumers
-          // can reject stale replays (sfu_invite for dead rooms, etc.).
-          '_ts': event['created_at'],
-        }]);
+      final sig = {
+        'type': data['type'],
+        'senderId': senderPubkey,
+        'roomId': data['roomId'],
+        'payload': data['payload'],
+        // F4-1: Mark as Nostr-adapter signal so SignalDispatcher can skip HMAC
+        // only for signals that went through Schnorr verification above.
+        'adapterType': 'nostr',
+        // Propagate the inner event's created_at so downstream consumers
+        // can reject stale replays (sfu_invite for dead rooms, etc.).
+        '_ts': event['created_at'],
+      };
+      if (_closed || !_sigCtrl.hasListener) {
+        // Same sibling-forward trick as _dispatchMessage: hand the signal
+        // off to a live reader for the same own-pubkey rather than dropping.
+        final sibling = _NostrLiveReaders.siblingOf(_publicKeyHex, this);
+        if (sibling != null && sibling._sigCtrl.hasListener) {
+          sibling._sigCtrl.add([sig]);
+          debugPrint('[Nostr] _dispatchSignal: forwarded to sibling reader');
+          return;
+        }
+        if (_closed) return;
       }
+      _sigCtrl.add([sig]);
     } catch (e) {
       debugPrint('[Nostr] Signal parse error: $e');
       if (e.toString().contains('MAC verification failed')) {

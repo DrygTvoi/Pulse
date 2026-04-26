@@ -3184,10 +3184,10 @@ class AppLocalizationsHy extends AppLocalizations {
   }
 
   @override
-  String get groupModeSfuTitle => 'Pulse սերվերով';
+  String get groupModePulseTitle => 'Pulse սերվեր';
 
   @override
-  String groupModeSfuSubtitle(int n) {
+  String groupModePulseSubtitle(int n) {
     return 'Սերվերի միջոցով, մինչև $n մարդ';
   }
 
@@ -3199,6 +3199,11 @@ class AppLocalizationsHy extends AppLocalizations {
 
   @override
   String get groupPulseInviteHint => 'Հրավերի կոդ';
+
+  @override
+  String pulseGroupForeignServerBanner(String host) {
+    return 'Հաղորդագրությունները ուղարկվում են $host միջոցով (Ձեր Pulse սերվերը չէ)';
+  }
 
   @override
   String groupMeshLimitReached(int n) {

@@ -3188,10 +3188,10 @@ class AppLocalizationsLt extends AppLocalizations {
   }
 
   @override
-  String get groupModeSfuTitle => 'Su Pulse serveriu';
+  String get groupModePulseTitle => 'Pulse serveris';
 
   @override
-  String groupModeSfuSubtitle(int n) {
+  String groupModePulseSubtitle(int n) {
     return 'Per serverį, iki $n žmonių';
   }
 
@@ -3204,6 +3204,11 @@ class AppLocalizationsLt extends AppLocalizations {
 
   @override
   String get groupPulseInviteHint => 'Pakvietimo kodas';
+
+  @override
+  String pulseGroupForeignServerBanner(String host) {
+    return 'Pranešimai siunčiami per $host (ne jūsų Pulse serveris)';
+  }
 
   @override
   String groupMeshLimitReached(int n) {

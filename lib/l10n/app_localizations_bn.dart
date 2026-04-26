@@ -3145,10 +3145,10 @@ class AppLocalizationsBn extends AppLocalizations {
   }
 
   @override
-  String get groupModeSfuTitle => 'Pulse সার্ভার সহ';
+  String get groupModePulseTitle => 'Pulse সার্ভার';
 
   @override
-  String groupModeSfuSubtitle(int n) {
+  String groupModePulseSubtitle(int n) {
     return 'সার্ভারের মাধ্যমে, $n জন পর্যন্ত';
   }
 
@@ -3160,6 +3160,11 @@ class AppLocalizationsBn extends AppLocalizations {
 
   @override
   String get groupPulseInviteHint => 'আমন্ত্রণ কোড';
+
+  @override
+  String pulseGroupForeignServerBanner(String host) {
+    return 'বার্তা $host এর মাধ্যমে পাঠানো হয় (আপনার Pulse সার্ভার নয়)';
+  }
 
   @override
   String groupMeshLimitReached(int n) {

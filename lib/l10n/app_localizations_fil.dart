@@ -3193,10 +3193,10 @@ class AppLocalizationsFil extends AppLocalizations {
   }
 
   @override
-  String get groupModeSfuTitle => 'May Pulse server';
+  String get groupModePulseTitle => 'Pulse server';
 
   @override
-  String groupModeSfuSubtitle(int n) {
+  String groupModePulseSubtitle(int n) {
     return 'Sa pamamagitan ng server, hanggang $n tao';
   }
 
@@ -3209,6 +3209,11 @@ class AppLocalizationsFil extends AppLocalizations {
 
   @override
   String get groupPulseInviteHint => 'Code ng paanyaya';
+
+  @override
+  String pulseGroupForeignServerBanner(String host) {
+    return 'Ang mga mensahe ay dinadaan sa $host (hindi ang iyong Pulse server)';
+  }
 
   @override
   String groupMeshLimitReached(int n) {

@@ -3163,10 +3163,10 @@ class AppLocalizationsAr extends AppLocalizations {
   }
 
   @override
-  String get groupModeSfuTitle => 'مع خادم Pulse';
+  String get groupModePulseTitle => 'خادم Pulse';
 
   @override
-  String groupModeSfuSubtitle(int n) {
+  String groupModePulseSubtitle(int n) {
     return 'عبر الخادم، حتى $n أشخاص';
   }
 
@@ -3178,6 +3178,11 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get groupPulseInviteHint => 'رمز الدعوة';
+
+  @override
+  String pulseGroupForeignServerBanner(String host) {
+    return 'تُرسل الرسائل عبر $host (ليس خادم Pulse الخاص بك)';
+  }
 
   @override
   String groupMeshLimitReached(int n) {

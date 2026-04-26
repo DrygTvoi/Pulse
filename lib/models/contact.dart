@@ -53,14 +53,16 @@ class Contact {
   ///            downloads each remote stream from that server. Scales to
   ///            ~20 participants but requires a reachable Pulse server.
   ///
-  /// Empty string for non-group contacts. For groups created before this
-  /// field existed (legacy DB rows), readers should treat empty as
-  /// implicit-'sfu' so existing groups keep working unchanged.
-  final String groupCallMode;
+  /// Values: `'mesh'` (pairwise P2P, any transport) or `'pulse'` (everything
+  /// — messages, signals, calls — routed through [groupServerUrl]). Empty
+  /// string for non-group contacts and for legacy rows; readers default
+  /// empty → `'mesh'` since pre-2026-04-26 SFU groups should be deleted by
+  /// the user as part of the mesh/pulse split migration.
+  final String groupTransportMode;
 
-  /// Pulse server endpoint used for SFU group calls (only when
-  /// [groupCallMode] == 'sfu'). Format: `https://host:port` (or `http://`
-  /// for self-hosted dev). Empty string for mesh groups and non-groups.
+  /// Pulse server endpoint used by `'pulse'` mode groups. Format:
+  /// `https://host:port` (or `http://` for self-hosted dev). Empty string
+  /// for mesh groups and non-groups.
   final String groupServerUrl;
 
   /// Optional invite code required by closed Pulse servers. Empty string
@@ -82,7 +84,7 @@ class Contact {
     this.isPending = false,
     this.isHidden = false,
     this.memberPubkeys = const {},
-    this.groupCallMode = '',
+    this.groupTransportMode = '',
     this.groupServerUrl = '',
     this.groupServerInvite = '',
   });
@@ -106,7 +108,7 @@ class Contact {
     bool isPending = false,
     bool isHidden = false,
     Map<String, String> memberPubkeys = const {},
-    String groupCallMode = '',
+    String groupTransportMode = '',
     String groupServerUrl = '',
     String groupServerInvite = '',
   }) {
@@ -145,7 +147,7 @@ class Contact {
       isPending: isPending,
       isHidden: isHidden,
       memberPubkeys: memberPubkeys,
-      groupCallMode: groupCallMode,
+      groupTransportMode: groupTransportMode,
       groupServerUrl: groupServerUrl,
       groupServerInvite: groupServerInvite,
     );
@@ -215,7 +217,7 @@ class Contact {
       if (isHidden) 'isHidden': true,
       if (memberPubkeys.isNotEmpty)
         'memberPubkeys': Map<String, String>.from(memberPubkeys),
-      if (groupCallMode.isNotEmpty) 'groupCallMode': groupCallMode,
+      if (groupTransportMode.isNotEmpty) 'groupTransportMode': groupTransportMode,
       if (groupServerUrl.isNotEmpty) 'groupServerUrl': groupServerUrl,
       if (groupServerInvite.isNotEmpty) 'groupServerInvite': groupServerInvite,
     };
@@ -233,7 +235,7 @@ class Contact {
     bool? isPending,
     bool? isHidden,
     Map<String, String>? memberPubkeys,
-    String? groupCallMode,
+    String? groupTransportMode,
     String? groupServerUrl,
     String? groupServerInvite,
     // Legacy params — translated to transport fields
@@ -257,7 +259,7 @@ class Contact {
         isPending: isPending ?? this.isPending,
         isHidden: isHidden ?? this.isHidden,
         memberPubkeys: memberPubkeys ?? this.memberPubkeys,
-        groupCallMode: groupCallMode ?? this.groupCallMode,
+        groupTransportMode: groupTransportMode ?? this.groupTransportMode,
         groupServerUrl: groupServerUrl ?? this.groupServerUrl,
         groupServerInvite: groupServerInvite ?? this.groupServerInvite,
       );
@@ -288,7 +290,7 @@ class Contact {
         isPending: isPending ?? this.isPending,
         isHidden: isHidden ?? this.isHidden,
         memberPubkeys: memberPubkeys ?? this.memberPubkeys,
-        groupCallMode: groupCallMode ?? this.groupCallMode,
+        groupTransportMode: groupTransportMode ?? this.groupTransportMode,
         groupServerUrl: groupServerUrl ?? this.groupServerUrl,
         groupServerInvite: groupServerInvite ?? this.groupServerInvite,
       );
@@ -308,7 +310,7 @@ class Contact {
       isPending: isPending ?? this.isPending,
       isHidden: isHidden ?? this.isHidden,
       memberPubkeys: memberPubkeys ?? this.memberPubkeys,
-      groupCallMode: groupCallMode ?? this.groupCallMode,
+      groupTransportMode: groupTransportMode ?? this.groupTransportMode,
       groupServerUrl: groupServerUrl ?? this.groupServerUrl,
       groupServerInvite: groupServerInvite ?? this.groupServerInvite,
     );
@@ -357,26 +359,38 @@ class Contact {
       memberPubkeys: (map['memberPubkeys'] as Map?)
               ?.map((k, v) => MapEntry(k as String, v as String)) ??
           const {},
-      groupCallMode: (map['groupCallMode'] as String?) ?? '',
+      // Read new key first; fall back to legacy `groupCallMode` so groups in
+      // the local DB from before the mesh/pulse split still load. Treat
+      // legacy `'sfu'` as `'pulse'` (SFU == server-routed in old terms).
+      groupTransportMode: () {
+        final fresh = (map['groupTransportMode'] as String?) ?? '';
+        if (fresh.isNotEmpty) return fresh;
+        final legacy = (map['groupCallMode'] as String?) ?? '';
+        return legacy == 'sfu' ? 'pulse' : legacy;
+      }(),
       groupServerUrl: (map['groupServerUrl'] as String?) ?? '',
       groupServerInvite: (map['groupServerInvite'] as String?) ?? '',
     );
   }
 
-  // ── Group call helpers ──────────────────────────────────────────────────
+  // ── Group transport helpers ─────────────────────────────────────────────
 
-  /// Resolves the effective call architecture for this group, applying the
-  /// legacy default. Pre-2026-04-23 groups stored an empty mode; treat them
-  /// as 'sfu' so they keep working without manual migration. New groups set
-  /// the field explicitly via CreateGroupDialog.
-  String get effectiveGroupCallMode {
+  /// Resolves the effective transport mode for this group, applying the
+  /// legacy default. Empty/missing = `'mesh'` (the new default since the
+  /// mesh/pulse split on 2026-04-26). Pre-split SFU groups should be
+  /// deleted by the user; if any survive, `fromMap` already remaps their
+  /// legacy `groupCallMode='sfu'` to `groupTransportMode='pulse'`.
+  String get effectiveGroupTransportMode {
     if (!isGroup) return '';
-    return groupCallMode.isEmpty ? 'sfu' : groupCallMode;
+    return groupTransportMode.isEmpty ? 'mesh' : groupTransportMode;
   }
 
-  /// True iff this group should be called via the local mesh (each member
-  /// connects directly to every other member). False = SFU-relayed.
-  bool get isMeshGroup => effectiveGroupCallMode == 'mesh';
+  /// True iff this group is mesh-routed (P2P pairwise across any transport).
+  bool get isMeshGroup => effectiveGroupTransportMode == 'mesh';
+
+  /// True iff this group is Pulse-server-routed (messages, signals, calls
+  /// all flow through [groupServerUrl]).
+  bool get isPulseGroup => effectiveGroupTransportMode == 'pulse';
 
   // ── Address classification helper ──────────────────────────────────────
 

@@ -3164,11 +3164,11 @@ class AppLocalizationsCs extends AppLocalizations {
   }
 
   @override
-  String get groupModeSfuTitle => 'Se serverem Pulse';
+  String get groupModePulseTitle => 'Pulse server';
 
   @override
-  String groupModeSfuSubtitle(int n) {
-    return 'Přes server, až $n osob';
+  String groupModePulseSubtitle(int n) {
+    return 'Přes server, až $n lidí';
   }
 
   @override
@@ -3180,6 +3180,11 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String get groupPulseInviteHint => 'Pozvánkový kód';
+
+  @override
+  String pulseGroupForeignServerBanner(String host) {
+    return 'Zprávy jdou přes $host (není to váš Pulse server)';
+  }
 
   @override
   String groupMeshLimitReached(int n) {

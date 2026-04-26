@@ -23,6 +23,7 @@ import '../widgets/message_menu.dart' as menu;
 import '../widgets/swipeable_bubble.dart';
 import '../widgets/chat_app_bar.dart';
 import '../widgets/pulse_server_suggestion_banner.dart';
+import '../widgets/pulse_group_foreign_server_banner.dart';
 import '../widgets/connection_banner.dart';
 import '../widgets/emoji_picker_panel.dart';
 import '../widgets/avatar_widget.dart';
@@ -959,14 +960,31 @@ class _ChatScreenState extends State<ChatScreen> {
     final messages = room?.messages ?? [];
 
     // Build contact index once per build (shared by all MessageBubbles).
+    // Index by EVERY transport address + every bare-pubkey prefix —
+    // otherwise pulse-routed messages arriving with senderId set to the
+    // sender's Pulse pubkey hit the fallback `senderId.substring(0, 8)`
+    // and the bubble shows hex gibberish instead of the contact's name.
     final contacts = context.read<IContactRepository>().contacts;
     if (_contactIndex == null || _contactIndex!.length != contacts.length) {
       _contactIndex = {for (final c in contacts) c.id: c};
       _databaseIdIndex = <String, Contact>{};
       for (final c in contacts) {
-        _databaseIdIndex![c.databaseId] = c;
-        final bare = c.databaseId.split('@').first;
-        _databaseIdIndex![bare] = c;
+        for (final addrs in c.transportAddresses.values) {
+          for (final addr in addrs) {
+            _databaseIdIndex!.putIfAbsent(addr, () => c);
+            final bare = addr.split('@').first;
+            if (bare.isNotEmpty) {
+              _databaseIdIndex!.putIfAbsent(bare, () => c);
+            }
+          }
+        }
+        // Also index legacy databaseId (kept for backward-compat with
+        // contacts whose transport map wasn't migrated yet).
+        if (c.databaseId.isNotEmpty) {
+          _databaseIdIndex!.putIfAbsent(c.databaseId, () => c);
+          final bare = c.databaseId.split('@').first;
+          if (bare.isNotEmpty) _databaseIdIndex!.putIfAbsent(bare, () => c);
+        }
       }
     }
 
@@ -1051,6 +1069,13 @@ class _ChatScreenState extends State<ChatScreen> {
         // or the contact doesn't advertise one.
         if (!_contact.isGroup)
           PulseServerSuggestionBanner(contact: _contact),
+        // Pulse-routed group hosted on a server other than the user's own —
+        // surface the host so they're not surprised that the conversation
+        // touches a third-party box. Self-hides for mesh groups, for groups
+        // on the user's own Pulse server, and for users with no own Pulse
+        // (no anchor to compare against).
+        if (_contact.isGroup)
+          PulseGroupForeignServerBanner(contact: _contact),
         // Key change warning banner
         if (_showKeyChangeBanner)
           GestureDetector(

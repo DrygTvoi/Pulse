@@ -138,7 +138,7 @@ class _SfuCallScreenState extends State<SfuCallScreen> {
     // (`room_create`, `room_join`, `media_offer`, …) was silently
     // dropped by `sendRawPulseSignal` due to a null `_cachedPulseSender`.
     debugPrint('[SfuCall] _startCall begin for group=${widget.group.id.substring(0, 8)} '
-        'name="${widget.group.name}" mode=${widget.group.effectiveGroupCallMode} '
+        'name="${widget.group.name}" mode=${widget.group.effectiveGroupTransportMode} '
         'serverUrl="${widget.group.groupServerUrl}" '
         'existingRoom=${widget.existingRoomId != null}');
     final serverUrl = widget.group.groupServerUrl;

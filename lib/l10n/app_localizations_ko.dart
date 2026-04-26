@@ -3061,10 +3061,10 @@ class AppLocalizationsKo extends AppLocalizations {
   }
 
   @override
-  String get groupModeSfuTitle => 'Pulse 서버 사용';
+  String get groupModePulseTitle => 'Pulse 서버';
 
   @override
-  String groupModeSfuSubtitle(int n) {
+  String groupModePulseSubtitle(int n) {
     return '서버 경유, 최대 $n명';
   }
 
@@ -3076,6 +3076,11 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get groupPulseInviteHint => '초대 코드';
+
+  @override
+  String pulseGroupForeignServerBanner(String host) {
+    return '메시지가 $host을(를) 통해 전송됨 (사용자의 Pulse 서버 아님)';
+  }
 
   @override
   String groupMeshLimitReached(int n) {

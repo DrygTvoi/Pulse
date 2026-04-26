@@ -172,7 +172,14 @@ class SignalStatusUpdateEvent {
 /// rotated out on their side.
 class SignalSessionResetEvent {
   final Contact contact;
-  SignalSessionResetEvent(this.contact);
+  /// Sender's CURRENT Signal bundle, snapshotted right after they
+  /// republished it. When present, the receiver MUST `deleteContactData`
+  /// then `buildSession(this.bundle)` atomically — refetching from a
+  /// relay loses races with relay propagation. Older clients that
+  /// don't include the bundle still work via the legacy refetch path
+  /// (slightly racy but functional).
+  final Map<String, dynamic>? bundle;
+  SignalSessionResetEvent(this.contact, {this.bundle});
 }
 
 class SignalAddrUpdateEvent {
@@ -235,10 +242,17 @@ class SignalGroupInviteEvent {
   /// label auto-pending member contacts with a real human name instead of
   /// the "Member <pubkey>" stub. Empty for legacy invites.
   final Map<String, String> memberNames;
-  /// Group call architecture as picked by the creator: 'mesh' | 'sfu' (or
-  /// '' for legacy invites — receiver treats empty as 'sfu').
-  final String groupCallMode;
-  /// Pulse SFU server endpoint, set only when groupCallMode == 'sfu'.
+  /// Per-member UUID → universal Pulse pubkey (64-hex). Receivers pair
+  /// each pubkey with [groupServerUrl] to address pulse-mode messages
+  /// without waiting for the member's own addr_update to propagate.
+  /// Empty when the inviter doesn't know the member's Pulse pubkey
+  /// (member never used Pulse before).
+  final Map<String, String> memberPulsePubkeys;
+  /// Group transport mode as picked by the creator: 'mesh' | 'pulse' (or
+  /// '' for legacy invites — receiver treats empty as 'mesh', the new
+  /// post-2026-04-26 default).
+  final String groupTransportMode;
+  /// Pulse server endpoint, set only when groupTransportMode == 'pulse'.
   final String groupServerUrl;
   /// Optional invite code for closed Pulse servers.
   final String groupServerInvite;
@@ -247,7 +261,8 @@ class SignalGroupInviteEvent {
       this.memberPubkeys = const {},
       this.memberAddresses = const {},
       this.memberNames = const {},
-      this.groupCallMode = '',
+      this.memberPulsePubkeys = const {},
+      this.groupTransportMode = '',
       this.groupServerUrl = '',
       this.groupServerInvite = ''});
 }
@@ -264,8 +279,10 @@ class SignalGroupUpdateEvent {
   final Map<String, Map<String, List<String>>> memberAddresses;
   /// See [SignalGroupInviteEvent.memberNames].
   final Map<String, String> memberNames;
-  /// See [SignalGroupInviteEvent.groupCallMode].
-  final String groupCallMode;
+  /// See [SignalGroupInviteEvent.memberPulsePubkeys].
+  final Map<String, String> memberPulsePubkeys;
+  /// See [SignalGroupInviteEvent.groupTransportMode].
+  final String groupTransportMode;
   /// See [SignalGroupInviteEvent.groupServerUrl].
   final String groupServerUrl;
   /// See [SignalGroupInviteEvent.groupServerInvite].
@@ -279,7 +296,8 @@ class SignalGroupUpdateEvent {
       this.memberPubkeys = const {},
       this.memberAddresses = const {},
       this.memberNames = const {},
-      this.groupCallMode = '',
+      this.memberPulsePubkeys = const {},
+      this.groupTransportMode = '',
       this.groupServerUrl = '',
       this.groupServerInvite = '',
       this.avatar = ''});
@@ -310,6 +328,24 @@ Map<String, String> _extractMemberPubkeys(dynamic raw) {
     if (k is String && v is String && k.isNotEmpty && v.isNotEmpty) {
       out[k] = v;
     }
+  });
+  return out;
+}
+
+/// Strict coercion + 64-hex validation for the `memberPulsePubkeys` map.
+/// Drops anything that isn't a clean ed25519 pubkey hex — defensive
+/// against poisoned payloads (a malicious peer who managed to forge a
+/// signal could otherwise stash junk that crashes Pulse-routing logic
+/// downstream when we try to use the pubkey to build a target address).
+Map<String, String> _extractMemberPulsePubkeys(dynamic raw) {
+  if (raw is! Map) return const {};
+  final out = <String, String>{};
+  final hex64 = RegExp(r'^[0-9a-f]{64}$');
+  raw.forEach((k, v) {
+    if (k is! String || k.isEmpty || v is! String) return;
+    final pub = v.trim().toLowerCase();
+    if (pub.length != 64 || !hex64.hasMatch(pub)) return;
+    out[k] = pub;
   });
   return out;
 }
@@ -419,6 +455,13 @@ class SignalDispatcher {
   final _senderKeyDistCtrl =
       StreamController<SignalSenderKeyDistEvent>.broadcast();
   final _pqcConfirmedCtrl = StreamController<String>.broadcast();
+  /// Emits senderId when an incoming PQC-wrapped signal couldn't be
+  /// unwrapped — typically because the recipient has a stale Kyber pubkey
+  /// cached for the sender (sender reinstalled and rotated keys, but our
+  /// `_pqcConfirmed` set still tells us to PQC-wrap replies). Subscriber
+  /// in ChatController clears the cached Kyber + triggers a session_reset
+  /// so both sides realign on fresh keys.
+  final _pqcUnwrapFailedCtrl = StreamController<String>.broadcast();
   final _sessionResetCtrl =
       StreamController<SignalSessionResetEvent>.broadcast();
 
@@ -451,6 +494,7 @@ class SignalDispatcher {
       _senderKeyDistCtrl.stream;
   /// Emits sender address when a PQC-wrapped signal is successfully unwrapped.
   Stream<String> get pqcConfirmed => _pqcConfirmedCtrl.stream;
+  Stream<String> get pqcUnwrapFailed => _pqcUnwrapFailedCtrl.stream;
   /// Peer told us to delete our Signal session with them (stale-prekey recovery).
   Stream<SignalSessionResetEvent> get sessionResets => _sessionResetCtrl.stream;
 
@@ -519,13 +563,19 @@ class SignalDispatcher {
 
   /// Signal types blocked from pending (message request) contacts.
   /// Only safe/system signals are allowed through from pending contacts.
+  ///
+  /// `group_invite` / `group_update` / `sender_key_dist` are NOT in this set:
+  /// blocking them broke group creation entirely (any user whose contact was
+  /// auto-pending — i.e. learned-from-incoming-message rather than QR-added —
+  /// silently dropped every group invite). Group invites have their own
+  /// accept/decline UI flow downstream, so the dispatcher can let them
+  /// through; the user still chooses whether to join.
   static const _blockedFromPending = <String>{
     'relay_exchange', 'turn_exchange', 'blossom_exchange',
     'webrtc_offer', 'webrtc_answer', 'webrtc2_offer', 'webrtc2_answer',
     'webrtc_reoffer', 'webrtc_reanswer', 'webrtc_candidate', 'webrtc2_candidate',
     'call_hangup', 'screen_share_start', 'screen_share_stop',
     'addr_update', 'chunk_req', 'p2p_signal',
-    'group_invite', 'group_update', 'sender_key_dist',
   };
 
   // ── Contact resolution ───────────────────────────────────────────────────
@@ -624,7 +674,12 @@ class SignalDispatcher {
               debugPrint('[SignalDispatcher] PQC unwrapped signal ($sigType) from $sigSender');
               if (!_pqcConfirmedCtrl.isClosed) _pqcConfirmedCtrl.add(sigSender);
             } catch (e) {
-              debugPrint('[SignalDispatcher] PQC unwrap failed ($sigType): $e');
+              debugPrint('[SignalDispatcher] PQC unwrap failed ($sigType): $e — '
+                  'notifying ChatController to invalidate stale Kyber + '
+                  'trigger session_reset');
+              if (!_pqcUnwrapFailedCtrl.isClosed && sigSender.isNotEmpty) {
+                _pqcUnwrapFailedCtrl.add(sigSender);
+              }
               continue; // drop malformed signal
             }
           }
@@ -1056,7 +1111,21 @@ class SignalDispatcher {
           final senderId = sig['senderId'] as String? ?? '';
           final peer = _resolveContact(senderId, contactByDbId);
           if (peer != null && !_sessionResetCtrl.isClosed) {
-            _sessionResetCtrl.add(SignalSessionResetEvent(peer));
+            // Modern session_reset carries the sender's freshly-published
+            // Signal bundle inline. Forward it so the controller can do
+            // delete-then-buildSession atomically (avoids the relay
+            // propagation race that made the legacy refetch path pull a
+            // stale bundle).
+            Map<String, dynamic>? inlineBundle;
+            final payload = sig['payload'];
+            if (payload is Map) {
+              final raw = payload['bundle'];
+              if (raw is Map) {
+                inlineBundle = Map<String, dynamic>.from(raw);
+              }
+            }
+            _sessionResetCtrl
+                .add(SignalSessionResetEvent(peer, bundle: inlineBundle));
           }
         } else if (sigType == 'addr_update') {
           final payload = sig['payload'];
@@ -1113,8 +1182,18 @@ class SignalDispatcher {
             final memberAddresses =
                 _extractMemberAddresses(payload['memberAddresses']);
             final memberNames = _extractMemberNames(payload['memberNames']);
-            final groupCallMode =
+            final memberPulsePubkeys =
+                _extractMemberPulsePubkeys(payload['memberPulsePubkeys']);
+            // Read new key first; fall back to legacy `groupCallMode` (sfu →
+            // pulse remap) so in-flight signals from older peers still work
+            // until they update.
+            final transportFromNew =
+                (payload['groupTransportMode'] as String?)?.trim() ?? '';
+            final transportFromLegacy =
                 (payload['groupCallMode'] as String?)?.trim() ?? '';
+            final groupTransportMode = transportFromNew.isNotEmpty
+                ? transportFromNew
+                : (transportFromLegacy == 'sfu' ? 'pulse' : transportFromLegacy);
             final groupServerUrl =
                 (payload['groupServerUrl'] as String?)?.trim() ?? '';
             final groupServerInvite =
@@ -1134,7 +1213,8 @@ class SignalDispatcher {
                   memberPubkeys: memberPubkeys,
                   memberAddresses: memberAddresses,
                   memberNames: memberNames,
-                  groupCallMode: groupCallMode,
+                  memberPulsePubkeys: memberPulsePubkeys,
+                  groupTransportMode: groupTransportMode,
                   groupServerUrl: groupServerUrl,
                   groupServerInvite: groupServerInvite,
                   avatar: avatar));
@@ -1151,14 +1231,27 @@ class SignalDispatcher {
             final memberAddresses =
                 _extractMemberAddresses(payload['memberAddresses']);
             final memberNames = _extractMemberNames(payload['memberNames']);
-            final groupCallMode =
+            final memberPulsePubkeys =
+                _extractMemberPulsePubkeys(payload['memberPulsePubkeys']);
+            // Mirror the group_update path: prefer the new key, fall back
+            // to legacy `groupCallMode` with sfu → pulse remap.
+            final transportFromNew =
+                (payload['groupTransportMode'] as String?)?.trim() ?? '';
+            final transportFromLegacy =
                 (payload['groupCallMode'] as String?)?.trim() ?? '';
+            final groupTransportMode = transportFromNew.isNotEmpty
+                ? transportFromNew
+                : (transportFromLegacy == 'sfu' ? 'pulse' : transportFromLegacy);
             final groupServerUrl =
                 (payload['groupServerUrl'] as String?)?.trim() ?? '';
             final groupServerInvite =
                 (payload['groupServerInvite'] as String?)?.trim() ?? '';
             final senderId = sig['senderId'] as String? ?? '';
             final inviter = _resolveContact(senderId, contactByDbId);
+            debugPrint('[SignalDispatcher] group_invite parse: groupId=$groupId '
+                'name="$groupName" members=${rawMembers is List ? rawMembers.length : "NotList"} '
+                'inviterResolved=${inviter != null} senderId=$senderId '
+                'ctrlClosed=${_groupInviteCtrl.isClosed}');
             if (groupId != null && rawMembers is List && rawMembers.length <= 200 && inviter != null &&
                 !_groupInviteCtrl.isClosed) {
               _groupInviteCtrl.add(SignalGroupInviteEvent(
@@ -1167,10 +1260,16 @@ class SignalDispatcher {
                   memberPubkeys: memberPubkeys,
                   memberAddresses: memberAddresses,
                   memberNames: memberNames,
-                  groupCallMode: groupCallMode,
+                  memberPulsePubkeys: memberPulsePubkeys,
+                  groupTransportMode: groupTransportMode,
                   groupServerUrl: groupServerUrl,
                   groupServerInvite: groupServerInvite));
+              debugPrint('[SignalDispatcher] group_invite emitted to ctrl');
+            } else {
+              debugPrint('[SignalDispatcher] group_invite DROPPED — guard failed');
             }
+          } else {
+            debugPrint('[SignalDispatcher] group_invite payload not a Map: ${payload.runtimeType}');
           }
         } else if (sigType == 'group_invite_decline') {
           final payload = sig['payload'];
@@ -1264,6 +1363,7 @@ class SignalDispatcher {
     _msgDeleteCtrl.close();
     _sessionResetCtrl.close();
     _pqcConfirmedCtrl.close();
+    _pqcUnwrapFailedCtrl.close();
     _sigRateLimiter.clear();
   }
 }

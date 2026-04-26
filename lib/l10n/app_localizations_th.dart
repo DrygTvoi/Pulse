@@ -3143,10 +3143,10 @@ class AppLocalizationsTh extends AppLocalizations {
   }
 
   @override
-  String get groupModeSfuTitle => 'พร้อมเซิร์ฟเวอร์ Pulse';
+  String get groupModePulseTitle => 'เซิร์ฟเวอร์ Pulse';
 
   @override
-  String groupModeSfuSubtitle(int n) {
+  String groupModePulseSubtitle(int n) {
     return 'ผ่านเซิร์ฟเวอร์ สูงสุด $n คน';
   }
 
@@ -3158,6 +3158,11 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String get groupPulseInviteHint => 'รหัสคำเชิญ';
+
+  @override
+  String pulseGroupForeignServerBanner(String host) {
+    return 'ข้อความถูกส่งผ่าน $host (ไม่ใช่เซิร์ฟเวอร์ Pulse ของคุณ)';
+  }
 
   @override
   String groupMeshLimitReached(int n) {

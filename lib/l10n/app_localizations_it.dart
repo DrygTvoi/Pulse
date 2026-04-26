@@ -3200,10 +3200,10 @@ class AppLocalizationsIt extends AppLocalizations {
   }
 
   @override
-  String get groupModeSfuTitle => 'Con server Pulse';
+  String get groupModePulseTitle => 'Server Pulse';
 
   @override
-  String groupModeSfuSubtitle(int n) {
+  String groupModePulseSubtitle(int n) {
     return 'Tramite server, fino a $n persone';
   }
 
@@ -3215,6 +3215,11 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get groupPulseInviteHint => 'Codice invito';
+
+  @override
+  String pulseGroupForeignServerBanner(String host) {
+    return 'Messaggi inoltrati tramite $host (non il tuo server Pulse)';
+  }
 
   @override
   String groupMeshLimitReached(int n) {

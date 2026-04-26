@@ -3184,11 +3184,11 @@ class AppLocalizationsMy extends AppLocalizations {
   }
 
   @override
-  String get groupModeSfuTitle => 'Pulse ဆာဗာဖြင့်';
+  String get groupModePulseTitle => 'Pulse ဆာဗာ';
 
   @override
-  String groupModeSfuSubtitle(int n) {
-    return 'ဆာဗာကတစ်ဆင့်၊ $n ယောက်အထိ';
+  String groupModePulseSubtitle(int n) {
+    return 'ဆာဗာမှတဆင့်၊ $n ဦးအထိ';
   }
 
   @override
@@ -3199,6 +3199,11 @@ class AppLocalizationsMy extends AppLocalizations {
 
   @override
   String get groupPulseInviteHint => 'ဖိတ်ခေါ်ကုဒ်';
+
+  @override
+  String pulseGroupForeignServerBanner(String host) {
+    return 'မက်ဆေ့ချ်များကို $host မှတဆင့် ပို့ဆောင်သည် (သင်၏ Pulse ဆာဗာမဟုတ်ပါ)';
+  }
 
   @override
   String groupMeshLimitReached(int n) {
