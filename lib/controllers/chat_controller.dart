@@ -133,6 +133,19 @@ class ChatController extends ChangeNotifier {
   bool _disposed = false; // guards notifyListeners in TTL callbacks
   String? _activeRoomId; // contact ID of the currently open chat screen
 
+  // ── Sleep / wake detection ────────────────────────────────────────────
+  // Timer fires every 30s; if `now - last_tick > 60s`, the host suspended
+  // (system sleep, mobile background freeze, hibernation). All Pulse pool
+  // WebSockets are dead-but-zombie at that point — Dart's `sink.add`
+  // returns void on a TCP socket the OS killed during sleep, so silent
+  // sends-into-void burn until the next ping cycle (~30-70s) detects the
+  // missing pong. Force-reconnect every per-server pool entry on detected
+  // wake so the next user message uses a fresh authenticated channel.
+  Timer? _wakeWatchdogTimer;
+  DateTime _lastWakeTick = DateTime.now();
+  static const Duration _wakeTickInterval = Duration(seconds: 30);
+  static const Duration _wakeJumpThreshold = Duration(seconds: 60);
+
   // Per-room reaction version — incremented per storageKey so chat_screen
   // only rebuilds when ITS room's reactions change, not all rooms.
   final _reactionVersions = <String, int>{};
@@ -951,6 +964,7 @@ class ChatController extends ChangeNotifier {
         if (url.isEmpty || !seenServers.add(_canonicalizePulseUrl(url))) continue;
         unawaited(ensureGroupPulseConnection(url));
       }
+      _startWakeWatchdog();
     } catch (e, st) {
       debugPrint('[ChatController] adapter init failed: $e\n$st');
       _connectionStatus = ConnectionStatus.disconnected;
@@ -959,6 +973,48 @@ class ChatController extends ChangeNotifier {
       _reconnecting = false;
       if (!_adaptersReady.isCompleted) _adaptersReady.complete();
     }
+  }
+
+  /// Periodic ticker that compares wall-clock between fires; a gap
+  /// significantly larger than the tick interval means the host suspended
+  /// (system sleep / hibernation / mobile background freeze). All
+  /// per-server Pulse pool WebSockets are dead-but-zombie at that point,
+  /// so we tear them down and reopen — the alternative is silent
+  /// sends-into-void until the next WS ping cycle (~30-70s) detects the
+  /// missing pong and the reader's auto-reconnect kicks in. Fixes the
+  /// "I came back to my laptop and messages don't go through" bug.
+  void _startWakeWatchdog() {
+    _wakeWatchdogTimer?.cancel();
+    _lastWakeTick = DateTime.now();
+    _wakeWatchdogTimer = Timer.periodic(_wakeTickInterval, (_) {
+      if (_disposed) return;
+      final now = DateTime.now();
+      final gap = now.difference(_lastWakeTick);
+      _lastWakeTick = now;
+      if (gap < _wakeJumpThreshold) return; // normal tick
+      debugPrint('[WakeWatchdog] Detected wall-clock jump of ${gap.inSeconds}s '
+          '(> ${_wakeJumpThreshold.inSeconds}s) — host likely woke from sleep. '
+          'Force-reconnecting ${_pulseSendersByServer.length} Pulse pool entries.');
+      // Snapshot keys before iterating: resetGroupPulseConnection mutates
+      // _pulseReadersByServer / _pulseSendersByServer.
+      final urls = _pulseReadersByServer.keys.toList();
+      for (final canonUrl in urls) {
+        // The map is keyed by canonicalised URL; we need the real URL
+        // back. Loop over groups to find a matching one — there should
+        // always be one since the pool entry was opened for it.
+        String? realUrl;
+        for (final c in _contacts.contacts) {
+          if (!c.isPulseGroup) continue;
+          if (_canonicalizePulseUrl(c.groupServerUrl) == canonUrl) {
+            realUrl = c.groupServerUrl;
+            break;
+          }
+        }
+        if (realUrl != null && realUrl.isNotEmpty) {
+          unawaited(resetGroupPulseConnection(realUrl));
+        }
+      }
+    });
   }
 
   bool _reconnecting = false;
@@ -991,7 +1047,31 @@ class ChatController extends ChangeNotifier {
       _adhocSessionReader = null;
       _adhocPulseReader?.close();
       _adhocPulseReader = null;
+      // Per-server Pulse pool entries hold their own readers + sender
+      // references that were paired with subscriptions in `_signalSubs` /
+      // `_messageSubs` (cleared above). Without tearing the pool down too,
+      // the next `ensureGroupPulseConnection` early-returns on the stale
+      // entry and never wires fresh subscriptions — pulse-group signals
+      // (sender_key_dist, group_update, edit, delete, msg_read) silently
+      // dispatch into orphaned controllers and never reach the dispatcher.
+      // Tear down here, let `_initializeAdapters` reopen them via the
+      // group scan that runs after `_initInbox`.
+      for (final reader in _pulseReadersByServer.values) {
+        try { reader.close(); } catch (_) {}
+      }
+      _pulseReadersByServer.clear();
+      _pulseSendersByServer.clear();
       await _initInbox();
+      // Reopen pool entries for every existing pulse-mode group so signals
+      // resume flowing without waiting for a manual chat-screen open.
+      // Mirrors the loop in `_initializeAdapters`.
+      final seenServers = <String>{};
+      for (final c in _contacts.contacts) {
+        if (!c.isGroup || !c.isPulseGroup) continue;
+        final url = c.groupServerUrl;
+        if (url.isEmpty || !seenServers.add(_canonicalizePulseUrl(url))) continue;
+        unawaited(ensureGroupPulseConnection(url));
+      }
     } finally {
       _reconnecting = false;
     }
@@ -6651,6 +6731,7 @@ class ChatController extends ChangeNotifier {
   void dispose() {
     _disposed = true;
     _notifyTimer?.cancel();
+    _wakeWatchdogTimer?.cancel();
     NetworkMonitor.instance.stopMonitoring();
     P2PTransportService.instance.dispose();
     _lanReader?.close();
