@@ -56,6 +56,18 @@ class InboxManager {
   static void setInstanceForTesting(InboxManager instance) =>
       _instance = instance;
 
+  /// Test seam: when non-null, every reader (main + adhoc) returned by this
+  /// manager will be this override regardless of provider/URL. Lets two
+  /// in-process TestClients stub out network adapters with an in-memory
+  /// loopback. Set to null to restore real adapter selection.
+  static InboxReader? _testAdapterOverride;
+
+  /// Inject (or clear) a test InboxReader override. Affects every
+  /// subsequent [configureSelf] / [createAdhocReader] call.
+  @visibleForTesting
+  static void setAdapterForTesting(InboxReader? adapter) =>
+      _testAdapterOverride = adapter;
+
   InboxReader? reader;
   final Map<String, MessageSender> _senders = {};
 
@@ -69,7 +81,9 @@ class InboxManager {
     if (oldReader is PulseInboxReader) oldReader.close();
     if (oldReader is SessionInboxReader) oldReader.close();
 
-    if (provider == 'Firebase') {
+    if (_testAdapterOverride != null) {
+      reader = _testAdapterOverride;
+    } else if (provider == 'Firebase') {
       reader = FirebaseInboxReader();
     } else if (provider == 'Nostr') {
       reader = NostrInboxReader();
@@ -101,7 +115,9 @@ class InboxManager {
 
   Future<InboxReader?> createAdhocReader(String provider, String apiKey, String databaseId) async {
     InboxReader? adhocReader;
-    if (provider == 'Firebase') {
+    if (_testAdapterOverride != null) {
+      adhocReader = _testAdapterOverride;
+    } else if (provider == 'Firebase') {
       adhocReader = FirebaseInboxReader();
     } else if (provider == 'Nostr') {
       adhocReader = NostrInboxReader();

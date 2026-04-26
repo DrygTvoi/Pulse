@@ -59,14 +59,20 @@ import '../services/nip44_service.dart' as nip44;
 enum ConnectionStatus { disconnected, connecting, connected }
 
 class ChatController extends ChangeNotifier {
-  static ChatController _instance = ChatController._create(ContactManager());
+  static ChatController _instance =
+      ChatController._create(ContactManager(), SignalService());
   factory ChatController() => _instance;
-  ChatController._create(this._contacts);
+  ChatController._create(this._contacts, this._signalService);
 
-  /// Constructor for unit testing — pass a [MockContactRepository].
+  /// Constructor for unit testing — pass a [MockContactRepository] and
+  /// optionally an isolated [SignalService] (defaults to the singleton
+  /// to preserve existing test behaviour).
   @visibleForTesting
-  factory ChatController.forTesting(IContactRepository contacts) =>
-      ChatController._create(contacts);
+  factory ChatController.forTesting(
+    IContactRepository contacts, {
+    SignalService? signalService,
+  }) =>
+      ChatController._create(contacts, signalService ?? SignalService());
 
   /// Replace the singleton for testing. Call in setUp/tearDown.
   @visibleForTesting
@@ -84,7 +90,7 @@ class ChatController extends ChangeNotifier {
   String _selfId = ''; // adapter-specific ID used as senderId in outgoing messages
   String _selfName = ''; // display name for message envelope
   String _selfAvatar = ''; // base64 avatar for message envelope
-  final SignalService _signalService = SignalService();
+  final SignalService _signalService;
   StreamSubscription<void>? _bundleRefreshSub;
   final List<StreamSubscription> _messageSubs = [];
   final List<StreamSubscription> _signalSubs = [];

@@ -73,8 +73,8 @@ class _PersistentSignalStore extends InMemorySignalProtocolStore {
   _PersistentSignalStore(
     super.identityKeyPair,
     super.registrationId,
-    this._storage,
-  );
+    FlutterSecureStorage? storage,
+  ) : _storage = storage ?? const FlutterSecureStorage();
 
   // ── Sessions ────────────────────────────────────────────────────
 
@@ -187,14 +187,32 @@ class _PersistentSignalStore extends InMemorySignalProtocolStore {
 class SignalService {
   static SignalService _instance = SignalService._internal();
   factory SignalService() => _instance;
-  SignalService._internal();
+  SignalService._internal() : _storage = const FlutterSecureStorage();
+
+  /// Internal constructor accepting a custom storage backend.
+  /// Used by [SignalService.forTesting] to give each test instance its
+  /// own isolated FlutterSecureStorage (e.g. an in-memory mock).
+  SignalService._withStorage(this._storage);
+
+  /// Create a fresh, detached SignalService instance for integration testing.
+  ///
+  /// Each call returns a NEW instance with its own internal store so that
+  /// two TestClients in the same process do not share Signal state. Pass
+  /// an isolated [storage] (e.g. a mock-backed FlutterSecureStorage) so
+  /// the instances do not share the platform secure storage either.
+  ///
+  /// Does NOT mutate the static singleton — call [setInstanceForTesting]
+  /// separately if a test needs `SignalService()` to return this instance.
+  @visibleForTesting
+  factory SignalService.forTesting({FlutterSecureStorage? storage}) =>
+      SignalService._withStorage(storage ?? const FlutterSecureStorage());
 
   /// Replace the singleton for testing.
   @visibleForTesting
   static void setInstanceForTesting(SignalService instance) =>
       _instance = instance;
 
-  final _storage = const FlutterSecureStorage();
+  final FlutterSecureStorage _storage;
   late IdentityKeyPair _identityKeyPair;
   late int _registrationId;
   late _PersistentSignalStore _store;
