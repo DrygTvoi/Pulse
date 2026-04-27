@@ -153,6 +153,12 @@ class _CallScreenState extends State<CallScreen> {
     try {
       await _localRenderer.initialize();
       await _remoteRenderer.initialize();
+      _remoteRenderer.onFirstFrameRendered = () {
+        if (mounted) setState(() {});
+      };
+      _remoteRenderer.onResize = () {
+        if (mounted) setState(() {});
+      };
       _signaling = widget.existingSignaling!;
       _callDuration = widget.resumedDuration ?? Duration.zero;
       // Sync ICE state from the live PeerConnection so the UI reflects the
@@ -341,6 +347,20 @@ class _CallScreenState extends State<CallScreen> {
       await _remoteRenderer.initialize();
       renderersInitialized = true;
 
+      // `_hasRemoteVideo` keys off `_remoteRenderer.videoWidth/Height`, but
+      // those values change silently inside the native layer — Flutter only
+      // re-builds when we call setState. Without the onResize / onFirstFrame
+      // hooks the avatar overlay stays hidden after the stream's first
+      // decoded frame (or stays on top of fullscreen video after the first
+      // frame finally arrives). Forcing a rebuild on both events keeps the
+      // overlay vs RTCVideoView decision in sync with the actual stream.
+      _remoteRenderer.onFirstFrameRendered = () {
+        if (mounted) setState(() {});
+      };
+      _remoteRenderer.onResize = () {
+        if (mounted) setState(() {});
+      };
+
       _signaling = SignalingService(
         contact: widget.contact,
         myId:    widget.myId,
@@ -471,7 +491,7 @@ class _CallScreenState extends State<CallScreen> {
       // setParameters values can be reset by renegotiation on some platforms.
       if (_isScreenSharing && _screenShareBitrate > 0) {
         unawaited(_signaling?.applyScreenShareBitrate(
-            maxBitrate: _screenShareBitrate));
+            maxBitrate: _screenShareBitrate, maxFps: _screenShareFps));
       }
       unawaited(ChatController().broadcastTurnToContact(widget.contact));
       _startMediaWatchdog();
@@ -776,6 +796,8 @@ class _CallScreenState extends State<CallScreen> {
   // Bitrate cap for current screen share (bps). 0 = auto.
   // Stored so it can be re-applied after each renegotiation cycle.
   int _screenShareBitrate = 0;
+  // Frame rate cap for current screen share (fps). 0 = unset.
+  int _screenShareFps = 0;
 
   // Desktop sources cache — populated on first getSources call to avoid
   // double PipeWire portal dialog when screen sharing again.
@@ -855,6 +877,7 @@ class _CallScreenState extends State<CallScreen> {
         // Clear desktop source cache so next start gets a fresh capture session.
         _cachedDesktopSources = null;
         _screenShareBitrate = 0;
+        _screenShareFps = 0;
         _localRenderer.srcObject = null;
         setState(() {
           _isScreenSharing = false;
@@ -995,6 +1018,7 @@ class _CallScreenState extends State<CallScreen> {
 
         _screenShareStream = stream;
         _screenShareBitrate = bitratePreset; // remember for re-apply on ICE reconnect
+        _screenShareFps = savedFps;
         _localRenderer.srcObject = stream;
         screenTrack.onEnded = () {
           if (!_disposed && mounted && _isScreenSharing) {
@@ -1018,7 +1042,8 @@ class _CallScreenState extends State<CallScreen> {
         // Also apply via setParameters (belt-and-suspenders: SDP hint + RTP cap).
         if (bitratePreset > 0) {
           try {
-            await _signaling?.applyScreenShareBitrate(maxBitrate: bitratePreset);
+            await _signaling?.applyScreenShareBitrate(
+                maxBitrate: bitratePreset, maxFps: savedFps);
           } catch (e) {
             debugPrint('[CallScreen] applyScreenShareBitrate: $e');
           }
@@ -1389,13 +1414,22 @@ class _CallScreenState extends State<CallScreen> {
   /// overlay and leaves the user staring at a gradient — exact symptom
   /// the user reported on Android while Linux (which doesn't fabricate
   /// such placeholders) renders the overlay correctly.
+  ///
+  /// Even with `enabled` filtering, Android still hands us recv-only
+  /// tracks that report `enabled == true` while no frames are arriving
+  /// (peer hasn't started sharing yet). Use the renderer's reported
+  /// `videoWidth/videoHeight` as ground truth — both stay zero until the
+  /// first decoded frame, which is exactly when we should flip to
+  /// fullscreen-video mode and stop drawing the avatar overlay.
   bool get _hasRemoteVideo {
     final src = _remoteRenderer.srcObject;
     if (src == null) return false;
-    for (final t in src.getVideoTracks()) {
-      if (t.enabled) return true;
-    }
-    return false;
+    final videoTracks = src.getVideoTracks();
+    if (videoTracks.isEmpty) return false;
+    final hasEnabledTrack = videoTracks.any((t) => t.enabled);
+    if (!hasEnabledTrack) return false;
+    // Renderer hasn't decoded a frame yet → still audio-only visually.
+    return _remoteRenderer.videoWidth > 0 && _remoteRenderer.videoHeight > 0;
   }
 
   /// Whether we have a usable local video track to show in the PiP.

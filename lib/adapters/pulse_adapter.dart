@@ -1559,14 +1559,27 @@ class PulseMessageSender implements MessageSender {
     //     entirely so the caller falls back to Nostr/Session without delay.
     if (_shared.readerActive) {
       if (!_shared.serverHealthy) {
-        debugPrint('[Pulse/Sender] Reader reports server unhealthy — skipping Pulse');
+        debugPrint('[Pulse/Sender] Reader reports server unhealthy — '
+            'skipping Pulse (serverUrl=$_serverUrl, '
+            'canon=${_PulseSharedWs._canonicalize(_serverUrl)})');
         return null;
       }
-      debugPrint('[Pulse/Sender] Waiting for reader to authenticate...');
-      for (int i = 0; i < 30; i++) { // up to 3 seconds
+      final canon = _PulseSharedWs._canonicalize(_serverUrl);
+      debugPrint('[Pulse/Sender] Waiting for reader to authenticate '
+          '(serverUrl=$_serverUrl, canon=$canon, '
+          'pool=${_PulseSharedWs._pool.keys.toList()}, '
+          'shared.channel=${_shared.channel != null}, '
+          'shared.authenticated=${_shared.authenticated})...');
+      // 10s window covers TLS handshake + PoW (~5s) + a margin for slow
+      // networks. Was 3s — too tight when the reader is mid-rotation
+      // right as the user clicks "call", and the very first webrtc_offer
+      // would fail before `setPulseCallActive(true)` had a chance to
+      // suppress further rotations.
+      for (int i = 0; i < 100; i++) { // up to 10 seconds
         await Future.delayed(const Duration(milliseconds: 100));
         if (_shared.authenticated && _shared.channel != null) {
-          debugPrint('[Pulse/Sender] Reader authenticated, borrowing connection');
+          debugPrint('[Pulse/Sender] Reader authenticated after ${(i + 1) * 100}ms, '
+              'borrowing connection');
           return _shared.channel;
         }
         // Reader marked server dead mid-wait — bail early.
@@ -1575,9 +1588,20 @@ class PulseMessageSender implements MessageSender {
           return null;
         }
       }
-      debugPrint('[Pulse/Sender] Reader auth wait timed out (3s)');
+      debugPrint('[Pulse/Sender] Reader auth wait timed out (10s) '
+          '(serverUrl=$_serverUrl, canon=$canon, '
+          'shared.channel=${_shared.channel != null}, '
+          'shared.authenticated=${_shared.authenticated}, '
+          'shared.serverHealthy=${_shared.serverHealthy}, '
+          'shared.readerActive=${_shared.readerActive})');
       return null; // don't create duplicate — let caller handle failure
     }
+
+    debugPrint('[Pulse/Sender] No reader active for $_serverUrl '
+        '(canon=${_PulseSharedWs._canonicalize(_serverUrl)}, '
+        'pool=${_PulseSharedWs._pool.keys.toList()}, '
+        'readers=${_PulseSharedWs._readers.keys.toList()}) — '
+        'opening adhoc sender connection');
 
     // 3. No reader at all — create own (rare: reader not started yet)
     try {

@@ -376,9 +376,24 @@ class SignalingService {
     await _limitSenderBitrate(peerConnection, restricted: restricted);
   }
 
-  /// Sets video sender to [maxBitrate] bps for screen share.
+  /// Sets video sender bandwidth + degradation policy for screen share.
   /// Call after renegotiate() when screen share starts.
-  Future<void> applyScreenShareBitrate({required int maxBitrate}) async {
+  ///
+  /// `maxBitrate` is bits-per-second (e.g. 20 000 000 for 1440p). `maxFps`
+  /// pins the sender's frame budget so libwebrtc's BWE doesn't silently
+  /// drop to ~5fps under congestion.
+  ///
+  /// `degradationPreference: maintain-resolution` is critical — the
+  /// libwebrtc default (`balanced`) sacrifices BOTH resolution AND
+  /// framerate when uplink congestion is detected, which on a screen
+  /// share looks like soft / blocky text on the receiver even when the
+  /// network actually has plenty of headroom. Maintain-resolution keeps
+  /// pixel-perfect text and only drops FPS, which is the right
+  /// trade-off for a code/UI screen share.
+  Future<void> applyScreenShareBitrate({
+    required int maxBitrate,
+    int maxFps = 0,
+  }) async {
     // setParameters crashes native WebRTC (rtp_sender.cc CHECK) when called
     // while the PC is not in stable state (e.g. during or after a rolled-back
     // renegotiation).  Guard here to prevent the SIGABRT.
@@ -394,9 +409,21 @@ class SignalingService {
           final params = sender.parameters;
           final encodings = params.encodings;
           if (encodings == null || encodings.isEmpty) continue;
-          encodings.first.maxBitrate = maxBitrate;
+          for (final enc in encodings) {
+            enc.active = true;
+            enc.maxBitrate = maxBitrate;
+            // Don't let the encoder downscale to a thumbnail to chase BWE.
+            enc.scaleResolutionDownBy = 1.0;
+            if (maxFps > 0) enc.maxFramerate = maxFps;
+            enc.priority = RTCPriorityType.high;
+            enc.networkPriority = RTCPriorityType.high;
+          }
+          params.degradationPreference =
+              RTCDegradationPreference.MAINTAIN_RESOLUTION;
           await sender.setParameters(params);
-          debugPrint('[RTP] screen share maxBitrate set to $maxBitrate bps');
+          debugPrint('[RTP] screen share params: maxBitrate=$maxBitrate '
+              'maxFps=$maxFps degradation=maintain-resolution '
+              'scaleDown=1.0 priority=high');
         }
       }
     } catch (e) {
@@ -1269,8 +1296,18 @@ class SignalingService {
     // HMAC-sign offer/answer on non-Nostr transports to prevent relay operators
     // from forging fake "Incoming call" events on Oxen. ICE candidates are
     // excluded — high-volume and already inside the encrypted SDP session.
+    //
+    // CRITICAL: cover renegotiation suffixes (`_reoffer`/`_reanswer`) too —
+    // `_webrtcOfferTypes` in SignalDispatcher includes them, so when they
+    // arrive without `_sig`/`_spk` over Pulse/Session/Firebase the receiver
+    // logs "REJECTED unsigned webrtc signal (webrtc_reoffer)" and screen-
+    // share / camera-toggle renegotiation rolls back on the sender. Bare
+    // `endsWith('_offer')` missed `_reoffer`; widen the suffix match.
     var sendPayload = payload;
-    final isOfferOrAnswer = type.endsWith('_offer') || type.endsWith('_answer');
+    final isOfferOrAnswer = type.endsWith('_offer') ||
+        type.endsWith('_answer') ||
+        type.endsWith('_reoffer') ||
+        type.endsWith('_reanswer');
     if (isOfferOrAnswer && contact.provider != 'Nostr') {
       try {
         const ss = FlutterSecureStorage();
