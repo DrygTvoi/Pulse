@@ -3147,7 +3147,7 @@ class AppLocalizationsHe extends AppLocalizations {
 
   @override
   String pulseGroupForeignServerBanner(String host) {
-    return 'ההודעות מנותבות דרך $host (לא שרת ה-Pulse שלך)';
+    return 'ההודעות מנותבות דרך $host';
   }
 
   @override

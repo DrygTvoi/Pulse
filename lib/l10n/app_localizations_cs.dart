@@ -3183,7 +3183,7 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String pulseGroupForeignServerBanner(String host) {
-    return 'Zprávy jdou přes $host (není to váš Pulse server)';
+    return 'Zprávy jdou přes $host';
   }
 
   @override

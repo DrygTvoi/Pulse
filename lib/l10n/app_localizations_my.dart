@@ -3202,7 +3202,7 @@ class AppLocalizationsMy extends AppLocalizations {
 
   @override
   String pulseGroupForeignServerBanner(String host) {
-    return 'မက်ဆေ့ချ်များကို $host မှတဆင့် ပို့ဆောင်သည် (သင်၏ Pulse ဆာဗာမဟုတ်ပါ)';
+    return 'မက်ဆေ့ချ်များကို $host မှတဆင့် ပို့ဆောင်သည်';
   }
 
   @override

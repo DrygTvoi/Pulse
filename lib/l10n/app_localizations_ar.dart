@@ -3181,7 +3181,7 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String pulseGroupForeignServerBanner(String host) {
-    return 'تُرسل الرسائل عبر $host (ليس خادم Pulse الخاص بك)';
+    return 'تُرسل الرسائل عبر $host';
   }
 
   @override

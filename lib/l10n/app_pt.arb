@@ -987,7 +987,7 @@
       }
     }
   },
-  "pulseGroupForeignServerBanner": "Mensagens enviadas via {host} (não é o seu servidor Pulse)",
+  "pulseGroupForeignServerBanner": "Mensagens enviadas via {host}",
   "@pulseGroupForeignServerBanner": {
     "description": "Banner shown in pulse-mode group chats hosted on a server different from the user's own pulse_server_url. {host} = short hostname.",
     "placeholders": {

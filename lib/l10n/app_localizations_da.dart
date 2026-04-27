@@ -3182,7 +3182,7 @@ class AppLocalizationsDa extends AppLocalizations {
 
   @override
   String pulseGroupForeignServerBanner(String host) {
-    return 'Beskeder dirigeres via $host (ikke din Pulse-server)';
+    return 'Beskeder dirigeres via $host';
   }
 
   @override

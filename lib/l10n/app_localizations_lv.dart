@@ -3201,7 +3201,7 @@ class AppLocalizationsLv extends AppLocalizations {
 
   @override
   String pulseGroupForeignServerBanner(String host) {
-    return 'Ziņojumi tiek nosūtīti caur $host (nav jūsu Pulse serveris)';
+    return 'Ziņojumi tiek nosūtīti caur $host';
   }
 
   @override

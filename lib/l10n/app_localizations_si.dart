@@ -3188,7 +3188,7 @@ class AppLocalizationsSi extends AppLocalizations {
 
   @override
   String pulseGroupForeignServerBanner(String host) {
-    return 'පණිවිඩ $host හරහා යවනු ලැබේ (ඔබේ Pulse සේවාදායකය නොවේ)';
+    return 'පණිවිඩ $host හරහා යවනු ලැබේ';
   }
 
   @override

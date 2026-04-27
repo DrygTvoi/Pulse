@@ -6,18 +6,16 @@ import '../models/contact.dart';
 import '../theme/app_theme.dart';
 import '../theme/design_tokens.dart';
 
-/// Persistent yellow banner shown at the top of a Pulse-routed group chat
-/// when the group's `groupServerUrl` doesn't match the user's own
-/// `pulse_server_url` setting. The user explicitly chose to join a group
-/// hosted on a third-party Pulse server — show them which one, so a
-/// glance is enough to know "my messages here flow through someone
-/// else's box".
+/// Yellow banner shown at the top of every pulse-routed group chat
+/// telling the user which Pulse server is carrying their messages.
+/// Dismissible per-group: once the user closes it for a specific
+/// group, it stays hidden for that group via SharedPreferences flag
+/// `pulse_banner_dismissed_<groupId>`.
 ///
 /// Self-hides when:
 ///   - contact is not a group, or not pulse-routed
-///   - group's server matches the user's own setting
-///   - user has no own Pulse server (then everything they touch is
-///     third-party by definition; the banner would just be noise)
+///   - the group has no `groupServerUrl` (legacy or invalid)
+///   - the user has previously dismissed the banner for this group
 class PulseGroupForeignServerBanner extends StatefulWidget {
   final Contact contact;
   const PulseGroupForeignServerBanner({super.key, required this.contact});
@@ -30,8 +28,10 @@ class PulseGroupForeignServerBanner extends StatefulWidget {
 class _PulseGroupForeignServerBannerState
     extends State<PulseGroupForeignServerBanner> {
   bool _checking = true;
-  bool _isForeign = false;
-  String? _ownServer;
+  bool _hidden = false;
+
+  static String _dismissKey(String groupId) =>
+      'pulse_banner_dismissed_$groupId';
 
   @override
   void initState() {
@@ -51,37 +51,28 @@ class _PulseGroupForeignServerBannerState
   Future<void> _evaluate() async {
     final c = widget.contact;
     if (!c.isGroup || !c.isPulseGroup || c.groupServerUrl.isEmpty) {
-      if (mounted) setState(() { _checking = false; _isForeign = false; });
+      if (mounted) setState(() { _checking = false; _hidden = true; });
       return;
     }
     final prefs = await SharedPreferences.getInstance();
-    final own = (prefs.getString('pulse_server_url') ?? '').trim();
-    final groupUrl = _canon(c.groupServerUrl);
-    final ownUrl = _canon(own);
+    final dismissed = prefs.getBool(_dismissKey(c.id)) ?? false;
     if (!mounted) return;
     setState(() {
       _checking = false;
-      _ownServer = own;
-      // No own Pulse → user is implicitly OK with hosted services; the
-      // banner adds noise without information. Only flag when their own
-      // Pulse setting genuinely differs from the group's.
-      _isForeign = own.isNotEmpty && groupUrl != ownUrl;
+      _hidden = dismissed;
     });
   }
 
-  String _canon(String url) {
-    var u = url.trim().toLowerCase();
-    while (u.endsWith('/')) {
-      u = u.substring(0, u.length - 1);
-    }
-    return u;
+  Future<void> _dismiss() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_dismissKey(widget.contact.id), true);
+    if (mounted) setState(() => _hidden = true);
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_checking || !_isForeign) return const SizedBox.shrink();
-    final groupUrl = widget.contact.groupServerUrl;
-    final hostShort = _shortUrl(groupUrl);
+    if (_checking || _hidden) return const SizedBox.shrink();
+    final hostShort = _shortUrl(widget.contact.groupServerUrl);
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(
@@ -99,6 +90,17 @@ class _PulseGroupForeignServerBannerState
                   color: const Color(0xFFFFE082),
                   fontSize: DesignTokens.fontSm,
                   fontWeight: FontWeight.w500),
+            ),
+          ),
+          const SizedBox(width: DesignTokens.spacing8),
+          InkWell(
+            onTap: _dismiss,
+            customBorder: const CircleBorder(),
+            child: Padding(
+              padding: const EdgeInsets.all(DesignTokens.spacing4),
+              child: Icon(Icons.close_rounded,
+                  color: const Color(0xFFFFE082).withValues(alpha: 0.85),
+                  size: 18),
             ),
           ),
         ],

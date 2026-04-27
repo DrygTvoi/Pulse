@@ -3221,7 +3221,7 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String pulseGroupForeignServerBanner(String host) {
-    return 'Τα μηνύματα δρομολογούνται μέσω $host (όχι ο δικός σας Pulse server)';
+    return 'Τα μηνύματα δρομολογούνται μέσω $host';
   }
 
   @override

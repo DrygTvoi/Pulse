@@ -3212,7 +3212,7 @@ class AppLocalizationsFil extends AppLocalizations {
 
   @override
   String pulseGroupForeignServerBanner(String host) {
-    return 'Ang mga mensahe ay dinadaan sa $host (hindi ang iyong Pulse server)';
+    return 'Ang mga mensahe ay dinadaan sa $host';
   }
 
   @override

@@ -987,7 +987,7 @@
       }
     }
   },
-  "pulseGroupForeignServerBanner": "Τα μηνύματα δρομολογούνται μέσω {host} (όχι ο δικός σας Pulse server)",
+  "pulseGroupForeignServerBanner": "Τα μηνύματα δρομολογούνται μέσω {host}",
   "@pulseGroupForeignServerBanner": {
     "description": "Banner shown in pulse-mode group chats hosted on a server different from the user's own pulse_server_url. {host} = short hostname.",
     "placeholders": {

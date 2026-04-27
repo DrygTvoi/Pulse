@@ -3200,7 +3200,7 @@ class AppLocalizationsKa extends AppLocalizations {
 
   @override
   String pulseGroupForeignServerBanner(String host) {
-    return 'შეტყობინებები მიდის $host-ის გავლით (არ არის თქვენი Pulse სერვერი)';
+    return 'შეტყობინებები მიდის $host-ის გავლით';
   }
 
   @override

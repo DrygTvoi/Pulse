@@ -3200,7 +3200,7 @@ class AppLocalizationsSk extends AppLocalizations {
 
   @override
   String pulseGroupForeignServerBanner(String host) {
-    return 'Správy idú cez $host (nie váš Pulse server)';
+    return 'Správy idú cez $host';
   }
 
   @override

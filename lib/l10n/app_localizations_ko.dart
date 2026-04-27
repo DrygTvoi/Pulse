@@ -3079,7 +3079,7 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String pulseGroupForeignServerBanner(String host) {
-    return '메시지가 $host을(를) 통해 전송됨 (사용자의 Pulse 서버 아님)';
+    return '메시지가 $host을';
   }
 
   @override

@@ -3195,7 +3195,7 @@ class AppLocalizationsMs extends AppLocalizations {
 
   @override
   String pulseGroupForeignServerBanner(String host) {
-    return 'Mesej dihantar melalui $host (bukan pelayan Pulse anda)';
+    return 'Mesej dihantar melalui $host';
   }
 
   @override

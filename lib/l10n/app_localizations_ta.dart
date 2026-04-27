@@ -3218,7 +3218,7 @@ class AppLocalizationsTa extends AppLocalizations {
 
   @override
   String pulseGroupForeignServerBanner(String host) {
-    return 'செய்திகள் $host வழியாக அனுப்பப்படுகின்றன (உங்கள் Pulse சேவையகம் அல்ல)';
+    return 'செய்திகள் $host வழியாக அனுப்பப்படுகின்றன';
   }
 
   @override

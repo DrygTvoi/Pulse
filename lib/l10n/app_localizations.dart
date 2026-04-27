@@ -5809,7 +5809,7 @@ abstract class AppLocalizations {
   /// Banner shown in pulse-mode group chats hosted on a server different from the user's own pulse_server_url. {host} = short hostname.
   ///
   /// In en, this message translates to:
-  /// **'Messages routed via {host} (not your Pulse server)'**
+  /// **'Messages routed via {host}'**
   String pulseGroupForeignServerBanner(String host);
 
   /// Snackbar shown when user tries to add more members than the call type allows

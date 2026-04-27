@@ -3208,7 +3208,7 @@ class AppLocalizationsSw extends AppLocalizations {
 
   @override
   String pulseGroupForeignServerBanner(String host) {
-    return 'Ujumbe hupitishwa kupitia $host (siyo seva yako ya Pulse)';
+    return 'Ujumbe hupitishwa kupitia $host';
   }
 
   @override

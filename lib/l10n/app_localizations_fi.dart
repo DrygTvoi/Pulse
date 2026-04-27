@@ -3203,7 +3203,7 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String pulseGroupForeignServerBanner(String host) {
-    return 'Viestit ohjataan $host kautta (ei sinun Pulse-palvelin)';
+    return 'Viestit ohjataan $host kautta';
   }
 
   @override

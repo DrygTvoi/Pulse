@@ -3197,7 +3197,7 @@ class AppLocalizationsNl extends AppLocalizations {
 
   @override
   String pulseGroupForeignServerBanner(String host) {
-    return 'Berichten verzonden via $host (niet uw Pulse-server)';
+    return 'Berichten verzonden via $host';
   }
 
   @override

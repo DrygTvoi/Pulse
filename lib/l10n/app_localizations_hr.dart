@@ -3193,7 +3193,7 @@ class AppLocalizationsHr extends AppLocalizations {
 
   @override
   String pulseGroupForeignServerBanner(String host) {
-    return 'Poruke idu preko $host (nije vaš Pulse poslužitelj)';
+    return 'Poruke idu preko $host';
   }
 
   @override

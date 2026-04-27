@@ -3209,7 +3209,7 @@ class AppLocalizationsUz extends AppLocalizations {
 
   @override
   String pulseGroupForeignServerBanner(String host) {
-    return 'Xabarlar $host orqali yuboriladi (sizning Pulse serveringiz emas)';
+    return 'Xabarlar $host orqali yuboriladi';
   }
 
   @override

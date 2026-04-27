@@ -3177,7 +3177,7 @@ class AppLocalizationsFa extends AppLocalizations {
 
   @override
   String pulseGroupForeignServerBanner(String host) {
-    return 'پیام‌ها از طریق $host ارسال می‌شوند (سرور Pulse شما نیست)';
+    return 'پیام‌ها از طریق $host ارسال می‌شوند';
   }
 
   @override

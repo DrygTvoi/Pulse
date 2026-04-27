@@ -958,7 +958,7 @@
   "@groupPulseServerClosed": { "description": "Checkbox label for closed-server toggle" },
   "groupPulseInviteHint": "Код приглашения",
   "@groupPulseInviteHint": { "description": "Hint inside the invite-code field for closed servers" },
-  "pulseGroupForeignServerBanner": "Сообщения идут через {host} (не ваш Pulse-сервер)",
+  "pulseGroupForeignServerBanner": "Сообщения идут через {host}",
   "@pulseGroupForeignServerBanner": { "description": "Banner shown in pulse-mode group chats hosted on a server different from the user's own pulse_server_url. {host} = short hostname.", "placeholders": { "host": { "type": "String" } } },
   "groupMeshLimitReached": "Этот тип звонка ограничен {n} участниками",
   "@groupMeshLimitReached": { "description": "Snackbar shown when user tries to add more members than the call type allows", "placeholders": { "n": { "type": "int" } } }

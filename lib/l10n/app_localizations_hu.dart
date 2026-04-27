@@ -3206,7 +3206,7 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String pulseGroupForeignServerBanner(String host) {
-    return 'Üzenetek átirányítva: $host (nem a saját Pulse szervere)';
+    return 'Üzenetek átirányítva: $host';
   }
 
   @override

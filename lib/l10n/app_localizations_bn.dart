@@ -3163,7 +3163,7 @@ class AppLocalizationsBn extends AppLocalizations {
 
   @override
   String pulseGroupForeignServerBanner(String host) {
-    return 'বার্তা $host এর মাধ্যমে পাঠানো হয় (আপনার Pulse সার্ভার নয়)';
+    return 'বার্তা $host এর মাধ্যমে পাঠানো হয়';
   }
 
   @override

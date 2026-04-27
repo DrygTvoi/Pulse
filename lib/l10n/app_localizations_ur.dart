@@ -3182,7 +3182,7 @@ class AppLocalizationsUr extends AppLocalizations {
 
   @override
   String pulseGroupForeignServerBanner(String host) {
-    return 'پیغامات $host کے ذریعے بھیجے جاتے ہیں (آپ کا Pulse سرور نہیں)';
+    return 'پیغامات $host کے ذریعے بھیجے جاتے ہیں';
   }
 
   @override

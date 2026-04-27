@@ -6744,15 +6744,35 @@ class ChatController extends ChangeNotifier {
   }
 
   /// Same canonicalization as _PulseSharedWs._canonicalize so our pool
-  /// keys line up 1:1 with the pulse_adapter pool. Strips fragment and
-  /// trailing slash, lower-cases scheme+host.
+  /// keys line up 1:1 with the pulse_adapter pool. Strips fragment,
+  /// trailing slash, default ports (443 for https, 80 for http), and
+  /// lower-cases scheme+host.
+  ///
+  /// **Stripping default ports is load-bearing**: without it, group
+  /// invites carrying `https://duck.azxc.site:443` create a pool entry
+  /// distinct from the pre-existing `https://duck.azxc.site` (no port)
+  /// entry — same server, same pubkey, but two PulseInboxReaders trying
+  /// to hold the WS at once. Server enforces one connection per pubkey
+  /// so it kicks the older one ~every second; readers reconnect; cycle
+  /// runs forever (~204 reconnects in 40 minutes observed in production
+  /// logs). And every signal sent during the kick window comes back as
+  /// `signal_fail offline` because the recipient was momentarily without
+  /// a connection — explains why reactions / edits / deletes silently
+  /// drop while messages (TypeSend, server-stored) eventually arrive.
   static String _canonicalizePulseUrl(String serverUrl) {
     if (serverUrl.isEmpty) return '';
     var s = serverUrl.trim();
     final hash = s.indexOf('#');
     if (hash != -1) s = s.substring(0, hash);
     if (s.endsWith('/')) s = s.substring(0, s.length - 1);
-    return s.toLowerCase();
+    s = s.toLowerCase();
+    // Strip default ports.
+    if (s.startsWith('https://') && s.endsWith(':443')) {
+      s = s.substring(0, s.length - 4);
+    } else if (s.startsWith('http://') && s.endsWith(':80')) {
+      s = s.substring(0, s.length - 3);
+    }
+    return s;
   }
 
   /// Reset all Pulse relay connections (called when Force-Tor toggle changes).

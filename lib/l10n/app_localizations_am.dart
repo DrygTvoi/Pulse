@@ -3129,7 +3129,7 @@ class AppLocalizationsAm extends AppLocalizations {
 
   @override
   String pulseGroupForeignServerBanner(String host) {
-    return 'መልዕክቶች በ $host በኩል ይተላለፋሉ (የእርስዎ Pulse አገልጋይ አይደለም)';
+    return 'መልዕክቶች በ $host በኩል ይተላለፋሉ';
   }
 
   @override

@@ -3190,7 +3190,7 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String pulseGroupForeignServerBanner(String host) {
-    return 'संदेश $host के माध्यम से भेजे जाते हैं (आपका Pulse सर्वर नहीं)';
+    return 'संदेश $host के माध्यम से भेजे जाते हैं';
   }
 
   @override

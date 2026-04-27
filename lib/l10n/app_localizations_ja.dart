@@ -3081,7 +3081,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String pulseGroupForeignServerBanner(String host) {
-    return 'メッセージは $host 経由で送信されます (あなたの Pulse サーバーではありません)';
+    return 'メッセージは $host 経由で送信されます';
   }
 
   @override

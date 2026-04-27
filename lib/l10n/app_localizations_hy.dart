@@ -3202,7 +3202,7 @@ class AppLocalizationsHy extends AppLocalizations {
 
   @override
   String pulseGroupForeignServerBanner(String host) {
-    return 'Հաղորդագրությունները ուղարկվում են $host միջոցով (Ձեր Pulse սերվերը չէ)';
+    return 'Հաղորդագրությունները ուղարկվում են $host միջոցով';
   }
 
   @override

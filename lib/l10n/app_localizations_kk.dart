@@ -3196,7 +3196,7 @@ class AppLocalizationsKk extends AppLocalizations {
 
   @override
   String pulseGroupForeignServerBanner(String host) {
-    return 'Хабарламалар $host арқылы жіберіледі (сіздің Pulse серверіңіз емес)';
+    return 'Хабарламалар $host арқылы жіберіледі';
   }
 
   @override

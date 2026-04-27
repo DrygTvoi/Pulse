@@ -3183,7 +3183,7 @@ class AppLocalizationsSv extends AppLocalizations {
 
   @override
   String pulseGroupForeignServerBanner(String host) {
-    return 'Meddelanden skickas via $host (inte din Pulse-server)';
+    return 'Meddelanden skickas via $host';
   }
 
   @override

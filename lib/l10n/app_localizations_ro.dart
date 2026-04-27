@@ -3202,7 +3202,7 @@ class AppLocalizationsRo extends AppLocalizations {
 
   @override
   String pulseGroupForeignServerBanner(String host) {
-    return 'Mesajele sunt direcționate prin $host (nu serverul tău Pulse)';
+    return 'Mesajele sunt direcționate prin $host';
   }
 
   @override

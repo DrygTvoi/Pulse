@@ -987,7 +987,7 @@
       }
     }
   },
-  "pulseGroupForeignServerBanner": "메시지가 {host}을(를) 통해 전송됨 (사용자의 Pulse 서버 아님)",
+  "pulseGroupForeignServerBanner": "메시지가 {host}을",
   "@pulseGroupForeignServerBanner": {
     "description": "Banner shown in pulse-mode group chats hosted on a server different from the user's own pulse_server_url. {host} = short hostname.",
     "placeholders": {

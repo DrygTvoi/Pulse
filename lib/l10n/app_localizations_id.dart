@@ -3190,7 +3190,7 @@ class AppLocalizationsId extends AppLocalizations {
 
   @override
   String pulseGroupForeignServerBanner(String host) {
-    return 'Pesan dirutekan melalui $host (bukan server Pulse Anda)';
+    return 'Pesan dirutekan melalui $host';
   }
 
   @override

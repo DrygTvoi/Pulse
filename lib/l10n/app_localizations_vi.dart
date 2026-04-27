@@ -3175,7 +3175,7 @@ class AppLocalizationsVi extends AppLocalizations {
 
   @override
   String pulseGroupForeignServerBanner(String host) {
-    return 'Tin nhắn được chuyển qua $host (không phải máy chủ Pulse của bạn)';
+    return 'Tin nhắn được chuyển qua $host';
   }
 
   @override

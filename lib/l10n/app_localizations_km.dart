@@ -3185,7 +3185,7 @@ class AppLocalizationsKm extends AppLocalizations {
 
   @override
   String pulseGroupForeignServerBanner(String host) {
-    return 'សារត្រូវបានបញ្ជូនតាម $host (មិនមែនម៉ាស៊ីនបម្រើ Pulse របស់អ្នកទេ)';
+    return 'សារត្រូវបានបញ្ជូនតាម $host';
   }
 
   @override

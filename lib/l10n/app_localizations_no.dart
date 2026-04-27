@@ -3182,7 +3182,7 @@ class AppLocalizationsNo extends AppLocalizations {
 
   @override
   String pulseGroupForeignServerBanner(String host) {
-    return 'Meldinger rutes via $host (ikke din Pulse-server)';
+    return 'Meldinger rutes via $host';
   }
 
   @override

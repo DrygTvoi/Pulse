@@ -3163,7 +3163,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String pulseGroupForeignServerBanner(String host) {
-    return 'Сообщения идут через $host (не ваш Pulse-сервер)';
+    return 'Сообщения идут через $host';
   }
 
   @override

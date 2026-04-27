@@ -381,7 +381,19 @@ class _PulseSharedWs {
     final hash = s.indexOf('#');
     if (hash != -1) s = s.substring(0, hash);
     if (s.endsWith('/')) s = s.substring(0, s.length - 1);
-    return s.toLowerCase();
+    s = s.toLowerCase();
+    // Strip default ports — `:443` for https, `:80` for http. Without
+    // this, `https://duck.azxc.site` and `https://duck.azxc.site:443`
+    // hash to different pool entries even though they're the same
+    // server, so two `_PulseSharedWs` instances try to hold the WS for
+    // the same pubkey and the server kicks one of them every second.
+    // MUST stay in sync with `ChatController._canonicalizePulseUrl`.
+    if (s.startsWith('https://') && s.endsWith(':443')) {
+      s = s.substring(0, s.length - 4);
+    } else if (s.startsWith('http://') && s.endsWith(':80')) {
+      s = s.substring(0, s.length - 3);
+    }
+    return s;
   }
 
   /// Tear down the pool entry for [serverUrl] so the next `forUrl()`

@@ -3198,7 +3198,7 @@ class AppLocalizationsSr extends AppLocalizations {
 
   @override
   String pulseGroupForeignServerBanner(String host) {
-    return 'Поруке иду преко $host (не ваш Pulse сервер)';
+    return 'Поруке иду преко $host';
   }
 
   @override

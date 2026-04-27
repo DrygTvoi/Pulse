@@ -3196,7 +3196,7 @@ class AppLocalizationsUk extends AppLocalizations {
 
   @override
   String pulseGroupForeignServerBanner(String host) {
-    return 'Повідомлення йдуть через $host (не ваш Pulse-сервер)';
+    return 'Повідомлення йдуть через $host';
   }
 
   @override
