@@ -1079,11 +1079,18 @@ func (h *Hub) handleRoomJoin(client *Client, payload json.RawMessage) {
 		return
 	}
 
+	pkShort := client.pubkey
+	if len(pkShort) > 8 {
+		pkShort = pkShort[:8]
+	}
+	log.Printf("[sfu] room_join request: room=%s by=%s", req.RoomID, pkShort)
+
 	sendMsg := func(data []byte) error { return client.SendDirect(data) }
 	sendBin := func(data []byte) error { return client.SendBinaryDirect(data) }
 
 	room, _, err := h.sfuManager.JoinRoom(req.RoomID, req.Token, client.pubkey, sendMsg, sendBin)
 	if err != nil {
+		log.Printf("[sfu] room_join FAILED: room=%s by=%s err=%v", req.RoomID, pkShort, err)
 		client.SendError("join_failed", err.Error())
 		return
 	}
@@ -1099,11 +1106,17 @@ func (h *Hub) handleRoomJoin(client *Client, payload json.RawMessage) {
 		pInfos[i] = RoomParticipantInfo{Pubkey: p.Pubkey, Tracks: tracks}
 	}
 
-	client.SendEnvelope(TypeRoomInfo, &RoomInfo{
+	if sendErr := client.SendEnvelope(TypeRoomInfo, &RoomInfo{
 		Type:         TypeRoomInfo,
 		RoomID:       req.RoomID,
 		Participants: pInfos,
-	})
+	}); sendErr != nil {
+		log.Printf("[sfu] room_info send FAILED: room=%s to=%s err=%v",
+			req.RoomID, pkShort, sendErr)
+	} else {
+		log.Printf("[sfu] room_info sent: room=%s to=%s participants=%d",
+			req.RoomID, pkShort, len(pInfos))
+	}
 }
 
 func (h *Hub) handleRoomLeave(client *Client, payload json.RawMessage) {

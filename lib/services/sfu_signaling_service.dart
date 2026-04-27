@@ -73,15 +73,15 @@ class SfuSignalingService {
     if (_disposed || _roomId != null) return;
     _roomCreateAttempts++;
     debugPrint('[SFU] room_create attempt $_roomCreateAttempts/$_kMaxRoomCreateAttempts');
-    // After 1st silent failure assume the underlying Pulse WS is dead
-    // (Dart sink.add returns without error on a half-closed socket — the
-    // bytes pile up in the OS buffer and never reach the wire). Force a
-    // reconnect AND WAIT for it to finish auth before sending — otherwise
-    // we race the new sender's wiring and fall through to "no
-    // authenticated connection".
-    if (_roomCreateAttempts > 1) {
-      await ChatController().resetGroupPulseConnection(group.groupServerUrl);
-    }
+    // NOTE: previously we called `resetGroupPulseConnection` on retries to
+    // force a fresh WS, but that close+reopen cycle was itself the bug: the
+    // server enforces "1 connection per pubkey", so the new WS kicked the
+    // old one mid-handshake and the room_created reply never arrived,
+    // triggering ANOTHER timeout → ANOTHER reset → infinite Connecting.
+    // The connection management belongs to ensureGroupPulseConnection +
+    // _PulseSharedWs; we just resend on the existing wire and let the
+    // overall timeout (4 attempts × 6s) bubble up to onRoomCreateFailed
+    // if the WS is genuinely dead.
     if (_disposed || _roomId != null) return;
     _send({'type': 'room_create', 'max': 20, 'name': group.name, 'e2ee': true});
     _roomCreateTimer?.cancel();
@@ -110,9 +110,8 @@ class SfuSignalingService {
     if (_disposed) return;
     _roomCreateAttempts++;
     debugPrint('[SFU] room_join attempt $_roomCreateAttempts/$_kMaxRoomCreateAttempts');
-    if (_roomCreateAttempts > 1) {
-      await ChatController().resetGroupPulseConnection(group.groupServerUrl);
-    }
+    // See note in _sendRoomCreateWithRetry: do NOT reset the WS on retry —
+    // the close+reopen kicks our own connection and breaks the call.
     if (_disposed) return;
     _send({'type': 'room_join', 'room_id': _roomId, 'token': _roomToken});
     _roomCreateTimer?.cancel();

@@ -865,11 +865,27 @@ func (r *Room) SubscribeTrackWithLayer(pubkey, trackID, layer string) error {
 
 	p.Subscriptions[trackID] = sender
 	p.SubLayers[trackID] = layer
-	if track.Kind == "video" || track.Kind == "screen" {
+	isVideo := track.Kind == "video" || track.Kind == "screen"
+	if isVideo {
 		p.VideoSubs[trackID] = true
 	}
 
-	// Parse RTCP — extract REMB for BWE (Phase 4)
+	// Resolve the upstream Remote we'd PLI for keyframe requests. For
+	// simulcast: the specific layer the subscriber currently consumes.
+	// Captured for both the burst below and the RTCP-forward loop.
+	var upstreamRemote *webrtc.TrackRemote
+	if track.Simulcast && layer != "" {
+		if l, ok := track.Layers[layer]; ok {
+			upstreamRemote = l.Remote
+		}
+	}
+	if upstreamRemote == nil {
+		upstreamRemote = track.Remote
+	}
+	owner := track.Owner
+
+	// Parse RTCP — extract REMB for BWE (Phase 4); forward PLI/FIR upstream
+	// so subscriber-side decoder errors trigger a publisher keyframe.
 	go func() {
 		buf := make([]byte, 1500)
 		for {
@@ -879,9 +895,14 @@ func (r *Room) SubscribeTrackWithLayer(pubkey, trackID, layer string) error {
 			}
 			pkts, _ := rtcp.Unmarshal(buf[:n])
 			for _, pkt := range pkts {
-				if remb, ok := pkt.(*rtcp.ReceiverEstimatedMaximumBitrate); ok {
-					p.EstimatedBW.Store(int64(remb.Bitrate))
+				switch m := pkt.(type) {
+				case *rtcp.ReceiverEstimatedMaximumBitrate:
+					p.EstimatedBW.Store(int64(m.Bitrate))
 					p.LastBWUpdate.Store(time.Now().UnixMilli())
+				case *rtcp.PictureLossIndication, *rtcp.FullIntraRequest:
+					if isVideo && upstreamRemote != nil {
+						r.requestKeyframe(upstreamRemote, owner)
+					}
 				}
 			}
 		}
@@ -894,7 +915,56 @@ func (r *Room) SubscribeTrackWithLayer(pubkey, trackID, layer string) error {
 	// renegotiation latency is dominated by ICE-gathering completion.
 	go r.scheduleRenegotiation(p)
 
+	// Burst PLIs at the publisher so the new subscriber receives a keyframe
+	// within a few hundred ms instead of waiting for the encoder's natural
+	// GOP boundary (VP8 default is many seconds — manifested as ~2-min
+	// black-screen for late joiners). Spread across the renegotiate window
+	// so at least one lands after the subscriber's decoder is wired up.
+	if isVideo && upstreamRemote != nil {
+		go func() {
+			delays := []time.Duration{
+				0,
+				200 * time.Millisecond,
+				600 * time.Millisecond,
+				1500 * time.Millisecond,
+				3 * time.Second,
+			}
+			for _, d := range delays {
+				if d > 0 {
+					select {
+					case <-time.After(d):
+					case <-r.closeCh:
+						return
+					}
+				}
+				r.requestKeyframe(upstreamRemote, owner)
+			}
+		}()
+	}
+
 	return nil
+}
+
+// requestKeyframe sends a PLI (Picture Loss Indication) to the publisher
+// of the given remote track, forcing the encoder to emit a keyframe.
+// Without this, late subscribers wait for the encoder's natural GOP
+// boundary which can be many seconds (or unbounded for some VP8 configs).
+func (r *Room) requestKeyframe(remote *webrtc.TrackRemote, ownerPubkey string) {
+	if remote == nil || ownerPubkey == "" {
+		return
+	}
+	r.mu.RLock()
+	pub, ok := r.Participants[ownerPubkey]
+	r.mu.RUnlock()
+	if !ok || pub == nil || pub.PC == nil {
+		return
+	}
+	if err := pub.PC.WriteRTCP([]rtcp.Packet{
+		&rtcp.PictureLossIndication{MediaSSRC: uint32(remote.SSRC())},
+	}); err != nil {
+		log.Printf("[sfu] PLI write failed (room=%s owner=%s ssrc=%d): %v",
+			r.ID, ownerPubkey[:8], remote.SSRC(), err)
+	}
 }
 
 // scheduleRenegotiation kicks off a renegotiation cycle for the
