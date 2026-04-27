@@ -70,6 +70,11 @@ type Participant struct {
 	renegMu      sync.Mutex
 	renegPending bool
 	renegDirty   bool
+	// renegAck signalled by HandleRenegotiateAnswer after the client's
+	// answer is applied (PC SignalingState back to stable). The
+	// renegotiation loop blocks on this so the next CreateOffer doesn't
+	// fail with `have-local-offer→have-local-offer`. Cap-1 buffered.
+	renegAck chan struct{}
 }
 
 // Room represents an SFU media room.
@@ -199,6 +204,7 @@ func (r *Room) AddParticipant(pubkey string, sendMsg func([]byte) error, sendBin
 		SendMessage:     sendMsg,
 		SendBinary:      sendBin,
 		JoinedAt:        time.Now(),
+		renegAck:        make(chan struct{}, 1),
 	}
 
 	r.Participants[pubkey] = p
@@ -908,21 +914,45 @@ func (r *Room) scheduleRenegotiation(p *Participant) {
 	p.renegMu.Unlock()
 
 	for {
+		// Drain stale ack so the wait below resolves on this cycle's answer.
+		select {
+		case <-p.renegAck:
+		default:
+		}
+
 		p.mu.Lock()
 		pc := p.PC
 		send := p.SendMessage
 		p.mu.Unlock()
-		r.renegotiateWithSubscriber(pc, send, r.ID)
+		offerSent := r.renegotiateWithSubscriber(pc, send, r.ID)
+
+		// CRITICAL: wait for client's answer BEFORE clearing renegPending.
+		// Without this, a fresh scheduleRenegotiation call right after
+		// this returns would CreateOffer on a still-have-local-offer PC
+		// → InvalidModificationError → second subscribe (typically
+		// the video track of a screen-share) silently dropped → receiver
+		// never gets onTrack for video.
+		if offerSent {
+			select {
+			case <-p.renegAck:
+				// Answer applied; PC stable. Safe to continue.
+			case <-time.After(5 * time.Second):
+				log.Printf("[sfu] renegotiate: ack timeout — dropping queued work for room=%s", r.ID)
+				p.renegMu.Lock()
+				p.renegPending = false
+				p.renegMu.Unlock()
+				return
+			}
+		}
 
 		p.renegMu.Lock()
-		if p.renegDirty {
-			p.renegDirty = false
+		if !p.renegDirty {
+			p.renegPending = false
 			p.renegMu.Unlock()
-			continue // run again to cover tracks added during the previous cycle
+			return
 		}
-		p.renegPending = false
+		p.renegDirty = false
 		p.renegMu.Unlock()
-		return
 	}
 }
 
@@ -931,22 +961,22 @@ func (r *Room) scheduleRenegotiation(p *Participant) {
 // wire. Pion does not surface OnNegotiationNeeded for server-side AddTrack
 // so we drive it explicitly. Errors are best-effort and only logged: a
 // second subscribe will overwrite the negotiation state anyway.
-func (r *Room) renegotiateWithSubscriber(pc *webrtc.PeerConnection, sendMsg func([]byte) error, roomID string) {
+//
+// Returns true iff offer was actually shipped (so caller knows to wait
+// for renegAck before next iteration).
+func (r *Room) renegotiateWithSubscriber(pc *webrtc.PeerConnection, sendMsg func([]byte) error, roomID string) bool {
 	if pc == nil || sendMsg == nil {
-		return
+		return false
 	}
 	offer, err := pc.CreateOffer(nil)
 	if err != nil {
 		log.Printf("[sfu] renegotiate: CreateOffer failed: %v", err)
-		return
+		return false
 	}
 	if err := pc.SetLocalDescription(offer); err != nil {
 		log.Printf("[sfu] renegotiate: SetLocalDescription failed: %v", err)
-		return
+		return false
 	}
-	// Wait for ICE gathering so the SDP carries every candidate. For an
-	// already-connected PC this is essentially instant — no new transports
-	// need to come up. Cap at 5s in case Pion stalls (no UDP route etc).
 	select {
 	case <-webrtc.GatheringCompletePromise(pc):
 	case <-time.After(5 * time.Second):
@@ -955,18 +985,20 @@ func (r *Room) renegotiateWithSubscriber(pc *webrtc.PeerConnection, sendMsg func
 
 	desc := pc.LocalDescription()
 	if desc == nil {
-		return
+		return false
 	}
 	if err := sendMsg(mediaRenegotiateJSON(roomID, desc.SDP)); err != nil {
 		log.Printf("[sfu] renegotiate: send failed: %v", err)
-	} else {
-		log.Printf("[sfu] renegotiate: sent offer (%d bytes) for room=%s",
-			len(desc.SDP), roomID)
+		return false
 	}
+	log.Printf("[sfu] renegotiate: sent offer (%d bytes) for room=%s",
+		len(desc.SDP), roomID)
+	return true
 }
 
 // HandleRenegotiateAnswer applies the client's answer to a server-initiated
 // renegotiation offer. Returns an error if the participant or PC is missing.
+// On success signals p.renegAck so the loop can issue the next offer.
 func (r *Room) HandleRenegotiateAnswer(pubkey, sdp string) error {
 	r.mu.RLock()
 	p, ok := r.Participants[pubkey]
@@ -980,10 +1012,17 @@ func (r *Room) HandleRenegotiateAnswer(pubkey, sdp string) error {
 	if pc == nil {
 		return fmt.Errorf("no PeerConnection")
 	}
-	return pc.SetRemoteDescription(webrtc.SessionDescription{
+	if err := pc.SetRemoteDescription(webrtc.SessionDescription{
 		Type: webrtc.SDPTypeAnswer,
 		SDP:  sdp,
-	})
+	}); err != nil {
+		return err
+	}
+	select {
+	case p.renegAck <- struct{}{}:
+	default:
+	}
+	return nil
 }
 
 // SwitchLayer switches a subscriber's simulcast layer for a given track.

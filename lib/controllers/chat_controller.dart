@@ -1063,22 +1063,24 @@ class ChatController extends ChangeNotifier {
       _cachedSessionSender = null;
       _adhocSessionReader?.close();
       _adhocSessionReader = null;
-      _adhocPulseReader?.close();
-      _adhocPulseReader = null;
-      // Per-server Pulse pool entries hold their own readers + sender
-      // references that were paired with subscriptions in `_signalSubs` /
-      // `_messageSubs` (cleared above). Without tearing the pool down too,
-      // the next `ensureGroupPulseConnection` early-returns on the stale
-      // entry and never wires fresh subscriptions — pulse-group signals
-      // (sender_key_dist, group_update, edit, delete, msg_read) silently
-      // dispatch into orphaned controllers and never reach the dispatcher.
-      // Tear down here, let `_initializeAdapters` reopen them via the
-      // group scan that runs after `_initInbox`.
-      for (final reader in _pulseReadersByServer.values) {
-        try { reader.close(); } catch (_) {}
-      }
-      _pulseReadersByServer.clear();
-      _pulseSendersByServer.clear();
+      // CRITICAL: do NOT close _adhocPulseReader and do NOT clear
+      // _pulseReadersByServer here. reconnectInbox is fired by the
+      // probe-found-better-Nostr-relay path in main.dart. That probe
+      // change has nothing to do with Pulse — but tearing down the
+      // Pulse stack racecreates a SECOND PulseInboxReader against
+      // the still-authenticating original on the server's "1 conn
+      // per pubkey" slot → server kicks them in turn → SFU's
+      // TURN-over-WS dies → ICE → call drops in ~1 minute.
+      //
+      // Subscriptions on _adhocPulseReader's stream were just
+      // cancelled (via `_messageSubs.clear()` and `_signalSubs.clear()`
+      // above). _initInbox below will re-subscribe on the SAME
+      // existing reader (without recreating it) so messaging flow
+      // resumes without a fresh WS auth.
+      debugPrint('[Chat] reconnectInbox: KEEPING _adhocPulseReader '
+          '${_adhocPulseReader == null ? "(null)" : identityHashCode(_adhocPulseReader)} '
+          'and pool (${_pulseReadersByServer.length} entries) — '
+          'avoiding multi-WS race with reconnect');
       await _initInbox();
       // Reopen pool entries for every existing pulse-mode group so signals
       // resume flowing without waiting for a manual chat-screen open.
@@ -1382,11 +1384,32 @@ class ChatController extends ChangeNotifier {
       final pulseKey = await _secureStorage.read(key: 'pulse_privkey') ?? '';
       final pulseUrl = (await _getPrefs()).getString('pulse_server_url') ?? '';
       if (pulseKey.isNotEmpty && pulseUrl.isNotEmpty) {
+        // REUSE existing _adhocPulseReader if one is alive — re-subscribe
+        // streams (subs were cleared above by reconnectInbox) without
+        // creating a SECOND PulseInboxReader. Two readers for the same
+        // pubkey would race for the server's "1 connection per pubkey"
+        // slot → multi-WS storm → SFU TURN-over-WS dies → calls drop.
+        if (_adhocPulseReader != null) {
+          debugPrint('[Chat] _initInbox: reusing existing _adhocPulseReader '
+              '${identityHashCode(_adhocPulseReader)} (re-subscribing streams)');
+          final pulseReader = _adhocPulseReader!;
+          _messageSubs.add(pulseReader.listenForMessages().listen(_handleIncomingMessages));
+          _signalSubs.add(pulseReader.listenForSignals().listen(
+              (sigs) => _signalDispatcher!.dispatch(sigs, sourceTransport: 'Pulse')));
+          final seed = Uint8List.fromList(hex.decode(pulseKey));
+          final pulsePub = await ed25519PubkeyFromSeed(seed);
+          final pulseAddr = '$pulsePub@$pulseUrl';
+          newAddresses.add(pulseAddr);
+          _adapterHealth[pulseAddr] = true;
+          _healthSubs.add(pulseReader.healthChanges.listen((h) => _onAdapterHealthChange(pulseAddr, h)));
+        } else {
         try {
           final pulseApiKey = jsonEncode({'privkey': pulseKey, 'serverUrl': pulseUrl});
           final pulseReader = await InboxManager().createAdhocReader('Pulse', pulseApiKey, pulseUrl);
           if (pulseReader != null) {
             _adhocPulseReader = pulseReader as PulseInboxReader;
+            debugPrint('[Chat] _initInbox: CREATED new _adhocPulseReader '
+                '${identityHashCode(pulseReader)} (none existed)');
             _messageSubs.add(pulseReader.listenForMessages().listen(_handleIncomingMessages));
             _signalSubs.add(pulseReader.listenForSignals().listen(
                 (sigs) => _signalDispatcher!.dispatch(sigs, sourceTransport: 'Pulse')));
@@ -1403,6 +1426,7 @@ class ChatController extends ChangeNotifier {
         } catch (e) {
           debugPrint('[Chat] Failed to auto-register Pulse inbox: $e');
         }
+        } // close else (existing reader reuse)
       }
     }
 

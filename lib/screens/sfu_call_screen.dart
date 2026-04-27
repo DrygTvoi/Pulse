@@ -184,22 +184,32 @@ class _SfuCallScreenState extends State<SfuCallScreen> {
       _participantTracks.putIfAbsent(pubkey, () => []);
       _participantTracks[pubkey]!.add(_TrackMeta(trackId, kind));
 
-      // Drain any orphan track of matching kind into this participant.
-      final wantsVideo = kind == 'video' || kind == 'screen';
-      ({MediaStreamTrack track, MediaStream stream})? matchedOrphan;
-      for (final o in _orphanTracks) {
-        final match = (o.track.kind == 'video' && wantsVideo) ||
-            (o.track.kind == 'audio' && kind == 'audio');
-        if (match) { matchedOrphan = o; break; }
-      }
-      if (matchedOrphan != null) {
-        _orphanTracks.remove(matchedOrphan);
-        final orphan = matchedOrphan;
-        debugPrint('[SfuCall] draining orphan ${orphan.track.kind} track for ${pubkey.substring(0, 8)}');
-        _ensureRenderer(pubkey).then((r) {
-          try { r.srcObject = orphan.stream; } catch (_) {}
-          if (mounted) setState(() {});
-        });
+      // Drain orphan VIDEO tracks ONLY when streamId matches the SFU's
+      // `sfu_<pubkey>_video` labelling. Phantom UUID-streamId tracks
+      // (Pion's recv-only m-line placeholder, never carries frames)
+      // used to be drained by the bare-kind heuristic and would
+      // pollute the renderer ahead of the real video → on flutter_webrtc
+      // Android the texture got stuck at 0×0 → user sees only avatar.
+      // Audio orphans aren't drained because audio plays from the
+      // MediaStream automatically (no renderer needed).
+      if (kind == 'video' || kind == 'screen') {
+        final expectedStreamId = 'sfu_${pubkey}_video';
+        ({MediaStreamTrack track, MediaStream stream})? matchedOrphan;
+        for (final o in _orphanTracks) {
+          if (o.stream.id == expectedStreamId) {
+            matchedOrphan = o;
+            break;
+          }
+        }
+        if (matchedOrphan != null) {
+          _orphanTracks.remove(matchedOrphan);
+          final orphan = matchedOrphan;
+          debugPrint('[SfuCall] draining orphan ${orphan.track.kind} track for ${pubkey.substring(0, 8)}');
+          _ensureRenderer(pubkey).then((r) {
+            try { r.srcObject = orphan.stream; } catch (_) {}
+            if (mounted) setState(() {});
+          });
+        }
       }
 
       if (kind == 'audio') {
@@ -300,13 +310,20 @@ class _SfuCallScreenState extends State<SfuCallScreen> {
         return;
       }
 
-      // Attach the stream to the participant's renderer for BOTH audio
-      // and video. flutter_webrtc plays the audio through the stream as
-      // long as the renderer is mounted in the widget tree — that's why
-      // _tile() always rendres an RTCVideoView (zero-size when there's
-      // no active video to display) so audio for camera-off members
-      // still reaches the speakers.
+      // Attach VIDEO ONLY to the renderer. Audio plays from the
+      // MediaStream automatically (PeerConnection holds it alive).
+      // CRITICAL: setting srcObject=audioStream first latches the
+      // native renderer's first-frame texture binding to audio →
+      // when video arrives later, srcObject swap doesn't re-arm
+      // the texture on Android → RTCVideoView paints nothing.
+      // Skipping audio leaves the renderer pristine for video.
       final resolvedOwner = ownerPubkey;
+      if (track.kind == 'audio') {
+        debugPrint('[SfuCall] audio for ${resolvedOwner.substring(0, 8)} — '
+            'plays from MediaStream, no renderer attach');
+        if (mounted) setState(() {});
+        return;
+      }
       debugPrint('[SfuCall] resolved owner=${resolvedOwner.substring(0, 8)} '
           '— calling _ensureRenderer');
       _ensureRenderer(resolvedOwner).then((r) {
@@ -1070,29 +1087,21 @@ class _SfuCallScreenState extends State<SfuCallScreen> {
             child: Center(child: _avatar(name, _avatarSizeFor(participantsCount: _participantTracks.length + 1))),
           ),
         ),
-        // RTCVideoView lives in the tree even when video is muted so the
-        // audio sink stays attached and we keep hearing camera-off
-        // participants. Hidden behind the avatar via Offstage when there's
-        // no active video.
-        if (renderer != null && renderer.textureId != null)
+        // Mount RTCVideoView ONLY when this participant has active video.
+        // Previous wrapper Visibility(maintainState:true) kept it always
+        // mounted but on flutter_webrtc Android the visibility flip
+        // after a srcObject swap doesn't re-arm the native first-frame
+        // callback → stays at 0×0. Audio plays via MediaStream
+        // regardless. ValueKey on (pubkey, textureId) makes Flutter
+        // instantiate a fresh widget on transition.
+        if (renderer != null && renderer.textureId != null && hasVideo)
           Positioned.fill(
-            // Visibility (instead of Offstage) so the audio sink stays
-            // attached when video is muted AND Linux/GStreamer doesn't
-            // leak stale texture pixels as the gray-streak artifact
-            // you see when offstage'd RTCVideoView isn't fully detached
-            // from the shared GL texture cache.
-            child: Visibility(
-              visible: hasVideo,
-              maintainState: true,
-              maintainAnimation: true,
-              maintainSize: true,
-              maintainInteractivity: false,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(15),
-                child: RTCVideoView(renderer,
-                    mirror: isSelf && !_isScreenSharing,
-                    objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitCover),
-              ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(15),
+              child: RTCVideoView(renderer,
+                  key: ValueKey('rtcv_${pubkey}_${renderer.textureId}'),
+                  mirror: isSelf && !_isScreenSharing,
+                  objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitCover),
             ),
           ),
         if (isPinned) Positioned(
