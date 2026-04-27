@@ -1130,6 +1130,22 @@ func (h *Hub) handleRoomLeave(client *Client, payload json.RawMessage) {
 	}
 
 	h.sfuManager.LeaveRoom(req.RoomID, client.pubkey)
+
+	// Release the TURN-over-WS allocation tied to this Client's virtual
+	// conn. libwebrtc does NOT send TURN Refresh(lifetime=0) when a
+	// PeerConnection closes, so pion's relay allocation hangs around. The
+	// next call on the same WS would reuse the same `turnConn` (same
+	// 5-tuple) and pion rejects with "relay already allocated for
+	// 5-TUPLE" — every Allocate-request fails and ICE never connects.
+	// Closing forces pion's listener to see EOF and free the allocation;
+	// the next 0x30 frame creates a fresh `turnWSConn` with a new port.
+	if client.turnConn != nil {
+		client.turnConn.Close()
+		client.turnConn = nil
+		log.Printf("[turn-ws] released allocation on room_leave for %s",
+			client.pubkey[:16])
+	}
+
 	client.SendEnvelope(TypeRoomLeft, &RoomLeft{
 		Type:   TypeRoomLeft,
 		RoomID: req.RoomID,

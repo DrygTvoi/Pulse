@@ -528,14 +528,14 @@ class _SfuCallScreenState extends State<SfuCallScreen> {
     // routed call #2's outbound audio to a dead TURN session and
     // silently dropped it.
     PulseTurnProxy.instance.resetClients();
-    // Force the Pulse WS for this group's SFU to reconnect — pion
-    // doesn't release the TURN-over-WS allocation cleanly when the
-    // local PC closes; a full reset gives the next call a clean
-    // server-side state too.
-    final serverUrl = widget.group.groupServerUrl;
-    if (serverUrl.isNotEmpty) {
-      unawaited(ChatController().resetGroupPulseConnection(serverUrl));
-    }
+    // NOTE: previously we called `resetGroupPulseConnection` here to give
+    // pion a clean TURN-over-WS allocation. The server now releases that
+    // allocation itself when it sees `room_leave` (see
+    // hub.go:handleRoomLeave) — so we can keep the warm Pulse WS alive
+    // for the next call. The old close+reopen cycle made the next
+    // call's `room_create` reply land on a freshly-opened sender WS that
+    // SignalDispatcher wasn't subscribed to, stranding the user on
+    // "Connecting…" forever.
     if (mounted) Navigator.pop(context);
   }
 
