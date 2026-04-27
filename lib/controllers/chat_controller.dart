@@ -111,6 +111,18 @@ class ChatController extends ChangeNotifier {
   /// a stale-prekey decrypt failure. Rate-limits recovery pushes to avoid
   /// relay spam if the sender keeps retrying.
   final Map<String, DateTime> _lastStaleKeyPush = {};
+  /// Per-peer cooldown on PROCESSING incoming session_reset signals.
+  /// `_broadcaster.sendSignalToAllTransports(... 'session_reset' ...)` fans
+  /// out via Nostr × N relays + Session + Pulse, so a single peer-side
+  /// recovery dance generates 5-7 duplicate session_reset arrivals on us.
+  /// Each one calling `deleteContactData + buildSession` wipes whatever
+  /// session we just built and produces a fresh one with a new ratchet key
+  /// — and our PreKey-init message based on the previous bundle is now
+  /// against a session the peer has already moved past. Net result: the
+  /// bidirectional recovery never converges. Process the first arrival,
+  /// drop subsequent ones for [_kSessionResetReceiveCooldown].
+  final Map<String, DateTime> _lastSessionResetReceived = {};
+  static const Duration _kSessionResetReceiveCooldown = Duration(seconds: 10);
   List<String> _allAddresses = [];
   SignalDispatcher? _signalDispatcher;
   // PQC: contacts from whom we've successfully unwrapped a PQC message.
@@ -2218,6 +2230,22 @@ class ChatController extends ChangeNotifier {
     // path will fetch their bundle from a relay (slightly racy, but the
     // peer is now expecting the rebuild so timing is more forgiving).
     _dispatcherSubs.add(d.sessionResets.listen((e) async {
+      // Drop duplicates from the same peer within the cooldown window.
+      // `sendSignalToAllTransports` fans out one logical session_reset
+      // across every transport, so we see the same payload 5-7 times.
+      // Processing each one rebuilds the session, generating a fresh
+      // ratchet key, which leaves our just-sent PreKey-init pointing at
+      // the previous (now-discarded) ratchet — peer can't decrypt and
+      // fires another session_reset, looping forever.
+      final lastSeen = _lastSessionResetReceived[e.contact.id];
+      if (lastSeen != null &&
+          DateTime.now().difference(lastSeen) < _kSessionResetReceiveCooldown) {
+        debugPrint('[ChatController] Peer ${e.contact.name} session_reset within '
+            'cooldown (${_kSessionResetReceiveCooldown.inSeconds}s) — ignoring duplicate');
+        return;
+      }
+      _lastSessionResetReceived[e.contact.id] = DateTime.now();
+
       debugPrint('[ChatController] Peer ${e.contact.name} asked for session reset '
           '— clearing session (inlineBundle=${e.bundle != null})');
       await _signalService.deleteContactData(e.contact.databaseId);
@@ -2237,6 +2265,12 @@ class ChatController extends ChangeNotifier {
           debugPrint('[ChatController] buildSession from inline bundle failed: $err');
         }
       }
+      // Also suppress our own outgoing session_reset for this peer for the
+      // same window — if we just rebuilt against their bundle, our next
+      // user-msg PreKey-init carries the answer; firing OUR session_reset
+      // back races with that and replaces their fresh session before they
+      // can decrypt our PreKey.
+      _lastStaleKeyPush[e.contact.id] = DateTime.now();
     }));
 
     _dispatcherSubs.add(d.p2pEvents.listen((e) {
