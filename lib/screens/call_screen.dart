@@ -14,13 +14,18 @@ import '../services/local_storage_service.dart';
 import '../services/active_call_service.dart';
 import '../theme/app_theme.dart';
 import '../theme/design_tokens.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import '../models/contact.dart';
 import '../models/message.dart';
 import '../l10n/l10n_ext.dart';
 import '../controllers/chat_controller.dart';
 import '../utils/platform_utils.dart';
 import '../adapters/pulse_adapter.dart' show setPulseCallActive;
+import '../widgets/call/call_action_button.dart';
+import '../widgets/call/call_background.dart';
+import '../widgets/call/call_local_pip.dart';
+import '../widgets/call/call_phase.dart';
+import '../widgets/call/call_status_overlay.dart';
+import '../widgets/call/call_top_bar.dart';
 
 const _kScreenShareChannel = MethodChannel('im.pulse.messenger/screen_share');
 
@@ -113,14 +118,33 @@ class _CallScreenState extends State<CallScreen> {
   bool _secondaryDegraded   = false; // true when secondary goes silent
   bool _secondaryRestarting = false; // restart in progress, prevent double-restart
 
+  // Avatar bytes for the contact, loaded asynchronously from local storage.
+  // Used by CallBackground (blurred wash) and CallStatusOverlay (160dp).
+  Uint8List? _avatarBytes;
+
+  // Set true when _hangUp() begins; the Scaffold fades to black before pop().
+  bool _endedFade = false;
+
   @override
   void initState() {
     super.initState();
     setPulseCallActive(true);
+    _loadAvatar();
     if (widget.existingSignaling != null) {
       _restoreFromMinimized();
     } else {
       _initWebRTC();
+    }
+  }
+
+  Future<void> _loadAvatar() async {
+    try {
+      final raw = await LocalStorageService().loadAvatar(widget.contact.id);
+      if (raw == null || raw.isEmpty) return;
+      final bytes = base64Decode(raw);
+      if (mounted) setState(() => _avatarBytes = bytes);
+    } catch (e) {
+      debugPrint('[CallScreen] _loadAvatar failed: $e');
     }
   }
 
@@ -1225,6 +1249,10 @@ class _CallScreenState extends State<CallScreen> {
 
   void _hangUp({bool remoteInitiated = false}) {
     if (_disposed) return;
+    // Fade-to-background animation before pop, so the user sees a smooth
+    // dismissal rather than the screen vanishing instantly.
+    if (mounted && !_endedFade) setState(() => _endedFade = true);
+
     _disposed = true;
     setPulseCallActive(false);
     _durationTimer?.cancel();
@@ -1243,7 +1271,10 @@ class _CallScreenState extends State<CallScreen> {
     ActiveCallService.instance.endCall();
     unawaited(_saveCallRecord());
     _disposeRenderers();
-    if (mounted) Navigator.pop(context);
+    // Defer pop so the AnimatedOpacity has time to fade.
+    Future.delayed(const Duration(milliseconds: 250), () {
+      if (mounted) Navigator.pop(context);
+    });
   }
 
   void _disposeRenderers() {
@@ -1273,7 +1304,11 @@ class _CallScreenState extends State<CallScreen> {
     _hideControlsTimer?.cancel();
     if (!_showControls) setState(() => _showControls = true);
     _hideControlsTimer = Timer(const Duration(seconds: 4), () {
-      if (mounted && _remoteRenderer.srcObject != null) {
+      // CRITICAL: only auto-hide controls during fullscreen video.
+      // The previous condition checked `_remoteRenderer.srcObject != null`,
+      // which is true for audio-only streams too — that hid the action bar
+      // mid-call, leaving the user staring at a blank gradient.
+      if (mounted && _phase == CallPhase.connectedVideo) {
         setState(() => _showControls = false);
       }
     });
@@ -1345,22 +1380,73 @@ class _CallScreenState extends State<CallScreen> {
       _iceState == RTCIceConnectionState.RTCIceConnectionStateConnected ||
       _iceState == RTCIceConnectionState.RTCIceConnectionStateCompleted;
 
+  /// Whether the *remote* stream is actually sending us live video right
+  /// now. Checking `getVideoTracks().isNotEmpty` alone is wrong on
+  /// Android: flutter_webrtc creates recv-only `MediaStreamTrack`
+  /// placeholders for every transceiver direction, so an audio-only call
+  /// reports a video track that is `enabled == false` and never carries
+  /// a frame. Counting it as "video mode" hides the avatar/name/timer
+  /// overlay and leaves the user staring at a gradient — exact symptom
+  /// the user reported on Android while Linux (which doesn't fabricate
+  /// such placeholders) renders the overlay correctly.
+  bool get _hasRemoteVideo {
+    final src = _remoteRenderer.srcObject;
+    if (src == null) return false;
+    for (final t in src.getVideoTracks()) {
+      if (t.enabled) return true;
+    }
+    return false;
+  }
+
+  /// Whether we have a usable local video track to show in the PiP.
+  /// (Camera off + no screen share means nothing to render — track
+  /// may exist but be disabled, in which case srcObject is null.)
+  bool get _hasLocalVideo => _localRenderer.srcObject != null;
+
+  /// Computed call lifecycle phase used by the new UI widgets.
+  CallPhase get _phase {
+    if (_endedFade ||
+        _iceState == RTCIceConnectionState.RTCIceConnectionStateClosed) {
+      return CallPhase.ended;
+    }
+    if (_isConnected) {
+      return _hasRemoteVideo
+          ? CallPhase.connectedVideo
+          : CallPhase.connectedAudio;
+    }
+    // Reconnecting: ICE was up at some point (we have a non-zero duration)
+    // but went Disconnected/Failed.
+    if (_callDuration > Duration.zero &&
+        (_iceState ==
+                RTCIceConnectionState.RTCIceConnectionStateDisconnected ||
+            _iceState == RTCIceConnectionState.RTCIceConnectionStateFailed ||
+            _isRetrying ||
+            (_sfuAttempted && !_usingSfu))) {
+      return CallPhase.reconnecting;
+    }
+    if (_iceState == RTCIceConnectionState.RTCIceConnectionStateChecking) {
+      return CallPhase.connecting;
+    }
+    // Initial state: New / pre-Checking → caller is dialing, callee is ringing.
+    return widget.isCaller ? CallPhase.dialing : CallPhase.ringing;
+  }
+
   // ── Build ──────────────────────────────────────────────────────────────────
 
   Widget _buildLoading() => Scaffold(
-    backgroundColor: Colors.black,
+    backgroundColor: AppTheme.background,
     body: Builder(builder: (context) => Center(
       child: _initError != null
         ? Column(mainAxisSize: MainAxisSize.min, children: [
-            Icon(Icons.error_outline_rounded, color: Colors.redAccent, size: DesignTokens.spacing48),
+            Icon(Icons.error_outline_rounded, color: AppTheme.destructive, size: DesignTokens.spacing48),
             SizedBox(height: DesignTokens.spacing16),
             Text(context.l10n.callConnectionFailed,
-              style: GoogleFonts.inter(color: Colors.redAccent, fontSize: DesignTokens.fontInput, fontWeight: FontWeight.w600)),
+              style: GoogleFonts.inter(color: AppTheme.destructive, fontSize: DesignTokens.fontInput, fontWeight: FontWeight.w600)),
             SizedBox(height: DesignTokens.spacing8),
             Padding(
               padding: EdgeInsets.symmetric(horizontal: DesignTokens.spacing32),
               child: Text(_initError!,
-                style: GoogleFonts.inter(color: Colors.white38, fontSize: DesignTokens.fontBody),
+                style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: DesignTokens.fontBody),
                 textAlign: TextAlign.center,
                 maxLines: 3,
                 overflow: TextOverflow.ellipsis),
@@ -1371,7 +1457,7 @@ class _CallScreenState extends State<CallScreen> {
               button: true,
               child: ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.redAccent,
+                  backgroundColor: AppTheme.destructive,
                   shape: const StadiumBorder(),
                 ),
                 icon: const Icon(Icons.call_end_rounded, color: Colors.white, size: 18),
@@ -1382,10 +1468,10 @@ class _CallScreenState extends State<CallScreen> {
             ),
           ])
         : Column(mainAxisSize: MainAxisSize.min, children: [
-            CircularProgressIndicator(color: Colors.white54, strokeWidth: DesignTokens.spacing2),
+            CircularProgressIndicator(color: AppTheme.primary, strokeWidth: DesignTokens.spacing2),
             SizedBox(height: DesignTokens.spacing16),
             Text(context.l10n.callInitializing,
-              style: GoogleFonts.inter(color: Colors.white54, fontSize: DesignTokens.fontMd)),
+              style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: DesignTokens.fontMd)),
           ]),
     )),
   );
@@ -1394,105 +1480,198 @@ class _CallScreenState extends State<CallScreen> {
   Widget build(BuildContext context) {
     if (!_ready) return _buildLoading();
 
-    final hasRemoteVideo = _remoteRenderer.srcObject != null &&
-        (_remoteRenderer.srcObject!.getVideoTracks().isNotEmpty);
-    final hasLocalVideo  = _localRenderer.srcObject != null;
+    final phase = _phase;
+    final hasRemoteVideo = phase == CallPhase.connectedVideo;
+    final hasLocalVideo  = _hasLocalVideo;
+    // Controls always shown unless we're in fullscreen video and the user has
+    // been idle for >4s. Action bar must NEVER auto-hide on audio calls.
+    final controlsVisible = _showControls || phase != CallPhase.connectedVideo;
+    final showRestrictedBanner = _currentProfile.isRestricted ||
+        _isRetrying ||
+        _usingSecondary ||
+        _usingSfu ||
+        _sfuAttempted ||
+        (_autoRetried &&
+            _iceState == RTCIceConnectionState.RTCIceConnectionStateFailed);
 
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) _minimize();
       },
-      child: Scaffold(
-      backgroundColor: Colors.black,
-      body: SafeArea(
-        child: Stack(
-            children: [
-              // ── Background / Remote ──────────────────────────────────────
-              hasRemoteVideo
-                  ? Positioned.fill(
-                      child: Container(
-                        color: Colors.black,
-                        child: RTCVideoView(
-                          _remoteRenderer,
-                          objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitContain,
+      child: AnimatedOpacity(
+        opacity: _endedFade ? 0.0 : 1.0,
+        duration: const Duration(milliseconds: 220),
+        child: Scaffold(
+          backgroundColor: AppTheme.background,
+          body: SafeArea(
+            child: GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onTap: () {
+                // Tapping is meaningful only when we have a fullscreen video
+                // to reveal/hide chrome over.
+                if (hasRemoteVideo) _resetHideControlsTimer();
+              },
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  // 1. Background ─ blurred avatar wash OR full RTCVideoView.
+                  CallBackground(
+                    contact: widget.contact,
+                    phase: phase,
+                    remoteRenderer: _remoteRenderer,
+                    avatarBytes: _avatarBytes,
+                  ),
+
+                  // 2. Local PiP — floating draggable.
+                  CallLocalPiP(
+                    renderer: _localRenderer,
+                    visible: hasLocalVideo,
+                    mirror: !_isScreenSharing,
+                    borderColor: _isScreenSharing
+                        ? AppTheme.info
+                        : AppTheme.primary,
+                  ),
+
+                  // 3. Status overlay (avatar + name + status). Only shown
+                  //    when not in fullscreen video.
+                  if (!hasRemoteVideo)
+                    Positioned.fill(
+                      child: Padding(
+                        padding: EdgeInsets.only(
+                          top: showRestrictedBanner ? 80 : 60,
+                          bottom: 220,
+                        ),
+                        child: CallStatusOverlay(
+                          contact: widget.contact,
+                          phase: phase,
+                          statusLabel: _statusLabel(context),
+                          avatarBytes: _avatarBytes,
                         ),
                       ),
-                    )
-                  : _buildAudioBackground(),
-              // Transparent overlay so taps on RTCVideoView (PlatformView)
-              // still reach our controls-reveal handler on Android.
-              if (hasRemoteVideo)
-                Positioned.fill(
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.translucent,
-                    onTap: _resetHideControlsTimer,
-                    child: const SizedBox.expand(),
+                    ),
+
+                  // 4. Top bar (minimize + name + status pill).
+                  Positioned(
+                    top: showRestrictedBanner ? 28 : 0,
+                    left: 0,
+                    right: 0,
+                    child: AnimatedOpacity(
+                      opacity: controlsVisible ? 1.0 : 0.0,
+                      duration: const Duration(milliseconds: 180),
+                      child: CallTopBar(
+                        contact: widget.contact,
+                        phase: phase,
+                        statusLabel: _statusLabel(context),
+                        onMinimize: _minimize,
+                      ),
+                    ),
                   ),
-                ),
 
-              // ── Local video (PiP) ────────────────────────────────────────
-              if (hasLocalVideo)
-                Positioned(
-                  right: DesignTokens.spacing16,
-                  top: 60,
-                  child: Container(
-                    width: 110,
-                    height: 150,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(DesignTokens.radiusLarge),
-                      border: Border.all(
-                        color: _isScreenSharing ? Colors.blueAccent : AppTheme.primary,
-                        width: DesignTokens.spacing2,
-                      ),
-                      boxShadow: [BoxShadow(color: Colors.black38, blurRadius: DesignTokens.spacing10)],
+                  // 5. Bottom action bar.
+                  Positioned(
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    child: AnimatedOpacity(
+                      opacity: controlsVisible ? 1.0 : 0.0,
+                      duration: const Duration(milliseconds: 180),
+                      child: _buildActionBar(),
                     ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
-                      child: RTCVideoView(
-                        _localRenderer,
-                        mirror: !_isScreenSharing,
-                        objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
+                  ),
+
+                  // 6. Restricted-mode / Tor / SFU banner — keep on top so
+                  //    the user always sees transport changes.
+                  if (showRestrictedBanner)
+                    Positioned(
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      child: AnimatedOpacity(
+                        opacity: controlsVisible ? 1.0 : 0.0,
+                        duration: const Duration(milliseconds: 180),
+                        child: _buildRestrictedBanner(),
                       ),
                     ),
-                  ).animate().scale(delay: 300.ms),
-                ),
-
-              // ── Restricted-mode banner ───────────────────────────────────
-              if (_currentProfile.isRestricted || _isRetrying || _usingSecondary || _usingSfu || _sfuAttempted ||
-                  (_autoRetried && _iceState == RTCIceConnectionState.RTCIceConnectionStateFailed))
-                Positioned(
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  child: _buildRestrictedBanner(),
-                ),
-
-              // ── Top bar ──────────────────────────────────────────────────
-              Positioned(
-                top: (_currentProfile.isRestricted || _isRetrying || _usingSecondary || _usingSfu || _sfuAttempted) ? 28 : 0,
-                left: 0,
-                right: 0,
-                child: AnimatedOpacity(
-                  opacity: _showControls || !hasRemoteVideo ? 1.0 : 0.0,
-                  duration: const Duration(milliseconds: 150),
-                  child: _buildTopBar(),
-                ),
+                ],
               ),
-
-              // ── Bottom controls ──────────────────────────────────────────
-              Positioned(
-                bottom: 0, left: 0, right: 0,
-                child: AnimatedOpacity(
-                  opacity: _showControls || !hasRemoteVideo ? 1.0 : 0.0,
-                  duration: const Duration(milliseconds: 150),
-                  child: _buildControlBar(),
-                ),
-              ),
-            ],
+            ),
           ),
         ),
-    )); // Scaffold + PopScope
+      ),
+    );
+  }
+
+  // ── Bottom action bar (new, replaces _buildControlBar) ────────────────────
+
+  Widget _buildActionBar() {
+    final l = context.l10n;
+    final canFlip = !_isCameraOff && !_isScreenSharing;
+
+    return Container(
+      padding: EdgeInsets.fromLTRB(
+        DesignTokens.spacing16,
+        DesignTokens.spacing24,
+        DesignTokens.spacing16,
+        DesignTokens.spacing32,
+      ),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.bottomCenter,
+          end: Alignment.topCenter,
+          colors: [
+            AppTheme.background.withValues(alpha: 0.85),
+            AppTheme.background.withValues(alpha: 0.0),
+          ],
+          stops: const [0.0, 1.0],
+        ),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            CallActionButton(
+              icon: _isMuted ? Icons.mic_off_rounded : Icons.mic_rounded,
+              label: _isMuted ? l.callUnmute : l.callMute,
+              active: _isMuted,
+              activeColor: AppTheme.warning,
+              onTap: _toggleMute,
+            ),
+            CallActionButton(
+              icon: _isCameraOff
+                  ? Icons.videocam_off_rounded
+                  : Icons.videocam_rounded,
+              label: _isCameraOff ? l.callCameraOff : l.callCameraOn,
+              active: !_isCameraOff,
+              onTap: _isScreenSharing ? null : _toggleCamera,
+            ),
+            CallActionButton(
+              icon: Icons.call_end_rounded,
+              label: l.callEnd,
+              endCall: true,
+              size: 64,
+              onTap: _hangUp,
+            ),
+            CallActionButton(
+              icon: _isScreenSharing
+                  ? Icons.stop_screen_share_rounded
+                  : Icons.screen_share_rounded,
+              label: _isScreenSharing ? l.callStopShare : l.callShareScreen,
+              active: _isScreenSharing,
+              activeColor: AppTheme.info,
+              onTap: _toggleScreenShare,
+            ),
+            CallActionButton(
+              icon: Icons.flip_camera_ios_rounded,
+              label: _isFrontCamera ? 'Flip' : 'Front',
+              onTap: canFlip ? _flipCamera : null,
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   // ── Restricted-mode banner ─────────────────────────────────────────────────
@@ -1554,295 +1733,4 @@ class _CallScreenState extends State<CallScreen> {
     );
   }
 
-  // ── Audio background ───────────────────────────────────────────────────────
-
-  Widget _buildAudioBackground() {
-    final name    = widget.contact.name;
-    final initial = name.isNotEmpty ? name[0].toUpperCase() : '?';
-    final hue     = (name.codeUnitAt(0) * 17 + name.length * 31) % 360;
-
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            HSLColor.fromAHSL(1, hue.toDouble(), 0.4, 0.2).toColor(),
-            Colors.black,
-          ],
-        ),
-      ),
-      child: Center(
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Stack(alignment: Alignment.center, children: [
-            if (!_isConnected)
-              Container(
-                width: 140, height: 140,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: HSLColor.fromAHSL(1, hue.toDouble(), 0.5, 0.3)
-                      .toColor()
-                      .withValues(alpha: DesignTokens.opacityMedium),
-                ),
-              ).animate(onPlay: (c) => c.repeat()).scale(
-                begin: const Offset(1, 1),
-                end:   const Offset(1.3, 1.3),
-                duration: 1200.ms,
-                curve: Curves.easeInOut,
-              ),
-            Container(
-              width: 100, height: 100,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: LinearGradient(
-                  colors: [
-                    HSLColor.fromAHSL(1, hue.toDouble(), 0.55, 0.42).toColor(),
-                    HSLColor.fromAHSL(1, hue.toDouble(), 0.50, 0.30).toColor(),
-                  ],
-                  begin: Alignment.topLeft,
-                  end:   Alignment.bottomRight,
-                ),
-              ),
-              child: Center(
-                child: Text(
-                  initial,
-                  style: GoogleFonts.inter(
-                    color: Colors.white,
-                    fontSize: 40,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ),
-          ]),
-          SizedBox(height: DesignTokens.spacing24),
-          Text(
-            name,
-            style: GoogleFonts.inter(
-              color: Colors.white,
-              fontSize: DesignTokens.fontDisplayLg,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: DesignTokens.spacing8),
-          Text(
-            _statusLabel(context),
-            style: GoogleFonts.inter(color: Colors.white70, fontSize: DesignTokens.fontInput),
-          ).animate(onPlay: (c) {
-            if (!_isConnected) c.repeat(reverse: true);
-          }).fade(duration: 900.ms, begin: 0.5),
-        ]),
-      ),
-    );
-  }
-
-  // ── Top bar ────────────────────────────────────────────────────────────────
-
-  Widget _buildTopBar() {
-    return Container(
-      padding: EdgeInsets.fromLTRB(DesignTokens.spacing8, DesignTokens.spacing8, DesignTokens.spacing16, DesignTokens.spacing8),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end:   Alignment.bottomCenter,
-          colors: [Colors.black.withValues(alpha: DesignTokens.opacityHeavy), Colors.transparent],
-        ),
-      ),
-      child: Row(children: [
-        Semantics(
-          label: context.l10n.back,
-          button: true,
-          child: IconButton(
-            icon: const Icon(Icons.arrow_back_ios_rounded, color: Colors.white),
-            tooltip: context.l10n.back,
-            onPressed: _minimize,
-          ),
-        ),
-        SizedBox(width: DesignTokens.spacing4),
-        Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(
-              widget.contact.name,
-              style: GoogleFonts.inter(
-                color: Colors.white,
-                fontSize: DesignTokens.fontTitle,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            Text(
-              _statusLabel(context),
-              style: GoogleFonts.inter(color: Colors.white70, fontSize: DesignTokens.fontMd),
-            ),
-          ]),
-        ),
-        if (_isConnected)
-          Container(
-            padding: EdgeInsets.symmetric(horizontal: DesignTokens.spacing10, vertical: DesignTokens.spacing4),
-            decoration: BoxDecoration(
-              color:  Colors.green.withValues(alpha: 0.25),
-              borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
-              border: Border.all(color: Colors.green.withValues(alpha: 0.5)),
-            ),
-            child: Row(mainAxisSize: MainAxisSize.min, children: [
-              Container(
-                width: 7, height: 7,
-                decoration: const BoxDecoration(
-                  color: Colors.greenAccent,
-                  shape: BoxShape.circle,
-                ),
-              ),
-              const SizedBox(width: 5),
-              Text(
-                context.l10n.callLive,
-                style: GoogleFonts.inter(
-                  color: Colors.greenAccent,
-                  fontSize: DesignTokens.fontBody,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ]),
-          ),
-      ]),
-    );
-  }
-
-  // ── Control bar ────────────────────────────────────────────────────────────
-
-  Widget _buildControlBar() {
-    return Container(
-      padding: EdgeInsets.fromLTRB(DesignTokens.spacing16, DesignTokens.spacing20, DesignTokens.spacing16, DesignTokens.spacing32),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.bottomCenter,
-          end:   Alignment.topCenter,
-          colors: [Colors.black.withValues(alpha: 0.75), Colors.transparent],
-        ),
-      ),
-      child: Column(mainAxisSize: MainAxisSize.min, children: [
-        Padding(
-          padding: EdgeInsets.only(bottom: DesignTokens.spacing16),
-          child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-            _buildSmallButton(
-              icon:        _isScreenSharing ? Icons.stop_screen_share_rounded : Icons.screen_share_rounded,
-              label:       _isScreenSharing ? context.l10n.callStopShare : context.l10n.callShareScreen,
-              active:      _isScreenSharing,
-              activeColor: Colors.blueAccent,
-              onTap:       _toggleScreenShare,
-            ),
-            SizedBox(width: DesignTokens.spacing24),
-            _buildSmallButton(
-              icon:  _isCameraOff ? Icons.videocam_off_rounded : Icons.videocam_rounded,
-              label: _isCameraOff ? context.l10n.callCameraOff : context.l10n.callCameraOn,
-              active: !_isCameraOff,
-              onTap:  _toggleCamera,
-            ),
-            if (!_isCameraOff) ...[
-              SizedBox(width: DesignTokens.spacing24),
-              _buildSmallButton(
-                icon:  Icons.flip_camera_ios_rounded,
-                label: _isFrontCamera ? 'Flip' : 'Front',
-                onTap: _flipCamera,
-              ),
-            ],
-          ]),
-        ),
-        Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
-          _buildControlButton(
-            icon:      _isMuted ? Icons.mic_off_rounded : Icons.mic_rounded,
-            label:     _isMuted ? context.l10n.callUnmute : context.l10n.callMute,
-            color:     _isMuted ? Colors.white : Colors.white24,
-            iconColor: _isMuted ? Colors.black : Colors.white,
-            onPressed: _toggleMute,
-          ),
-          Semantics(
-            label: context.l10n.callEndCall,
-            button: true,
-            child: GestureDetector(
-              onTap: _hangUp,
-              child: Column(mainAxisSize: MainAxisSize.min, children: [
-                Container(
-                  width: 68, height: 68,
-                  decoration: BoxDecoration(
-                    color: Colors.redAccent,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.redAccent.withValues(alpha: 0.5),
-                        blurRadius: DesignTokens.spacing16,
-                        offset: Offset(0, DesignTokens.spacing4),
-                      ),
-                    ],
-                  ),
-                  child: const Icon(Icons.call_end_rounded, color: Colors.white, size: 30),
-                ).animate().scale(),
-                SizedBox(height: DesignTokens.spacing6),
-                Text(context.l10n.callEnd, style: GoogleFonts.inter(color: Colors.white70, fontSize: DesignTokens.fontSm)),
-              ]),
-            ),
-          ),
-          _buildControlButton(
-            icon:      Icons.volume_up_rounded,
-            label:     context.l10n.callSpeaker,
-            color:     Colors.white24,
-            iconColor: Colors.white,
-            onPressed: () {},
-          ),
-        ]),
-      ]),
-    );
-  }
-
-  Widget _buildControlButton({
-    required IconData icon,
-    required String label,
-    required Color color,
-    required Color iconColor,
-    required VoidCallback onPressed,
-  }) {
-    return Semantics(
-      label: label,
-      button: true,
-      child: GestureDetector(
-        onTap: onPressed,
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Container(
-            width: 56, height: 56,
-            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-            child: Icon(icon, color: iconColor, size: DesignTokens.iconLg),
-          ).animate().scale(),
-          SizedBox(height: DesignTokens.spacing6),
-          Text(label, style: GoogleFonts.inter(color: Colors.white70, fontSize: DesignTokens.fontSm)),
-        ]),
-      ),
-    );
-  }
-
-  Widget _buildSmallButton({
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-    bool active = false,
-    Color activeColor = Colors.white,
-  }) {
-    return Semantics(
-      label: label,
-      button: true,
-      child: GestureDetector(
-        onTap: onTap,
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Container(
-            width: 44, height: 44,
-            decoration: BoxDecoration(
-              color: active ? activeColor.withValues(alpha: 0.2) : Colors.white12,
-              shape: BoxShape.circle,
-              border: active ? Border.all(color: activeColor, width: 1.5) : null,
-            ),
-            child: Icon(icon, color: active ? activeColor : Colors.white, size: DesignTokens.iconMd),
-          ),
-          SizedBox(height: DesignTokens.spacing4),
-          Text(label, style: GoogleFonts.inter(color: Colors.white60, fontSize: DesignTokens.fontXs)),
-        ]),
-      ),
-    );
-  }
 }
