@@ -761,4 +761,47 @@ void main() {
     expect(bobMsg.text, 'first-with-seeded-pulse');
     expect(aliceMsg.text, 'first-with-seeded-pulse');
   });
+
+  // ─────────────────────────────────────────────────────────────────────
+  // Test 13 — duplicate session_reset arrivals dedup'd by receive cooldown.
+  //
+  // Catches the regression fixed in commit 084cab3:
+  // `sendSignalToAllTransports('session_reset', ...)` fans the same
+  // signal across every wire (5 Nostr relays + Session + Pulse). Pre-fix,
+  // the receiver processed each duplicate, calling
+  // `deleteContactData + buildSession` 5-7 times in a row. Each rebuild
+  // generated a fresh ratchet ephemeral, leaving the just-emitted
+  // PreKey-init reply pointing at a session the peer no longer held —
+  // the recovery dance never converged, log showed
+  // "Built fresh session ... keyChanged=false" 5+ times in a row, the
+  // conversation broke permanently after every reinstall.
+  //
+  // Post-fix: only the first arrival within the cooldown is processed.
+  test('5 duplicate session_resets across transports → process exactly one', () async {
+    final bus = InMemoryBus();
+    final alice = await TestClient.spawn('alice', bus);
+    final bob = await TestClient.spawn('bob', bus);
+    await alice.addContact(bob);
+    await bob.addContact(alice);
+
+    // Warm-up so a real session exists on both sides.
+    await alice.sendText(bob, 'warmup');
+    await bob.incoming.first.timeout(const Duration(seconds: 2));
+
+    // Simulate the multi-transport fanout — alice fires 5 copies of
+    // the same session_reset at bob in rapid succession. Mirrors what
+    // `sendSignalToAllTransports` does in production.
+    expect(bob.sessionResetReceiveCount, 0);
+    alice.floodSessionResetForTransportFanout(bob, 5);
+
+    // Give bob a small window to process the duplicates.
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+
+    expect(bob.sessionResetReceiveCount, 1,
+        reason: 'duplicates should be suppressed by receive-cooldown');
+
+    await alice.dispose();
+    await bob.dispose();
+    bus.dispose();
+  });
 }

@@ -389,9 +389,20 @@ class TestClient {
   /// `session_reset` broadcast.
   final Map<String, DateTime> _lastSessionResetSentTo = {};
 
-  /// Time window for the rate-limiter. Production uses ~30s; the
-  /// harness uses 1s so tests stay fast while still exercising the
-  /// rate-limit logic.
+  /// Per-peer rate-limit timestamps for INCOMING `session_reset` signals.
+  /// Mirrors production's fix in commit 084cab3:
+  /// `sendSignalToAllTransports` fans the same logical reset across
+  /// every transport (Nostr × N relays + Session + Pulse), so the
+  /// receiver sees 5-7 duplicate copies. Each `deleteContactData +
+  /// buildSession` run replaces the just-built session with a fresh
+  /// ratchet ephemeral, leaving the just-emitted PreKey-init reply
+  /// pointing at a session the peer no longer holds → infinite loop.
+  /// Process the first arrival, drop the rest.
+  final Map<String, DateTime> _lastSessionResetReceivedFrom = {};
+
+  /// Time window for the rate-limiter. Production uses ~30s for outgoing
+  /// and 10s for incoming; the harness uses 1s so tests stay fast while
+  /// still exercising the rate-limit logic.
   static const Duration _kSessionResetCooldown = Duration(seconds: 1);
 
   /// Streamed `session_reset` reception events — tests can `await` on
@@ -618,6 +629,30 @@ class TestClient {
       }),
     ));
     return true;
+  }
+
+  /// Simulates production's `_broadcaster.sendSignalToAllTransports`
+  /// fanning a single logical session_reset across N transports —
+  /// in real deployment that's 5-7 duplicate arrivals on the receiver
+  /// (5 Nostr relays + Session + Pulse). Use this in tests that need
+  /// to verify the receive-side de-dup cooldown actually kicks in.
+  ///
+  /// Bypasses the outgoing rate-limit (callers explicitly want the
+  /// duplicates this method emits).
+  void floodSessionResetForTransportFanout(TestClient peer, int copies) {
+    final bundle = publicBundle();
+    for (var i = 0; i < copies; i++) {
+      sessionResetSendCount++;
+      bus.send(BusMessage(
+        to: peer.address,
+        from: address,
+        kind: 'signal',
+        payload: jsonEncode({
+          'type': 'session_reset',
+          'payload': _serializeBundle(bundle),
+        }),
+      ));
+    }
   }
 
   /// Wait until our `sessionResetSendCount` stops increasing for one
@@ -971,6 +1006,23 @@ class TestClient {
 
     switch (type) {
       case 'session_reset':
+        // Drop duplicates within the cooldown — production sees the
+        // same signal 5-7 times because sendSignalToAllTransports fans
+        // out across every wire. Without this guard, each duplicate
+        // wipes the just-built session and the recovery never converges.
+        // (Mirrors the production fix in commit 084cab3.)
+        final lastSeen = _lastSessionResetReceivedFrom[m.from];
+        final now = DateTime.now();
+        if (lastSeen != null &&
+            now.difference(lastSeen) < _kSessionResetCooldown) {
+          return;
+        }
+        _lastSessionResetReceivedFrom[m.from] = now;
+        // Symmetric outgoing cooldown: peer just told us "rebuild against
+        // this bundle"; firing OUR session_reset back would race with
+        // their next user-msg PreKey-init reply.
+        _lastSessionResetSentTo[m.from] = now;
+
         sessionResetReceiveCount++;
         // Atomic recovery: drop the stale session + trusted-identity
         // entry, then build a fresh session from the inline bundle.
