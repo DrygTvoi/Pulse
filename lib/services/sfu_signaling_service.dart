@@ -33,6 +33,13 @@ class SfuSignalingService {
 
   // Callbacks
   Function(String pubkey, String trackId, String kind)? onTrackAvailable;
+  /// Fired when a SPECIFIC track stops (publisher hit "stop screen-share",
+  /// turned camera off, replaceVideoSource(null)…). Distinct from
+  /// onParticipantLeft, which means the whole participant is gone — here
+  /// the participant stays in the call (their audio etc. still flow), only
+  /// THIS track ends. UI should clear the renderer for that track without
+  /// disposing the participant tile.
+  Function(String pubkey, String trackId)? onTrackRemoved;
   Function(String pubkey)? onParticipantLeft;
   Function(List<String> activeSet, String? dominant)? onLastNUpdate;
   Function(List<String> speakers, String? dominant)? onSpeakerUpdate;
@@ -669,6 +676,16 @@ class SfuSignalingService {
         }
 
       case 'track_removed':
+        final pubkey = data['pubkey'] as String? ?? '';
+        final trackId = data['track_id'] as String? ?? '';
+        if (pubkey.isNotEmpty && pubkey != myId) {
+          // Drop our local subscription record so a subsequent
+          // re-publish (publisher restarts the same kind) doesn't try to
+          // re-attach to the now-dead track.
+          _knownSubscriptions.remove(trackId);
+          onTrackRemoved?.call(pubkey, trackId);
+        }
+
       case 'room_left':
         final pubkey = data['pubkey'] as String? ?? '';
         if (pubkey.isNotEmpty && pubkey != myId) onParticipantLeft?.call(pubkey);

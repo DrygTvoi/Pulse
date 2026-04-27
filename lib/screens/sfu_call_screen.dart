@@ -231,6 +231,25 @@ class _SfuCallScreenState extends State<SfuCallScreen> {
       if (mounted) setState(() {});
     };
 
+    _sfu!.onTrackRemoved = (pubkey, trackId) {
+      if (_disposed) return;
+      // Just this track ended, the participant is still here. Find out
+      // if the dropped track was video so we know whether to clear the
+      // renderer (audio uses it as a sink — don't dispose).
+      final wasVideo = _participantTracks[pubkey]
+          ?.any((m) => m.trackId == trackId &&
+                       (m.kind == 'video' || m.kind == 'screen')) ?? false;
+      _participantTracks[pubkey]?.removeWhere((m) => m.trackId == trackId);
+      _trackOwners.remove(trackId);
+      if (wasVideo) {
+        try { _remoteRenderers[pubkey]?.srcObject = null; } catch (_) {}
+        if (_lastVideoOwner == pubkey) _lastVideoOwner = null;
+        if (_pinnedPubkey == pubkey) _pinnedPubkey = null;
+        if (_expandedPubkey == pubkey) _expandedPubkey = null;
+      }
+      if (mounted) setState(() {});
+    };
+
     _sfu!.onLastNUpdate = (activeSet, dominant) {
       if (_disposed) return;
       setState(() { _activeSet = activeSet.toSet(); _dominant = dominant; });

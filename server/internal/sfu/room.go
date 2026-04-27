@@ -490,12 +490,16 @@ func (r *Room) forwardRTP(remote *webrtc.TrackRemote, local *webrtc.TrackLocalSt
 	isAudio := track.Kind == "audio"
 	timeouts := 0
 
+	roomClosing := false
 	for {
 		// Check room-level shutdown signal before blocking on Read.
 		select {
 		case <-r.closeCh:
-			return
+			roomClosing = true
 		default:
+		}
+		if roomClosing {
+			return
 		}
 
 		_ = remote.SetReadDeadline(time.Now().Add(readTimeout))
@@ -508,11 +512,13 @@ func (r *Room) forwardRTP(remote *webrtc.TrackRemote, local *webrtc.TrackLocalSt
 				if !isAudio && timeouts >= maxConsecutiveTimeoutsVideo {
 					log.Printf("[sfu] forwardRTP: %d consecutive timeouts on track %s (owner=%s kind=%s), exiting",
 						timeouts, track.ID, track.Owner[:8], track.Kind)
+					r.notifyTrackEnded(track)
 					return
 				}
 				continue
 			}
 			// Any other error (EOF, closed pipe, etc.) — exit.
+			r.notifyTrackEnded(track)
 			return
 		}
 		timeouts = 0
@@ -534,9 +540,46 @@ func (r *Room) forwardRTP(remote *webrtc.TrackRemote, local *webrtc.TrackLocalSt
 		}
 
 		if _, err := local.Write(buf[:n]); err != nil {
+			r.notifyTrackEnded(track)
 			return
 		}
 	}
+}
+
+// notifyTrackEnded broadcasts `track_removed` to other participants when
+// the publisher's source dies (replaceVideoSource(null), camera off,
+// screen-share stop, encoder timeout). Receivers use this to clear their
+// renderer for THIS specific track instead of leaving the last frame
+// frozen on screen.
+//
+// NOTE: this intentionally does NOT touch subscriber PCs (no RemoveTrack,
+// no scheduleRenegotiation). Tearing down subscriber-side senders here
+// triggered Android libwebrtc to crash inside `peer_connection.cc:428`
+// — `Check failed: it != remote_streams_.end() — unexpected stream` —
+// when a subsequent renegotiate added a new track that referenced the
+// just-freed stream pointer. Leaving the dead m-line in the SDP costs a
+// few bytes per renegotiate, but lets the receiver clear its UI cleanly
+// without the crash. The transceiver dies for real when the participant
+// hangs up (RemoveParticipant has its own broadcast path).
+//
+// Idempotent: if RemoveParticipant or another forwardRTP exit beat us
+// to it, the entry is already gone from r.Tracks → skip.
+func (r *Room) notifyTrackEnded(track *Track) {
+	if track == nil || r.closed.Load() {
+		return
+	}
+	r.mu.Lock()
+	if _, stillThere := r.Tracks[track.ID]; !stillThere {
+		r.mu.Unlock()
+		return
+	}
+	delete(r.Tracks, track.ID)
+	if p, ok := r.Participants[track.Owner]; ok {
+		delete(p.PublishedTracks, track.ID)
+	}
+	r.mu.Unlock()
+
+	r.broadcastExcept(track.Owner, trackRemovedJSON(r.ID, track.Owner, track.ID))
 }
 
 // SubscribeTrack adds a subscription so a participant receives a track.
