@@ -136,6 +136,11 @@ class SignalBroadcaster {
     }
     _typingTimers[targetId] = Timer(const Duration(seconds: 4), () {
       _isTypingMap.remove(targetId);
+      // Drop our own entry too — without this the map filled up with
+      // stale (already-fired) Timer references and only got cleared by
+      // the 200-entry eviction. Tiny per-entry, but over a long session
+      // with many sporadic typers it added up.
+      _typingTimers.remove(targetId);
       onTypingChanged(targetId);
     });
   }

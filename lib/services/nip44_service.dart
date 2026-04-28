@@ -144,6 +144,25 @@ void clearNonceCache() {
   unawaited(LocalStorageService().purgeOldNonces(maxAgeDays: 0));
 }
 
+/// Cancel the debounced nonce-flush timer and synchronously flush any
+/// pending nonces to disk. Call from ChatController.dispose so the
+/// timer doesn't fire after LocalStorageService has been shut down
+/// (which would touch a closed SQLite handle and crash). Safe to call
+/// multiple times.
+Future<void> disposeNip44Service() async {
+  _nonceFlushTimer?.cancel();
+  _nonceFlushTimer = null;
+  if (_pendingNonceWrites.isNotEmpty) {
+    final batch = List<(String, String)>.from(_pendingNonceWrites);
+    _pendingNonceWrites.clear();
+    try {
+      await LocalStorageService().saveNonces(batch);
+    } catch (e) {
+      debugPrint('[NIP44] Final nonce flush failed: $e');
+    }
+  }
+}
+
 /// HKDF-extract (RFC 5869): PRK = HMAC-Hash(salt, IKM).
 Uint8List _hkdfExtract(Uint8List salt, Uint8List ikm) {
   final hmac = crypto.Hmac(crypto.sha256, salt);

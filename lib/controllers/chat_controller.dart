@@ -6884,6 +6884,11 @@ class ChatController extends ChangeNotifier {
     _cachedPulseSender = null;
     _contactIndex = null;
     unawaited(VoiceService().dispose());
+    // Drain the NIP-44 nonce-flush debounce timer + write any pending
+    // nonces before LocalStorageService below gets torn down. Without
+    // this the timer can fire after the SQLite handle is closed and
+    // crash the isolate on shutdown.
+    unawaited(nip44.disposeNip44Service());
     _signalService.zeroize();
     PqcService().zeroize();
     final reader = InboxManager().reader;

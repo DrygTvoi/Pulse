@@ -197,42 +197,64 @@ class _AddContactDialogState extends State<AddContactDialog> {
       _previewAvatarBytes = null;
     });
     WebSocketChannel? channel;
+    StreamSubscription? sub;
     try {
       channel = WebSocketChannel.connect(Uri.parse(relayWs));
       final subId = 'meta_${Random().nextInt(999999)}';
       channel.sink.add(jsonEncode(['REQ', subId, {'kinds': [0], 'authors': [pubkey], 'limit': 1}]));
       String? foundName;
       String? pictureUrl;
-      await for (final raw in channel.stream.timeout(const Duration(seconds: 6))) {
-        try {
-          final msg = jsonDecode(raw as String) as List<dynamic>;
-          if (msg.isEmpty) continue;
-          if (msg[0] == 'EVENT' && msg.length >= 3) {
-            final event = msg[2] as Map<String, dynamic>;
-            if (event['kind'] == 0) {
-              try {
-                final content = jsonDecode(event['content'] as String) as Map<String, dynamic>;
-                final n = (content['display_name'] as String?)?.trim() ??
-                    (content['name'] as String?)?.trim();
-                if (n != null && n.isNotEmpty) foundName = n;
-                final pic = (content['picture'] as String?)?.trim();
-                if (pic != null && pic.isNotEmpty && pic.length <= 2048) {
-                  pictureUrl = pic;
+      final completer = Completer<void>();
+      // Manual subscription so a timeout / parse error tears down the
+      // socket immediately. The previous `await for` left the stream
+      // listener dangling when an exception fired between connect and
+      // EOSE — the underlying TCP socket lingered until GC, which on a
+      // wide-relay scan added up fast.
+      sub = channel.stream
+          .timeout(const Duration(seconds: 6),
+              onTimeout: (sink) => sink.close())
+          .listen(
+        (raw) {
+          try {
+            final msg = jsonDecode(raw as String) as List<dynamic>;
+            if (msg.isEmpty) return;
+            if (msg[0] == 'EVENT' && msg.length >= 3) {
+              final event = msg[2] as Map<String, dynamic>;
+              if (event['kind'] == 0) {
+                try {
+                  final content = jsonDecode(event['content'] as String) as Map<String, dynamic>;
+                  final n = (content['display_name'] as String?)?.trim() ??
+                      (content['name'] as String?)?.trim();
+                  if (n != null && n.isNotEmpty) foundName = n;
+                  final pic = (content['picture'] as String?)?.trim();
+                  if (pic != null && pic.isNotEmpty && pic.length <= 2048) {
+                    pictureUrl = pic;
+                  }
+                } catch (e) {
+                  debugPrint('[AddContact] NIP-0 profile content parse error: $e');
                 }
-              } catch (e) {
-                debugPrint('[AddContact] NIP-0 profile content parse error: $e');
               }
+            } else if (msg[0] == 'EOSE') {
+              if (!completer.isCompleted) completer.complete();
             }
-          } else if (msg[0] == 'EOSE') { break; }
-        } catch (e) {
-          debugPrint('[AddContact] Nostr message parse error: $e');
-          continue;
-        }
-      }
+          } catch (e) {
+            debugPrint('[AddContact] Nostr message parse error: $e');
+          }
+        },
+        onError: (e) {
+          debugPrint('[AddContact] Profile fetch stream error: $e');
+          if (!completer.isCompleted) completer.complete();
+        },
+        onDone: () {
+          if (!completer.isCompleted) completer.complete();
+        },
+        cancelOnError: true,
+      );
+      await completer.future;
       if (!mounted) return;
       if (foundName != null) {
         setState(() { _fetchingProfile = false; _profileFound = true; _profileFetchStatus = context.l10n.addContactProfileFound(foundName!); });
-        if (_nameController.text.isEmpty) _nameController.text = foundName;
+        if (_nameController.text.isEmpty) _nameController.text = foundName!;
       } else {
         setState(() { _fetchingProfile = false; _profileFound = false; _profileFetchStatus = context.l10n.addContactNoProfileFound; });
       }
@@ -242,7 +264,8 @@ class _AddContactDialogState extends State<AddContactDialog> {
       debugPrint('[AddContact] Profile fetch failed: $e');
       if (mounted) setState(() { _fetchingProfile = false; _profileFound = false; _profileFetchStatus = null; });
     } finally {
-      channel?.sink.close();
+      try { await sub?.cancel(); } catch (_) {}
+      try { await channel?.sink.close(); } catch (_) {}
     }
   }
 
