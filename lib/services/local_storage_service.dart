@@ -14,6 +14,7 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:sqlite3/open.dart' as sqlite3_open;
 import '../models/channel.dart';
 import '../models/channel_post.dart';
+import 'local_storage_schema.dart';
 
 /// Top-level ffiInit for Android — called inside the DB isolate.
 void _androidFfiInit() {
@@ -97,72 +98,8 @@ class LocalStorageService {
           await db.execute('PRAGMA secure_delete=ON');
           debugPrint('[LocalStorage] SQLCipher: full-DB encryption active (WAL mode)');
         },
-        onCreate: (db, _) async {
-          await db.execute('''
-            CREATE TABLE messages (
-              msg_id    TEXT NOT NULL,
-              room_id   TEXT NOT NULL,
-              timestamp INTEGER NOT NULL,
-              data      TEXT NOT NULL,
-              PRIMARY KEY (msg_id, room_id)
-            )
-          ''');
-          await db.execute(
-            'CREATE INDEX idx_messages_room_ts ON messages(room_id, timestamp)',
-          );
-          await db.execute('''
-            CREATE TABLE ttl_pending (
-              msg_id     TEXT NOT NULL,
-              room_id    TEXT NOT NULL,
-              expires_at INTEGER NOT NULL,
-              PRIMARY KEY (msg_id, room_id)
-            )
-          ''');
-          await _createReactionsTable(db);
-          await _createContactsTable(db);
-          await _createAvatarsTable(db);
-          await _createDraftsTable(db);
-          await _createFtsTable(db);
-          await _createNonceCacheTable(db);
-          await _createChannelsTable(db);
-          await _createChannelPostsTable(db);
-        },
-        onUpgrade: (db, oldVersion, newVersion) async {
-          if (oldVersion < 2) {
-            await db.execute('''
-              CREATE TABLE IF NOT EXISTS ttl_pending (
-                msg_id     TEXT NOT NULL,
-                room_id    TEXT NOT NULL,
-                expires_at INTEGER NOT NULL,
-                PRIMARY KEY (msg_id, room_id)
-              )
-            ''');
-          }
-          if (oldVersion < 3) {
-            await _createReactionsTable(db, ifNotExists: true);
-          }
-          if (oldVersion < 4) {
-            await _createContactsTable(db, ifNotExists: true);
-          }
-          if (oldVersion < 5) {
-            await _createAvatarsTable(db, ifNotExists: true);
-          }
-          if (oldVersion < 6) {
-            await _createDraftsTable(db, ifNotExists: true);
-          }
-          if (oldVersion < 7) {
-            await _createFtsTable(db);
-          }
-          if (oldVersion < 8) {
-            await _createNonceCacheTable(db, ifNotExists: true);
-          }
-          if (oldVersion < 9) {
-            await _createChannelsTable(db, ifNotExists: true);
-          }
-          if (oldVersion < 10) {
-            await _createChannelPostsTable(db, ifNotExists: true);
-          }
-        },
+        onCreate: (db, _) => createInitialSchema(db),
+        onUpgrade: (db, oldVersion, _) => runSchemaUpgrades(db, oldVersion),
       ),
     );
 
@@ -178,84 +115,6 @@ class LocalStorageService {
 
     // Rotate DB encryption key if overdue.
     unawaited(_rotateDbKeyIfNeeded());
-  }
-
-  /// Create the reactions table (and its index) inside [db].
-  /// Pass [ifNotExists] = true for upgrade/migration paths that must be idempotent.
-  static Future<void> _createReactionsTable(Database db,
-      {bool ifNotExists = false}) async {
-    final q = ifNotExists ? 'IF NOT EXISTS ' : '';
-    await db.execute('''
-      CREATE TABLE ${q}reactions (
-        room_id   TEXT NOT NULL,
-        msg_id    TEXT NOT NULL,
-        emoji     TEXT NOT NULL,
-        sender_id TEXT NOT NULL,
-        PRIMARY KEY (room_id, msg_id, emoji, sender_id)
-      )
-    ''');
-    await db.execute(
-      'CREATE INDEX ${q}idx_reactions_room_msg ON reactions(room_id, msg_id)',
-    );
-  }
-
-  /// Create the contacts table inside [db].
-  /// Pass [ifNotExists] = true for upgrade/migration paths that must be idempotent.
-  static Future<void> _createContactsTable(Database db,
-      {bool ifNotExists = false}) async {
-    final q = ifNotExists ? 'IF NOT EXISTS ' : '';
-    await db.execute('''
-      CREATE TABLE ${q}contacts (
-        id   TEXT NOT NULL PRIMARY KEY,
-        data TEXT NOT NULL
-      )
-    ''');
-  }
-
-  /// Create the avatars table inside [db].
-  /// Pass [ifNotExists] = true for upgrade/migration paths that must be idempotent.
-  static Future<void> _createAvatarsTable(Database db,
-      {bool ifNotExists = false}) async {
-    final q = ifNotExists ? 'IF NOT EXISTS ' : '';
-    await db.execute('''
-      CREATE TABLE ${q}avatars (
-        contact_id TEXT NOT NULL PRIMARY KEY,
-        data       TEXT NOT NULL
-      )
-    ''');
-  }
-
-  /// Create the drafts table inside [db].
-  /// Pass [ifNotExists] = true for upgrade/migration paths that must be idempotent.
-  static Future<void> _createDraftsTable(Database db,
-      {bool ifNotExists = false}) async {
-    final q = ifNotExists ? 'IF NOT EXISTS ' : '';
-    await db.execute('''
-      CREATE TABLE ${q}drafts (
-        contact_id TEXT NOT NULL PRIMARY KEY,
-        text       TEXT NOT NULL
-      )
-    ''');
-  }
-
-  /// Create the FTS5 virtual table for full-text message search.
-  /// Silently skipped if FTS5 is not compiled into this SQLite build.
-  static Future<void> _createFtsTable(Database db) async {
-    try {
-      await db.execute('''
-        CREATE VIRTUAL TABLE IF NOT EXISTS messages_fts USING fts5(
-          msg_id UNINDEXED,
-          room_id UNINDEXED,
-          content,
-          tokenize='unicode61'
-        )
-      ''');
-      debugPrint('[LocalStorage] FTS5 messages_fts table created');
-    } catch (e) {
-      // FTS5 extension not available in this SQLite build — search will
-      // fall back to SQL LIKE.
-      debugPrint('[LocalStorage] FTS5 not available: $e');
-    }
   }
 
   /// Check if FTS5 is available by probing the messages_fts table.
@@ -518,11 +377,11 @@ class LocalStorageService {
                   PRIMARY KEY (msg_id, room_id)
                 )
               ''');
-              await _createReactionsTable(db);
-              await _createContactsTable(db);
-              await _createAvatarsTable(db);
-              await _createDraftsTable(db);
-              await _createFtsTable(db);
+              await createReactionsTable(db);
+              await createContactsTable(db);
+              await createAvatarsTable(db);
+              await createDraftsTable(db);
+              await createFtsTable(db);
             },
           ));
 
@@ -1946,17 +1805,6 @@ class LocalStorageService {
 
   // ── Channels ─────────────────────────────────────────────────────────────
 
-  static Future<void> _createChannelsTable(Database db,
-      {bool ifNotExists = false}) async {
-    final q = ifNotExists ? 'IF NOT EXISTS ' : '';
-    await db.execute('''
-      CREATE TABLE ${q}channels (
-        id   TEXT NOT NULL PRIMARY KEY,
-        data TEXT NOT NULL
-      )
-    ''');
-  }
-
   Future<void> saveChannel(Channel channel) async {
     await _database.insert(
       'channels',
@@ -1989,23 +1837,6 @@ class LocalStorageService {
   }
 
   // ── Channel Posts ───────────────────────────────────────────────────────
-
-  static Future<void> _createChannelPostsTable(Database db,
-      {bool ifNotExists = false}) async {
-    final q = ifNotExists ? 'IF NOT EXISTS ' : '';
-    await db.execute('''
-      CREATE TABLE ${q}channel_posts (
-        id         TEXT NOT NULL,
-        channel_id TEXT NOT NULL,
-        data       TEXT NOT NULL,
-        created_at INTEGER NOT NULL,
-        PRIMARY KEY (id, channel_id)
-      )
-    ''');
-    await db.execute(
-      'CREATE INDEX ${q}idx_channel_posts_ts ON channel_posts(channel_id, created_at DESC)',
-    );
-  }
 
   Future<void> saveChannelPosts(String channelId, List<ChannelPost> posts) async {
     if (posts.isEmpty) return;
@@ -2079,23 +1910,6 @@ class LocalStorageService {
   // Persists seen NIP-44 nonces so replay detection survives app restarts.
   // TTL: 2 days — sufficient to cover offline/delayed message delivery while
   // keeping the table small (~few thousand rows for typical usage).
-
-  /// Create the nonce_cache table (and its index) inside [db].
-  static Future<void> _createNonceCacheTable(Database db,
-      {bool ifNotExists = false}) async {
-    final q = ifNotExists ? 'IF NOT EXISTS ' : '';
-    await db.execute('''
-      CREATE TABLE ${q}nonce_cache (
-        conv_key TEXT NOT NULL,
-        nonce    TEXT NOT NULL,
-        seen_at  INTEGER NOT NULL,
-        PRIMARY KEY (conv_key, nonce)
-      )
-    ''');
-    await db.execute(
-      'CREATE INDEX ${q}idx_nonce_cache_seen_at ON nonce_cache(seen_at)',
-    );
-  }
 
   /// Persist a newly seen NIP-44 nonce. Safe to call fire-and-forget.
   /// Errors are logged and swallowed — replay protection is still provided
