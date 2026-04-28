@@ -401,6 +401,9 @@ func (h *Hub) HandleMessage(client *Client, env *Envelope) {
 		t := env.Type
 		payload := env.Payload
 		go safeDispatch(t, func() { h.handleTrackPauseResume(client, t, payload) })
+	case TypeTrackUnpublish:
+		payload := env.Payload
+		go safeDispatch(TypeTrackUnpublish, func() { h.handleTrackUnpublish(client, payload) })
 	case TypeQualityPrefer:
 		payload := env.Payload
 		go safeDispatch(TypeQualityPrefer, func() { h.handleQualityPrefer(client, payload) })
@@ -1247,6 +1250,36 @@ func (h *Hub) handleTrackSubscribe(client *Client, payload json.RawMessage) {
 		RoomID:  req.RoomID,
 		TrackID: req.TrackID,
 	})
+}
+
+// handleTrackUnpublish — publisher signalling that they stopped a stream
+// of [kind] (typically "video" or "screen"). The SDP path doesn't carry
+// this info reliably on Android (we can't renegotiate without crashing
+// libwebrtc, see lib/services/sfu_signaling_service.dart), so the
+// client tells us out of band and we broadcast `track_removed` to peers
+// so their renderer clears immediately instead of freezing on the last
+// frame for ~30 s waiting for forwardRTP's read-deadline timeout.
+func (h *Hub) handleTrackUnpublish(client *Client, payload json.RawMessage) {
+	if h.sfuManager == nil {
+		return
+	}
+	var req struct {
+		RoomID string `json:"room_id"`
+		Kind   string `json:"kind"`
+	}
+	if err := json.Unmarshal(payload, &req); err != nil {
+		return
+	}
+	if req.RoomID == "" || req.Kind == "" {
+		return
+	}
+	dropped := h.sfuManager.UnpublishKind(req.RoomID, client.pubkey, req.Kind)
+	pkShort := client.pubkey
+	if len(pkShort) > 8 {
+		pkShort = pkShort[:8]
+	}
+	log.Printf("[sfu] track_unpublish: room=%s by=%s kind=%s dropped=%d",
+		req.RoomID, pkShort, req.Kind, dropped)
 }
 
 func (h *Hub) handleTrackPauseResume(client *Client, msgType string, payload json.RawMessage) {

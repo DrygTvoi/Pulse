@@ -234,6 +234,61 @@ class SfuSignalingService {
     final pc = _pc!;
     debugPrint('[SFU] replaceVideoSource: enter (newStream=${newStream?.id ?? "null"} '
         'oldSender=${_videoSender != null})');
+
+    // ── Android fast-path: reuse the existing video sender ────────────
+    // Each `removeTrack` + `addTrack` cycle adds a fresh transceiver to
+    // the SDP — `removeTrack` only nulls the sender's track, the m-line
+    // stays. After 2-3 stop/start cycles Android's libwebrtc crashes
+    // inside `peer_connection.cc:OnAddTrack` (`Check failed: it !=
+    // remote_streams_.end() — unexpected stream`) when a follow-up
+    // server renegotiate references one of the stale streams. By
+    // swapping the track in place we keep a single transceiver, a
+    // single SSRC, and avoid any renegotiation: the server's
+    // forwardRTP just sees frames pause and resume on the same wire.
+    if (Platform.isAndroid && _videoSender != null) {
+      final newTrack = newStream?.getVideoTracks().isNotEmpty == true
+          ? newStream!.getVideoTracks().first
+          : null;
+      try {
+        await _videoSender!.replaceTrack(newTrack);
+        debugPrint('[SFU] replaceVideoSource: Android reused sender via '
+            'replaceTrack(${newTrack?.id ?? "null"})');
+        // STOP path: tell the SFU out of band that we're done sending
+        // video so it can broadcast track_removed to subscribers
+        // immediately. Without this, peers would see the last frame
+        // frozen for ~30s while forwardRTP waits for its read-deadline
+        // timeout to fire (we can't renegotiate the SDP — that's the
+        // very crash this fast-path was added to dodge).
+        if (newTrack == null && _roomId != null) {
+          _send({
+            'type': 'track_unpublish',
+            'room_id': _roomId,
+            'kind': 'video',
+          });
+        }
+        if (newTrack != null && maxBitrate > 0) {
+          try {
+            final params = _videoSender!.parameters;
+            params.encodings ??= [RTCRtpEncoding()];
+            for (final enc in params.encodings!) {
+              enc.maxBitrate = maxBitrate;
+              enc.active = true;
+            }
+            params.degradationPreference =
+                RTCDegradationPreference.MAINTAIN_RESOLUTION;
+            await _videoSender!.setParameters(params);
+          } catch (e) {
+            debugPrint('[SFU] replaceVideoSource: setParameters failed: $e');
+          }
+        }
+        return;
+      } catch (e) {
+        debugPrint('[SFU] replaceVideoSource: replaceTrack failed on Android — '
+            'falling back to remove+add: $e');
+        // Fall through to the remove+add path as a last resort.
+      }
+    }
+
     // Tear down the current video sender if we had one.
     if (_videoSender != null) {
       try {

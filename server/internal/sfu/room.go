@@ -564,6 +564,40 @@ func (r *Room) forwardRTP(remote *webrtc.TrackRemote, local *webrtc.TrackLocalSt
 //
 // Idempotent: if RemoveParticipant or another forwardRTP exit beat us
 // to it, the entry is already gone from r.Tracks → skip.
+// UnpublishKindFor drops every track of `kind` (e.g. "video", "screen")
+// owned by [ownerPubkey] and broadcasts `track_removed` to other
+// participants. Returns the number of tracks dropped. Used by the
+// `track_unpublish` client signal so receivers don't have to wait for
+// the forwardRTP read timeout (~30s) before the last frame clears.
+func (r *Room) UnpublishKindFor(ownerPubkey, kind string) int {
+	if r.closed.Load() {
+		return 0
+	}
+	r.mu.Lock()
+	p, ok := r.Participants[ownerPubkey]
+	if !ok {
+		r.mu.Unlock()
+		return 0
+	}
+	doomed := make([]*Track, 0)
+	for trackID, t := range p.PublishedTracks {
+		if t.Kind != kind {
+			continue
+		}
+		doomed = append(doomed, t)
+		delete(p.PublishedTracks, trackID)
+		delete(r.Tracks, trackID)
+	}
+	r.mu.Unlock()
+
+	for _, t := range doomed {
+		log.Printf("[sfu] track_unpublish: cleared track %s (owner=%s kind=%s)",
+			t.ID, ownerPubkey[:8], t.Kind)
+		r.broadcastExcept(ownerPubkey, trackRemovedJSON(r.ID, ownerPubkey, t.ID))
+	}
+	return len(doomed)
+}
+
 func (r *Room) notifyTrackEnded(track *Track) {
 	if track == nil || r.closed.Load() {
 		return

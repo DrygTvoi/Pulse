@@ -291,6 +291,20 @@ func (m *Manager) LeaveRoom(roomID, pubkey string) {
 	room.RemoveParticipant(pubkey)
 }
 
+// UnpublishKind explicitly drops every track of [kind] published by [pubkey]
+// in [roomID] and broadcasts `track_removed` so subscribers stop showing
+// the last frame. Used when a publisher stops a stream client-side
+// without renegotiating the SDP (e.g. Android `replaceTrack(null)` to
+// avoid the libwebrtc OnAddTrack crash) — the SFU otherwise has to wait
+// for forwardRTP's read timeout (~30s) before the receiver clears.
+func (m *Manager) UnpublishKind(roomID, pubkey, kind string) int {
+	room := m.GetRoom(roomID)
+	if room == nil {
+		return 0
+	}
+	return room.UnpublishKindFor(pubkey, kind)
+}
+
 // RemoveParticipantFromAll removes a participant from all rooms.
 func (m *Manager) RemoveParticipantFromAll(pubkey string) {
 	m.mu.RLock()

@@ -172,6 +172,7 @@ const (
 	TypeTrackSubscribed = "track_subscribed"
 	TypeTrackPause      = "track_pause"
 	TypeTrackResume     = "track_resume"
+	TypeTrackUnpublish  = "track_unpublish"
 	TypeQualityPrefer   = "quality_prefer"
 	TypeSpeakerUpdate   = "speaker_update"
 	TypeLastNUpdate     = "last_n_update"
