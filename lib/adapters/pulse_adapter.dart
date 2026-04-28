@@ -417,6 +417,35 @@ class _PulseSharedWs {
 /// Public API: suppress Pulse connection rotation during active calls.
 void setPulseCallActive(bool active) => _PulseSharedWs.callActive = active;
 
+/// Public API: returns true when a Pulse [PulseInboxReader] is registered
+/// for [serverUrl] AND its shared connection is authenticated. After a
+/// long laptop sleep the reader's `_runLoop` can hit the per-failure
+/// circuit breaker and exit permanently — `readers=[]` for that URL,
+/// channel=null. The sender then opens its own adhoc WS without a
+/// SignalDispatcher subscription on its inbound stream, so SFU control
+/// replies (`room_created`, `media_answer`, …) are silently dropped.
+/// Callers (ChatController.ensureGroupPulseConnection) use this to
+/// detect the stale state and force a fresh reader before kicking off
+/// new traffic.
+bool isPulseReaderHealthy(String serverUrl) {
+  final canon = _PulseSharedWs._canonicalize(serverUrl);
+  final reader = _PulseSharedWs._readers[canon];
+  if (reader == null) return false;
+  final shared = _PulseSharedWs._pool[canon];
+  if (shared == null) return false;
+  return shared.authenticated && shared.channel != null;
+}
+
+/// Public API: clear the Pulse uTLS circuit breaker so the next
+/// `_connectPulseWebSocketViaUtls` attempt actually tries the proxy
+/// instead of throwing immediately. Invoked from
+/// `ChatController.ensureGroupPulseConnection` when a stale reader is
+/// detected post-sleep — without this the freshly-restarted reader
+/// would just hit the breaker again and bail.
+void resetPulseUtlsBreaker() {
+  _pulseUtlsFailedUntil = null;
+}
+
 /// Public API: tear down the per-server pool entry so the next reader
 /// rebuilds clean state (clears `authenticated`, `serverHealthy`,
 /// pending key completers, etc.). Called by ChatController when an SFU

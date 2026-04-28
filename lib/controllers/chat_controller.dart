@@ -6607,7 +6607,26 @@ class ChatController extends ChangeNotifier {
   Future<bool> ensureGroupPulseConnection(String serverUrl) async {
     if (serverUrl.isEmpty) return false;
     final key = _canonicalizePulseUrl(serverUrl);
-    if (_pulseSendersByServer.containsKey(key)) return true;
+    if (_pulseSendersByServer.containsKey(key)) {
+      // Sender cached from a previous call — but the underlying reader
+      // may have died during a long laptop sleep (uTLS circuit breaker
+      // tripped, _runLoop hit max consecutive failures and exited
+      // permanently). The sender alone can't dispatch incoming SFU
+      // signals to SignalDispatcher, so room_create replies vanish and
+      // the user is stuck on "Connecting…". Detect the stale state and
+      // tear it down so the path below rebuilds a fresh reader+sender.
+      if (isPulseReaderHealthy(serverUrl)) return true;
+      debugPrint('[Group/SFU] ensureGroupPulseConnection: cached sender '
+          'present but reader is dead (post-sleep recovery) — '
+          'rebuilding for $serverUrl');
+      _pulseSendersByServer.remove(key);
+      _pulseReadersByServer.remove(key);
+      dropPulseSharedPoolFor(serverUrl);
+      // Clear the uTLS breaker too, otherwise the brand-new reader's
+      // first connect attempt throws StateError immediately and we end
+      // up in the same broken state we just escaped.
+      resetPulseUtlsBreaker();
+    }
 
     var privkey = await _secureStorage.read(key: 'pulse_privkey') ?? '';
     if (privkey.isEmpty) {

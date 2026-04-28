@@ -13,6 +13,7 @@ import 'screens/lock_screen.dart';
 import 'dart:async';
 import 'package:app_links/app_links.dart';
 import 'dart:convert';
+import 'adapters/pulse_adapter.dart' show resetPulseUtlsBreaker;
 import 'controllers/chat_controller.dart';
 import 'models/contact.dart';
 import 'models/contact_repository.dart';
@@ -258,6 +259,14 @@ class _PulseAppState extends State<PulseApp> with WidgetsBindingObserver {
       if (bg != null && DateTime.now().difference(bg) >= _kLockDelay) {
         _checkAndLock();
       }
+      // After a long sleep (laptop suspend, phone screen off for hours)
+      // the Pulse uTLS proxy circuit breaker is almost certainly tripped
+      // — wake up should clear it so the first reconnect attempt is
+      // actually tried instead of throwing StateError immediately.
+      // ensureGroupPulseConnection also self-heals on call start, but
+      // resetting it here lets ambient WS reconnects (the inbox reader
+      // running off of _ensureLoop) recover without user action.
+      resetPulseUtlsBreaker();
     }
   }
 
