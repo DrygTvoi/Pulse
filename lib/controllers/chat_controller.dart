@@ -70,6 +70,8 @@ part 'chat_controller_disappearing.dart';
 part 'chat_controller_media.dart';
 part 'chat_controller_send.dart';
 part 'chat_controller_incoming.dart';
+part 'chat_controller_init_inbox.dart';
+part 'chat_controller_init_dispatcher.dart';
 
 enum ConnectionStatus { disconnected, connecting, connected }
 
@@ -404,6 +406,8 @@ class ChatController extends ChangeNotifier {
   late final _MediaSender _media = _MediaSender(this);
   late final _SendPipeline _pipeline = _SendPipeline(this);
   late final _IncomingHandler _incoming = _IncomingHandler(this);
+  late final _InboxInitializer _inboxInit = _InboxInitializer(this);
+  late final _DispatcherInitializer _dispatcherInit = _DispatcherInitializer(this);
 
   bool markInviteShownIfNew(String groupId, String roomId) => _sfu.markInviteShownIfNew(groupId, roomId);
   void forgetInvitesForGroup(String groupId) => _sfu.forgetInvitesForGroup(groupId);
@@ -470,8 +474,6 @@ class ChatController extends ChangeNotifier {
       _sfu.registerActiveGroupCall(groupId, roomId, token, hostId,
           isVideoCall: isVideoCall);
 
-  void _expireActiveGroupCall(String groupId, String roomId) =>
-      _sfu._expireActiveGroupCall(groupId, roomId);
 
   /// Remove an active call entry — called from SfuCallScreen after the
   /// host taps "end for everyone" or when we get a definitive signal
@@ -1038,484 +1040,8 @@ class ChatController extends ChangeNotifier {
   static const _kDefaultNostrRelay = kDefaultNostrRelay;
   static const _kLanModeEnabled = 'lan_mode_enabled';
 
-  Future<void> _initInbox() async {
-    if (_identity == null) return;
+  Future<void> _initInbox() async => _inboxInit._initInbox();
 
-    // Ensure pulse_privkey exists for cross-transport sends (migrate old accounts).
-    final existingPulseKey = await _secureStorage.read(key: 'pulse_privkey');
-    if (existingPulseKey == null || existingPulseKey.isEmpty) {
-      final nostrKey = await _secureStorage.read(key: 'nostr_privkey');
-      if (nostrKey != null && nostrKey.isNotEmpty) {
-        // Derive Pulse key from Nostr key as HKDF-like fallback
-        final seed = Uint8List.fromList(hex.decode(nostrKey));
-        final hmac = hash_lib.Hmac(hash_lib.sha256, utf8.encode('pulse-ed25519-seed'));
-        final derived = hmac.convert(seed);
-        await _secureStorage.write(key: 'pulse_privkey', value: hex.encode(derived.bytes));
-        seed.fillRange(0, seed.length, 0);
-        debugPrint('[Chat] Derived pulse_privkey from nostr_privkey (migration)');
-      }
-    }
-
-    String apiKey = _identity!.adapterConfig['token'] ?? '';
-    String dbId;
-    String providerName;
-
-    switch (_identity!.preferredAdapter) {
-      case 'firebase':
-        providerName = 'Firebase';
-        dbId = _identity!.adapterConfig['dbId'] ?? _identity!.id;
-        _selfId = dbId;
-        {
-          String firebaseUrl = '';
-          try {
-            final cfg = jsonDecode(apiKey);
-            firebaseUrl = (cfg['url'] as String? ?? '').trim();
-          } catch (_) {
-            firebaseUrl = apiKey.trim();
-          }
-          if (!firebaseUrl.startsWith('https://')) {
-            debugPrint('[ChatController] Stale/invalid Firebase config detected ("$firebaseUrl"). '
-                'Clearing token — please re-enter your Firebase URL in Settings.');
-            _identity = _identity!.copyWith(
-              adapterConfig: Map.from(_identity!.adapterConfig)..remove('token'),
-            );
-            final prefs2 = await _getPrefs();
-            await prefs2.setString('user_identity', jsonEncode(_identity!.toJson()));
-            _connectionStatus = ConnectionStatus.disconnected;
-            _scheduleNotify();
-            return;
-          }
-        }
-      case 'nostr':
-        providerName = 'Nostr';
-        var privkey = await _secureStorage.read(key: 'nostr_privkey') ?? '';
-        // Recover from recovery_key when the secure-storage privkey has been
-        // wiped or never landed (Windows Keystore migration loss, fresh
-        // install with imported identity, etc). Without this guard we fall
-        // through to using _identity.id (a UUID) as the "pubkey", which
-        // poisons every outgoing Nostr address: invite links carry
-        // <UUID>@wss://… which BigInt.parse can't read → every sendSignal
-        // dies with FormatException and the contact effectively goes dark.
-        if (privkey.isEmpty) {
-          privkey = await _recoverTransportKey('nostr_privkey');
-        }
-        final prefs = await _getPrefs();
-        final relay = _identity!.adapterConfig['relay'] ??
-            prefs.getString('nostr_relay') ?? _kDefaultNostrRelay;
-        apiKey = jsonEncode({'privkey': privkey, 'relay': relay});
-        dbId = relay;
-        if (privkey.isNotEmpty) {
-          try {
-            final pubkey = deriveNostrPubkeyHex(privkey);
-            _selfId = '$pubkey@$relay';
-          } catch (e) {
-            debugPrint('[ChatController] Invalid Nostr private key: $e');
-            _connectionStatus = ConnectionStatus.disconnected;
-            _scheduleNotify();
-            return;
-          }
-        } else {
-          // Last-resort fallback: identity has no usable Nostr key and
-          // recovery failed too. Refuse to fabricate a UUID-shaped "pubkey"
-          // — it's worse than no Nostr at all because it leaks broken
-          // addresses into invite links. Bail and let the user re-import
-          // the recovery key from Settings → Security.
-          debugPrint('[ChatController] Nostr-primary identity but no privkey '
-              'and recovery_key derivation failed. Refusing to fabricate a '
-              'UUID-pubkey — Nostr disabled until recovery key is restored.');
-          _connectionStatus = ConnectionStatus.disconnected;
-          _scheduleNotify();
-          return;
-        }
-      case 'session':
-        providerName = 'Session';
-        {
-          await SessionKeyService.instance.initialize();
-          _selfId = SessionKeyService.instance.sessionId;
-          final prefs = await _getPrefs();
-          final nodeUrl = prefs.getString('session_node_url') ?? prefs.getString('oxen_node_url') ?? '';
-          apiKey = nodeUrl;
-          dbId = _selfId;
-        }
-      case 'pulse':
-        providerName = 'Pulse';
-        {
-          var privkey = await _secureStorage.read(key: 'pulse_privkey') ?? '';
-          if (privkey.isEmpty) {
-            privkey = await _recoverTransportKey('pulse_privkey');
-          }
-          final prefs = await _getPrefs();
-          final serverUrl = prefs.getString('pulse_server_url') ?? '';
-          final invite = prefs.getString('pulse_invite_code') ?? '';
-          apiKey = jsonEncode({'privkey': privkey, 'serverUrl': serverUrl, 'invite': invite});
-          dbId = serverUrl;
-          if (privkey.isNotEmpty) {
-            try {
-              final seed = Uint8List.fromList(hex.decode(privkey));
-              final pubkey = await ed25519PubkeyFromSeed(seed);
-              _selfId = '$pubkey@$serverUrl';
-            } catch (e) {
-              debugPrint('[ChatController] Invalid Pulse private key: $e');
-              _connectionStatus = ConnectionStatus.disconnected;
-              _scheduleNotify();
-              return;
-            }
-          } else {
-            // Same rationale as Nostr: never fabricate a UUID-pubkey.
-            debugPrint('[ChatController] Pulse-primary identity but no privkey '
-                'and recovery_key derivation failed. Refusing to use UUID — '
-                'Pulse disabled until recovery key is restored.');
-            _connectionStatus = ConnectionStatus.disconnected;
-            _scheduleNotify();
-            return;
-          }
-        }
-      default:
-        providerName = 'Firebase';
-        dbId = _identity!.adapterConfig['dbId'] ?? _identity!.id;
-        _selfId = dbId;
-    }
-
-    await InboxManager().configureSelf(providerName, apiKey, dbId);
-    _connectionStatus = ConnectionStatus.connected;
-    sentryBreadcrumb('Adapter connected: $providerName', category: 'adapter');
-    _scheduleNotify();
-
-    // (Delivery stats removed — transport-priority routing replaces promotion)
-
-    // Republish Signal bundle whenever a preKey is consumed.
-    _signalService.onPreKeyConsumed = () => unawaited(_republishKeys());
-
-    // Re-publish bundle to ALL transports when prekeys are exhausted.
-    _bundleRefreshSub?.cancel();
-    _bundleRefreshSub = _signalService.onBundleRefresh.listen((_) {
-      debugPrint('[Chat] PreKeys exhausted — re-publishing bundle to all transports');
-      unawaited(_republishAllKeys());
-    });
-
-    // Surface prekey exhaustion attack warnings.
-    _signalSubs.add(_signalService.onPreKeyExhaustionWarning.listen((msg) {
-      if (!_e2eeFailCtrl.isClosed) _e2eeFailCtrl.add('⚠️ $msg');
-    }));
-
-    unawaited(_keys.maybePublishOwnKeys(
-        _identity!.preferredAdapter, _selfId, _identity!.adapterConfig['token'] ?? ''));
-
-    unawaited(_restoreScheduledMessages());
-
-    // Heartbeats via broadcaster
-    _broadcaster.startHeartbeats(() => _contacts.contacts);
-
-    final newAddresses = <String>[myAddress];
-    _adapterHealth.clear();
-    for (final s in _healthSubs) { s.cancel(); }
-    _healthSubs.clear();
-
-    _initSignalDispatcher();
-
-    if (InboxManager().reader != null) {
-      final r = InboxManager().reader!;
-      final primaryTransport = _providerFromAddress(myAddress);
-      _messageSubs.add(r.listenForMessages().listen(_handleIncomingMessages));
-      _signalSubs.add(r.listenForSignals().listen(
-          (sigs) => _signalDispatcher!.dispatch(sigs, sourceTransport: primaryTransport)));
-      _adapterHealth[myAddress] = true;
-      _healthSubs.add(r.healthChanges.listen((h) => _onAdapterHealthChange(myAddress, h)));
-    }
-
-    // Register contact relays as secondary subscriptions so fallback publishes
-    // (when a contact's relay rate-limits us) are still received by both sides.
-    final mainReader = InboxManager().reader;
-    if (mainReader is NostrInboxReader) {
-      for (final c in _contacts.contacts) {
-        if (c.provider != 'Nostr') continue;
-        final dbId = c.databaseId;
-        final wsIdx = dbId.indexOf('@wss://');
-        final wsIdx2 = dbId.indexOf('@ws://');
-        final atIdx = wsIdx != -1 ? wsIdx : (wsIdx2 != -1 ? wsIdx2 : -1);
-        if (atIdx != -1) {
-          final contactRelay = dbId.substring(atIdx + 1);
-          mainReader.addSecondaryRelay(contactRelay);
-        }
-      }
-      // Subscribe to probe/adaptive relays for own inbox redundancy.
-      final prefs = await _getPrefs();
-      final probeRelay = prefs.getString('probe_nostr_relay') ?? '';
-      final adaptiveRelay = prefs.getString('adaptive_cf_relay') ?? '';
-      if (probeRelay.isNotEmpty) {
-        mainReader.addSecondaryRelay(
-            probeRelay.startsWith('ws') ? probeRelay : 'wss://$probeRelay');
-      }
-      if (adaptiveRelay.isNotEmpty) {
-        mainReader.addSecondaryRelay(adaptiveRelay);
-      }
-      // Always subscribe to the hardcoded default relay so that fallback
-      // publishes (when primary relay rate-limits/rejects) are received.
-      mainReader.addSecondaryRelay(_kDefaultNostrRelay);
-
-      // For Nostr-primary users: also REGISTER additional DM-capable probed
-      // relays as our own advertised addresses (up to 4), not just reader
-      // subscriptions. Without this, _allAddresses had exactly one Nostr
-      // entry and contacts saw only a single relay per contact.
-      final atIdxOwn = myAddress.indexOf('@');
-      if (atIdxOwn > 0) {
-        final ownPub = myAddress.substring(0, atIdxOwn);
-        final ownPrimaryRelay = myAddress.substring(atIdxOwn + 1);
-        final probeRelays = ConnectivityProbeService.instance.lastResult.nostrRelays;
-        final advertised = <String>[];
-        for (final r in probeRelays) {
-          if (advertised.length >= 4) break;
-          final relay = r.startsWith('ws') ? r : 'wss://$r';
-          if (relay == ownPrimaryRelay) continue;
-          mainReader.addSecondaryRelay(relay);
-          final addr = '$ownPub@$relay';
-          if (!newAddresses.contains(addr)) {
-            newAddresses.add(addr);
-            _adapterHealth[addr] = true;
-            advertised.add(relay);
-          }
-        }
-        if (advertised.isNotEmpty) {
-          Future.delayed(const Duration(seconds: 8), () {
-            _pruneDisconnectedSecondaries(ownPub, mainReader, advertised);
-          });
-          debugPrint('[Chat] Nostr-primary: registered '
-              '${advertised.length} secondary relay address(es)');
-        }
-      }
-    }
-
-    // Subscribe to tamper warnings from the Nostr layer.
-    _signalSubs.add(NostrInboxReader.tamperWarnings.stream.listen((senderId) {
-      final short = senderId.length > 8 ? senderId.substring(0, 8) : senderId;
-      debugPrint('[Security] MAC tamper warning from $senderId');
-      _tamperWarningCtrl.add(
-          'Tamper detected — a signal from $short… failed integrity check');
-    }));
-
-    // Subscribe secondary adapters
-    final secondaryCfgs = await _loadSecondaryAdapters();
-    for (final cfg in secondaryCfgs) {
-      final reader = await InboxManager().createAdhocReader(
-          cfg['provider']!, cfg['apiKey']!, cfg['databaseId']!);
-      if (reader == null) continue;
-      final secondaryTransport = cfg['provider']!;
-      _messageSubs.add(reader.listenForMessages().listen(_handleIncomingMessages));
-      _signalSubs.add(reader.listenForSignals().listen(
-          (sigs) => _signalDispatcher!.dispatch(sigs, sourceTransport: secondaryTransport)));
-      final addr = cfg['selfId'] ?? '';
-      if (addr.isNotEmpty) {
-        newAddresses.add(addr);
-        _adapterHealth[addr] = true;
-        _healthSubs.add(reader.healthChanges.listen((h) => _onAdapterHealthChange(addr, h)));
-      }
-      unawaited(_keys.publishKeysToAdapter(
-          cfg['provider']!, cfg['apiKey']!, cfg['selfId'] ?? ''));
-    }
-
-    // Auto-register Pulse inbox if configured but not primary — so we can
-    // RECEIVE messages on Pulse even when primary is Nostr/Firebase/etc.
-    // Also adds our Pulse address to allAddresses → contacts learn it via addr_update.
-    if (_identity!.preferredAdapter != 'pulse') {
-      final pulseKey = await _secureStorage.read(key: 'pulse_privkey') ?? '';
-      final pulseUrl = (await _getPrefs()).getString('pulse_server_url') ?? '';
-      if (pulseKey.isNotEmpty && pulseUrl.isNotEmpty) {
-        // REUSE existing _adhocPulseReader if one is alive — re-subscribe
-        // streams (subs were cleared above by reconnectInbox) without
-        // creating a SECOND PulseInboxReader. Two readers for the same
-        // pubkey would race for the server's "1 connection per pubkey"
-        // slot → multi-WS storm → SFU TURN-over-WS dies → calls drop.
-        if (_adhocPulseReader != null) {
-          debugPrint('[Chat] _initInbox: reusing existing _adhocPulseReader '
-              '${identityHashCode(_adhocPulseReader)} (re-subscribing streams)');
-          final pulseReader = _adhocPulseReader!;
-          _messageSubs.add(pulseReader.listenForMessages().listen(_handleIncomingMessages));
-          _signalSubs.add(pulseReader.listenForSignals().listen(
-              (sigs) => _signalDispatcher!.dispatch(sigs, sourceTransport: 'Pulse')));
-          final seed = Uint8List.fromList(hex.decode(pulseKey));
-          final pulsePub = await ed25519PubkeyFromSeed(seed);
-          final pulseAddr = '$pulsePub@$pulseUrl';
-          newAddresses.add(pulseAddr);
-          _adapterHealth[pulseAddr] = true;
-          _healthSubs.add(pulseReader.healthChanges.listen((h) => _onAdapterHealthChange(pulseAddr, h)));
-        } else {
-        try {
-          final pulseApiKey = jsonEncode({'privkey': pulseKey, 'serverUrl': pulseUrl});
-          final pulseReader = await InboxManager().createAdhocReader('Pulse', pulseApiKey, pulseUrl);
-          if (pulseReader != null) {
-            _adhocPulseReader = pulseReader as PulseInboxReader;
-            debugPrint('[Chat] _initInbox: CREATED new _adhocPulseReader '
-                '${identityHashCode(pulseReader)} (none existed)');
-            _messageSubs.add(pulseReader.listenForMessages().listen(_handleIncomingMessages));
-            _signalSubs.add(pulseReader.listenForSignals().listen(
-                (sigs) => _signalDispatcher!.dispatch(sigs, sourceTransport: 'Pulse')));
-            final seed = Uint8List.fromList(hex.decode(pulseKey));
-            final pulsePub = await ed25519PubkeyFromSeed(seed);
-            final pulseAddr = '$pulsePub@$pulseUrl';
-            newAddresses.add(pulseAddr);
-            _adapterHealth[pulseAddr] = true;
-            _healthSubs.add(pulseReader.healthChanges.listen((h) => _onAdapterHealthChange(pulseAddr, h)));
-            // Publish Signal keys to Pulse so contacts can fetch our bundle.
-            unawaited(_keys.publishKeysToAdapter('Pulse', pulseApiKey, pulseAddr));
-            debugPrint('[Chat] Auto-registered Pulse secondary inbox: $pulseAddr');
-          }
-        } catch (e) {
-          debugPrint('[Chat] Failed to auto-register Pulse inbox: $e');
-        }
-        } // close else (existing reader reuse)
-      }
-    }
-
-    // Auto-register Session inbox so we receive messages sent to our Session ID.
-    // Session ID is derived from the same seed on all devices.
-    {
-      try {
-        await SessionKeyService.instance.initialize();
-        final sessId = SessionKeyService.instance.sessionId;
-        if (sessId.isNotEmpty) {
-          final prefs = await _getPrefs();
-          final nodeUrl = prefs.getString('session_node_url') ?? prefs.getString('oxen_node_url') ?? '';
-          final sessionReader = await InboxManager().createAdhocReader('Session', nodeUrl, sessId);
-          if (sessionReader != null) {
-            _adhocSessionReader = sessionReader as SessionInboxReader;
-            _messageSubs.add(sessionReader.listenForMessages().listen(_handleIncomingMessages));
-            _signalSubs.add(sessionReader.listenForSignals().listen(
-                (sigs) => _signalDispatcher!.dispatch(sigs, sourceTransport: 'Session')));
-            // Remove any stale Session IDs from secondary adapters — only
-            // SessionKeyService's ID is real (derived from current seed).
-            newAddresses.removeWhere((a) =>
-                a != sessId && RegExp(r'^05[0-9a-fA-F]{64}$').hasMatch(a));
-            newAddresses.add(sessId);
-            _adapterHealth[sessId] = true;
-            _healthSubs.add(sessionReader.healthChanges.listen((h) => _onAdapterHealthChange(sessId, h)));
-            unawaited(_keys.publishKeysToAdapter('Session', nodeUrl, sessId));
-            debugPrint('[Chat] Auto-registered Session secondary inbox: ${sessId.substring(0, 12)}…');
-          }
-        }
-      } catch (e) {
-        debugPrint('[Chat] Failed to auto-register Session inbox: $e');
-      }
-    }
-
-    // Auto-register Nostr inbox if we have a Nostr key but primary isn't Nostr.
-    // Subscribe on multiple relays (default + probe results) for redundancy.
-    if (_identity!.preferredAdapter != 'nostr') {
-      try {
-        final nostrPriv = await _secureStorage.read(key: 'nostr_privkey') ?? '';
-        if (nostrPriv.isNotEmpty &&
-            !newAddresses.any((a) => a.contains('@wss://') || a.contains('@ws://'))) {
-          final nostrPub = deriveNostrPubkeyHex(nostrPriv);
-          // Primary Nostr relay: user-configured first, probe result second,
-          // hardcoded default only as last resort. This keeps new accounts
-          // from concentrating on the same bootstrap relay.
-          final prefsForNostr = await _getPrefs();
-          final primaryRelay = prefsForNostr.getString('nostr_relay')
-              ?? prefsForNostr.getString('probe_nostr_relay')
-              ?? _kDefaultNostrRelay;
-          final apiKey = jsonEncode({'privkey': nostrPriv, 'relay': primaryRelay});
-          final nostrReader = await InboxManager().createAdhocReader('Nostr', apiKey, primaryRelay);
-          if (nostrReader != null) {
-            _messageSubs.add(nostrReader.listenForMessages().listen(_handleIncomingMessages));
-            _signalSubs.add(nostrReader.listenForSignals().listen(
-                (sigs) => _signalDispatcher!.dispatch(sigs, sourceTransport: 'Nostr')));
-            // Subscribe to additional probed relays as secondary (up to 4 more)
-            // so we have redundancy even if two relays fail simultaneously
-            // and contacts see multiple usable addresses in our profile.
-            final secondaryRelays = <String>[];
-            if (nostrReader is NostrInboxReader) {
-              final probeRelays = ConnectivityProbeService.instance.lastResult.nostrRelays;
-              for (final r in probeRelays) {
-                if (secondaryRelays.length >= 4) break;
-                final relay = r.startsWith('ws') ? r : 'wss://$r';
-                if (relay == primaryRelay) continue;
-                nostrReader.addSecondaryRelay(relay);
-                secondaryRelays.add(relay);
-              }
-            }
-            // Register primary AND secondary addresses immediately so contacts
-            // learn multiple fallback relays from the first addr_update. After
-            // a short delay we prune any secondary that didn't actually connect.
-            final primaryAddr = '$nostrPub@$primaryRelay';
-            newAddresses.add(primaryAddr);
-            _adapterHealth[primaryAddr] = true;
-            _healthSubs.add(nostrReader.healthChanges.listen((h) =>
-                _onAdapterHealthChange(primaryAddr, h)));
-            for (final relay in secondaryRelays) {
-              final addr = '$nostrPub@$relay';
-              newAddresses.add(addr);
-              _adapterHealth[addr] = true;
-            }
-            unawaited(_keys.publishKeysToAdapter('Nostr', apiKey, primaryAddr));
-            if (secondaryRelays.isNotEmpty) {
-              Future.delayed(const Duration(seconds: 8), () {
-                _pruneDisconnectedSecondaries(nostrPub, nostrReader, secondaryRelays);
-              });
-            }
-            debugPrint('[Chat] Auto-registered Nostr inbox: $primaryRelay + ${secondaryRelays.length} secondary');
-          }
-        }
-      } catch (e) {
-        debugPrint('[Chat] Failed to auto-register Nostr inbox: $e');
-      }
-    }
-
-    // Assign all addresses atomically so concurrent readers see a complete list.
-    _allAddresses = newAddresses;
-
-    // (Session→Pulse revert removed — transport-priority routing eliminates cross-transport promotion)
-
-    // LAN fallback
-    _lanReader?.close();
-    _lanSender?.close();
-    _lanReader = null;
-    _lanSender = null;
-    final lanEnabled = (await _getPrefs()).getBool(_kLanModeEnabled) ?? true;
-    if (lanEnabled) {
-      _lanReader = LanInboxReader();
-      _lanSender = LanMessageSender();
-      await _lanReader!.initializeReader('', _selfId);
-      await _lanSender!.initializeSender(_selfId);
-      _messageSubs.add(_lanReader!.listenForMessages().listen(_handleIncomingMessages));
-      _signalSubs.add(_lanReader!.listenForSignals().listen(
-          (sigs) => _signalDispatcher!.dispatch(sigs, sourceTransport: 'LAN')));
-    }
-
-    NetworkMonitor.instance.startMonitoring(
-      onChanged: (isAvailable) {
-        if (_lanModeActive == isAvailable) {
-          _lanModeActive = !isAvailable;
-          _scheduleNotify();
-        }
-      },
-      onNetworkChanged: () {
-        debugPrint('[Chat] Network changed — re-probing relays');
-        ConnectivityProbeService.instance.forceProbe().then((_) {
-          reconnectInbox();
-          Future.delayed(const Duration(seconds: 3), _flushFailedMessages);
-        });
-      },
-    );
-
-    // P2P DataChannel transport
-    P2PTransportService.instance.onSendSignal = (contactId, type, payload) {
-      final contact = _contacts.findById(contactId);
-      if (contact != null) {
-        unawaited(_broadcaster.sendP2PSignal(contact, type, payload));
-      }
-    };
-    _messageSubs.add(P2PTransportService.instance.messageStream.listen((evt) {
-      _handleP2PMessage(evt.contactId, evt.payload);
-    }));
-    _messageSubs.add(P2PTransportService.instance.binaryStream.listen((evt) {
-      _handleP2PBinaryFrame(evt.contactId, evt.data);
-    }));
-
-    // Broadcast our addresses on every connect so contacts learn any new
-    // secondary transport IDs (e.g. changed Session ID after key derivation fix).
-    unawaited(Future.delayed(const Duration(seconds: 2), () => broadcastAddressUpdate()));
-
-    _scheduleNotify();
-  }
 
   Future<List<Map<String, String>>> _loadSecondaryAdapters() async {
     final prefs = await _getPrefs();
@@ -1761,25 +1287,9 @@ class ChatController extends ChangeNotifier {
 
   // ── Key republishing (delegates to KeyManager) ────────────────────────────
 
-  Future<void> _republishKeys() async {
-    if (_identity == null || _selfId.isEmpty) return;
-    await _keys.clearPublishedFlag(_identity!.preferredAdapter, _selfId);
-    await _keys.maybePublishOwnKeys(
-        _identity!.preferredAdapter, _selfId, _identity!.adapterConfig['token'] ?? '');
-    debugPrint('[ChatController] Republished Signal bundle after preKey consumption');
-  }
+  Future<void> _republishKeys() async => _keyRepub.republishPrimary();
 
-  Future<void> _republishAllKeys() async {
-    await _republishKeys();
-    final secondaryCfgs = await _loadSecondaryAdapters();
-    for (final cfg in secondaryCfgs) {
-      final selfId = cfg['selfId'] ?? '';
-      if (selfId.isEmpty) continue;
-      await _keys.clearPublishedFlag(cfg['provider']?.toLowerCase() ?? '', selfId);
-      await _keys.publishKeysToAdapter(cfg['provider']!, cfg['apiKey']!, selfId);
-    }
-    debugPrint('[ChatController] Republished Signal bundle to all transports');
-  }
+  Future<void> _republishAllKeys() async => _keyRepub.republishAll();
 
   /// Push our current Signal + Kyber bundle directly to [contact] as a
   /// `sys_keys` signal. The receiver's SignalDispatcher handles `sys_keys`
@@ -1807,30 +1317,8 @@ class ChatController extends ChangeNotifier {
   ///
   /// `pqcWrap: false` because the inline bundle includes the Kyber
   /// public key — wrapping the unwrap-key in PQC would be circular.
-  Future<void> _pushOwnBundleTo(Contact contact) async {
-    try {
-      // CRITICAL: AWAIT the republish, otherwise the session_reset
-      // signal beats our own publish to the peer's relay and they
-      // refetch a stale bundle.
-      await _republishAllKeys();
-      Map<String, dynamic>? bundle;
-      try {
-        bundle = await _keys.buildOwnBundle();
-      } catch (e) {
-        debugPrint('[ChatController] _pushOwnBundleTo: buildOwnBundle failed: $e');
-      }
-      final payload = <String, dynamic>{
-        'ts': DateTime.now().toUtc().toIso8601String(),
-        if (bundle != null) 'bundle': bundle,
-      };
-      await _broadcaster.sendSignalToAllTransports(
-          contact, 'session_reset', payload, pqcWrap: false);
-      debugPrint('[ChatController] Pushed session_reset to ${contact.name} '
-          'with inline bundle=${bundle != null} after stale-prekey failure');
-    } catch (e) {
-      debugPrint('[ChatController] Failed to push session_reset to ${contact.name}: $e');
-    }
-  }
+  Future<void> _pushOwnBundleTo(Contact contact) async =>
+          _keyRepub.pushOwnBundleTo(contact);
 
   // ── Signal dispatcher ─────────────────────────────────────────────────────
 
@@ -1944,645 +1432,8 @@ class ChatController extends ChangeNotifier {
       String type, Map<String, dynamic> payload, String hmac, String senderPub) =>
       _keys.verifySignalSignature(type, payload, hmac, senderPub);
 
-  void _initSignalDispatcher() {
-    _signalDispatcher?.dispose();
-    for (final s in _dispatcherSubs) { s.cancel(); }
-    _dispatcherSubs.clear();
+  void _initSignalDispatcher() => _dispatcherInit._initSignalDispatcher();
 
-    _signalDispatcher = SignalDispatcher(
-      allAddressesGetter: () => _allAddresses,
-      selfIdGetter: () => _selfId,
-      contactIndexBuilder: _getContactIndex,
-      signatureVerifier: _verifySignalSignature,
-      groupContactResolver: (id) {
-        final c = _contacts.findById(id);
-        return (c != null && c.isGroup) ? c : null;
-      },
-      rateLimiter: _sigRateLimiter,
-    );
-
-    final d = _signalDispatcher!;
-
-    // PQC confirmation from signals — breaks the chicken-and-egg:
-    // receiving a PQC-wrapped signal proves the contact has valid Kyber keys,
-    // so we can PQC-wrap messages to them.
-    _dispatcherSubs.add(d.pqcConfirmed.listen((senderId) {
-      _pqcConfirmed.add(senderId);
-      final prefix = senderId.split('@').first;
-      for (final c in _contacts.contacts) {
-        if (c.databaseId.split('@').first == prefix) {
-          _pqcConfirmed.add(c.databaseId);
-          break;
-        }
-      }
-    }));
-
-    _dispatcherSubs.add(d.rawSignals.listen((e) {
-      if (!_signalStreamController.isClosed) _signalStreamController.add(e.signal);
-      // Cache webrtc signals so callee can replay them after accepting the call
-      final sigType = e.signal['type'] as String? ?? '';
-      if (sigType.startsWith('webrtc_')) {
-        _cacheCallSignal(e.signal);
-      }
-    }));
-
-    _dispatcherSubs.add(d.incomingCalls.listen((e) {
-      if (!_incomingCallController.isClosed) _incomingCallController.add(e.signal);
-    }));
-
-    _dispatcherSubs.add(d.incomingGroupCalls.listen((e) {
-      if (!_incomingGroupCallController.isClosed) {
-        _incomingGroupCallController.add({...e.signal, 'groupId': e.groupId});
-      }
-      // Conference mode: track the call so members who dismiss the
-      // popup (or arrive after the invite landed) can still join via
-      // the chat-screen "ongoing call" banner.
-      final sigType = e.signal['type'] as String? ?? '';
-      if (sigType == 'sfu_invite') {
-        final p = e.signal['payload'];
-        if (p is Map) {
-          final roomId = p['sfuRoomId'] as String? ?? p['room_id'] as String? ?? '';
-          final token = p['sfuToken'] as String? ?? p['token'] as String? ?? '';
-          final isVideo = p['isVideoCall'] as bool? ?? false;
-          final hostId = e.signal['senderId'] as String? ?? '';
-          if (roomId.isNotEmpty && token.isNotEmpty) {
-            _registerActiveGroupCall(e.groupId, roomId, token, hostId,
-                isVideoCall: isVideo);
-          }
-        }
-      }
-    }));
-
-    // Typing — delegate state to broadcaster, emit on our stream
-    _dispatcherSubs.add(d.typingEvents.listen((e) {
-      final targetId = e.groupId ?? e.contact.id;
-      _broadcaster.handleTypingEvent(targetId, (id) {
-        if (!_typingStreamCtrl.isClosed) _typingStreamCtrl.add(id);
-        _scheduleNotify();
-      }, memberId: e.groupId != null ? e.contact.id : null);
-    }));
-
-    _dispatcherSubs.add(d.readReceipts.listen((e) {
-      _markSenderOnline(e.fromId);
-      _handleReadReceipt(e.fromId);
-    }));
-
-    _dispatcherSubs.add(d.groupReadReceipts.listen((e) {
-      _markSenderOnline(e.fromId);
-      _handleGroupReadReceipt(e.fromId, e.groupId, e.msgId);
-    }));
-
-    _dispatcherSubs.add(d.deliveryAcks.listen((e) {
-      _markSenderOnline(e.fromId);
-      _handleDeliveryAck(e.fromId, e.msgId, groupId: e.groupId);
-    }));
-
-    // Pulse server-confirmed storage ACK → transition 'sending' → 'sent'
-    _dispatcherSubs.add(pulseServerAcks.listen(_handleServerAck));
-
-    _dispatcherSubs.add(d.ttlUpdates.listen((e) {
-      // For group TTL signals, e.contact is the member who initiated the
-      // change; the TTL must be applied to the group chat itself, with that
-      // member recorded as the actor in the system notice.
-      Contact? target = e.contact;
-      if (e.groupId != null) {
-        try {
-          target = _contacts.contacts.firstWhere((c) => c.id == e.groupId);
-        } catch (_) {
-          target = null;
-        }
-      }
-      if (target == null) return;
-      unawaited(setChatTtlSeconds(target, e.seconds,
-          sendSignal: false, changedBy: e.contact.id));
-    }));
-
-    // Reactions — delegate to repo.
-    // Skip self-echoes from relays: the transport-layer senderId may be a
-    // bare pubkey or a different relay URL than our _selfId, so the naive
-    // `${emoji}_${from}` composite key wouldn't match the local one we
-    // just wrote in [toggleReaction], and the user would see the reaction
-    // twice under two different author identifiers.
-    _dispatcherSubs.add(d.reactions.listen((e) {
-      if (_isOwnAddress(e.from)) {
-        debugPrint('[Chat] Reaction self-echo ignored: ${e.from}');
-        return;
-      }
-      debugPrint('[Chat] Reaction received: storageKey=${e.storageKey} msgId=${e.msgId} emoji=${e.emoji} from=${e.from} remove=${e.remove}');
-      _repo.applyRemoteReaction(e.storageKey, e.msgId, '${e.emoji}_${e.from}', e.remove);
-      if (e.remove) {
-        unawaited(LocalStorageService().removeReaction(e.storageKey, e.msgId, e.emoji, e.from));
-      } else {
-        unawaited(LocalStorageService().addReaction(e.storageKey, e.msgId, e.emoji, e.from));
-      }
-      _reactionVersions[e.storageKey] = (_reactionVersions[e.storageKey] ?? 0) + 1;
-      _scheduleNotify();
-    }));
-
-    _dispatcherSubs.add(d.edits.listen((e) {
-      debugPrint('[Edit] Received: contact=${e.contact.name} msgId=${e.msgId} text=${e.text.substring(0, e.text.length.clamp(0, 30))} groupId=${e.groupId}');
-      final room = e.groupId != null
-          ? (_repo.getRoomForContact(e.groupId!) ?? _repo.getRoomForContact(e.contact.id))
-          : _repo.getRoomForContact(e.contact.id);
-      if (room != null) {
-        debugPrint('[Edit] Room found: contactId=${room.contact.id} msgs=${room.messages.length}');
-        final idx = _repo.messageIndexById(room.contact.id, e.msgId);
-        debugPrint('[Edit] Message lookup: idx=$idx msgId=${e.msgId}');
-        if (idx != -1) {
-          // Only the original sender may edit their own message.
-          // Match by Contact record, not raw pubkey: the original message may
-          // have been sent via a different transport than the edit (e.g.
-          // msg.senderId is a Nostr secp256k1 pubkey, e.contact.databaseId
-          // is a Pulse Ed25519 pubkey) — both belong to the same Contact.
-          final msg = room.messages[idx];
-          final msgBare = msg.senderId.contains('@')
-              ? msg.senderId.split('@').first
-              : msg.senderId;
-          final contactIndex = _getContactIndex();
-          final msgOwner = contactIndex[msg.senderId]
-              ?? contactIndex[msgBare]
-              ?? _contacts.findByAddress(msg.senderId)
-              ?? _contacts.findByAddress(msgBare);
-          if (msgOwner?.id != e.contact.id) {
-            debugPrint('[Edit] Rejected: ${e.contact.name} (${e.contact.id}) '
-                'tried to edit message owned by ${msgOwner?.name ?? msg.senderId}');
-            return;
-          }
-          final storageKey = room.contact.storageKey;
-          final updated = msg.copyWith(encryptedPayload: e.text, isEdited: true);
-          room.messages[idx] = updated;
-          unawaited(LocalStorageService().saveMessage(storageKey, updated.toJson()));
-          _editVersions[storageKey] = (_editVersions[storageKey] ?? 0) + 1;
-          _scheduleNotify();
-          debugPrint('[Edit] SUCCESS: updated msgId=${e.msgId}');
-        } else {
-          debugPrint('[Edit] DROPPED: message not found. First 5 msg IDs: ${room.messages.take(5).map((m) => m.id).toList()}');
-        }
-      } else {
-        debugPrint('[Edit] DROPPED: room not found for contactId=${e.contact.id}');
-      }
-    }));
-
-    // Heartbeats — update broadcaster's last-seen
-    _dispatcherSubs.add(d.heartbeats.listen((e) {
-      _broadcaster.updateLastSeen(e.contact.id);
-      _scheduleNotify();
-    }));
-
-    _dispatcherSubs.add(d.keysEvents.listen((e) async {
-      final keyChanged = await _signalService.buildSession(
-          e.contact.databaseId, e.payload);
-      _keys.cacheContactKyberPk(e.contact.databaseId, e.payload);
-      if (keyChanged && !_keyChangeCtrl.isClosed) {
-        _keyChangeCtrl.add((contactName: e.contact.name, contactId: e.contact.databaseId));
-      }
-      if (keyChanged) {
-        // Peer's identity rotated (e.g. reinstall after wipe). Sync the new
-        // pubkey into every group's `memberPubkeys` map so subsequent
-        // group_delete tombstones, group_update broadcasts, and pairwise
-        // sender_key distributions go to the NEW identity instead of the
-        // dead old one. Without this, "delete group" silently never
-        // reaches a re-installed peer because _resolveGroupRecipients
-        // looks up by old pubkey.
-        await _refreshGroupMembershipForContact(e.contact);
-      }
-      if (e.contact.provider == 'Session') {
-        unawaited(_keys.publishSessionKeysTo(e.contact, _selfId));
-      }
-    }));
-
-    // PQC unwrap failure: dispatcher tried to unwrap a PQC2-wrapped signal
-    // payload but our Kyber privkey couldn't decrypt it. The peer cached
-    // our OLD Kyber pubkey (likely they reinstalled or we did) and keeps
-    // wrapping replies for the dead key — every subsequent signal silently
-    // gets dropped. Clear `_pqcConfirmed` so we stop telling broadcaster
-    // to PQC-wrap THEIR replies, drop their cached Kyber so we don't try
-    // to wrap, and trigger session_reset so the peer pulls our fresh
-    // bundle (which carries our current Kyber pubkey).
-    _dispatcherSubs.add(d.pqcUnwrapFailed.listen((senderId) async {
-      if (senderId.isEmpty) return;
-      _pqcConfirmed.remove(senderId);
-      _pqcConfirmed.remove(senderId.split('@').first);
-      _keys.clearContactKyberPk(senderId);
-      // Find the local contact for this sender and push our fresh bundle.
-      final idx = _getContactIndex();
-      final c = idx[senderId] ?? idx[senderId.split('@').first];
-      if (c != null) {
-        debugPrint('[ChatController] PQC unwrap failed from ${c.name} — '
-            'cleared cached Kyber + triggering session_reset with fresh bundle');
-        unawaited(_pushOwnBundleTo(c));
-      } else {
-        debugPrint('[ChatController] PQC unwrap failed from unknown $senderId — '
-            'cleared cached Kyber, no contact to push to');
-      }
-    }));
-
-    // Peer-initiated session reset: they failed to decrypt our messages
-    // because the prekey we used has been rotated out on their side.
-    //
-    // Modern peers include their freshly-republished Signal bundle inline
-    // in the signal payload. When present, do delete + buildSession
-    // atomically so we never race against the peer's own-inbox publish —
-    // that race made about half of recoveries pull a stale bundle from a
-    // relay that hadn't yet propagated the peer's update.
-    //
-    // Without inline bundle (legacy peer): just delete; our next encrypt
-    // path will fetch their bundle from a relay (slightly racy, but the
-    // peer is now expecting the rebuild so timing is more forgiving).
-    _dispatcherSubs.add(d.sessionResets.listen((e) async {
-      // Drop duplicates from the same peer within the cooldown window.
-      // `sendSignalToAllTransports` fans out one logical session_reset
-      // across every transport, so we see the same payload 5-7 times.
-      // Processing each one rebuilds the session, generating a fresh
-      // ratchet key, which leaves our just-sent PreKey-init pointing at
-      // the previous (now-discarded) ratchet — peer can't decrypt and
-      // fires another session_reset, looping forever.
-      final lastSeen = _lastSessionResetReceived[e.contact.id];
-      if (lastSeen != null &&
-          DateTime.now().difference(lastSeen) < _kSessionResetReceiveCooldown) {
-        debugPrint('[ChatController] Peer ${e.contact.name} session_reset within '
-            'cooldown (${_kSessionResetReceiveCooldown.inSeconds}s) — ignoring duplicate');
-        return;
-      }
-      _lastSessionResetReceived[e.contact.id] = DateTime.now();
-
-      debugPrint('[ChatController] Peer ${e.contact.name} asked for session reset '
-          '— clearing session (inlineBundle=${e.bundle != null})');
-      await _signalService.deleteContactData(e.contact.databaseId);
-      final bundle = e.bundle;
-      if (bundle != null) {
-        try {
-          final keyChanged =
-              await _signalService.buildSession(e.contact.databaseId, bundle);
-          _keys.cacheContactKyberPk(e.contact.databaseId, bundle);
-          if (keyChanged && !_keyChangeCtrl.isClosed) {
-            _keyChangeCtrl
-                .add((contactName: e.contact.name, contactId: e.contact.databaseId));
-          }
-          debugPrint('[ChatController] Built fresh session for ${e.contact.name} '
-              'from inline bundle (keyChanged=$keyChanged)');
-        } catch (err) {
-          debugPrint('[ChatController] buildSession from inline bundle failed: $err');
-        }
-      }
-      // Also suppress our own outgoing session_reset for this peer for the
-      // same window — if we just rebuilt against their bundle, our next
-      // user-msg PreKey-init carries the answer; firing OUR session_reset
-      // back races with that and replaces their fresh session before they
-      // can decrypt our PreKey.
-      _lastStaleKeyPush[e.contact.id] = DateTime.now();
-    }));
-
-    _dispatcherSubs.add(d.p2pEvents.listen((e) {
-      unawaited(P2PTransportService.instance.handleSignal(
-          e.contact.id, e.type, e.payload));
-    }));
-
-    _dispatcherSubs.add(d.relayExchanges.listen((e) async {
-      await savePeerRelays(e.relays);
-    }));
-
-    _dispatcherSubs.add(d.turnExchanges.listen((e) async {
-      await IceServerConfig.savePeerTurnServers(e.servers);
-    }));
-
-    _dispatcherSubs.add(d.blossomExchanges.listen((e) async {
-      await BlossomService.instance.addPeerServers(e.servers);
-    }));
-
-    _dispatcherSubs.add(d.statusUpdates.listen((e) async {
-      await StatusService.instance.saveContactStatus(e.contact.id, e.status);
-      if (!_statusUpdatesCtrl.isClosed) {
-        _statusUpdatesCtrl.add(e.contact.id);
-      }
-    }));
-
-    _dispatcherSubs.add(d.addrUpdates.listen((e) async {
-      final addrContact = e.contact;
-      final payload = e.rawPayload;
-      // Signals arriving via LAN or our own Pulse-relay are trusted channels —
-      // a peer announcing a 192.168.x address over those is legitimate (shared
-      // LAN / self-hosted relay). Public channels (Nostr, Firebase, Session)
-      // leak metadata, so still reject private IPs there.
-      final trustedSource =
-          e.sourceTransport == 'LAN' || e.sourceTransport == 'Pulse';
-      // F3/F4-4: Validate relay addresses — only wss:// and no private IPs
-      // when arrived over a public transport.
-      bool isValidAltAddr(String addr) {
-        final lower = addr.toLowerCase();
-        // Session addresses (66-char hex) are always valid
-        if (lower.startsWith('05') && lower.length == 66 &&
-            RegExp(r'^[0-9a-f]{66}$').hasMatch(lower)) return true;
-        if (!lower.contains('@wss://') && !lower.contains('@ws://') &&
-            !lower.contains('@https://') && !lower.contains('@http://')) return false;
-        try {
-          final urlPart = addr.substring(addr.indexOf('@') + 1);
-          final uri = Uri.parse(urlPart);
-          final h = uri.host;
-          if (h.isEmpty || h == '0.0.0.0') return false;
-          if (trustedSource) return true;
-          if (h == 'localhost' || h == '127.0.0.1' || h == '::1') return false;
-          if (h.startsWith('192.168.') || h.startsWith('10.') ||
-              h.startsWith('169.254.')) { return false; }
-          if (h.startsWith('172.')) {
-            final seg = int.tryParse(h.split('.').elementAtOrNull(1) ?? '');
-            if (seg != null && seg >= 16 && seg <= 31) return false;
-          }
-          if (h.startsWith('100.')) {
-            final seg = int.tryParse(h.split('.').elementAtOrNull(1) ?? '');
-            if (seg != null && seg >= 64 && seg <= 127) return false;
-          }
-          if (h.startsWith('fc') || h.startsWith('fd')) return false;
-        } catch (_) { return false; }
-        return true;
-      }
-
-      Contact updated;
-      debugPrint('[ChatController] addr_update payload keys: ${payload.keys.toList()}'
-          '${payload.containsKey('transportAddresses') ? ' ta=${payload['transportAddresses']}' : ''}'
-          ' all=${(payload['all'] as List?)?.length ?? 0}');
-      if (payload.containsKey('transportAddresses') && payload['transportAddresses'] is Map) {
-        // ── New format: per-transport address map ────────────────────────
-        final rawTa = payload['transportAddresses'] as Map;
-        final ta = <String, List<String>>{};
-        for (final entry in rawTa.entries) {
-          final transport = entry.key as String;
-          final addrs = (entry.value as List).whereType<String>().where(isValidAltAddr).toList();
-          if (addrs.isNotEmpty) ta[transport] = addrs;
-        }
-        final tp = (payload['transportPriority'] as List?)?.whereType<String>().toList()
-            ?? ta.keys.toList();
-        if (ta.isEmpty) {
-          debugPrint('[ChatController] addr_update: empty transportAddresses, ignoring');
-          return;
-        }
-        // UNION-MERGE every transport's address list with what we already
-        // have (was Nostr-only — broke pulse-mode groups because the sender
-        // briefly sent an addr_update WITHOUT Pulse during startup, which
-        // wiped the Pulse address we'd just learned, and the next message
-        // failed with "No Pulse pubkey for X"). New addresses go first
-        // (fresh primary takes precedence), existing ones backfill, capped
-        // at 10 per transport to bound growth. A user genuinely SWITCHING
-        // their Pulse/Session server can still happen — the new entries
-        // will appear first in the priority order, and stale entries get
-        // pruned by health-check / never-acked routing later. This trades
-        // a sliver of "switch is instant" UX for "we never lose a learned
-        // address mid-flight" reliability.
-        for (final transport in {'Nostr', 'Pulse', 'Session', 'Firebase'}) {
-          final existing = addrContact.transportAddresses[transport]
-              ?? const <String>[];
-          final incoming = ta[transport] ?? const <String>[];
-          if (incoming.isEmpty && existing.isEmpty) continue;
-          final merged = <String>[];
-          final seen = <String>{};
-          for (final a in incoming) {
-            if (seen.add(a)) merged.add(a);
-          }
-          for (final a in existing) {
-            if (merged.length >= 10) break;
-            if (seen.add(a)) merged.add(a);
-          }
-          if (merged.isNotEmpty) ta[transport] = merged;
-        }
-        updated = addrContact.copyWith(
-          transportAddresses: ta,
-          transportPriority: tp,
-        );
-      } else {
-        // ── Old format: primary + all flat list → build transport map ────
-        final primary = e.primary;
-        final all = e.all;
-        if (primary.toLowerCase().contains('@wss://') ||
-            primary.toLowerCase().contains('@ws://') ||
-            primary.toLowerCase().contains('@https://') ||
-            primary.toLowerCase().contains('@http://')) {
-          if (!isValidAltAddr(primary)) {
-            debugPrint('[ChatController] addr_update: invalid primary $primary, ignoring');
-            return;
-          }
-        }
-        final allAddrs = <String>{primary, ...all.where(isValidAltAddr)};
-        final ta = _buildTransportMap(allAddrs.toList());
-        final primaryTransport = _providerFromAddress(primary);
-        final tp = [primaryTransport, ...ta.keys.where((t) => t != primaryTransport)];
-        // Same UNION-MERGE for every transport as in the new-format branch.
-        for (final transport in {'Nostr', 'Pulse', 'Session', 'Firebase'}) {
-          final existing = addrContact.transportAddresses[transport]
-              ?? const <String>[];
-          final incoming = ta[transport] ?? const <String>[];
-          if (incoming.isEmpty && existing.isEmpty) continue;
-          final merged = <String>[];
-          final seen = <String>{};
-          for (final a in incoming) {
-            if (seen.add(a)) merged.add(a);
-          }
-          for (final a in existing) {
-            if (merged.length >= 10) break;
-            if (seen.add(a)) merged.add(a);
-          }
-          if (merged.isNotEmpty) ta[transport] = merged;
-        }
-        updated = addrContact.copyWith(
-          transportAddresses: ta,
-          transportPriority: tp,
-        );
-      }
-      // Save Nostr secp256k1 pubkey if provided (needed for HMAC signing
-      // even when contact has no Nostr relay address).
-      final nostrPub = payload['nostrPubkey'] as String?;
-      if (nostrPub != null && nostrPub.isNotEmpty) {
-        updated = updated.copyWith(publicKey: nostrPub);
-      }
-      // Ensure the contact has a Nostr fallback address for routing.
-      updated = await _ensureNostrFallback(updated);
-      await _contacts.updateContact(updated);
-      _invalidateContactIndex();
-      debugPrint('[ChatController] addr_update: ${addrContact.name} → ${updated.databaseId}'
-          ' session=${updated.transportAddresses['Session'] ?? []}');
-      _scheduleNotify();
-    }));
-
-    _dispatcherSubs.add(d.profileUpdates.listen((e) async {
-      final profileContact = e.contact;
-      bool changed = false;
-      Contact updated = profileContact;
-      if (e.about != profileContact.bio) {
-        updated = updated.copyWith(bio: e.about);
-        changed = true;
-      }
-      if (e.avatarB64.isNotEmpty) {
-        await LocalStorageService().saveAvatar(profileContact.id, e.avatarB64);
-        changed = true;
-      }
-      if (changed) {
-        await _contacts.updateContact(updated);
-        _invalidateContactIndex();
-        _scheduleNotify();
-      }
-    }));
-
-    _dispatcherSubs.add(d.chunkRequests.listen((e) {
-      unawaited(_resendMissingChunks(e.fid, e.missing, e.senderId));
-    }));
-
-    _dispatcherSubs.add(d.groupInvites.listen((e) {
-      debugPrint('[ChatController] relay group_invite from dispatcher: '
-          'group="${e.groupName}" id=${e.groupId} from=${e.fromContact.name} '
-          'publicCtrlClosed=${_groupInviteCtrl.isClosed} '
-          'publicCtrlHasListener=${_groupInviteCtrl.hasListener}');
-      if (!_groupInviteCtrl.isClosed) _groupInviteCtrl.add(e);
-    }));
-
-    _dispatcherSubs.add(d.groupInviteDeclines.listen((e) {
-      if (!_groupInviteDeclineCtrl.isClosed) _groupInviteDeclineCtrl.add(e);
-    }));
-
-    _dispatcherSubs.add(d.msgDeletes.listen((e) {
-      _handleRemoteDelete(e.fromId, e.msgId, groupId: e.groupId);
-    }));
-
-    _dispatcherSubs.add(d.groupUpdates.listen((e) async {
-      // Drop loop-back broadcasts: every transport (Pulse server especially)
-      // can echo our own kind:1059 / signed envelope back to us. Without
-      // this filter the sender would re-apply their own change and emit a
-      // duplicate "<self> renamed group" system notice.
-      if (_isOwnAddress(e.senderId)) return;
-      final g = _contacts.findById(e.groupId);
-      if (g == null || !g.isGroup) return;
-      final group = g;
-      // NOTE: the old "senderUuid == group.creatorId" guard compared a
-      // locally-generated contact UUID against the creator's own-identity
-      // UUID on their device — cross-device UUIDs never match, so every
-      // legitimate roster update was rejected. Signal-layer auth (Schnorr
-      // on Nostr, HMAC on other transports) already proves the payload
-      // was sent by the holder of e.senderId's private key; trusting it
-      // is sufficient for the force-accept baseline. Pubkey-based
-      // identity checks will replace this in a later step.
-      debugPrint('[Group] group_update from ${e.senderId} for ${group.name}: '
-          '${e.members.length} members');
-
-      // Tombstone / self-kick: if we are no longer in the roster (or
-      // the roster is empty, which is how the creator signals "group
-      // deleted"), drop the group locally. Emits on _groupUpdatePublicCtrl
-      // so any open chat screen + the home list both refresh.
-      final myUuid = _identity?.id ?? '';
-      final weWereMember = myUuid.isNotEmpty && group.members.contains(myUuid);
-      final weStillMember = myUuid.isNotEmpty && e.members.contains(myUuid);
-      if (e.members.isEmpty || (weWereMember && !weStillMember)) {
-        await _contacts.removeContact(group.id);
-        _invalidateContactIndex();
-        debugPrint('[Group] ${group.name} '
-            '${e.members.isEmpty ? "deleted by creator" : "kicked us"} '
-            '— removed locally');
-        if (!_groupUpdatePublicCtrl.isClosed) _groupUpdatePublicCtrl.add(e);
-        _scheduleNotify();
-        return;
-      }
-
-      final memberRemoved = group.members.toSet().difference(e.members.toSet()).isNotEmpty;
-      // Merge incoming memberPubkeys with what we already know: the
-      // creator may re-issue an update with the same mapping, or extend
-      // it for newly-added members. Keep any entry we already have for
-      // members still present; replace/add entries from the payload.
-      final mergedPubkeys =
-          Map<String, String>.from(group.memberPubkeys)
-            ..addAll(e.memberPubkeys)
-            ..removeWhere((k, _) => !e.members.contains(k));
-      // Detect what actually changed so we can emit a Telegram-style
-      // in-chat notice. Empty groupName / empty avatar in the signal mean
-      // "no change" — only the fields that the sender actually populated
-      // are treated as updates.
-      final newName = e.groupName.isNotEmpty ? e.groupName : group.name;
-      final nameChanged =
-          e.groupName.isNotEmpty && e.groupName != group.name;
-      final avatarChanged = e.avatar.isNotEmpty;
-      // Inherit creator's transport mode + Pulse server, but only when the
-      // payload populated them — empty string in the signal means "no
-      // change", we keep whatever we already have. Lets the creator switch
-      // a group between mesh/pulse after the fact (rare but supported).
-      final newTransportMode = e.groupTransportMode.isNotEmpty
-          ? e.groupTransportMode : group.groupTransportMode;
-      final newServerUrl = e.groupServerUrl.isNotEmpty
-          ? e.groupServerUrl : group.groupServerUrl;
-      final newServerInvite = e.groupServerInvite.isNotEmpty
-          ? e.groupServerInvite : group.groupServerInvite;
-      final updated = group.copyWith(
-        name: newName,
-        members: e.members,
-        creatorId: group.creatorId ?? e.creatorId,
-        memberPubkeys: mergedPubkeys,
-        groupTransportMode: newTransportMode,
-        groupServerUrl: newServerUrl,
-        groupServerInvite: newServerInvite,
-      );
-      await _contacts.updateContact(updated);
-      if (avatarChanged) {
-        try {
-          await LocalStorageService().saveAvatar(group.id, e.avatar);
-        } catch (err) {
-          debugPrint('[Group] failed to save avatar: $err');
-        }
-      }
-      _invalidateContactIndex();
-      await _ensurePendingContactsForMembers(
-          mergedPubkeys, e.memberAddresses, memberNames: e.memberNames);
-      // Same Pulse-pubkey bootstrap as in acceptGroupInvite — group_update
-      // is the primary delivery path for "members got added" after the
-      // initial invite, so newcomers' pubkeys arrive here.
-      if (updated.isPulseGroup &&
-          updated.groupServerUrl.isNotEmpty &&
-          e.memberPulsePubkeys.isNotEmpty) {
-        await _seedMemberPulseAddresses(
-            e.memberPulsePubkeys, mergedPubkeys, updated.groupServerUrl);
-      }
-      // Promote any "Member <pubkey>" placeholders to the inviter-provided
-      // name. Only renames placeholders — never overwrites a name the user
-      // chose locally.
-      if (e.memberNames.isNotEmpty) {
-        await _promotePlaceholderNames(e.memberNames, mergedPubkeys);
-      }
-      debugPrint('[Group] Membership updated for ${updated.name}: ${e.members.length} members');
-      if (memberRemoved && _selfId.isNotEmpty) {
-        unawaited(rotateGroupSenderKey(updated));
-      }
-      if (nameChanged || avatarChanged) {
-        await _insertSystemMessage(updated, {
-          '_sys': avatarChanged && nameChanged
-              ? 'group_meta_changed'
-              : (avatarChanged ? 'group_avatar_changed' : 'group_renamed'),
-          if (nameChanged) 'old': group.name,
-          if (nameChanged) 'new': newName,
-          'by': e.senderId,
-        });
-      }
-      if (!_groupUpdatePublicCtrl.isClosed) _groupUpdatePublicCtrl.add(e);
-      _scheduleNotify();
-    }));
-
-    _dispatcherSubs.add(d.senderKeyDists.listen((e) async {
-      try {
-        // Reject SKDM from contacts not in the group.
-        final sg = _contacts.findById(e.groupId);
-        final skdmGroup = (sg != null && sg.isGroup) ? sg : null;
-        // F5: Reject SKDM for unknown groups (null skdmGroup) AND from non-members.
-        // Old guard `skdmGroup != null && !members.contains(...)` accepted all
-        // distributions for unknown group IDs (skdmGroup == null → guard skipped).
-        // An attacker could inject key material for arbitrary groupIds.
-        if (skdmGroup == null ||
-            !_isSenderInGroup(skdmGroup, e.fromContact)) {
-          debugPrint('[SenderKey] Rejected SKDM from non-member '
-              '${e.fromContact.name} for group ${e.groupId}');
-          return;
-        }
-        final skdmBytes = base64Decode(e.skdmB64);
-        await SenderKeyService.instance.processDistribution(
-            e.groupId, e.fromContact.databaseId, skdmBytes);
-        debugPrint('[SenderKey] Received distribution from ${e.fromContact.name} for group ${e.groupId}');
-      } catch (err) {
-        debugPrint('[SenderKey] Failed to process distribution: $err');
-      }
-    }));
-  }
 
   // ── Sorted insertion (O(log n) vs O(n log n) sort) ──────────────────────
   /// Insert [msg] into an already-sorted [list] using binary search.
@@ -2793,8 +1644,6 @@ class ChatController extends ChangeNotifier {
     return contact.copyWith(transportAddresses: ta, transportPriority: tp);
   }
 
-  Future<bool> _deliverEncryptedMessage(String address, Message msg) => _pipeline._deliverEncryptedMessage(address, msg);
-
 
   Future<bool> _sendToContact(Contact rawContact, String plaintext, {bool noAutoRetry = false}) => _pipeline._sendToContact(rawContact, plaintext, noAutoRetry: noAutoRetry);
 
@@ -2858,25 +1707,11 @@ class ChatController extends ChangeNotifier {
   /// Send a video note (circle). Small recordings go inline; larger ones
   /// route through the 3-tier media pipeline (P2P → Blossom → relay chunks).
   Future<void> sendVideoNote(Contact contact, Uint8List mp4Bytes, int durationSeconds, Uint8List? thumbnailJpeg) => _media.sendVideoNote(contact, mp4Bytes, durationSeconds, thumbnailJpeg);
-  Future<bool> _sendViaBlossom(Contact contact, Uint8List bytes, String name,
-      String mediaType) =>
-      _media._sendViaBlossom(contact, bytes, name, mediaType);
 
 
-  /// Tier 1: Send file directly via P2P DataChannel binary frames.
-  Future<bool> _sendViaP2PBinary(Contact contact, Uint8List bytes,
-      String name, String mediaType) =>
-      _media._sendViaP2PBinary(contact, bytes, name, mediaType);
 
 
-  /// Tier 3 / group fallback: relay-based 32KB chunks (original behavior).
-  Future<void> _sendViaRelayChunks(Contact contact, Uint8List bytes, String name,
-      {String mediaType = 'file'}) =>
-      _media._sendViaRelayChunks(contact, bytes, name, mediaType: mediaType);
 
-
-  Future<bool> _sendGroupChunk(Contact group, String chunkPayload) =>
-      _media._sendGroupChunk(group, chunkPayload);
 
   // ── Message CRUD ──────────────────────────────────────────────────────────
 
@@ -2915,63 +1750,16 @@ class ChatController extends ChangeNotifier {
   // ── Disappearing messages ─────────────────────────────────────────────────
 
   Future<void> setChatTtlSeconds(Contact contact, int seconds,
-      {bool sendSignal = true, String? changedBy}) async {
-    _repo.setChatTtl(contact.id, seconds);
-    final prefs = await _getPrefs();
-    final nowMs = DateTime.now().millisecondsSinceEpoch;
-    if (seconds == 0) {
-      await prefs.remove('chat_ttl_${contact.id}');
-    } else {
-      await prefs.setInt('chat_ttl_${contact.id}', seconds);
-    }
-    // Record when this TTL value took effect. Telegram-style semantics:
-    // disappearing messages apply to messages sent FROM NOW ON — never
-    // retroactively. The repository uses this timestamp to skip scheduling
-    // TTL timers on pre-existing history.
-    await prefs.setInt('chat_ttl_set_at_${contact.id}', nowMs);
-    _repo.setChatTtlSetAt(contact.id, nowMs);
-    if (sendSignal) {
-      if (contact.isGroup) {
-        unawaited(_broadcaster.broadcastGroupTtl(
-            contact, seconds, _contacts.contacts));
-      } else {
-        unawaited(_broadcaster.sendTtlSignal(contact, seconds));
-      }
-    }
-    // Insert a Telegram-style in-chat notice. The local user changing the
-    // TTL is `changedBy = null → 'self'`; an inbound ttl_update signal sets
-    // `changedBy = peerContactId` so the bubble reads "<peer name> enabled
-    // disappearing messages: 1 hour".
-    await _insertSystemMessage(contact, {
-      '_sys': 'ttl_changed',
-      'seconds': seconds,
-      'by': changedBy ?? 'self',
-    });
-    _scheduleNotify();
-  }
+          {bool sendSignal = true, String? changedBy}) =>
+          _ttl.setChatTtlSeconds(contact, seconds,
+              sendSignal: sendSignal, changedBy: changedBy);
 
   /// Insert a system (informational) message into the room. Persisted locally
   /// so it survives restarts; never sent over the wire — both sides generate
   /// their own copy from the corresponding signal.
   Future<void> _insertSystemMessage(
-      Contact contact, Map<String, dynamic> sysPayload) async {
-    final room = _repo.getRoomForContact(contact.id);
-    if (room == null) return;
-    final selfId = _identity?.id ?? '';
-    final msg = Message(
-      id: _uuid.v4(),
-      senderId: selfId,
-      receiverId: contact.id,
-      encryptedPayload: jsonEncode(sysPayload),
-      timestamp: DateTime.now(),
-      adapterType: 'system',
-      isRead: true,
-      kind: 'system',
-    );
-    room.messages.add(msg);
-    _repo.trackMessageId(contact.id, msg.id);
-    await LocalStorageService().saveMessage(contact.storageKey, msg.toJson());
-  }
+          Contact contact, Map<String, dynamic> sysPayload) =>
+          _ttl.insertSystemMessage(contact, sysPayload);
 
   // ── Broadcast delegation ──────────────────────────────────────────────────
 
@@ -3310,37 +2098,6 @@ class ChatController extends ChangeNotifier {
     return '';
   }
 
-  /// Best-effort fetch of the contact's published Signal+PQC bundle and
-  /// `buildSession` so the first encryptMessage doesn't have to take the
-  /// slow lazy path (and possibly fail because the relay hasn't seen our
-  /// `#p` filter yet). Errors are swallowed — if the relay isn't reachable
-  /// right now we'll retry on the next outgoing message.
-  Future<void> _prewarmSignalSession(Contact contact) async {
-    try {
-      // Walk every transport address until we find one that returns a
-      // bundle. Nostr is checked first because it's the most common
-      // identity transport; Pulse next; Session last (already write-only
-      // and pushed via publishSessionKeysTo in the lazy path).
-      Map<String, dynamic>? bundle;
-      for (final entry in contact.transportAddresses.entries) {
-        final provider = entry.key;
-        if (provider == 'Session') continue;
-        for (final addr in entry.value) {
-          try {
-            final b = await _fetchKeysFromAddress(addr, provider);
-            if (b != null) { bundle = b; break; }
-          } catch (_) {}
-        }
-        if (bundle != null) break;
-      }
-      if (bundle == null) return;
-      await _signalService.buildSession(contact.databaseId, bundle);
-      _keys.cacheContactKyberPk(contact.databaseId, bundle);
-      debugPrint('[Group] Pre-warmed Signal session with ${contact.name}');
-    } catch (e) {
-      debugPrint('[Group] _prewarmSignalSession(${contact.name}) failed: $e');
-    }
-  }
 
   /// Caller side of an SFU group call: after `room_create` returns a
   /// roomId + token, push the invite to every group member so their
@@ -3447,233 +2204,34 @@ class ChatController extends ChangeNotifier {
 
   // ── Online / Adapter health ───────────────────────────────────────────────
 
-  void _onAdapterHealthChange(String addr, bool healthy) {
-    _adapterHealth[addr] = healthy;
-    sentryBreadcrumb('Adapter health: ${healthy ? "healthy" : "unhealthy"}', category: 'adapter');
-    debugPrint('[Failover] $addr → ${healthy ? "healthy" : "UNHEALTHY"}');
-    if (healthy) {
-      _primaryUnhealthySince.remove(addr);
-      return;
-    }
-    if (addr != _selfId) return;
-    // Primary went unhealthy: start grace timer and re-check after the
-    // grace period. A single transient failure shouldn't trigger a costly
-    // identity migration (re-publish keys, broadcast addr_update, update
-    // prefs). Only sustained failure does.
-    _primaryUnhealthySince.putIfAbsent(addr, () => DateTime.now());
-    Future.delayed(_kPrimaryMigrationGrace, () {
-      final since = _primaryUnhealthySince[addr];
-      if (since == null) return; // recovered
-      if (_adapterHealth[addr] ?? false) return; // healthy now
-      if (addr != _selfId) return; // already migrated by another path
-      if (_migrating) return;
-      final newPrimary = _allAddresses.firstWhere(
-        (a) => a != addr && (_adapterHealth[a] ?? false),
-        orElse: () => '',
-      );
-      if (newPrimary.isEmpty) {
-        debugPrint('[Failover] No healthy alternate after '
-            '${_kPrimaryMigrationGrace.inSeconds}s — staying on $addr');
-        return;
-      }
-      unawaited(_migratePrimary(oldAddr: addr, newAddr: newPrimary));
-    });
-  }
+  void _onAdapterHealthChange(String addr, bool healthy) =>
+          _health.onChange(addr, healthy);
 
   /// Persistently migrate the Nostr identity primary to [newAddr].
-  /// Updates [_selfId], [_identity.adapterConfig], prefs.nostr_relay, and
-  /// re-publishes Signal keys so contacts fetching from the new relay
-  /// can still reach us. Old primary stays in [_allAddresses] as a
-  /// secondary (so we keep receiving on it if it recovers).
-  Future<void> _migratePrimary({
-    required String oldAddr,
-    required String newAddr,
-  }) async {
-    if (_migrating || _identity == null) return;
-    _migrating = true;
-    try {
-      final atIdx = newAddr.indexOf('@');
-      if (atIdx <= 0) return;
-      final newRelay = newAddr.substring(atIdx + 1);
-      debugPrint('[Failover] Migrating primary: $oldAddr → $newAddr');
-
-      // Update in-memory state.
-      _selfId = newAddr;
-      _identity = Identity(
-        id: _identity!.id,
-        publicKey: _identity!.publicKey,
-        privateKey: _identity!.privateKey,
-        preferredAdapter: _identity!.preferredAdapter,
-        adapterConfig: {
-          ..._identity!.adapterConfig,
-          'relay': newRelay,
-          'dbId': newAddr,
-        },
-      );
-      _primaryUnhealthySince.remove(oldAddr);
-
-      // Persist to prefs so cold-start reads the new primary.
-      final prefs = await _getPrefs();
-      await prefs.setString('nostr_relay', newRelay);
-      await prefs.setString('user_identity', jsonEncode(_identity!.toJson()));
-
-      // Re-publish Signal keys on the new primary so contacts fetching
-      // via NIP-65 / addr_update find our identity at the new address.
-      final nostrPriv = await _secureStorage.read(key: 'nostr_privkey') ?? '';
-      if (nostrPriv.isNotEmpty) {
-        final apiKey = jsonEncode({'privkey': nostrPriv, 'relay': newRelay});
-        unawaited(_keys.publishKeysToAdapter('Nostr', apiKey, newAddr));
-      }
-
-      if (!_failoverCtrl.isClosed) {
-        _failoverCtrl.add((from: oldAddr, to: newAddr));
-      }
-      unawaited(broadcastAddressUpdate());
-      _scheduleNotify();
-    } catch (e) {
-      debugPrint('[Failover] Migration failed: $e');
-    } finally {
-      _migrating = false;
-    }
-  }
 
   // (SmartRouter per-contact promotion removed — transport-priority routing replaces it)
 
   // ── Reactions ─────────────────────────────────────────────────────────────
 
-  Future<void> toggleReaction(Contact contact, String msgId, String emoji) async {
-    if (_identity == null || _selfId.isEmpty) return;
-    final storageKey = contact.storageKey;
-    final compositeKey = '${emoji}_$_selfId';
-    final currentSet = _repo.getReactions(storageKey, msgId);
-    final senderIds = currentSet[emoji] ?? [];
-    final alreadyReacted = senderIds.contains(_selfId);
-
-    _repo.applyReactionLocally(storageKey, msgId, compositeKey, !alreadyReacted);
-    if (alreadyReacted) {
-      unawaited(LocalStorageService().removeReaction(storageKey, msgId, emoji, _selfId)
-          .catchError((Object e) => debugPrint('[Chat] removeReaction DB failed: $e')));
-    } else {
-      unawaited(LocalStorageService().addReaction(storageKey, msgId, emoji, _selfId)
-          .catchError((Object e) => debugPrint('[Chat] addReaction DB failed: $e')));
-    }
-    _reactionVersions[storageKey] = (_reactionVersions[storageKey] ?? 0) + 1;
-    _scheduleNotify();
-
-    if (contact.isGroup) {
-      for (final memberId in contact.members) {
-        final memberContact = _contacts.findById(memberId);
-        if (memberContact == null) continue;
-        unawaited(_broadcaster.sendReactionSignal(
-            memberContact, msgId, emoji, _selfId,
-            remove: alreadyReacted, groupId: contact.id, group: contact));
-      }
-    } else {
-      unawaited(_broadcaster.sendReactionSignal(
-          contact, msgId, emoji, _selfId, remove: alreadyReacted));
-    }
-  }
+  Future<void> toggleReaction(Contact contact, String msgId, String emoji) =>
+          _actions.toggleReaction(contact, msgId, emoji);
 
   // ── Message editing ───────────────────────────────────────────────────────
 
-  Future<void> editMessage(Contact contact, String msgId, String newText) async {
-    if (_identity == null) return;
-    final storageKey = contact.storageKey;
-    final room = _repo.getRoomForContact(contact.id);
-    if (room == null) return;
-    final idx = _repo.messageIndexById(contact.id, msgId);
-    if (idx == -1) return;
-    if (room.messages[idx].senderId != _identity!.id) return;
-    final updated = room.messages[idx].copyWith(encryptedPayload: newText, isEdited: true);
-    room.messages[idx] = updated;
-    await LocalStorageService().saveMessage(storageKey, updated.toJson());
-    _editVersions[storageKey] = (_editVersions[storageKey] ?? 0) + 1;
-    _scheduleNotify();
-    if (contact.isGroup) {
-      unawaited(_broadcaster.sendGroupEditSignal(
-          contact, msgId, newText, _contacts.contacts));
-    } else {
-      unawaited(_broadcaster.sendEditSignal(contact, msgId, newText));
-    }
-  }
+  Future<void> editMessage(Contact contact, String msgId, String newText) =>
+          _actions.editMessage(contact, msgId, newText);
 
   // ── P2P relay exchange ────────────────────────────────────────────────────
 
-  static const _peerRelaysKey = 'peer_relays_v1';
 
-  static Future<List<String>> loadPeerRelays() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getStringList(_peerRelaysKey) ?? [];
-  }
+  static Future<List<String>> loadPeerRelays() async => _PeerRelayStore.load();
 
-  static Future<void> savePeerRelays(List<String> relays) async {
-    if (relays.isEmpty) return;
-    final prefs = await SharedPreferences.getInstance();
-    final existing = Set<String>.from(prefs.getStringList(_peerRelaysKey) ?? []);
-    const maxUrlLen = 256;
-    const maxRelays = 50; // cap total stored peer relays
-    final before = existing.length;
-    for (final r in relays) {
-      if (existing.length >= maxRelays) break;
-      // Validate relay URLs received from untrusted peers
-      if (r.length > maxUrlLen) continue;
-      final uri = Uri.tryParse(r);
-      if (uri == null || uri.host.isEmpty) continue;
-      if (uri.scheme != 'wss') continue;          // no ws:// cleartext
-      if (uri.userInfo.isNotEmpty) continue;       // no embedded credentials
-      // Reject loopback and private IP ranges to prevent LAN port-scanning
-      final h = uri.host.toLowerCase();
-      if (h == 'localhost' || h == '127.0.0.1' || h == '::1') continue;
-      if (h.startsWith('10.') || h.startsWith('192.168.') ||
-          h.startsWith('169.254.') ||
-          RegExp(r'^172\.(1[6-9]|2[0-9]|3[01])\.').hasMatch(h)) {
-        continue;
-      }
-      // 100.64.0.0/10 — Carrier-Grade NAT (RFC 6598)
-      if (h.startsWith('100.')) {
-        final second = int.tryParse(h.split('.').elementAtOrNull(1) ?? '');
-        if (second != null && second >= 64 && second <= 127) continue;
-      }
-      existing.add(r);
-    }
-    if (existing.length > before) {
-      await prefs.setStringList(_peerRelaysKey, existing.toList());
-      debugPrint('[P2P] Learned ${existing.length - before} new relay(s) from peer');
-    }
-  }
+  static Future<void> savePeerRelays(List<String> relays) async =>
+          _PeerRelayStore.save(relays);
 
   // ── Export chat history ───────────────────────────────────────────────────
 
-  Future<String?> exportHistory(Contact contact) async {
-    final storageKey = contact.storageKey;
-    final all = await LocalStorageService().loadMessages(storageKey);
-    final myId = _identity?.id ?? '';
-    final buf = StringBuffer('=== Chat with ${contact.name} ===\n\n');
-    for (final m in all) {
-      final msg = Message.tryFromJson(m);
-      if (msg == null) continue;
-      final who = msg.senderId == myId ? 'You' : contact.name;
-      final ts = '${msg.timestamp.year}-${msg.timestamp.month.toString().padLeft(2, '0')}-'
-          '${msg.timestamp.day.toString().padLeft(2, '0')} '
-          '${msg.timestamp.hour.toString().padLeft(2, '0')}:${msg.timestamp.minute.toString().padLeft(2, '0')}';
-      final text = MediaService.isMediaPayload(msg.encryptedPayload)
-          ? '[Media: ${MediaService.parse(msg.encryptedPayload)?.name ?? 'file'}]'
-          : msg.encryptedPayload;
-      buf.writeln('[$ts] $who: $text');
-    }
-    try {
-      // Write to app-private documents directory, not world-accessible Downloads.
-      final dir = await getApplicationDocumentsDirectory();
-      final date = DateTime.now().toIso8601String().substring(0, 10);
-      final safeName = contact.name.replaceAll(RegExp(r'[^\w\-. ]'), '_');
-      final file = File('${dir.path}/chat_${safeName}_$date.txt');
-      await file.writeAsString(buf.toString());
-      return file.path;
-    } catch (e) {
-      debugPrint('[ChatController] exportChatHistory failed: $e');
-      return null;
-    }
-  }
+  Future<String?> exportHistory(Contact contact) => _actions.exportHistory(contact);
 
   // ── Scheduled messages ────────────────────────────────────────────────────
 
@@ -3683,298 +2241,44 @@ class ChatController extends ChangeNotifier {
   /// in the chat UI immediately. The message and its timer are persisted to
   /// SharedPreferences so they survive app restarts (see
   /// [_restoreScheduledMessages]).
-  Future<void> scheduleMessage(Contact contact, String text, DateTime scheduledAt) async {
-    if (_identity == null) return;
-    final room = _repo.getOrCreateRoom(contact);
-    final msgId = _uuid.v4();
-    final placeholder = Message(
-      id: msgId,
-      senderId: _identity!.id,
-      receiverId: contact.id,
-      encryptedPayload: text,
-      timestamp: DateTime.now(),
-      adapterType: contact.isGroup ? 'group' : contact.provider == 'Nostr' ? 'nostr' :
-          contact.provider == 'Session' ? 'session' : 'firebase',
-      isRead: true,
-      status: 'scheduled',
-      scheduledAt: scheduledAt,
-    );
-    room.messages.add(placeholder);
-    _repo.trackMessageId(contact.id, placeholder.id);
-    _scheduleNotify();
+  Future<void> scheduleMessage(Contact contact, String text, DateTime scheduledAt) =>
+          _scheduled.schedule(contact, text, scheduledAt);
 
-    final prefs = await _getPrefs();
-    final storageKey = 'scheduled_${contact.id}';
-    List existing;
-    try {
-      existing = jsonDecode(prefs.getString(storageKey) ?? '[]') as List;
-    } catch (e) {
-      debugPrint('[Scheduled] Corrupt scheduled list for ${contact.id}: $e');
-      existing = [];
-    }
-    existing.add(placeholder.toJson());
-    await prefs.setString(storageKey, jsonEncode(existing));
-    _scheduleTimer(contact, placeholder);
-  }
-
-  /// Arms a [Timer] that fires [_fireScheduled] when [msg.scheduledAt] arrives.
-  ///
-  /// If the scheduled time is already past (e.g. restored after a long
-  /// offline period), the message is fired immediately.
-  void _scheduleTimer(Contact contact, Message msg) {
-    final delay = msg.scheduledAt!.difference(DateTime.now());
-    if (delay.isNegative) {
-      unawaited(_fireScheduled(contact, msg));
-      return;
-    }
-    _pruneRetryTimers();
-    _retryTimers[msg.id] = Timer(delay, () => unawaited(_fireScheduled(contact, msg)));
-  }
-
-  /// Sends the previously-scheduled [msg] via [sendMessage], removes the
-  /// placeholder from the chat room, and cleans up SharedPreferences.
-  Future<void> _fireScheduled(Contact contact, Message msg) async {
-    _retryTimers.remove(msg.id);
-    final room = _repo.getRoomForContact(contact.id);
-    if (room != null) {
-      room.messages.removeWhere((m) => m.id == msg.id);
-      _repo.untrackMessageId(contact.id, msg.id);
-    }
-    final prefs = await _getPrefs();
-    final storageKey = 'scheduled_${contact.id}';
-    List list;
-    try {
-      list = (jsonDecode(prefs.getString(storageKey) ?? '[]') as List)
-          .where((m) => m is Map && m['id'] != msg.id)
-          .toList();
-    } catch (e) {
-      debugPrint('[Scheduled] Corrupt scheduled list on fire for ${contact.id}: $e');
-      list = [];
-    }
-    if (list.isEmpty) {
-      await prefs.remove(storageKey);
-    } else {
-      await prefs.setString(storageKey, jsonEncode(list));
-    }
-    await sendMessage(contact, msg.encryptedPayload);
-  }
 
   /// Cancels a pending scheduled message identified by [msgId].
   ///
   /// Stops its timer, removes the placeholder from the room, and deletes
   /// the entry from SharedPreferences so it is not restored on next launch.
-  Future<void> cancelScheduledMessage(Contact contact, String msgId) async {
-    _retryTimers[msgId]?.cancel();
-    _retryTimers.remove(msgId);
-    final room = _repo.getRoomForContact(contact.id);
-    if (room != null) {
-      room.messages.removeWhere((m) => m.id == msgId);
-      _repo.untrackMessageId(contact.id, msgId);
-    }
-    _scheduleNotify();
-    final prefs = await _getPrefs();
-    final storageKey = 'scheduled_${contact.id}';
-    List list;
-    try {
-      list = (jsonDecode(prefs.getString(storageKey) ?? '[]') as List)
-          .where((m) => m is Map && m['id'] != msgId)
-          .toList();
-    } catch (e) {
-      debugPrint('[Scheduled] Corrupt scheduled list on cancel for ${contact.id}: $e');
-      list = [];
-    }
-    if (list.isEmpty) {
-      await prefs.remove(storageKey);
-    } else {
-      await prefs.setString(storageKey, jsonEncode(list));
-    }
-  }
+  Future<void> cancelScheduledMessage(Contact contact, String msgId) =>
+          _scheduled.cancel(contact, msgId);
 
   /// Restores all persisted scheduled messages from SharedPreferences on init.
   ///
   /// For each contact, deserialises the `scheduled_<contactId>` list, adds
   /// the placeholder messages back into their rooms, and re-arms timers via
   /// [_scheduleTimer]. Called once during [_init].
-  Future<void> _restoreScheduledMessages() async {
-    final prefs = await _getPrefs();
-    for (final contact in _contacts.contacts) {
-      final storageKey = 'scheduled_${contact.id}';
-      final raw = prefs.getString(storageKey);
-      if (raw == null) continue;
-      try {
-        final list = jsonDecode(raw) as List;
-        for (final item in list) {
-          if (item is! Map<String, dynamic>) continue;
-          final msg = Message.tryFromJson(item);
-          if (msg == null || msg.scheduledAt == null) continue;
-          final room = _repo.getOrCreateRoom(contact);
-          room.messages.add(msg);
-          _repo.trackMessageId(contact.id, msg.id);
-          _scheduleTimer(contact, msg);
-        }
-      } catch (e) {
-        debugPrint('[Scheduled] Restore error for ${contact.id}: $e');
-      }
-    }
-  }
+  Future<void> _restoreScheduledMessages() => _scheduled.restore();
 
   // ── File transfer resume ──────────────────────────────────────────────────
 
-  void _startStallCheckTimer() {
-    if (_stallCheckTimer?.isActive == true) return;
-    _stallCheckTimer = Timer.periodic(const Duration(seconds: 30), (_) {
-      // Prune _chunkSenderIds entries for transfers that ChunkAssembler
-      // has already evicted (stale timeout / capacity). Prevents unbounded growth.
-      final activeIds = _chunkAssembler.activeTransferIds.toSet();
-      _chunkSenderIds.removeWhere((fid, _) => !activeIds.contains(fid));
-
-      for (final fid in _chunkAssembler.activeTransferIds) {
-        if (!_chunkAssembler.isStalled(fid)) continue;
-        final missing = _chunkAssembler.getMissingChunks(fid);
-        if (missing == null || missing.isEmpty) continue;
-        // F7 fix: send chunk_req only to the contact who started this transfer.
-        // Broadcasting to all contacts leaks file IDs and lets unrelated
-        // contacts inject fake chunks.
-        final senderId = _chunkSenderIds[fid];
-        final senderContact = senderId != null
-            ? _contacts.findById(senderId)
-            : null;
-        if (senderContact != null) {
-          unawaited(_sendSignalTo(senderContact, 'chunk_req', {
-            'fid': fid,
-            'missing': missing,
-          }));
-        }
-        debugPrint('[Resume] Sent chunk_req for $fid — missing ${missing.length} chunks');
-      }
-      if (_chunkAssembler.activeTransferIds.isEmpty && _pendingSends.isEmpty) {
-        _stallCheckTimer?.cancel();
-        _stallCheckTimer = null;
-      }
-    });
-  }
+  void _startStallCheckTimer() => _fileResume.startStallCheckTimer();
 
   Future<void> _resendMissingChunks(
-      String fileId, List<int> missingIndices, String recipientId) async {
-    final pending = _pendingSends[fileId];
-    if (pending == null) {
-      debugPrint('[Resume] chunk_req for $fileId but not in pending sends — ignoring');
-      return;
-    }
-    // Cap and deduplicate indices — prevents amplification
-    // attack where attacker sends chunk_req with thousands of duplicate indices.
-    final uniqueIndices = missingIndices.toSet().take(50).toList();
-    debugPrint('[Resume] Re-sending ${uniqueIndices.length} chunks for $fileId to $recipientId');
-    final allChunks = MediaService.chunkIterable(pending.bytes, pending.name).toList();
-    for (final idx in uniqueIndices) {
-      if (idx < 0 || idx >= allChunks.length) continue;
-      await _sendToContact(pending.contact, allChunks[idx]);
-    }
-  }
+          String fileId, List<int> missingIndices, String recipientId) =>
+          _fileResume.resendMissing(fileId, missingIndices, recipientId);
 
   // ── P2P helpers ───────────────────────────────────────────────────────────
 
-  void _handleP2PMessage(String contactId, String encryptedPayload) {
-    final contact = _contacts.findById(contactId);
-    if (contact == null) return;
+  void _handleP2PMessage(String contactId, String encryptedPayload) =>
+          _p2pRx.handleText(contactId, encryptedPayload);
 
-    // Use SHA-256 of the full encrypted payload as the dedup ID.
-    // First-32-bytes truncation allowed two distinct ciphertexts with identical
-    // first 32 bytes to collide and be deduplicated incorrectly.
-    final msgId = hash_lib.sha256.convert(utf8.encode(encryptedPayload)).toString();
 
-    _handleIncomingMessages([
-      Message(
-        id: msgId,
-        senderId: contact.databaseId,
-        receiverId: _selfId,
-        encryptedPayload: encryptedPayload,
-        timestamp: DateTime.now(),
-        adapterType: 'p2p',
-      ),
-    ]);
-  }
-
-  // ── P2P binary file receive ───────────────────────────────────────────────
-
-  // Active P2P file transfers: fid → header + accumulated frames
-  final _p2pFileTransfers = <String, _P2PFileTransfer>{};
-
-  void _handleP2PBinaryFrame(String contactId, Uint8List data) {
-    // Find which transfer this frame belongs to (most recent from this contact)
-    _P2PFileTransfer? transfer;
-    for (final t in _p2pFileTransfers.values) {
-      if (t.contactId == contactId && t.framesReceived < t.total) {
-        transfer = t;
-        break;
-      }
-    }
-    if (transfer == null) {
-      debugPrint('[P2P] Binary frame from $contactId but no active transfer');
-      return;
-    }
-    transfer.frames.add(data);
-    transfer.framesReceived++;
-
-    if (transfer.framesReceived >= transfer.total) {
-      // Assemble the file
-      final assembled = BytesBuilder(copy: false);
-      for (final f in transfer.frames) {
-        assembled.add(f);
-      }
-      final fileBytes = assembled.toBytes();
-      final fileHash = hash_lib.sha256.convert(fileBytes).toString();
-      _p2pFileTransfers.remove(transfer.fid);
-
-      if (fileHash != transfer.fileHash) {
-        debugPrint('[P2P] File hash mismatch for ${transfer.name}: expected ${transfer.fileHash}, got $fileHash');
-        return;
-      }
-
-      // Deliver as media payload
-      final payload = jsonEncode({
-        't': transfer.mediaType,
-        'd': base64Encode(fileBytes),
-        'n': transfer.name,
-        'sz': fileBytes.length,
-      });
-
-      final contact = _contacts.findById(contactId);
-      if (contact == null) return;
-
-      _handleIncomingMessages([
-        Message(
-          id: _uuid.v4(),
-          senderId: contact.databaseId,
-          receiverId: _selfId,
-          encryptedPayload: payload,
-          timestamp: DateTime.now(),
-          adapterType: 'p2p',
-        ),
-      ]);
-      debugPrint('[P2P] File received: ${transfer.name} (${fileBytes.length}B)');
-    }
-  }
+  void _handleP2PBinaryFrame(String contactId, Uint8List data) =>
+          _p2pRx.handleBinaryFrame(contactId, data);
 
   /// Called when a P2P text message contains a p2p_file header.
-  void _handleP2PFileHeader(String contactId, Map<String, dynamic> header) {
-    final fid = header['fid'] as String? ?? '';
-    final name = header['n'] as String? ?? 'file';
-    final total = header['total'] as int? ?? 0;
-    final fh = header['fh'] as String? ?? '';
-    final mt = header['mt'] as String? ?? 'file';
-    if (fid.isEmpty || total <= 0 || fh.isEmpty) return;
-    if (_p2pFileTransfers.length > 10) return; // limit concurrent transfers
-    _p2pFileTransfers[fid] = _P2PFileTransfer(
-      fid: fid,
-      contactId: contactId,
-      name: name,
-      total: total,
-      fileHash: fh,
-      mediaType: mt,
-    );
-    debugPrint('[P2P] File transfer started: $name ($total frames) from $contactId');
-  }
+  void _handleP2PFileHeader(String contactId, Map<String, dynamic> header) =>
+          _p2pRx.handleFileHeader(contactId, header);
 
   // (SmartRouter delivery stats removed — transport-priority routing replaces promotion)
 
@@ -3982,15 +2286,7 @@ class ChatController extends ChangeNotifier {
 
   /// Reset all Nostr connections (pool + subscription) after proxy settings change.
   /// Called from settings screen when force-Tor toggle changes.
-  Future<void> resetNostrConnections() async {
-    await _cachedNostrSender?.resetConnections();
-    final reader = InboxManager().reader;
-    if (reader is NostrInboxReader) await reader.resetConnections();
-    for (final sender in InboxManager().senders.values) {
-      if (sender is NostrMessageSender) await sender.resetConnections();
-    }
-    debugPrint('[ChatController] Nostr connections reset');
-  }
+  Future<void> resetNostrConnections() async => _pulsePool.resetNostr();
 
   /// Send a raw JSON message to the Pulse relay (for SFU signaling).
   /// Backward-compat: routes to the user's PRIMARY Pulse sender. For
@@ -4025,17 +2321,8 @@ class ChatController extends ChangeNotifier {
   ///
   /// Returns false if no sender exists for [serverUrl] (caller must
   /// run [ensureGroupPulseConnection] first).
-  bool sendRawPulseSignalToServer(String serverUrl, String jsonMsg) {
-    final key = _canonicalizePulseUrl(serverUrl);
-    final sender = _pulseSendersByServer[key];
-    if (sender == null) {
-      debugPrint('[Group/SFU] sendRawPulseSignalToServer: no sender for '
-          '$serverUrl (call ensureGroupPulseConnection first)');
-      return false;
-    }
-    sender.sendRaw(jsonMsg);
-    return true;
-  }
+  bool sendRawPulseSignalToServer(String serverUrl, String jsonMsg) =>
+          _pulsePool.sendRawToServer(serverUrl, jsonMsg);
 
   /// Open (or reuse) a dedicated Pulse WebSocket connection to
   /// [serverUrl] and register a sender + reader in the per-server pool.
@@ -4057,151 +2344,8 @@ class ChatController extends ChangeNotifier {
   /// is expected to have stashed `groupServerInvite` server-side already.
   ///
   /// Returns true once a sender for [serverUrl] is ready.
-  Future<bool> ensureGroupPulseConnection(String serverUrl) async {
-    if (serverUrl.isEmpty) return false;
-    final key = _canonicalizePulseUrl(serverUrl);
-    if (_pulseSendersByServer.containsKey(key)) {
-      // Sender cached from a previous call — but the underlying reader
-      // may have died during a long laptop sleep (uTLS circuit breaker
-      // tripped, _runLoop hit max consecutive failures and exited
-      // permanently). The sender alone can't dispatch incoming SFU
-      // signals to SignalDispatcher, so room_create replies vanish and
-      // the user is stuck on "Connecting…". Detect the stale state and
-      // tear it down so the path below rebuilds a fresh reader+sender.
-      if (isPulseReaderHealthy(serverUrl)) return true;
-      debugPrint('[Group/SFU] ensureGroupPulseConnection: cached sender '
-          'present but reader is dead (post-sleep recovery) — '
-          'rebuilding for $serverUrl');
-      _pulseSendersByServer.remove(key);
-      _pulseReadersByServer.remove(key);
-      dropPulseSharedPoolFor(serverUrl);
-      // Clear the uTLS breaker too, otherwise the brand-new reader's
-      // first connect attempt throws StateError immediately and we end
-      // up in the same broken state we just escaped.
-      resetPulseUtlsBreaker();
-    }
-
-    var privkey = await _secureStorage.read(key: 'pulse_privkey') ?? '';
-    if (privkey.isEmpty) {
-      privkey = await _recoverTransportKey('pulse_privkey');
-    }
-    if (privkey.isEmpty) {
-      debugPrint('[Group/SFU] ensureGroupPulseConnection: no pulse_privkey '
-          'and recovery_key derivation failed — cannot open SFU connection');
-      return false;
-    }
-    try {
-      final apiKey = jsonEncode({'privkey': privkey, 'serverUrl': serverUrl});
-
-      // Reuse an existing reader for this server if one already exists.
-      // Pulse-server enforces "1 connection per pubkey" — opening a
-      // second WS would make the server kick the first one (sending
-      // "abnormal closure: unexpected EOF" to the dropped side), and we
-      // never get to send the SFU control message. Two readers can
-      // happen because:
-      //   - the InboxManager's primary auto-opened an adhoc Pulse reader
-      //     during _initialize when pulse_server_url was set in prefs,
-      //   - then the user joins an SFU group whose groupServerUrl
-      //     matches → ensureGroupPulseConnection naively opens another.
-      // Detect both _pulseReadersByServer entries AND the legacy
-      // _adhocPulseReader; either covers us.
-      PulseInboxReader? reader = _pulseReadersByServer[key];
-      final adhocServerKey = _canonicalizePulseUrl(
-          // Read primary Pulse server URL from prefs to compare.
-          (await _getPrefs()).getString('pulse_server_url') ?? '');
-      if (reader == null &&
-          _adhocPulseReader != null &&
-          adhocServerKey == key) {
-        reader = _adhocPulseReader;
-        _pulseReadersByServer[key] = reader!;
-        debugPrint('[Group/SFU] Reusing primary adhoc Pulse reader for $serverUrl');
-      }
-      if (reader == null) {
-        final created = await InboxManager().createAdhocReader('Pulse', apiKey, serverUrl);
-        if (created is PulseInboxReader) {
-          reader = created;
-          _pulseReadersByServer[key] = reader;
-          _messageSubs.add(reader.listenForMessages().listen(_handleIncomingMessages));
-          _signalSubs.add(reader.listenForSignals().listen(
-              (sigs) => _signalDispatcher!.dispatch(sigs, sourceTransport: 'Pulse')));
-          debugPrint('[Group/SFU] Opened pool reader for $serverUrl');
-        }
-      }
-
-      final sender = PulseMessageSender();
-      await sender.initializeSender(apiKey);
-      _pulseSendersByServer[key] = sender;
-      // Also seed _cachedPulseSender if the user had no primary Pulse
-      // at all — keeps legacy `sendRawPulseSignal` callers (broadcaster
-      // etc.) working when the user is otherwise Nostr-only.
-      _cachedPulseSender ??= sender;
-      // Reader auth is async — finishes when the run loop reaches
-      // auth_ok. Block here until the pool entry's `_shared.channel` is
-      // populated, otherwise the very first sender.sendRaw races and
-      // emits "no authenticated connection". 15s covers PoW (~2-5s) + a
-      // generous margin for slow networks / Tor.
-      final ready = await waitForPulseAuth(serverUrl);
-      if (!ready) {
-        debugPrint('[Group/SFU] ensureGroupPulseConnection: auth timed out '
-            'for $serverUrl — sender created but channel not ready yet');
-      }
-
-      // Advertise our Pulse address on this server in `_allAddresses` so the
-      // next addr_update broadcast carries it. Without this, peers in our
-      // pulse-mode groups never learn our universal Pulse pubkey and their
-      // sends to us silently fail with "No Pulse pubkey for X" — the exact
-      // bootstrap dead-end that breaks the very first send to a fresh
-      // pulse group. Idempotent; broadcastAddressUpdate dedupes too.
-      try {
-        final seed = Uint8List.fromList(hex.decode(privkey));
-        final pulsePub = await ed25519PubkeyFromSeed(seed);
-        final selfPulseAddr = '$pulsePub@$serverUrl';
-        if (!_allAddresses.contains(selfPulseAddr)) {
-          _allAddresses = [..._allAddresses, selfPulseAddr];
-          _adapterHealth[selfPulseAddr] = ready;
-          debugPrint('[Group/SFU] ensureGroupPulseConnection: advertised '
-              'self Pulse address $selfPulseAddr to peers');
-          // Fire-and-forget — no need to block; receivers will pick up on
-          // the next signal exchange anyway, and serializing here would
-          // delay subsequent group sends behind addr_update fan-out.
-          unawaited(broadcastAddressUpdate());
-        }
-        // Publish our Signal/Kyber prekey bundle to THIS server too so
-        // pulse-group peers can fetch it (via `fetchPublicKeys` against
-        // `<our_pulse_pub>@<groupServerUrl>`) and bootstrap their session
-        // for sending to us. CRITICAL: reuse the per-server pool sender
-        // we just created — `publishKeysToAdapter` would naively spawn a
-        // second `PulseMessageSender` and call `initializeSender`, but
-        // the Pulse hub allows only one WS per pubkey, so the second
-        // connection kicks the first (the long-lived reader) and the
-        // sys_keys publish silently fails with no log. Going through the
-        // existing sender ensures we ride the already-authenticated WS.
-        try {
-          final bundle = await _keys.buildOwnBundle();
-          final ok = await sender.sendSignal(
-              selfPulseAddr, selfPulseAddr, selfPulseAddr, 'sys_keys', bundle);
-          if (ok) {
-            debugPrint('[Group/SFU] Published Signal bundle to $serverUrl '
-                'via reused pool sender');
-          } else {
-            debugPrint('[Group/SFU] Failed to publish Signal bundle to '
-                '$serverUrl (sender returned false)');
-          }
-        } catch (err) {
-          debugPrint('[Group/SFU] Failed to publish Signal bundle to '
-              '$serverUrl: $err');
-        }
-      } catch (e) {
-        debugPrint('[Group/SFU] ensureGroupPulseConnection: failed to '
-            'advertise self Pulse address / publish keys: $e');
-      }
-
-      return ready;
-    } catch (e) {
-      debugPrint('[Group/SFU] ensureGroupPulseConnection failed: $e');
-      return false;
-    }
-  }
+  Future<bool> ensureGroupPulseConnection(String serverUrl) =>
+          _pulsePool.ensureConnection(serverUrl);
 
   /// Force-reconnect the per-server Pulse pool entry. Used by SFU when
   /// `room_create` / `room_join` retries silently timed out — usually
@@ -4216,28 +2360,8 @@ class ChatController extends ChangeNotifier {
   /// connections (server's "1 client per pubkey" then ping-pongs
   /// between them, neither lasts long enough to deliver SFU control
   /// messages). `close()` stops the loop without restarting it.
-  Future<void> resetGroupPulseConnection(String serverUrl) async {
-    if (serverUrl.isEmpty) return;
-    final key = _canonicalizePulseUrl(serverUrl);
-    debugPrint('[Group/SFU] forcing Pulse reconnect for $serverUrl');
-    final reader = _pulseReadersByServer.remove(key);
-    final sender = _pulseSendersByServer.remove(key);
-    // Hard-stop old reader. close() sets _running=false + closes the
-    // WS sink without spawning a fresh loop. Sender holds no
-    // connection state (it borrows the reader's shared channel) so
-    // dropping the map reference is enough.
-    try { reader?.close(); } catch (_) {}
-    sender; // intentionally not closed
-    // Drop the shared pool entry too so the next ensureGroup creates
-    // a brand-new _PulseSharedWs instead of a stale `authenticated=true`
-    // shell from the dead connection.
-    dropPulseSharedPoolFor(serverUrl);
-    // Tiny breather so close() completes before we reopen.
-    await Future<void>.delayed(const Duration(milliseconds: 200));
-    // Re-open. ensureGroupPulseConnection rebuilds reader+sender +
-    // signal subscriptions and waits for auth before returning.
-    await ensureGroupPulseConnection(serverUrl);
-  }
+  Future<void> resetGroupPulseConnection(String serverUrl) =>
+          _pulsePool.resetConnection(serverUrl);
 
   /// Same canonicalization as _PulseSharedWs._canonicalize so our pool
   /// keys line up 1:1 with the pulse_adapter pool. Strips fragment,
@@ -4255,31 +2379,11 @@ class ChatController extends ChangeNotifier {
   /// `signal_fail offline` because the recipient was momentarily without
   /// a connection — explains why reactions / edits / deletes silently
   /// drop while messages (TypeSend, server-stored) eventually arrive.
-  static String _canonicalizePulseUrl(String serverUrl) {
-    if (serverUrl.isEmpty) return '';
-    var s = serverUrl.trim();
-    final hash = s.indexOf('#');
-    if (hash != -1) s = s.substring(0, hash);
-    if (s.endsWith('/')) s = s.substring(0, s.length - 1);
-    s = s.toLowerCase();
-    // Strip default ports.
-    if (s.startsWith('https://') && s.endsWith(':443')) {
-      s = s.substring(0, s.length - 4);
-    } else if (s.startsWith('http://') && s.endsWith(':80')) {
-      s = s.substring(0, s.length - 3);
-    }
-    return s;
-  }
+  static String _canonicalizePulseUrl(String serverUrl) =>
+      _PulsePool.canonicalizeUrl(serverUrl);
 
   /// Reset all Pulse relay connections (called when Force-Tor toggle changes).
-  Future<void> resetPulseConnections() async {
-    final reader = InboxManager().reader;
-    if (reader is PulseInboxReader) await reader.resetConnection();
-    for (final sender in InboxManager().senders.values) {
-      if (sender is PulseMessageSender) await sender.resetConnection();
-    }
-    debugPrint('[ChatController] Pulse connections reset');
-  }
+  Future<void> resetPulseConnections() async => _pulsePool.resetPulse();
 
   // ── Dispose ───────────────────────────────────────────────────────────────
 
