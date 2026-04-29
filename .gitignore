@@ -48,6 +48,7 @@ flutter_*.png
 /android/app/profile
 /android/app/release
 .claude/
+.open-codex/
 .vscode/
 # Bundled binaries — download via scripts/download_bins.sh
 assets/bins/linux_x64/tor
@@ -95,3 +96,4 @@ assets/icons/aegis.png
 
 # Flutter tooling
 .metadata
+.aider*

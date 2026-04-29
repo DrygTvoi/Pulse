@@ -56,6 +56,21 @@ import '../services/recovery_key_service.dart';
 import '../services/signal_broadcaster.dart';
 import '../services/nip44_service.dart' as nip44;
 
+part 'chat_controller_scheduled.dart';
+part 'chat_controller_extras.dart';
+part 'chat_controller_p2p.dart';
+part 'chat_controller_pulse_pool.dart';
+part 'chat_controller_health.dart';
+part 'chat_controller_files.dart';
+part 'chat_controller_keys.dart';
+part 'chat_controller_crud.dart';
+part 'chat_controller_groups.dart';
+part 'chat_controller_sfu.dart';
+part 'chat_controller_disappearing.dart';
+part 'chat_controller_media.dart';
+part 'chat_controller_send.dart';
+part 'chat_controller_incoming.dart';
+
 enum ConnectionStatus { disconnected, connecting, connected }
 
 class ChatController extends ChangeNotifier {
@@ -357,7 +372,7 @@ class ChatController extends ChangeNotifier {
       StreamController<String>.broadcast();
   /// Emits groupId whenever an active group call is added/updated/removed.
   Stream<String> get activeGroupCallsChanged => _activeCallsCtrl.stream;
-  ActiveGroupCall? activeGroupCall(String groupId) => _activeGroupCalls[groupId];
+  ActiveGroupCall? activeGroupCall(String groupId) => _sfu.activeGroupCall(groupId);
 
   /// Session-scope blocklist of SFU rooms the server has confirmed do not
   /// exist. Other group members can keep rebroadcasting sfu_invite for a
@@ -373,13 +388,25 @@ class ChatController extends ChangeNotifier {
   /// same accept/decline dialog. Entries are removed when the call
   /// itself is cleared (see [clearActiveGroupCall] / staleness timer).
   final Set<String> _shownInviteKeys = {};
-  bool markInviteShownIfNew(String groupId, String roomId) {
-    if (groupId.isEmpty || roomId.isEmpty) return true;
-    return _shownInviteKeys.add('$groupId|$roomId');
-  }
-  void forgetInvitesForGroup(String groupId) {
-    _shownInviteKeys.removeWhere((k) => k.startsWith('$groupId|'));
-  }
+
+  // ── Extracted helper classes ───────────────────────────────────────
+  late final _ScheduledMessages _scheduled = _ScheduledMessages(this);
+  late final _MessageActions _actions = _MessageActions(this);
+  late final _P2PReceiver _p2pRx = _P2PReceiver(this);
+  late final _PulsePool _pulsePool = _PulsePool(this);
+  late final _AdapterHealth _health = _AdapterHealth(this);
+  late final _FileResume _fileResume = _FileResume(this);
+  late final _KeyRepublisher _keyRepub = _KeyRepublisher(this);
+  late final _MessageCrud _crud = _MessageCrud(this);
+  late final _GroupManager _groups = _GroupManager(this);
+  late final _SfuCalls _sfu = _SfuCalls(this);
+  late final _Disappearing _ttl = _Disappearing(this);
+  late final _MediaSender _media = _MediaSender(this);
+  late final _SendPipeline _pipeline = _SendPipeline(this);
+  late final _IncomingHandler _incoming = _IncomingHandler(this);
+
+  bool markInviteShownIfNew(String groupId, String roomId) => _sfu.markInviteShownIfNew(groupId, roomId);
+  void forgetInvitesForGroup(String groupId) => _sfu.forgetInvitesForGroup(groupId);
 
   /// GroupIds where THIS client is currently a live SFU participant
   /// (SfuCallScreen mounted + ICE connected). Probes are only answered
@@ -394,36 +421,15 @@ class ChatController extends ChangeNotifier {
   /// publish audio (server treats the ssrc mapping as already-used).
   /// We use this to throttle rapid hangup→call cycles.
   final Map<String, DateTime> _recentSfuExit = {};
-  void enterSfuCall(String groupId) {
-    _inCallGroupIds.add(groupId);
-    debugPrint('[Chat] enterSfuCall($groupId) — inCall=${_inCallGroupIds.length}');
-  }
-  void exitSfuCall(String groupId) {
-    if (_inCallGroupIds.remove(groupId)) {
-      _recentSfuExit[groupId] = DateTime.now();
-      debugPrint('[Chat] exitSfuCall($groupId) — inCall=${_inCallGroupIds.length}');
-    }
-  }
-  Duration? sinceLastSfuExit(String groupId) {
-    final t = _recentSfuExit[groupId];
-    if (t == null) return null;
-    return DateTime.now().difference(t);
-  }
+  void enterSfuCall(String groupId) => _sfu.enterSfuCall(groupId);
+  void exitSfuCall(String groupId) => _sfu.exitSfuCall(groupId);
+  Duration? sinceLastSfuExit(String groupId) => _sfu.sinceLastSfuExit(groupId);
 
   /// Handle an incoming `sfu_probe` signal. Only respond if we're
   /// *currently* in an SFU call for this group — otherwise a
   /// just-restarted client with a stale `_activeGroupCalls` entry
   /// would echo a dead roomId back to the prober.
-  void handleSfuProbe(String groupId) {
-    if (!_inCallGroupIds.contains(groupId)) return;
-    final call = _activeGroupCalls[groupId];
-    if (call == null) return;
-    final group = _contacts.findById(groupId);
-    if (group == null || !group.isGroup) return;
-    debugPrint('[Chat] sfu_probe for $groupId — rebroadcasting invite');
-    unawaited(broadcastSfuCallInvite(group, call.roomId, call.token,
-        isVideoCall: call.isVideoCall));
-  }
+  void handleSfuProbe(String groupId) => _sfu.handleSfuProbe(groupId);
 
   /// Before creating a new SFU room, probe the group — if anyone is
   /// already in a call they'll rebroadcast their invite, letting us
@@ -436,28 +442,8 @@ class ChatController extends ChangeNotifier {
   /// own `room_create`, giving the server a fresh room per tap.
   final Map<String, Future<ActiveGroupCall?>> _inflightProbes = {};
   Future<ActiveGroupCall?> discoverGroupCall(Contact group,
-      {Duration probeTimeout = const Duration(seconds: 2)}) {
-    final existing = _inflightProbes[group.id];
-    if (existing != null) return existing;
-    final active = activeGroupCall(group.id);
-    if (active != null) return Future.value(active);
-    final fut = () async {
-      try {
-        await _broadcaster.broadcastSfuProbe(group, _contacts.contacts);
-        final deadline = DateTime.now().add(probeTimeout);
-        while (DateTime.now().isBefore(deadline)) {
-          await Future<void>.delayed(const Duration(milliseconds: 100));
-          final hit = activeGroupCall(group.id);
-          if (hit != null) return hit;
-        }
-        return null;
-      } finally {
-        _inflightProbes.remove(group.id);
-      }
-    }();
-    _inflightProbes[group.id] = fut;
-    return fut;
-  }
+      {Duration probeTimeout = const Duration(seconds: 2)}) =>
+      _sfu.discoverGroupCall(group, probeTimeout: probeTimeout);
 
   /// Pulse pubkey → Contact lookup. Populated from the `_pulseAddr` hint
   /// on sfu_invite payloads so SfuCallScreen can resolve participant
@@ -465,24 +451,10 @@ class ChatController extends ChangeNotifier {
   /// Contact — the `transportAddresses` map on a Contact may only carry
   /// Nostr addresses until that member explicitly shares Pulse.
   final Map<String, String> _pulsePkToNostrSender = {};
-  String? nostrSenderForPulsePk(String pulsePk) =>
-      _pulsePkToNostrSender[pulsePk.toLowerCase()];
-  void learnPulseFromInvite(String nostrSenderId, String pulseAddr) {
-    if (pulseAddr.isEmpty || nostrSenderId.isEmpty) return;
-    final at = pulseAddr.indexOf('@');
-    final pulsePk = (at > 0 ? pulseAddr.substring(0, at) : pulseAddr).toLowerCase();
-    if (pulsePk.isEmpty) return;
-    if (_pulsePkToNostrSender[pulsePk] == nostrSenderId) return;
-    _pulsePkToNostrSender[pulsePk] = nostrSenderId;
-    debugPrint('[Chat] Learned Pulse pubkey for Nostr sender ${nostrSenderId.substring(0, nostrSenderId.length.clamp(0, 8))}…: ${pulsePk.substring(0, 8)}…');
-  }
-  bool isRoomDead(String roomId) => _deadRoomIds.contains(roomId);
-  void markRoomDead(String roomId) {
-    if (roomId.isEmpty) return;
-    if (_deadRoomIds.add(roomId)) {
-      debugPrint('[Chat] Marked SFU room dead: $roomId');
-    }
-  }
+  String? nostrSenderForPulsePk(String pulsePk) => _sfu.nostrSenderForPulsePk(pulsePk);
+  void learnPulseFromInvite(String nostrSenderId, String pulseAddr) => _sfu.learnPulseFromInvite(nostrSenderId, pulseAddr);
+  bool isRoomDead(String roomId) => _sfu.isRoomDead(roomId);
+  void markRoomDead(String roomId) => _sfu.markRoomDead(roomId);
 
   /// Per-group staleness timers. Reset on every sfu_invite we accept —
   /// caller re-broadcasts every 20s while they're in the call, so 45s of
@@ -494,53 +466,17 @@ class ChatController extends ChangeNotifier {
 
   void _registerActiveGroupCall(
       String groupId, String roomId, String token, String hostId,
-      {bool isVideoCall = false}) {
-    // Refresh staleness timer on every invite — even if we already have
-    // this exact (groupId, roomId) entry. Drop the entry after 45s of
-    // silence so the UI doesn't keep a ghost banner.
-    _callStalenessTimers[groupId]?.cancel();
-    _callStalenessTimers[groupId] = Timer(_kCallStalenessTimeout, () {
-      debugPrint('[Chat] No sfu_invite for $groupId in ${_kCallStalenessTimeout.inSeconds}s — clearing stale call');
-      _callStalenessTimers.remove(groupId);
-      clearActiveGroupCall(groupId);
-    });
+      {bool isVideoCall = false}) =>
+      _sfu.registerActiveGroupCall(groupId, roomId, token, hostId,
+          isVideoCall: isVideoCall);
 
-    if (_deadRoomIds.contains(roomId)) {
-      debugPrint('[Chat] Ignoring activeGroupCall for dead room $roomId');
-      return;
-    }
-    final existing = _activeGroupCalls[groupId];
-    if (existing != null && existing.roomId == roomId) return;
-    _activeGroupCalls[groupId] = ActiveGroupCall(
-      groupId: groupId,
-      roomId: roomId,
-      token: token,
-      hostId: hostId,
-      isVideoCall: isVideoCall,
-      startedAt: DateTime.now(),
-    );
-    if (!_activeCallsCtrl.isClosed) _activeCallsCtrl.add(groupId);
-    // Auto-expire after 30 min of presumed activity unless refreshed.
-    Timer(const Duration(minutes: 30), () => _expireActiveGroupCall(groupId, roomId));
-  }
-
-  void _expireActiveGroupCall(String groupId, String roomId) {
-    final call = _activeGroupCalls[groupId];
-    if (call == null || call.roomId != roomId) return;
-    _activeGroupCalls.remove(groupId);
-    if (!_activeCallsCtrl.isClosed) _activeCallsCtrl.add(groupId);
-  }
+  void _expireActiveGroupCall(String groupId, String roomId) =>
+      _sfu._expireActiveGroupCall(groupId, roomId);
 
   /// Remove an active call entry — called from SfuCallScreen after the
   /// host taps "end for everyone" or when we get a definitive signal
   /// that the room is gone.
-  void clearActiveGroupCall(String groupId) {
-    _callStalenessTimers.remove(groupId)?.cancel();
-    forgetInvitesForGroup(groupId);
-    if (_activeGroupCalls.remove(groupId) != null) {
-      if (!_activeCallsCtrl.isClosed) _activeCallsCtrl.add(groupId);
-    }
-  }
+  void clearActiveGroupCall(String groupId) => _sfu.clearActiveGroupCall(groupId);
 
   final StreamController<Map<String, dynamic>> _signalStreamController = StreamController.broadcast();
   Stream<Map<String, dynamic>> get signalStream => _signalStreamController.stream;
@@ -2696,1034 +2632,13 @@ class ChatController extends ChangeNotifier {
     }
   }
 
-  Future<void> _handleIncomingMessages(List<Message> newMessages) async {
-    bool hasUpdates = false;
-    var contactByDbId = _getContactIndex();
-
-    for (var msg in newMessages) {
-      try {
-        if (_seenMsgIds.contains(msg.id)) continue;
-        if (_seenMsgIds.length >= 10000) {
-          // Atomic eviction: rebuild both structures from remaining entries
-          // to avoid Set/List desync across microtask boundaries.
-          final evictCount = 5000.clamp(0, _seenMsgIdsList.length);
-          final remaining = _seenMsgIdsList.sublist(evictCount);
-          _seenMsgIdsList
-            ..clear()
-            ..addAll(remaining);
-          _seenMsgIds
-            ..clear()
-            ..addAll(remaining);
-        }
-        _seenMsgIds.add(msg.id);
-        _seenMsgIdsList.add(msg.id);
-
-        // Normalise to pubkey prefix so a sender using multiple transports
-        // (nostr, firebase) shares one rate-limit bucket rather than
-        // getting a fresh 30-token bucket per transport address.
-        final rlKey = msg.senderId.split('@').first;
-        if (!_allAddresses.contains(msg.senderId) &&
-            msg.senderId != _selfId &&
-            !_msgRateLimiter.allow(rlKey)) {
-          debugPrint('[Chat] Rate limited message from: ${msg.senderId}');
-          continue;
-        }
-
-        // Block list check BEFORE decryption — saves CPU against spam.
-        final senderPubKey = msg.senderId.split('@').first;
-        if (ContactManager().isBlocked(senderPubKey) || ContactManager().isBlocked(msg.senderId)) {
-          continue;
-        }
-
-        String rawPayload = msg.encryptedPayload;
-        if (rawPayload.startsWith('PQC2||')) {
-          try {
-            rawPayload = await CryptoLayer.unwrap(rawPayload);
-            // PQC succeeded — mark sender as confirmed so we PQC-wrap replies.
-            _pqcConfirmed.add(msg.senderId);
-            final senderPub = msg.senderId.split('@').first;
-            for (final c in _contacts.contacts) {
-              if (c.databaseId.split('@').first == senderPub) {
-                _pqcConfirmed.add(c.databaseId);
-                break;
-              }
-            }
-          } catch (e) {
-            debugPrint('[PQC] Unwrap failed for ${msg.id}: $e — dropping message');
-            // PQC-wrapped message is irrecoverable — clear sender's cached
-            // Kyber pk so our replies go Signal-only (they'll work).
-            _keys.clearContactKyberPk(msg.senderId);
-            continue; // skip this message entirely — don't show gibberish
-          }
-        }
-
-        // All real messages must be E2EE-wrapped (plaintext fallback removed).
-        // Non-E2EE payloads are server chaff or invalid — drop silently.
-        if (!rawPayload.startsWith('E2EE||')) {
-          debugPrint('[Chat] ⏭ Non-E2EE payload from ${msg.senderId.substring(0, 12)}…: ${rawPayload.substring(0, 30.clamp(0, rawPayload.length))}…');
-          continue;
-        }
-
-        String decryptedRaw = rawPayload;
-        Contact? _fallbackDecryptContact;
-        // Set when ANY decrypt attempt hits InvalidKeyIdException / missing
-        // prekey — indicates the sender is using a stale bundle, not a
-        // corrupted session. Needs a different recovery: push our fresh
-        // bundle to them so their next session build uses current prekeys.
-        bool sawStalePrekey = false;
-        bool isStalePrekeyError(Object e) {
-          final s = e.toString();
-          // The classic "you used a prekey that no longer exists" cases.
-          if (s.contains('InvalidKeyIdException') ||
-              s.contains('No such prekeyrecord')) return true;
-          // Pulse-group key-rotation case: when both sides rebuild their
-          // own session against the OTHER side's freshly-fetched bundle
-          // (e.g. after my `_sendToContactViaPulseServer` rebuild path
-          // fired on Linux, the resulting message either lands as a
-          // PreKey type that Android can't decode against its existing
-          // identity for that contact, or as a Whisper without any
-          // matching session). Both manifest as "Bad Mac" / "No valid
-          // sessions" — treat the same as stale-prekey so the existing
-          // recovery (delete session + push our fresh bundle back) fires.
-          if (s.contains('No valid sessions') ||
-              s.contains('Bad Mac') ||
-              s.contains('InvalidMessageException')) return true;
-          return false;
-        }
-        if (rawPayload.startsWith('E2EE||')) {
-          final fastContact = contactByDbId[msg.senderId]
-              ?? contactByDbId[msg.senderId.split('@').first];
-          debugPrint('[Chat] Contact lookup for ${msg.senderId.substring(0, 16)}…: ${fastContact?.name ?? "NOT FOUND"} (index has ${contactByDbId.length} entries)');
-          if (fastContact != null) {
-            try {
-              decryptedRaw = await _signalService.decryptMessage(fastContact.databaseId, rawPayload);
-            } catch (e) {
-              if (isStalePrekeyError(e)) sawStalePrekey = true;
-              debugPrint('[Chat] E2EE fast-path decrypt failed for ${fastContact.databaseId}: $e');
-              sentryBreadcrumb('E2EE fast-path decrypt failed', category: 'signal');
-            }
-          }
-          // If fast-path failed, try ALL known addresses for this contact as
-          // session keys.  After addr_update the databaseId changes but the Signal
-          // session may still be keyed by an older address.
-          if (decryptedRaw == rawPayload && fastContact != null) {
-            final tryAddrs = <String>{
-              msg.senderId, // raw sender address from transport
-              ...fastContact.alternateAddresses,
-            };
-            tryAddrs.remove(fastContact.databaseId); // already tried
-            for (final addr in tryAddrs) {
-              try {
-                decryptedRaw = await _signalService.decryptMessage(addr, rawPayload);
-                debugPrint('[Chat] Decrypt OK via alt session key: $addr');
-                break;
-              } catch (e) {
-                if (isStalePrekeyError(e)) sawStalePrekey = true;
-                debugPrint('[Chat] Alt-key decrypt failed for $addr: $e');
-              }
-            }
-          }
-          // Fallback: search all contacts by sender pubkey prefix
-          if (decryptedRaw == rawPayload && fastContact == null) {
-            final senderPubPrefix = msg.senderId.split('@').first;
-            for (final c in _contacts.contacts) {
-              if (c.databaseId.split('@').first == senderPubPrefix ||
-                  c.alternateAddresses.any((a) => a.split('@').first == senderPubPrefix)) {
-                final tryAddrs = <String>[c.databaseId, msg.senderId, ...c.alternateAddresses];
-                for (final addr in tryAddrs) {
-                  try {
-                    decryptedRaw = await _signalService.decryptMessage(addr, rawPayload);
-                    debugPrint('[Chat] Decrypt OK via contact ${c.name} key: $addr');
-                    _fallbackDecryptContact = c;
-                    break;
-                  } catch (e) { /* try next */ }
-                }
-                if (decryptedRaw != rawPayload) break;
-              }
-            }
-          }
-          // Last resort: unknown sender — try decrypt with raw senderId.
-          // Signal PreKeyMessage can be decrypted using only our own keys.
-          if (decryptedRaw == rawPayload && fastContact == null) {
-            try {
-              decryptedRaw = await _signalService.decryptMessage(msg.senderId, rawPayload);
-              debugPrint('[Chat] Decrypt OK for unknown sender via raw senderId: ${msg.senderId}');
-            } catch (e) {
-              debugPrint('[Chat] Unknown sender decrypt failed for ${msg.senderId}: $e');
-            }
-          }
-        }
-
-        // Reset fail counter on successful decrypt.
-        if (!decryptedRaw.startsWith('E2EE||')) {
-          final okKey = contactByDbId[msg.senderId]?.databaseId
-              ?? contactByDbId[msg.senderId.split('@').first]?.databaseId
-              ?? msg.senderId;
-          _e2eeFailCount.remove(okKey);
-        }
-
-        // If E2EE decryption failed entirely, drop the message (don't show
-        // ciphertext). Track consecutive failures per contact — only delete the
-        // session after 3+ failures to avoid nuking a valid session due to
-        // stale replayed events from the relay's since window.
-        if (decryptedRaw.startsWith('E2EE||')) {
-          final failContact = contactByDbId[msg.senderId]
-              ?? contactByDbId[msg.senderId.split('@').first];
-          final failKey = failContact?.databaseId ?? msg.senderId;
-          _e2eeFailCount[failKey] = (_e2eeFailCount[failKey] ?? 0) + 1;
-          final failN = _e2eeFailCount[failKey]!;
-          // Stale-prekey failures: sender is using an outdated bundle. Reset
-          // our session immediately (don't wait 3 fails) and push our
-          // current bundle back so their next send rebuilds the session
-          // against fresh prekeys. Rate-limited to once per 60s per contact.
-          if (sawStalePrekey && failContact != null) {
-            debugPrint('[Chat] Stale prekey detected for ${failContact.name} — '
-                'resetting session and pushing fresh bundle');
-            unawaited(_signalService.deleteContactData(failContact.databaseId));
-            _e2eeFailCount.remove(failKey);
-            final last = _lastStaleKeyPush[failContact.id];
-            if (last == null ||
-                DateTime.now().difference(last) > const Duration(seconds: 60)) {
-              _lastStaleKeyPush[failContact.id] = DateTime.now();
-              unawaited(_pushOwnBundleTo(failContact));
-            }
-          } else if (failContact != null && failN >= 3) {
-            debugPrint('[Chat] E2EE decrypt failed ${failN}x for ${failContact.name} — '
-                'deleting stale session to force rebuild');
-            unawaited(_signalService.deleteContactData(failContact.databaseId));
-            _e2eeFailCount.remove(failKey);
-          } else {
-            debugPrint('[Chat] E2EE decrypt failed (${failN}x) for ${failContact?.name ?? msg.senderId} — dropping');
-          }
-          continue;
-        }
-
-        final env = MessageEnvelope.tryUnwrap(decryptedRaw);
-        // Validate envelope's claimed sender matches transport-layer sender.
-        // env.from may use a different transport address (e.g. Firebase vs Nostr)
-        // but the pubkey prefix must always agree. If they differ, an attacker
-        // forged the inner envelope — fall back to transport sender.
-        // Exception: sealed sender messages have transport ID "sealed" —
-        // the real sender is only known from the encrypted envelope.
-        String canonicalSenderId;
-        final isSealed = msg.senderId == 'sealed';
-        if (env?.from != null && env!.from.isNotEmpty) {
-          if (isSealed) {
-            // Sealed sender: transport ID is anonymous, trust envelope.
-            canonicalSenderId = env.from;
-          } else {
-            final envPrefix = env.from.split('@').first;
-            final transportPrefix = msg.senderId.split('@').first;
-            if (envPrefix == transportPrefix) {
-              canonicalSenderId = env.from;
-            } else {
-              // Different key formats (e.g. Session 05-prefix vs Pulse Ed25519)
-              // may belong to the same contact. Check if both resolve to the
-              // same contact before raising a tamper warning.
-              final envContact = contactByDbId[env.from]
-                  ?? contactByDbId[envPrefix];
-              final transportContact = contactByDbId[msg.senderId]
-                  ?? contactByDbId[transportPrefix];
-              if (envContact != null && transportContact != null &&
-                  envContact.id == transportContact.id) {
-                // Same contact, different address format — use envelope.
-                canonicalSenderId = env.from;
-              } else {
-                debugPrint('[Chat] Envelope sender mismatch: '
-                    'envelope=$envPrefix transport=$transportPrefix — using transport');
-                if (!_tamperWarningCtrl.isClosed) {
-                  _tamperWarningCtrl.add('Authenticity warning from ${msg.senderId}');
-                }
-                canonicalSenderId = msg.senderId;
-              }
-            }
-          }
-        } else {
-          canonicalSenderId = msg.senderId;
-        }
-        final bodyText = env?.body ?? decryptedRaw;
-
-        Contact? senderContact = contactByDbId[canonicalSenderId]
-            ?? contactByDbId[canonicalSenderId.split('@').first];
-        senderContact ??= contactByDbId[msg.senderId]
-            ?? contactByDbId[msg.senderId.split('@').first];
-        // Try matching by any of the sender's known transport addresses in
-        // the envelope. Prevents a duplicate pending contact being created
-        // when the sender's current canonicalSenderId was unknown to us
-        // (e.g. they just added a new Pulse/Session transport).
-        if (senderContact == null && env?.senderAddresses != null) {
-          for (final addrs in env!.senderAddresses!.values) {
-            for (final addr in addrs) {
-              final hit = contactByDbId[addr] ?? contactByDbId[addr.split('@').first];
-              if (hit != null) { senderContact = hit; break; }
-            }
-            if (senderContact != null) break;
-          }
-        }
-        // Use contact found during fallback decrypt (sender used different relay).
-        senderContact ??= _fallbackDecryptContact;
-
-        if (senderContact != null) {
-          // Sender is provably online — update status.
-          _broadcaster.updateLastSeen(senderContact.id);
-          // Message arrived — clear typing indicator immediately (1-on-1).
-          _broadcaster.clearTyping(senderContact.id, (id) {
-            if (!_typingStreamCtrl.isClosed) _typingStreamCtrl.add(id);
-            _scheduleNotify();
-          });
-          // Learn sender's transport addresses from envelope and incoming msg.
-          {
-            var didUpdate = false;
-            var ta = Map<String, List<String>>.from(
-              senderContact.transportAddresses.map((k, v) => MapEntry(k, List<String>.from(v))),
-            );
-            // Merge full address map from envelope (all sender transports).
-            final envAddrs = env?.senderAddresses;
-            if (envAddrs != null) {
-              for (final entry in envAddrs.entries) {
-                final existing = ta[entry.key] ?? <String>[];
-                for (final addr in entry.value) {
-                  if (!existing.contains(addr)) {
-                    existing.add(addr);
-                    didUpdate = true;
-                  }
-                }
-                if (existing.isNotEmpty) ta[entry.key] = existing;
-              }
-            }
-            // Also learn the single incoming transport address.
-            final incomingAddr = msg.senderId;
-            if (incomingAddr.contains('@') &&
-                !senderContact.alternateAddresses.contains(incomingAddr)) {
-              final transport = Contact.providerFromAddress(incomingAddr);
-              final existing = ta[transport] ?? <String>[];
-              if (!existing.contains(incomingAddr)) {
-                existing.add(incomingAddr);
-                ta[transport] = existing;
-                didUpdate = true;
-              }
-            }
-            if (didUpdate) {
-              final updated = senderContact.copyWith(transportAddresses: ta);
-              await _contacts.updateContact(updated);
-              _invalidateContactIndex();
-              senderContact = updated;
-              debugPrint('[Chat] Learned new routes for ${senderContact.name}: ${ta.keys.join(', ')}');
-            }
-          }
-          _repo.getOrCreateRoomWithId(senderContact, msg.senderId, senderContact.provider);
-          final room = _repo.getRoomForContact(senderContact.id)!;
-
-          if (!_repo.roomHasMessage(senderContact.id, msg.id)) {
-            try {
-              String displayText = bodyText;
-              Contact targetContact = senderContact;
-              String finalText = displayText;
-              String? groupReplyToId, groupReplyToText, groupReplyToSender;
-              try { if (displayText.startsWith('{')) {
-                var parsed = jsonDecode(displayText) as Map<String, dynamic>;
-                // ── Sender Key decrypt: unwrap _sk envelope ──
-                if (parsed['_sk'] == true) {
-                  final skGroupId = parsed['_group'] as String?;
-                  final ct = parsed['ct'] as String?;
-                  if (skGroupId != null && ct != null) {
-                    // Check membership BEFORE decrypting to prevent
-                    // removed members from advancing the ratchet or leaking plaintext.
-                    final skg = _contacts.findById(skGroupId);
-                    final skGroup = (skg != null && skg.isGroup) ? skg : null;
-                    if (skGroup == null ||
-                        !_isSenderInGroup(skGroup, senderContact)) {
-                      debugPrint('[SenderKey] Rejected SK message from non-member '
-                          '${senderContact.name} for group $skGroupId');
-                    } else {
-                      try {
-                        final cipherBytes = base64Decode(ct);
-                        final plainBytes = await SenderKeyService.instance
-                            .decrypt(skGroupId, senderContact.databaseId, cipherBytes);
-                        final innerJson = utf8.decode(plainBytes);
-                        parsed = jsonDecode(innerJson) as Map<String, dynamic>;
-                        displayText = innerJson;
-                      } catch (skErr) {
-                        debugPrint('[SenderKey] Decrypt failed from ${senderContact.name}: $skErr');
-                        // Fall through — parsed still has _sk envelope.
-                      }
-                    }
-                  }
-                }
-                final groupId = parsed['_group'] as String?;
-                if (groupId != null) {
-                  final gcl = _contacts.findById(groupId);
-                  final groupContact = (gcl != null && gcl.isGroup) ? gcl : null;
-                  final isMember = groupContact != null &&
-                      _isSenderInGroup(groupContact, senderContact);
-                  debugPrint('[Group] recv groupId=$groupId sender=${senderContact.name} '
-                      'found=${groupContact != null} isMember=$isMember');
-                  if (groupContact != null && isMember) {
-                    targetContact = groupContact;
-                    // Clear group-specific typing for this member.
-                    _broadcaster.clearTyping(senderContact.id, (id) {
-                      if (!_typingStreamCtrl.isClosed) _typingStreamCtrl.add(id);
-                      _scheduleNotify();
-                    }, groupId: groupId);
-                    finalText = parsed['text'] as String? ?? displayText;
-                    groupReplyToId = parsed['_replyToId'] as String?;
-                    groupReplyToText = parsed['_replyToText'] as String?;
-                    groupReplyToSender = parsed['_replyToSender'] as String?;
-                    _repo.getOrCreateRoomWithId(groupContact, groupContact.id, 'group');
-                  }
-                }
-              } } catch (e) { debugPrint('[Chat] Signal JSON parse (treating as plain text): $e'); }
-
-              bool skipMessage = false;
-
-              // P2P file header: initiates binary file transfer (not stored as message)
-              if (finalText.startsWith('{') && finalText.contains('"p2p_file"')) {
-                try {
-                  final hdr = jsonDecode(finalText) as Map<String, dynamic>;
-                  if (hdr['p2p_file'] == true) {
-                    _handleP2PFileHeader(senderContact.id, hdr);
-                    skipMessage = true;
-                  }
-                } catch (_) {}
-              }
-
-              if (!skipMessage && MediaService.isChunkPayload(finalText)) {
-                // Track which contact is sending this file (F7 fix: stall
-                // chunk_req should only go to the actual sender).
-                try {
-                  final chunkMap = jsonDecode(finalText) as Map<String, dynamic>;
-                  final chunkFid = chunkMap['fid'] as String?;
-                  if (chunkFid != null && chunkFid.isNotEmpty) {
-                    _chunkSenderIds[chunkFid] = senderContact.id;
-                  }
-                } catch (_) {}
-                final assembled = _chunkAssembler.handleChunk(finalText);
-                if (assembled == null) {
-                  skipMessage = true;
-                } else {
-                  // Transfer complete — clean up sender tracking.
-                  try {
-                    final chunkMap = jsonDecode(finalText) as Map<String, dynamic>;
-                    _chunkSenderIds.remove(chunkMap['fid']);
-                  } catch (_) {}
-                  finalText = assembled;
-                }
-              }
-
-              if (!skipMessage &&
-                  !MediaService.isMediaPayload(finalText) &&
-                  !MediaService.isChunkPayload(finalText) &&
-                  !BlossomPayloadHelpers.isBlossomPayload(finalText) &&
-                  finalText.length > 65536) {
-                debugPrint('[ChatController] Dropped oversized message (${finalText.length} bytes)');
-                skipMessage = true;
-              }
-
-              if (!skipMessage) {
-                final targetRoom = _repo.getRoomForContact(targetContact.id) ?? room;
-                // Use sender's local UUID from envelope (_id field) if present,
-                // so reactions/deletes use the same ID on both devices.
-                // Fall back to transport-level ID (Nostr event hash, etc.).
-                final resolvedId = env?.msgId ?? msg.id;
-                if (!targetRoom.messages.any((m) => m.id == resolvedId)) {
-                  final decryptedMsg = Message(
-                    id: resolvedId,
-                    senderId: msg.senderId,
-                    receiverId: msg.receiverId,
-                    encryptedPayload: finalText,
-                    timestamp: msg.timestamp,
-                    adapterType: msg.adapterType,
-                    isRead: false,
-                    replyToId: groupReplyToId ?? env?.replyTo?.id,
-                    replyToText: groupReplyToText ?? env?.replyTo?.text,
-                    replyToSender: groupReplyToSender ?? env?.replyTo?.sender,
-                  );
-                  _insertMessageSorted(targetRoom.messages, decryptedMsg);
-                  _repo.trackMessageId(targetContact.id, decryptedMsg.id);
-                  await LocalStorageService().saveMessage(
-                      targetContact.storageKey, decryptedMsg.toJson());
-                  hasUpdates = true;
-                  if (!_newMsgController.isClosed) {
-                    _newMsgController.add((contactId: targetContact.id, message: decryptedMsg));
-                  }
-                  // Increment unread count if this chat is not currently open
-                  if (_activeRoomId != targetContact.id) {
-                    _unreadCounts[targetContact.id] = (_unreadCounts[targetContact.id] ?? 0) + 1;
-                    if (!_unreadChangedCtrl.isClosed) {
-                      _unreadChangedCtrl.add(targetContact.id);
-                    }
-                  }
-                  unawaited(_broadcaster.sendDeliveryAck(senderContact, decryptedMsg.id,
-                      groupId: targetContact.isGroup ? targetContact.id : null,
-                      group: targetContact.isGroup ? targetContact : null));
-                  if (targetContact.isGroup && _activeRoomId == targetContact.id) {
-                    unawaited(_broadcaster.sendGroupReadReceipt(
-                        senderContact, targetContact.id, decryptedMsg.id,
-                        group: targetContact));
-                  }
-                  final ttl = _repo.getChatTtlCached(targetContact.id);
-                  if (ttl > 0) {
-                    _repo.scheduleTtlDelete(targetContact, decryptedMsg, ttl,
-                        onDeleted: () { if (!_disposed) _scheduleNotify(); });
-                  }
-                }
-                // Save sender avatar from envelope if we don't have one yet.
-                if (env?.senderAvatar != null && env!.senderAvatar!.isNotEmpty) {
-                  final existing = await LocalStorageService().loadAvatar(senderContact.id);
-                  if (existing == null || existing.isEmpty) {
-                    unawaited(LocalStorageService().saveAvatar(senderContact.id, env.senderAvatar!));
-                  }
-                }
-                // Promote routing-only auto-pending contacts to a real name
-                // from the envelope. Without this, members the local user
-                // first learnt about via group fan-out keep their placeholder
-                // "Member abc12345" name forever — so every group bubble from
-                // them shows that label instead of the real display name.
-                final envSenderName = env?.senderName;
-                if (envSenderName != null &&
-                    envSenderName.isNotEmpty &&
-                    (senderContact.isHidden ||
-                        senderContact.name.startsWith('Member ') ||
-                        senderContact.name.startsWith('Group: ')) &&
-                    senderContact.name != envSenderName) {
-                  final updated = senderContact.copyWith(
-                      name: envSenderName, isHidden: false);
-                  await _contacts.updateContact(updated);
-                  _invalidateContactIndex();
-                  senderContact = updated;
-                  debugPrint(
-                      '[Chat] Promoted hidden contact ${senderContact.id.substring(0, 8)} → "$envSenderName"');
-                }
-              }
-            } catch (e) {
-              debugPrint("Decryption failed for message ${msg.id}: $e");
-            }
-          }
-        } else {
-          // Unknown sender — auto-create pending contact (message request).
-          final envName = env?.senderName;
-          final fallbackName = canonicalSenderId.split('@').first;
-          final pendingName = (envName != null && envName.isNotEmpty)
-              ? envName
-              : (fallbackName.length > 8 ? '${fallbackName.substring(0, 8)}...' : fallbackName);
-          // Use the fullest address available for routing replies.
-          // canonicalSenderId (from envelope) often has pubkey@wss://relay,
-          // while msg.senderId from Nostr is bare pubkey.
-          final pendingAddress = canonicalSenderId.contains('@')
-              ? canonicalSenderId
-              : (msg.senderId.contains('@') ? msg.senderId : canonicalSenderId);
-          final pendingContact = await ContactManager().createPendingContact(
-            senderId: canonicalSenderId,
-            senderName: pendingName,
-            address: pendingAddress,
-            transportAddresses: env?.senderAddresses,
-          );
-          if (pendingContact != null) {
-            _invalidateContactIndex();
-            contactByDbId = _getContactIndex();
-            _repo.getOrCreateRoomWithId(pendingContact, msg.senderId, pendingContact.provider);
-            final room = _repo.getRoomForContact(pendingContact.id)!;
-            final resolvedId = env?.msgId ?? msg.id;
-            if (!room.messages.any((m) => m.id == resolvedId)) {
-              final decryptedMsg = Message(
-                id: resolvedId,
-                senderId: msg.senderId,
-                receiverId: msg.receiverId,
-                encryptedPayload: bodyText,
-                timestamp: msg.timestamp,
-                adapterType: msg.adapterType,
-                isRead: false,
-              );
-              _insertMessageSorted(room.messages, decryptedMsg);
-              _repo.trackMessageId(pendingContact.id, decryptedMsg.id);
-              await LocalStorageService().saveMessage(
-                  pendingContact.storageKey, decryptedMsg.toJson());
-              hasUpdates = true;
-              if (!_newMsgController.isClosed) {
-                _newMsgController.add((contactId: pendingContact.id, message: decryptedMsg));
-              }
-              _unreadCounts[pendingContact.id] = (_unreadCounts[pendingContact.id] ?? 0) + 1;
-              if (!_unreadChangedCtrl.isClosed) {
-                _unreadChangedCtrl.add(pendingContact.id);
-              }
-            }
-            debugPrint('[Chat] Created pending contact for unknown sender: ${pendingContact.name}');
-            // Save avatar from envelope if present.
-            if (env?.senderAvatar != null && env!.senderAvatar!.isNotEmpty) {
-              unawaited(LocalStorageService().saveAvatar(pendingContact.id, env.senderAvatar!));
-              debugPrint('[Chat] Saved avatar from envelope for ${pendingContact.name}');
-            } else {
-              // Fallback: fetch Nostr avatar from sender's relay.
-              final nostrAddrs = pendingContact.transportAddresses['Nostr'];
-              if (nostrAddrs != null && nostrAddrs.isNotEmpty) {
-                final parts = nostrAddrs.first.split('@');
-                if (parts.length == 2) {
-                  unawaited(_fetchNostrAvatarForContact(pendingContact.id, parts[0], parts[1]));
-                }
-              }
-            }
-          } else {
-            debugPrint('[Chat] Pending contact limit reached — dropping message from ${msg.senderId}');
-          }
-        }
-      } catch (e) {
-        debugPrint('[ChatController] Skipping malformed message ${msg.id}: $e');
-      }
-    }
-
-    if (hasUpdates) _scheduleNotify();
-  }
+  Future<void> _handleIncomingMessages(List<Message> newMessages) =>
+      _incoming.handleIncomingMessages(newMessages);
 
   // ── Message sending ───────────────────────────────────────────────────────
 
-  Future<void> sendMessage(Contact rawContact, String text, {
-    bool noAutoRetry = false,
-    Message? replyTo,
-  }) async {
-    if (_identity == null) return;
-    // Always route with the freshest Contact record from the repo. The
-    // UI layer (ChatScreen) caches the Contact it was opened with and
-    // keeps using it for sends; addr_update signals that rewrite
-    // transportAddresses / primary relay therefore never reach the send
-    // path, and messages keep going to the stale relay the contact
-    // migrated away from.
-    final contact = _contacts.findById(rawContact.id) ?? rawContact;
+  Future<void> sendMessage(Contact rawContact, String text, {bool noAutoRetry = false, Message? replyTo}) => _pipeline.sendMessage(rawContact, text, noAutoRetry: noAutoRetry, replyTo: replyTo);
 
-    if (contact.isGroup) {
-      final groupRoom = _repo.getOrCreateRoom(contact);
-      final localMsg = Message(
-        id: _uuid.v4(), senderId: _identity!.id, receiverId: contact.id,
-        encryptedPayload: text, timestamp: DateTime.now(),
-        adapterType: 'group', isRead: true, status: 'sending',
-        replyToId: replyTo?.id,
-        replyToText: replyTo?.encryptedPayload.substring(0, replyTo.encryptedPayload.length.clamp(0, 80)),
-        replyToSender: replyTo?.senderId,
-      );
-      groupRoom.messages.add(localMsg);
-      _repo.trackMessageId(contact.id, localMsg.id);
-      _scheduleNotify();
-
-      final groupMap = <String, dynamic>{'_group': contact.id, 'text': text};
-      if (replyTo != null) {
-        groupMap['_replyToId'] = replyTo.id;
-        groupMap['_replyToText'] = replyTo.encryptedPayload.length > 80
-            ? replyTo.encryptedPayload.substring(0, 80)
-            : replyTo.encryptedPayload;
-        groupMap['_replyToSender'] = replyTo.senderId;
-      }
-      final groupPayload = jsonEncode(groupMap);
-
-      // Resolve every group member UUID to a Contact we can actually send
-      // to. Members are identified cross-device by their Nostr pubkey
-      // (stored in `contact.memberPubkeys[uuid]`) — local UUIDs differ per
-      // device so `findById` alone misses every non-self-added peer.
-      // Skip our own UUID (no self-send) and any member we can't resolve.
-      //
-      // `members[]` on the invitee's device does NOT include the creator
-      // (creators only list the people they invited), so we pull the
-      // creator in separately via `creatorId`.
-      final myUuid = _identity?.id ?? '';
-      final selfId = _selfId;
-      final ownPubAt = selfId.indexOf('@');
-      final ownPub =
-          (ownPubAt > 0 ? selfId.substring(0, ownPubAt) : selfId).toLowerCase();
-      final recipients = <Contact>[];
-      final seenIds = <String>{};
-      var dropped = 0;
-      final memberIds = <String>[
-        if (contact.creatorId != null && contact.creatorId!.isNotEmpty)
-          contact.creatorId!,
-        ...contact.members,
-      ];
-      for (final memberId in memberIds) {
-        if (memberId == myUuid) continue;
-        Contact? mc = _contacts.findById(memberId);
-        if (mc == null) {
-          final pub = contact.memberPubkeys[memberId];
-          if (pub != null && pub.isNotEmpty) {
-            if (pub.toLowerCase() == ownPub) continue; // pubkey is ours
-            mc = _contacts.findByPubkey(pub);
-          }
-        }
-        if (mc == null) {
-          dropped++;
-          debugPrint('[Group] unresolvable member uuid=$memberId '
-              'pubkey=${contact.memberPubkeys[memberId] ?? "(missing)"}');
-          continue;
-        }
-        if (!seenIds.add(mc.id)) continue; // dedup (creator also in members)
-        recipients.add(mc);
-      }
-
-      // For pulse-mode groups, ensure we're connected to the host's Pulse
-      // server before fan-out. Fast no-op once warmed up; first call after
-      // app start pays ~1-3s for WS auth + PoW. Done up here so both the
-      // sender-key and pairwise paths benefit.
-      final isPulseRouted =
-          contact.isPulseGroup && contact.groupServerUrl.isNotEmpty;
-      if (isPulseRouted) {
-        await ensureGroupPulseConnection(contact.groupServerUrl);
-      }
-
-      // ── Sender Key path: only when every member UUID resolves via
-      //    findById on THIS device. Otherwise the SenderKeyService's
-      //    UUID-keyed distribution tracking (`markDistributed`,
-      //    `allMembersHaveKey`) breaks silently and we'd issue redundant
-      //    SKDMs / encrypt with a mismatched identifier domain. The
-      //    pairwise fallback below handles mixed-roster groups; a
-      //    proper pubkey-keyed SK refactor is a separate task.
-      int sent = 0;
-      bool usedSenderKey = false;
-      final localOnly = contact.members
-          .every((id) => id == myUuid || _contacts.findById(id) != null);
-      if (localOnly) {
-        try {
-          final sk = SenderKeyService.instance;
-          if (!await sk.allMembersHaveKey(contact.id, contact.members)) {
-            final skdmBytes = await sk.createDistribution(contact.id, _selfId);
-            final skdmB64 = base64Encode(skdmBytes);
-            for (final memberContact in recipients) {
-              // Pulse-routed groups: SKDM goes through the host's Pulse
-              // server too — otherwise the very first message can't be
-              // decrypted by recipients waiting on the SK distribution to
-              // arrive over a different transport (Nostr/Session) that
-              // may be slower / unreachable for that pair.
-              final distOk = isPulseRouted
-                  ? await _sendSignalToContactViaPulseServer(
-                      memberContact, 'sender_key_dist', {
-                      'groupId': contact.id,
-                      'skdm': skdmB64,
-                    }, contact.groupServerUrl)
-                  : await _sendSignalTo(memberContact, 'sender_key_dist', {
-                      'groupId': contact.id,
-                      'skdm': skdmB64,
-                    });
-              if (distOk) await sk.markDistributed(contact.id, memberContact.id);
-            }
-          }
-          final plainBytes = Uint8List.fromList(utf8.encode(groupPayload));
-          final cipherBytes = await sk.encrypt(contact.id, _selfId, plainBytes);
-          final skEnvelope = jsonEncode({
-            '_sk': true,
-            '_group': contact.id,
-            'ct': base64Encode(cipherBytes),
-          });
-          for (final memberContact in recipients) {
-            final ok = isPulseRouted
-                ? await _sendToContactViaPulseServer(
-                    memberContact, skEnvelope, contact.groupServerUrl)
-                : await _sendToContact(memberContact, skEnvelope,
-                    noAutoRetry: noAutoRetry);
-            if (ok) sent++;
-          }
-          usedSenderKey = true;
-        } catch (e) {
-          debugPrint('[SenderKey] Encrypt failed, falling back to per-member: $e');
-        }
-      } else {
-        debugPrint('[Group] mixed-roster group — using pairwise pathway '
-            '(${recipients.length} recipients, $dropped dropped)');
-      }
-      if (!usedSenderKey) {
-        sent = 0;
-        for (final memberContact in recipients) {
-          final ok = isPulseRouted
-              ? await _sendToContactViaPulseServer(
-                  memberContact, groupPayload, contact.groupServerUrl)
-              : await _sendToContact(memberContact, groupPayload,
-                  noAutoRetry: noAutoRetry);
-          if (ok) sent++;
-        }
-      }
-      debugPrint('[Group] send id=${localMsg.id} group=${contact.id} '
-          'recipients=${recipients.length} sent=$sent dropped=$dropped '
-          'sk=$usedSenderKey');
-
-      final finalStatus = sent > 0 ? 'sent' : 'failed';
-      final idx = _repo.messageIndexById(contact.id, localMsg.id);
-      final finalMsg = localMsg.copyWith(status: finalStatus);
-      if (idx != -1) groupRoom.messages[idx] = finalMsg;
-      await LocalStorageService().saveMessage(contact.id, finalMsg.toJson());
-      final ttl = _repo.getChatTtlCached(contact.id);
-      if (ttl > 0) _repo.scheduleTtlDelete(contact, finalMsg, ttl, onDeleted: () { if (!_disposed) _scheduleNotify(); });
-      _scheduleNotify();
-      return;
-    }
-
-    ({String id, String text, String sender})? replyInfo;
-    if (replyTo != null) {
-      final preview = replyTo.encryptedPayload.length > 80
-          ? replyTo.encryptedPayload.substring(0, 80)
-          : replyTo.encryptedPayload;
-      replyInfo = (id: replyTo.id, text: preview, sender: replyTo.senderId);
-    }
-
-    // Create local message FIRST so it appears in UI immediately.
-    final msgId = _uuid.v4();
-    final contactAdapterType = contact.provider == 'Nostr' ? 'nostr'
-        : contact.provider == 'Session' ? 'session'
-        : 'firebase';
-    final room = _repo.getOrCreateRoom(contact);
-    final localMsg = Message(
-      id: msgId, senderId: _identity!.id, receiverId: contact.id,
-      encryptedPayload: text, timestamp: DateTime.now(),
-      adapterType: contactAdapterType, isRead: true, status: 'sending',
-      replyToId: replyInfo?.id,
-      replyToText: replyInfo?.text,
-      replyToSender: replyInfo?.sender,
-    );
-    room.messages.add(localMsg);
-    _repo.trackMessageId(contact.id, localMsg.id);
-    final localTtl = _repo.getChatTtlCached(contact.id);
-    if (localTtl > 0) _repo.scheduleTtlDelete(contact, localMsg, localTtl, onDeleted: () { if (!_disposed) _scheduleNotify(); });
-    _scheduleNotify();
-
-    final envelope = MessageEnvelope.wrap(
-      _selfId.isNotEmpty ? _selfId : _identity!.id, text,
-      msgId: msgId, replyTo: replyInfo,
-      senderName: _selfName,
-      senderAvatar: _selfAvatar,
-      senderAddresses: _buildOwnTransportMap());
-
-    String encryptedText;
-    try {
-      debugPrint('[Send] Encrypting for ${contact.name} (${contact.databaseId.substring(0, 8)}…)');
-      encryptedText = await _signalService.encryptMessage(contact.databaseId, envelope);
-      debugPrint('[Send] Encrypted OK for ${contact.name}');
-    } catch (e) {
-      debugPrint('[E2EE] Encrypt failed: $e — rebuilding session');
-      try {
-        final ourApiKey = _identity!.adapterConfig['token'] ?? '';
-        InboxReader contactReader;
-        String initApiKey = ourApiKey;
-        String initDbId = contact.databaseId;
-        if (contact.provider == 'Firebase') {
-          contactReader = FirebaseInboxReader();
-          final atIdx = contact.databaseId.indexOf('@http');
-          if (atIdx != -1) {
-            initDbId = contact.databaseId.substring(0, atIdx);
-            final contactDbUrl = contact.databaseId.substring(atIdx + 1);
-            initApiKey = jsonEncode({'url': contactDbUrl, 'key': ''});
-          }
-        } else if (contact.provider == 'Nostr') {
-          contactReader = NostrInboxReader();
-          initApiKey = '';
-          initDbId = contact.databaseId;
-        } else if (contact.provider == 'Session') {
-          contactReader = SessionInboxReader();
-          final prefs = await _getPrefs();
-          initApiKey = prefs.getString('session_node_url') ?? prefs.getString('oxen_node_url') ?? '';
-          initDbId = contact.databaseId;
-          unawaited(_keys.publishSessionKeysTo(contact, _selfId));
-        } else if (contact.provider == 'Pulse') {
-          contactReader = PulseInboxReader();
-          final privkey = await _secureStorage.read(key: 'pulse_privkey') ?? '';
-          final prefs = await _getPrefs();
-          var serverUrl = prefs.getString('pulse_server_url') ?? '';
-          final pAt = contact.databaseId.indexOf('@');
-          if (pAt != -1) {
-            final s = contact.databaseId.substring(pAt + 1);
-            if (s.startsWith('https://') || s.startsWith('http://')) serverUrl = s;
-          }
-          initApiKey = jsonEncode({'privkey': privkey, 'serverUrl': serverUrl});
-          initDbId = contact.databaseId;
-        } else {
-          throw Exception('Unknown provider: ${contact.provider}');
-        }
-        debugPrint('[E2EE] Fetching bundle for ${contact.name} via ${contact.provider}');
-        debugPrint('[E2EE] transportAddresses=${contact.transportAddresses}');
-
-        // ── Key fetch strategy: Nostr relays first, then other transports ──
-        // Session swarm cannot be read by others (requires owner auth), so we
-        // push our keys into the contact's Session inbox instead (below).
-        Map<String, dynamic>? bundle;
-
-        // Priority 1: Try ALL Nostr relays the contact has.
-        final nostrAddrs = contact.transportAddresses['Nostr'] ?? [];
-        for (final addr in nostrAddrs) {
-          if (bundle != null) break;
-          final reader = NostrInboxReader();
-          try {
-            await reader.initializeReader('', addr);
-            debugPrint('[E2EE] Trying Nostr: $addr');
-            bundle = await reader.fetchPublicKeys();
-            if (bundle != null) {
-              debugPrint('[E2EE] Key fetch OK via Nostr ($addr)');
-            }
-          } catch (e) {
-            debugPrint('[E2EE] Nostr key fetch failed ($addr): $e');
-          } finally {
-            // Close so this temp reader stops intercepting our gift wraps
-            // on its orphan _msgCtrl (no listener → silent message drop).
-            try { reader.close(); } catch (_) {}
-          }
-        }
-
-        // Priority 2: contact's primary transport (if not Nostr).
-        if (bundle == null && contact.provider != 'Nostr') {
-          try {
-            await contactReader.initializeReader(initApiKey, initDbId);
-            debugPrint('[E2EE] Trying ${contact.provider} primary...');
-            bundle = await contactReader.fetchPublicKeys();
-          } finally {
-            try {
-              if (contactReader is NostrInboxReader) contactReader.close();
-              else if (contactReader is PulseInboxReader) contactReader.close();
-              else if (contactReader is SessionInboxReader) contactReader.close();
-            } catch (_) {}
-          }
-        }
-
-        // Priority 3: well-known Nostr relays (key may exist on a relay we don't know about).
-        if (bundle == null) {
-          // Extract contact's Nostr pubkey from any Nostr address.
-          String contactPubkey = '';
-          for (final addr in nostrAddrs) {
-            final atIdx = addr.indexOf('@');
-            if (atIdx > 0) { contactPubkey = addr.substring(0, atIdx); break; }
-          }
-          if (contactPubkey.isNotEmpty) {
-            final knownRelays = nostrAddrs.map((a) {
-              final i = a.indexOf('@');
-              return i > 0 ? a.substring(i + 1) : '';
-            }).where((r) => r.isNotEmpty).toSet();
-            final fallbackRelays = await gatherKnownRelays(
-              knownRelays.isNotEmpty ? knownRelays.first : '', limit: 5);
-            for (final relay in fallbackRelays) {
-              if (knownRelays.contains(relay)) continue;
-              final altReader = NostrInboxReader();
-              try {
-                await altReader.initializeReader('', '$contactPubkey@$relay');
-                debugPrint('[E2EE] Trying fallback Nostr relay: $relay');
-                final altBundle = await altReader.fetchPublicKeys();
-                if (altBundle != null) {
-                  debugPrint('[E2EE] Key fetch OK via fallback relay $relay');
-                  bundle = altBundle;
-                  break;
-                }
-              } catch (e) {
-                debugPrint('[E2EE] Fallback key fetch from $relay failed: $e');
-              } finally {
-                try { altReader.close(); } catch (_) {}
-              }
-            }
-          }
-        }
-
-        // Priority 4: any remaining alternate transport (Pulse, Firebase).
-        if (bundle == null && contact.alternateAddresses.isNotEmpty) {
-          for (final alt in contact.alternateAddresses) {
-            final altProvider = _providerFromAddress(alt);
-            if (altProvider.isEmpty || altProvider == contact.provider || altProvider == 'Session') continue;
-            try {
-              final altBundle = await _fetchKeysFromAddress(alt, altProvider);
-              if (altBundle != null) {
-                debugPrint('[E2EE] Fallback key fetch OK via $altProvider');
-                bundle = altBundle;
-                break;
-              }
-            } catch (e) {
-              debugPrint('[E2EE] Fallback key fetch from $altProvider failed: $e');
-            }
-          }
-        }
-
-        // Push our own keys to contact's Session inbox so they can build a
-        // session for replying (Session inbox is write-by-anyone, read-by-owner).
-        final sessionAddrs = contact.transportAddresses['Session'] ?? [];
-        if (sessionAddrs.isNotEmpty) {
-          unawaited(_keys.publishSessionKeysTo(contact, _selfId));
-        }
-        debugPrint('[E2EE] fetchPublicKeys: ${bundle != null ? "${bundle.keys.length} keys" : "null"}');
-        if (bundle != null) {
-          final keyChanged = await _signalService.buildSession(contact.databaseId, bundle);
-          _keys.cacheContactKyberPk(contact.databaseId, bundle);
-          if (keyChanged && !_keyChangeCtrl.isClosed) {
-            _keyChangeCtrl.add((contactName: contact.name, contactId: contact.databaseId));
-          }
-          debugPrint('[E2EE] Session built, re-encrypting...');
-          encryptedText = await _signalService.encryptMessage(contact.databaseId, envelope);
-          debugPrint('[E2EE] Session rebuilt OK');
-        } else {
-          debugPrint('[E2EE] No key bundle for ${contact.name} — send aborted');
-          if (!_e2eeFailCtrl.isClosed) _e2eeFailCtrl.add(contact.name);
-          final idx = _repo.messageIndexById(contact.id, msgId);
-          if (idx != -1) room.messages[idx] = localMsg.copyWith(status: 'failed');
-          await LocalStorageService().saveMessage(contact.id, localMsg.copyWith(status: 'failed').toJson());
-          _scheduleNotify();
-          return;
-        }
-      } catch (e2) {
-        debugPrint('[E2EE] Session build failed for ${contact.name}: $e2 — send aborted');
-        sentryBreadcrumb('E2EE session build failed', category: 'encryption');
-        if (!_e2eeFailCtrl.isClosed) _e2eeFailCtrl.add(contact.name);
-        final idx = _repo.messageIndexById(contact.id, msgId);
-        if (idx != -1) room.messages[idx] = localMsg.copyWith(status: 'failed');
-        await LocalStorageService().saveMessage(contact.id, localMsg.copyWith(status: 'failed').toJson());
-        _scheduleNotify();
-        return;
-      }
-    }
-
-    if (encryptedText.startsWith('E2EE||') &&
-        _pqcConfirmed.contains(contact.databaseId)) {
-      encryptedText = await _keys.pqcWrap(encryptedText, contact.databaseId);
-    }
-
-    final msg = Message(
-      id: msgId,
-      senderId: _selfId.isNotEmpty ? _selfId : _identity!.id,
-      receiverId: contact.databaseId,
-      encryptedPayload: encryptedText,
-      timestamp: localMsg.timestamp,
-      adapterType: contactAdapterType,
-    );
-
-    debugPrint('[Send] Routing to ${contact.name}...');
-    await _addSenderPlugin(contact);
-    final _devPrefs = await _getPrefs();
-    final devModeOn = _devPrefs.getBool('dev_mode_enabled') ?? false;
-
-    // Transport-priority routing: iterate transports in priority order,
-    // try each address within a transport before moving to the next transport.
-    bool sent = false;
-
-    // P2P shortcut — try direct connection first regardless of transport.
-    if (!contact.isGroup && P2PTransportService.instance.isConnected(contact.id)) {
-      sent = P2PTransportService.instance.send(contact.id, msg.encryptedPayload);
-      if (sent) {
-        debugPrint('[P2P] Direct delivery to ${contact.name}');
-        _lastDeliveryTransport[contact.id] = 'P2P';
-      }
-    }
-
-    if (!sent) {
-      for (final transport in _rankedTransportsFor(contact)) {
-        if (devModeOn && !(_devPrefs.getBool('dev_adapter_$transport') ?? true)) {
-          debugPrint('[Dev] Adapter $transport disabled — skipping');
-          continue;
-        }
-        final addresses = contact.transportAddresses[transport] ?? [];
-        for (final addr in addresses) {
-          sent = await _deliverEncryptedMessage(addr, msg);
-          if (sent) {
-            debugPrint('[SmartRouter] Delivered via $transport: $addr');
-            _lastDeliveryTransport[contact.id] = transport;
-            break;
-          }
-        }
-        if (sent) break;
-      }
-    }
-
-    debugPrint('[Send] Route result: ${sent ? "SENT" : "FAILED"} for ${contact.name}');
-    final idx = _repo.messageIndexById(contact.id, msg.id);
-    final finalMsg = localMsg.copyWith(status: sent ? 'sent' : 'failed');
-    if (idx != -1) room.messages[idx] = finalMsg;
-    await LocalStorageService().saveMessage(contact.storageKey, finalMsg.toJson());
-    _scheduleNotify();
-    if (!sent && !noAutoRetry) _scheduleAutoRetry(contact, finalMsg);
-  }
 
   // ── Smart Router helpers ──────────────────────────────────────────────────
 
@@ -3878,239 +2793,11 @@ class ChatController extends ChangeNotifier {
     return contact.copyWith(transportAddresses: ta, transportPriority: tp);
   }
 
-  Future<bool> _deliverEncryptedMessage(String address, Message msg) async {
-    if (_identity == null) return false;
-    final provider = _providerFromAddress(address);
-    // Developer mode: skip disabled adapters.
-    final prefs = await _getPrefs();
-    if ((prefs.getBool('dev_mode_enabled') ?? false) &&
-        !(prefs.getBool('dev_adapter_$provider') ?? true)) {
-      debugPrint('[Dev] Adapter $provider disabled — skipping deliver to $address');
-      return false;
-    }
-    final sendMsg = Message(
-      id: msg.id,
-      senderId: msg.senderId,
-      receiverId: msg.receiverId,
-      encryptedPayload: msg.encryptedPayload,
-      timestamp: msg.timestamp,
-      adapterType: provider.toLowerCase(),
-    );
-    final ourApiKey = _identity!.adapterConfig['token'] ?? '';
-    if (provider == 'Firebase') {
-      await InboxManager().addSenderPlugin('Firebase', FirebaseInboxSender(), ourApiKey);
-    } else if (provider == 'Nostr') {
-      final privkey = await _getNostrPrivkey();
-      final prefs = await _getPrefs();
-      final atIdx = address.indexOf('@');
-      final relay = atIdx != -1
-          ? address.substring(atIdx + 1)
-          : _identity?.adapterConfig['relay'] ?? _kDefaultNostrRelay;
-      _cachedNostrSender ??= NostrMessageSender();
-      await InboxManager().addSenderPlugin('Nostr', _cachedNostrSender!,
-          jsonEncode({'privkey': privkey, 'relay': relay}));
-    } else if (provider == 'Session') {
-      final prefs = await _getPrefs();
-      final nodeUrl = prefs.getString('session_node_url') ?? prefs.getString('oxen_node_url') ?? '';
-      await InboxManager().addSenderPlugin('Session', SessionMessageSender(), nodeUrl);
-    } else if (provider == 'Pulse') {
-      final privkey = await _secureStorage.read(key: 'pulse_privkey') ?? '';
-      final prefs = await _getPrefs();
-      // Extract server URL from the recipient address
-      var serverUrl = prefs.getString('pulse_server_url') ?? '';
-      final pAtIdx = address.indexOf('@');
-      if (pAtIdx != -1) {
-        final addrServer = address.substring(pAtIdx + 1);
-        if (addrServer.startsWith('https://') || addrServer.startsWith('http://')) {
-          serverUrl = addrServer;
-        }
-      }
-      _cachedPulseSender ??= PulseMessageSender();
-      await InboxManager().addSenderPlugin('Pulse', _cachedPulseSender!,
-          jsonEncode({'privkey': privkey, 'serverUrl': serverUrl}));
-    } else {
-      return false;
-    }
-    return InboxManager().routeMessage(provider, address, address, sendMsg);
-  }
+  Future<bool> _deliverEncryptedMessage(String address, Message msg) => _pipeline._deliverEncryptedMessage(address, msg);
 
-  Future<bool> _sendToContact(Contact rawContact, String plaintext, {bool noAutoRetry = false}) async {
-    if (_identity == null) return false;
-    // Route with the freshest Contact — caller may hold a stale copy.
-    final contact = _contacts.findById(rawContact.id) ?? rawContact;
-    final envelope = MessageEnvelope.wrap(_selfId.isNotEmpty ? _selfId : _identity!.id, plaintext, senderName: _selfName, senderAvatar: _selfAvatar, senderAddresses: _buildOwnTransportMap());
-    String encryptedText;
-    try {
-      encryptedText = await _signalService.encryptMessage(contact.databaseId, envelope);
-    } catch (e) {
-      debugPrint('[E2EE] encryptMessage failed for ${contact.name} — attempting session rebuild: $e');
-      try {
-        final ourApiKey = _identity!.adapterConfig['token'] ?? '';
-        final InboxReader contactReader;
-        String initApiKey = ourApiKey;
-        String initDbId = contact.databaseId;
-        if (contact.provider == 'Firebase') {
-          contactReader = FirebaseInboxReader();
-          final atIdx = contact.databaseId.indexOf('@http');
-          if (atIdx != -1) {
-            initDbId = contact.databaseId.substring(0, atIdx);
-            initApiKey = jsonEncode({'url': contact.databaseId.substring(atIdx + 1), 'key': ''});
-          }
-        } else if (contact.provider == 'Nostr') {
-          contactReader = NostrInboxReader();
-          initApiKey = '';
-        } else if (contact.provider == 'Session') {
-          contactReader = SessionInboxReader();
-          final prefs = await _getPrefs();
-          initApiKey = prefs.getString('session_node_url') ?? prefs.getString('oxen_node_url') ?? '';
-          unawaited(_keys.publishSessionKeysTo(contact, _selfId));
-        } else if (contact.provider == 'Pulse') {
-          contactReader = PulseInboxReader();
-          final privkey = await _secureStorage.read(key: 'pulse_privkey') ?? '';
-          final prefs = await _getPrefs();
-          var serverUrl = prefs.getString('pulse_server_url') ?? '';
-          final pAt = contact.databaseId.indexOf('@');
-          if (pAt != -1) {
-            final s = contact.databaseId.substring(pAt + 1);
-            if (s.startsWith('https://') || s.startsWith('http://')) serverUrl = s;
-          }
-          initApiKey = jsonEncode({'privkey': privkey, 'serverUrl': serverUrl});
-        } else {
-          return false;
-        }
-        // Session-first key fetch for group members
-        Map<String, dynamic>? bundle;
-        final sessionAddrs = contact.transportAddresses['Session'] ?? [];
-        if (sessionAddrs.isNotEmpty) {
-          final sr = SessionInboxReader();
-          try {
-            final prefs = await _getPrefs();
-            final nodeUrl = prefs.getString('session_node_url') ?? prefs.getString('oxen_node_url') ?? '';
-            await sr.initializeReader(nodeUrl, sessionAddrs.first);
-            bundle = await sr.fetchPublicKeys();
-            if (bundle != null) debugPrint('[E2EE] Group key fetch OK via Session');
-          } catch (_) {} finally {
-            try { sr.close(); } catch (_) {}
-          }
-        }
-        if (bundle == null) {
-          try {
-            await contactReader.initializeReader(initApiKey, initDbId);
-            bundle = await contactReader.fetchPublicKeys();
-          } finally {
-            try {
-              if (contactReader is NostrInboxReader) contactReader.close();
-              else if (contactReader is PulseInboxReader) contactReader.close();
-              else if (contactReader is SessionInboxReader) contactReader.close();
-            } catch (_) {}
-          }
-        }
-        // Nostr relay fallback for group members
-        if (bundle == null && contact.provider == 'Nostr') {
-          final atIdx = contact.databaseId.indexOf('@');
-          final pk = atIdx > 0 ? contact.databaseId.substring(0, atIdx) : '';
-          final pr = atIdx > 0 ? contact.databaseId.substring(atIdx + 1) : '';
-          if (pk.isNotEmpty) {
-            for (final relay in await gatherKnownRelays(pr, limit: 3)) {
-              if (relay == pr) continue;
-              final ar = NostrInboxReader();
-              try {
-                await ar.initializeReader('', '$pk@$relay');
-                final ab = await ar.fetchPublicKeys();
-                if (ab != null) { bundle = ab; break; }
-              } catch (_) {} finally {
-                try { ar.close(); } catch (_) {}
-              }
-            }
-          }
-        }
-        if (bundle != null) {
-          final keyChanged = await _signalService.buildSession(contact.databaseId, bundle);
-          _keys.cacheContactKyberPk(contact.databaseId, bundle);
-          if (keyChanged && !_keyChangeCtrl.isClosed) {
-            _keyChangeCtrl.add((contactName: contact.name, contactId: contact.databaseId));
-          }
-          encryptedText = await _signalService.encryptMessage(contact.databaseId, envelope);
-        } else {
-          debugPrint('[E2EE] No key bundle for ${contact.name} — group send skipped');
-          return false;
-        }
-      } catch (e2) {
-        debugPrint('[E2EE] Session build failed for ${contact.name}: $e2 — group send skipped');
-        return false;
-      }
-    }
-    if (encryptedText.startsWith('E2EE||') &&
-        _pqcConfirmed.contains(contact.databaseId)) {
-      encryptedText = await _keys.pqcWrap(encryptedText, contact.databaseId);
-    }
-    final routeProvider = _providerFromAddress(contact.databaseId).isNotEmpty
-        ? _providerFromAddress(contact.databaseId)
-        : contact.provider;
-    final msg = Message(
-      id: _uuid.v4(),
-      senderId: _selfId.isNotEmpty ? _selfId : _identity!.id,
-      receiverId: contact.databaseId,
-      encryptedPayload: encryptedText,
-      timestamp: DateTime.now(),
-      adapterType: routeProvider.toLowerCase(),
-    );
-    await _addSenderPlugin(contact);
-    final devPrefs = await _getPrefs();
-    final devModeOn = devPrefs.getBool('dev_mode_enabled') ?? false;
 
-    // Transport-priority routing: iterate transports in priority order,
-    // try each address within a transport before moving to the next.
-    bool sent = false;
+  Future<bool> _sendToContact(Contact rawContact, String plaintext, {bool noAutoRetry = false}) => _pipeline._sendToContact(rawContact, plaintext, noAutoRetry: noAutoRetry);
 
-    // P2P shortcut
-    if (!contact.isGroup && P2PTransportService.instance.isConnected(contact.id)) {
-      sent = P2PTransportService.instance.send(contact.id, msg.encryptedPayload);
-      if (sent) {
-        debugPrint('[P2P] Direct delivery to ${contact.name}');
-        _lastDeliveryTransport[contact.id] = 'P2P';
-      }
-    }
-
-    if (!sent) {
-      for (final transport in _rankedTransportsFor(contact)) {
-        if (devModeOn && !(devPrefs.getBool('dev_adapter_$transport') ?? true)) {
-          debugPrint('[Dev] Adapter $transport disabled — skipping');
-          continue;
-        }
-        final addresses = contact.transportAddresses[transport] ?? [];
-        for (final addr in addresses) {
-          sent = await _deliverEncryptedMessage(addr, msg);
-          if (sent) {
-            debugPrint('[SmartRouter] Delivered via $transport: $addr');
-            _lastDeliveryTransport[contact.id] = transport;
-            break;
-          }
-        }
-        if (sent) break;
-      }
-    }
-
-    // LAN last resort
-    final lanDisabled = devModeOn &&
-        !(devPrefs.getBool('dev_adapter_LAN') ?? true);
-    if (!sent && _lanSender != null && !lanDisabled) {
-      sent = await _lanSender!.sendMessage('', '', msg);
-      if (sent) {
-        debugPrint('[LAN] Delivered via local network multicast');
-        _lastDeliveryTransport[contact.id] = 'LAN';
-        if (!_lanModeActive) {
-          _lanModeActive = true;
-          _scheduleNotify();
-        }
-      }
-    } else if (sent && _lanModeActive) {
-      _lanModeActive = false;
-      _scheduleNotify();
-    }
-
-    return sent;
-  }
 
   /// Send [plaintext] to a single group member through a specific Pulse
   /// server (the group's `groupServerUrl`), bypassing the normal transport-
@@ -4123,117 +2810,9 @@ class ChatController extends ChangeNotifier {
   /// through this server"; silently rerouting via Nostr would leak the
   /// group conversation off the chosen server.
   Future<bool> _sendToContactViaPulseServer(
-      Contact rawContact, String plaintext, String pulseServerUrl) async {
-    if (_identity == null) return false;
-    final contact = _contacts.findById(rawContact.id) ?? rawContact;
+      Contact rawContact, String plaintext, String pulseServerUrl) =>
+      _pipeline._sendToContactViaPulseServer(rawContact, plaintext, pulseServerUrl);
 
-    // Resolve recipient's Pulse pubkey. The pubkey is universal (same on
-    // every Pulse server), so we only need to know it once — the server
-    // we send through is the one that holds the group, regardless of
-    // where this recipient's primary Pulse identity normally lives.
-    String? recipientPulsePub;
-    for (final addr in contact.transportAddresses['Pulse'] ?? const []) {
-      final at = addr.indexOf('@');
-      if (at > 0) {
-        recipientPulsePub = addr.substring(0, at);
-        break;
-      }
-    }
-    if (recipientPulsePub == null || recipientPulsePub.isEmpty) {
-      debugPrint('[PulseGroup] No Pulse pubkey for ${contact.name} — '
-          'cannot route through $pulseServerUrl. Recipient must reconnect '
-          'to a Pulse server (any) to advertise their pubkey.');
-      return false;
-    }
-
-    // Encrypt via existing Signal session. The cipher blob is transport-
-    // agnostic — keyed by `contact.databaseId` (whatever transport that
-    // session was originally built on); the receiver decrypts on identity,
-    // not transport.
-    final envelope = MessageEnvelope.wrap(
-        _selfId.isNotEmpty ? _selfId : _identity!.id, plaintext,
-        senderName: _selfName,
-        senderAvatar: _selfAvatar,
-        senderAddresses: _buildOwnTransportMap());
-    String encryptedText;
-    try {
-      encryptedText = await _signalService.encryptMessage(contact.databaseId, envelope);
-    } catch (e) {
-      // Stale / missing Signal session (most often InvalidKeyException after
-      // the recipient reinstalled and rotated their identity key). Wipe
-      // local session and refetch their bundle, preferring their Pulse
-      // address on the GROUP's host server — it's where they're definitely
-      // online for this group, and it skips Nostr-relay key fetch lottery.
-      debugPrint('[PulseGroup] Encrypt failed for ${contact.name}: $e — '
-          'rebuilding Signal session');
-      try {
-        await _signalService.deleteContactData(contact.databaseId);
-        final pulseKey = await _secureStorage.read(key: 'pulse_privkey') ?? '';
-        if (pulseKey.isEmpty) {
-          debugPrint('[PulseGroup] Rebuild aborted: no pulse_privkey');
-          return false;
-        }
-        final reader = PulseInboxReader();
-        final readerApiKey =
-            jsonEncode({'privkey': pulseKey, 'serverUrl': pulseServerUrl});
-        final readerDbId = '$recipientPulsePub@$pulseServerUrl';
-        Map<String, dynamic>? bundle;
-        try {
-          await reader.initializeReader(readerApiKey, readerDbId);
-          bundle = await reader.fetchPublicKeys();
-        } finally {
-          try { reader.close(); } catch (_) {}
-        }
-        if (bundle == null) {
-          debugPrint('[PulseGroup] Rebuild aborted: no bundle on $pulseServerUrl');
-          return false;
-        }
-        final keyChanged = await _signalService.buildSession(contact.databaseId, bundle);
-        _keys.cacheContactKyberPk(contact.databaseId, bundle);
-        if (keyChanged && !_keyChangeCtrl.isClosed) {
-          _keyChangeCtrl.add((contactName: contact.name, contactId: contact.databaseId));
-        }
-        encryptedText = await _signalService.encryptMessage(contact.databaseId, envelope);
-        debugPrint('[PulseGroup] Session rebuilt + re-encrypted for ${contact.name}');
-      } catch (e2) {
-        debugPrint('[PulseGroup] Session rebuild failed for ${contact.name}: $e2');
-        return false;
-      }
-    }
-    if (encryptedText.startsWith('E2EE||') &&
-        _pqcConfirmed.contains(contact.databaseId)) {
-      encryptedText = await _keys.pqcWrap(encryptedText, contact.databaseId);
-    }
-
-    // Look up the per-server sender. ensureGroupPulseConnection should
-    // have populated this when the group was loaded/accepted. If missing,
-    // open it on demand — costs ~1-3s the first time (PoW + WS auth) but
-    // amortizes across the rest of the chat.
-    final key = _canonicalizePulseUrl(pulseServerUrl);
-    if (!_pulseSendersByServer.containsKey(key)) {
-      debugPrint('[PulseGroup] No pool sender for $pulseServerUrl — '
-          'opening on-demand');
-      final ok = await ensureGroupPulseConnection(pulseServerUrl);
-      if (!ok) return false;
-    }
-    final activeSender = _pulseSendersByServer[key];
-    if (activeSender == null) return false;
-
-    final targetDbId = '$recipientPulsePub@$pulseServerUrl';
-    final msg = Message(
-      id: _uuid.v4(),
-      senderId: _selfId.isNotEmpty ? _selfId : _identity!.id,
-      receiverId: targetDbId,
-      encryptedPayload: encryptedText,
-      timestamp: DateTime.now(),
-      adapterType: 'pulse',
-      isRead: true,
-      status: 'sending',
-    );
-    final ok = await activeSender.sendMessage(targetDbId, '', msg);
-    if (ok) _lastDeliveryTransport[contact.id] = 'Pulse';
-    return ok;
-  }
 
   /// Signal-flavoured sibling of [_sendToContactViaPulseServer]. Used for
   /// pulse-group fan-out of typing/read/edit/delete/reaction/group_update/
@@ -4244,58 +2823,8 @@ class ChatController extends ChangeNotifier {
   /// initialization; broadcaster invokes this when a group method passes
   /// `overridePulseServer`. Returns true on successful sink.add.
   Future<bool> _sendSignalToContactViaPulseServer(Contact rawContact,
-      String type, Map<String, dynamic> payload, String pulseServerUrl) async {
-    if (_identity == null) return false;
-    final contact = _contacts.findById(rawContact.id) ?? rawContact;
-
-    String? recipientPulsePub;
-    for (final addr in contact.transportAddresses['Pulse'] ?? const []) {
-      final at = addr.indexOf('@');
-      if (at > 0) {
-        recipientPulsePub = addr.substring(0, at);
-        break;
-      }
-    }
-    if (recipientPulsePub == null || recipientPulsePub.isEmpty) {
-      debugPrint('[PulseGroup] Signal $type → ${contact.name}: no Pulse '
-          'pubkey known. Recipient must connect to a Pulse server first '
-          '(addr_update will then propagate their pubkey).');
-      return false;
-    }
-
-    final key = _canonicalizePulseUrl(pulseServerUrl);
-    if (!_pulseSendersByServer.containsKey(key)) {
-      final ok = await ensureGroupPulseConnection(pulseServerUrl);
-      if (!ok) return false;
-    }
-    final sender = _pulseSendersByServer[key];
-    if (sender == null) return false;
-
-    // Sign the payload before sending — Pulse-transport signals MUST carry
-    // `_sig` + `_spk` (HMAC over canonical {t, p}) or the receiver's
-    // SignalDispatcher rejects them as "unsigned" via the
-    // `_signatureRequiredSignals` gate. Broadcaster's normal `_sendSignalTo`
-    // does this for us, but the override callback bypasses that path; we
-    // have to replicate the signing locally. Without this, sender_key_dist
-    // / group_update / edit / delete / msg_read silently get dropped on the
-    // recipient and the chat shows raw "_sk:true ct:..." envelopes
-    // because no one ever distributed the sender key.
-    Map<String, dynamic> signedPayload = payload;
-    if (!payload.containsKey('_sig')) {
-      try {
-        final privkey = await _getNostrPrivkey();
-        final selfPubkey =
-            privkey.isNotEmpty ? deriveNostrPubkeyHex(privkey) : null;
-        signedPayload =
-            await _keys.signPayload(contact, type, payload, selfPubkey);
-      } catch (e) {
-        debugPrint('[PulseGroup] Signal $type sign failed: $e');
-      }
-    }
-    final targetDbId = '$recipientPulsePub@$pulseServerUrl';
-    final selfId = _selfId.isNotEmpty ? _selfId : (_identity?.id ?? '');
-    return sender.sendSignal(targetDbId, targetDbId, selfId, type, signedPayload);
-  }
+      String type, Map<String, dynamic> payload, String pulseServerUrl) =>
+      _pipeline._sendSignalToContactViaPulseServer(rawContact, type, payload, pulseServerUrl);
 
   // ── Smart media routing ─────────────────────────────────────────────────
   //
@@ -4310,31 +2839,8 @@ class ChatController extends ChangeNotifier {
   // 20KB raw bytes → ~50KB seal JSON — safely under 65535.
   static const _inlineThreshold = 8 * 1024; // 8KB — must fit in NIP-44 after double Gift Wrap
 
-  Future<void> sendFile(Contact contact, Uint8List bytes, String name,
-      {String mediaType = 'file'}) async {
-    if (_identity == null) return;
+  Future<void> sendFile(Contact contact, Uint8List bytes, String name, {String mediaType = "file"}) => _media.sendFile(contact, bytes, name, mediaType: mediaType);
 
-    // Tier 0: small files (<48KB) go inline as a single message.
-    if (bytes.length < _inlineThreshold) {
-      await sendMessage(contact, MediaService.chunkPayloads(bytes, name, mediaType: mediaType).first);
-      return;
-    }
-
-    // Tier 1: P2P DataChannel — direct transfer if already connected (1-on-1 only).
-    if (!contact.isGroup && P2PTransportService.instance.isConnected(contact.id)) {
-      final ok = await _sendViaP2PBinary(contact, bytes, name, mediaType);
-      if (ok) return;
-    }
-
-    // Tier 2: Blossom — HTTPS upload, works behind any NAT (1-on-1 + groups).
-    if (BlossomService.instance.isAvailable) {
-      final ok = await _sendViaBlossom(contact, bytes, name, mediaType);
-      if (ok) return;
-    }
-
-    // Tier 3: relay chunks — last resort (floods relay with binary events).
-    await _sendViaRelayChunks(contact, bytes, name, mediaType: mediaType);
-  }
 
   /// Send a voice message using a 3-tier routing strategy:
   /// 1. Inline (single NIP-44 event) for short clips — full waveform preserved.
@@ -4346,790 +2852,65 @@ class ChatController extends ChangeNotifier {
   /// through double NIP-44 Gift Wrap (max ~36 KB raw before hitting 65535).
   /// WAV inline threshold: 6 KB (gzip-compressed short clips only).
   Future<bool> sendVoice(Contact contact, Uint8List audioBytes, int durationSeconds,
-      List<double> amplitudes) async {
-    if (_identity == null) return false;
-
-    // Detect format from magic bytes.
-    // OggS (4F 67 67 53) = OPUS; ftyp at offset 4 (66 74 79 70) = AAC/M4A; else WAV.
-    final bool isCompressed;
-    final String encField;
-    final String fileExt;
-    if (audioBytes.length >= 4 &&
-        audioBytes[0] == 0x4F && audioBytes[1] == 0x67 &&
-        audioBytes[2] == 0x67 && audioBytes[3] == 0x53) {
-      isCompressed = true; encField = 'opus'; fileExt = 'opus';
-    } else if (audioBytes.length >= 8 &&
-        audioBytes[4] == 0x66 && audioBytes[5] == 0x74 &&
-        audioBytes[6] == 0x79 && audioBytes[7] == 0x70) {
-      isCompressed = true; encField = 'aac'; fileExt = 'm4a';
-    } else {
-      isCompressed = false; encField = 'wav'; fileExt = 'wav';
-    }
-
-    final ampInt = amplitudes.map((v) => (v * 100).round()).toList();
-    final String payload;
-    if (isCompressed) {
-      final b64 = base64Encode(audioBytes);
-      payload = jsonEncode({
-        't': 'voice', 'd': b64, 'dur': durationSeconds,
-        'sz': audioBytes.length, 'amp': ampInt, 'enc': encField,
-      });
-    } else {
-      final compressed = gzip.encode(audioBytes);
-      final b64 = base64Encode(compressed);
-      payload = jsonEncode({
-        't': 'voice', 'd': b64, 'dur': durationSeconds,
-        'sz': audioBytes.length, 'amp': ampInt, 'z': true,
-      });
-    }
-
-    final payloadBytes = utf8.encode(payload).length;
-    // Inline threshold: NIP-44 double gift-wrap expands payload ~2.7×; nos.lol
-    // hard-rejects events > 65535 bytes. 20 KB payload → ~55 KB final event (safe).
-    // Larger messages go via Blossom (single HTTP upload, no size limit).
-    final inlineLimit = isCompressed ? 20000 : 6000;
-    if (payloadBytes <= inlineLimit) {
-      await sendMessage(contact, payload);
-      return true;
-    }
-
-    // Large voice — show locally as a full voice bubble, then route via tiers.
-    final isGroup = contact.isGroup;
-    final room = _repo.getOrCreateRoom(contact);
-    final msgId = _uuid.v4();
-    final localMsg = Message(
-      id: msgId,
-      senderId: _identity!.id,
-      receiverId: contact.id,
-      encryptedPayload: payload,
-      timestamp: DateTime.now(),
-      adapterType: isGroup ? 'group' : (contact.provider == 'Nostr' ? 'nostr' : 'firebase'),
-      isRead: true,
-      status: 'sending',
-    );
-    room.messages.add(localMsg);
-    _repo.trackMessageId(contact.id, localMsg.id);
-    final localTtl = _repo.getChatTtlCached(contact.id);
-    if (localTtl > 0) _repo.scheduleTtlDelete(contact, localMsg, localTtl,
-        onDeleted: () { if (!_disposed) _scheduleNotify(); });
-    _scheduleNotify();
-
-    final voiceName = 'voice_${durationSeconds}s.$fileExt';
-
-    // Tier 1: Blossom HTTPS upload.
-    if (BlossomService.instance.isAvailable) {
-      room.messages.removeWhere((m) => m.id == msgId);
-      _scheduleNotify();
-      final ok = await _sendViaBlossom(contact, audioBytes, voiceName, 'voice');
-      if (ok) return true;
-      // Re-add local placeholder for relay chunk fallback.
-      room.messages.add(localMsg);
-      _scheduleNotify();
-    }
-
-    // Tier 3: relay chunks (8 KB each — always fits NIP-44).
-    bool allSent = true;
-    try {
-      _repo.setUploadProgress(msgId, 0.0);
-      final chunks = MediaService.chunkPayloads(audioBytes, voiceName, mediaType: 'voice');
-      int i = 0;
-      for (final chunk in chunks) {
-        final bool ok;
-        if (isGroup) {
-          ok = await _sendGroupChunk(contact, chunk);
-        } else {
-          ok = await _sendToContact(contact, chunk);
-        }
-        if (!ok) { allSent = false; break; }
-        i++;
-        _repo.setUploadProgress(msgId, i / chunks.length);
-        _scheduleNotify();
-      }
-    } catch (e) {
-      debugPrint('[Voice] sendVoice chunk loop error: $e');
-      allSent = false;
-    } finally {
-      _repo.clearUploadProgress(msgId);
-    }
-
-    final idx = _repo.messageIndexById(contact.id, msgId);
-    final finalMsg = localMsg.copyWith(status: allSent ? 'sent' : 'failed');
-    if (idx >= 0) room.messages[idx] = finalMsg;
-    unawaited(LocalStorageService().saveMessage(contact.id, finalMsg.toJson()));
-    _scheduleNotify();
-    return allSent;
-  }
+      List<double> amplitudes) =>
+      _media.sendVoice(contact, audioBytes, durationSeconds, amplitudes);
 
   /// Send a video note (circle). Small recordings go inline; larger ones
   /// route through the 3-tier media pipeline (P2P → Blossom → relay chunks).
-  Future<void> sendVideoNote(Contact contact, Uint8List mp4Bytes,
-      int durationSeconds, Uint8List? thumbnailJpeg) async {
-    if (_identity == null) return;
-    final thumbB64 = thumbnailJpeg != null ? base64Encode(thumbnailJpeg) : null;
-    final b64 = base64Encode(mp4Bytes);
-    final payload = jsonEncode({
-      't': 'video_note',
-      'd': b64,
-      'dur': durationSeconds,
-      'sz': mp4Bytes.length,
-      'n': 'video_note.mp4',
-      if (thumbB64 != null) 'thumb': thumbB64,
-    });
-    final payloadBytes = utf8.encode(payload).length;
-    // Small video notes: send inline (under NIP-44 limit after Gift Wrap)
-    if (payloadBytes <= 6000) {
-      await sendMessage(contact, payload);
-      return;
-    }
-    // Large video notes: show locally with full payload, send via media pipeline
-    final isGroup = contact.isGroup;
-    final room = _repo.getOrCreateRoom(contact);
-    final msgId = _uuid.v4();
-    final localMsg = Message(
-      id: msgId,
-      senderId: _identity!.id,
-      receiverId: contact.id,
-      encryptedPayload: payload,
-      timestamp: DateTime.now(),
-      adapterType: isGroup ? 'group' : (contact.provider == 'Nostr' ? 'nostr' : 'firebase'),
-      isRead: true,
-      status: 'sending',
-    );
-    room.messages.add(localMsg);
-    _repo.trackMessageId(contact.id, localMsg.id);
-    final localTtl = _repo.getChatTtlCached(contact.id);
-    if (localTtl > 0) _repo.scheduleTtlDelete(contact, localMsg, localTtl,
-        onDeleted: () { if (!_disposed) _scheduleNotify(); });
-    _scheduleNotify();
-
-    // Route through sendFile's 3-tier pipeline (P2P → Blossom → relay chunks)
-    // We mark the local message first, then delegate the actual send.
-    _repo.setUploadProgress(msgId, 0.0);
-    bool sent = false;
-
-    // Tier 1: P2P
-    if (!isGroup && P2PTransportService.instance.isConnected(contact.id)) {
-      sent = await _sendViaP2PBinary(contact, mp4Bytes, 'video_note.mp4', 'video_note');
-    }
-
-    // Tier 2: Blossom
-    if (!sent && BlossomService.instance.isAvailable) {
-      // Remove the local placeholder (Blossom creates its own)
-      room.messages.removeWhere((m) => m.id == msgId);
-      _scheduleNotify();
-      sent = await _sendViaBlossom(contact, mp4Bytes, 'video_note.mp4', 'video_note');
-      if (sent) {
-        _repo.clearUploadProgress(msgId);
-        return;
-      }
-      // Re-add local placeholder for relay chunk fallback
-      room.messages.add(localMsg);
-      _scheduleNotify();
-    }
-
-    // Tier 3: relay chunks
-    if (!sent) {
-      final chunks = MediaService.chunkPayloads(mp4Bytes, 'video_note.mp4',
-          mediaType: 'video_note');
-      int i = 0;
-      bool allSent = true;
-      for (final chunk in chunks) {
-        final bool ok;
-        if (isGroup) {
-          ok = await _sendGroupChunk(contact, chunk);
-        } else {
-          ok = await _sendToContact(contact, chunk);
-        }
-        if (!ok) { allSent = false; break; }
-        i++;
-        _repo.setUploadProgress(msgId, i / chunks.length);
-        _scheduleNotify();
-      }
-      sent = allSent;
-    }
-
-    _repo.clearUploadProgress(msgId);
-    final idx = _repo.messageIndexById(contact.id, msgId);
-    final finalMsg = localMsg.copyWith(status: sent ? 'sent' : 'failed');
-    if (idx >= 0) room.messages[idx] = finalMsg;
-    final storageKey = isGroup ? contact.id : contact.storageKey;
-    unawaited(LocalStorageService().saveMessage(storageKey, finalMsg.toJson()));
-    _scheduleNotify();
-  }
-
-  /// Tier 2: Encrypt, upload to Blossom, send metadata message.
-  /// Works for both 1-on-1 and group chats. For groups: upload once,
-  /// send E2EE blossom payload (with AES key) to each member individually.
+  Future<void> sendVideoNote(Contact contact, Uint8List mp4Bytes, int durationSeconds, Uint8List? thumbnailJpeg) => _media.sendVideoNote(contact, mp4Bytes, durationSeconds, thumbnailJpeg);
   Future<bool> _sendViaBlossom(Contact contact, Uint8List bytes, String name,
-      String mediaType) async {
-    final isGroup = contact.isGroup;
-    final room = _repo.getOrCreateRoom(contact);
-    final msgId = _uuid.v4();
+      String mediaType) =>
+      _media._sendViaBlossom(contact, bytes, name, mediaType);
 
-    // Generate thumbnail for images/gifs
-    String? thumbnail;
-    if (mediaType == 'img' || mediaType == 'gif') {
-      try {
-        thumbnail = await compute(_generateThumbnailIsolate, bytes);
-      } catch (e) {
-        debugPrint('[Blossom] Thumbnail generation failed: $e');
-      }
-    }
-
-    // Show sending state immediately
-    final displayPayload = BlossomPayloadHelpers.buildBlossomPayload(
-      hash: '', server: '', key: '', iv: '',
-      name: name, size: bytes.length, mediaType: mediaType, thumbnail: thumbnail,
-    );
-    final localMsg = Message(
-      id: msgId,
-      senderId: _identity!.id,
-      receiverId: contact.id,
-      encryptedPayload: displayPayload,
-      timestamp: DateTime.now(),
-      adapterType: isGroup ? 'group' : (contact.provider == 'Nostr' ? 'nostr' : 'firebase'),
-      isRead: true,
-      status: 'sending',
-    );
-    room.messages.add(localMsg);
-    _repo.trackMessageId(contact.id, localMsg.id);
-    _repo.setUploadProgress(msgId, 0.1);
-    _scheduleNotify();
-
-    try {
-      // Encrypt
-      final enc = MediaCryptoService.encrypt(bytes);
-      _repo.setUploadProgress(msgId, 0.3);
-      _scheduleNotify();
-
-      // Upload
-      final result = await BlossomService.instance.upload(enc.ciphertext);
-      if (result == null) {
-        _repo.clearUploadProgress(msgId);
-        // Remove sending placeholder — will fall back to relay chunks
-        room.messages.removeWhere((m) => m.id == msgId);
-        _scheduleNotify();
-        return false;
-      }
-      _repo.setUploadProgress(msgId, 0.8);
-      _scheduleNotify();
-
-      // Build payload with key material
-      final payload = BlossomPayloadHelpers.buildBlossomPayload(
-        hash: result.hash,
-        server: result.server,
-        key: base64Encode(enc.key),
-        iv: base64Encode(enc.iv),
-        name: name,
-        size: bytes.length,
-        mediaType: mediaType,
-        thumbnail: thumbnail,
-      );
-
-      // Send via E2EE — group: wrap in _group and send to each member
-      bool sent = false;
-      if (isGroup) {
-        final groupPayload = jsonEncode({'_group': contact.id, 'text': payload});
-        final isPulseRouted =
-            contact.isPulseGroup && contact.groupServerUrl.isNotEmpty;
-        if (isPulseRouted) {
-          await ensureGroupPulseConnection(contact.groupServerUrl);
-        }
-        int membersSent = 0;
-        for (final memberId in contact.members) {
-          final memberContact = _contacts.findById(memberId);
-          if (memberContact == null) continue;
-          final ok = isPulseRouted
-              ? await _sendToContactViaPulseServer(
-                  memberContact, groupPayload, contact.groupServerUrl)
-              : await _sendToContact(memberContact, groupPayload);
-          if (ok) membersSent++;
-        }
-        sent = membersSent > 0;
-      } else {
-        sent = await _sendToContact(contact, payload);
-      }
-
-      final idx = _repo.messageIndexById(contact.id, msgId);
-      final finalMsg = localMsg.copyWith(
-        encryptedPayload: payload,
-        status: sent ? 'sent' : 'failed',
-      );
-      if (idx != -1) room.messages[idx] = finalMsg;
-      final storageKey = isGroup ? contact.id : contact.storageKey;
-      await LocalStorageService().saveMessage(storageKey, finalMsg.toJson());
-      _repo.clearUploadProgress(msgId);
-      final localTtl = _repo.getChatTtlCached(contact.id);
-      if (localTtl > 0) _repo.scheduleTtlDelete(contact, finalMsg, localTtl, onDeleted: () { if (!_disposed) _scheduleNotify(); });
-      _scheduleNotify();
-      return sent;
-    } catch (e) {
-      debugPrint('[Blossom] _sendViaBlossom error: $e');
-      _repo.clearUploadProgress(msgId);
-      room.messages.removeWhere((m) => m.id == msgId);
-      _scheduleNotify();
-      return false;
-    }
-  }
 
   /// Tier 1: Send file directly via P2P DataChannel binary frames.
   Future<bool> _sendViaP2PBinary(Contact contact, Uint8List bytes,
-      String name, String mediaType) async {
-    const chunkSize = 64 * 1024; // 64KB P2P frames
-    final total = (bytes.length / chunkSize).ceil();
-    final fid = _uuid.v4();
-    final fh = hash_lib.sha256.convert(bytes).toString();
+      String name, String mediaType) =>
+      _media._sendViaP2PBinary(contact, bytes, name, mediaType);
 
-    // Send header as text message
-    final header = jsonEncode({
-      'p2p_file': true,
-      'fid': fid,
-      'n': name,
-      'sz': bytes.length,
-      'mt': mediaType,
-      'total': total,
-      'fh': fh,
-    });
-    if (!P2PTransportService.instance.send(contact.id, header)) return false;
-
-    final room = _repo.getOrCreateRoom(contact);
-    final msgId = _uuid.v4();
-    final displayPayload = jsonEncode({'t': mediaType, 'n': name, 'sz': bytes.length, 'd': ''});
-    final localMsg = Message(
-      id: msgId,
-      senderId: _identity!.id,
-      receiverId: contact.id,
-      encryptedPayload: displayPayload,
-      timestamp: DateTime.now(),
-      adapterType: 'p2p',
-      isRead: true,
-      status: 'sending',
-    );
-    room.messages.add(localMsg);
-    _repo.trackMessageId(contact.id, localMsg.id);
-    _repo.setUploadProgress(msgId, 0.0);
-    _scheduleNotify();
-
-    bool allSent = true;
-    try {
-      for (int i = 0; i < total; i++) {
-        final start = i * chunkSize;
-        final end = (start + chunkSize).clamp(0, bytes.length);
-        final chunk = bytes.sublist(start, end);
-        if (!P2PTransportService.instance.sendBinary(contact.id, chunk)) {
-          allSent = false;
-          break;
-        }
-        _repo.setUploadProgress(msgId, (i + 1) / total);
-        _scheduleNotify();
-        // Yield to event loop periodically to avoid blocking UI
-        if (i % 4 == 3) await Future.delayed(Duration.zero);
-      }
-    } finally {
-      _repo.clearUploadProgress(msgId);
-    }
-
-    final idx = _repo.messageIndexById(contact.id, msgId);
-    final finalMsg = localMsg.copyWith(status: allSent ? 'sent' : 'failed');
-    if (idx != -1) room.messages[idx] = finalMsg;
-    await LocalStorageService().saveMessage(contact.storageKey, finalMsg.toJson());
-    final localTtl = _repo.getChatTtlCached(contact.id);
-    if (localTtl > 0) _repo.scheduleTtlDelete(contact, finalMsg, localTtl, onDeleted: () { if (!_disposed) _scheduleNotify(); });
-    _scheduleNotify();
-    return allSent;
-  }
 
   /// Tier 3 / group fallback: relay-based 32KB chunks (original behavior).
   Future<void> _sendViaRelayChunks(Contact contact, Uint8List bytes, String name,
-      {String mediaType = 'file'}) async {
-    final totalChunks = (bytes.length / (8 * 1024)).ceil();
-    final isGroup = contact.isGroup;
-    final room = _repo.getOrCreateRoom(contact);
-    final msgId = _uuid.v4();
+      {String mediaType = 'file'}) =>
+      _media._sendViaRelayChunks(contact, bytes, name, mediaType: mediaType);
 
-    final displayPayload = jsonEncode({'t': mediaType, 'n': name, 'sz': bytes.length, 'd': ''});
-    final localMsg = Message(
-      id: msgId,
-      senderId: _identity!.id,
-      receiverId: contact.id,
-      encryptedPayload: displayPayload,
-      timestamp: DateTime.now(),
-      adapterType: isGroup ? 'group' : (contact.provider == 'Nostr' ? 'nostr' : 'firebase'),
-      isRead: true,
-      status: 'sending',
-    );
-    room.messages.add(localMsg);
-    _repo.trackMessageId(contact.id, localMsg.id);
-    final localTtl = _repo.getChatTtlCached(contact.id);
-    if (localTtl > 0) _repo.scheduleTtlDelete(contact, localMsg, localTtl, onDeleted: () { if (!_disposed) _scheduleNotify(); });
-    _scheduleNotify();
 
-    bool allSent = true;
-    _repo.setUploadProgress(msgId, 0.0);
-    int i = 0;
-    String? fileId;
-    try {
-      for (final chunk in MediaService.chunkIterable(bytes, name, mediaType: mediaType)) {
-        if (fileId == null) {
-          try {
-            final m = jsonDecode(chunk) as Map<String, dynamic>;
-            fileId = m['fid'] as String?;
-          } catch (e) { debugPrint('[Chat] Could not extract fileId from chunk: $e'); }
-        }
-        final bool ok;
-        if (isGroup) {
-          ok = await _sendGroupChunk(contact, chunk);
-        } else {
-          ok = await _sendToContact(contact, chunk);
-        }
-        if (!ok) { allSent = false; break; }
-        i++;
-        _repo.setUploadProgress(msgId, i / totalChunks);
-        _scheduleNotify();
-      }
-      if (fileId != null) {
-        _pendingSends[fileId] = (contact: contact, bytes: bytes, name: name);
-        Future.delayed(const Duration(minutes: 10), () => _pendingSends.remove(fileId));
-        _startStallCheckTimer();
-      }
-    } finally {
-      _repo.clearUploadProgress(msgId);
-    }
-
-    final idx = _repo.messageIndexById(contact.id, msgId);
-    final finalMsg = localMsg.copyWith(status: allSent ? 'sent' : 'failed');
-    if (idx != -1) room.messages[idx] = finalMsg;
-    final storageKey = isGroup ? contact.id : contact.storageKey;
-    await LocalStorageService().saveMessage(storageKey, finalMsg.toJson());
-    _scheduleNotify();
-  }
-
-  Future<bool> _sendGroupChunk(Contact group, String chunkPayload) async {
-    final groupPayload = jsonEncode({'_group': group.id, 'text': chunkPayload});
-    final myUuid = _identity?.id ?? '';
-    final selfId = _selfId;
-    final ownPubAt = selfId.indexOf('@');
-    final ownPub =
-        (ownPubAt > 0 ? selfId.substring(0, ownPubAt) : selfId).toLowerCase();
-    final isPulseRouted =
-        group.isPulseGroup && group.groupServerUrl.isNotEmpty;
-    if (isPulseRouted) {
-      await ensureGroupPulseConnection(group.groupServerUrl);
-    }
-    int sent = 0;
-    final seen = <String>{};
-    final memberIds = <String>[
-      if (group.creatorId != null && group.creatorId!.isNotEmpty) group.creatorId!,
-      ...group.members,
-    ];
-    for (final memberId in memberIds) {
-      if (memberId == myUuid) continue;
-      Contact? memberContact = _contacts.findById(memberId);
-      if (memberContact == null) {
-        final pub = group.memberPubkeys[memberId];
-        if (pub != null && pub.isNotEmpty) {
-          if (pub.toLowerCase() == ownPub) continue;
-          memberContact = _contacts.findByPubkey(pub);
-        }
-      }
-      if (memberContact == null) continue;
-      if (!seen.add(memberContact.id)) continue;
-      final ok = isPulseRouted
-          ? await _sendToContactViaPulseServer(
-              memberContact, groupPayload, group.groupServerUrl)
-          : await _sendToContact(memberContact, groupPayload);
-      if (ok) sent++;
-    }
-    return sent > 0;
-  }
+  Future<bool> _sendGroupChunk(Contact group, String chunkPayload) =>
+      _media._sendGroupChunk(group, chunkPayload);
 
   // ── Message CRUD ──────────────────────────────────────────────────────────
 
-  Future<void> deleteLocalMessage(Contact contact, String messageId) async {
-    _retryTimers[messageId]?.cancel();
-    _retryTimers.remove(messageId);
-    await _repo.deleteMessageFromRoom(contact, messageId);
-    _scheduleNotify();
-  }
+  Future<void> deleteLocalMessage(Contact contact, String messageId) =>
+      _crud.deleteLocalMessage(contact, messageId);
 
-  Future<void> deleteMessage(Contact contact, Message message) async {
-    debugPrint('[Chat] deleteMessage: msgId=${message.id} senderId=${message.senderId} selfId=$_selfId isGroup=${contact.isGroup}');
-    await deleteLocalMessage(contact, message.id);
-    // senderId may be identity.id (UUID) or _selfId (pubkey@relay) depending
-    // on when the message was created. Accept either.
-    final selfBare = _selfId.contains('@') ? _selfId.split('@').first : _selfId;
-    final isMine = message.senderId == _selfId ||
-        message.senderId == _identity!.id ||
-        message.senderId == selfBare;
-    if (!isMine) {
-      debugPrint('[Chat] deleteMessage: NOT my message — skip remote delete (senderId=${message.senderId} selfId=$_selfId identityId=${_identity!.id})');
-      return;
-    }
-    if (contact.isGroup) {
-      unawaited(_broadcaster.broadcastGroupDelete(
-          contact, message.id, _contacts.contacts));
-    } else {
-      debugPrint('[Chat] deleteMessage: sending 1:1 delete to ${contact.name} (${contact.databaseId})');
-      unawaited(_broadcaster.sendDeleteSignal(contact, message.id));
-    }
-  }
+  Future<void> deleteMessage(Contact contact, Message message) =>
+      _crud.deleteMessage(contact, message);
 
-  void _handleRemoteDelete(String fromId, String msgId, {String? groupId}) {
-    debugPrint('[Chat] _handleRemoteDelete: fromId=$fromId msgId=$msgId groupId=$groupId');
-    if (groupId != null) {
-      final room = _repo.getRoomForContact(groupId);
-      if (room == null) return;
-      final idx = _repo.messageIndexById(groupId, msgId);
-      if (idx == -1) return;
-      Contact? sender;
-      for (final c in _contacts.contacts) {
-        if (c.databaseId == fromId || c.databaseId.split('@').first == fromId.split('@').first) {
-          sender = c;
-          break;
-        }
-      }
-      final senderId = sender?.id ?? fromId;
-      if (room.messages[idx].senderId != senderId) return;
-      room.messages.removeAt(idx);
-      _repo.untrackMessageId(groupId, msgId);
-      _repo.rebuildPositionIndex(groupId);
-      unawaited(LocalStorageService().deleteMessage(room.contact.storageKey, msgId));
-      _scheduleNotify();
-    } else {
-      debugPrint('[Chat] _handleRemoteDelete 1:1: scanning ${_repo.rooms.length} rooms for fromId=$fromId');
-      // Resolve sender via the contact index, which is keyed by every
-      // known transport address AND every bare pubkey. This matches even
-      // when the delete arrives through a different transport than the
-      // one the original message used (contact's databaseId may be Nostr
-      // but the delete came via Pulse with an Ed25519 address — the
-      // naive string/prefix compare we had before never matched that).
-      final idx = _getContactIndex();
-      final fromBare = fromId.contains('@') ? fromId.split('@').first : fromId;
-      final senderContact = idx[fromId]
-          ?? idx[fromBare]
-          ?? _contacts.findByAddress(fromId)
-          ?? _contacts.findByAddress(fromBare);
-      if (senderContact == null) {
-        debugPrint('[Chat] _handleRemoteDelete: no contact matches fromId=$fromId');
-        return;
-      }
-      final room = _repo.getRoomForContact(senderContact.id);
-      if (room == null) {
-        debugPrint('[Chat] _handleRemoteDelete: no room for contact ${senderContact.name}');
-        return;
-      }
-      final msgIdx = _repo.messageIndexById(senderContact.id, msgId);
-      if (msgIdx == -1) {
-        debugPrint('[Chat] _handleRemoteDelete: msgId=$msgId NOT found in room (${room.messages.length} msgs)');
-        return;
-      }
-      // Ownership: the delete must come from the same identity that sent
-      // the message. Match by any address known to the sender contact —
-      // the original msg.senderId may be on a different transport than
-      // fromId but both belong to the same Contact record.
-      final msg = room.messages[msgIdx];
-      final msgBare = msg.senderId.contains('@')
-          ? msg.senderId.split('@').first
-          : msg.senderId;
-      final ownerContact = idx[msg.senderId]
-          ?? idx[msgBare]
-          ?? _contacts.findByAddress(msg.senderId)
-          ?? _contacts.findByAddress(msgBare);
-      if (ownerContact == null || ownerContact.id != senderContact.id) {
-        debugPrint('[Chat] _handleRemoteDelete: ownership mismatch — '
-            'message owned by ${ownerContact?.name ?? msg.senderId}, '
-            'delete came from ${senderContact.name}');
-        return;
-      }
-      room.messages.removeAt(msgIdx);
-      _repo.untrackMessageId(senderContact.id, msgId);
-      _repo.rebuildPositionIndex(senderContact.id);
-      unawaited(LocalStorageService().deleteMessage(room.contact.storageKey, msgId));
-      _scheduleNotify();
-      debugPrint('[Chat] _handleRemoteDelete: SUCCESS — removed msgId=$msgId from ${senderContact.name}');
-    }
-  }
+  void _handleRemoteDelete(String fromId, String msgId, {String? groupId}) =>
+      _crud.handleRemoteDelete(fromId, msgId, groupId: groupId);
 
-  Future<void> markRoomAsRead(Contact contact) async {
-    final room = _repo.getRoomForContact(contact.id);
-    if (room == null) return;
-    final updated = <Map<String, dynamic>>[];
-    for (int i = 0; i < room.messages.length; i++) {
-      final m = room.messages[i];
-      if (!m.isRead) {
-        room.messages[i] = m.copyWith(isRead: true);
-        updated.add(room.messages[i].toJson());
-      }
-    }
-    if (updated.isNotEmpty) {
-      unawaited(LocalStorageService().saveMessagesBatch(contact.storageKey, updated));
-      _scheduleNotify();
-      // 1-on-1 only: a group "contact" has no transport addresses of its own
-      // (it's a routing aggregate), so sendReadReceipt(group) ends up calling
-      // _sendSignalTo with the group's UUID as recipient pubkey — which then
-      // fails on every transport ("msg_read to <gid> failed on all
-      // transports") and uselessly retries on every relay. Per-message read
-      // receipts for groups are sent via sendGroupReadReceipt from
-      // _markGroupHistoryRead → handles each sender individually.
-      if (!contact.isGroup) {
-        unawaited(_broadcaster.sendReadReceipt(contact));
-      }
-    }
-    // Reset incremental unread count
-    if (_unreadCounts.containsKey(contact.id)) {
-      _unreadCounts[contact.id] = 0;
-      if (!_unreadChangedCtrl.isClosed) _unreadChangedCtrl.add(contact.id);
-    }
-  }
+  Future<void> markRoomAsRead(Contact contact) => _crud.markRoomAsRead(contact);
 
-  Future<void> clearRoomHistory(Contact contact) =>
-      _repo.clearRoomHistory(contact, onChanged: () { if (!_disposed) notifyListeners(); });
+  Future<void> clearRoomHistory(Contact contact) => _crud.clearRoomHistory(contact);
 
-  Future<void> retryMessage(Contact contact, Message message) async {
-    if (message.status != 'failed') return;
-    final room = _repo.getRoomForContact(contact.id);
-    if (room == null) return;
-    room.messages.removeWhere((m) => m.id == message.id);
-    _repo.untrackMessageId(contact.id, message.id);
-    await LocalStorageService().deleteMessage(contact.storageKey, message.id);
-    _scheduleNotify();
-    await sendMessage(contact, message.encryptedPayload, noAutoRetry: true);
-  }
+  Future<void> retryMessage(Contact contact, Message message) =>
+      _crud.retryMessage(contact, message);
 
   /// Evicts the oldest 100 entries when the map exceeds 500, preventing
   /// unbounded growth if messages are created faster than resolved.
-  void _pruneRetryTimers() {
-    if (_retryTimers.length > 500) {
-      final keysToRemove = _retryTimers.keys.take(100).toList();
-      for (final key in keysToRemove) {
-        _retryTimers[key]?.cancel();
-        _retryTimers.remove(key);
-      }
-      debugPrint('[ChatController] Pruned 100 oldest retry timers (was ${_retryTimers.length + 100})');
-    }
-  }
+  void _pruneRetryTimers() => _crud.pruneRetryTimers();
 
-  void _scheduleAutoRetry(Contact contact, Message failedMsg) {
-    _pruneRetryTimers();
-    _retryTimers[failedMsg.id]?.cancel();
-    _retryTimers[failedMsg.id] = Timer(const Duration(seconds: 30), () async {
-      _retryTimers.remove(failedMsg.id);
-      try {
-        final room = _repo.getRoomForContact(contact.id);
-        if (room == null) return;
-        final idx = _repo.messageIndexById(contact.id, failedMsg.id);
-        if (idx != -1 && room.messages[idx].status == 'failed') {
-          await retryMessage(contact, room.messages[idx]);
-        }
-      } catch (e) {
-        debugPrint('[ChatController] Auto-retry failed for ${failedMsg.id}: $e');
-      }
-    });
-  }
+  void _scheduleAutoRetry(Contact contact, Message failedMsg) =>
+      _crud.scheduleAutoRetry(contact, failedMsg);
 
-  Future<void> _flushFailedMessages() async {
-    int count = 0;
-    for (final room in _repo.rooms) {
-      final failed = room.messages.where((m) => m.status == 'failed').toList();
-      if (failed.isEmpty) continue;
-      for (final msg in failed) {
-        if (_retryTimers.containsKey(msg.id)) continue;
-        count++;
-        unawaited(retryMessage(room.contact, msg));
-        await Future.delayed(const Duration(milliseconds: 200));
-      }
-    }
-    if (count > 0) debugPrint('[Chat] Flushing $count failed message(s) after network change');
-  }
+  Future<void> _flushFailedMessages() => _crud.flushFailedMessages();
 
-  void _handleServerAck(String msgId) {
-    for (final room in _repo.rooms) {
-      for (int i = 0; i < room.messages.length; i++) {
-        final m = room.messages[i];
-        if (m.id != msgId) continue;
-        if (m.status == 'sending') {
-          room.messages[i] = m.copyWith(status: 'sent');
-          unawaited(LocalStorageService().saveMessage(
-              room.contact.storageKey, room.messages[i].toJson()));
-          debugPrint('[Chat] Server ACK: $msgId → sent');
-          _scheduleNotify();
-        }
-        return;
-      }
-    }
-  }
+  void _handleServerAck(String msgId) => _crud.handleServerAck(msgId);
 
-  void _handleReadReceipt(String fromId) {
-    // O(1) contact lookup via indexed map, then O(1) room lookup.
-    final contactIndex = _getContactIndex();
-    final contact = contactIndex[fromId] ?? contactIndex[fromId.split('@').first];
-    if (contact == null) return;
-    final room = _repo.getRoomForContact(contact.id);
-    if (room == null) return;
+  void _handleReadReceipt(String fromId) => _crud.handleReadReceipt(fromId);
 
-    final updated = <Map<String, dynamic>>[];
-    // Scan newest→oldest: once we hit an already-read message, all older ones
-    // should be read too, so we can stop early.
-    for (int i = room.messages.length - 1; i >= 0; i--) {
-      final m = room.messages[i];
-      if (m.status == 'sending' || m.status == 'sent' || m.status == 'delivered') {
-        room.messages[i] = m.copyWith(status: 'read');
-        updated.add(room.messages[i].toJson());
-      } else if (m.status == 'read' && m.senderId == (_identity?.id ?? '')) {
-        break; // All older outgoing messages should already be read.
-      }
-    }
-    if (updated.isNotEmpty) {
-      unawaited(LocalStorageService().saveMessagesBatch(
-          room.contact.storageKey, updated));
-      _scheduleNotify();
-    }
-  }
-
-  void _handleDeliveryAck(String fromId, String msgId, {String? groupId}) {
-    bool changed = false;
-    final roomsToSearch = groupId != null
-        ? [if (_repo.getRoomForContact(groupId) != null) _repo.getRoomForContact(groupId)!]
-        : _repo.rooms.where((r) {
-            final cId = r.contact.databaseId;
-            return cId == fromId || cId.split('@').first == fromId.split('@').first;
-          }).toList();
-
-    String resolvedId = fromId;
-    if (groupId != null) {
-      for (final c in _contacts.contacts) {
-        if (c.databaseId == fromId || c.databaseId.split('@').first == fromId.split('@').first) {
-          resolvedId = c.id;
-          break;
-        }
-      }
-    }
-
-    for (final room in roomsToSearch) {
-      for (int i = 0; i < room.messages.length; i++) {
-        final m = room.messages[i];
-        if (m.id != msgId) continue;
-        if (groupId != null && !m.deliveredTo.contains(resolvedId)) {
-          final newDeliveredTo = [...m.deliveredTo, resolvedId];
-          final newStatus = (m.status == 'sending' || m.status == 'sent') ? 'delivered' : m.status;
-          room.messages[i] = m.copyWith(status: newStatus, deliveredTo: newDeliveredTo);
-          unawaited(LocalStorageService().saveMessage(
-              room.contact.storageKey, room.messages[i].toJson()));
-          changed = true;
-          break;
-        }
-        if (m.status == 'sending' || m.status == 'sent') {
-          room.messages[i] = m.copyWith(status: 'delivered');
-          unawaited(LocalStorageService().saveMessage(
-              room.contact.storageKey, room.messages[i].toJson()));
-          changed = true;
-          break;
-        }
-      }
-      if (changed) break;
-    }
-    if (changed) _scheduleNotify();
-  }
+  void _handleDeliveryAck(String fromId, String msgId, {String? groupId}) =>
+      _crud.handleDeliveryAck(fromId, msgId, groupId: groupId);
 
   // ── Disappearing messages ─────────────────────────────────────────────────
 
@@ -5396,14 +3177,8 @@ class ChatController extends ChangeNotifier {
     return _broadcaster.sendGroupInvite(target, group, _contacts.contacts);
   }
 
-  Future<void> declineGroupInvite(SignalGroupInviteEvent invite) async {
-    if (_identity == null || _selfId.isEmpty) return;
-    await _sendSignalTo(invite.fromContact, 'group_invite_decline', {
-      'groupId': invite.groupId,
-      'from': _selfId,
-    });
-    debugPrint('[Group] Declined invite from ${invite.fromContact.name} for "${invite.groupName}"');
-  }
+  Future<void> declineGroupInvite(SignalGroupInviteEvent invite) => _groups.declineGroupInvite(invite);
+
 
   Future<void> sendGroupHistory(Contact target, Contact group, {int limit = 50}) async {
     if (_identity == null || _selfId.isEmpty) return;
@@ -5442,136 +3217,11 @@ class ChatController extends ChangeNotifier {
   /// but the embedded `creatorId` + `memberPubkeys` are sufficient to seed
   /// routing. After joining, broadcast a group_update so existing members
   /// learn we're now in the roster.
-  Future<void> acceptGroupInviteFromLink(GroupInvitePayload payload) async {
-    if (_contacts.findById(payload.groupId) != null) {
-      debugPrint('[Group] Invite link: already in group ${payload.groupId}');
-      return;
-    }
-    if (payload.creatorId == null || payload.creatorId!.isEmpty) {
-      debugPrint('[Group] Invite link rejected: no creatorId');
-      return;
-    }
-    final myUuid = _identity?.id ?? '';
-    // Bail if we don't have an identity yet — clicking a link before setup
-    // shouldn't crash, just no-op until the user finishes onboarding. The
-    // PendingGroupInvite buffer survives across screens, so the dialog can
-    // re-present once identity loads.
-    if (myUuid.isEmpty) {
-      debugPrint('[Group] Invite link deferred: identity not ready');
-      return;
-    }
-    final mergedMembers = List<String>.from(payload.members);
-    if (myUuid.isNotEmpty && !mergedMembers.contains(myUuid)) {
-      mergedMembers.add(myUuid);
-    }
-    final newGroup = Contact(
-      id: payload.groupId,
-      name: payload.name,
-      provider: 'group',
-      databaseId: '',
-      publicKey: '',
-      isGroup: true,
-      members: mergedMembers,
-      creatorId: payload.creatorId,
-      memberPubkeys: payload.memberPubkeys,
-    );
-    await _contacts.addContact(newGroup);
-    _invalidateContactIndex();
-    await _ensurePendingContactsForMembers(
-        payload.memberPubkeys, payload.memberAddresses);
-    // Tell every member (including the creator) that we now belong to the
-    // group so their members[] gets updated. The receive-side handler is
-    // already idempotent — duplicates are safe.
-    final enriched = await enrichGroupMemberPubkeys(newGroup);
-    if (enriched != newGroup) {
-      await _contacts.updateContact(enriched);
-    }
-    unawaited(broadcastGroupUpdate(enriched));
-    // Republish our Signal+Kyber bundle so that every existing member can
-    // fetch our fresh prekeys when they first send to us. Without this, a
-    // member whose client hasn't seen our published keys yet would Sign-
-    // encrypt against an empty bundle and the receiver (us) sees garbage.
-    // This is the primary cause of "I joined the group but messages from
-    // other members are unreadable" right after accepting an invite link.
-    unawaited(_republishAllKeys());
-    debugPrint('[Group] Joined "${payload.name}" via invite link '
-        '(${mergedMembers.length} members)');
-    _scheduleNotify();
-  }
+  Future<void> acceptGroupInviteFromLink(GroupInvitePayload payload) => _groups.acceptGroupInviteFromLink(payload);
 
-  Future<void> acceptGroupInvite(SignalGroupInviteEvent invite) async {
-    final _ex = _contacts.findById(invite.groupId);
-    if (_ex != null && _ex.isGroup) return;
-    // Only the declared creator should be allowed to send group invites.
-    // Require creatorId to always be present — if absent,
-    // any known contact could forge a group invite unconditionally.
-    if (invite.creatorId == null || invite.creatorId!.isEmpty) {
-      debugPrint('[Group] Rejected invite with no creatorId');
-      return;
-    }
-    // NOTE: the previous guard compared `invite.fromContact.id` (our local
-    // UUID for the sender) against `invite.creatorId` (the creator's
-    // own-identity UUID on their device). These are generated
-    // independently on each device and can never equal each other for
-    // cross-device contacts — every remote invite was rejected. The same
-    // applies to checking our own UUID against `invite.members`: the
-    // creator puts OUR-contact-UUID-on-their-device in members, which
-    // doesn't match our local `_identity.id`.
-    //
-    // Signal-layer auth already proves the invite came from someone who
-    // owns the private key for `invite.fromContact`'s Nostr pubkey
-    // (Schnorr sig on Nostr, HMAC on other transports — both enforced in
-    // SignalDispatcher before we get here). Trusting that someone already
-    // in our contact list is invite-worthy is sufficient for the
-    // force-accept baseline; cross-device identity hardening (switch to
-    // pubkey-based creatorId) will come in a follow-up step.
-    debugPrint('[Group] Accepting invite for "${invite.groupName}" '
-        'from ${invite.fromContact.name} '
-        '(creatorId=${invite.creatorId}, members=${invite.members.length}, '
-        'memberPubkeys=${invite.memberPubkeys.length})');
-    final newGroup = Contact(
-      id: invite.groupId,
-      name: invite.groupName,
-      provider: 'group',
-      databaseId: '',
-      publicKey: '',
-      isGroup: true,
-      members: invite.members,
-      creatorId: invite.creatorId,
-      memberPubkeys: invite.memberPubkeys,
-      groupTransportMode: invite.groupTransportMode,
-      groupServerUrl: invite.groupServerUrl,
-      groupServerInvite: invite.groupServerInvite,
-    );
-    await _contacts.addContact(newGroup);
-    _invalidateContactIndex();
-    await _ensurePendingContactsForMembers(
-        invite.memberPubkeys, invite.memberAddresses,
-        memberNames: invite.memberNames);
-    if (invite.memberNames.isNotEmpty) {
-      await _promotePlaceholderNames(invite.memberNames, invite.memberPubkeys);
-    }
-    // Bootstrap each member's Pulse address on the GROUP's host server.
-    // Without this, the first send from us to a member can't construct a
-    // target db-id (no Pulse pubkey known) and silently drops until the
-    // member's own addr_update propagates from the host server.
-    if (newGroup.isPulseGroup &&
-        newGroup.groupServerUrl.isNotEmpty &&
-        invite.memberPulsePubkeys.isNotEmpty) {
-      await _seedMemberPulseAddresses(
-          invite.memberPulsePubkeys, invite.memberPubkeys,
-          newGroup.groupServerUrl);
-    }
-    // For pulse groups, eagerly open the host's Pulse server connection so
-    // the very first outgoing message doesn't pay 1-3s of WS-auth latency
-    // and so we start receiving group messages immediately. Fire-and-forget
-    // — we don't want to block invite acceptance on slow PoW.
-    if (newGroup.isPulseGroup && newGroup.groupServerUrl.isNotEmpty) {
-      unawaited(ensureGroupPulseConnection(newGroup.groupServerUrl));
-    }
-    debugPrint('[Group] Joined group "${invite.groupName}" via invite');
-    _scheduleNotify();
-  }
+
+  Future<void> acceptGroupInvite(SignalGroupInviteEvent invite) => _groups.acceptGroupInvite(invite);
+
 
   /// For each `(memberUuid → pulsePubkey)` entry from a pulse-group invite
   /// or update, look up the local contact (by UUID first, then by Nostr
@@ -5580,50 +3230,8 @@ class ChatController extends ChangeNotifier {
   /// Lets us address pulse-mode messages to that member immediately
   /// without waiting for their own addr_update to circulate via the
   /// host server.
-  Future<void> _seedMemberPulseAddresses(
-      Map<String, String> memberPulsePubkeys,
-      Map<String, String> memberPubkeys,
-      String groupServerUrl) async {
-    if (memberPulsePubkeys.isEmpty || groupServerUrl.isEmpty) return;
-    var seeded = 0;
-    for (final entry in memberPulsePubkeys.entries) {
-      final uuid = entry.key;
-      final pulsePub = entry.value.toLowerCase();
-      if (pulsePub.length != 64) continue;
-      // Locate the local contact: try UUID, then Nostr pubkey from the
-      // sibling map (the contact may exist under a different cross-device
-      // UUID than the inviter assigned).
-      Contact? c = _contacts.findById(uuid);
-      if (c == null) {
-        final nostrPub = memberPubkeys[uuid]?.toLowerCase();
-        if (nostrPub != null && nostrPub.isNotEmpty) {
-          c = _contacts.findByPubkey(nostrPub);
-        }
-      }
-      if (c == null) continue;
-      final addr = '$pulsePub@$groupServerUrl';
-      final existing = List<String>.from(c.transportAddresses['Pulse'] ?? const []);
-      if (existing.any((a) => a.toLowerCase() == addr.toLowerCase())) continue;
-      existing.add(addr);
-      final newTa = Map<String, List<String>>.from(c.transportAddresses);
-      newTa['Pulse'] = existing;
-      // Append Pulse to priority list if missing — keeps the contact's
-      // existing primary transport intact, just teaches it Pulse exists.
-      final newTp = List<String>.from(c.transportPriority);
-      if (!newTp.contains('Pulse')) newTp.add('Pulse');
-      final patched = c.copyWith(
-        transportAddresses: newTa,
-        transportPriority: newTp,
-      );
-      await _contacts.updateContact(patched);
-      seeded++;
-    }
-    if (seeded > 0) {
-      _invalidateContactIndex();
-      debugPrint('[PulseGroup] Seeded $seeded member Pulse address(es) on $groupServerUrl');
-      _scheduleNotify();
-    }
-  }
+  Future<void> _seedMemberPulseAddresses(Map<String, String> memberPulsePubkeys, Map<String, String> memberPubkeys, String groupServerUrl) => _groups._seedMemberPulseAddresses(memberPulsePubkeys, memberPubkeys, groupServerUrl);
+
 
   /// For every `(memberUuid → pubkey)` entry we don't already have a local
   /// contact for (matched by pubkey), create a pending contact so
@@ -5633,75 +3241,8 @@ class ChatController extends ChangeNotifier {
   /// for legacy invites that omitted the addresses field. Pending contacts
   /// learn real addresses from message envelopes later (see the message
   /// receive path in `_handleIncomingMessages`).
-  Future<void> _ensurePendingContactsForMembers(
-      Map<String, String> memberPubkeys,
-      Map<String, Map<String, List<String>>> memberAddresses,
-      {Map<String, String> memberNames = const {}}) async {
-    if (memberPubkeys.isEmpty) return;
-    final selfId = _selfId;
-    final ownPubAt = selfId.indexOf('@');
-    final ownPub =
-        (ownPubAt > 0 ? selfId.substring(0, ownPubAt) : selfId).toLowerCase();
-    // Fallback Nostr relays for Layer B (no addresses in payload).
-    final probeRelays =
-        ConnectivityProbeService.instance.lastResult.nostrRelays;
-    final fallbackRelays = <String>[];
-    for (final r in probeRelays) {
-      if (fallbackRelays.length >= 3) break;
-      final normalized = r.startsWith('ws') ? r : 'wss://$r';
-      if (!fallbackRelays.contains(normalized)) fallbackRelays.add(normalized);
-    }
-    if (fallbackRelays.isEmpty) fallbackRelays.add(_kDefaultNostrRelay);
-    var created = 0;
-    for (final entry in memberPubkeys.entries) {
-      final uuid = entry.key;
-      final pub = entry.value.toLowerCase();
-      if (pub.isEmpty || pub == ownPub) continue;
-      if (_contacts.findByPubkey(pub) != null) continue;
-      final addresses = memberAddresses[uuid];
-      final ta = (addresses != null && addresses.isNotEmpty)
-          ? addresses.map((k, v) => MapEntry(k, List<String>.from(v)))
-          : <String, List<String>>{
-              'Nostr': [for (final r in fallbackRelays) '$pub@$r'],
-            };
-      // Routing-only contact — hidden from the chat list. The user never
-      // sees these "Group: <hash>" placeholders; they exist solely so that
-      // group fan-out and Signal sessions can address each member by their
-      // pubkey. Once the user explicitly opens a 1-on-1 chat with this
-      // peer (via member tap or via a direct message arriving), the
-      // pending+hidden flags get cleared in the normal accept flow.
-      //
-      // Prefer the inviter's display name for this member if they sent it
-      // (modern group_invite payload includes `memberNames`). Without it
-      // the user sees "Member 30bb9a6e" stubs in group rosters / message
-      // attribution, which the user described as "парсинг ников сломан".
-      final shortPub = pub.length >= 8 ? pub.substring(0, 8) : pub;
-      final fromInviter = memberNames[uuid]?.trim() ?? '';
-      final name = fromInviter.isNotEmpty ? fromInviter : 'Member $shortPub';
-      final c = await ContactManager().createPendingContact(
-        senderId: pub,
-        senderName: name,
-        address: pub,
-        transportAddresses: ta,
-        isHidden: true,
-      );
-      if (c != null) {
-        created++;
-        // Pre-warm a Signal session with this newly-known group member.
-        // Without this, the FIRST sender_key distribution to them dies with
-        // InvalidKeyException because there's no session yet — ratchet
-        // never establishes, and that member never sees ANY of our group
-        // messages. By fetching+buildSession upfront, the next
-        // sender_key_dist (or pairwise group payload) finds a valid
-        // session and goes through on the first try.
-        unawaited(_prewarmSignalSession(c));
-      }
-    }
-    if (created > 0) {
-      _invalidateContactIndex();
-      debugPrint('[Group] Auto-pended $created group members for pubkey routing');
-    }
-  }
+  Future<void> _ensurePendingContactsForMembers(Map<String, String> memberPubkeys, Map<String, Map<String, List<String>>> memberAddresses, {Map<String, String> memberNames = const {}}) => _groups._ensurePendingContactsForMembers(memberPubkeys, memberAddresses, memberNames: memberNames);
+
 
   /// When [contact]'s pubkey rotates (peer reinstalled), every group whose
   /// `memberPubkeys` map still points at the OLD pubkey for this member
@@ -5753,38 +3294,8 @@ class ChatController extends ChangeNotifier {
   /// matching local contact (by either local UUID or pubkey), and renames
   /// it ONLY when the current name is the auto-pending placeholder so we
   /// never trample a name the user typed in themselves.
-  Future<void> _promotePlaceholderNames(
-      Map<String, String> memberNames,
-      Map<String, String> memberPubkeys) async {
-    if (memberNames.isEmpty) return;
-    final placeholder = RegExp(r'^Member [0-9a-f]{4,}$');
-    var renamed = 0;
-    for (final entry in memberNames.entries) {
-      final uuid = entry.key;
-      final newName = entry.value.trim();
-      if (newName.isEmpty || placeholder.hasMatch(newName)) continue;
-      // Try by local UUID first, then by pubkey from the same payload —
-      // since cross-device UUIDs don't necessarily match, the pubkey
-      // path is what catches re-add'd / freshly-pended members.
-      Contact? c = _contacts.findById(uuid);
-      if (c == null) {
-        final pub = memberPubkeys[uuid]?.toLowerCase();
-        if (pub != null && pub.isNotEmpty) {
-          c = _contacts.findByPubkey(pub);
-        }
-      }
-      if (c == null) continue;
-      if (!placeholder.hasMatch(c.name)) continue; // user-set name → leave alone
-      final patched = c.copyWith(name: newName);
-      await _contacts.updateContact(patched);
-      renamed++;
-    }
-    if (renamed > 0) {
-      _invalidateContactIndex();
-      debugPrint('[Group] Promoted $renamed placeholder name(s) → real names');
-      _scheduleNotify();
-    }
-  }
+  Future<void> _promotePlaceholderNames(Map<String, String> memberNames, Map<String, String> memberPubkeys) => _groups._promotePlaceholderNames(memberNames, memberPubkeys);
+
 
   /// Pull the 64-hex pubkey out of a contact's Nostr/Pulse address. Returns
   /// "" if no recognizable hex prefix is found.
@@ -5909,80 +3420,22 @@ class ChatController extends ChangeNotifier {
   /// Creator-side: after the group is created/added to the repo, call
   /// this and persist the result before broadcasting invites so each
   /// receiver can resolve member UUIDs back to Nostr identities.
-  Future<Contact> enrichGroupMemberPubkeys(Contact group) async {
-    if (!group.isGroup) return group;
-    final myUuid = _identity?.id ?? '';
-    final map = <String, String>{}..addAll(group.memberPubkeys);
-    // Own pubkey for the creator entry in members.
-    if (myUuid.isNotEmpty && !map.containsKey(myUuid)) {
-      final atIdx = _selfId.indexOf('@');
-      final ownPub = atIdx > 0 ? _selfId.substring(0, atIdx) : _selfId;
-      if (_hex64.hasMatch(ownPub)) map[myUuid] = ownPub;
-    }
-    for (final memberId in group.members) {
-      if (map.containsKey(memberId)) continue;
-      final mc = _contacts.findById(memberId);
-      if (mc == null) continue;
-      // Prefer the Nostr address list — first element's pubkey is what
-      // we'll also use for sending to them.
-      final nostrAddrs = mc.transportAddresses['Nostr'] ?? const [];
-      if (nostrAddrs.isEmpty) continue;
-      final atIdx = nostrAddrs.first.indexOf('@');
-      if (atIdx <= 0) continue;
-      final pub = nostrAddrs.first.substring(0, atIdx);
-      if (_hex64.hasMatch(pub)) map[memberId] = pub;
-    }
-    return group.copyWith(memberPubkeys: map);
-  }
+  Future<Contact> enrichGroupMemberPubkeys(Contact group) => _groups.enrichGroupMemberPubkeys(group);
+
 
   /// Creator-only: broadcast an empty-roster tombstone then remove the
   /// group locally. Peers' group_update listeners detect "members empty"
   /// and self-remove (see the d.groupUpdates.listen handler). We send
   /// the tombstone to the OLD member list — the new payload is empty,
   /// so without an explicit recipient override no one would be notified.
-  Future<void> deleteGroup(Contact group) async {
-    if (!group.isGroup) return;
-    final recipients = List<String>.from(group.members);
-    final tombstone = group.copyWith(members: const <String>[]);
-    await _broadcaster.broadcastGroupUpdate(
-        tombstone, _contacts.contacts,
-        recipientMemberIds: recipients);
-    await _contacts.removeContact(group.id);
-    _invalidateContactIndex();
-    _scheduleNotify();
-    // Notify any open chat screen for this group so it can pop itself.
-    if (!_groupUpdatePublicCtrl.isClosed) {
-      _groupUpdatePublicCtrl.add(SignalGroupUpdateEvent(
-          group.id, group.name, const [],
-          creatorId: group.creatorId, senderId: _selfId));
-    }
-    debugPrint('[Group] Deleted ${group.name} — tombstone sent to '
-        '${recipients.length} recipient(s)');
-  }
+  Future<void> deleteGroup(Contact group) => _groups.deleteGroup(group);
+
 
   /// Rotate the sender key for a group after a member is removed, then
   /// redistribute to all remaining members. Call this AFTER updating the
   /// group's member list and broadcasting the group update.
-  Future<void> rotateGroupSenderKey(Contact group) async {
-    if (!group.isGroup || _selfId.isEmpty) return;
-    try {
-      final sk = SenderKeyService.instance;
-      final skdmBytes = await sk.rotateKey(group.id, _selfId);
-      final skdmB64 = base64Encode(skdmBytes);
-      for (final memberId in group.members) {
-        final memberContact = _contacts.findById(memberId);
-        if (memberContact == null) continue;
-        final distOk = await _sendSignalTo(memberContact, 'sender_key_dist', {
-          'groupId': group.id,
-          'skdm': skdmB64,
-        });
-        if (distOk) await sk.markDistributed(group.id, memberId);
-      }
-      debugPrint('[SenderKey] Rotated and redistributed key for group ${group.name}');
-    } catch (e) {
-      debugPrint('[SenderKey] Key rotation failed for group ${group.name}: $e');
-    }
-  }
+  Future<void> rotateGroupSenderKey(Contact group) => _groups.rotateGroupSenderKey(group);
+
 
   Future<void> markGroupMessagesRead(Contact group) async {
     if (!group.isGroup || _identity == null || _selfId.isEmpty) return;
