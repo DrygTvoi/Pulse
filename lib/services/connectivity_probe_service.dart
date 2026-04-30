@@ -457,7 +457,8 @@ class ConnectivityProbeService {
       // aggregators) silently break messaging if picked as primary.
       final tcpReachable = <String>{...staticTcp, ...directoryTcp}.toList()
         ..shuffle();
-      final directNostrHosts = await _filterDmCapableRelays(tcpReachable);
+      final directNostrHosts = await _filterDmCapableRelays(tcpReachable,
+          maxConcurrent: 16);
       // IMPORTANT: convert to full wss:// URLs — _filterDmCapableRelays returns bare hostnames
       final directNostr = directNostrHosts.map((h) => 'wss://$h').toList();
       final directSession = await _probeAll(_kSessionCandidates,
@@ -577,7 +578,8 @@ class ConnectivityProbeService {
         // the write probe, or we risk advertising a read-only relay to
         // contacts (silent DM drop) or a kind-filtered relay (silent key
         // publish drop, observed with relay.nos.social).
-        final liteDmCapable = await _filterDmCapableRelays(liteTcp);
+        final liteDmCapable = await _filterDmCapableRelays(liteTcp,
+            maxConcurrent: 16);
         final rejected = liteTcp.length - liteDmCapable.length;
         directNostr.addAll(liteDmCapable.map((h) => 'wss://$h'));
         debugPrint('[Probe] Regen-lite: +${liteDmCapable.length} DM-capable '
@@ -609,7 +611,8 @@ class ConnectivityProbeService {
         unawaited(() async {
           final restTcp = await _probeAll(regenRest,
               label: 'regen-bg', timeoutSec: 3);
-          final restDm = await _filterDmCapableRelays(restTcp);
+          final restDm = await _filterDmCapableRelays(restTcp,
+              maxConcurrent: 16);
           directNostr.addAll(restDm.map((h) => 'wss://$h'));
           debugPrint('[Probe] Regen-bg: +${restDm.length} DM-capable '
               '(total ${directNostr.length})');

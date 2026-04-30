@@ -93,7 +93,7 @@ class _SetupIdentityScreenState extends State<SetupIdentityScreen> {
   Future<String> _pickIdentityRelay() async {
     try {
       final result = await ConnectivityProbeService.instance.firstRunDone
-          .timeout(const Duration(seconds: 15));
+          .timeout(const Duration(seconds: 25));
       if (result.nostrRelays.isNotEmpty) {
         final pick = result.nostrRelays[
             Random.secure().nextInt(result.nostrRelays.length)];
@@ -101,7 +101,15 @@ class _SetupIdentityScreenState extends State<SetupIdentityScreen> {
             '(random from ${result.nostrRelays.length} DM-capable)');
         return pick;
       }
-    } catch (_) {/* fall through to bootstrap fallback */}
+    } catch (_) {/* fall through to partial/below */}
+    // If firstRunDone didn't complete in time, check if we have partial results.
+    final partial = ConnectivityProbeService.instance.lastResult.nostrRelays;
+    if (partial.isNotEmpty) {
+      final pick = partial[Random.secure().nextInt(partial.length)];
+      debugPrint('[Setup] Identity relay (partial): $pick '
+          '(random from ${partial.length})');
+      return pick;
+    }
     final fallback = await probeBootstrapRelays();
     debugPrint('[Setup] Identity relay (bootstrap fallback): $fallback');
     return fallback;
