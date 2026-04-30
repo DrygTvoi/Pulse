@@ -56,22 +56,22 @@ import '../services/recovery_key_service.dart';
 import '../services/signal_broadcaster.dart';
 import '../services/nip44_service.dart' as nip44;
 
-part 'chat_controller_scheduled.dart';
-part 'chat_controller_extras.dart';
-part 'chat_controller_p2p.dart';
-part 'chat_controller_pulse_pool.dart';
-part 'chat_controller_health.dart';
-part 'chat_controller_files.dart';
-part 'chat_controller_keys.dart';
-part 'chat_controller_crud.dart';
-part 'chat_controller_groups.dart';
-part 'chat_controller_sfu.dart';
-part 'chat_controller_disappearing.dart';
-part 'chat_controller_media.dart';
-part 'chat_controller_send.dart';
-part 'chat_controller_incoming.dart';
-part 'chat_controller_init_inbox.dart';
-part 'chat_controller_init_dispatcher.dart';
+part 'scheduled.dart';
+part 'extras.dart';
+part 'p2p.dart';
+part 'pulse_pool.dart';
+part 'health.dart';
+part 'files.dart';
+part 'keys.dart';
+part 'crud.dart';
+part 'groups.dart';
+part 'sfu.dart';
+part 'disappearing.dart';
+part 'media.dart';
+part 'send.dart';
+part 'incoming.dart';
+part 'init_inbox.dart';
+part 'init_dispatcher.dart';
 
 enum ConnectionStatus { disconnected, connecting, connected }
 

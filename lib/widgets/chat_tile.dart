@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -55,6 +56,10 @@ class ChatTile extends StatelessWidget {
 
   static final _durRegex = RegExp(r'"dur"\s*:\s*(\d+)');
   static final _nameRegex = RegExp(r'"n"\s*:\s*"voice_(\d+)s');
+  static final _sysTtlChangedRegex = RegExp(r'"_sys"\s*:\s*"ttl_changed"');
+  static final _sysGroupRenamedRegex = RegExp(r'"_sys"\s*:\s*"group_renamed"');
+  static final _sysGroupAvatarRegex = RegExp(r'"_sys"\s*:\s*"group_avatar_changed"');
+  static final _sysGroupMetaRegex = RegExp(r'"_sys"\s*:\s*"group_meta_changed"');
 
   /// Returns a localised voice message label, optionally with duration.
   /// Parses `dur` from inline voice JSON, or extracts seconds from the
@@ -90,6 +95,70 @@ class ChatTile extends StatelessWidget {
     return '${t.day}/${t.month}/${t.year % 100}';
   }
 
+  /// Formats a system-message JSON payload into human-readable preview text
+  /// for the chat list subtitle. Uses fast regex checks before full JSON decode.
+  String _formatSystemPreview(BuildContext context, String text, bool isMe) {
+    // Fast path: check for known _sys values with regex before decoding JSON.
+    String sys;
+    if (_sysTtlChangedRegex.hasMatch(text)) {
+      sys = 'ttl_changed';
+    } else if (_sysGroupRenamedRegex.hasMatch(text)) {
+      sys = 'group_renamed';
+    } else if (_sysGroupAvatarRegex.hasMatch(text)) {
+      sys = 'group_avatar_changed';
+    } else if (_sysGroupMetaRegex.hasMatch(text)) {
+      sys = 'group_meta_changed';
+    } else {
+      // Unknown system message — try decoding to extract _sys, or fall back to generic label.
+      Map<String, dynamic>? json;
+      try {
+        final dec = const JsonDecoder().convert(text);
+        if (dec is Map<String, dynamic>) json = dec;
+      } catch (_) {}
+      sys = json?['_sys'] as String? ?? '';
+      if (sys.isEmpty) return text;
+    }
+
+    final actor = isMe
+        ? context.l10n.systemActorYou
+        : context.l10n.systemActorPeer;
+    final l10n = context.l10n;
+
+    if (sys == 'ttl_changed') {
+      // Parse seconds from payload — avoid full decode if regex already found it.
+      final secsMatch = RegExp(r'"seconds"\s*:\s*(-?\d+)').firstMatch(text);
+      final seconds = secsMatch != null ? int.tryParse(secsMatch.group(1)!) ?? 0 : 0;
+      if (seconds <= 0) return l10n.systemTtlDisabled(actor);
+      final duration = _formatTtlDuration(context, seconds);
+      return l10n.systemTtlEnabled(actor, duration);
+    }
+    if (sys == 'group_renamed') {
+      final nameMatch = RegExp(r'"new"\s*:\s*"([^"]*)"').firstMatch(text);
+      final newName = nameMatch?.group(1) ?? '';
+      return l10n.systemGroupRenamed(actor, newName);
+    }
+    if (sys == 'group_avatar_changed') {
+      return l10n.systemGroupAvatarChanged(actor);
+    }
+    if (sys == 'group_meta_changed') {
+      final nameMatch = RegExp(r'"new"\s*:\s*"([^"]*)"').firstMatch(text);
+      final newName = nameMatch?.group(1) ?? '';
+      return l10n.systemGroupMetaChanged(actor, newName);
+    }
+    return text;
+  }
+
+  String _formatTtlDuration(BuildContext context, int seconds) {
+    final l10n = context.l10n;
+    if (seconds == 3600) return l10n.menuTtl1h;
+    if (seconds == 86400) return l10n.menuTtl24h;
+    if (seconds == 604800) return l10n.menuTtl7d;
+    if (seconds % 86400 == 0) return '${seconds ~/ 86400}d';
+    if (seconds % 3600 == 0) return '${seconds ~/ 3600}h';
+    if (seconds % 60 == 0) return '${seconds ~/ 60}m';
+    return '${seconds}s';
+  }
+
   @override
   Widget build(BuildContext context) {
     String subtitle = context.l10n.chatTileTapToStart;
@@ -104,6 +173,8 @@ class ChatTile extends StatelessWidget {
         subtitle = '\u26A0\uFE0F ${text.substring('\u26A0\uFE0F UNENCRYPTED: '.length)}';
       } else if (text.startsWith('E2EE||')) {
         subtitle = isMe ? context.l10n.chatTileMessageSent : context.l10n.chatTileEncryptedMessage;
+      } else if (lastMsg?.kind == 'system') {
+        subtitle = _formatSystemPreview(context, text, isMe);
       } else if (text.startsWith('{"t":"blossom"')) {
         subtitle = isMe ? context.l10n.chatTileYouPrefix('\uD83D\uDCCE Media') : '\uD83D\uDCCE Media';
       } else if (text.startsWith('{"t":"voice"') ||
