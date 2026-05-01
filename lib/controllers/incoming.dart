@@ -332,10 +332,26 @@ class _IncomingHandler {
               Contact targetContact = senderContact;
               String finalText = displayText;
               String? groupReplyToId, groupReplyToText, groupReplyToSender;
+              bool skipMessage = false;
               try { if (displayText.startsWith('{')) {
                 var parsed = jsonDecode(displayText) as Map<String, dynamic>;
+                // ── System message: signal-in-message for offline delivery ──
+                // Pulse stores messages but not signals; critical signals
+                // (group_invite, sender_key_dist) are also sent as _sys
+                // messages so offline recipients receive them via the
+                // stored-message path instead of losing them forever.
+                final sysType = parsed['_sys'] as String?;
+                if (sysType != null && sysType.isNotEmpty) {
+                  final sysPayload = parsed['p'] as Map<String, dynamic>?;
+                  if (sysPayload != null) {
+                    skipMessage = await _handleSystemMessage(
+                        senderContact, sysType, sysPayload);
+                  } else {
+                    skipMessage = true;
+                  }
+                }
                 // ── Sender Key decrypt: unwrap _sk envelope ──
-                if (parsed['_sk'] == true) {
+                if (!skipMessage && parsed['_sk'] == true) {
                   final skGroupId = parsed['_group'] as String?;
                   final ct = parsed['ct'] as String?;
                   if (skGroupId != null && ct != null) {
@@ -366,27 +382,33 @@ class _IncomingHandler {
                 if (groupId != null) {
                   final gcl = _c._contacts.findById(groupId);
                   final groupContact = (gcl != null && gcl.isGroup) ? gcl : null;
-                  final isMember = groupContact != null &&
-                      _c._isSenderInGroup(groupContact, senderContact);
-                  debugPrint('[Group] recv groupId=$groupId sender=${senderContact.name} '
-                      'found=${groupContact != null} isMember=$isMember');
-                  if (groupContact != null && isMember) {
-                    targetContact = groupContact;
-                    // Clear group-specific typing for this member.
-                    _c._broadcaster.clearTyping(senderContact.id, (id) {
-                      if (!_c._typingStreamCtrl.isClosed) _c._typingStreamCtrl.add(id);
-                      _c._scheduleNotify();
-                    }, groupId: groupId);
-                    finalText = parsed['text'] as String? ?? displayText;
-                    groupReplyToId = parsed['_replyToId'] as String?;
-                    groupReplyToText = parsed['_replyToText'] as String?;
-                    groupReplyToSender = parsed['_replyToSender'] as String?;
-                    _c._repo.getOrCreateRoomWithId(groupContact, groupContact.id, 'group');
+                  if (groupContact == null) {
+                    // Group doesn't exist yet — the _sys group_invite
+                    // hasn't arrived or was processed out of order.
+                    // Drop silently rather than displaying raw JSON
+                    // gibberish in the DM list.
+                    debugPrint('[Group] Dropping message for unknown group $groupId');
+                    skipMessage = true;
+                  } else {
+                    final isMember = _c._isSenderInGroup(groupContact, senderContact);
+                    debugPrint('[Group] recv groupId=$groupId sender=${senderContact.name} '
+                        'found=true isMember=$isMember');
+                    if (isMember) {
+                      targetContact = groupContact;
+                      // Clear group-specific typing for this member.
+                      _c._broadcaster.clearTyping(senderContact.id, (id) {
+                        if (!_c._typingStreamCtrl.isClosed) _c._typingStreamCtrl.add(id);
+                        _c._scheduleNotify();
+                      }, groupId: groupId);
+                      finalText = parsed['text'] as String? ?? displayText;
+                      groupReplyToId = parsed['_replyToId'] as String?;
+                      groupReplyToText = parsed['_replyToText'] as String?;
+                      groupReplyToSender = parsed['_replyToSender'] as String?;
+                      _c._repo.getOrCreateRoomWithId(groupContact, groupContact.id, 'group');
+                    }
                   }
                 }
               } } catch (e) { debugPrint('[Chat] Signal JSON parse (treating as plain text): $e'); }
-
-              bool skipMessage = false;
 
               // P2P file header: initiates binary file transfer (not stored as message)
               if (finalText.startsWith('{') && finalText.contains('"p2p_file"')) {
@@ -584,5 +606,115 @@ class _IncomingHandler {
     }
 
     if (hasUpdates) _c._scheduleNotify();
+  }
+
+  /// Process a system message (_sys) that was sent as an E2EE message
+  /// alongside the real-time signal.  Pulse stores messages but not
+  /// signals; this path ensures offline recipients still receive
+  /// group_invite and sender_key_dist via the stored-message mechanism.
+  /// Returns true if the message should be skipped (not displayed).
+  Future<bool> _handleSystemMessage(
+      Contact sender, String type, Map<String, dynamic> payload) async {
+    debugPrint('[Chat] _sys message: type=$type from=${sender.name}');
+    if (type == 'group_invite') {
+      final groupId = payload['groupId'] as String?;
+      final groupName = payload['name'] as String? ?? '';
+      final rawMembers = payload['members'];
+      final creatorId = payload['creatorId'] as String?;
+      final memberPubkeys = _extractMemberPubkeysSys(payload['memberPubkeys']);
+      final memberAddresses = _extractMemberAddressesSys(payload['memberAddresses']);
+      final memberNames = _extractMemberNamesSys(payload['memberNames']);
+      final memberPulsePubkeys = _extractMemberPulsePubkeysSys(payload['memberPulsePubkeys']);
+      final groupTransportMode =
+          (payload['groupTransportMode'] as String?)?.trim() ?? '';
+      final groupServerUrl =
+          (payload['groupServerUrl'] as String?)?.trim() ?? '';
+      final groupServerInvite =
+          (payload['groupServerInvite'] as String?)?.trim() ?? '';
+      if (groupId != null && rawMembers is List && rawMembers.length <= 200) {
+        final event = SignalGroupInviteEvent(
+            sender, groupId, groupName,
+            rawMembers.whereType<String>().toList(),
+            creatorId: creatorId,
+            memberPubkeys: memberPubkeys,
+            memberAddresses: memberAddresses,
+            memberNames: memberNames,
+            memberPulsePubkeys: memberPulsePubkeys,
+            groupTransportMode: groupTransportMode,
+            groupServerUrl: groupServerUrl,
+            groupServerInvite: groupServerInvite);
+        // Accept the group synchronously within this message batch so
+        // subsequent messages in the same batch see the group exists.
+        // Emitting to the stream alone is not enough — its async listener
+        // hasn't run acceptGroupInvite yet, so the next message in the
+        // for loop sees a non-existent group and gets dropped.
+        await _c.acceptGroupInvite(event);
+        if (!_c._groupInviteCtrl.isClosed) {
+          _c._groupInviteCtrl.add(event);
+          debugPrint('[Chat] _sys group_invite emitted for "$groupName"');
+        }
+      }
+      return true;
+    }
+    if (type == 'sender_key_dist') {
+      final groupId = payload['groupId'] as String? ?? '';
+      final skdmB64 = payload['skdm'] as String? ?? '';
+      if (groupId.isNotEmpty && skdmB64.isNotEmpty) {
+        try {
+          final skdmBytes = base64Decode(skdmB64);
+          await SenderKeyService.instance.processDistribution(
+              groupId, sender.databaseId, skdmBytes);
+          debugPrint('[Chat] _sys sender_key_dist processed for $groupId');
+        } catch (e) {
+          debugPrint('[Chat] _sys sender_key_dist failed: $e');
+        }
+      }
+      return true;
+    }
+    debugPrint('[Chat] _sys message unknown type: $type');
+    return true; // skip unknown sys messages
+  }
+
+  // ── Helpers that mirror SignalDispatcher extraction ──────────────────
+
+  static Map<String, String> _extractMemberPubkeysSys(dynamic raw) {
+    if (raw is Map) {
+      return raw.map((k, v) => MapEntry(k.toString(), v.toString()));
+    }
+    return {};
+  }
+
+  static Map<String, Map<String, List<String>>> _extractMemberAddressesSys(dynamic raw) {
+    if (raw is! Map) return {};
+    final out = <String, Map<String, List<String>>>{};
+    for (final entry in raw.entries) {
+      final memberId = entry.key.toString();
+      final perTransport = entry.value;
+      if (perTransport is! Map) continue;
+      final transportMap = <String, List<String>>{};
+      for (final te in perTransport.entries) {
+        final transport = te.key.toString();
+        final addrs = te.value;
+        if (addrs is List) {
+          transportMap[transport] = addrs.whereType<String>().toList();
+        }
+      }
+      if (transportMap.isNotEmpty) out[memberId] = transportMap;
+    }
+    return out;
+  }
+
+  static Map<String, String> _extractMemberNamesSys(dynamic raw) {
+    if (raw is Map) {
+      return raw.map((k, v) => MapEntry(k.toString(), v.toString()));
+    }
+    return {};
+  }
+
+  static Map<String, String> _extractMemberPulsePubkeysSys(dynamic raw) {
+    if (raw is Map) {
+      return raw.map((k, v) => MapEntry(k.toString(), v.toString()));
+    }
+    return {};
   }
 }

@@ -122,11 +122,6 @@ class _SendPipeline {
             final skdmBytes = await sk.createDistribution(contact.id, _c._selfId);
             final skdmB64 = base64Encode(skdmBytes);
             for (final memberContact in recipients) {
-              // Pulse-routed groups: SKDM goes through the host's Pulse
-              // server too — otherwise the very first message can't be
-              // decrypted by recipients waiting on the SK distribution to
-              // arrive over a different transport (Nostr/Session) that
-              // may be slower / unreachable for that pair.
               final distOk = isPulseRouted
                   ? await _sendSignalToContactViaPulseServer(
                       memberContact, 'sender_key_dist', {
@@ -138,6 +133,14 @@ class _SendPipeline {
                       'skdm': skdmB64,
                     });
               if (distOk) await sk.markDistributed(contact.id, memberContact.id);
+              // Also send as a _sys message so Pulse stores it for offline
+              // recipients. The signal path (above) is real-time only;
+              // offline members need a stored copy.
+              final skdmSys = jsonEncode({
+                '_sys': 'sender_key_dist',
+                'p': {'groupId': contact.id, 'skdm': skdmB64},
+              });
+              unawaited(_sendToContact(memberContact, skdmSys));
             }
           }
           final plainBytes = Uint8List.fromList(utf8.encode(groupPayload));
@@ -610,8 +613,8 @@ class _SendPipeline {
               final ar = NostrInboxReader();
               try {
                 await ar.initializeReader('', '$pk@$relay');
-                final ab = await ar.fetchPublicKeys();
-                if (ab != null) { bundle = ab; break; }
+                bundle = await ar.fetchPublicKeys();
+                if (bundle != null) break;
               } catch (_) {} finally {
                 try { ar.close(); } catch (_) {}
               }

@@ -140,11 +140,19 @@ class _GroupManager {
     );
     await _c._contacts.addContact(newGroup);
     _c._invalidateContactIndex();
-    await _ensurePendingContactsForMembers(
-        invite.memberPubkeys, invite.memberAddresses,
-        memberNames: invite.memberNames);
-    if (invite.memberNames.isNotEmpty) {
-      await _promotePlaceholderNames(invite.memberNames, invite.memberPubkeys);
+
+    // ── Establish Pulse infrastructure FIRST so key pre-warming below
+    //     can actually fetch bundles from the group's Pulse server.
+    //     Previous order (prewarm → seed → connect) meant every
+    //     _prewarmSignalSession ran against Nostr-only addresses, and
+    //     members whose keys were only on Pulse were unresolvable —
+    //     group sends from the joining device silently dropped them.
+    if (newGroup.isPulseGroup && newGroup.groupServerUrl.isNotEmpty) {
+      // Fire-and-forget the connection — prewarm uses ad-hoc readers
+      // that open their own socket when needed, but the server may
+      // rate-limit auth; this call starts the handshake early so the
+      // shared pool is warm when prewarm iterates Pulse addresses.
+      unawaited(_c.ensureGroupPulseConnection(newGroup.groupServerUrl));
     }
     if (newGroup.isPulseGroup &&
         newGroup.groupServerUrl.isNotEmpty &&
@@ -153,9 +161,26 @@ class _GroupManager {
           invite.memberPulsePubkeys, invite.memberPubkeys,
           newGroup.groupServerUrl);
     }
-    if (newGroup.isPulseGroup && newGroup.groupServerUrl.isNotEmpty) {
-      unawaited(_c.ensureGroupPulseConnection(newGroup.groupServerUrl));
+
+    await _ensurePendingContactsForMembers(
+        invite.memberPubkeys, invite.memberAddresses,
+        memberNames: invite.memberNames);
+    if (invite.memberNames.isNotEmpty) {
+      await _promotePlaceholderNames(invite.memberNames, invite.memberPubkeys);
     }
+    // After joining, broadcast a group_update so existing members
+    // learn we're now in the roster. Without this, the creator (and
+    // other members) never learn this member's addresses, so:
+    //  - The new member never appears in `recipients` on the creator's
+    //    side → SKDM is never delivered → SK decrypt fails → raw
+    //    base64 ciphertext displayed instead of real messages.
+    //  - Offline-accepted members are permanently broken.
+    final enriched = await enrichGroupMemberPubkeys(newGroup);
+    if (enriched != newGroup) {
+      await _c._contacts.updateContact(enriched);
+    }
+    unawaited(broadcastGroupUpdate(enriched));
+    unawaited(_c._republishAllKeys());
     debugPrint('[Group] Joined group "${invite.groupName}" via invite');
     _c._scheduleNotify();
   }
@@ -246,6 +271,7 @@ class _GroupManager {
         address: pub,
         transportAddresses: ta,
         isHidden: true,
+        publicKey: pub,
       );
       if (c != null) {
         created++;
@@ -489,6 +515,13 @@ class _GroupManager {
           'skdm': skdmB64,
         });
         if (distOk) await sk.markDistributed(group.id, memberId);
+        // Also send as a _sys message so Pulse stores it for offline
+        // recipients. The signal path (above) is real-time only.
+        final skdmSys = jsonEncode({
+          '_sys': 'sender_key_dist',
+          'p': {'groupId': group.id, 'skdm': skdmB64},
+        });
+        unawaited(_c._sendToContact(memberContact, skdmSys));
       }
       debugPrint('[SenderKey] Rotated and redistributed key for group ${group.name}');
     } catch (e) {

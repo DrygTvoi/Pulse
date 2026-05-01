@@ -525,13 +525,18 @@ class _DispatcherInitializer {
       debugPrint('[Group] group_update from ${e.senderId} for ${group.name}: '
           '${e.members.length} members');
 
-      // Tombstone / self-kick: if we are no longer in the roster (or
-      // the roster is empty, which is how the creator signals "group
-      // deleted"), drop the group locally. Emits on _c._groupUpdatePublicCtrl
-      // so any open chat screen + the home list both refresh.
-      final myUuid = _c._identity?.id ?? '';
-      final weWereMember = myUuid.isNotEmpty && group.members.contains(myUuid);
-      final weStillMember = myUuid.isNotEmpty && e.members.contains(myUuid);
+      // Tombstone / self-kick: check membership by PUBKEY, not UUID.
+      // UUIDs are device-local — cross-device membership can only be
+      // verified via the memberPubkeys map which carries universal keys.
+      final atIdx = _c._selfId.indexOf('@');
+      final ourPubkey =
+          atIdx > 0 ? _c._selfId.substring(0, atIdx).toLowerCase() : '';
+      final weWereMember = ourPubkey.isNotEmpty &&
+          group.memberPubkeys.values.any(
+              (p) => p.toLowerCase() == ourPubkey);
+      final weStillMember = ourPubkey.isNotEmpty &&
+          e.memberPubkeys.values.any(
+              (p) => p.toLowerCase() == ourPubkey);
       if (e.members.isEmpty || (weWereMember && !weStillMember)) {
         await _c._contacts.removeContact(group.id);
         _c._invalidateContactIndex();
@@ -543,15 +548,24 @@ class _DispatcherInitializer {
         return;
       }
 
-      final memberRemoved = group.members.toSet().difference(e.members.toSet()).isNotEmpty;
-      // Merge incoming memberPubkeys with what we already know: the
-      // creator may re-issue an update with the same mapping, or extend
-      // it for newly-added members. Keep any entry we already have for
-      // members still present; replace/add entries from the payload.
+      // Detect member removal for in-chat system notice (best-effort
+      // using UUIDs; pubkey-based removal detection is more reliable).
+      final memberRemoved =
+          group.members.toSet().difference(e.members.toSet()).isNotEmpty;
+      // Merge incoming memberPubkeys. Use pubkey matching for the
+      // "is this member still present?" check — UUIDs are device-local,
+      // so `e.members.contains(k)` misses peers whose UUID was assigned
+      // on a different device. A pubkey that appears in the incoming
+      // memberPubkeys values is still in the group.
+      final incomingPubkeys = e.memberPubkeys.values
+          .map((p) => p.toLowerCase())
+          .toSet();
       final mergedPubkeys =
           Map<String, String>.from(group.memberPubkeys)
             ..addAll(e.memberPubkeys)
-            ..removeWhere((k, _) => !e.members.contains(k));
+            ..removeWhere((k, v) =>
+                !e.members.contains(k) &&
+                !incomingPubkeys.contains(v.toLowerCase()));
       // Detect what actually changed so we can emit a Telegram-style
       // in-chat notice. Empty groupName / empty avatar in the signal mean
       // "no change" — only the fields that the sender actually populated

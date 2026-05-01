@@ -527,6 +527,14 @@ class SignalBroadcaster {
           Contact group, List<Contact> allContacts) =>
       _buildMemberAddresses(group, allContacts);
 
+  Map<String, String> buildMemberNamesForInvite(
+          Contact group, List<Contact> allContacts) =>
+      _buildMemberNames(group, allContacts);
+
+  Map<String, String> buildMemberPulsePubkeysForInvite(
+          Contact group, List<Contact> allContacts) =>
+      _buildMemberPulsePubkeys(group, allContacts);
+
   Map<String, Map<String, List<String>>> _buildMemberAddresses(
       Contact group, List<Contact> allContacts) {
     final out = <String, Map<String, List<String>>>{};

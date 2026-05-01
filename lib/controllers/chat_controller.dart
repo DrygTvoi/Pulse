@@ -1962,7 +1962,40 @@ class ChatController extends ChangeNotifier {
     if (group.isPulseGroup && group.groupServerUrl.isNotEmpty) {
       unawaited(ensureGroupPulseConnection(group.groupServerUrl));
     }
-    return _broadcaster.sendGroupInvite(target, group, _contacts.contacts);
+    // Real-time signal (online recipients get this immediately).
+    final signalFut = _broadcaster.sendGroupInvite(target, group, _contacts.contacts);
+
+    // Send a _sys message copy via the encrypted-message path so Pulse
+    // stores it for offline recipients. Pulse stores messages but drops
+    // signals for offline peers; without this, an offline member never
+    // learns the group exists and group messages arrive as gibberish.
+    final memberAddresses =
+        _broadcaster.buildMemberAddressesForInvite(group, _contacts.contacts);
+    final memberNames =
+        _broadcaster.buildMemberNamesForInvite(group, _contacts.contacts);
+    final memberPulsePubkeys =
+        _broadcaster.buildMemberPulsePubkeysForInvite(group, _contacts.contacts);
+    final sysPayload = {
+      'groupId': group.id,
+      'name': group.name,
+      'members': group.members,
+      if (group.creatorId != null) 'creatorId': group.creatorId,
+      if (group.memberPubkeys.isNotEmpty)
+        'memberPubkeys': Map<String, String>.from(group.memberPubkeys),
+      if (memberAddresses.isNotEmpty) 'memberAddresses': memberAddresses,
+      if (memberNames.isNotEmpty) 'memberNames': memberNames,
+      if (memberPulsePubkeys.isNotEmpty)
+        'memberPulsePubkeys': memberPulsePubkeys,
+      if (group.groupTransportMode.isNotEmpty)
+        'groupTransportMode': group.groupTransportMode,
+      if (group.groupServerUrl.isNotEmpty)
+        'groupServerUrl': group.groupServerUrl,
+      if (group.groupServerInvite.isNotEmpty)
+        'groupServerInvite': group.groupServerInvite,
+    };
+    final sysMsg = jsonEncode({'_sys': 'group_invite', 'p': sysPayload});
+    unawaited(_sendToContact(target, sysMsg));
+    return signalFut;
   }
 
   Future<void> declineGroupInvite(SignalGroupInviteEvent invite) => _groups.declineGroupInvite(invite);

@@ -626,9 +626,39 @@ class SignalService {
       // identity bound to this databaseId.
       try {
         await _store.deleteAllSessions(remoteId);
-        debugPrint('[Signal] Identity rotated for $remoteId — old sessions wiped');
+        // Overwrite the old identity key in the in-memory trustedKeys map
+        // with the new key BEFORE processPreKeyBundle runs.
+        // processPreKeyBundle calls isTrustedIdentity() which compares the
+        // bundle's identity key against trustedKeys[remoteAddress].
+        // If we only delete sessions but leave the old identity key,
+        // isTrustedIdentity() sees old_key ≠ new_key → throws
+        // UntrustedIdentityException. By saving the new key first, we tell
+        // the store "this peer's identity rotated = we accept the new key".
+        await _store.saveIdentity(remoteAddress, identityKey);
+        debugPrint('[Signal] Identity rotated for $remoteId — old sessions + identity wiped');
       } catch (e) {
         debugPrint('[Signal] Failed to wipe old sessions on key rotation: $e');
+      }
+    }
+
+    // If the persistent store was cleared (e.g. by deleteContactData during
+    // session_reset handling) but the in-memory trustedKeys map still has an
+    // old identity key, pre-accept the new key so isTrustedIdentity() passes.
+    // Without this, the stale in-memory key ≠ new key → UntrustedIdentityException.
+    if (!keyChanged) {
+      try {
+        final inMemKey = await _store.getIdentity(remoteAddress);
+        if (inMemKey != null) {
+          final inMemSerialized = base64Encode(inMemKey.serialize());
+          if (inMemSerialized != newB64) {
+            await _store.saveIdentity(remoteAddress, identityKey);
+            debugPrint('[Signal] Pre-accepted rotated identity for $remoteId '
+                '(was only in memory, persistent store already cleared)');
+          }
+        }
+      } catch (_) {
+        // Best-effort — if getIdentity/saveIdentity fail, let processPreKeyBundle
+        // handle the error naturally.
       }
     }
 

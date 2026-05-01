@@ -496,6 +496,7 @@ class ContactManager implements IContactRepository {
     required String address,
     Map<String, List<String>>? transportAddresses,
     bool isHidden = false,
+    String publicKey = '',
   }) async {
     if (!canCreatePendingContact()) return null;
     final contactId = senderId.split('@').first;
@@ -504,10 +505,22 @@ class ContactManager implements IContactRepository {
     if (existing != null) return existing;
     final Contact contact;
     if (transportAddresses != null && transportAddresses.isNotEmpty) {
+      // Auto-extract Nostr pubkey from transport addresses for HMAC signing.
+      // Without this, extractPubkey() returns null for Pulse-only contacts,
+      // sender_key_dist / group_invite signals go unsigned, and the receiver
+      // drops them → SKDM never arrives → chat shows raw _sk:true envelopes.
+      String pk = publicKey;
+      if (pk.isEmpty) {
+        final nostrAddrs = transportAddresses['Nostr'] ?? [];
+        if (nostrAddrs.isNotEmpty) {
+          final at = nostrAddrs.first.indexOf('@');
+          if (at > 0) pk = nostrAddrs.first.substring(0, at);
+        }
+      }
       contact = Contact(
         id: contactId,
         name: senderName,
-        publicKey: '',
+        publicKey: pk,
         transportAddresses: transportAddresses,
         isPending: true,
         isHidden: isHidden,
@@ -516,7 +529,7 @@ class ContactManager implements IContactRepository {
       contact = Contact(
         id: contactId,
         name: senderName,
-        publicKey: '',
+        publicKey: publicKey,
         databaseId: address,
         isPending: true,
         isHidden: isHidden,

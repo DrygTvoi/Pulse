@@ -1028,16 +1028,20 @@ class PulseInboxReader implements InboxReader {
               switch (type) {
                 case 'message':
                   _dispatchMessage(data);
+                  break;
                 case 'signal':
                   _dispatchSignal(data);
+                  break;
                 case 'stored':
                   final storedId = data['id'] as String?;
                   if (storedId != null && storedId.isNotEmpty) {
                     _shared.serverAckCtrl.add(storedId);
                   }
                   _dispatchStored(data, channel);
+                  break;
                 case 'ack':
                   debugPrint('[Pulse] ACK: ${data['id'] ?? ''}');
+                  break;
                 case 'keys':
                   // Complete pending keys completer (for fetchContactKeys)
                   final kPub = data['pubkey'] as String? ?? '';
@@ -1055,6 +1059,7 @@ class PulseInboxReader implements InboxReader {
                     }
                   }
                   _dispatchKeys(data);
+                  break;
                 case 'error':
                   debugPrint('[Pulse] Server error: ${data['message'] ?? data}');
                   // SFU subscribers care about join/subscribe failures so
@@ -1064,6 +1069,7 @@ class PulseInboxReader implements InboxReader {
                   if (!_sigCtrl.isClosed) {
                     _sigCtrl.add([{'type': 'sfu', 'payload': data}]);
                   }
+                  break;
                 // SFU message types — forward through signal stream
                 case 'room_created':
                 case 'room_info':
@@ -1080,12 +1086,10 @@ class PulseInboxReader implements InboxReader {
                   if (!_sigCtrl.isClosed) {
                     _sigCtrl.add([{'type': 'sfu', 'payload': data}]);
                   }
+                  break;
                 case 'signal_fail':
                   // Recipient offline for ephemeral signal (typing/heartbeat) — expected, ignore.
                   debugPrint('[Pulse] signal_fail to=${data['to']} reason=${data['reason']}');
-                  break;
-                case 'error':
-                  debugPrint('[Pulse] server error code=${data['code']} msg=${data['message']}');
                   break;
                 default:
                   debugPrint('[Pulse] Unknown message type: $type');
@@ -1223,15 +1227,74 @@ class PulseInboxReader implements InboxReader {
   }
 
   void _dispatchStored(Map<String, dynamic> data, WebSocketChannel channel) {
-    final messages = data['messages'] as List? ?? [];
-    for (final m in messages) {
+    final rawMessages = data['messages'] as List? ?? [];
+    // Separate signals from messages so group_invite / sender_key_dist
+    // signals create groups before any group messages are dispatched.
+    // Without this, a stored group message may arrive before the
+    // group_invite signal that creates the group, leaving the message
+    // stranded in the DM inbox as an undecryptable raw _sk envelope.
+    final signals = <Map<String, dynamic>>[];
+    final messages = <Map<String, dynamic>>[];
+    for (final m in rawMessages) {
       if (m is! Map) continue;
       final entry = Map<String, dynamic>.from(m);
-      final msgType = entry['msg_type'] as String? ?? 'message';
-      if (msgType == 'signal') {
-        _dispatchSignal(entry);
+      if ((entry['msg_type'] as String? ?? 'message') == 'signal') {
+        signals.add(entry);
       } else {
-        _dispatchMessage(entry);
+        messages.add(entry);
+      }
+    }
+    // Dispatch all signals first (creates groups, distributes keys).
+    for (final s in signals) {
+      _dispatchSignal(s);
+    }
+    // Batch all stored messages into a single stream event so
+    // _handleIncomingMessages processes them sequentially in its for loop.
+    // Individual _dispatchMessage creates separate events, and Dart's
+    // Stream.listen does not await async callbacks — so concurrent
+    // invocations could process group messages before _sys group_invite
+    // has finished creating the group.
+    if (messages.isNotEmpty) {
+      final batch = <Message>[];
+      for (final m in messages) {
+        final data2 = m; // rename for the extraction logic below
+        final rawPayload = data2['payload'];
+        final payload = (rawPayload is Map<String, dynamic>) ? rawPayload : data2;
+        final id = payload['id'] as String? ?? '';
+        if (id.isEmpty || _seenIds.contains(id)) continue;
+        _trackSeenId(id);
+
+        final rawTs = payload['timestamp'] as int? ??
+            payload['ts'] as int? ??
+            payload['created'] as int? ??
+            (DateTime.now().millisecondsSinceEpoch ~/ 1000);
+        unawaited(_updateLastFetchTs(rawTs));
+
+        final now = DateTime.now();
+        final claimed = DateTime.fromMillisecondsSinceEpoch(rawTs * 1000, isUtc: true);
+        final msgTs = claimed.difference(now).abs() <= const Duration(days: 7) ? claimed : now;
+
+        var encBody = (rawPayload is String) ? rawPayload
+            : payload['body'] as String? ?? payload['payload'] as String? ?? '';
+        if (encBody.length >= 2 && encBody.startsWith('"') && encBody.endsWith('"')) {
+          encBody = encBody.substring(1, encBody.length - 1);
+        }
+
+        final msg = Message(
+          id: id,
+          senderId: payload['from'] as String? ?? '',
+          receiverId: _pubkeyHex,
+          encryptedPayload: encBody,
+          timestamp: msgTs,
+          adapterType: 'pulse',
+        );
+        batch.add(msg);
+
+        // Send ACK
+        _sendAck(id);
+      }
+      if (batch.isNotEmpty && !_msgCtrl.isClosed) {
+        _msgCtrl.add(batch);
       }
     }
   }
