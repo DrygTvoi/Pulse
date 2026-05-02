@@ -543,7 +543,7 @@ class _SendPipeline {
       debugPrint('[E2EE] encryptMessage failed for ${contact.name} — attempting session rebuild: $e');
       try {
         final ourApiKey = _c._identity!.adapterConfig['token'] ?? '';
-        final InboxReader contactReader;
+        InboxReader contactReader;
         String initApiKey = ourApiKey;
         String initDbId = contact.databaseId;
         if (contact.provider == 'Firebase') {
@@ -575,7 +575,6 @@ class _SendPipeline {
         } else {
           return false;
         }
-        // Session-first key fetch for group members
         Map<String, dynamic>? bundle;
         final sessionAddrs = contact.transportAddresses['Session'] ?? [];
         if (sessionAddrs.isNotEmpty) {
@@ -774,17 +773,17 @@ class _SendPipeline {
           debugPrint('[PulseGroup] Rebuild aborted: no pulse_privkey');
           return false;
         }
-        final reader = PulseInboxReader();
-        final readerApiKey =
-            jsonEncode({'privkey': pulseKey, 'serverUrl': pulseServerUrl});
-        final readerDbId = '$recipientPulsePub@$pulseServerUrl';
-        Map<String, dynamic>? bundle;
-        try {
-          await reader.initializeReader(readerApiKey, readerDbId);
-          bundle = await reader.fetchPublicKeys();
-        } finally {
-          try { reader.close(); } catch (_) {}
+        // Use the existing pool sender to fetch keys via the already-
+        // authenticated WebSocket. Creating a standalone PulseInboxReader
+        // here would open a second WS on the same pubkey → server kicks
+        // the primary reader → ping-pong loop.
+        final poolKey = ChatController._canonicalizePulseUrl(pulseServerUrl);
+        final poolSender = _c._pulseSendersByServer[poolKey];
+        if (poolSender == null) {
+          debugPrint('[PulseGroup] Rebuild aborted: no pool sender for $pulseServerUrl');
+          return false;
         }
+        final bundle = await poolSender.fetchContactKeys(recipientPulsePub);
         if (bundle == null) {
           debugPrint('[PulseGroup] Rebuild aborted: no bundle on $pulseServerUrl');
           return false;

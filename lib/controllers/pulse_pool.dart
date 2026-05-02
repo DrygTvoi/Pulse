@@ -11,6 +11,13 @@ class _PulsePool {
   final ChatController _c;
   _PulsePool(this._c);
 
+  /// Serializes concurrent [ensureConnection] calls per server URL so they
+  /// don't race each other. Without this, two callers (e.g. _initInbox +
+  /// the send pipeline) both detect the reader as "unhealthy" during the
+  /// auth window, each tears down the other's connection, and the server's
+  /// "1 connection per pubkey" policy ping-pongs them forever.
+  final Map<String, Completer<bool>> _pendingConnects = {};
+
   /// Same canonicalization as `_PulseSharedWs._canonicalize` so our pool
   /// keys line up 1:1 with the pulse_adapter pool. Strips fragment,
   /// trailing slash, default ports (443 for https, 80 for http), and
@@ -97,145 +104,168 @@ class _PulsePool {
   Future<bool> ensureConnection(String serverUrl) async {
     if (serverUrl.isEmpty) return false;
     final key = canonicalizeUrl(serverUrl);
-    if (_c._pulseSendersByServer.containsKey(key)) {
-      // Sender cached from a previous call — but the underlying reader
-      // may have died during a long laptop sleep (uTLS circuit breaker
-      // tripped, _runLoop hit max consecutive failures and exited
-      // permanently). The sender alone can't dispatch incoming SFU
-      // signals to SignalDispatcher, so room_create replies vanish and
-      // the user is stuck on "Connecting…". Detect the stale state and
-      // tear it down so the path below rebuilds a fresh reader+sender.
-      if (isPulseReaderHealthy(serverUrl)) return true;
-      debugPrint('[Group/SFU] ensureGroupPulseConnection: cached sender '
-          'present but reader is dead (post-sleep recovery) — '
-          'rebuilding for $serverUrl');
-      _c._pulseSendersByServer.remove(key);
-      _c._pulseReadersByServer.remove(key);
-      dropPulseSharedPoolFor(serverUrl);
-      // Clear the uTLS breaker too, otherwise the brand-new reader's
-      // first connect attempt throws StateError immediately and we end
-      // up in the same broken state we just escaped.
-      resetPulseUtlsBreaker();
+
+    // If a concurrent call is already connecting to this server, await
+    // its result instead of racing a second connection. Two simultaneous
+    // readers on the same pubkey get kicked by the server's "1 connection
+    // per pubkey" policy → ping-pong loop.
+    if (_pendingConnects.containsKey(key)) {
+      return _pendingConnects[key]!.future;
     }
 
-    var privkey =
-        await ChatController._secureStorage.read(key: 'pulse_privkey') ?? '';
-    if (privkey.isEmpty) {
-      privkey = await _c._recoverTransportKey('pulse_privkey');
-    }
-    if (privkey.isEmpty) {
-      debugPrint('[Group/SFU] ensureGroupPulseConnection: no pulse_privkey '
-          'and recovery_key derivation failed — cannot open SFU connection');
-      return false;
-    }
+    final completer = Completer<bool>();
+    _pendingConnects[key] = completer;
     try {
-      final apiKey = jsonEncode({'privkey': privkey, 'serverUrl': serverUrl});
-
-      // Reuse an existing reader for this server if one already exists.
-      // Pulse-server enforces "1 connection per pubkey" — opening a
-      // second WS would make the server kick the first one (sending
-      // "abnormal closure: unexpected EOF" to the dropped side), and we
-      // never get to send the SFU control message. Two readers can
-      // happen because:
-      //   - the InboxManager's primary auto-opened an adhoc Pulse reader
-      //     during _initialize when pulse_server_url was set in prefs,
-      //   - then the user joins an SFU group whose groupServerUrl
-      //     matches → ensureGroupPulseConnection naively opens another.
-      // Detect both _pulseReadersByServer entries AND the legacy
-      // _adhocPulseReader; either covers us.
-      PulseInboxReader? reader = _c._pulseReadersByServer[key];
-      final adhocServerKey = canonicalizeUrl(
-          (await _c._getPrefs()).getString('pulse_server_url') ?? '');
-      if (reader == null &&
-          _c._adhocPulseReader != null &&
-          adhocServerKey == key) {
-        reader = _c._adhocPulseReader;
-        _c._pulseReadersByServer[key] = reader!;
-        debugPrint('[Group/SFU] Reusing primary adhoc Pulse reader for $serverUrl');
-      }
-      if (reader == null) {
-        final created =
-            await InboxManager().createAdhocReader('Pulse', apiKey, serverUrl);
-        if (created is PulseInboxReader) {
-          reader = created;
-          _c._pulseReadersByServer[key] = reader;
-          _c._messageSubs.add(
-              reader.listenForMessages().listen(_c._handleIncomingMessages));
-          _c._signalSubs.add(reader.listenForSignals().listen((sigs) =>
-              _c._signalDispatcher!.dispatch(sigs, sourceTransport: 'Pulse')));
-          debugPrint('[Group/SFU] Opened pool reader for $serverUrl');
+      if (_c._pulseSendersByServer.containsKey(key)) {
+        // Sender cached from a previous call — but the underlying reader
+        // may have died during a long laptop sleep (uTLS circuit breaker
+        // tripped, _runLoop hit max consecutive failures and exited
+        // permanently). The sender alone can't dispatch incoming SFU
+        // signals to SignalDispatcher, so room_create replies vanish and
+        // the user is stuck on "Connecting…". Detect the stale state and
+        // tear it down so the path below rebuilds a fresh reader+sender.
+        if (isPulseReaderHealthy(serverUrl)) {
+          completer.complete(true);
+          return true;
         }
+        debugPrint('[Group/SFU] ensureGroupPulseConnection: cached sender '
+            'present but reader is dead (post-sleep recovery) — '
+            'rebuilding for $serverUrl');
+        _c._pulseSendersByServer.remove(key);
+        _c._pulseReadersByServer.remove(key);
+        dropPulseSharedPoolFor(serverUrl);
+        // Clear the uTLS breaker too, otherwise the brand-new reader's
+        // first connect attempt throws StateError immediately and we end
+        // up in the same broken state we just escaped.
+        resetPulseUtlsBreaker();
       }
 
-      final sender = PulseMessageSender();
-      await sender.initializeSender(apiKey);
-      _c._pulseSendersByServer[key] = sender;
-      // Also seed _cachedPulseSender if the user had no primary Pulse
-      // at all — keeps legacy `sendRawPulseSignal` callers (broadcaster
-      // etc.) working when the user is otherwise Nostr-only.
-      _c._cachedPulseSender ??= sender;
-      // Reader auth is async — finishes when the run loop reaches
-      // auth_ok. Block here until the pool entry's `_shared.channel` is
-      // populated, otherwise the very first sender.sendRaw races and
-      // emits "no authenticated connection". 15s covers PoW (~2-5s) + a
-      // generous margin for slow networks / Tor.
-      final ready = await waitForPulseAuth(serverUrl);
-      if (!ready) {
-        debugPrint('[Group/SFU] ensureGroupPulseConnection: auth timed out '
-            'for $serverUrl — sender created but channel not ready yet');
+      var privkey =
+          await ChatController._secureStorage.read(key: 'pulse_privkey') ?? '';
+      if (privkey.isEmpty) {
+        privkey = await _c._recoverTransportKey('pulse_privkey');
       }
-
-      // Advertise our Pulse address on this server in `_allAddresses`
-      // so the next addr_update broadcast carries it. Without this,
-      // peers in our pulse-mode groups never learn our universal Pulse
-      // pubkey and their sends to us silently fail with "No Pulse
-      // pubkey for X" — the exact bootstrap dead-end that breaks the
-      // very first send to a fresh pulse group. Idempotent;
-      // broadcastAddressUpdate dedupes too.
+      if (privkey.isEmpty) {
+        debugPrint('[Group/SFU] ensureGroupPulseConnection: no pulse_privkey '
+            'and recovery_key derivation failed — cannot open SFU connection');
+        completer.complete(false);
+        return false;
+      }
       try {
-        final seed = Uint8List.fromList(hex.decode(privkey));
-        final pulsePub = await ed25519PubkeyFromSeed(seed);
-        final selfPulseAddr = '$pulsePub@$serverUrl';
-        if (!_c._allAddresses.contains(selfPulseAddr)) {
-          _c._allAddresses = [..._c._allAddresses, selfPulseAddr];
-          _c._adapterHealth[selfPulseAddr] = ready;
-          debugPrint('[Group/SFU] ensureGroupPulseConnection: advertised '
-              'self Pulse address $selfPulseAddr to peers');
-          unawaited(_c.broadcastAddressUpdate());
-        }
-        // Publish our Signal/Kyber prekey bundle to THIS server too so
-        // pulse-group peers can fetch it. CRITICAL: reuse the
-        // per-server pool sender we just created — `publishKeysToAdapter`
-        // would naively spawn a second `PulseMessageSender` and call
-        // `initializeSender`, but the Pulse hub allows only one WS per
-        // pubkey, so the second connection kicks the first (the
-        // long-lived reader) and the sys_keys publish silently fails
-        // with no log. Going through the existing sender ensures we
-        // ride the already-authenticated WS.
-        try {
-          final bundle = await _c._keys.buildOwnBundle();
-          final ok = await sender.sendSignal(
-              selfPulseAddr, selfPulseAddr, selfPulseAddr, 'sys_keys', bundle);
-          if (ok) {
-            debugPrint('[Group/SFU] Published Signal bundle to $serverUrl '
-                'via reused pool sender');
-          } else {
-            debugPrint('[Group/SFU] Failed to publish Signal bundle to '
-                '$serverUrl (sender returned false)');
-          }
-        } catch (err) {
-          debugPrint('[Group/SFU] Failed to publish Signal bundle to '
-              '$serverUrl: $err');
-        }
-      } catch (e) {
-        debugPrint('[Group/SFU] ensureGroupPulseConnection: failed to '
-            'advertise self Pulse address / publish keys: $e');
-      }
+        final apiKey = jsonEncode({'privkey': privkey, 'serverUrl': serverUrl});
 
-      return ready;
-    } catch (e) {
-      debugPrint('[Group/SFU] ensureGroupPulseConnection failed: $e');
-      return false;
+        // Reuse an existing reader for this server if one already exists.
+        // Pulse-server enforces "1 connection per pubkey" — opening a
+        // second WS would make the server kick the first one (sending
+        // "abnormal closure: unexpected EOF" to the dropped side), and we
+        // never get to send the SFU control message. Two readers can
+        // happen because:
+        //   - the InboxManager's primary auto-opened an adhoc Pulse reader
+        //     during _initialize when pulse_server_url was set in prefs,
+        //   - then the user joins an SFU group whose groupServerUrl
+        //     matches → ensureGroupPulseConnection naively opens another.
+        // Detect both _pulseReadersByServer entries AND the legacy
+        // _adhocPulseReader; either covers us.
+        PulseInboxReader? reader = _c._pulseReadersByServer[key];
+        final adhocServerKey = canonicalizeUrl(
+            (await _c._getPrefs()).getString('pulse_server_url') ?? '');
+        if (reader == null &&
+            _c._adhocPulseReader != null &&
+            adhocServerKey == key) {
+          reader = _c._adhocPulseReader;
+          _c._pulseReadersByServer[key] = reader!;
+          debugPrint('[Group/SFU] Reusing primary adhoc Pulse reader for $serverUrl');
+        }
+        if (reader == null) {
+          final created =
+              await InboxManager().createAdhocReader('Pulse', apiKey, serverUrl);
+          if (created is PulseInboxReader) {
+            reader = created;
+            _c._pulseReadersByServer[key] = reader;
+            _c._messageSubs.add(
+                reader.listenForMessages().listen(_c._handleIncomingMessages));
+            _c._signalSubs.add(reader.listenForSignals().listen((sigs) =>
+                _c._signalDispatcher!.dispatch(sigs, sourceTransport: 'Pulse')));
+            debugPrint('[Group/SFU] Opened pool reader for $serverUrl');
+          }
+        }
+
+        final sender = PulseMessageSender();
+        await sender.initializeSender(apiKey);
+        _c._pulseSendersByServer[key] = sender;
+        // Also seed _cachedPulseSender if the user had no primary Pulse
+        // at all — keeps legacy `sendRawPulseSignal` callers (broadcaster
+        // etc.) working when the user is otherwise Nostr-only.
+        _c._cachedPulseSender ??= sender;
+        // Reader auth is async — finishes when the run loop reaches
+        // auth_ok. Block here until the pool entry's `_shared.channel` is
+        // populated, otherwise the very first sender.sendRaw races and
+        // emits "no authenticated connection". 5s covers PoW (~1-3s) + a
+        // margin for slow networks; 15s was excessive and blocked the send
+        // path for too long when the server was slow.
+        final ready = await waitForPulseAuth(serverUrl,
+            timeout: const Duration(seconds: 5));
+        if (!ready) {
+          debugPrint('[Group/SFU] ensureGroupPulseConnection: auth timed out '
+              'for $serverUrl — sender created but channel not ready yet');
+        }
+
+        // Advertise our Pulse address on this server in `_allAddresses`
+        // so the next addr_update broadcast carries it. Without this,
+        // peers in our pulse-mode groups never learn our universal Pulse
+        // pubkey and their sends to us silently fail with "No Pulse
+        // pubkey for X" — the exact bootstrap dead-end that breaks the
+        // very first send to a fresh pulse group. Idempotent;
+        // broadcastAddressUpdate dedupes too.
+        try {
+          final seed = Uint8List.fromList(hex.decode(privkey));
+          final pulsePub = await ed25519PubkeyFromSeed(seed);
+          final selfPulseAddr = '$pulsePub@$serverUrl';
+          if (!_c._allAddresses.contains(selfPulseAddr)) {
+            _c._allAddresses = [..._c._allAddresses, selfPulseAddr];
+            _c._adapterHealth[selfPulseAddr] = ready;
+            debugPrint('[Group/SFU] ensureGroupPulseConnection: advertised '
+                'self Pulse address $selfPulseAddr to peers');
+            unawaited(_c.broadcastAddressUpdate());
+          }
+          // Publish our Signal/Kyber prekey bundle to THIS server too so
+          // pulse-group peers can fetch it. CRITICAL: reuse the
+          // per-server pool sender we just created — `publishKeysToAdapter`
+          // would naively spawn a second `PulseMessageSender` and call
+          // `initializeSender`, but the Pulse hub allows only one WS per
+          // pubkey, so the second connection kicks the first (the
+          // long-lived reader) and the sys_keys publish silently fails
+          // with no log. Going through the existing sender ensures we
+          // ride the already-authenticated WS.
+          try {
+            final bundle = await _c._keys.buildOwnBundle();
+            final ok = await sender.sendSignal(
+                selfPulseAddr, selfPulseAddr, selfPulseAddr, 'sys_keys', bundle);
+            if (ok) {
+              debugPrint('[Group/SFU] Published Signal bundle to $serverUrl '
+                  'via reused pool sender');
+            } else {
+              debugPrint('[Group/SFU] Failed to publish Signal bundle to '
+                  '$serverUrl (sender returned false)');
+            }
+          } catch (err) {
+            debugPrint('[Group/SFU] Failed to publish Signal bundle to '
+                '$serverUrl: $err');
+          }
+        } catch (e) {
+          debugPrint('[Group/SFU] ensureGroupPulseConnection: failed to '
+              'advertise self Pulse address / publish keys: $e');
+        }
+
+        completer.complete(ready);
+        return ready;
+      } catch (e) {
+        debugPrint('[Group/SFU] ensureGroupPulseConnection failed: $e');
+        completer.complete(false);
+        return false;
+      }
+    } finally {
+      _pendingConnects.remove(key);
     }
   }
 

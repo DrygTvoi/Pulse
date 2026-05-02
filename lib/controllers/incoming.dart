@@ -681,6 +681,53 @@ class _IncomingHandler {
       }
       return true;
     }
+    if (type == 'group_update') {
+      // Pulse stores messages but not signals — the _sys mirror ensures
+      // offline members receive tombstones, kicks, and roster changes.
+      final groupId = payload['groupId'] as String?;
+      final members = (payload['members'] as List?)?.whereType<String>().toList() ?? [];
+      if (groupId != null) {
+        final existing = _c._contacts.findById(groupId);
+        if (existing != null && existing.isGroup) {
+          if (members.isEmpty) {
+            // Tombstone — group deleted.
+            await _c._contacts.removeContact(groupId);
+            _c._invalidateContactIndex();
+            debugPrint('[Chat] _sys group_update tombstone: removed $groupId');
+          } else {
+            // Member removal / kick — check if WE were removed.
+            final atIdx = _c._selfId.indexOf('@');
+            final ourPubkey = atIdx > 0 ? _c._selfId.substring(0, atIdx).toLowerCase() : '';
+            final memberPubkeys = _extractMemberPubkeysSys(payload['memberPubkeys']);
+            final weStillMember = ourPubkey.isNotEmpty &&
+                memberPubkeys.values.any((p) => p.toLowerCase() == ourPubkey);
+            if (!weStillMember) {
+              await _c._contacts.removeContact(groupId);
+              _c._invalidateContactIndex();
+              debugPrint('[Chat] _sys group_update kick: removed $groupId');
+            } else {
+              // Roster change — update members.
+              final updated = existing.copyWith(
+                members: members,
+                memberPubkeys: Map<String, String>.from(existing.memberPubkeys)
+                  ..addAll(memberPubkeys),
+              );
+              await _c._contacts.updateContact(updated);
+              _c._invalidateContactIndex();
+              debugPrint('[Chat] _sys group_update roster: updated $groupId with ${members.length} members');
+            }
+          }
+          _c._scheduleNotify();
+          if (!_c._groupUpdatePublicCtrl.isClosed) {
+            _c._groupUpdatePublicCtrl.add(SignalGroupUpdateEvent(
+                groupId, payload['name'] as String? ?? '', members,
+                creatorId: payload['creatorId'] as String?,
+                senderId: sender.id));
+          }
+        }
+      }
+      return true;
+    }
     debugPrint('[Chat] _sys message unknown type: $type');
     return true; // skip unknown sys messages
   }

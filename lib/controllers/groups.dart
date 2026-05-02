@@ -487,6 +487,33 @@ class _GroupManager {
     await _c._broadcaster.broadcastGroupUpdate(
         tombstone, _c._contacts.contacts,
         recipientMemberIds: recipients);
+
+    // Pulse stores messages but not signals — mirror the tombstone as a
+    // _sys message so offline members receive it via stored-message delivery.
+    // The signal path (above) is real-time only and drops silently when the
+    // recipient has no active WebSocket.
+    if (group.isPulseGroup && group.groupServerUrl.isNotEmpty) {
+      final sysPayload = jsonEncode({
+        '_sys': 'group_update',
+        'p': {
+          'groupId': tombstone.id,
+          'name': tombstone.name,
+          'members': tombstone.members,
+          if (tombstone.creatorId != null) 'creatorId': tombstone.creatorId,
+          if (tombstone.memberPubkeys.isNotEmpty)
+            'memberPubkeys': Map<String, String>.from(tombstone.memberPubkeys),
+          'groupTransportMode': tombstone.groupTransportMode,
+          'groupServerUrl': tombstone.groupServerUrl,
+        },
+      });
+      for (final memberId in recipients) {
+        final memberContact = _c._contacts.findById(memberId);
+        if (memberContact != null) {
+          unawaited(_c._sendToContact(memberContact, sysPayload));
+        }
+      }
+    }
+
     await _c._contacts.removeContact(group.id);
     _c._invalidateContactIndex();
     _c._scheduleNotify();

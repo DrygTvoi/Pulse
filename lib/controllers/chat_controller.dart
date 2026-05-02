@@ -1271,12 +1271,6 @@ class ChatController extends ChangeNotifier {
     try {
       return await reader.fetchPublicKeys();
     } finally {
-      // Close the adhoc reader once the key fetch is done.
-      // Without this, the reader stays subscribed to our `#p` filter and
-      // intercepts incoming gift wraps on its orphan _msgCtrl (no listener)
-      // — they get marked as "seen" via inner-id dedup before the main
-      // reader can dispatch them, silently dropping every message that
-      // arrives during an active key fetch.
       try {
         if (reader is NostrInboxReader) reader.close();
         else if (reader is PulseInboxReader) reader.close();
