@@ -13,6 +13,8 @@ class _IncomingHandler {
   Future<void> handleIncomingMessages(List<Message> newMessages) async {
     bool hasUpdates = false;
     var contactByDbId = _c._getContactIndex();
+    bool anyContactUpdated = false;
+    final pendingSaves = <String, List<Map<String, dynamic>>>{};
 
     for (var msg in newMessages) {
       try {
@@ -318,7 +320,7 @@ class _IncomingHandler {
             if (didUpdate) {
               final updated = senderContact.copyWith(transportAddresses: ta);
               await _c._contacts.updateContact(updated);
-              _c._invalidateContactIndex();
+              anyContactUpdated = true;
               senderContact = updated;
               debugPrint('[Chat] Learned new routes for ${senderContact.name}: ${ta.keys.join(', ')}');
             }
@@ -474,8 +476,7 @@ class _IncomingHandler {
                   );
                   ChatController._insertMessageSorted(targetRoom.messages, decryptedMsg);
                   _c._repo.trackMessageId(targetContact.id, decryptedMsg.id);
-                  await LocalStorageService().saveMessage(
-                      targetContact.storageKey, decryptedMsg.toJson());
+                  pendingSaves.putIfAbsent(targetContact.storageKey, () => []).add(decryptedMsg.toJson());
                   hasUpdates = true;
                   if (!_c._newMsgController.isClosed) {
                     _c._newMsgController.add((contactId: targetContact.id, message: decryptedMsg));
@@ -523,7 +524,7 @@ class _IncomingHandler {
                   final updated = senderContact.copyWith(
                       name: envSenderName, isHidden: false);
                   await _c._contacts.updateContact(updated);
-                  _c._invalidateContactIndex();
+                  anyContactUpdated = true;
                   senderContact = updated;
                   debugPrint(
                       '[Chat] Promoted hidden contact ${senderContact.id.substring(0, 8)} → "$envSenderName"');
@@ -570,8 +571,7 @@ class _IncomingHandler {
               );
               ChatController._insertMessageSorted(room.messages, decryptedMsg);
               _c._repo.trackMessageId(pendingContact.id, decryptedMsg.id);
-              await LocalStorageService().saveMessage(
-                  pendingContact.storageKey, decryptedMsg.toJson());
+              pendingSaves.putIfAbsent(pendingContact.storageKey, () => []).add(decryptedMsg.toJson());
               hasUpdates = true;
               if (!_c._newMsgController.isClosed) {
                 _c._newMsgController.add((contactId: pendingContact.id, message: decryptedMsg));
@@ -603,6 +603,16 @@ class _IncomingHandler {
       } catch (e) {
         debugPrint('[ChatController] Skipping malformed message ${msg.id}: $e');
       }
+    }
+
+    // Batch-persist all messages saved during this loop in a single
+    // transaction per room instead of N individual INSERTs.
+    final storage = LocalStorageService();
+    for (final entry in pendingSaves.entries) {
+      await storage.saveMessagesBatch(entry.key, entry.value);
+    }
+    if (anyContactUpdated) {
+      _c._invalidateContactIndex();
     }
 
     if (hasUpdates) _c._scheduleNotify();
