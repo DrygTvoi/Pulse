@@ -2019,16 +2019,7 @@ class AppLocalizationsUk extends AppLocalizations {
   }
 
   @override
-  String get providerDatabaseUrlLabel => 'URL бази даних';
-
-  @override
   String get providerOptionalHint => 'Необовʼязково';
-
-  @override
-  String get providerWebApiKeyLabel => 'Web API-ключ';
-
-  @override
-  String get providerOptionalForPublicDb => 'Необовʼязково для публічної БД';
 
   @override
   String get providerRelayUrlLabel => 'URL реле';
@@ -2479,10 +2470,6 @@ class AppLocalizationsUk extends AppLocalizations {
   String get themeDynamicPlatformIos => 'iOS';
 
   @override
-  String get providerErrorInvalidFirebaseUrl =>
-      'Невірний URL Firebase. Очікується https://project.firebaseio.com';
-
-  @override
   String get providerErrorInvalidRelayUrl =>
       'Невірний URL реле. Очікується wss://relay.example.com';
 
@@ -2518,9 +2505,6 @@ class AppLocalizationsUk extends AppLocalizations {
 
   @override
   String get providerRemoveTooltip => 'Видалити';
-
-  @override
-  String get providerFirebaseUrlHint => 'https://project.firebaseio.com';
 
   @override
   String get providerNostrRelayHint => 'wss://relay.damus.io';
@@ -3010,9 +2994,6 @@ class AppLocalizationsUk extends AppLocalizations {
 
   @override
   String get devNostrRelays => 'Nostr-реле (wss://)';
-
-  @override
-  String get devFirebaseDb => 'Firebase Realtime DB';
 
   @override
   String get devSessionNetwork => 'Мережа Session';

@@ -1930,16 +1930,7 @@ class AppLocalizationsKo extends AppLocalizations {
   }
 
   @override
-  String get providerDatabaseUrlLabel => '데이터베이스 URL';
-
-  @override
   String get providerOptionalHint => '선택 사항';
-
-  @override
-  String get providerWebApiKeyLabel => 'Web API 키';
-
-  @override
-  String get providerOptionalForPublicDb => '공개 DB에는 선택 사항';
 
   @override
   String get providerRelayUrlLabel => '릴레이 URL';
@@ -2383,10 +2374,6 @@ class AppLocalizationsKo extends AppLocalizations {
   String get themeDynamicPlatformIos => 'iOS';
 
   @override
-  String get providerErrorInvalidFirebaseUrl =>
-      '잘못된 Firebase URL입니다. https://project.firebaseio.com 형식이어야 합니다';
-
-  @override
   String get providerErrorInvalidRelayUrl =>
       '잘못된 릴레이 URL입니다. wss://relay.example.com 형식이어야 합니다';
 
@@ -2420,9 +2407,6 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get providerRemoveTooltip => '삭제';
-
-  @override
-  String get providerFirebaseUrlHint => 'https://project.firebaseio.com';
 
   @override
   String get providerNostrRelayHint => 'wss://relay.damus.io';
@@ -2898,9 +2882,6 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get devNostrRelays => 'Nostr 릴레이 (wss://)';
-
-  @override
-  String get devFirebaseDb => 'Firebase Realtime DB';
 
   @override
   String get devSessionNetwork => 'Session 네트워크';

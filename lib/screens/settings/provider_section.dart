@@ -17,8 +17,6 @@ import 'settings_widgets.dart';
 
 class ProviderSection extends StatefulWidget {
   final String selectedProvider;
-  final TextEditingController firebaseUrlController;
-  final TextEditingController firebaseKeyController;
   final TextEditingController nostrKeyController;
   final TextEditingController nostrRelayController;
   final TextEditingController sessionNodeUrlController;
@@ -33,8 +31,6 @@ class ProviderSection extends StatefulWidget {
   const ProviderSection({
     super.key,
     required this.selectedProvider,
-    required this.firebaseUrlController,
-    required this.firebaseKeyController,
     required this.nostrKeyController,
     required this.nostrRelayController,
     required this.sessionNodeUrlController,
@@ -89,9 +85,6 @@ class _ProviderSectionState extends State<ProviderSection> {
   }
 
   Future<void> _showAddSecondaryDialog() async {
-    String provider = 'Firebase';
-    final fbUrlCtrl = TextEditingController();
-    final fbKeyCtrl = TextEditingController();
     final nostrRelayCtrl =
         TextEditingController(text: kDefaultNostrRelay);
     final nostrKeyCtrl = TextEditingController();
@@ -113,75 +106,20 @@ class _ProviderSectionState extends State<ProviderSection> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Row(children: [
-                  for (final p in ['Firebase', 'Nostr']) ...[
-                    Expanded(
-                      child: GestureDetector(
-                        onTap: () => setDialogState(() => provider = p),
-                        child: Container(
-                          height: 38,
-                          decoration: BoxDecoration(
-                            color: provider == p
-                                ? AppTheme.primary.withValues(alpha: 0.15)
-                                : AppTheme.surfaceVariant,
-                            borderRadius: BorderRadius.circular(DesignTokens.spacing10),
-                            border: Border.all(
-                                color: provider == p
-                                    ? AppTheme.primary
-                                    : AppTheme.surfaceVariant),
-                          ),
-                          child: Center(
-                            child: Text(
-                              p,
-                              style: GoogleFonts.inter(
-                                color: provider == p
-                                    ? AppTheme.primary
-                                    : AppTheme.textSecondary,
-                                fontWeight: provider == p
-                                    ? FontWeight.w700
-                                    : FontWeight.w500,
-                                fontSize: DesignTokens.fontMd,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    if (p != 'Nostr') const SizedBox(width: DesignTokens.spacing8),
-                  ],
-                ]),
-                const SizedBox(height: DesignTokens.spacing16),
-                if (provider == 'Firebase') ...[
-                  settingsField(
-                    controller: fbUrlCtrl,
-                    hint: context.l10n.providerFirebaseUrlHint,
-                    label: context.l10n.providerDatabaseUrlLabel,
-                    icon: Icons.link_rounded,
-                  ),
-                  const SizedBox(height: DesignTokens.spacing10),
-                  settingsField(
-                    controller: fbKeyCtrl,
-                    hint: context.l10n.providerOptionalHint,
-                    label: context.l10n.providerWebApiKeyLabel,
-                    icon: Icons.key_rounded,
-                    obscure: true,
-                  ),
-                ] else ...[
-                  settingsField(
-                    controller: nostrRelayCtrl,
-                    hint: context.l10n.providerNostrRelayHint,
-                    label: context.l10n.providerRelayUrlLabel,
-                    icon: Icons.bolt_rounded,
-                  ),
-                  const SizedBox(height: DesignTokens.spacing10),
-                  settingsField(
-                    controller: nostrKeyCtrl,
-                    hint: context.l10n.providerNostrPrivkeyHint,
-                    label: context.l10n.providerPrivateKeyLabel,
-                    icon: Icons.vpn_key_rounded,
-                    obscure: true,
-                  ),
-                ],
+                settingsField(
+                  controller: nostrRelayCtrl,
+                  hint: context.l10n.providerNostrRelayHint,
+                  label: context.l10n.providerRelayUrlLabel,
+                  icon: Icons.bolt_rounded,
+                ),
+                const SizedBox(height: DesignTokens.spacing10),
+                settingsField(
+                  controller: nostrKeyCtrl,
+                  hint: context.l10n.providerNostrPrivkeyHint,
+                  label: context.l10n.providerPrivateKeyLabel,
+                  icon: Icons.vpn_key_rounded,
+                  obscure: true,
+                ),
               ],
             ),
           ),
@@ -204,60 +142,39 @@ class _ProviderSectionState extends State<ProviderSection> {
                   debugPrint('[Settings] Failed to parse adapters JSON: $e');
                   current = [];
                 }
-                Map<String, String> newEntry;
-                if (provider == 'Firebase') {
-                  final url = fbUrlCtrl.text.trim();
-                  if (url.isEmpty) {
-                    Navigator.pop(ctx);
-                    return;
-                  }
-                  final key = fbKeyCtrl.text.trim();
-                  final identity = ChatController().identity;
-                  final userId =
-                      identity?.adapterConfig['dbId'] ?? identity?.id ?? '';
-                  final selfId = userId.isNotEmpty ? '$userId@$url' : url;
-                  final apiKey = jsonEncode({'url': url, 'key': key});
-                  newEntry = {
-                    'provider': 'Firebase',
-                    'databaseId': userId,
-                    'selfId': selfId,
-                    'apiKey': apiKey,
-                  };
-                } else {
-                  final relay = nostrRelayCtrl.text.trim();
-                  if (relay.isEmpty) {
-                    Navigator.pop(ctx);
-                    return;
-                  }
-                  final privkey = nostrKeyCtrl.text.trim();
-                  if (privkey.isNotEmpty) {
-                    // F6: Use SHA256 of relay URL as key suffix to prevent
-                    // collisions from regex normalisation (e.g. relay.a.com
-                    // and relay_a_com would both map to relay_a_com).
-                    final keySuffix = sha256
-                        .convert(utf8.encode(relay))
-                        .toString()
-                        .substring(0, 16);
-                    await _secureStorage.write(
-                        key: 'secondary_nostr_privkey_$keySuffix',
-                        value: privkey);
-                  }
-                  String selfId = '';
-                  try {
-                    if (privkey.isNotEmpty) {
-                      final pubkey = deriveNostrPubkeyHex(privkey);
-                      selfId = '$pubkey@$relay';
-                    }
-                  } catch (e) {
-                    debugPrint(
-                        '[Settings] Failed to derive Nostr pubkey: $e');
-                  }
-                  newEntry = {
-                    'provider': 'Nostr',
-                    'databaseId': relay,
-                    'selfId': selfId,
-                  };
+                final relay = nostrRelayCtrl.text.trim();
+                if (relay.isEmpty) {
+                  Navigator.pop(ctx);
+                  return;
                 }
+                final privkey = nostrKeyCtrl.text.trim();
+                if (privkey.isNotEmpty) {
+                  // F6: Use SHA256 of relay URL as key suffix to prevent
+                  // collisions from regex normalisation (e.g. relay.a.com
+                  // and relay_a_com would both map to relay_a_com).
+                  final keySuffix = sha256
+                      .convert(utf8.encode(relay))
+                      .toString()
+                      .substring(0, 16);
+                  await _secureStorage.write(
+                      key: 'secondary_nostr_privkey_$keySuffix',
+                      value: privkey);
+                }
+                String selfId = '';
+                try {
+                  if (privkey.isNotEmpty) {
+                    final pubkey = deriveNostrPubkeyHex(privkey);
+                    selfId = '$pubkey@$relay';
+                  }
+                } catch (e) {
+                  debugPrint(
+                      '[Settings] Failed to derive Nostr pubkey: $e');
+                }
+                final newEntry = {
+                  'provider': 'Nostr',
+                  'databaseId': relay,
+                  'selfId': selfId,
+                };
                 current.add(newEntry);
                 await prefs.setString(
                     'secondary_adapters', jsonEncode(current));
@@ -283,19 +200,12 @@ class _ProviderSectionState extends State<ProviderSection> {
       ),
     );
 
-    fbUrlCtrl.dispose();
-    fbKeyCtrl.dispose();
     nostrRelayCtrl.dispose();
     nostrKeyCtrl.dispose();
   }
 
   Widget _buildProviderChips() {
     const providers = [
-      (
-        name: 'Firebase',
-        icon: Icons.local_fire_department_rounded,
-        color: Color(0xFFFFAB00)
-      ),
       (name: 'Nostr', icon: Icons.bolt_rounded, color: Color(0xFF9B59B6)),
       (
         name: 'Session',
@@ -310,7 +220,7 @@ class _ProviderSectionState extends State<ProviderSection> {
       children: [
         for (final p in providers)
           SizedBox(
-            width: (MediaQuery.of(context).size.width - 40 - 24) / 4,
+            width: (MediaQuery.of(context).size.width - 40 - 16) / 3,
             child: _providerChip(p.name, p.icon, p.color),
           ),
       ],
@@ -431,24 +341,7 @@ class _ProviderSectionState extends State<ProviderSection> {
   }
 
   Widget _buildProviderConfig() {
-    if (widget.selectedProvider == 'Firebase') {
-      return Column(children: [
-        settingsField(
-          controller: widget.firebaseUrlController,
-          hint: 'https://project.firebaseio.com',
-          label: context.l10n.providerDatabaseUrlLabel,
-          icon: Icons.link_rounded,
-        ),
-        const SizedBox(height: DesignTokens.spacing12),
-        settingsField(
-          controller: widget.firebaseKeyController,
-          hint: context.l10n.providerOptionalForPublicDb,
-          label: context.l10n.providerWebApiKeyLabel,
-          icon: Icons.key_rounded,
-          obscure: true,
-        ),
-      ]);
-    } else if (widget.selectedProvider == 'Nostr') {
+    if (widget.selectedProvider == 'Nostr') {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -653,14 +546,9 @@ class _ProviderSectionState extends State<ProviderSection> {
               child: Row(
                 children: [
                   Icon(
-                    widget.secondaryAdapters[i]['provider'] == 'Nostr'
-                        ? Icons.bolt_rounded
-                        : Icons.local_fire_department_rounded,
+                    Icons.bolt_rounded,
                     size: DesignTokens.iconSm,
-                    color:
-                        widget.secondaryAdapters[i]['provider'] == 'Nostr'
-                            ? const Color(0xFF9B59B6)
-                            : const Color(0xFFFFAB00),
+                    color: const Color(0xFF9B59B6),
                   ),
                   const SizedBox(width: DesignTokens.spacing10),
                   Expanded(

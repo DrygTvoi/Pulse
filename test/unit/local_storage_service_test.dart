@@ -22,7 +22,7 @@ Map<String, dynamic> _msg({
     'receiverId': roomId,
     'encryptedPayload': text,
     'timestamp': ts.millisecondsSinceEpoch,
-    'adapterType': 'firebase',
+    'adapterType': 'pulse',
     'isRead': isRead,
     'status': status,
   };
@@ -339,7 +339,7 @@ void main() {
         'receiverId': 'b',
         'encryptedPayload': 'hi',
         'timestamp': ts,
-        'adapterType': 'firebase',
+        'adapterType': 'pulse',
         'isRead': false,
         'status': '',
       });
@@ -359,7 +359,7 @@ void main() {
         'receiverId': 'b',
         'encryptedPayload': 'hi',
         'timestamp': dt.toIso8601String(),
-        'adapterType': 'firebase',
+        'adapterType': 'pulse',
         'isRead': false,
         'status': '',
       });
@@ -378,7 +378,7 @@ void main() {
         'receiverId': 'b',
         'encryptedPayload': 'hi',
         // no 'timestamp' key
-        'adapterType': 'firebase',
+        'adapterType': 'pulse',
         'isRead': false,
         'status': '',
       });
@@ -448,8 +448,8 @@ void main() {
     test('two rooms with different ids never share messages', () async {
       // This guards against the \$roomId → $roomId bug that caused all chats
       // to write to the same SharedPreferences key.
-      const room1 = 'user_alice@https://project.firebaseio.com';
-      const room2 = 'user_bob@https://project.firebaseio.com';
+      const room1 = 'user_alice@wss://nostr.mom';
+      const room2 = 'user_bob@wss://nostr.mom';
       await LocalStorageService().clearHistory(room1);
       await LocalStorageService().clearHistory(room2);
 

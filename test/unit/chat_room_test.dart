@@ -90,7 +90,7 @@ void main() {
         id: 'room-42',
         contact: contact,
         messages: [msg],
-        adapterType: 'firebase',
+        adapterType: 'pulse',
         adapterConfig: config,
         updatedAt: updatedAt,
       );
@@ -99,7 +99,7 @@ void main() {
       expect(room.contact.id, contact.id);
       expect(room.messages, hasLength(1));
       expect(room.messages.first.id, msg.id);
-      expect(room.adapterType, 'firebase');
+      expect(room.adapterType, 'pulse');
       expect(room.adapterConfig, config);
       expect(room.updatedAt, updatedAt);
     });
@@ -145,13 +145,13 @@ void main() {
     });
 
     test('serializes contact via toMap()', () {
-      final contact = _makeContact(name: 'Bob', provider: 'Firebase');
+      final contact = _makeContact(name: 'Bob', provider: 'Nostr');
       final room = _makeChatRoom(contact: contact);
       final json = room.toJson();
 
       final contactJson = json['contact'] as Map<String, dynamic>;
       expect(contactJson['name'], 'Bob');
-      expect(contactJson['provider'], 'Firebase');
+      expect(contactJson['provider'], 'Nostr');
     });
 
     test('serializes messages list correctly', () {
@@ -249,8 +249,8 @@ void main() {
       final contact = _makeContact(
         id: 'c-rt',
         name: 'RoundTrip User',
-        provider: 'Firebase',
-        databaseId: 'user@https://proj.firebaseio.com',
+        provider: 'Nostr',
+        databaseId: 'user@wss://nostr.mom',
         publicKey: 'pk-roundtrip',
       );
       final messages = [
@@ -260,7 +260,7 @@ void main() {
           receiverId: 'receiver-rt',
           encryptedPayload: 'payload-rt',
           timestamp: DateTime.utc(2026, 3, 20, 10, 0, 0),
-          adapterType: 'firebase',
+          adapterType: 'pulse',
         ),
         _makeMessage(
           id: 'rt-msg-2',
@@ -268,7 +268,7 @@ void main() {
           receiverId: 'receiver-rt',
           encryptedPayload: 'payload-rt-2',
           timestamp: DateTime.utc(2026, 3, 20, 11, 0, 0),
-          adapterType: 'firebase',
+          adapterType: 'pulse',
         ),
       ];
       final updatedAt = DateTime.utc(2026, 3, 20, 12, 0, 0);
@@ -276,7 +276,7 @@ void main() {
         id: 'room-rt',
         contact: contact,
         messages: messages,
-        adapterType: 'firebase',
+        adapterType: 'pulse',
         adapterConfig: {'project': 'my-project', 'region': 'us-central1'},
         updatedAt: updatedAt,
       );

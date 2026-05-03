@@ -62,9 +62,9 @@ void main() {
     test('getOrCreateRoomWithId uses supplied id', () {
       final repo = MessageRepository();
       final c = _makeContact(id: 'c3');
-      final room = repo.getOrCreateRoomWithId(c, 'custom-id', 'firebase');
+      final room = repo.getOrCreateRoomWithId(c, 'custom-id', 'pulse');
       expect(room.id, equals('custom-id'));
-      expect(room.adapterType, equals('firebase'));
+      expect(room.adapterType, equals('pulse'));
     });
   });
 

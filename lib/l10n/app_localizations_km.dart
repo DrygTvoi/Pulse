@@ -2008,16 +2008,7 @@ class AppLocalizationsKm extends AppLocalizations {
   }
 
   @override
-  String get providerDatabaseUrlLabel => 'URL មូលដ្ឋានទិន្នន័យ';
-
-  @override
   String get providerOptionalHint => 'ជម្រើស';
-
-  @override
-  String get providerWebApiKeyLabel => 'សោ Web API';
-
-  @override
-  String get providerOptionalForPublicDb => 'ជម្រើសសម្រាប់ DB សាធារណៈ';
 
   @override
   String get providerRelayUrlLabel => 'URL របស់ Relay';
@@ -2472,10 +2463,6 @@ class AppLocalizationsKm extends AppLocalizations {
   String get themeDynamicPlatformIos => 'iOS';
 
   @override
-  String get providerErrorInvalidFirebaseUrl =>
-      'URL Firebase មិនត្រឹមត្រូវ។ រំពឹងថា https://project.firebaseio.com';
-
-  @override
   String get providerErrorInvalidRelayUrl =>
       'URL Relay មិនត្រឹមត្រូវ។ រំពឹងថា wss://relay.example.com';
 
@@ -2511,9 +2498,6 @@ class AppLocalizationsKm extends AppLocalizations {
 
   @override
   String get providerRemoveTooltip => 'លុបចេញ';
-
-  @override
-  String get providerFirebaseUrlHint => 'https://project.firebaseio.com';
 
   @override
   String get providerNostrRelayHint => 'wss://relay.damus.io';
@@ -3001,9 +2985,6 @@ class AppLocalizationsKm extends AppLocalizations {
 
   @override
   String get devNostrRelays => 'Nostr relays (wss://)';
-
-  @override
-  String get devFirebaseDb => 'Firebase Realtime DB';
 
   @override
   String get devSessionNetwork => 'Session Network';

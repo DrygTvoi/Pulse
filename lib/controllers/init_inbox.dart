@@ -1,7 +1,7 @@
 part of 'chat_controller.dart';
 
 /// Inbox initialization: sets up all 5 transport readers (Nostr, Pulse,
-/// Session, Firebase, LAN), wires their message/signal streams into
+/// Nostr, Session, Pulse, LAN), wires their message/signal streams into
 /// [_c._handleIncomingMessages] and SignalDispatcher, and seeds secondary
 /// addresses so peers can reach us on every available transport.
 class _InboxInitializer {
@@ -31,31 +31,6 @@ class _InboxInitializer {
     String providerName;
 
     switch (_c._identity!.preferredAdapter) {
-      case 'firebase':
-        providerName = 'Firebase';
-        dbId = _c._identity!.adapterConfig['dbId'] ?? _c._identity!.id;
-        _c._selfId = dbId;
-        {
-          String firebaseUrl = '';
-          try {
-            final cfg = jsonDecode(apiKey);
-            firebaseUrl = (cfg['url'] as String? ?? '').trim();
-          } catch (_) {
-            firebaseUrl = apiKey.trim();
-          }
-          if (!firebaseUrl.startsWith('https://')) {
-            debugPrint('[ChatController] Stale/invalid Firebase config detected ("$firebaseUrl"). '
-                'Clearing token — please re-enter your Firebase URL in Settings.');
-            _c._identity = _c._identity!.copyWith(
-              adapterConfig: Map.from(_c._identity!.adapterConfig)..remove('token'),
-            );
-            final prefs2 = await _c._getPrefs();
-            await prefs2.setString('user_identity', jsonEncode(_c._identity!.toJson()));
-            _c._connectionStatus = ConnectionStatus.disconnected;
-            _c._scheduleNotify();
-            return;
-          }
-        }
       case 'nostr':
         providerName = 'Nostr';
         var privkey = await ChatController._secureStorage.read(key: 'nostr_privkey') ?? '';
@@ -141,7 +116,7 @@ class _InboxInitializer {
           }
         }
       default:
-        providerName = 'Firebase';
+        providerName = 'Nostr';
         dbId = _c._identity!.adapterConfig['dbId'] ?? _c._identity!.id;
         _c._selfId = dbId;
     }
@@ -284,7 +259,7 @@ class _InboxInitializer {
     }
 
     // Auto-register Pulse inbox if configured but not primary — so we can
-    // RECEIVE messages on Pulse even when primary is Nostr/Firebase/etc.
+    // RECEIVE messages on Pulse even when primary is Nostr/Session/etc.
     // Also adds our Pulse address to allAddresses → contacts learn it via addr_update.
     if (_c._identity!.preferredAdapter != 'pulse') {
       final pulseKey = await ChatController._secureStorage.read(key: 'pulse_privkey') ?? '';

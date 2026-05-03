@@ -138,11 +138,11 @@ void main() {
         provider: 'Nostr',
         databaseId: 'pubkey@wss://relay.nostr.com',
       );
-      final firebaseContact = _makeContact(
+      final pulseContact = _makeContact(
         id: 'f1',
-        name: 'FirebaseUser',
-        provider: 'Firebase',
-        databaseId: 'uid@https://project.firebaseio.com',
+        name: 'NostrUser',
+        provider: 'Nostr',
+        databaseId: 'uid@wss://nostr.mom',
       );
       final oxenContact = _makeContact(
         id: 'o1',
@@ -151,11 +151,11 @@ void main() {
         databaseId: '05${'ab' * 32}',
       );
       await repo.addContact(nostrContact);
-      await repo.addContact(firebaseContact);
+      await repo.addContact(pulseContact);
       await repo.addContact(oxenContact);
 
       expect(repo.findByAddress('pubkey@wss://relay.nostr.com')?.id, 'n1');
-      expect(repo.findByAddress('uid@https://project.firebaseio.com')?.id, 'f1');
+      expect(repo.findByAddress('uid@wss://nostr.mom')?.id, 'f1');
       expect(repo.findByAddress('05${'ab' * 32}')?.id, 'o1');
     });
   });

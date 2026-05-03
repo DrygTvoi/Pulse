@@ -1,5 +1,4 @@
 import 'package:flutter/foundation.dart' show visibleForTesting;
-import 'firebase_adapter.dart';
 import 'nostr_adapter.dart';
 import 'session_adapter.dart';
 import 'pulse_adapter.dart';
@@ -83,8 +82,6 @@ class InboxManager {
 
     if (_testAdapterOverride != null) {
       reader = _testAdapterOverride;
-    } else if (provider == 'Firebase') {
-      reader = FirebaseInboxReader();
     } else if (provider == 'Nostr') {
       reader = NostrInboxReader();
     } else if (provider == 'Session') {
@@ -117,8 +114,6 @@ class InboxManager {
     InboxReader? adhocReader;
     if (_testAdapterOverride != null) {
       adhocReader = _testAdapterOverride;
-    } else if (provider == 'Firebase') {
-      adhocReader = FirebaseInboxReader();
     } else if (provider == 'Nostr') {
       adhocReader = NostrInboxReader();
     } else if (provider == 'Session') {

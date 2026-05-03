@@ -2020,17 +2020,7 @@ class AppLocalizationsHy extends AppLocalizations {
   }
 
   @override
-  String get providerDatabaseUrlLabel => 'Տվյալների բազայի URL';
-
-  @override
   String get providerOptionalHint => 'Կամընտրական';
-
-  @override
-  String get providerWebApiKeyLabel => 'Web API բանալի';
-
-  @override
-  String get providerOptionalForPublicDb =>
-      'Կամընտրական հանրային տվյալների բազայի համար';
 
   @override
   String get providerRelayUrlLabel => 'Ռելեյի URL';
@@ -2484,10 +2474,6 @@ class AppLocalizationsHy extends AppLocalizations {
   String get themeDynamicPlatformIos => 'iOS';
 
   @override
-  String get providerErrorInvalidFirebaseUrl =>
-      'Անվավեր Firebase URL։ Սպասվում է՝ https://project.firebaseio.com';
-
-  @override
   String get providerErrorInvalidRelayUrl =>
       'Անվավեր ռելեյի URL։ Սպասվում է՝ wss://relay.example.com';
 
@@ -2523,9 +2509,6 @@ class AppLocalizationsHy extends AppLocalizations {
 
   @override
   String get providerRemoveTooltip => 'Հեռացնել';
-
-  @override
-  String get providerFirebaseUrlHint => 'https://project.firebaseio.com';
 
   @override
   String get providerNostrRelayHint => 'wss://relay.damus.io';
@@ -3017,9 +3000,6 @@ class AppLocalizationsHy extends AppLocalizations {
 
   @override
   String get devNostrRelays => 'Nostr հանգույցներ (wss://)';
-
-  @override
-  String get devFirebaseDb => 'Firebase Realtime DB';
 
   @override
   String get devSessionNetwork => 'Session ցանց';

@@ -22,8 +22,7 @@ class MessageEnvelope {
   final String body;
   final ({String id, String text, String sender})? replyTo;
   /// Sender's local message UUID — allows receiver to store the message under
-  /// the same ID regardless of transport-layer message ID (Nostr event hash,
-  /// Firebase push key, etc.). Required for cross-device reactions/deletes.
+  /// the same ID regardless of transport-layer message ID (Nostr event hash, etc.). Required for cross-device reactions/deletes.
   final String? msgId;
   /// Sender's display name — used for message requests from unknown senders.
   final String? senderName;

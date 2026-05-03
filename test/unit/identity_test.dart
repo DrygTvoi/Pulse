@@ -20,8 +20,8 @@ void main() {
   group('Identity.copyWith()', () {
     test('returns new instance with updated preferredAdapter', () {
       final original = makeIdentity(preferredAdapter: 'nostr');
-      final updated = original.copyWith(preferredAdapter: 'firebase');
-      expect(updated.preferredAdapter, equals('firebase'));
+      final updated = original.copyWith(preferredAdapter: 'pulse');
+      expect(updated.preferredAdapter, equals('pulse'));
       expect(original.preferredAdapter, equals('nostr')); // original unchanged
     });
 

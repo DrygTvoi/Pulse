@@ -59,7 +59,6 @@ class _AddContactDialogState extends State<AddContactDialog> {
         RegExp(r'^[0-9a-f]{64}$').hasMatch(lower)) { return 'Nostr'; }
     // Pulse: 64-char hex @ https:// (not wss://)
     if (RegExp(r'^[0-9a-f]{64}@https://', caseSensitive: false).hasMatch(lower)) { return 'Pulse'; }
-    if (lower.contains('@https://')) { return 'Firebase'; }
     return 'Nostr';
   }
 
@@ -357,8 +356,8 @@ class _AddContactDialogState extends State<AddContactDialog> {
       final transport = _detectProvider(addr);
       (ta[transport] ??= []).add(addr);
     }
-    // Transport priority: Pulse > Nostr > Session > Firebase (stable order)
-    final tp = ['Pulse', 'Nostr', 'Session', 'Firebase']
+    // Transport priority: Pulse > Nostr > Session (stable order)
+    final tp = ['Pulse', 'Nostr', 'Session']
         .where((t) => ta.containsKey(t))
         .toList();
     String name = _nameController.text.trim();

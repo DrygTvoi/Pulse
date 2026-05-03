@@ -2022,16 +2022,7 @@ class AppLocalizationsSr extends AppLocalizations {
   }
 
   @override
-  String get providerDatabaseUrlLabel => 'URL базе података';
-
-  @override
   String get providerOptionalHint => 'Опционо';
-
-  @override
-  String get providerWebApiKeyLabel => 'Web API кључ';
-
-  @override
-  String get providerOptionalForPublicDb => 'Опционо за јавну базу';
 
   @override
   String get providerRelayUrlLabel => 'URL релеја';
@@ -2483,10 +2474,6 @@ class AppLocalizationsSr extends AppLocalizations {
   String get themeDynamicPlatformIos => 'iOS';
 
   @override
-  String get providerErrorInvalidFirebaseUrl =>
-      'Неважећи Firebase URL. Очекивано: https://project.firebaseio.com';
-
-  @override
   String get providerErrorInvalidRelayUrl =>
       'Неважећи URL релеја. Очекивано: wss://relay.example.com';
 
@@ -2522,9 +2509,6 @@ class AppLocalizationsSr extends AppLocalizations {
 
   @override
   String get providerRemoveTooltip => 'Уклони';
-
-  @override
-  String get providerFirebaseUrlHint => 'https://project.firebaseio.com';
 
   @override
   String get providerNostrRelayHint => 'wss://relay.damus.io';
@@ -3013,9 +2997,6 @@ class AppLocalizationsSr extends AppLocalizations {
 
   @override
   String get devNostrRelays => 'Nostr релеји (wss://)';
-
-  @override
-  String get devFirebaseDb => 'Firebase Realtime DB';
 
   @override
   String get devSessionNetwork => 'Session мрежа';

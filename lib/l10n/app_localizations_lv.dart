@@ -2021,16 +2021,7 @@ class AppLocalizationsLv extends AppLocalizations {
   }
 
   @override
-  String get providerDatabaseUrlLabel => 'Datubāzes URL';
-
-  @override
   String get providerOptionalHint => 'Neobligāts';
-
-  @override
-  String get providerWebApiKeyLabel => 'Web API atslēga';
-
-  @override
-  String get providerOptionalForPublicDb => 'Neobligāts publiskai datubāzei';
 
   @override
   String get providerRelayUrlLabel => 'Releja URL';
@@ -2485,10 +2476,6 @@ class AppLocalizationsLv extends AppLocalizations {
   String get themeDynamicPlatformIos => 'iOS';
 
   @override
-  String get providerErrorInvalidFirebaseUrl =>
-      'Nederīgs Firebase URL. Paredzēts: https://project.firebaseio.com';
-
-  @override
   String get providerErrorInvalidRelayUrl =>
       'Nederīgs releja URL. Paredzēts: wss://relay.example.com';
 
@@ -2524,9 +2511,6 @@ class AppLocalizationsLv extends AppLocalizations {
 
   @override
   String get providerRemoveTooltip => 'Noņemt';
-
-  @override
-  String get providerFirebaseUrlHint => 'https://project.firebaseio.com';
 
   @override
   String get providerNostrRelayHint => 'wss://relay.damus.io';
@@ -3016,9 +3000,6 @@ class AppLocalizationsLv extends AppLocalizations {
 
   @override
   String get devNostrRelays => 'Nostr releji (wss://)';
-
-  @override
-  String get devFirebaseDb => 'Firebase Realtime DB';
 
   @override
   String get devSessionNetwork => 'Session Network';

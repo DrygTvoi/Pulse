@@ -2021,17 +2021,7 @@ class AppLocalizationsKa extends AppLocalizations {
   }
 
   @override
-  String get providerDatabaseUrlLabel => 'მონაცემთა ბაზის URL';
-
-  @override
   String get providerOptionalHint => 'არასავალდებულო';
-
-  @override
-  String get providerWebApiKeyLabel => 'Web API გასაღები';
-
-  @override
-  String get providerOptionalForPublicDb =>
-      'არასავალდებულო საჯარო მონაცემთა ბაზისთვის';
 
   @override
   String get providerRelayUrlLabel => 'რელეს URL';
@@ -2484,10 +2474,6 @@ class AppLocalizationsKa extends AppLocalizations {
   String get themeDynamicPlatformIos => 'iOS';
 
   @override
-  String get providerErrorInvalidFirebaseUrl =>
-      'არასწორი Firebase URL. მოსალოდნელია https://project.firebaseio.com';
-
-  @override
   String get providerErrorInvalidRelayUrl =>
       'არასწორი რელეს URL. მოსალოდნელია wss://relay.example.com';
 
@@ -2524,9 +2510,6 @@ class AppLocalizationsKa extends AppLocalizations {
 
   @override
   String get providerRemoveTooltip => 'წაშლა';
-
-  @override
-  String get providerFirebaseUrlHint => 'https://project.firebaseio.com';
 
   @override
   String get providerNostrRelayHint => 'wss://relay.damus.io';
@@ -3015,9 +2998,6 @@ class AppLocalizationsKa extends AppLocalizations {
 
   @override
   String get devNostrRelays => 'Nostr რილეები (wss://)';
-
-  @override
-  String get devFirebaseDb => 'Firebase Realtime DB';
 
   @override
   String get devSessionNetwork => 'Session Network';

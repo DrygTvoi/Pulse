@@ -2027,16 +2027,7 @@ class AppLocalizationsHu extends AppLocalizations {
   }
 
   @override
-  String get providerDatabaseUrlLabel => 'Adatbázis URL';
-
-  @override
   String get providerOptionalHint => 'Opcionális';
-
-  @override
-  String get providerWebApiKeyLabel => 'Web API kulcs';
-
-  @override
-  String get providerOptionalForPublicDb => 'Opcionális nyilvános adatbázishoz';
 
   @override
   String get providerRelayUrlLabel => 'Relay URL';
@@ -2491,10 +2482,6 @@ class AppLocalizationsHu extends AppLocalizations {
   String get themeDynamicPlatformIos => 'iOS';
 
   @override
-  String get providerErrorInvalidFirebaseUrl =>
-      'Érvénytelen Firebase URL. Elvárt: https://project.firebaseio.com';
-
-  @override
   String get providerErrorInvalidRelayUrl =>
       'Érvénytelen relay URL. Elvárt: wss://relay.example.com';
 
@@ -2530,9 +2517,6 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get providerRemoveTooltip => 'Eltávolítás';
-
-  @override
-  String get providerFirebaseUrlHint => 'https://project.firebaseio.com';
 
   @override
   String get providerNostrRelayHint => 'wss://relay.damus.io';
@@ -3021,9 +3005,6 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get devNostrRelays => 'Nostr relék (wss://)';
-
-  @override
-  String get devFirebaseDb => 'Firebase Realtime DB';
 
   @override
   String get devSessionNetwork => 'Session hálózat';

@@ -150,8 +150,10 @@ Duration _reconnectDelay(int failures) {
 
 // ── uTLS proxy helper for Pulse ──────────────────────────────────────────────
 
-/// Circuit breaker timestamp — shared across Pulse reader/sender.
-DateTime? _pulseUtlsFailedUntil;
+/// Circuit breaker per target host — 60s cooldown, avoids
+/// punishing healthy servers when one is unreachable.
+final Map<String, DateTime> _pulseUtlsFailedUntil = {};
+const _pulseUtlsCooldown = Duration(seconds: 60);
 
 /// Connect a WebSocket through the uTLS HTTP CONNECT proxy (Pulse variant).
 /// Same bridge pattern as nostr_adapter but with [Pulse] log prefix and
@@ -159,15 +161,17 @@ DateTime? _pulseUtlsFailedUntil;
 Future<WebSocketChannel> _connectPulseWebSocketViaUtls(
     String url, int proxyPort, {String? upstreamSocks5,
     List<String>? protocols}) async {
-  if (upstreamSocks5 == null &&
-      _pulseUtlsFailedUntil != null &&
-      DateTime.now().isBefore(_pulseUtlsFailedUntil!)) {
-    throw StateError('Pulse uTLS circuit breaker open');
-  }
   final uri = Uri.parse(url);
   final targetHost = uri.host;
   final targetPort =
       uri.hasPort ? uri.port : (uri.scheme == 'wss' ? 443 : 80);
+
+  if (upstreamSocks5 == null) {
+    final failedUntil = _pulseUtlsFailedUntil[targetHost];
+    if (failedUntil != null && DateTime.now().isBefore(failedUntil)) {
+      throw StateError('Pulse uTLS circuit breaker open');
+    }
+  }
 
   // Bind throw-away local bridge.
   final server = await ServerSocket.bind(
@@ -253,8 +257,8 @@ Future<WebSocketChannel> _connectPulseWebSocketViaUtls(
       if (!ok) {
         debugPrint('[Pulse] uTLS CONNECT to $targetHost:$targetPort refused');
         if (upstreamSocks5 == null) {
-          _pulseUtlsFailedUntil =
-              DateTime.now().add(const Duration(minutes: 5));
+          _pulseUtlsFailedUntil[targetHost] =
+              DateTime.now().add(_pulseUtlsCooldown);
         }
         client.destroy();
         proxy.destroy();
@@ -271,7 +275,7 @@ Future<WebSocketChannel> _connectPulseWebSocketViaUtls(
       }
     } catch (e) {
       debugPrint('[Pulse] uTLS bridge error: $e');
-      _pulseUtlsFailedUntil = DateTime.now().add(const Duration(minutes: 5));
+      _pulseUtlsFailedUntil[targetHost] = DateTime.now().add(_pulseUtlsCooldown);
       client.destroy();
       proxy?.destroy();
     }
@@ -293,10 +297,10 @@ Future<WebSocketChannel> _connectPulseWebSocketViaUtls(
     final ws = await WebSocket.connect(normalizedUrl, customClient: httpClient,
         protocols: protocols);
     ws.pingInterval = _randomPingInterval();
-    _pulseUtlsFailedUntil = null;
+    _pulseUtlsFailedUntil.remove(targetHost); // Success — reset breaker.
     return IOWebSocketChannel(ws);
   } catch (e) {
-    _pulseUtlsFailedUntil = DateTime.now().add(const Duration(minutes: 5));
+    _pulseUtlsFailedUntil[targetHost] = DateTime.now().add(_pulseUtlsCooldown);
     httpClient.close(force: true);
     try { await server.close(); } catch (_) {}
     rethrow;
@@ -443,7 +447,7 @@ bool isPulseReaderHealthy(String serverUrl) {
 /// detected post-sleep — without this the freshly-restarted reader
 /// would just hit the breaker again and bail.
 void resetPulseUtlsBreaker() {
-  _pulseUtlsFailedUntil = null;
+  _pulseUtlsFailedUntil.clear();
 }
 
 /// Public API: tear down the per-server pool entry so the next reader

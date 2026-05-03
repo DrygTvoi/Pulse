@@ -345,7 +345,6 @@ Widget buildChatAvatar(String name, double size) {
 
 Widget _buildProviderBadge(String provider) {
   final meta = {
-    'Firebase': (icon: Icons.local_fire_department_rounded, color: AppTheme.providerFirebase),
     'Nostr': (icon: Icons.bolt_rounded, color: AppTheme.providerNostr),
     'group': (icon: Icons.group_rounded, color: AppTheme.providerPulse),
   };

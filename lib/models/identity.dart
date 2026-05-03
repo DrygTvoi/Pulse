@@ -2,7 +2,7 @@ class Identity {
   final String id;
   final String publicKey; // E.g., the public key for Signal Protocol
   final String privateKey; // Should be handled securely!
-  String preferredAdapter; // 'firebase', 'nostr'
+  String preferredAdapter; // 'nostr', 'session', 'pulse'
   final Map<String, String> adapterConfig; // Info on how others can reach this user
 
   Identity({

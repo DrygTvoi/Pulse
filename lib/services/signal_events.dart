@@ -189,7 +189,7 @@ class SignalAddrUpdateEvent {
   final Map<String, dynamic> rawPayload;
   /// Transport the signal arrived on (e.g. 'Pulse', 'Nostr', 'LAN').
   /// Used to decide whether to trust private-IP addresses: LAN / Pulse are
-  /// trusted channels; Nostr / Firebase / Session leak metadata publicly.
+  /// trusted channels; Nostr / Session leak metadata publicly.
   final String? sourceTransport;
   SignalAddrUpdateEvent(this.contact, this.primary, this.all, this.rawPayload,
       {this.sourceTransport});

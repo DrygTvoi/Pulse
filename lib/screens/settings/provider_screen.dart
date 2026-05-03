@@ -20,7 +20,6 @@ import '../settings/settings_widgets.dart';
 // ─────────────────────────────────────────────────────────────────────────────
 
 const _kProviderMeta = <String, (IconData, Color)>{
-  'Firebase': (Icons.local_fire_department_rounded, Color(0xFFFFAB00)),
   'Nostr':    (Icons.bolt_rounded,                  Color(0xFF9B59B6)),
   'Session':  (Icons.security_rounded,              Color(0xFF00695C)),
   'Pulse':    (Icons.dns_rounded,                   Color(0xFF2196F3)),
@@ -41,9 +40,7 @@ class ProviderScreen extends StatefulWidget {
 
 class _ProviderScreenState extends State<ProviderScreen> {
   // Primary provider config
-  String _selectedProvider = 'Firebase';
-  final _firebaseUrlCtrl = TextEditingController();
-  final _firebaseKeyCtrl = TextEditingController();
+  String _selectedProvider = 'Nostr';
   final _nostrKeyCtrl = TextEditingController();
   final _nostrRelayCtrl = TextEditingController();
   final _sessionNodeUrlCtrl = TextEditingController();
@@ -66,8 +63,6 @@ class _ProviderScreenState extends State<ProviderScreen> {
 
   @override
   void dispose() {
-    _firebaseUrlCtrl.dispose();
-    _firebaseKeyCtrl.dispose();
     _nostrKeyCtrl.dispose();
     _nostrRelayCtrl.dispose();
     _sessionNodeUrlCtrl.dispose();
@@ -78,8 +73,7 @@ class _ProviderScreenState extends State<ProviderScreen> {
 
   Future<void> _load() async {
     final prefs = await SharedPreferences.getInstance();
-    final provider = prefs.getString('byod_provider') ?? 'Firebase';
-    final savedKey = prefs.getString('byod_api_key') ?? '';
+    final provider = prefs.getString('byod_provider') ?? 'Nostr';
 
     String nostrPrivkey = '';
     String nostrRelay = kDefaultNostrRelay;
@@ -93,15 +87,7 @@ class _ProviderScreenState extends State<ProviderScreen> {
     if (!mounted) return;
     setState(() {
       _selectedProvider = provider;
-      if (provider == 'Firebase') {
-        try {
-          final decoded = jsonDecode(savedKey);
-          _firebaseUrlCtrl.text = decoded['url'] ?? '';
-          _firebaseKeyCtrl.text = decoded['key'] ?? '';
-        } catch (_) {
-          _firebaseUrlCtrl.text = savedKey;
-        }
-      } else if (provider == 'Nostr') {
+      if (provider == 'Nostr') {
         _nostrKeyCtrl.text = nostrPrivkey;
         _nostrRelayCtrl.text = nostrRelay;
       } else if (provider == 'Session') {
@@ -141,11 +127,6 @@ class _ProviderScreenState extends State<ProviderScreen> {
   /// Returns error message if current provider config is invalid, null if OK.
   String? _validateConfig() {
     switch (_selectedProvider) {
-      case 'Firebase':
-        final url = _firebaseUrlCtrl.text.trim();
-        if (url.isNotEmpty && !_isValidUrl(url, schemes: ['https', 'http'])) {
-          return context.l10n.providerErrorInvalidFirebaseUrl;
-        }
       case 'Nostr':
         final relay = _nostrRelayCtrl.text.trim();
         if (relay.isNotEmpty && !_isValidUrl(relay, schemes: ['wss', 'ws'])) {
@@ -179,14 +160,7 @@ class _ProviderScreenState extends State<ProviderScreen> {
 
     String finalApiKey;
     String finalDbId;
-    if (_selectedProvider == 'Firebase') {
-      finalApiKey = jsonEncode({
-        'url': _firebaseUrlCtrl.text.trim(),
-        'key': _firebaseKeyCtrl.text.trim(),
-      });
-      final identity = ChatController().identity;
-      finalDbId = identity?.adapterConfig['dbId'] ?? identity?.id ?? '';
-    } else if (_selectedProvider == 'Nostr') {
+    if (_selectedProvider == 'Nostr') {
       await _secureStorage.write(
           key: 'nostr_privkey', value: _nostrKeyCtrl.text.trim());
       ChatController().invalidateNostrPrivkeyCache();
@@ -218,13 +192,12 @@ class _ProviderScreenState extends State<ProviderScreen> {
     final chatCtrl = ChatController();
     if (chatCtrl.identity != null) {
       const adapterMap = {
-        'Firebase': 'firebase',
         'Nostr': 'nostr',
         'Session': 'session',
         'Pulse': 'pulse',
       };
       chatCtrl.identity!.preferredAdapter =
-          adapterMap[_selectedProvider] ?? 'firebase';
+          adapterMap[_selectedProvider] ?? 'nostr';
       chatCtrl.identity!.adapterConfig['token'] = finalApiKey;
       await prefs.setString(
           'user_identity', jsonEncode(chatCtrl.identity!.toJson()));
@@ -260,9 +233,6 @@ class _ProviderScreenState extends State<ProviderScreen> {
   }
 
   Future<void> _showAddDialog() async {
-    String provider = 'Firebase';
-    final fbUrlCtrl = TextEditingController();
-    final fbKeyCtrl = TextEditingController();
     final nostrRelayCtrl = TextEditingController(text: kDefaultNostrRelay);
     final nostrKeyCtrl = TextEditingController();
 
@@ -281,49 +251,20 @@ class _ProviderScreenState extends State<ProviderScreen> {
           content: SizedBox(
             width: 340,
             child: Column(mainAxisSize: MainAxisSize.min, children: [
-              Row(children: [
-                for (final p in ['Firebase', 'Nostr']) ...[
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () => setS(() => provider = p),
-                      child: _providerToggle(p, selected: provider == p),
-                    ),
-                  ),
-                  if (p != 'Nostr') const SizedBox(width: DesignTokens.spacing8),
-                ],
-              ]),
-              const SizedBox(height: DesignTokens.spacing16),
-              if (provider == 'Firebase') ...[
-                settingsField(
-                  controller: fbUrlCtrl,
-                  hint: ctx.l10n.providerFirebaseUrlHint,
-                  label: ctx.l10n.providerDatabaseUrlLabel,
-                  icon: Icons.link_rounded,
-                ),
-                const SizedBox(height: DesignTokens.spacing10),
-                settingsField(
-                  controller: fbKeyCtrl,
-                  hint: ctx.l10n.providerOptionalHint,
-                  label: ctx.l10n.providerWebApiKeyLabel,
-                  icon: Icons.key_rounded,
-                  obscure: true,
-                ),
-              ] else ...[
-                settingsField(
-                  controller: nostrRelayCtrl,
-                  hint: ctx.l10n.providerNostrRelayHint,
-                  label: ctx.l10n.providerRelayUrlLabel,
-                  icon: Icons.bolt_rounded,
-                ),
-                const SizedBox(height: DesignTokens.spacing10),
-                settingsField(
-                  controller: nostrKeyCtrl,
-                  hint: ctx.l10n.providerNostrPrivkeyHint,
-                  label: ctx.l10n.providerPrivateKeyLabel,
-                  icon: Icons.vpn_key_rounded,
-                  obscure: true,
-                ),
-              ],
+              settingsField(
+                controller: nostrRelayCtrl,
+                hint: ctx.l10n.providerNostrRelayHint,
+                label: ctx.l10n.providerRelayUrlLabel,
+                icon: Icons.bolt_rounded,
+              ),
+              const SizedBox(height: DesignTokens.spacing10),
+              settingsField(
+                controller: nostrKeyCtrl,
+                hint: ctx.l10n.providerNostrPrivkeyHint,
+                label: ctx.l10n.providerPrivateKeyLabel,
+                icon: Icons.vpn_key_rounded,
+                obscure: true,
+              ),
             ]),
           ),
           actions: [
@@ -334,27 +275,14 @@ class _ProviderScreenState extends State<ProviderScreen> {
             ),
             ElevatedButton(
               onPressed: () async {
-                // Validate URLs before saving
-                if (provider == 'Firebase') {
-                  final url = fbUrlCtrl.text.trim();
-                  if (url.isEmpty) { Navigator.pop(ctx); return; }
-                  if (!_isValidUrl(url, schemes: ['https', 'http'])) {
-                    ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(
-                      content: Text(ctx.l10n.providerErrorInvalidFirebaseUrl),
-                      backgroundColor: Colors.redAccent,
-                    ));
-                    return;
-                  }
-                } else {
-                  final relay = nostrRelayCtrl.text.trim();
-                  if (relay.isEmpty) { Navigator.pop(ctx); return; }
-                  if (!_isValidUrl(relay, schemes: ['wss', 'ws'])) {
-                    ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(
-                      content: Text(ctx.l10n.providerErrorInvalidRelayUrl),
-                      backgroundColor: Colors.redAccent,
-                    ));
-                    return;
-                  }
+                final relay = nostrRelayCtrl.text.trim();
+                if (relay.isEmpty) { Navigator.pop(ctx); return; }
+                if (!_isValidUrl(relay, schemes: ['wss', 'ws'])) {
+                  ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(
+                    content: Text(ctx.l10n.providerErrorInvalidRelayUrl),
+                    backgroundColor: Colors.redAccent,
+                  ));
+                  return;
                 }
                 final prefs = await SharedPreferences.getInstance();
                 if (!ctx.mounted) return;
@@ -365,49 +293,28 @@ class _ProviderScreenState extends State<ProviderScreen> {
                 } catch (_) {
                   current = [];
                 }
-                Map<String, String> newEntry;
-                if (provider == 'Firebase') {
-                  final url = fbUrlCtrl.text.trim();
-                  final key = fbKeyCtrl.text.trim();
-                  final identity = ChatController().identity;
-                  final userId =
-                      identity?.adapterConfig['dbId'] ?? identity?.id ?? '';
-                  newEntry = {
-                    'provider': 'Firebase',
-                    'databaseId': userId,
-                    'selfId':
-                        userId.isNotEmpty ? '$userId@$url' : url,
-                    'apiKey': jsonEncode({'url': url, 'key': key}),
-                  };
-                } else {
-                  final relay = nostrRelayCtrl.text.trim();
-                  if (relay.isEmpty) {
-                    Navigator.pop(ctx);
-                    return;
-                  }
-                  final privkey = nostrKeyCtrl.text.trim();
-                  if (privkey.isNotEmpty) {
-                    // F6: SHA256 of relay URL prevents suffix collisions.
-                    final keySuffix = sha256
-                        .convert(utf8.encode(relay))
-                        .toString()
-                        .substring(0, 16);
-                    await _secureStorage.write(
-                        key: 'secondary_nostr_privkey_$keySuffix',
-                        value: privkey);
-                  }
-                  String selfId = '';
-                  try {
-                    if (privkey.isNotEmpty) {
-                      selfId = '${deriveNostrPubkeyHex(privkey)}@$relay';
-                    }
-                  } catch (_) {}
-                  newEntry = {
-                    'provider': 'Nostr',
-                    'databaseId': relay,
-                    'selfId': selfId,
-                  };
+                final privkey = nostrKeyCtrl.text.trim();
+                if (privkey.isNotEmpty) {
+                  // F6: SHA256 of relay URL prevents suffix collisions.
+                  final keySuffix = sha256
+                      .convert(utf8.encode(relay))
+                      .toString()
+                      .substring(0, 16);
+                  await _secureStorage.write(
+                      key: 'secondary_nostr_privkey_$keySuffix',
+                      value: privkey);
                 }
+                String selfId = '';
+                try {
+                  if (privkey.isNotEmpty) {
+                    selfId = '${deriveNostrPubkeyHex(privkey)}@$relay';
+                  }
+                } catch (_) {}
+                final newEntry = {
+                  'provider': 'Nostr',
+                  'databaseId': relay,
+                  'selfId': selfId,
+                };
                 current.add(newEntry);
                 await prefs.setString(
                     'secondary_adapters', jsonEncode(current));
@@ -432,43 +339,14 @@ class _ProviderScreenState extends State<ProviderScreen> {
       ),
     );
 
-    fbUrlCtrl.dispose();
-    fbKeyCtrl.dispose();
     nostrRelayCtrl.dispose();
     nostrKeyCtrl.dispose();
-  }
-
-  // ── Widgets ─────────────────────────────────────────────────────────────
-
-  Widget _providerToggle(String name, {required bool selected}) {
-    final (_, color) =
-        _kProviderMeta[name] ?? (Icons.circle, AppTheme.primary);
-    return Container(
-      height: 38,
-      decoration: BoxDecoration(
-        color: selected
-            ? color.withValues(alpha: 0.15)
-            : AppTheme.surfaceVariant,
-        borderRadius: BorderRadius.circular(DesignTokens.spacing10),
-        border:
-            Border.all(color: selected ? color : AppTheme.surfaceVariant),
-      ),
-      child: Center(
-        child: Text(name,
-            style: GoogleFonts.inter(
-              color: selected ? color : AppTheme.textSecondary,
-              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-              fontSize: DesignTokens.fontMd,
-            )),
-      ),
-    );
   }
 
   // ── Provider chips ────────────────────────────────────────────────────────
 
   Widget _buildProviderChips() {
     const providers = [
-      (name: 'Firebase', icon: Icons.local_fire_department_rounded, color: Color(0xFFFFAB00)),
       (name: 'Nostr',    icon: Icons.bolt_rounded,                   color: Color(0xFF9B59B6)),
       (name: 'Session',  icon: Icons.security_rounded,               color: Color(0xFF00695C)),
       (name: 'Pulse',    icon: Icons.dns_rounded,                    color: Color(0xFF2196F3)),
@@ -479,7 +357,7 @@ class _ProviderScreenState extends State<ProviderScreen> {
       children: [
         for (final p in providers)
           SizedBox(
-            width: (MediaQuery.of(context).size.width - 40 - 24) / 4,
+            width: (MediaQuery.of(context).size.width - 40 - 16) / 3,
             child: _providerChip(p.name, p.icon, p.color),
           ),
       ],
@@ -586,25 +464,6 @@ class _ProviderScreenState extends State<ProviderScreen> {
   }
 
   Widget _buildConfig() {
-    if (_selectedProvider == 'Firebase') {
-      return Column(children: [
-        settingsField(
-          controller: _firebaseUrlCtrl,
-          hint: context.l10n.providerFirebaseUrlHint,
-          label: context.l10n.providerDatabaseUrlLabel,
-          icon: Icons.link_rounded,
-        ),
-        const SizedBox(height: DesignTokens.spacing12),
-        settingsField(
-          controller: _firebaseKeyCtrl,
-          hint: context.l10n.providerOptionalForPublicDb,
-          label: context.l10n.providerWebApiKeyLabel,
-          icon: Icons.key_rounded,
-          obscure: true,
-        ),
-      ]);
-    }
-
     if (_selectedProvider == 'Nostr') {
       return Column(
           crossAxisAlignment: CrossAxisAlignment.start,

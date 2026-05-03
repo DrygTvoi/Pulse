@@ -8,7 +8,6 @@ import 'avatar_widget.dart';
 
 /// Maps provider name to icon + color
 Map<String, ({IconData icon, Color color})> _providerMeta = {
-  'Firebase': (icon: Icons.local_fire_department_rounded, color: const Color(0xFFFFAB00)),
   'Nostr':    (icon: Icons.bolt_rounded,                  color: const Color(0xFF9B59B6)),
   'group':    (icon: Icons.group_rounded,                  color: const Color(0xFF26A69A)),
 };

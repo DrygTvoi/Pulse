@@ -2,7 +2,7 @@
 
 End-to-end encrypted, decentralized messenger. No central servers. No data collection. No backdoors.
 
-You bring your own transport — Nostr, Firebase, Oxen/Session, self-hosted Pulse relay, or LAN — and messages are encrypted with the **Signal Protocol** plus a **Kyber-1024 post-quantum hybrid layer** before they ever leave your device.
+You bring your own transport — Nostr, Oxen/Session, self-hosted Pulse relay, or LAN — and messages are encrypted with the **Signal Protocol** plus a **Kyber-1024 post-quantum hybrid layer** before they ever leave your device.
 
 ---
 
@@ -14,8 +14,7 @@ Alice                                       Transport                         Bo
 plaintext
   → MessageEnvelope wrap (_from field)
   → Signal encrypt  (Double Ratchet)        Nostr WebSocket    ─────────→   Gift Wrap unwrap
-  → NIP-44 v2 encrypt (XChaCha20)           Firebase SSE                     → NIP-44 decrypt
-  → NIP-59 Gift Wrap (ephemeral key)        Oxen HTTP                        → Signal decrypt
+  → NIP-59 Gift Wrap (ephemeral key)        Oxen HTTP                        → NIP-44 decrypt
   → Kyber-1024 wrap (PQC2||ct||n||aes)      Pulse WebSocket                  → PQC unwrap
   → send                                                                     → MessageEnvelope unwrap
                                             LAN UDP/TCP                      → plaintext
@@ -27,7 +26,7 @@ plaintext
 2. **NIP-44 v2 + Gift Wrap** (XChaCha20 + HMAC-SHA256, ephemeral sender, ±2h timestamp jitter) — metadata privacy on Nostr
 3. **Kyber-1024 KEM** (NIST FIPS 203 / ML-KEM) — post-quantum outer wrap; protects against harvest-now/decrypt-later attacks
 
-Every message is also wrapped in a `MessageEnvelope` carrying the sender's canonical address inside the E2EE payload, enabling transparent cross-adapter federation (Nostr ↔ Firebase ↔ Oxen ↔ Pulse).
+Every message is also wrapped in a `MessageEnvelope` carrying the sender's canonical address inside the E2EE payload, enabling transparent cross-adapter federation (Nostr ↔ Oxen ↔ Pulse).
 
 ---
 
@@ -37,7 +36,7 @@ Every message is also wrapped in a `MessageEnvelope` carrying the sender's canon
 - Signal Protocol E2EE (Double Ratchet + X3DH key exchange)
 - Kyber-1024 post-quantum hybrid — harvest-now/decrypt-later resistant
 - NIP-44 v2 encryption + NIP-59 Gift Wrap (metadata privacy)
-- Cross-adapter federation — Nostr ↔ Firebase ↔ Oxen ↔ Pulse ↔ LAN transparently
+- Cross-adapter federation — Nostr ↔ Oxen ↔ Pulse ↔ LAN transparently
 - Per-transport address routing with priority-based failover
 - Group chats (mesh broadcast to all members)
 - Channel feeds (Telegram-style read-only broadcast channels)
@@ -56,9 +55,8 @@ Every message is also wrapped in a `MessageEnvelope` carrying the sender's canon
 - Redundant Tor backup audio — secondary RTCPeerConnection via Tor relay; instant failover on ICE failure
 - Automatic fallback to relay-only mode (TURN TLS/443) when direct P2P fails
 
-**Transports (5)**
+**Transports (4)**
 - **Nostr** — WebSocket; pseudonymous, decentralized relay network; NIP-44/NIP-59
-- **Firebase** — HTTP SSE receive + REST send; works anywhere Google is accessible
 - **Oxen/Session** — HTTP JSON-RPC polling; onion-routed storage network
 - **Pulse** — self-hosted WebSocket relay with Ed25519 auth + federation + built-in TURN
 - **LAN** — UDP/TCP local broadcast; works with zero internet (offline mesh)
@@ -154,13 +152,13 @@ The wire format is versioned (`PQC2||...`) so future algorithms (e.g. ML-DSA sig
 
 ## Transports
 
-| | Nostr | Firebase | Oxen/Session | Pulse | LAN |
-|---|---|---|---|---|---|
-| Protocol | WebSocket | HTTP SSE + REST | HTTP JSON-RPC | WebSocket | UDP/TCP |
-| Identity | `pubkey@wss://relay` | `userId@https://fb.url` | 66-char hex (`05…`) | `ed25519@https://server` | local IP |
-| Works in CN/IR | With Tor/PT | No | Yes | Yes (self-hosted) | Yes (no internet) |
-| Requires server | Public Nostr relay | Firebase project | Oxen seed nodes | Self-hosted | None |
-| Metadata privacy | Gift Wrap | Minimal | Onion routing | Server-only | Broadcast |
+| | Nostr | Oxen/Session | Pulse | LAN |
+|---|---|---|---|---|
+| Protocol | WebSocket | HTTP JSON-RPC | WebSocket | UDP/TCP |
+| Identity | `pubkey@wss://relay` | 66-char hex (`05…`) | `ed25519@https://server` | local IP |
+| Works in CN/IR | With Tor/PT | Yes | Yes (self-hosted) | Yes (no internet) |
+| Requires server | Public Nostr relay | Oxen seed nodes | Self-hosted | None |
+| Metadata privacy | Gift Wrap | Onion routing | Server-only | Broadcast |
 
 Adding a new transport means implementing two interfaces: `InboxReader` and `MessageSender`.
 
@@ -170,10 +168,9 @@ Adding a new transport means implementing two interfaces: `InboxReader` and `Mes
 
 ```
 lib/
-├── adapters/                           6 files
+├── adapters/                           5 files
 │   ├── inbox_manager.dart              InboxReader / MessageSender interfaces + router
 │   ├── nostr_adapter.dart              Nostr WebSocket (NIP-04/44/59, Gift Wrap, adaptive relay)
-│   ├── firebase_adapter.dart           Firebase SSE reader + REST sender
 │   ├── oxen_adapter.dart               Oxen/Session HTTP JSON-RPC reader + sender
 │   ├── pulse_adapter.dart              Self-hosted Pulse relay (Ed25519 auth, shared WS)
 │   └── lan_adapter.dart                LAN UDP/TCP broadcast (offline mesh)
@@ -249,7 +246,7 @@ plaintext
   → GiftWrapService.wrap()          ephemeral key + ±2h jitter (Nostr)
   → CryptoLayer.wrap()              Kyber-1024 encapsulate + AES-256-GCM
       PQC2 || <kyber_ct> || <nonce> || <aes_gcm_ct>
-  → InboxManager.sendMessage()      Nostr / Firebase / Oxen / Pulse / LAN
+  → InboxManager.sendMessage()      Nostr / Oxen / Pulse / LAN
 ```
 
 ### Data flow (incoming message)
@@ -317,7 +314,7 @@ docker compose up -d
 ### Prerequisites
 
 - Flutter 3.x
-- One of: public Nostr relay, Firebase project, Oxen seed nodes (public), self-hosted Pulse server, or LAN
+- One of: public Nostr relay, Oxen seed nodes (public), self-hosted Pulse server, or LAN
 
 ### Run
 
@@ -350,7 +347,6 @@ The recovery key deterministically derives your Nostr, Oxen, and Pulse identitie
 
 Contacts screen → **+** → paste their address or deep link. Supported formats:
 - Nostr: `pubkey@wss://relay.url`
-- Firebase: `userId@https://project.firebaseio.com`
 - Oxen/Session: 66-character hex string starting with `05`
 - Pulse: `ed25519_pubkey@https://server:port`
 - Deep link: `pulse://add?cfg=<base64>` with multi-address support
@@ -383,12 +379,12 @@ For maximum reliability in censored regions: Settings → **Proxy & Tunnels** �
 
 **What the transport sees**
 
-| Data | Nostr relay | Firebase | Oxen node | Pulse server |
-|---|---|---|---|---|
-| Sender identity | Ephemeral key (Gift Wrap) | Firebase user ID | Session ID | Ed25519 pubkey |
-| Recipient identity | Ephemeral key (Gift Wrap) | Firebase path | Session ID | Server routing |
-| Message content | PQC2 ciphertext | PQC2 ciphertext | PQC2 ciphertext | PQC2 ciphertext |
-| Timing | ±2h jitter (Gift Wrap) | Real time | Polling interval | Real time |
+| Data | Nostr relay | Oxen node | Pulse server |
+|---|---|---|---|
+| Sender identity | Ephemeral key (Gift Wrap) | Session ID | Ed25519 pubkey |
+| Recipient identity | Ephemeral key (Gift Wrap) | Session ID | Server routing |
+| Message content | PQC2 ciphertext | PQC2 ciphertext | PQC2 ciphertext |
+| Timing | ±2h jitter (Gift Wrap) | Polling interval | Real time |
 
 **What is NOT protected**
 - Active quantum MITM at the moment of key exchange (theoretical; ML-DSA signatures are on the roadmap)

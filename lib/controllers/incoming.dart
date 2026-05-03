@@ -35,7 +35,7 @@ class _IncomingHandler {
         _c._seenMsgIdsList.add(msg.id);
 
         // Normalise to pubkey prefix so a sender using multiple transports
-        // (nostr, firebase) shares one rate-limit bucket rather than
+        // (nostr, session) shares one rate-limit bucket rather than
         // getting a fresh 30-token bucket per transport address.
         final rlKey = msg.senderId.split('@').first;
         if (!_c._allAddresses.contains(msg.senderId) &&
@@ -214,7 +214,7 @@ class _IncomingHandler {
 
         final env = MessageEnvelope.tryUnwrap(decryptedRaw);
         // Validate envelope's claimed sender matches transport-layer sender.
-        // env.from may use a different transport address (e.g. Firebase vs Nostr)
+        // env.from may use a different transport address (e.g. Nostr vs Session)
         // but the pubkey prefix must always agree. If they differ, an attacker
         // forged the inner envelope — fall back to transport sender.
         // Exception: sealed sender messages have transport ID "sealed" —

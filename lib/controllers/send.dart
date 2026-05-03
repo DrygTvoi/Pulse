@@ -204,7 +204,7 @@ class _SendPipeline {
     final msgId = ChatController._uuid.v4();
     final contactAdapterType = contact.provider == 'Nostr' ? 'nostr'
         : contact.provider == 'Session' ? 'session'
-        : 'firebase';
+        : 'pulse';
     final room = _c._repo.getOrCreateRoom(contact);
     final localMsg = Message(
       id: msgId, senderId: _c._identity!.id, receiverId: contact.id,
@@ -239,15 +239,7 @@ class _SendPipeline {
         InboxReader contactReader;
         String initApiKey = ourApiKey;
         String initDbId = contact.databaseId;
-        if (contact.provider == 'Firebase') {
-          contactReader = FirebaseInboxReader();
-          final atIdx = contact.databaseId.indexOf('@http');
-          if (atIdx != -1) {
-            initDbId = contact.databaseId.substring(0, atIdx);
-            final contactDbUrl = contact.databaseId.substring(atIdx + 1);
-            initApiKey = jsonEncode({'url': contactDbUrl, 'key': ''});
-          }
-        } else if (contact.provider == 'Nostr') {
+        if (contact.provider == 'Nostr') {
           contactReader = NostrInboxReader();
           initApiKey = '';
           initDbId = contact.databaseId;
@@ -352,7 +344,7 @@ class _SendPipeline {
           }
         }
 
-        // Priority 4: any remaining alternate transport (Pulse, Firebase).
+        // Priority 4: any remaining alternate transport (Pulse).
         if (bundle == null && contact.alternateAddresses.isNotEmpty) {
           for (final alt in contact.alternateAddresses) {
             final altProvider = ChatController._providerFromAddress(alt);
@@ -490,9 +482,7 @@ class _SendPipeline {
       adapterType: provider.toLowerCase(),
     );
     final ourApiKey = _c._identity!.adapterConfig['token'] ?? '';
-    if (provider == 'Firebase') {
-      await InboxManager().addSenderPlugin('Firebase', FirebaseInboxSender(), ourApiKey);
-    } else if (provider == 'Nostr') {
+    if (provider == 'Nostr') {
       final privkey = await _c._getNostrPrivkey();
       final prefs = await _c._getPrefs();
       final atIdx = address.indexOf('@');
@@ -546,14 +536,7 @@ class _SendPipeline {
         InboxReader contactReader;
         String initApiKey = ourApiKey;
         String initDbId = contact.databaseId;
-        if (contact.provider == 'Firebase') {
-          contactReader = FirebaseInboxReader();
-          final atIdx = contact.databaseId.indexOf('@http');
-          if (atIdx != -1) {
-            initDbId = contact.databaseId.substring(0, atIdx);
-            initApiKey = jsonEncode({'url': contact.databaseId.substring(atIdx + 1), 'key': ''});
-          }
-        } else if (contact.provider == 'Nostr') {
+        if (contact.provider == 'Nostr') {
           contactReader = NostrInboxReader();
           initApiKey = '';
         } else if (contact.provider == 'Session') {

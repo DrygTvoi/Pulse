@@ -523,14 +523,14 @@ void main() {
       final events = <SignalAddrUpdateEvent>[];
       d.addrUpdates.listen(events.add);
 
-      // addr_update from Firebase (non-Nostr) without _sig/_spk
+      // addr_update from Nostr (non-Nostr) without _sig/_spk
       await d.dispatch([
         {
           'type': 'addr_update',
-          'senderId': 'alice@https://project.firebaseio.com',
+          'senderId': 'alice@wss://nostr.mom',
           'payload': {
-            'primary': 'alice@https://new.firebaseio.com',
-            'all': ['alice@https://new.firebaseio.com'],
+            'primary': 'alice@wss://relay.damus.io',
+            'all': ['alice@wss://relay.damus.io'],
           },
         },
       ]);
@@ -549,10 +549,10 @@ void main() {
       await d.dispatch([
         {
           'type': 'addr_update',
-          'senderId': 'alice@https://project.firebaseio.com',
+          'senderId': 'alice@wss://nostr.mom',
           'payload': {
-            'primary': 'alice@https://new.firebaseio.com',
-            'all': ['alice@https://new.firebaseio.com'],
+            'primary': 'alice@wss://relay.damus.io',
+            'all': ['alice@wss://relay.damus.io'],
             '_sig': 'invalid',
             '_spk': 'pk',
           },

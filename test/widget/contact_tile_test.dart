@@ -85,20 +85,20 @@ void main() {
       expect(find.text('Nostr'), findsOneWidget);
     });
 
-    // ── Test 3: Shows provider badge icon for Firebase ───────────────────────
+    // ── Test 3: Shows provider badge icon for Pulse ───────────────────────
 
-    testWidgets('shows fire icon for Firebase provider',
+    testWidgets('shows pulse icon for Pulse provider',
         (WidgetTester tester) async {
       await tester.pumpWidget(buildTestableWidget(
         ContactTile(
-          contact: _makeContact(provider: 'Firebase'),
+          contact: _makeContact(provider: 'Pulse'),
           onTap: () {},
         ),
       ));
       await tester.pumpAndSettle();
 
-      expect(find.byIcon(Icons.local_fire_department_rounded), findsOneWidget);
-      expect(find.text('Firebase'), findsOneWidget);
+      expect(find.byIcon(Icons.bluetooth_rounded), findsOneWidget);
+      expect(find.text('Pulse'), findsOneWidget);
     });
 
     // ── Test 4: Shows bolt icon for Nostr provider ──────────────────────────

@@ -26,6 +26,17 @@ class _PersistentSignalStore extends InMemorySignalProtocolStore {
   /// Avoids reading ALL 300+ keys from disk on every prefix scan.
   Map<String, String>? _secureStorageCache;
 
+  // ── PreKey graveyard ─────────────────────────────────────────────
+  // When a preKey is consumed, we keep it alive for [_graveyardTtl] so
+  // late-arriving messages from contacts who fetched the stale bundle
+  // can still be decrypted. Without this, the first contact to use a
+  // freshly-published preKey wins; every other contact that fetched the
+  // same bundle races to the same preKeyId and hits InvalidKeyIdException.
+  static const _graveyardTtl = Duration(seconds: 30);
+  final Map<int, PreKeyRecord> _preKeyGraveyard = {};
+  final Map<int, DateTime> _preKeyGraveyardTs = {};
+  Timer? _graveyardTimer;
+
   /// Returns Signal-relevant entries from secure storage, using a cached copy
   /// after the first call. Subsequent calls are O(1) instead of a full disk read.
   ///
@@ -149,9 +160,87 @@ class _PersistentSignalStore extends InMemorySignalProtocolStore {
 
   @override
   Future<void> removePreKey(int preKeyId) async {
-    await super.removePreKey(preKeyId);
-    await _secureDelete('$_preKeyPrefix$preKeyId');
+    // Move to graveyard instead of immediate deletion — contacts who
+    // fetched our bundle before the republish still hold this preKeyId
+    // and their messages would fail permanently otherwise.
+    if (!_preKeyGraveyard.containsKey(preKeyId)) {
+      try {
+        final record = await super.loadPreKey(preKeyId);
+        _preKeyGraveyard[preKeyId] = record;
+        _preKeyGraveyardTs[preKeyId] = DateTime.now();
+      } catch (_) {
+        // PreKey wasn't in memory (already consumed by another contact
+        // moments ago) — still keep it alive in graveyard via disk.
+        try {
+          final raw = await _storage.read(key: '$_preKeyPrefix$preKeyId');
+          if (raw != null) {
+            final map = jsonDecode(raw) as Map<String, dynamic>;
+            final pubBytes = base64Decode(map['pub'] as String);
+            final privBytes = base64Decode(map['priv'] as String);
+            final keyPair = ECKeyPair(
+              Curve.decodePoint(Uint8List.fromList(pubBytes), 0),
+              Curve.decodePrivatePoint(Uint8List.fromList(privBytes)),
+            );
+            _preKeyGraveyard[preKeyId] = PreKeyRecord(preKeyId, keyPair);
+            _preKeyGraveyardTs[preKeyId] = DateTime.now();
+          }
+        } catch (_) {}
+      }
+      await super.removePreKey(preKeyId);
+    } else {
+      // PreKey already in graveyard from a previous consumption —
+      // refresh the timestamp so the grace period extends for this
+      // late-arriving contact too.
+      _preKeyGraveyardTs[preKeyId] = DateTime.now();
+    }
     onPreKeyConsumed?.call(); // trigger bundle republish in ChatController
+    _scheduleGraveyardEviction();
+  }
+
+  /// Check graveyard before the in-memory store so late-arriving
+  /// messages from contacts with a stale bundle can still decrypt.
+  @override
+  Future<PreKeyRecord> loadPreKey(int preKeyId) async {
+    if (_preKeyGraveyard.containsKey(preKeyId)) {
+      return _preKeyGraveyard[preKeyId]!;
+    }
+    return super.loadPreKey(preKeyId);
+  }
+
+  /// Graveyard entries are still "available" for decryption but must
+  /// NOT appear in getPublicBundle (we don't re-publish consumed keys).
+  @override
+  Future<bool> containsPreKey(int preKeyId) async {
+    if (_preKeyGraveyard.containsKey(preKeyId)) return false;
+    return super.containsPreKey(preKeyId);
+  }
+
+  void _scheduleGraveyardEviction() {
+    _graveyardTimer?.cancel();
+    _graveyardTimer = Timer(_graveyardTtl, _evictGraveyard);
+  }
+
+  void _evictGraveyard() {
+    final cutoff = DateTime.now().subtract(_graveyardTtl);
+    final expired = <int>[];
+    _preKeyGraveyardTs.forEach((id, ts) {
+      if (ts.isBefore(cutoff)) expired.add(id);
+    });
+    for (final id in expired) {
+      _preKeyGraveyard.remove(id);
+      _preKeyGraveyardTs.remove(id);
+      // Now safe to delete from disk — grace period expired.
+      unawaited(_secureDelete('$_preKeyPrefix$id'));
+    }
+    if (_preKeyGraveyardTs.isNotEmpty) {
+      // Re-schedule for the oldest remaining entry's expiry.
+      final oldest = _preKeyGraveyardTs.values.reduce(
+          (a, b) => a.isBefore(b) ? a : b);
+      final remaining = oldest.add(_graveyardTtl).difference(DateTime.now());
+      if (remaining > Duration.zero) {
+        _graveyardTimer = Timer(remaining, _evictGraveyard);
+      }
+    }
   }
 
   /// Re-hydrate persisted prekeys after a restart.

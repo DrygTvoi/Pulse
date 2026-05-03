@@ -1267,7 +1267,7 @@ abstract class AppLocalizations {
   /// No description provided for @onboardingTransportBody.
   ///
   /// In en, this message translates to:
-  /// **'Use Firebase, Nostr, or both at the same time.\n\nMessages route across networks automatically. Built-in Tor and I2P support for censorship resistance.'**
+  /// **'Use Nostr, or both at the same time.\n\nMessages route across networks automatically. Built-in Tor and I2P support for censorship resistance.'**
   String get onboardingTransportBody;
 
   /// No description provided for @onboardingSignalTitle.
@@ -3712,29 +3712,11 @@ abstract class AppLocalizations {
   /// **'{label} fingerprint copied'**
   String verifyFingerprintCopied(String label);
 
-  /// Label for Firebase database URL field
-  ///
-  /// In en, this message translates to:
-  /// **'Database URL'**
-  String get providerDatabaseUrlLabel;
-
   /// Hint for optional fields
   ///
   /// In en, this message translates to:
   /// **'Optional'**
   String get providerOptionalHint;
-
-  /// Label for Firebase web API key field
-  ///
-  /// In en, this message translates to:
-  /// **'Web API Key'**
-  String get providerWebApiKeyLabel;
-
-  /// Hint for optional Firebase API key field
-  ///
-  /// In en, this message translates to:
-  /// **'Optional for public DB'**
-  String get providerOptionalForPublicDb;
 
   /// Label for Nostr relay URL field in provider config
   ///
@@ -3931,7 +3913,7 @@ abstract class AppLocalizations {
   /// No description provided for @privacyNetworkBody.
   ///
   /// In en, this message translates to:
-  /// **'Pulse uses federated transport adapters (Nostr relays, Session/Oxen service nodes, Firebase Realtime Database, LAN). These transports carry only encrypted ciphertext. Relay operators can see your IP address and traffic volume, but cannot decrypt message content.\n\nWhen Tor is enabled, your IP address is also hidden from relay operators.'**
+  /// **'Pulse uses federated transport adapters (Nostr relays, Session/Oxen service nodes, LAN). These transports carry only encrypted ciphertext. Relay operators can see your IP address and traffic volume, but cannot decrypt message content.\n\nWhen Tor is enabled, your IP address is also hidden from relay operators.'**
   String get privacyNetworkBody;
 
   /// No description provided for @privacyStunHeading.
@@ -4117,7 +4099,7 @@ abstract class AppLocalizations {
   /// No description provided for @torInfoDescription.
   ///
   /// In en, this message translates to:
-  /// **'When enabled, Nostr WebSocket connections are routed through Tor (SOCKS5). Tor Browser listens on 127.0.0.1:9150. The standalone tor daemon uses port 9050. Firebase connections are not affected.'**
+  /// **'When enabled, Nostr WebSocket connections are routed through Tor (SOCKS5). Tor Browser listens on 127.0.0.1:9150. The standalone tor daemon uses port 9050.'**
   String get torInfoDescription;
 
   /// No description provided for @torRouteNostrTitle.
@@ -4546,12 +4528,6 @@ abstract class AppLocalizations {
   /// **'iOS'**
   String get themeDynamicPlatformIos;
 
-  /// No description provided for @providerErrorInvalidFirebaseUrl.
-  ///
-  /// In en, this message translates to:
-  /// **'Invalid Firebase URL. Expected https://project.firebaseio.com'**
-  String get providerErrorInvalidFirebaseUrl;
-
   /// No description provided for @providerErrorInvalidRelayUrl.
   ///
   /// In en, this message translates to:
@@ -4617,12 +4593,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Remove'**
   String get providerRemoveTooltip;
-
-  /// No description provided for @providerFirebaseUrlHint.
-  ///
-  /// In en, this message translates to:
-  /// **'https://project.firebaseio.com'**
-  String get providerFirebaseUrlHint;
 
   /// No description provided for @providerNostrRelayHint.
   ///
@@ -5499,12 +5469,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Nostr relays (wss://)'**
   String get devNostrRelays;
-
-  /// Subtitle for Firebase adapter toggle
-  ///
-  /// In en, this message translates to:
-  /// **'Firebase Realtime DB'**
-  String get devFirebaseDb;
 
   /// Subtitle for Session adapter toggle
   ///

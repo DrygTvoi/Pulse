@@ -2023,16 +2023,7 @@ class AppLocalizationsSw extends AppLocalizations {
   }
 
   @override
-  String get providerDatabaseUrlLabel => 'URL ya Hifadhidata';
-
-  @override
   String get providerOptionalHint => 'Si lazima';
-
-  @override
-  String get providerWebApiKeyLabel => 'Ufunguo wa Web API';
-
-  @override
-  String get providerOptionalForPublicDb => 'Si lazima kwa hifadhidata ya umma';
 
   @override
   String get providerRelayUrlLabel => 'URL ya Relay';
@@ -2490,10 +2481,6 @@ class AppLocalizationsSw extends AppLocalizations {
   String get themeDynamicPlatformIos => 'iOS';
 
   @override
-  String get providerErrorInvalidFirebaseUrl =>
-      'URL ya Firebase si sahihi. Inatarajiwa https://project.firebaseio.com';
-
-  @override
   String get providerErrorInvalidRelayUrl =>
       'URL ya relay si sahihi. Inatarajiwa wss://relay.example.com';
 
@@ -2529,9 +2516,6 @@ class AppLocalizationsSw extends AppLocalizations {
 
   @override
   String get providerRemoveTooltip => 'Ondoa';
-
-  @override
-  String get providerFirebaseUrlHint => 'https://project.firebaseio.com';
 
   @override
   String get providerNostrRelayHint => 'wss://relay.damus.io';
@@ -3022,9 +3006,6 @@ class AppLocalizationsSw extends AppLocalizations {
 
   @override
   String get devNostrRelays => 'Nostr relays (wss://)';
-
-  @override
-  String get devFirebaseDb => 'Firebase Realtime DB';
 
   @override
   String get devSessionNetwork => 'Mtandao wa Session';

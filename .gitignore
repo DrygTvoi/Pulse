@@ -49,6 +49,7 @@ flutter_*.png
 /android/app/release
 .claude/
 .open-codex/
+.qwen/
 .vscode/
 # Bundled binaries — download via scripts/download_bins.sh
 assets/bins/linux_x64/tor

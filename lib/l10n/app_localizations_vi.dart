@@ -2002,16 +2002,7 @@ class AppLocalizationsVi extends AppLocalizations {
   }
 
   @override
-  String get providerDatabaseUrlLabel => 'URL cơ sở dữ liệu';
-
-  @override
   String get providerOptionalHint => 'Tùy chọn';
-
-  @override
-  String get providerWebApiKeyLabel => 'Web API Key';
-
-  @override
-  String get providerOptionalForPublicDb => 'Tùy chọn cho DB công khai';
 
   @override
   String get providerRelayUrlLabel => 'URL Relay';
@@ -2461,10 +2452,6 @@ class AppLocalizationsVi extends AppLocalizations {
   String get themeDynamicPlatformIos => 'iOS';
 
   @override
-  String get providerErrorInvalidFirebaseUrl =>
-      'URL Firebase không hợp lệ. Yêu cầu https://project.firebaseio.com';
-
-  @override
   String get providerErrorInvalidRelayUrl =>
       'URL relay không hợp lệ. Yêu cầu wss://relay.example.com';
 
@@ -2500,9 +2487,6 @@ class AppLocalizationsVi extends AppLocalizations {
 
   @override
   String get providerRemoveTooltip => 'Xóa';
-
-  @override
-  String get providerFirebaseUrlHint => 'https://project.firebaseio.com';
 
   @override
   String get providerNostrRelayHint => 'wss://relay.damus.io';
@@ -2990,9 +2974,6 @@ class AppLocalizationsVi extends AppLocalizations {
 
   @override
   String get devNostrRelays => 'Nostr relays (wss://)';
-
-  @override
-  String get devFirebaseDb => 'Firebase Realtime DB';
 
   @override
   String get devSessionNetwork => 'Mạng Session';

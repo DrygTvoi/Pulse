@@ -799,7 +799,6 @@ class _ContactProfileBodyState extends State<ContactProfileBody> {
 
   Widget _buildProviderBadge() {
     final providerColors = {
-      'Firebase': AppTheme.providerFirebase,
       'Nostr': AppTheme.providerNostr,
       'group': AppTheme.providerPulse,
     };
@@ -823,13 +822,11 @@ class _ContactProfileBodyState extends State<ContactProfileBody> {
       'Pulse': Icons.flash_on_rounded,
       'Nostr': Icons.language_rounded,
       'Session': Icons.shield_rounded,
-      'Firebase': Icons.cloud_rounded,
     };
     final transportColors = <String, Color>{
       'Pulse': AppTheme.providerPulse,
       'Nostr': AppTheme.providerNostr,
       'Session': AppTheme.providerOxen,
-      'Firebase': AppTheme.providerFirebase,
     };
     return Column(
       children: [

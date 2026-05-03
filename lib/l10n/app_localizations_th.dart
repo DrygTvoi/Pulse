@@ -1992,16 +1992,7 @@ class AppLocalizationsTh extends AppLocalizations {
   }
 
   @override
-  String get providerDatabaseUrlLabel => 'URL ฐานข้อมูล';
-
-  @override
   String get providerOptionalHint => 'ไม่บังคับ';
-
-  @override
-  String get providerWebApiKeyLabel => 'Web API Key';
-
-  @override
-  String get providerOptionalForPublicDb => 'ไม่บังคับสำหรับ DB สาธารณะ';
 
   @override
   String get providerRelayUrlLabel => 'URL ของ Relay';
@@ -2452,10 +2443,6 @@ class AppLocalizationsTh extends AppLocalizations {
   String get themeDynamicPlatformIos => 'iOS';
 
   @override
-  String get providerErrorInvalidFirebaseUrl =>
-      'URL Firebase ไม่ถูกต้อง ต้องเป็น https://project.firebaseio.com';
-
-  @override
   String get providerErrorInvalidRelayUrl =>
       'URL relay ไม่ถูกต้อง ต้องเป็น wss://relay.example.com';
 
@@ -2491,9 +2478,6 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String get providerRemoveTooltip => 'ลบออก';
-
-  @override
-  String get providerFirebaseUrlHint => 'https://project.firebaseio.com';
 
   @override
   String get providerNostrRelayHint => 'wss://relay.damus.io';
@@ -2978,9 +2962,6 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String get devNostrRelays => 'Nostr relays (wss://)';
-
-  @override
-  String get devFirebaseDb => 'Firebase Realtime DB';
 
   @override
   String get devSessionNetwork => 'เครือข่าย Session';

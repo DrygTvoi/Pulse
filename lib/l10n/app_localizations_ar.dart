@@ -2013,16 +2013,7 @@ class AppLocalizationsAr extends AppLocalizations {
   }
 
   @override
-  String get providerDatabaseUrlLabel => 'رابط قاعدة البيانات';
-
-  @override
   String get providerOptionalHint => 'اختياري';
-
-  @override
-  String get providerWebApiKeyLabel => 'مفتاح Web API';
-
-  @override
-  String get providerOptionalForPublicDb => 'اختياري لقاعدة البيانات العامة';
 
   @override
   String get providerRelayUrlLabel => 'رابط الوسيط';
@@ -2472,10 +2463,6 @@ class AppLocalizationsAr extends AppLocalizations {
   String get themeDynamicPlatformIos => 'iOS';
 
   @override
-  String get providerErrorInvalidFirebaseUrl =>
-      'رابط Firebase غير صالح. المتوقع https://project.firebaseio.com';
-
-  @override
   String get providerErrorInvalidRelayUrl =>
       'رابط الوسيط غير صالح. المتوقع wss://relay.example.com';
 
@@ -2511,9 +2498,6 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get providerRemoveTooltip => 'إزالة';
-
-  @override
-  String get providerFirebaseUrlHint => 'https://project.firebaseio.com';
 
   @override
   String get providerNostrRelayHint => 'wss://relay.damus.io';
@@ -2998,9 +2982,6 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get devNostrRelays => 'Nostr relays (wss://)';
-
-  @override
-  String get devFirebaseDb => 'Firebase Realtime DB';
 
   @override
   String get devSessionNetwork => 'Session Network';

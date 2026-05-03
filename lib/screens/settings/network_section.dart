@@ -25,7 +25,7 @@ class NetworkSection extends StatefulWidget {
 class _NetworkSectionState extends State<NetworkSection> {
   bool _lanModeEnabled = true;
   bool _bgServiceEnabled = false;
-  String _currentProvider = 'Firebase';
+  String _currentProvider = 'Nostr';
   late final StreamSubscription _torSub;
 
   @override
@@ -47,7 +47,7 @@ class _NetworkSectionState extends State<NetworkSection> {
     final prefs = await SharedPreferences.getInstance();
     final lan = await ChatController.getLanModeEnabled();
     final bg = await BackgroundService.instance.isEnabled();
-    final provider = prefs.getString('byod_provider') ?? 'Firebase';
+    final provider = prefs.getString('byod_provider') ?? 'Nostr';
     if (!mounted) return;
     setState(() {
       _lanModeEnabled = lan;
@@ -84,7 +84,7 @@ class _NetworkSectionState extends State<NetworkSection> {
               final prefs = await SharedPreferences.getInstance();
               if (mounted) {
                 setState(() => _currentProvider =
-                    prefs.getString('byod_provider') ?? 'Firebase');
+                    prefs.getString('byod_provider') ?? 'Nostr');
               }
             },
           ),

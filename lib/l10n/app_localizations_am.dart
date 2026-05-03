@@ -1969,16 +1969,7 @@ class AppLocalizationsAm extends AppLocalizations {
   }
 
   @override
-  String get providerDatabaseUrlLabel => 'የመረጃ ቋት URL';
-
-  @override
   String get providerOptionalHint => 'አማራጭ';
-
-  @override
-  String get providerWebApiKeyLabel => 'Web API ቁልፍ';
-
-  @override
-  String get providerOptionalForPublicDb => 'ለሕዝባዊ DB አማራጭ';
 
   @override
   String get providerRelayUrlLabel => 'Relay URL';
@@ -2426,10 +2417,6 @@ class AppLocalizationsAm extends AppLocalizations {
   String get themeDynamicPlatformIos => 'iOS';
 
   @override
-  String get providerErrorInvalidFirebaseUrl =>
-      'ልክ ያልሆነ Firebase URL። የሚጠበቅ: https://project.firebaseio.com';
-
-  @override
   String get providerErrorInvalidRelayUrl =>
       'ልክ ያልሆነ relay URL። የሚጠበቅ: wss://relay.example.com';
 
@@ -2464,9 +2451,6 @@ class AppLocalizationsAm extends AppLocalizations {
 
   @override
   String get providerRemoveTooltip => 'አስወግድ';
-
-  @override
-  String get providerFirebaseUrlHint => 'https://project.firebaseio.com';
 
   @override
   String get providerNostrRelayHint => 'wss://relay.damus.io';
@@ -2946,9 +2930,6 @@ class AppLocalizationsAm extends AppLocalizations {
 
   @override
   String get devNostrRelays => 'Nostr relays (wss://)';
-
-  @override
-  String get devFirebaseDb => 'Firebase Realtime DB';
 
   @override
   String get devSessionNetwork => 'Session አውታረ መረብ';

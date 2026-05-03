@@ -20,7 +20,6 @@ import '../constants.dart';
 import '../adapters/inbox_manager.dart';
 import '../services/local_storage_service.dart';
 import '../services/media_service.dart';
-import '../adapters/firebase_adapter.dart';
 import '../adapters/nostr_adapter.dart';
 import '../adapters/session_adapter.dart';
 import '../adapters/pulse_adapter.dart';
@@ -287,7 +286,6 @@ class ChatController extends ChangeNotifier {
 
   // Cached sender instances per provider — avoids re-allocating on every send.
   NostrMessageSender? _cachedNostrSender;
-  FirebaseInboxSender? _cachedFirebaseSender;
   SessionMessageSender? _cachedSessionSender;
   SessionInboxReader? _adhocSessionReader;
   PulseInboxReader? _adhocPulseReader;
@@ -742,16 +740,6 @@ class ChatController extends ChangeNotifier {
   String get myAddress {
     if (_identity == null) return '';
     switch (_identity!.preferredAdapter) {
-      case 'firebase':
-        final dbId = _identity!.adapterConfig['dbId'] ?? _identity!.id;
-        try {
-          final cfg = jsonDecode(_identity!.adapterConfig['token'] ?? '{}');
-          final url = (cfg['url'] as String? ?? '').replaceAll(RegExp(r'/$'), '');
-          if (url.isNotEmpty) return '$dbId@$url';
-        } catch (e) {
-          debugPrint('[Chat] Failed to parse Firebase address config: $e');
-        }
-        return dbId;
       case 'nostr':
         return _selfId; // pubkey@relay
       default:
@@ -996,7 +984,6 @@ class ChatController extends ChangeNotifier {
       _invalidateContactIndex();
       _cachedNostrSender = null;
       _cachedNostrPrivkey = null;
-      _cachedFirebaseSender = null;
       _cachedPulseSender = null;
       _cachedSessionSender = null;
       _adhocSessionReader?.close();
@@ -1115,10 +1102,6 @@ class ChatController extends ChangeNotifier {
       }
     }
     switch (effectiveProvider) {
-      case 'Firebase':
-        final token = _identity!.adapterConfig['token'] ?? '';
-        _cachedFirebaseSender ??= FirebaseInboxSender();
-        return (sender: _cachedFirebaseSender!, apiKey: token);
       case 'Nostr':
         final privkey = await _getNostrPrivkey();
         // Use identity relay when Nostr is primary, otherwise default.
@@ -1498,7 +1481,6 @@ class ChatController extends ChangeNotifier {
     'Pulse': 40,
     'Nostr': 30,
     'Session': 20,
-    'Firebase': 10,
   };
 
   /// Transports to try when sending to [contact], ordered by quality of the
@@ -1524,7 +1506,7 @@ class ChatController extends ChangeNotifier {
         _nostrPubRegex.hasMatch(lower)) { return 'Nostr'; }
     // Pulse: 64-char hex @ https:// (not wss://)
     if (_pulseAddrRegex.hasMatch(lower)) { return 'Pulse'; }
-    if (lower.contains('@https://')) { return 'Firebase'; }
+    if (lower.contains('@https://')) { return 'Pulse'; }
     return 'Nostr';
   }
 
@@ -1924,7 +1906,7 @@ class ChatController extends ChangeNotifier {
   Future<void> broadcastAddressUpdate() async {
     // Build per-transport address map from our own addresses
     final selfTa = _buildTransportMap(_allAddresses);
-    final selfTp = ['Pulse', 'Nostr', 'Session', 'Firebase']
+    final selfTp = ['Pulse', 'Nostr', 'Session']
         .where((t) => selfTa.containsKey(t))
         .toList();
     // Include our Nostr secp256k1 pubkey so contacts can do HMAC signing
@@ -2459,7 +2441,6 @@ class ChatController extends ChangeNotifier {
     _cachedNostrSender?.zeroize();
     _cachedNostrSender = null;
     _cachedNostrPrivkey = null;
-    _cachedFirebaseSender = null;
     _cachedSessionSender = null;
     _adhocSessionReader?.close();
     _adhocSessionReader = null;

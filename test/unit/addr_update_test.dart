@@ -49,7 +49,7 @@ void main() {
     });
 
     test('does not match unrelated contact', () {
-      final c = Contact(id: '1', name: 'Bob', provider: 'Firebase', publicKey: '',
+      final c = Contact(id: '1', name: 'Bob', provider: 'Nostr', publicKey: '',
           databaseId: 'bob-uid');
       expect(_contactMatchesSender(c, 'alice-uid', ['alice-uid']), isFalse);
     });
@@ -73,11 +73,11 @@ void main() {
     });
 
     test('all additional addresses added to alternateAddresses', () {
-      final c = Contact(id: '1', name: 'Alice', provider: 'Firebase', publicKey: '',
-          databaseId: 'alice-uid@https://proj.firebaseio.com');
+      final c = Contact(id: '1', name: 'Alice', provider: 'Nostr', publicKey: '',
+          databaseId: 'alice-uid@wss://nostr.mom');
       final updated = _applyAddrUpdate(c,
-          'alice-uid@https://proj.firebaseio.com',
-          ['alice-uid@https://proj.firebaseio.com', 'nostr-pubkey@wss://relay.damus.io']);
+          'alice-uid@wss://nostr.mom',
+          ['alice-uid@wss://nostr.mom', 'nostr-pubkey@wss://relay.damus.io']);
       expect(updated.alternateAddresses, contains('nostr-pubkey@wss://relay.damus.io'));
     });
 
@@ -100,7 +100,7 @@ void main() {
     });
 
     test('if primary unchanged — databaseId stays same, alts get extra addresses', () {
-      final c = Contact(id: '1', name: 'Alice', provider: 'Firebase', publicKey: '',
+      final c = Contact(id: '1', name: 'Alice', provider: 'Nostr', publicKey: '',
           databaseId: 'alice-uid');
       final updated = _applyAddrUpdate(
           c, 'alice-uid', ['alice-uid', 'nostr-key@wss://relay.damus.io']);

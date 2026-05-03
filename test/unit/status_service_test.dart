@@ -426,13 +426,13 @@ void main() {
       SharedPreferences.setMockInitialValues({});
       final service = StatusService.instance;
 
-      const contactId = 'user@https://project.firebaseio.com';
-      final status = UserStatus.create(id: contactId, text: 'Firebase user');
+      const contactId = 'user@wss://nostr.mom';
+      final status = UserStatus.create(id: contactId, text: 'Nostr user');
       await service.saveContactStatus(contactId, status);
 
       final loaded = await service.getContactStatus(contactId);
       expect(loaded, isNotNull);
-      expect(loaded!.text, 'Firebase user');
+      expect(loaded!.text, 'Nostr user');
     });
   });
 }

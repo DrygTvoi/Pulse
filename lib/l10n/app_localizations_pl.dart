@@ -2026,16 +2026,7 @@ class AppLocalizationsPl extends AppLocalizations {
   }
 
   @override
-  String get providerDatabaseUrlLabel => 'URL bazy danych';
-
-  @override
   String get providerOptionalHint => 'Opcjonalnie';
-
-  @override
-  String get providerWebApiKeyLabel => 'Klucz Web API';
-
-  @override
-  String get providerOptionalForPublicDb => 'Opcjonalny dla publicznej bazy';
 
   @override
   String get providerRelayUrlLabel => 'URL przekaźnika';
@@ -2490,10 +2481,6 @@ class AppLocalizationsPl extends AppLocalizations {
   String get themeDynamicPlatformIos => 'iOS';
 
   @override
-  String get providerErrorInvalidFirebaseUrl =>
-      'Nieprawidłowy URL Firebase. Oczekiwano https://project.firebaseio.com';
-
-  @override
   String get providerErrorInvalidRelayUrl =>
       'Nieprawidłowy URL przekaźnika. Oczekiwano wss://relay.example.com';
 
@@ -2529,9 +2516,6 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get providerRemoveTooltip => 'Usuń';
-
-  @override
-  String get providerFirebaseUrlHint => 'https://project.firebaseio.com';
 
   @override
   String get providerNostrRelayHint => 'wss://relay.damus.io';
@@ -3020,9 +3004,6 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get devNostrRelays => 'Przekaźniki Nostr (wss://)';
-
-  @override
-  String get devFirebaseDb => 'Firebase Realtime DB';
 
   @override
   String get devSessionNetwork => 'Sieć Session';

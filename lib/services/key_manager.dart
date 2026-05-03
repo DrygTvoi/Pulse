@@ -5,7 +5,6 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/contact.dart';
 import '../adapters/inbox_manager.dart';
-import '../adapters/firebase_adapter.dart';
 import '../adapters/nostr_adapter.dart';
 import '../adapters/session_adapter.dart';
 import '../adapters/pulse_adapter.dart';
@@ -145,11 +144,6 @@ class KeyManager {
         bundle['kyberPublicKey'] = _pqcService.publicKey.toList();
       }
       switch (provider.toLowerCase()) {
-        case 'firebase':
-          final sender = FirebaseInboxSender();
-          await sender.initializeSender(apiKey);
-          await sender.sendSignal(selfId, selfId, selfId, 'sys_keys', bundle);
-          debugPrint('[KeyManager] Published Signal keys for Firebase/$selfId');
         case 'nostr':
           final privkey =
               await _secureStorage.read(key: 'nostr_privkey') ?? '';
@@ -205,9 +199,7 @@ class KeyManager {
         bundle['kyberPublicKey'] = _pqcService.publicKey.toList();
       }
       MessageSender sender;
-      if (provider == 'Firebase') {
-        sender = FirebaseInboxSender();
-      } else if (provider == 'Nostr') {
+      if (provider == 'Nostr') {
         try {
           final cfg = jsonDecode(apiKey);
           if ((cfg['privkey'] as String? ?? '').isEmpty) return;

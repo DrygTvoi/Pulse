@@ -7,7 +7,6 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../constants.dart';
 import '../adapters/inbox_manager.dart';
-import '../adapters/firebase_adapter.dart';
 import '../adapters/pulse_adapter.dart';
 import '../adapters/session_adapter.dart';
 import 'call_transport.dart';
@@ -1253,9 +1252,7 @@ class SignalingService {
           : null) ?? {};
       final ourApiKey = adapterConfig['token'] ?? '';
 
-      if (contact.provider == 'Firebase') {
-        await InboxManager().addSenderPlugin('Firebase', FirebaseInboxSender(), ourApiKey);
-      } else if (contact.provider == 'Nostr') {
+      if (contact.provider == 'Nostr') {
         const storage = FlutterSecureStorage();
         final privkey = await storage.read(key: 'nostr_privkey') ?? '';
         const relay = kDefaultNostrRelay;
@@ -1282,7 +1279,7 @@ class SignalingService {
 
     // WebRTC signaling MUST be encrypted — sending SDP/candidates in cleartext
     // would expose TURN credentials and ICE candidates to the transport layer
-    // (Nostr relay, Firebase, etc.).  If encryption fails, abort the send.
+    // (Nostr relay, etc.).  If encryption fails, abort the send.
     final Map<String, dynamic> payload;
     try {
       final plaintext = jsonEncode(data);
@@ -1299,7 +1296,7 @@ class SignalingService {
     //
     // CRITICAL: cover renegotiation suffixes (`_reoffer`/`_reanswer`) too —
     // `_webrtcOfferTypes` in SignalDispatcher includes them, so when they
-    // arrive without `_sig`/`_spk` over Pulse/Session/Firebase the receiver
+    // arrive without `_sig`/`_spk` over Pulse/Session the receiver
     // logs "REJECTED unsigned webrtc signal (webrtc_reoffer)" and screen-
     // share / camera-toggle renegotiation rolls back on the sender. Bare
     // `endsWith('_offer')` missed `_reoffer`; widen the suffix match.

@@ -1982,16 +1982,7 @@ class AppLocalizationsHe extends AppLocalizations {
   }
 
   @override
-  String get providerDatabaseUrlLabel => 'כתובת מסד נתונים';
-
-  @override
   String get providerOptionalHint => 'אופציונלי';
-
-  @override
-  String get providerWebApiKeyLabel => 'מפתח Web API';
-
-  @override
-  String get providerOptionalForPublicDb => 'אופציונלי עבור מסד נתונים ציבורי';
 
   @override
   String get providerRelayUrlLabel => 'כתובת ממסר';
@@ -2439,10 +2430,6 @@ class AppLocalizationsHe extends AppLocalizations {
   String get themeDynamicPlatformIos => 'iOS';
 
   @override
-  String get providerErrorInvalidFirebaseUrl =>
-      'כתובת Firebase לא תקינה. צפוי: https://project.firebaseio.com';
-
-  @override
   String get providerErrorInvalidRelayUrl =>
       'כתובת ממסר לא תקינה. צפוי: wss://relay.example.com';
 
@@ -2478,9 +2465,6 @@ class AppLocalizationsHe extends AppLocalizations {
 
   @override
   String get providerRemoveTooltip => 'הסר';
-
-  @override
-  String get providerFirebaseUrlHint => 'https://project.firebaseio.com';
 
   @override
   String get providerNostrRelayHint => 'wss://relay.damus.io';
@@ -2963,9 +2947,6 @@ class AppLocalizationsHe extends AppLocalizations {
 
   @override
   String get devNostrRelays => 'ממסרי Nostr (wss://)';
-
-  @override
-  String get devFirebaseDb => 'Firebase Realtime DB';
 
   @override
   String get devSessionNetwork => 'רשת Session';

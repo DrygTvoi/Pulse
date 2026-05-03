@@ -104,7 +104,7 @@ class _MediaSender {
       receiverId: contact.id,
       encryptedPayload: payload,
       timestamp: DateTime.now(),
-      adapterType: isGroup ? 'group' : (contact.provider == 'Nostr' ? 'nostr' : 'firebase'),
+      adapterType: isGroup ? 'group' : (contact.provider == 'Nostr' ? 'nostr' : 'pulse'),
       isRead: true,
       status: 'sending',
     );
@@ -192,7 +192,7 @@ class _MediaSender {
       receiverId: contact.id,
       encryptedPayload: payload,
       timestamp: DateTime.now(),
-      adapterType: isGroup ? 'group' : (contact.provider == 'Nostr' ? 'nostr' : 'firebase'),
+      adapterType: isGroup ? 'group' : (contact.provider == 'Nostr' ? 'nostr' : 'pulse'),
       isRead: true,
       status: 'sending',
     );
@@ -288,7 +288,7 @@ class _MediaSender {
       receiverId: contact.id,
       encryptedPayload: displayPayload,
       timestamp: DateTime.now(),
-      adapterType: isGroup ? 'group' : (contact.provider == 'Nostr' ? 'nostr' : 'firebase'),
+      adapterType: isGroup ? 'group' : (contact.provider == 'Nostr' ? 'nostr' : 'pulse'),
       isRead: true,
       status: 'sending',
     );
@@ -455,7 +455,7 @@ class _MediaSender {
       receiverId: contact.id,
       encryptedPayload: displayPayload,
       timestamp: DateTime.now(),
-      adapterType: isGroup ? 'group' : (contact.provider == 'Nostr' ? 'nostr' : 'firebase'),
+      adapterType: isGroup ? 'group' : (contact.provider == 'Nostr' ? 'nostr' : 'pulse'),
       isRead: true,
       status: 'sending',
     );

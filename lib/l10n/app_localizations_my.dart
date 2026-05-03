@@ -2022,16 +2022,7 @@ class AppLocalizationsMy extends AppLocalizations {
   }
 
   @override
-  String get providerDatabaseUrlLabel => 'ဒေတာဘေ့စ် URL';
-
-  @override
   String get providerOptionalHint => 'ရွေးချယ်ချက်';
-
-  @override
-  String get providerWebApiKeyLabel => 'Web API Key';
-
-  @override
-  String get providerOptionalForPublicDb => 'အများသုံး DB အတွက် ရွေးချယ်ချက်';
 
   @override
   String get providerRelayUrlLabel => 'Relay URL';
@@ -2486,10 +2477,6 @@ class AppLocalizationsMy extends AppLocalizations {
   String get themeDynamicPlatformIos => 'iOS';
 
   @override
-  String get providerErrorInvalidFirebaseUrl =>
-      'Firebase URL မမှန်ပါ။ https://project.firebaseio.com ဟု မျှော်လင့်ထားသည်';
-
-  @override
   String get providerErrorInvalidRelayUrl =>
       'Relay URL မမှန်ပါ။ wss://relay.example.com ဟု မျှော်လင့်ထားသည်';
 
@@ -2525,9 +2512,6 @@ class AppLocalizationsMy extends AppLocalizations {
 
   @override
   String get providerRemoveTooltip => 'ဖယ်ရှား';
-
-  @override
-  String get providerFirebaseUrlHint => 'https://project.firebaseio.com';
 
   @override
   String get providerNostrRelayHint => 'wss://relay.damus.io';
@@ -3018,9 +3002,6 @@ class AppLocalizationsMy extends AppLocalizations {
 
   @override
   String get devNostrRelays => 'Nostr relays (wss://)';
-
-  @override
-  String get devFirebaseDb => 'Firebase Realtime DB';
 
   @override
   String get devSessionNetwork => 'Session Network';

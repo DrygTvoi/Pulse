@@ -6,7 +6,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import '../constants.dart';
 import '../adapters/inbox_manager.dart';
-import '../adapters/firebase_adapter.dart';
 import '../adapters/pulse_adapter.dart';
 import '../adapters/session_adapter.dart';
 import 'call_transport.dart';
@@ -333,9 +332,7 @@ class GroupSignalingService {
       return;
     }
 
-    if (target.provider == 'Firebase') {
-      await InboxManager().addSenderPlugin('Firebase', FirebaseInboxSender(), ourApiKey);
-    } else if (target.provider == 'Nostr') {
+    if (target.provider == 'Nostr') {
       final privkey = await _secureStorage.read(key: 'nostr_privkey') ?? '';
       // Use the user's configured relay (not the hardcoded default) so
       // every account doesn't concentrate on the same bootstrap relay.

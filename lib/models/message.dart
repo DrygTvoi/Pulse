@@ -6,7 +6,7 @@ class Message {
   final String receiverId;
   final String encryptedPayload;
   final DateTime timestamp;
-  final String adapterType; // 'firebase', 'nostr', 'group'
+  final String adapterType; // 'nostr', 'group'
   final bool isRead;
   final String status; // 'sending', 'sent', 'failed', '' (received)
   final bool isEdited;

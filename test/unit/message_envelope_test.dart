@@ -5,18 +5,18 @@ import 'package:pulse_messenger/models/message_envelope.dart';
 void main() {
   group('MessageEnvelope.wrap()', () {
     test('produces valid JSON with all required fields', () {
-      final json = MessageEnvelope.wrap('alice@firebase', 'hello');
+      final json = MessageEnvelope.wrap('alice@wss://nostr.mom', 'hello');
       final map = jsonDecode(json) as Map<String, dynamic>;
       expect(map['_v'], equals(1));
-      expect(map['_from'], equals('alice@firebase'));
+      expect(map['_from'], equals('alice@wss://nostr.mom'));
       expect(map['body'], equals('hello'));
     });
 
-    test('encodes Firebase address correctly', () {
+    test('encodes Nostr address correctly', () {
       final json = MessageEnvelope.wrap(
-          'uid@https://my-project.firebaseio.com', 'test');
+          'uid@wss://nostr.mom', 'test');
       final map = jsonDecode(json) as Map<String, dynamic>;
-      expect(map['_from'], equals('uid@https://my-project.firebaseio.com'));
+      expect(map['_from'], equals('uid@wss://nostr.mom'));
     });
 
     test('encodes Nostr address correctly', () {
@@ -43,10 +43,10 @@ void main() {
   group('MessageEnvelope.tryUnwrap()', () {
     test('parses valid envelope and returns correct fields', () {
       final raw = jsonEncode(
-          {'_v': 1, '_from': 'alice@firebase', 'body': 'hello'});
+          {'_v': 1, '_from': 'alice@wss://nostr.mom', 'body': 'hello'});
       final env = MessageEnvelope.tryUnwrap(raw);
       expect(env, isNotNull);
-      expect(env!.from, equals('alice@firebase'));
+      expect(env!.from, equals('alice@wss://nostr.mom'));
       expect(env.body, equals('hello'));
     });
 
@@ -87,8 +87,8 @@ void main() {
       expect(env.body, equals(body));
     });
 
-    test('round-trip with Firebase cross-project address', () {
-      const from = 'abc123@https://project-42.firebaseio.com';
+    test('round-trip with Nostr cross-project address', () {
+      const from = 'abc123@wss://nostr.mom';
       const body = 'cross-project message';
       final env = MessageEnvelope.tryUnwrap(MessageEnvelope.wrap(from, body));
       expect(env!.from, equals(from));

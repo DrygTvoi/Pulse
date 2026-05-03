@@ -2014,17 +2014,7 @@ class AppLocalizationsTr extends AppLocalizations {
   }
 
   @override
-  String get providerDatabaseUrlLabel => 'Veritabanı URL\'si';
-
-  @override
   String get providerOptionalHint => 'İsteğe bağlı';
-
-  @override
-  String get providerWebApiKeyLabel => 'Web API Anahtarı';
-
-  @override
-  String get providerOptionalForPublicDb =>
-      'Genel veritabanı için isteğe bağlı';
 
   @override
   String get providerRelayUrlLabel => 'Aktarıcı URL\'si';
@@ -2483,10 +2473,6 @@ class AppLocalizationsTr extends AppLocalizations {
   String get themeDynamicPlatformIos => 'iOS';
 
   @override
-  String get providerErrorInvalidFirebaseUrl =>
-      'Geçersiz Firebase URL\'si. Beklenen: https://proje.firebaseio.com';
-
-  @override
   String get providerErrorInvalidRelayUrl =>
       'Geçersiz aktarıcı URL\'si. Beklenen: wss://relay.example.com';
 
@@ -2522,9 +2508,6 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get providerRemoveTooltip => 'Kaldır';
-
-  @override
-  String get providerFirebaseUrlHint => 'https://project.firebaseio.com';
 
   @override
   String get providerNostrRelayHint => 'wss://relay.damus.io';
@@ -3014,9 +2997,6 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get devNostrRelays => 'Nostr aktarıcıları (wss://)';
-
-  @override
-  String get devFirebaseDb => 'Firebase Realtime DB';
 
   @override
   String get devSessionNetwork => 'Session Ağı';

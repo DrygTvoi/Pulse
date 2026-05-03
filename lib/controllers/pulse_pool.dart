@@ -200,11 +200,10 @@ class _PulsePool {
         // Reader auth is async — finishes when the run loop reaches
         // auth_ok. Block here until the pool entry's `_shared.channel` is
         // populated, otherwise the very first sender.sendRaw races and
-        // emits "no authenticated connection". 5s covers PoW (~1-3s) + a
-        // margin for slow networks; 15s was excessive and blocked the send
-        // path for too long when the server was slow.
+        // emits "no authenticated connection". 12s covers PoW (~1-5s) + a
+        // margin for slow networks / Tor.
         final ready = await waitForPulseAuth(serverUrl,
-            timeout: const Duration(seconds: 5));
+            timeout: const Duration(seconds: 12));
         if (!ready) {
           debugPrint('[Group/SFU] ensureGroupPulseConnection: auth timed out '
               'for $serverUrl — sender created but channel not ready yet');

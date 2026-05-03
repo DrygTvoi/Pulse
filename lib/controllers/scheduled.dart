@@ -30,7 +30,7 @@ class _ScheduledMessages {
               ? 'nostr'
               : contact.provider == 'Session'
                   ? 'session'
-                  : 'firebase',
+                  : 'pulse',
       isRead: true,
       status: 'scheduled',
       scheduledAt: scheduledAt,

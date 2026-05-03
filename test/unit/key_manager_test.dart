@@ -73,7 +73,7 @@ void main() {
 
     test('returns null for non-pubkey address', () {
       final km = KeyManager(SignalService(), PqcService());
-      expect(km.extractPubkey('user@https://firebase.io', []), isNull);
+      expect(km.extractPubkey('user@wss://nostr.mom', []), isNull);
     });
 
     test('extracts pubkey from contact alternate addresses', () {
@@ -81,7 +81,7 @@ void main() {
       final pubkey = 'c' * 64;
       final contact = _makeContact(
         id: 'c1',
-        provider: 'Firebase',
+        provider: 'Nostr',
         databaseId: 'user@https://fb.io',
         alternateAddresses: ['$pubkey@wss://relay.test'],
       );

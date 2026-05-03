@@ -9,7 +9,7 @@ void main() {
     String senderId = 'alice',
     String receiverId = 'bob',
     String payload = 'hello',
-    String adapterType = 'firebase',
+    String adapterType = 'pulse',
     bool isRead = false,
     String status = '',
   }) =>
@@ -33,7 +33,7 @@ void main() {
       expect(json['receiverId'], equals('bob'));
       expect(json['encryptedPayload'], equals('hello'));
       expect(json['timestamp'], equals(baseTime.toIso8601String()));
-      expect(json['adapterType'], equals('firebase'));
+      expect(json['adapterType'], equals('pulse'));
       expect(json['isRead'], isFalse);
       expect(json['status'], equals(''));
     });

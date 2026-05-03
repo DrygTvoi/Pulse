@@ -2018,16 +2018,7 @@ class AppLocalizationsMs extends AppLocalizations {
   }
 
   @override
-  String get providerDatabaseUrlLabel => 'URL Pangkalan Data';
-
-  @override
   String get providerOptionalHint => 'Pilihan';
-
-  @override
-  String get providerWebApiKeyLabel => 'Kunci API Web';
-
-  @override
-  String get providerOptionalForPublicDb => 'Pilihan untuk pangkalan data awam';
 
   @override
   String get providerRelayUrlLabel => 'URL Geganti';
@@ -2481,10 +2472,6 @@ class AppLocalizationsMs extends AppLocalizations {
   String get themeDynamicPlatformIos => 'iOS';
 
   @override
-  String get providerErrorInvalidFirebaseUrl =>
-      'URL Firebase tidak sah. Dijangkakan https://project.firebaseio.com';
-
-  @override
   String get providerErrorInvalidRelayUrl =>
       'URL geganti tidak sah. Dijangkakan wss://relay.example.com';
 
@@ -2520,9 +2507,6 @@ class AppLocalizationsMs extends AppLocalizations {
 
   @override
   String get providerRemoveTooltip => 'Buang';
-
-  @override
-  String get providerFirebaseUrlHint => 'https://project.firebaseio.com';
 
   @override
   String get providerNostrRelayHint => 'wss://relay.damus.io';
@@ -3010,9 +2994,6 @@ class AppLocalizationsMs extends AppLocalizations {
 
   @override
   String get devNostrRelays => 'Nostr relay (wss://)';
-
-  @override
-  String get devFirebaseDb => 'Firebase Realtime DB';
 
   @override
   String get devSessionNetwork => 'Session Network';

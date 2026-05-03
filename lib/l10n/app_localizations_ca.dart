@@ -2050,17 +2050,7 @@ class AppLocalizationsCa extends AppLocalizations {
   }
 
   @override
-  String get providerDatabaseUrlLabel => 'URL de la base de dades';
-
-  @override
   String get providerOptionalHint => 'Opcional';
-
-  @override
-  String get providerWebApiKeyLabel => 'Clau API web';
-
-  @override
-  String get providerOptionalForPublicDb =>
-      'Opcional per a base de dades pública';
 
   @override
   String get providerRelayUrlLabel => 'URL del retransmissor';
@@ -2515,10 +2505,6 @@ class AppLocalizationsCa extends AppLocalizations {
   String get themeDynamicPlatformIos => 'iOS';
 
   @override
-  String get providerErrorInvalidFirebaseUrl =>
-      'URL de Firebase invàlida. S\'esperava: https://project.firebaseio.com';
-
-  @override
   String get providerErrorInvalidRelayUrl =>
       'URL del retransmissor invàlida. S\'esperava: wss://relay.example.com';
 
@@ -2554,9 +2540,6 @@ class AppLocalizationsCa extends AppLocalizations {
 
   @override
   String get providerRemoveTooltip => 'Elimina';
-
-  @override
-  String get providerFirebaseUrlHint => 'https://project.firebaseio.com';
 
   @override
   String get providerNostrRelayHint => 'wss://relay.damus.io';
@@ -3049,9 +3032,6 @@ class AppLocalizationsCa extends AppLocalizations {
 
   @override
   String get devNostrRelays => 'Relés Nostr (wss://)';
-
-  @override
-  String get devFirebaseDb => 'Firebase Realtime DB';
 
   @override
   String get devSessionNetwork => 'Xarxa Session';

@@ -2027,17 +2027,7 @@ class AppLocalizationsUz extends AppLocalizations {
   }
 
   @override
-  String get providerDatabaseUrlLabel => 'Maʼlumotlar bazasi URL';
-
-  @override
   String get providerOptionalHint => 'Ixtiyoriy';
-
-  @override
-  String get providerWebApiKeyLabel => 'Web API kaliti';
-
-  @override
-  String get providerOptionalForPublicDb =>
-      'Ommaviy maʼlumotlar bazasi uchun ixtiyoriy';
 
   @override
   String get providerRelayUrlLabel => 'Relay URL';
@@ -2493,10 +2483,6 @@ class AppLocalizationsUz extends AppLocalizations {
   String get themeDynamicPlatformIos => 'iOS';
 
   @override
-  String get providerErrorInvalidFirebaseUrl =>
-      'Notoʻgʻri Firebase URL. Kutilmoqda: https://project.firebaseio.com';
-
-  @override
   String get providerErrorInvalidRelayUrl =>
       'Notoʻgʻri relay URL. Kutilmoqda: wss://relay.example.com';
 
@@ -2532,9 +2518,6 @@ class AppLocalizationsUz extends AppLocalizations {
 
   @override
   String get providerRemoveTooltip => 'Olib tashlash';
-
-  @override
-  String get providerFirebaseUrlHint => 'https://project.firebaseio.com';
 
   @override
   String get providerNostrRelayHint => 'wss://relay.damus.io';
@@ -3024,9 +3007,6 @@ class AppLocalizationsUz extends AppLocalizations {
 
   @override
   String get devNostrRelays => 'Nostr relays (wss://)';
-
-  @override
-  String get devFirebaseDb => 'Firebase Realtime DB';
 
   @override
   String get devSessionNetwork => 'Session tarmog\'i';

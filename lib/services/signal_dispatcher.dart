@@ -225,7 +225,7 @@ class SignalDispatcher {
     'msg_delete',
     'edit',
     // Unauthenticated SKDM injection allows key replacement on
-    // Firebase/Oxen transports where sender is not a bare Nostr pubkey.
+    // Session transports where sender is not a bare Nostr pubkey.
     'sender_key_dist',
     // chunk_req must be authenticated to prevent amplification DoS.
     'chunk_req',
@@ -317,7 +317,7 @@ class SignalDispatcher {
 
   /// Process a batch of incoming signals, emitting typed events.
   ///
-  /// [sourceTransport] is the adapter name ('Pulse', 'Nostr', 'Firebase',
+  /// [sourceTransport] is the adapter name ('Pulse', 'Nostr',
   /// 'Session', 'LAN') the signal arrived on. Used by addr_update handling
   /// to decide whether private-IP addresses can be trusted.
   Future<void> dispatch(List<Map<String, dynamic>> signals,
@@ -397,11 +397,11 @@ class SignalDispatcher {
 
         // Verify HMAC signature on security-critical signals.
         // F4-1: The bare-pubkey HMAC bypass must be gated on adapterType=='nostr'
-        // to prevent Firebase senders from setting senderId to a 64-hex string
+        // to prevent non-Nostr senders from setting senderId to a 64-hex string
         // and bypassing HMAC. Only signals that went through Nostr Schnorr
         // verification (marked by NostrAdapter with adapterType='nostr') are exempt.
         // The security is in adapterType — set by our adapter code after Schnorr
-        // verification, not attacker-controllable from Firebase.
+        // verification, not attacker-controllable from non-Nostr transports.
         if (_signatureRequiredSignals.contains(sigType)) {
           final isNostrVerified = (sig['adapterType'] as String? ?? '') == 'nostr';
           if (!isNostrVerified) {
@@ -426,7 +426,7 @@ class SignalDispatcher {
         // webrtc offer/answer HMAC: if the sender contact has a Nostr pubkey
         // (most Oxen contacts do), require _sig/_spk to prevent a relay
         // operator from forging a fake "Incoming call from Alice" event.
-        // Firebase-only contacts cannot use ECDH-HMAC and are allowed unsigned.
+        // Contacts without a known Nostr pubkey cannot use ECDH-HMAC and are allowed unsigned.
         if (_webrtcOfferTypes.contains(sigType)) {
           final isNostrVerified = (sig['adapterType'] as String? ?? '') == 'nostr';
           if (!isNostrVerified) {

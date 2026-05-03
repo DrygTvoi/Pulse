@@ -1930,16 +1930,7 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
-  String get providerDatabaseUrlLabel => 'データベースURL';
-
-  @override
   String get providerOptionalHint => '任意';
-
-  @override
-  String get providerWebApiKeyLabel => 'Web APIキー';
-
-  @override
-  String get providerOptionalForPublicDb => '公開DBの場合は任意';
 
   @override
   String get providerRelayUrlLabel => 'リレーURL';
@@ -2383,10 +2374,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get themeDynamicPlatformIos => 'iOS';
 
   @override
-  String get providerErrorInvalidFirebaseUrl =>
-      '無効なFirebase URLです。https://project.firebaseio.com の形式が必要です';
-
-  @override
   String get providerErrorInvalidRelayUrl =>
       '無効なリレーURLです。wss://relay.example.com の形式が必要です';
 
@@ -2421,9 +2408,6 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get providerRemoveTooltip => '削除';
-
-  @override
-  String get providerFirebaseUrlHint => 'https://project.firebaseio.com';
 
   @override
   String get providerNostrRelayHint => 'wss://relay.damus.io';
@@ -2900,9 +2884,6 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get devNostrRelays => 'Nostrリレー (wss://)';
-
-  @override
-  String get devFirebaseDb => 'Firebase Realtime DB';
 
   @override
   String get devSessionNetwork => 'Sessionネットワーク';

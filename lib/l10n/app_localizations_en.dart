@@ -598,7 +598,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get onboardingTransportBody =>
-      'Use Firebase, Nostr, or both at the same time.\n\nMessages route across networks automatically. Built-in Tor and I2P support for censorship resistance.';
+      'Use Nostr, or both at the same time.\n\nMessages route across networks automatically. Built-in Tor and I2P support for censorship resistance.';
 
   @override
   String get onboardingSignalTitle => 'Signal + Post-Quantum';
@@ -2001,16 +2001,7 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get providerDatabaseUrlLabel => 'Database URL';
-
-  @override
   String get providerOptionalHint => 'Optional';
-
-  @override
-  String get providerWebApiKeyLabel => 'Web API Key';
-
-  @override
-  String get providerOptionalForPublicDb => 'Optional for public DB';
 
   @override
   String get providerRelayUrlLabel => 'Relay URL';
@@ -2124,7 +2115,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get privacyNetworkBody =>
-      'Pulse uses federated transport adapters (Nostr relays, Session/Oxen service nodes, Firebase Realtime Database, LAN). These transports carry only encrypted ciphertext. Relay operators can see your IP address and traffic volume, but cannot decrypt message content.\n\nWhen Tor is enabled, your IP address is also hidden from relay operators.';
+      'Pulse uses federated transport adapters (Nostr relays, Session/Oxen service nodes, LAN). These transports carry only encrypted ciphertext. Relay operators can see your IP address and traffic volume, but cannot decrypt message content.\n\nWhen Tor is enabled, your IP address is also hidden from relay operators.';
 
   @override
   String get privacyStunHeading => 'STUN/TURN Servers';
@@ -2231,7 +2222,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get torInfoDescription =>
-      'When enabled, Nostr WebSocket connections are routed through Tor (SOCKS5). Tor Browser listens on 127.0.0.1:9150. The standalone tor daemon uses port 9050. Firebase connections are not affected.';
+      'When enabled, Nostr WebSocket connections are routed through Tor (SOCKS5). Tor Browser listens on 127.0.0.1:9150. The standalone tor daemon uses port 9050.';
 
   @override
   String get torRouteNostrTitle => 'Route Nostr via Tor';
@@ -2460,10 +2451,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get themeDynamicPlatformIos => 'iOS';
 
   @override
-  String get providerErrorInvalidFirebaseUrl =>
-      'Invalid Firebase URL. Expected https://project.firebaseio.com';
-
-  @override
   String get providerErrorInvalidRelayUrl =>
       'Invalid relay URL. Expected wss://relay.example.com';
 
@@ -2499,9 +2486,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get providerRemoveTooltip => 'Remove';
-
-  @override
-  String get providerFirebaseUrlHint => 'https://project.firebaseio.com';
 
   @override
   String get providerNostrRelayHint => 'wss://relay.damus.io';
@@ -2988,9 +2972,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get devNostrRelays => 'Nostr relays (wss://)';
-
-  @override
-  String get devFirebaseDb => 'Firebase Realtime DB';
 
   @override
   String get devSessionNetwork => 'Session Network';

@@ -37,7 +37,6 @@ class DeveloperSection extends StatefulWidget {
 class _DeveloperSectionState extends State<DeveloperSection> {
   static const _adapterMeta = [
     ('Nostr',    Icons.flash_on_outlined),
-    ('Firebase', Icons.cloud_outlined),
     ('Session',  Icons.security_outlined),
     ('Pulse',    Icons.hub_outlined),
     ('LAN',      Icons.lan_outlined),
@@ -45,7 +44,6 @@ class _DeveloperSectionState extends State<DeveloperSection> {
 
   List<(String, IconData, String)> _adapters(BuildContext context) => [
     ('Nostr',    Icons.flash_on_outlined,    context.l10n.devNostrRelays),
-    ('Firebase', Icons.cloud_outlined,       context.l10n.devFirebaseDb),
     ('Session',  Icons.security_outlined,    context.l10n.devSessionNetwork),
     ('Pulse',    Icons.hub_outlined,         context.l10n.devPulseRelay),
     ('LAN',      Icons.lan_outlined,         context.l10n.devLanNetwork),

@@ -2034,16 +2034,7 @@ class AppLocalizationsTa extends AppLocalizations {
   }
 
   @override
-  String get providerDatabaseUrlLabel => 'தரவுத்தள URL';
-
-  @override
   String get providerOptionalHint => 'விருப்பம்';
-
-  @override
-  String get providerWebApiKeyLabel => 'Web API விசை';
-
-  @override
-  String get providerOptionalForPublicDb => 'பொது DB-க்கு விருப்பம்';
 
   @override
   String get providerRelayUrlLabel => 'ரிலே URL';
@@ -2503,10 +2494,6 @@ class AppLocalizationsTa extends AppLocalizations {
   String get themeDynamicPlatformIos => 'iOS';
 
   @override
-  String get providerErrorInvalidFirebaseUrl =>
-      'தவறான Firebase URL. https://project.firebaseio.com எதிர்பார்க்கப்படுகிறது';
-
-  @override
   String get providerErrorInvalidRelayUrl =>
       'தவறான ரிலே URL. wss://relay.example.com எதிர்பார்க்கப்படுகிறது';
 
@@ -2542,9 +2529,6 @@ class AppLocalizationsTa extends AppLocalizations {
 
   @override
   String get providerRemoveTooltip => 'நீக்கு';
-
-  @override
-  String get providerFirebaseUrlHint => 'https://project.firebaseio.com';
 
   @override
   String get providerNostrRelayHint => 'wss://relay.damus.io';
@@ -3033,9 +3017,6 @@ class AppLocalizationsTa extends AppLocalizations {
 
   @override
   String get devNostrRelays => 'Nostr relays (wss://)';
-
-  @override
-  String get devFirebaseDb => 'Firebase Realtime DB';
 
   @override
   String get devSessionNetwork => 'Session நெட்வொர்க்';

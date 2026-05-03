@@ -35,8 +35,8 @@ void main() {
       final contact = Contact.fromMap({
         'id': 'c1',
         'name': 'Bob',
-        'provider': 'Firebase',
-        'databaseId': 'bob@https://proj.firebaseio.com',
+        'provider': 'Nostr',
+        'databaseId': 'bob@wss://nostr.mom',
       });
 
       expect(contact.publicKey, '');

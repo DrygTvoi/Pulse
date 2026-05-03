@@ -55,15 +55,15 @@ void main() {
     const nostr1 = 'pk@wss://relay1.com';
     const nostr2 = 'pk@wss://relay2.com';
     const oxen   = 'abc123def456';
-    const firebase = 'user@https://project.firebaseio.com';
+    const pulse = 'user@wss://nostr.mom';
 
     test('higher success count goes first', () {
-      final counts = {nostr1: 5, nostr2: 2, oxen: 8, firebase: 1};
-      final result = sortAlternates([nostr1, nostr2, oxen, firebase], counts, seed: 42);
+      final counts = {nostr1: 5, nostr2: 2, oxen: 8, pulse: 1};
+      final result = sortAlternates([nostr1, nostr2, oxen, pulse], counts, seed: 42);
       expect(result.first, oxen);   // 8 successes
       expect(result[1], nostr1);    // 5 successes
       expect(result[2], nostr2);    // 2 successes
-      expect(result.last, firebase);    // 1 success
+      expect(result.last, pulse);    // 1 success
     });
 
     test('zero-count addresses all appear (not skipped)', () {

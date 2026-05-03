@@ -326,7 +326,7 @@ class _DispatcherInitializer {
       final payload = e.rawPayload;
       // Signals arriving via LAN or our own Pulse-relay are trusted channels —
       // a peer announcing a 192.168.x address over those is legitimate (shared
-      // LAN / self-hosted relay). Public channels (Nostr, Firebase, Session)
+      // LAN / self-hosted relay). Public channels (Nostr, Session)
       // leak metadata, so still reject private IPs there.
       final trustedSource =
           e.sourceTransport == 'LAN' || e.sourceTransport == 'Pulse';
@@ -392,7 +392,7 @@ class _DispatcherInitializer {
         // pruned by health-check / never-acked routing later. This trades
         // a sliver of "switch is instant" UX for "we never lose a learned
         // address mid-flight" reliability.
-        for (final transport in {'Nostr', 'Pulse', 'Session', 'Firebase'}) {
+        for (final transport in {'Nostr', 'Pulse', 'Session'}) {
           final existing = addrContact.transportAddresses[transport]
               ?? const <String>[];
           final incoming = ta[transport] ?? const <String>[];
@@ -430,7 +430,7 @@ class _DispatcherInitializer {
         final primaryTransport = ChatController._providerFromAddress(primary);
         final tp = [primaryTransport, ...ta.keys.where((t) => t != primaryTransport)];
         // Same UNION-MERGE for every transport as in the new-format branch.
-        for (final transport in {'Nostr', 'Pulse', 'Session', 'Firebase'}) {
+        for (final transport in {'Nostr', 'Pulse', 'Session'}) {
           final existing = addrContact.transportAddresses[transport]
               ?? const <String>[];
           final incoming = ta[transport] ?? const <String>[];

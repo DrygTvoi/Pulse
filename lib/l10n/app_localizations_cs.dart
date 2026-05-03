@@ -2009,16 +2009,7 @@ class AppLocalizationsCs extends AppLocalizations {
   }
 
   @override
-  String get providerDatabaseUrlLabel => 'URL databáze';
-
-  @override
   String get providerOptionalHint => 'Volitelné';
-
-  @override
-  String get providerWebApiKeyLabel => 'Webový API klíč';
-
-  @override
-  String get providerOptionalForPublicDb => 'Volitelné pro veřejnou databázi';
 
   @override
   String get providerRelayUrlLabel => 'URL relay';
@@ -2469,10 +2460,6 @@ class AppLocalizationsCs extends AppLocalizations {
   String get themeDynamicPlatformIos => 'iOS';
 
   @override
-  String get providerErrorInvalidFirebaseUrl =>
-      'Neplatná Firebase URL. Očekáváno https://project.firebaseio.com';
-
-  @override
   String get providerErrorInvalidRelayUrl =>
       'Neplatná URL relay. Očekáváno wss://relay.example.com';
 
@@ -2508,9 +2495,6 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String get providerRemoveTooltip => 'Odstranit';
-
-  @override
-  String get providerFirebaseUrlHint => 'https://project.firebaseio.com';
 
   @override
   String get providerNostrRelayHint => 'wss://relay.damus.io';
@@ -2998,9 +2982,6 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String get devNostrRelays => 'Nostr relay (wss://)';
-
-  @override
-  String get devFirebaseDb => 'Firebase Realtime DB';
 
   @override
   String get devSessionNetwork => 'Síť Session';

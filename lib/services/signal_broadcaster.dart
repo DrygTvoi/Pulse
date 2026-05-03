@@ -9,7 +9,6 @@ import '../models/message.dart';
 import '../models/identity.dart';
 import '../models/user_status.dart';
 import '../adapters/inbox_manager.dart';
-import '../adapters/firebase_adapter.dart';
 import '../adapters/nostr_adapter.dart';
 import '../adapters/session_adapter.dart';
 import '../adapters/pulse_adapter.dart';
@@ -983,9 +982,6 @@ class SignalBroadcaster {
       return null;
     }
     switch (contact.provider) {
-      case 'Firebase':
-        final token = identity.adapterConfig['token'] ?? '';
-        return (sender: FirebaseInboxSender(), apiKey: token);
       case 'Nostr':
         final privkey =
             await _secureStorage.read(key: 'nostr_privkey') ?? '';
@@ -1046,10 +1042,8 @@ class SignalBroadcaster {
         final serverUrl = atIdx > 0 ? address.substring(atIdx + 1) : '';
         return (sender: PulseMessageSender(), apiKey: jsonEncode({'privkey': privkey, 'serverUrl': serverUrl}));
       }
-      // Firebase fallback
-      if (!devEnabled && !(prefs.getBool('dev_adapter_Firebase') ?? true)) return null;
-      final token = identity.adapterConfig['token'] ?? '';
-      return (sender: FirebaseInboxSender(), apiKey: token);
+      // Fallback for unrecognized address
+      return null;
     }
     return null;
   }

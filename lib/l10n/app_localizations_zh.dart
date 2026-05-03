@@ -1915,16 +1915,7 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get providerDatabaseUrlLabel => '数据库 URL';
-
-  @override
   String get providerOptionalHint => '可选';
-
-  @override
-  String get providerWebApiKeyLabel => 'Web API 密钥';
-
-  @override
-  String get providerOptionalForPublicDb => '公开数据库可选';
 
   @override
   String get providerRelayUrlLabel => '中继 URL';
@@ -2364,10 +2355,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get themeDynamicPlatformIos => 'iOS';
 
   @override
-  String get providerErrorInvalidFirebaseUrl =>
-      '无效的 Firebase URL。应为 https://project.firebaseio.com';
-
-  @override
   String get providerErrorInvalidRelayUrl =>
       '无效的中继 URL。应为 wss://relay.example.com';
 
@@ -2401,9 +2388,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get providerRemoveTooltip => '移除';
-
-  @override
-  String get providerFirebaseUrlHint => 'https://project.firebaseio.com';
 
   @override
   String get providerNostrRelayHint => 'wss://relay.damus.io';
@@ -2875,9 +2859,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get devNostrRelays => 'Nostr 中继 (wss://)';
-
-  @override
-  String get devFirebaseDb => 'Firebase Realtime DB';
 
   @override
   String get devSessionNetwork => 'Session 网络';

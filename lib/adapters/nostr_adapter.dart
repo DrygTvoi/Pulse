@@ -118,9 +118,12 @@ void _unregisterRelayChannel(String relayUrl) {
   return entry;
 }
 
-/// Circuit breaker for uTLS proxy — if it fails, skip for 5 minutes.
-/// Prevents resource exhaustion from many concurrent bridge attempts.
-DateTime? _utlsFailedUntil;
+/// Circuit breaker for uTLS proxy — per-relay, 60s cooldown.
+/// A global breaker was too aggressive: one failing relay (e.g. offchain.pub)
+/// blocked uTLS for healthy ones (nostr.mom). Now each target host trips
+/// independently.
+final Map<String, DateTime> _utlsFailedUntil = {};
+const _utlsCooldown = Duration(seconds: 60);
 
 /// Connect a WebSocket through the uTLS HTTP CONNECT proxy.
 ///
@@ -130,17 +133,19 @@ DateTime? _utlsFailedUntil;
 /// when routing wss:// through an HTTP CONNECT proxy.
 Future<WebSocketChannel> _connectWebSocketViaUtls(
     String url, int proxyPort, {String? upstreamSocks5}) async {
-  // Skip if uTLS recently failed — avoids creating many dead bridge sockets.
-  // Bypass when using upstream SOCKS5 (force-Tor): different route, previous
-  // direct failures don't apply.
-  if (upstreamSocks5 == null &&
-      _utlsFailedUntil != null && DateTime.now().isBefore(_utlsFailedUntil!)) {
-    throw StateError('uTLS circuit breaker open');
-  }
   final uri = Uri.parse(url);
   final targetHost = uri.host;
   final targetPort =
       uri.hasPort ? uri.port : (uri.scheme == 'wss' ? 443 : 80);
+
+  // Skip if uTLS recently failed for THIS target host.
+  // Bypass when using upstream SOCKS5 (force-Tor): different route.
+  if (upstreamSocks5 == null) {
+    final failedUntil = _utlsFailedUntil[targetHost];
+    if (failedUntil != null && DateTime.now().isBefore(failedUntil)) {
+      throw StateError('uTLS circuit breaker open');
+    }
+  }
 
   // 1. Bind a throw-away local bridge so HttpClient can connect normally.
   final server = await ServerSocket.bind(
@@ -228,11 +233,10 @@ Future<WebSocketChannel> _connectWebSocketViaUtls(
           .timeout(Duration(seconds: headerTimeout), onTimeout: () => false);
       if (!ok) {
         debugPrint('[Nostr] uTLS CONNECT to $targetHost:$targetPort refused');
-        // Trip circuit breaker — all hosts share the same Go proxy, so one
-        // failure means the proxy is unreachable or not running.
-        // Don't trip when using upstream SOCKS5 — failure is route-specific.
+        // Trip circuit breaker for THIS host only — different relays
+        // may use different network paths, don't punish healthy ones.
         if (upstreamSocks5 == null) {
-          _utlsFailedUntil = DateTime.now().add(const Duration(minutes: 5));
+          _utlsFailedUntil[targetHost] = DateTime.now().add(_utlsCooldown);
         }
         client.destroy();
         proxy.destroy();
@@ -251,7 +255,7 @@ Future<WebSocketChannel> _connectWebSocketViaUtls(
       }
     } catch (e) {
       debugPrint('[Nostr] uTLS bridge error: $e');
-      _utlsFailedUntil = DateTime.now().add(const Duration(minutes: 5));
+      _utlsFailedUntil[targetHost] = DateTime.now().add(_utlsCooldown);
       client.destroy();
       proxy?.destroy();
     }
@@ -279,10 +283,10 @@ Future<WebSocketChannel> _connectWebSocketViaUtls(
   try {
     final ws = await WebSocket.connect(normalizedUrl, customClient: httpClient);
     ws.pingInterval = const Duration(seconds: 30);
-    _utlsFailedUntil = null; // Success — reset circuit breaker.
+    _utlsFailedUntil.remove(targetHost); // Success — reset circuit breaker.
     return IOWebSocketChannel(ws);
   } catch (e) {
-    _utlsFailedUntil = DateTime.now().add(const Duration(minutes: 5));
+    _utlsFailedUntil[targetHost] = DateTime.now().add(_utlsCooldown);
     httpClient.close(force: true);
     try { await server.close(); } catch (_) {}
     rethrow;

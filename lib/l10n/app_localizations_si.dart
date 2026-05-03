@@ -2009,16 +2009,7 @@ class AppLocalizationsSi extends AppLocalizations {
   }
 
   @override
-  String get providerDatabaseUrlLabel => 'දත්ත සමුදාය URL';
-
-  @override
   String get providerOptionalHint => 'විකල්ප';
-
-  @override
-  String get providerWebApiKeyLabel => 'Web API යතුර';
-
-  @override
-  String get providerOptionalForPublicDb => 'පොදු DB සඳහා විකල්ප';
 
   @override
   String get providerRelayUrlLabel => 'Relay URL';
@@ -2473,10 +2464,6 @@ class AppLocalizationsSi extends AppLocalizations {
   String get themeDynamicPlatformIos => 'iOS';
 
   @override
-  String get providerErrorInvalidFirebaseUrl =>
-      'අවලංගු Firebase URL. අපේක්ෂිත: https://project.firebaseio.com';
-
-  @override
   String get providerErrorInvalidRelayUrl =>
       'අවලංගු relay URL. අපේක්ෂිත: wss://relay.example.com';
 
@@ -2512,9 +2499,6 @@ class AppLocalizationsSi extends AppLocalizations {
 
   @override
   String get providerRemoveTooltip => 'ඉවත් කරන්න';
-
-  @override
-  String get providerFirebaseUrlHint => 'https://project.firebaseio.com';
 
   @override
   String get providerNostrRelayHint => 'wss://relay.damus.io';
@@ -3002,9 +2986,6 @@ class AppLocalizationsSi extends AppLocalizations {
 
   @override
   String get devNostrRelays => 'Nostr relays (wss://)';
-
-  @override
-  String get devFirebaseDb => 'Firebase Realtime DB';
 
   @override
   String get devSessionNetwork => 'Session ජාලය';

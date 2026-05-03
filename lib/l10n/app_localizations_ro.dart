@@ -2026,17 +2026,7 @@ class AppLocalizationsRo extends AppLocalizations {
   }
 
   @override
-  String get providerDatabaseUrlLabel => 'URL bază de date';
-
-  @override
   String get providerOptionalHint => 'Opțional';
-
-  @override
-  String get providerWebApiKeyLabel => 'Cheie API Web';
-
-  @override
-  String get providerOptionalForPublicDb =>
-      'Opțional pentru baza de date publică';
 
   @override
   String get providerRelayUrlLabel => 'URL Relay';
@@ -2488,10 +2478,6 @@ class AppLocalizationsRo extends AppLocalizations {
   String get themeDynamicPlatformIos => 'iOS';
 
   @override
-  String get providerErrorInvalidFirebaseUrl =>
-      'URL Firebase invalid. Se așteaptă https://project.firebaseio.com';
-
-  @override
   String get providerErrorInvalidRelayUrl =>
       'URL relay invalid. Se așteaptă wss://relay.example.com';
 
@@ -2527,9 +2513,6 @@ class AppLocalizationsRo extends AppLocalizations {
 
   @override
   String get providerRemoveTooltip => 'Elimină';
-
-  @override
-  String get providerFirebaseUrlHint => 'https://project.firebaseio.com';
 
   @override
   String get providerNostrRelayHint => 'wss://relay.damus.io';
@@ -3017,9 +3000,6 @@ class AppLocalizationsRo extends AppLocalizations {
 
   @override
   String get devNostrRelays => 'Relee Nostr (wss://)';
-
-  @override
-  String get devFirebaseDb => 'Firebase Realtime DB';
 
   @override
   String get devSessionNetwork => 'Session Network';

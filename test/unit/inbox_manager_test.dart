@@ -84,7 +84,7 @@ void main() {
   group('routeMessage', () {
     test('returns false when no sender is registered for provider', () async {
       final result = await manager.routeMessage(
-        'Firebase', 'target_db', 'room1', _makeMessage(),
+        'Nostr', 'target_db', 'room1', _makeMessage(),
       );
       expect(result, isFalse);
     });
@@ -123,15 +123,15 @@ void main() {
 
     test('routes to the correct sender among multiple registered', () async {
       final nostrSender = MockMessageSender();
-      final fireSender = MockMessageSender();
+      final pulseSender = MockMessageSender();
       await manager.addSenderPlugin('Nostr', nostrSender, 'key1');
-      await manager.addSenderPlugin('Firebase', fireSender, 'key2');
+      await manager.addSenderPlugin('Pulse', pulseSender, 'key2');
 
       await manager.routeMessage(
-        'Firebase', 'target_db', 'room1', _makeMessage(),
+        'Pulse', 'target_db', 'room1', _makeMessage(),
       );
       expect(nostrSender.sentMessages, isEmpty);
-      expect(fireSender.sentMessages, hasLength(1));
+      expect(pulseSender.sentMessages, hasLength(1));
     });
   });
 
@@ -203,9 +203,9 @@ void main() {
 
     test('senders map reflects registered senders', () async {
       final sender = MockMessageSender();
-      await manager.addSenderPlugin('Firebase', sender, 'key');
+      await manager.addSenderPlugin('Nostr', sender, 'key');
       expect(manager.senders, hasLength(1));
-      expect(manager.senders.containsKey('Firebase'), isTrue);
+      expect(manager.senders.containsKey('Nostr'), isTrue);
     });
 
     test('senders map is unmodifiable', () {

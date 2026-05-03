@@ -2019,17 +2019,7 @@ class AppLocalizationsFi extends AppLocalizations {
   }
 
   @override
-  String get providerDatabaseUrlLabel => 'Tietokannan URL';
-
-  @override
   String get providerOptionalHint => 'Valinnainen';
-
-  @override
-  String get providerWebApiKeyLabel => 'Web API -avain';
-
-  @override
-  String get providerOptionalForPublicDb =>
-      'Valinnainen julkiselle tietokannalle';
 
   @override
   String get providerRelayUrlLabel => 'Välityspalvelimen URL';
@@ -2487,10 +2477,6 @@ class AppLocalizationsFi extends AppLocalizations {
   String get themeDynamicPlatformIos => 'iOS';
 
   @override
-  String get providerErrorInvalidFirebaseUrl =>
-      'Virheellinen Firebase-URL. Odotettu muoto: https://project.firebaseio.com';
-
-  @override
   String get providerErrorInvalidRelayUrl =>
       'Virheellinen välityspalvelimen URL. Odotettu muoto: wss://relay.example.com';
 
@@ -2526,9 +2512,6 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String get providerRemoveTooltip => 'Poista';
-
-  @override
-  String get providerFirebaseUrlHint => 'https://project.firebaseio.com';
 
   @override
   String get providerNostrRelayHint => 'wss://relay.damus.io';
@@ -3018,9 +3001,6 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String get devNostrRelays => 'Nostr-releet (wss://)';
-
-  @override
-  String get devFirebaseDb => 'Firebase Realtime DB';
 
   @override
   String get devSessionNetwork => 'Session-verkko';

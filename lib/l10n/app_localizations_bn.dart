@@ -1988,16 +1988,7 @@ class AppLocalizationsBn extends AppLocalizations {
   }
 
   @override
-  String get providerDatabaseUrlLabel => 'ডাটাবেস URL';
-
-  @override
   String get providerOptionalHint => 'ঐচ্ছিক';
-
-  @override
-  String get providerWebApiKeyLabel => 'Web API কী';
-
-  @override
-  String get providerOptionalForPublicDb => 'পাবলিক DB-র জন্য ঐচ্ছিক';
 
   @override
   String get providerRelayUrlLabel => 'রিলে URL';
@@ -2451,10 +2442,6 @@ class AppLocalizationsBn extends AppLocalizations {
   String get themeDynamicPlatformIos => 'iOS';
 
   @override
-  String get providerErrorInvalidFirebaseUrl =>
-      'অবৈধ Firebase URL। https://project.firebaseio.com প্রত্যাশিত';
-
-  @override
   String get providerErrorInvalidRelayUrl =>
       'অবৈধ রিলে URL। wss://relay.example.com প্রত্যাশিত';
 
@@ -2490,9 +2477,6 @@ class AppLocalizationsBn extends AppLocalizations {
 
   @override
   String get providerRemoveTooltip => 'সরান';
-
-  @override
-  String get providerFirebaseUrlHint => 'https://project.firebaseio.com';
 
   @override
   String get providerNostrRelayHint => 'wss://relay.damus.io';
@@ -2979,9 +2963,6 @@ class AppLocalizationsBn extends AppLocalizations {
 
   @override
   String get devNostrRelays => 'Nostr রিলে (wss://)';
-
-  @override
-  String get devFirebaseDb => 'Firebase Realtime DB';
 
   @override
   String get devSessionNetwork => 'Session নেটওয়ার্ক';

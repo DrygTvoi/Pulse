@@ -10,7 +10,7 @@ class Contact {
   final String id;
   final String name;
   /// Per-transport address map.
-  /// Keys are provider names ('Pulse', 'Nostr', 'Session', 'Firebase').
+  /// Keys are provider names ('Pulse', 'Nostr', 'Session').
   /// Values are lists of addresses for that transport.
   final Map<String, List<String>> transportAddresses;
   /// Ordered list of transports to try when sending. First = highest priority.
@@ -412,7 +412,6 @@ class Contact {
       return 'Nostr';
     }
     if (_pulseAddrRegex.hasMatch(lower)) return 'Pulse';
-    if (lower.contains('@https://')) return 'Firebase';
     return 'Nostr';
   }
 }

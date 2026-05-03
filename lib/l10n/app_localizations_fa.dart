@@ -1999,16 +1999,7 @@ class AppLocalizationsFa extends AppLocalizations {
   }
 
   @override
-  String get providerDatabaseUrlLabel => 'آدرس پایگاه داده';
-
-  @override
   String get providerOptionalHint => 'اختیاری';
-
-  @override
-  String get providerWebApiKeyLabel => 'کلید Web API';
-
-  @override
-  String get providerOptionalForPublicDb => 'اختیاری برای پایگاه داده عمومی';
 
   @override
   String get providerRelayUrlLabel => 'آدرس رله';
@@ -2462,10 +2453,6 @@ class AppLocalizationsFa extends AppLocalizations {
   String get themeDynamicPlatformIos => 'iOS';
 
   @override
-  String get providerErrorInvalidFirebaseUrl =>
-      'آدرس Firebase نامعتبر. مورد انتظار: https://project.firebaseio.com';
-
-  @override
   String get providerErrorInvalidRelayUrl =>
       'آدرس رله نامعتبر. مورد انتظار: wss://relay.example.com';
 
@@ -2501,9 +2488,6 @@ class AppLocalizationsFa extends AppLocalizations {
 
   @override
   String get providerRemoveTooltip => 'حذف';
-
-  @override
-  String get providerFirebaseUrlHint => 'https://project.firebaseio.com';
 
   @override
   String get providerNostrRelayHint => 'wss://relay.damus.io';
@@ -2992,9 +2976,6 @@ class AppLocalizationsFa extends AppLocalizations {
 
   @override
   String get devNostrRelays => 'Nostr relay ها (wss://)';
-
-  @override
-  String get devFirebaseDb => 'Firebase Realtime DB';
 
   @override
   String get devSessionNetwork => 'شبکه Session';

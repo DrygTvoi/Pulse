@@ -65,7 +65,7 @@ void main() {
 
     // ─── Test 2: Provider chips are displayed after loading ──────────────────
 
-    testWidgets('displays Firebase, Nostr, Session provider chip texts',
+    testWidgets('displays Nostr, Session, Pulse provider chip texts',
         (WidgetTester tester) async {
       await tester.pumpWidget(buildTestableWidget(const ProviderScreen()));
 
@@ -75,9 +75,9 @@ void main() {
 
       // After loading, the provider chips should be in the tree.
       // Each chip renders the provider name as a Text widget inside a Row.
-      expect(find.text('Firebase'), findsWidgets);
       expect(find.text('Nostr'), findsWidgets);
       expect(find.text('Session'), findsWidgets);
+      expect(find.text('Pulse'), findsWidgets);
     },
         // FlutterSecureStorage calls may fail in test environment because
         // there is no platform channel mock for it. Skip gracefully if so.
@@ -137,16 +137,16 @@ void main() {
     },
         skip: false);
 
-    // ─── Test 7: Default selected provider is Firebase ──────────────────────
+    // ─── Test 7: Default selected provider is Nostr ──────────────────────
 
-    testWidgets('Firebase is the default selected provider',
+    testWidgets('Nostr is the default selected provider',
         (WidgetTester tester) async {
       await tester.pumpWidget(buildTestableWidget(const ProviderScreen()));
       await tester.pumpAndSettle();
 
-      // When Firebase is selected, the Firebase-specific config fields
-      // should be visible: "Database URL" label.
-      expect(find.text('Database URL'), findsOneWidget);
+      // When Nostr is selected, the Nostr-specific config fields
+      // should be visible: "Relay URL" label.
+      expect(find.text('Relay URL'), findsOneWidget);
     },
         skip: false);
 
